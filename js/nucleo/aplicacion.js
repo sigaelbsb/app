@@ -1340,9 +1340,9 @@ window.Aplicacion = {
                 challenge: crypto.getRandomValues(new Uint8Array(32)),
                 rp: { name: "SIGAE Unificado", id: window.location.hostname },
                 user: {
-                    id: new TextEncoder().encode(this.usuario.id_usuario),
+                    id: new TextEncoder().encode(String(this.usuario.id)),
                     name: this.usuario.cedula,
-                    displayName: this.usuario.nombre_completo,
+                    displayName: this.usuario.nombre,
                 },
                 pubKeyCredParams: [{alg: -7, type: "public-key"}, {alg: -257, type: "public-key"}],
                 authenticatorSelection: { userVerification: "preferred" },
@@ -1381,7 +1381,7 @@ window.Aplicacion = {
             const publicKeyCredentialRequestOptions = {
                 challenge: crypto.getRandomValues(new Uint8Array(32)),
                 rpId: window.location.hostname,
-                userVerification: "required",
+                userVerification: "preferred",
                 timeout: 60000
             };
             const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
@@ -1401,8 +1401,17 @@ window.Aplicacion = {
             }
             
             // Login exitoso
-            this.usuario = data;
-            localStorage.setItem('sigae_usuario', JSON.stringify(data));
+            this.usuario = {
+                id: data.id_usuario,
+                cedula: data.cedula,
+                nombre: data.nombre_completo,
+                rol: data.rol,
+                cargo: data.cargo,
+                id_escuela: localStorage.getItem('sigae_escuela_codigo'),
+                nombre_escuela: localStorage.getItem('sigae_escuela_activa'),
+                token: 'supa-' + new Date().getTime()
+            };
+            localStorage.setItem('sigae_usuario', JSON.stringify(this.usuario));
             
             window.Aplicacion.auditar('Seguridad', 'Inicio Sesión', 'Acceso Biométrico completado.');
             document.getElementById('vista-login').style.display = 'none';
