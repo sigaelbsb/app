@@ -1,0 +1,209 @@
+<div class="animate__animated animate__fadeIn">
+    
+    <!-- SALUDO GLOBAL -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="fw-bolder mb-1 text-dark" id="lbl-saludo-usuario" style="font-size: 2.5rem; letter-spacing: -1px;">¡Hola, Usuario!</h1>
+            <p class="text-muted mb-0 fs-5">Resumen de nuestras instituciones educativas</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-4 py-2 rounded-pill shadow-sm fs-6">
+                <i class="bi bi-clock me-1"></i> <span id="reloj-vivo">Cargando fecha...</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- PANTALLA DIVIDIDA: LAS DOS ESCUELAS -->
+    <div class="row g-4 mb-4">
+        
+        <!-- COLUMNA IZQUIERDA: UE Libertador Bolívar (lb) -->
+        <div class="col-xl-6" id="tarjeta-inicio-lb">
+            <div class="card border-0 shadow-sm rounded-4 h-100 border-top border-primary border-5 hover-efecto">
+                <div class="banner-inicio mb-4 rounded-top-4 p-4 position-relative overflow-hidden" style="background: linear-gradient(135deg, #0066FF 0%, #00C3FF 100%);">
+                    <div class="banner-orb" style="width: 150px; height: 150px; top: -50px; left: -20px; opacity: 0.3;"></div>
+                    <div class="banner-orb" style="width: 100px; height: 100px; bottom: -20px; right: 20%; opacity: 0.2;"></div>
+                    <div class="row align-items-center position-relative z-1">
+                        <div class="col-8">
+                            <h4 class="fw-bolder mb-3 text-white" id="lbl-nombre-escuela-lb" style="line-height: 1.2;">UE Libertador Bolívar</h4>
+                            <p class="mb-3 d-flex align-items-center text-white opacity-75 small text-truncate">
+                                <i class="bi bi-geo-alt-fill text-warning me-2"></i>
+                                <span id="lbl-direccion-escuela-lb">Cargando...</span>
+                            </p>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <span class="badge bg-white text-primary px-2 py-1 shadow-sm"><i class="bi bi-building"></i> DEA: <span id="lbl-dea-escuela-lb">...</span></span>
+                                <span class="badge bg-white text-primary px-2 py-1 shadow-sm"><i class="bi bi-hash"></i> RIF: <span id="lbl-rif-escuela-lb">...</span></span>
+                            </div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <img src="assets/img/logo_lb.png" id="img-logo-escuela-banner-lb" alt="Logo LB" class="img-fluid" style="max-height: 90px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));" onerror="this.src='assets/img/sigae.png'">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 pt-0">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/3.png" alt="Misión" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #0066FF;" class="mb-0 fw-bold text-uppercase">Misión</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #0066FF; overflow-y:auto;">
+                                        <h6 style="color: #0066FF; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-bullseye me-1"></i>Misión</h6>
+                                        <p id="lbl-mision-back-lb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/4.png" alt="Visión" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #00C3FF;" class="mb-0 fw-bold text-uppercase">Visión</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #00C3FF; overflow-y:auto;">
+                                        <h6 style="color: #00C3FF; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-eye me-1"></i>Visión</h6>
+                                        <p id="lbl-vision-back-lb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/5.png" alt="Valores" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #34A853;" class="mb-0 fw-bold text-uppercase">Valores</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #34A853; overflow-y:auto;">
+                                        <h6 style="color: #34A853; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-gem me-1"></i>Valores</h6>
+                                        <p id="lbl-objetivo-back-lb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/6.png" alt="PEIC" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #FF8D00;" class="mb-0 fw-bold text-uppercase">PEIC</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #FF8D00; overflow-y:auto;">
+                                        <h6 style="color: #FF8D00; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-journal-bookmark me-1"></i>P.E.I.C.</h6>
+                                        <p id="lbl-peic-back-lb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: UE Santa Bárbara (sb) -->
+        <div class="col-xl-6" id="tarjeta-inicio-sb">
+            <div class="card border-0 shadow-sm rounded-4 h-100 border-top border-success border-5 hover-efecto">
+                <div class="banner-inicio mb-4 rounded-top-4 p-4 position-relative overflow-hidden" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%);">
+                    <div class="banner-orb" style="width: 150px; height: 150px; top: -50px; left: -20px; opacity: 0.3;"></div>
+                    <div class="banner-orb" style="width: 100px; height: 100px; bottom: -20px; right: 20%; opacity: 0.2;"></div>
+                    <div class="row align-items-center position-relative z-1">
+                        <div class="col-8">
+                            <h4 class="fw-bolder mb-3 text-white" id="lbl-nombre-escuela-sb" style="line-height: 1.2;">UE Santa Bárbara</h4>
+                            <p class="mb-3 d-flex align-items-center text-white opacity-75 small text-truncate">
+                                <i class="bi bi-geo-alt-fill text-warning me-2"></i>
+                                <span id="lbl-direccion-escuela-sb">Cargando...</span>
+                            </p>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <span class="badge bg-white text-success px-2 py-1 shadow-sm"><i class="bi bi-building"></i> DEA: <span id="lbl-dea-escuela-sb">...</span></span>
+                                <span class="badge bg-white text-success px-2 py-1 shadow-sm"><i class="bi bi-hash"></i> RIF: <span id="lbl-rif-escuela-sb">...</span></span>
+                            </div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <img src="assets/img/logo_sb.png" id="img-logo-escuela-banner-sb" alt="Logo SB" class="img-fluid" style="max-height: 90px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));" onerror="this.src='assets/img/sigae.png'">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 pt-0">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/3.png" alt="Misión" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #10b981;" class="mb-0 fw-bold text-uppercase">Misión</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #10b981; overflow-y:auto;">
+                                        <h6 style="color: #10b981; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-bullseye me-1"></i>Misión</h6>
+                                        <p id="lbl-mision-back-sb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/4.png" alt="Visión" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #34d399;" class="mb-0 fw-bold text-uppercase">Visión</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #34d399; overflow-y:auto;">
+                                        <h6 style="color: #34d399; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-eye me-1"></i>Visión</h6>
+                                        <p id="lbl-vision-back-sb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/5.png" alt="Valores" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #059669;" class="mb-0 fw-bold text-uppercase">Valores</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #059669; overflow-y:auto;">
+                                        <h6 style="color: #059669; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-gem me-1"></i>Valores</h6>
+                                        <p id="lbl-objetivo-back-sb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                                <div class="flip-card-inner">
+                                    <div class="flip-card-front" style="padding: 1.5rem;">
+                                        <img src="assets/img/6.png" alt="PEIC" class="img-fluid mb-2" style="height:150px;">
+                                        <h6 style="color: #047857;" class="mb-0 fw-bold text-uppercase">PEIC</h6>
+                                    </div>
+                                    <div class="flip-card-back p-3" style="border-color: #047857; overflow-y:auto;">
+                                        <h6 style="color: #047857; font-size: 0.8rem;" class="text-uppercase fw-bold"><i class="bi bi-journal-bookmark me-1"></i>P.E.I.C.</h6>
+                                        <p id="lbl-peic-back-sb" class="small mb-0 text-muted">Cargando...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organigrama -->
+    <div class="barra-organigrama shadow-sm mb-2 rounded-4">
+        <div class="d-flex align-items-center">
+            <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex justify-content-center align-items-center me-3" style="width: 60px; height: 60px; font-size: 1.8rem;">
+                <i class="bi bi-diagram-3-fill"></i>
+            </div>
+            <div>
+                <h4 class="fw-bold mb-1 text-dark" style="font-size: 1.3rem;">Estructura Organizativa Institucional</h4>
+                <p class="text-muted mb-0 d-none d-md-block">Consulte el mapa oficial de dependencias, la cadena supervisoria y el personal activo de ambas instituciones.</p>
+            </div>
+        </div>
+        <button class="btn btn-primary rounded-pill px-4 py-3 fw-bold shadow-sm hover-efecto" onclick="Enrutador.navegar('Cadena Supervisoria')">
+            <i class="bi bi-search me-2"></i> Explorar Organigrama
+        </button>
+    </div>
+</div>

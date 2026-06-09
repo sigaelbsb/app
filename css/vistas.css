@@ -1,0 +1,574 @@
+/* =========================================================================
+   SIGAE - ESTILOS DE VISTAS (vistas.css)
+   ========================================================================= */
+
+/* --- Estilos extraídos de gestion.html --- */
+.btn-tab { border: none; background: transparent; color: #6c757d; font-weight: bold; padding: 10px 20px; border-bottom: 3px solid transparent; transition: all 0.3s; }
+    .btn-tab.activo { color: #e11d48; border-bottom: 3px solid #e11d48; }
+    .btn-tab:hover:not(.activo) { color: #e11d48; background: rgba(225, 29, 72, 0.05); }
+    
+    /* ✨ ANIMACIÓN Y CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+    /* CSS Tarjetas del Visor */
+    .tarjeta-visor { break-inside: avoid; margin-bottom: 20px; background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .visor-grid { column-count: 2; column-gap: 20px; }
+    @media (max-width: 992px) { .visor-grid { column-count: 1; } }
+
+/* --- Estilos extraídos de guiaturas.html --- */
+/* ✨ BURBUJAS 3D Y EFECTOS ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+
+/* --- Estilos extraídos de calendario.html --- */
+.tarjeta-btn { background: white; border-radius: 16px; border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; overflow: hidden; }
+    .tarjeta-btn:hover { transform: translateY(-8px); border-bottom-color: #0dcaf0; box-shadow: 0 15px 35px rgba(13, 202, 240, 0.15) !important; }
+    .tarjeta-btn.bloqueado { opacity: 0.6; filter: grayscale(100%); cursor: not-allowed; border-bottom-color: #e2e8f0; pointer-events: none; }
+    
+    /* ✨ ESFERAS DE CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    
+    /* ✨ FIX DEFINITIVO PARA MÓVILES Y CLIC EN DÍA ✨ */
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background-color: #e2e8f0; }
+    .cal-header-cell { background-color: #f8fafc; padding: 12px 5px; text-align: center; font-weight: bold; color: #475569; font-size: 0.85rem; text-transform: uppercase; }
+    .cal-cell { background-color: white; min-height: 120px; padding: 8px; transition: background-color 0.2s; position: relative; }
+    .cal-cell:hover { background-color: #f1f5f9; }
+    .cal-cell.dia-distinto { background-color: #f8fafc; opacity: 0.6; pointer-events: none; } 
+    .cal-cell.hoy { background-color: #eff6ff; }
+    .cal-dia-numero { font-weight: bold; color: #64748b; font-size: 0.9rem; margin-bottom: 8px; display: inline-block; width: 28px; height: 28px; text-align: center; line-height: 28px; border-radius: 50%; }
+    .cal-cell.hoy .cal-dia-numero { background-color: #0dcaf0; color: white; }
+    .cal-evento-chip { font-size: 0.75rem; padding: 5px 8px; border-radius: 6px; margin-bottom: 4px; cursor: pointer; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; border-left: 3px solid rgba(0,0,0,0.2); transition: transform 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); line-height: 1.2; position: relative; z-index: 5; }
+    .cal-evento-chip:hover { transform: scale(1.02); filter: brightness(0.95); }
+
+/* --- Estilos extraídos de configuracion.html --- */
+/* ✨ ANIMACIÓN Y CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+/* --- Estilos extraídos de espacios.html --- */
+/* ✨ ESFERAS DE CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+    /* CSS PAGINACIÓN */
+    .page-link { color: #087990; border: none; border-radius: 8px; margin: 0 3px; font-weight: bold; transition: all 0.2s; cursor: pointer; }
+    .page-item.active .page-link { background-color: #087990; color: white; box-shadow: 0 4px 10px rgba(8, 121, 144, 0.3); }
+    .page-link:hover:not(.active) { background-color: rgba(8, 121, 144, 0.1); color: #087990; }
+
+/* --- Estilos extraídos de perfil.html --- */
+.tarjeta-btn { background: white; border-radius: 16px; border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; overflow: hidden; }
+    .tarjeta-btn:hover { transform: translateY(-8px); border-bottom-color: #6d28d9; box-shadow: 0 15px 35px rgba(109, 40, 217, 0.15) !important; }
+    .tarjeta-btn.bloqueado { opacity: 0.6; filter: grayscale(100%); cursor: not-allowed; border-bottom-color: #e2e8f0; pointer-events: none; }
+    
+    /* ✨ ESFERAS DE CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+/* --- Estilos extraídos de actualizacion.html --- */
+.wizard-container { position: relative; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; padding: 0 1rem; }
+    .wizard-line { position: absolute; top: 20px; left: 8%; right: 8%; height: 2px; background-color: #e2e8f0; z-index: 1; }
+    .wizard-step-wrapper { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 80px; }
+    .wizard-step { width: 40px; height: 40px; border-radius: 50%; background-color: white; border: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #94a3b8; transition: all 0.3s; margin-bottom: 8px; }
+    
+    .wizard-step-wrapper:hover .wizard-step { border-color: #8b5cf6; color: #8b5cf6; }
+    .wizard-step.activo { background-color: #8b5cf6; border-color: #8b5cf6; color: white; box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2); }
+    .wizard-step.completado { background-color: white; border-color: #10b981; color: #10b981; }
+    .wizard-step-label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-align: center; transition: all 0.3s; }
+    .wizard-step-wrapper:hover .wizard-step-label, .wizard-step.activo + .wizard-step-label { color: #1e293b; }
+    
+    .wizard-panel { display: none; animation: fadeIn 0.4s ease-out; }
+    .wizard-panel.activo { display: block; }
+    
+    .seccion-titulo { padding: 0.75rem 1.25rem; background-color: #f8fafc; border-left: 4px solid #8b5cf6; border-radius: 0 8px 8px 0; font-weight: 700; margin-bottom: 1.5rem; color: #1e293b; display: flex; align-items: center; }
+    .seccion-titulo i { font-size: 1.2rem; color: #8b5cf6; margin-right: 10px; }
+    
+    .card-resumen { border: 1px solid #e2e8f0; border-radius: 12px; transition: all 0.3s; height: 100%; }
+    .card-resumen:hover { border-color: #cbd5e1; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); transform: translateY(-3px); }
+    .card-resumen .card-header { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 700; color: #334155; padding: 1rem 1.25rem; border-radius: 12px 12px 0 0; }
+    .data-row { display: flex; padding: 0.6rem 0; border-bottom: 1px dashed #e2e8f0; }
+    .data-row:last-child { border-bottom: none; }
+    .data-label { width: 40%; font-size: 0.8rem; color: #64748b; font-weight: 600; }
+    .data-value { width: 60%; font-size: 0.85rem; color: #0f172a; font-weight: 600; word-break: break-word; }
+
+    .req { color: #ef4444; margin-left: 3px; font-weight: bold; }
+    .label-purple { color: #6d28d9; font-weight: 600; }
+    .label-pink { color: #be185d; font-weight: 600; }
+    .label-blue { color: #0369a1; font-weight: 600; }
+    
+    .btn-estudiante-sel { text-align: left; padding: 15px; border-radius: 12px; border: 2px solid #e2e8f0; background: white; transition: all 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+    .btn-estudiante-sel:hover { border-color: #8b5cf6; background: #f5f3ff; transform: translateY(-2px); }
+    .btn-estudiante-sel .icono-est { width: 45px; height: 45px; border-radius: 50%; background: #e0e7ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-right: 15px; flex-shrink: 0; }
+
+/* --- Estilos extraídos de admisiones.html --- */
+/* Estilos específicos para la gestión de admisiones */
+    .lista-aspirantes { max-height: 650px; overflow-y: auto; overflow-x: hidden; padding-right: 5px; }
+    .tarjeta-aspirante { border-left: 5px solid #e2e8f0; transition: all 0.2s ease; cursor: pointer; border-radius: 12px; }
+    .tarjeta-aspirante:hover { background-color: #f8fafc; transform: translateX(3px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .tarjeta-aspirante.activa { background-color: #eff6ff; border-left-color: #0066FF !important; box-shadow: 0 10px 15px -3px rgba(0, 102, 255, 0.1); }
+    
+    .prioridad-0 { border-left-color: #8B5CF6 !important; }
+    .prioridad-1, .prioridad-2 { border-left-color: #10B981 !important; } 
+    .prioridad-3, .prioridad-4 { border-left-color: #F59E0B !important; } 
+    .prioridad-5, .prioridad-6, .prioridad-7, .prioridad-8 { border-left-color: #F97316 !important; } 
+    .prioridad-9 { border-left-color: #64748b !important; } 
+
+    .btn-decision { border-radius: 12px; font-weight: bold; transition: all 0.2s ease; border: 2px solid transparent; }
+    .btn-decision:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+    
+    .radar-alerta { border: 2px dashed #f59e0b; background: #fffbeb; border-radius: 12px; animation: pulse-radar 2s infinite; }
+    @keyframes pulse-radar { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
+
+    .lista-aspirantes::-webkit-scrollbar { width: 6px; }
+    .lista-aspirantes::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+    .lista-aspirantes::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .lista-aspirantes::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* ✨ ESTILOS DEL BANNER 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    .banner-modulo { background: linear-gradient(135deg, #0066FF 0%, #00b4d8 100%); border-radius: 24px; position: relative; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 102, 255, 0.2); }
+
+/* --- Estilos extraídos de asignacion.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+/* --- Estilos extraídos de matricula.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+
+    .tarjeta-salon { transition: all 0.3s; border: 2px solid transparent; }
+    .tarjeta-salon:hover { transform: translateY(-5px); border-color: #3b82f6; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15) !important; }
+    
+    .lista-transferencia { height: 450px; overflow-y: auto; background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 16px; padding: 10px; }
+    .item-estudiante { background: white; border-radius: 10px; padding: 10px 15px; margin-bottom: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s; }
+    .item-estudiante:hover { border-color: #3b82f6; }
+    
+    .lista-transferencia::-webkit-scrollbar { width: 6px; }
+    .lista-transferencia::-webkit-scrollbar-track { background: transparent; }
+    .lista-transferencia::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+/* --- Estilos extraídos de mis_solicitudes.html --- */
+/* ✨ ESTILOS DEL BANNER 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    .banner-modulo { background: linear-gradient(135deg, #0066FF 0%, #00b4d8 100%); border-radius: 24px; position: relative; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 102, 255, 0.2); }
+
+/* --- Estilos extraídos de solicitud.html --- */
+/* Estilos del Wizard */
+    .wizard-steps { display: flex; justify-content: space-between; position: relative; margin-bottom: 2rem; }
+    .wizard-steps::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 4px; background: #e2e8f0; z-index: 1; transform: translateY(-50%); border-radius: 2px; }
+    .wizard-step { position: relative; z-index: 2; background: white; width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 4px solid #e2e8f0; color: #94a3b8; transition: all 0.3s; cursor: pointer; }
+    .wizard-step:hover { border-color: #0066FF; color: #0066FF; }
+    .wizard-step.activo { border-color: #0066FF; background: #0066FF; color: white; box-shadow: 0 0 15px rgba(0, 102, 255, 0.4); transform: scale(1.1); }
+    .wizard-step.completado { border-color: #0066FF; background: white; color: #0066FF; }
+    .step-title { position: absolute; top: 55px; font-size: 0.75rem; text-align: center; width: 120px; left: -37px; color: #64748b; font-weight: 600; pointer-events: none; }
+    .req { color: #e11d48; font-weight: bold; margin-left: 3px; }
+    .guia-campo { font-size: 0.7rem; color: #94a3b8; margin-top: 4px; display: block; font-style: italic; }
+
+    /* ✨ ESTILOS DE LAS BURBUJAS 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+/* --- Estilos extraídos de verificaciones.html --- */
+/* ✨ ESTILOS DE LAS BURBUJAS 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    
+    /* ESTILOS DEL ESCANER */
+    #lector-qr-container { width: 100%; max-width: 400px; margin: 0 auto; border-radius: 15px; overflow: hidden; border: 3px solid #8B5CF6; display: none; box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2); position: relative; }
+    .btn-escaner { cursor: pointer; transition: all 0.3s; }
+    .btn-escaner:hover { background: #f3e8ff !important; }
+
+/* --- Estilos extraídos de salones.html --- */
+/* ✨ BURBUJAS 3D Y EFECTOS ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    
+    .card-btn-nav { cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 2px solid transparent; }
+    .card-btn-nav:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0, 188, 212, 0.15) !important; border-color: #00BCD4; }
+    .card-btn-nav.activo { border-color: #00BCD4; background-color: rgba(0, 188, 212, 0.05); }
+    .card-btn-nav .icono-box { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transition: all 0.3s; }
+    .card-btn-nav.activo .icono-box { background: #00BCD4 !important; color: white !important; }
+
+/* --- Estilos extraídos de gestor_catalogo.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+
+    .tarjeta-curso { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; }
+    .tarjeta-curso:hover { transform: translateY(-6px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); border-color: #8b5cf6; }
+    
+    .nav-tabs-custom { border-bottom: 2px solid #e2e8f0; }
+    .nav-tabs-custom .nav-link { border: none; color: #64748b; font-weight: 600; padding: 12px 20px; transition: all 0.3s; position: relative; background: transparent;}
+    .nav-tabs-custom .nav-link:hover { color: #8b5cf6; }
+    .nav-tabs-custom .nav-link.active { color: #8b5cf6; font-weight: 800; }
+    .nav-tabs-custom .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 100%; height: 3px; background-color: #8b5cf6; border-radius: 3px 3px 0 0; }
+
+/* --- Estilos extraídos de inicio.html --- */
+/* BANNER ANIMADO VIVO */
+    .banner-interactivo { background: linear-gradient(135deg, #0066FF 0%, #003399 100%); border-radius: 24px; position: relative; overflow: hidden; box-shadow: 0 15px 35px rgba(0, 102, 255, 0.2); }
+    .fecha-vivo { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 50rem; padding: 8px 20px; display: inline-flex; align-items: center; gap: 10px; }
+    .insignia-oficial { background: rgba(0, 0, 0, 0.15); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 5px 12px; font-size: 0.85rem; color: white; font-weight: 600; letter-spacing: 0.5px; }
+
+    /* MOTOR DE TARJETAS 3D (FLIP CARDS) */
+    .escena-3d { perspective: 1000px; height: 320px; }
+    .tarjeta-flip { width: 100%; height: 100%; position: relative; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; cursor: pointer; }
+    .escena-3d:hover .tarjeta-flip { transform: rotateY(180deg); }
+    .cara-frontal, .cara-trasera { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .cara-frontal { background: #ffffff; border: 1px solid rgba(0,0,0,0.05); }
+    .cara-trasera { background: #ffffff; transform: rotateY(180deg); text-align: justify; }
+    .icono-flotante { font-size: 4rem; margin-bottom: 0.5rem; transition: transform 0.3s ease; }
+    .escena-3d:hover .icono-flotante { transform: scale(1.1) translateY(-10px); }
+    .etiqueta-tocar { margin-top: auto; background: rgba(255,255,255,0.6); color: #64748b; padding: 5px 15px; border-radius: 50rem; font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; gap: 5px; animation: latido 2s infinite; border: 1px solid rgba(0,0,0,0.05); }
+    @keyframes latido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    .texto-trasero { overflow-y: auto; max-height: 100%; width: 100%; padding-right: 5px; color: #334155; font-size: 0.9rem; line-height: 1.6; text-align: center; }
+
+    /* CTA ORGANIGRAMA */
+    .banner-organigrama { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #ddd6fe; border-left: 6px solid #8b5cf6; cursor: pointer; }
+    .banner-organigrama:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(139, 92, 246, 0.15); border-color: #8b5cf6; }
+
+    @media (max-width: 768px) { .escena-3d { height: 280px; } .banner-interactivo { padding: 2rem 1.5rem !important; } .titulo-bienvenida { font-size: 2rem !important; } }
+
+/* --- Estilos extraídos de cargos.html --- */
+.btn-tab { border: none; background: transparent; color: #6c757d; font-weight: bold; padding: 10px 20px; border-bottom: 3px solid transparent; transition: all 0.3s; }
+    .btn-tab.activo { color: #0066FF; border-bottom: 3px solid #0066FF; }
+    .btn-tab:hover:not(.activo) { color: #0066FF; background: rgba(0, 102, 255, 0.05); }
+    .page-link { color: #0066FF; border: none; border-radius: 8px; margin: 0 3px; font-weight: bold; transition: all 0.2s; cursor: pointer;}
+    .page-item.active .page-link { background-color: #0066FF; color: white; box-shadow: 0 4px 10px rgba(0, 102, 255, 0.3); }
+    .page-link:hover:not(.active) { background-color: rgba(0, 102, 255, 0.1); color: #0066FF; }
+    
+    /* ✨ ANIMACIÓN Y CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+/* --- Estilos extraídos de expediente_docente.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+
+    .wizard-container { position: relative; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; padding: 0 0.5rem; }
+    .wizard-line { position: absolute; top: 20px; left: 5%; right: 5%; height: 2px; background-color: #e2e8f0; z-index: 1; }
+    .wizard-step-wrapper { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 70px; }
+    .wizard-step { width: 40px; height: 40px; border-radius: 50%; background-color: white; border: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #94a3b8; transition: all 0.3s; margin-bottom: 8px; }
+    
+    .wizard-step-wrapper:hover .wizard-step { border-color: #0ea5e9; color: #0ea5e9; }
+    .wizard-step.activo { background-color: #0ea5e9; border-color: #0ea5e9; color: white; box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.2); }
+    .wizard-step.completado { background-color: white; border-color: #0ea5e9; color: #0ea5e9; }
+    
+    .wizard-label { font-size: 0.60rem; color: #64748b; font-weight: 600; text-align: center; transition: all 0.3s; line-height: 1.1; margin-top: 4px; }
+    .wizard-step-wrapper.activo .wizard-label { color: #0ea5e9; font-weight: 700; }
+    
+    .wizard-panel { display: none; animation: fadeIn 0.4s; }
+    .wizard-panel.activo { display: block; }
+    
+    .form-label { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 0.3rem; }
+    .label-blue { color: #0ea5e9 !important; }
+    .seccion-titulo { background: #f0f9ff; padding: 10px 15px; border-left: 4px solid #0ea5e9; font-weight: bold; color: #0f172a; margin-bottom: 15px; border-radius: 0 8px 8px 0; }
+    
+    .caja-dinamica { border: 1px solid #cbd5e1; border-radius: 12px; padding: 15px; background: #f8fafc; position: relative; transition: all 0.2s; margin-bottom: 15px; }
+
+/* --- Estilos extraídos de gestion_expedientes.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+
+    .wizard-container { position: relative; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; padding: 0 0.5rem; }
+    .wizard-line { position: absolute; top: 20px; left: 5%; right: 5%; height: 2px; background-color: #e2e8f0; z-index: 1; }
+    .wizard-step-wrapper { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 70px; }
+    .wizard-step { width: 40px; height: 40px; border-radius: 50%; background-color: white; border: 2px solid #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #94a3b8; transition: all 0.3s; margin-bottom: 8px; }
+    
+    .wizard-step-wrapper:hover .wizard-step { border-color: #f59e0b; color: #f59e0b; }
+    .wizard-step.activo { background-color: #f59e0b; border-color: #f59e0b; color: white; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2); }
+    .wizard-step.completado { background-color: white; border-color: #f59e0b; color: #f59e0b; }
+    
+    .wizard-label { font-size: 0.60rem; color: #64748b; font-weight: 600; text-align: center; transition: all 0.3s; line-height: 1.1; margin-top: 4px; }
+    .wizard-step-wrapper.activo .wizard-label { color: #f59e0b; font-weight: 700; }
+    
+    .wizard-panel { display: none; animation: fadeIn 0.4s; }
+    .wizard-panel.activo { display: block; }
+    
+    .form-label { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin-bottom: 0.3rem; }
+    .label-blue { color: #f59e0b !important; }
+    .seccion-titulo { background: #fffbeb; padding: 10px 15px; border-left: 4px solid #f59e0b; font-weight: bold; color: #0f172a; margin-bottom: 15px; border-radius: 0 8px 8px 0; }
+    
+    .caja-dinamica { border: 1px solid #cbd5e1; border-radius: 12px; padding: 15px; background: #f8fafc; position: relative; transition: all 0.2s; margin-bottom: 15px; }
+
+/* --- Estilos extraídos de jerarquia.html --- */
+.tarjeta-btn { background: white; border-radius: 16px; border: 2px solid transparent; transition: all 0.3s ease; border-bottom: 4px solid #cbd5e1; cursor: pointer; }
+    .tarjeta-btn:hover { transform: translateY(-5px); border-bottom-color: #8b5cf6; box-shadow: 0 10px 25px rgba(139, 92, 246, 0.15); }
+    .tarjeta-btn.bloqueado { opacity: 0.5; filter: grayscale(100%); cursor: not-allowed; border-bottom-color: #e2e8f0; pointer-events: none; }
+    
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+    /* ✨ MOTOR DE ORGANIGRAMA COMPACTO (IDEAL PARA PDF Y MÓVIL) ✨ */
+    .contenedor-organigrama { 
+        width: 100%; min-height: 550px; overflow: auto; 
+        background-color: #f8fafc; border-radius: 1rem; 
+        border: 1px solid #dee2e6; text-align: center; padding: 15px; 
+    }
+    
+    .mi-organigrama { text-align: center; display: inline-block; white-space: nowrap; }
+    .mi-organigrama ul { padding-top: 15px; position: relative; display: flex; justify-content: center; align-items: flex-start; margin: 0; padding-left: 0; list-style: none; }
+    .mi-organigrama li { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; padding: 15px 4px 0 4px; }
+    
+    /* Conectores más cortos */
+    .mi-organigrama li::before, .mi-organigrama li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #94a3b8; width: 50%; height: 15px; }
+    .mi-organigrama li::after { right: auto; left: 50%; border-left: 2px solid #94a3b8; }
+    .mi-organigrama li:only-child::after, .mi-organigrama li:only-child::before { display: none; }
+    .mi-organigrama li:only-child { padding-top: 0; }
+    .mi-organigrama li:first-child::before, .mi-organigrama li:last-child::after { border: 0 none; }
+    .mi-organigrama li:last-child::before { border-right: 2px solid #94a3b8; border-radius: 0 6px 0 0; }
+    .mi-organigrama li:first-child::after { border-radius: 6px 0 0 0; }
+    .mi-organigrama ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #94a3b8; width: 0; height: 15px; transform: translateX(-50%); }
+    
+    /* Tarjetas Compactas */
+    .nodo-cargo-custom {
+        border: 2px solid; border-radius: 8px; padding: 8px 10px; 
+        min-width: 130px; max-width: 170px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+        display: inline-block; background-color: white;
+        position: relative; z-index: 2; 
+        white-space: normal; /* Permite que el texto largo baje a la siguiente línea */
+        word-wrap: break-word;
+    }
+
+/* --- Estilos extraídos de auditoria.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    
+    /* CSS PAGINACIÓN */
+    .page-link { color: #475569; border: none; border-radius: 8px; margin: 0 3px; font-weight: bold; transition: all 0.2s; cursor: pointer; }
+    .page-item.active .page-link { background-color: #475569; color: white; box-shadow: 0 4px 10px rgba(71, 85, 105, 0.3); }
+    .page-link:hover:not(.active) { background-color: rgba(71, 85, 105, 0.1); color: #475569; }
+
+/* --- Estilos extraídos de mi_perfil.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.01); } 100% { transform: translateY(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.1), 0 10px 20px rgba(0,0,0,0.05); backdrop-filter: blur(4px); pointer-events: none; z-index: 0; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 150px; height: 150px; bottom: -50px; left: -30px; animation: flotar-suave 6s infinite ease-in-out reverse; }
+
+/* --- Estilos extraídos de preguntas.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    
+    /* CSS PAGINACIÓN */
+    .page-link { color: #0ea5e9; border: none; border-radius: 8px; margin: 0 3px; font-weight: bold; transition: all 0.2s; cursor: pointer; }
+    .page-item.active .page-link { background-color: #0ea5e9; color: white; box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3); }
+    .page-link:hover:not(.active) { background-color: rgba(14, 165, 233, 0.1); color: #0ea5e9; }
+
+/* --- Estilos extraídos de roles.html --- */
+/* ✨ ANIMACIÓN Y CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    
+    .panel-vacio-moderno {
+        min-height: 500px;
+        border: 3px dashed #cbd5e1;
+        background-color: rgba(248, 250, 252, 0.6);
+        border-radius: 24px;
+        transition: all 0.3s ease;
+    }
+
+/* --- Estilos extraídos de usuarios.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    
+    .page-link { color: #10B981; border: none; border-radius: 8px; margin: 0 3px; font-weight: bold; transition: all 0.2s; }
+    .page-item.active .page-link { background-color: #10B981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+    .page-link:hover:not(.active) { background-color: rgba(16, 185, 129, 0.1); color: #10B981; }
+
+/* --- Estilos extraídos de transporte.html --- */
+.tarjeta-btn { background: white; border-radius: 16px; border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; position: relative; overflow: hidden; }
+    .tarjeta-btn:hover { transform: translateY(-8px); border-bottom-color: #f97316; box-shadow: 0 15px 35px rgba(249, 115, 22, 0.15) !important; }
+    .tarjeta-btn.bloqueado { opacity: 0.6; filter: grayscale(100%); cursor: not-allowed; border-bottom-color: #e2e8f0; pointer-events: none; }
+    
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+
+    /* ✨ ESTILOS DEL RUTOGRAMA TIPO METRO ✨ */
+    .timeline-rutograma { border-left: 4px solid #0dcaf0; margin-left: 20px; padding-left: 25px; position: relative; margin-top: 10px; padding-bottom: 5px; }
+    .timeline-node { position: relative; margin-bottom: 12px; }
+    .timeline-icon { position: absolute; left: -45px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 50%; background: white; border: 4px solid #0dcaf0; display: flex; align-items: center; justify-content: center; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 1.1rem; }
+    .timeline-icon.start { border-color: #f97316; color: #f97316; }
+    .timeline-icon.stop { border-color: #0dcaf0; color: #0dcaf0; }
+    .timeline-icon.end { border-color: #198754; color: #198754; border-radius: 8px; }
+    .timeline-content { background: #f8fafc; padding: 10px 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+    .timeline-content:hover { background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    
+    .btn-refrescar:hover i { display: inline-block; animation: girar 0.5s linear; }
+    @keyframes girar { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* --- Estilos extraídos de administracion.html --- */
+/* ✨ BURBUJAS 3D Y EFECTOS (TUS ORIGINALES) ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+    .burbuja-3 { width: 150px; height: 150px; top: 50px; left: 15%; animation: flotar-suave 10s infinite ease-in-out 1s; }
+    .banner-modulo { background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); border-radius: 24px; position: relative; overflow: hidden; box-shadow: 0 10px 25px rgba(217, 119, 6, 0.2); }
+
+/* --- Estilos extraídos de empresa.html --- */
+/* ✨ ANIMACIÓN Y CRISTAL 3D ✨ */
+    @keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+
+/* --- Estilos extraídos de registros.html --- */
+@keyframes flotar-suave { 0% { transform: translateY(0) translateX(0) scale(1); } 33% { transform: translateY(-15px) translateX(10px) scale(1.02); } 66% { transform: translateY(10px) translateX(-10px) scale(0.98); } 100% { transform: translateY(0) translateX(0) scale(1); } }
+    .burbuja-3d { position: absolute; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%); box-shadow: inset -15px -15px 30px rgba(0, 0, 0, 0.15), inset 15px 15px 30px rgba(255, 255, 255, 0.3), 0 15px 35px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.15); pointer-events: none; }
+    .burbuja-1 { width: 300px; height: 300px; top: -100px; right: -50px; animation: flotar-suave 8s infinite ease-in-out; }
+    .burbuja-2 { width: 200px; height: 200px; bottom: -50px; right: 150px; animation: flotar-suave 12s infinite ease-in-out reverse; }
+
+/* ==========================================================
+   ESTILOS REFACTORIZADOS: M�DULO ROLES Y PRIVILEGIOS
+============================================================= */
+.roles-banner {
+    background: linear-gradient(135deg, #10B981 0%, #047857 100%);
+    border-radius: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.roles-badge-header {
+    color: #10B981;
+    letter-spacing: 1px;
+    font-size: 0.85rem;
+}
+
+.roles-titulo-banner {
+    font-size: 2.8rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.roles-desc-banner {
+    color: rgba(255,255,255,0.9);
+}
+
+.roles-logo-banner {
+    max-height: 130px;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+}
+
+.roles-card-lateral {
+    border-top: 5px solid #10B981 !important;
+}
+
+.btn-roles-nuevo {
+    background-color: #10B981;
+}
+
+.roles-lista-contenedor {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.roles-spinner {
+    color: #10B981;
+}
+
+.btn-roles-guardar {
+    background-color: #F59E0B;
+}
+
+.roles-empty-circulo {
+    width: 100px;
+    height: 100px;
+}
+
+.roles-empty-icono {
+    font-size: 3.5rem;
+    color: #cbd5e1;
+}
+
+.roles-empty-texto {
+    max-width: 400px;
+}
+/* Estilos generados por Javascript en roles */
+.roles-mod-header {
+    border-color: #F59E0B !important;
+}
+
+.roles-mod-icon {
+    color: #F59E0B;
+}
+
+.roles-chk-largo {
+    cursor: pointer;
+    height: 22px;
+    width: 44px;
+}
+
+.roles-cursor-ptr {
+    cursor: pointer;
+}
+
+.roles-cat-header {
+    background-color: #1e293b;
+}
+
+.roles-cat-titulo {
+    letter-spacing: 1px;
+    font-size: 0.85rem;
+}

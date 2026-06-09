@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGAE - Sistema Integral de Gestión y Administración Escolar</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0066FF">
+    
+    <!-- Favicon para la pestaña del navegador -->
+    <link rel="icon" href="assets/img/logo_carga.png" type="image/png">
+    <link rel="apple-touch-icon" href="assets/img/logo_carga.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link rel="stylesheet" href="css/componentes.css">
+    <link rel="stylesheet" href="css/principal.css">
+    <link rel="stylesheet" href="css/auth_ui.css">
+    <link rel="stylesheet" href="css/mod_inicio.css">
+    <link rel="stylesheet" href="css/vistas.css">
+</head>
+<body class="auth-body">
+
+    <div id="contenedor-transicion"></div>
+
+    <div id="pantalla-carga" class="pantalla-carga-ligera">
+        <div class="lr-wrapper">
+            <div class="lr-pulso lr-pulso-1"></div>
+            <div class="lr-pulso lr-pulso-2"></div>
+            <div class="lr-pulso lr-pulso-3"></div>
+            <img src="assets/img/logo_carga.png" alt="SIGAE" class="lr-logo">
+        </div>
+        <div class="fw-bold text-muted small" style="letter-spacing: 2px;">CARGANDO SIGAE...</div>
+    </div>
+
+
+    <div id="vista-login" class="contenedor-login flex-column min-vh-100" style="display: none; position: relative; z-index: 1; background: url('assets/img/fondo_login.png') no-repeat center center fixed; background-size: cover;">
+        <!-- Capa oscura de fondo -->
+        <div class="bg-login-dark-overlay"></div>
+        
+        <div class="m-auto w-100 d-flex justify-content-center align-items-center py-4 px-3">
+            
+            <!-- SELECTOR DE ESCUELA -->
+            <div id="vista-selector" class="vista-seleccion-escuela activa animate__animated animate__fadeIn">
+                <img src="assets/img/sigae.png" alt="SIGAE" class="mb-3 img-fluid" style="max-height: 250px; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));">
+                <h1 class="fw-bolder text-white mb-1 mt-2 selector-titulo">Escuelas DEP Oriente</h1>
+                <h4 class="text-white mb-5 fw-normal selector-subtitulo">Seleccione su Institución</h4>
+                
+                <div class="row g-4 justify-content-center mx-auto">
+                    <div class="col-md-6">
+                        <div class="tarjeta-escuela glassmorphism p-4 p-md-5 text-center h-100 d-flex flex-column" onclick="seleccionarEscuela('UE Santa Bárbara', 'sb')">
+                            <div class="mb-auto">
+                                <img src="assets/img/logo_sb.png" onerror="this.src='assets/img/logo.png'" alt="Logo UE Santa Bárbara" class="mb-3 logo-escuela img-fluid">
+                                <h4 class="fw-bold text-dark mb-1">UE Santa Bárbara</h4>
+                                <h6 class="text-primary fw-bold mb-3 lh-sm" style="font-size: 0.95rem;">El Tejero<br><small class="text-muted fw-normal">Municipio Ezequiel Zamora</small></h6>
+                            </div>
+                            <button class="btn btn-primario w-100 rounded-pill fw-bold mt-4 btn-seleccionar">Ingresar aquí</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="tarjeta-escuela glassmorphism p-4 p-md-5 text-center h-100 d-flex flex-column" onclick="seleccionarEscuela('UE Libertador Bolívar', 'lb')">
+                            <div class="mb-auto">
+                                <img src="assets/img/logo_lb.png" onerror="this.src='assets/img/logo.png'" alt="Logo UE Libertador Bolívar" class="mb-3 logo-escuela img-fluid">
+                                <h4 class="fw-bold text-dark mb-1">UE Libertador Bolívar</h4>
+                                <h6 class="text-primary fw-bold mb-3 lh-sm" style="font-size: 0.95rem;">Miraflores<br><small class="text-muted fw-normal">Municipio Punceres</small></h6>
+                            </div>
+                            <button class="btn btn-primario w-100 rounded-pill fw-bold mt-4 btn-seleccionar">Ingresar aquí</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FORMULARIO DE LOGIN (Oculto inicialmente) -->
+            <div id="vista-formulario" class="tarjeta-split animate__animated animate__zoomIn" style="display: none;">
+                <div class="panel-color">
+                    <div class="forma f-verde"></div>
+                    <div class="forma f-amarilla"></div>
+                    <div class="forma f-morada"></div>
+                    <div class="forma f-roja"></div>
+                    <div class="panel-contenido-z">
+                        <div class="logo-login-container">
+                            <div class="logo-destello"></div>
+                            <img src="assets/img/logo.png" id="img-logo-login" alt="Logo" class="logo-login-animado">
+                        </div>
+                        <h2 id="txt-nombre-escuela-login">UE Santa <br class="d-none d-md-block">Bárbara</h2>
+                        <h3>Sistema Integral de Gestión y Administración Escolar</h3>
+                        <h1>¡Bienvenid@!</h1>
+                        <p>Accede a tu cuenta para gestionar toda la información institucional.</p>
+                        <button class="btn btn-sm btn-light text-primary mt-3 fw-bold rounded-pill shadow-sm" onclick="volverASelectorEscuela()" style="width: fit-content;"><i class="bi bi-arrow-left me-1"></i> Cambiar Escuela</button>
+                    </div>
+                </div>
+
+                <div class="panel-form">
+                    <div class="login-formulario w-100 mx-auto" style="max-width: 380px;">
+                        
+                        <div id="paso-cedula" class="animate__animated animate__fadeIn">
+                            <h4>Iniciar Sesión</h4>
+                            <label class="fw-bold text-muted small mb-2 ps-2">Cédula de Identidad</label>
+                            <input type="number" id="inputCedula" class="form-control input-pill mb-4" placeholder="Ej: 12345678">
+                            <button onclick="window.Aplicacion.verificarUsuario()" class="btn btn-primary w-100 btn-pill mb-3">Continuar <i class="bi bi-arrow-right ms-1"></i></button>
+                            
+                            <div id="btn-biometrico-container" style="display: none;" class="text-center mt-3 border-top pt-3">
+                                <button onclick="window.Aplicacion.loginBiometrico()" class="btn btn-outline-success w-100 btn-pill fw-bold" style="border-width: 2px;">
+                                    <i class="bi bi-fingerprint fs-4 me-2 align-middle"></i>Ingresar con Huella / PIN
+                                </button>
+                                <small class="text-muted d-block mt-2">Acceso rápido configurado en este dispositivo</small>
+                            </div>
+                        </div>
+                        
+                        <div id="paso-clave" style="display:none;" class="animate__animated animate__fadeInRight">
+                            <h4>Contraseña</h4>
+                            <div class="d-flex align-items-center bg-light p-2 rounded-pill mb-4 border px-3">
+                                <i class="bi bi-person-circle fs-4 text-primary me-2"></i> 
+                                <span id="lbl-nombre-login" class="fw-bold text-dark text-truncate"></span>
+                            </div>
+                            <label class="fw-bold text-muted small mb-2 ps-2">Clave de Acceso</label>
+                            <div class="position-relative mb-4">
+                                <input type="password" id="inputClave" class="form-control input-pill pe-5" placeholder="Ingresa tu contraseña">
+                                <button class="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2" onclick="window.Aplicacion.alternarClave('inputClave')"><i class="bi bi-eye text-muted"></i></button>
+                            </div>
+                            <button onclick="window.Aplicacion.iniciarSesion()" class="btn btn-primary w-100 btn-pill mb-3">Ingresar <i class="bi bi-box-arrow-in-right ms-1"></i></button>
+                            <div class="text-center">
+                                <button onclick="window.Aplicacion.iniciarRecuperacion()" class="btn btn-link text-primary text-decoration-none small fw-bold mb-2">¿Olvidaste tu contraseña?</button><br>
+                                <button onclick="location.reload()" class="btn btn-link text-muted text-decoration-none small">Volver al inicio</button>
+                            </div>
+                        </div>
+
+                        <div id="paso-recuperacion" style="display:none;" class="animate__animated animate__fadeInRight">
+                            <h4>Recuperar Acceso</h4>
+                            <div class="mb-3">
+                                <label class="small fw-bold text-dark mb-2 ps-2">Correo Electrónico Registrado</label>
+                                <input type="email" id="rec-correo" class="form-control input-pill" placeholder="correo@ejemplo.com">
+                            </div>
+                            <div class="mb-3">
+                                <label class="small fw-bold text-dark mb-2 ps-2" id="lbl-pregunta-recuperacion">Cargando...</label>
+                                <input type="text" id="rec-respuesta" class="form-control input-pill" placeholder="Respuesta exacta">
+                            </div>
+                            <div class="position-relative mb-3">
+                                <input type="password" id="rec-clave1" class="form-control input-pill pe-5" placeholder="Nueva Contraseña" oninput="window.Aplicacion.evaluarFuerzaClaveRecuperacion(this.value)">
+                                <button class="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2" onclick="window.Aplicacion.alternarClave('rec-clave1')"><i class="bi bi-eye text-muted"></i></button>
+                            </div>
+                            <div class="progress mb-3" style="height: 5px;">
+                                <div id="rec-fuerza-barra" class="progress-bar bg-danger" role="progressbar" style="width: 0%; transition: width 0.3s, background-color 0.3s;"></div>
+                            </div>
+                            <div class="position-relative mb-4">
+                                <input type="password" id="rec-clave2" class="form-control input-pill pe-5" placeholder="Confirmar Contraseña">
+                                <button class="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2" onclick="window.Aplicacion.alternarClave('rec-clave2')"><i class="bi bi-eye text-muted"></i></button>
+                            </div>
+                            <button onclick="window.Aplicacion.procesarRecuperacion()" class="btn btn-primary w-100 btn-pill mb-3">Restablecer Contraseña</button>
+                            <button onclick="window.Aplicacion.solicitarSoporteAdministrador()" class="btn btn-outline-danger w-100 btn-pill mb-3">No recuerdo nada (Soporte)</button>
+                            <div class="text-center">
+                                <button onclick="window.Aplicacion.cancelarRecuperacion()" class="btn btn-link text-muted text-decoration-none">Cancelar</button>
+                            </div>
+                        </div>
+                        
+                        <div id="paso-primer-ingreso" style="display:none;" class="animate__animated animate__fadeInUp">
+                            <h4 class="mb-3 text-primary">Configuración Inicial</h4>
+                            <p class="small text-muted mb-4">Hola <span id="lbl-pi-nombre" class="fw-bold text-dark"></span>, por ser tu primer ingreso debes configurar tu cuenta.</p>
+                            <input type="hidden" id="pi-nombre">
+                            
+                            <div class="position-relative mb-1">
+                                <input type="password" id="pi-clave1" class="form-control input-pill pe-5" placeholder="Crea tu contraseña *" required oninput="window.Aplicacion.evaluarFuerzaClave(this.value)">
+                                <button class="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2" onclick="window.Aplicacion.alternarClave('pi-clave1')"><i class="bi bi-eye text-muted"></i></button>
+                            </div>
+                            <div class="progress mb-3" style="height: 5px;">
+                                <div id="pi-fuerza-barra" class="progress-bar bg-danger" role="progressbar" style="width: 0%; transition: width 0.3s, background-color 0.3s;"></div>
+                            </div>
+                            <small id="pi-fuerza-texto" class="text-danger d-block mb-3 ps-2" style="margin-top: -10px; font-weight: bold; font-size: 0.75rem;"></small>
+                            <div class="position-relative mb-3">
+                                <input type="password" id="pi-clave2" class="form-control input-pill pe-5" placeholder="Confirma tu contraseña *" required>
+                                <button class="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2" onclick="window.Aplicacion.alternarClave('pi-clave2')"><i class="bi bi-eye text-muted"></i></button>
+                            </div>
+                            
+                            <input type="email" id="pi-email" class="form-control input-pill mb-3" placeholder="Correo Electrónico *" required>
+                            <input type="text" id="pi-telefono" class="form-control input-pill mb-3" placeholder="Teléfono Celular *" required>
+                            
+                            <label class="small text-muted fw-bold ps-2 mb-1">Preguntas de Seguridad (Obligatorias) *</label>
+                            <select id="pi-preg1" class="form-select input-pill mb-2"></select>
+                            <input type="text" id="pi-resp1" class="form-control input-pill mb-3" placeholder="Respuesta 1 *" required>
+                            <select id="pi-preg2" class="form-select input-pill mb-2"></select>
+                            <input type="text" id="pi-resp2" class="form-control input-pill mb-4" placeholder="Respuesta 2 *" required>
+                            
+                            <button onclick="window.Aplicacion.procesarPrimerIngreso()" class="btn btn-primary w-100 btn-pill mb-3">Completar Registro</button>
+                            <button onclick="location.reload()" class="btn btn-outline-secondary w-100 btn-pill">Cancelar</button>
+                        </div>
+
+                        <div id="paso-invitado" style="display:none;" class="animate__animated animate__fadeInUp">
+                            <h4>Visitante</h4>
+                            <p class="small text-muted mb-3" id="inv-mensaje-bienvenida">Ingresa tus datos para registrar tu visita.</p>
+                            <input type="number" id="inv-cedula" class="form-control input-pill mb-3" placeholder="Cédula de Identidad" disabled>
+                            <input type="text" id="inv-nombres" class="form-control input-pill mb-3" placeholder="Nombres *">
+                            <input type="text" id="inv-apellidos" class="form-control input-pill mb-3" placeholder="Apellidos *">
+                            <input type="email" id="inv-correo" class="form-control input-pill mb-3" placeholder="Correo Electrónico">
+                            <input type="text" id="inv-telefono" class="form-control input-pill mb-3" placeholder="Número de Teléfono">
+                            <input type="text" id="inv-motivo" class="form-control input-pill mb-4" placeholder="Motivo de la Visita *">
+                            <button onclick="window.Aplicacion.enviarRegistroInvitado()" class="btn btn-primary w-100 btn-pill mb-3">Registrar Ingreso</button>
+                            <button onclick="location.reload()" class="btn btn-outline-secondary w-100 btn-pill">Volver</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="vista-app" style="display: none; background: #F8FAFC;">
+        <aside id="menu-lateral" class="glass-sidebar shadow-lg">
+            <div class="sidebar-header d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center" onclick="Enrutador.navegar('Inicio')" style="cursor: pointer;">
+                    <img src="assets/img/sigae.png" width="40" class="me-2 logo-img" alt="Logo SIGAE">
+                    <span class="fw-bold text-dark sidebar-texto">SIGAE UE S.B.</span>
+                </div>
+                <button class="btn-colapsar d-none d-lg-block ms-auto" onclick="window.Aplicacion.alternarMenu()"><i class="bi bi-list"></i></button>
+            </div>
+            <div id="contenedor-enlaces" class="sidebar-menu pb-5"></div>
+        </aside>
+        
+        <main id="contenido-principal" class="d-flex flex-column min-vh-100">
+            <header class="glass-header shadow-sm d-flex align-items-center px-4 bg-white auth-header">
+                <button class="btn-movil d-lg-none me-3" onclick="window.Aplicacion.alternarMenuMovil()"><i class="bi bi-list fs-3"></i></button>
+                <h5 id="titulo-pagina" class="mb-0 fw-bold text-dark d-none d-md-block">Cargando...</h5>
+                
+                <div class="ms-auto d-flex align-items-center">
+                    <div class="d-none d-lg-flex flex-column align-items-end me-4 pe-4 border-end">
+                        <span class="fw-bold text-primary" style="font-size: 0.85rem;" id="global-anio-escolar"><i class="bi bi-calendar3"></i> Cargando...</span>
+                        <span class="text-muted fw-bold" style="font-size: 0.75rem;" id="global-lapso-escolar">Calculando...</span>
+                    </div>
+
+                    <div class="position-relative me-3" id="btn-dark-mode" style="cursor:pointer;" onclick="window.Aplicacion.toggleTemaVisual()">
+                        <i class="bi bi-moon-stars-fill fs-4 text-secondary hover-efecto" id="icono-tema"></i>
+                    </div>
+
+                    <div class="position-relative me-3 me-md-4" id="campana-notificaciones" style="cursor:pointer;" onclick="window.Aplicacion.alternarPanelNotificaciones()">
+                        <i class="bi bi-bell-fill fs-4 text-secondary hover-efecto" id="icono-campana"></i>
+                        <span id="badge-notificaciones" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle shadow-sm" style="display:none; width: 12px; height: 12px;"></span>
+                    </div>
+
+                    <div id="panel-notificaciones" class="shadow-lg bg-white rounded-4 position-absolute d-none animate__animated animate__fadeIn panel-notificaciones-ui">
+                        <div class="p-3 border-bottom bg-light sticky-top d-flex justify-content-between align-items-center panel-notificaciones-header">
+                            <h6 class="mb-0 fw-bold text-dark"><i class="bi bi-bell-fill me-2 text-primary"></i>Notificaciones</h6>
+                            <div class="d-flex align-items-center">
+                                <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none hover-efecto me-3" id="btn-toggle-sonido" onclick="window.Aplicacion.toggleSonidoNotificaciones()" title="Silenciar / Activar Sonido">
+                                    <i class="bi bi-volume-up-fill fs-5"></i>
+                                </button>
+                                <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none fw-bold hover-efecto" onclick="window.Aplicacion.marcarNotificacionesLeidas()">Marcar leídas</button>
+                            </div>
+                        </div>
+                        <div id="lista-notificaciones" class="p-0 bg-white flex-grow-1">
+                            <div class="p-5 text-center text-muted">
+                                <svg class="mb-3" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                    <line x1="9" y1="10" x2="15" y2="10"></line>
+                                </svg>
+                                <h6 class="fw-bold mb-1">Todo al día</h6>
+                                <p class="small mb-0">No tienes notificaciones recientes</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="usuario-info me-3 text-end d-none d-md-block">
+                        <div id="nombre-usuario-nav" class="fw-bold text-dark">Usuario</div>
+                        <div id="rol-usuario-nav" class="small texto-gradiente fw-bold">Rol</div>
+                    </div>
+                    <button onclick="window.Aplicacion.cerrarSesion()" class="btn-circulo btn-peligro shadow-sm"><i class="bi bi-power"></i></button>
+                </div>
+            </header>
+            
+            <div id="area-dinamica" class="contenedor-dinamico p-4 p-md-5 flex-grow-1"></div>
+            
+            <footer class="w-100 d-flex flex-column align-items-center py-4 mt-auto border-top bg-light bg-opacity-50">
+                <div class="d-flex justify-content-center align-items-center gap-4 mb-3">
+                    <img src="assets/img/logoMPPE.png" alt="MPPE" height="45">
+                    <img src="assets/img/logo_carga.png" alt="SIGAE" height="70">
+                </div>
+                <div class="fw-bold text-center mb-2 footer-anio">Escuelas DEP Oriente <span id="anio-actual-footer-app"></span> | <span class="text-primary">Versión 1.0</span></div>
+            </footer>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script> 
+    <script src="https://unpkg.com/html5-qrcode"></script> 
+    <script src="js/modulos/mod_registros.js?v=1.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Core SIGAE -->
+    <script src="js/nucleo/aplicacion.js?v=15.8"></script>
+    <script src="js/nucleo/enrutador.js?v=15.2"></script>
+
+    <!-- Módulos de la Aplicación -->
+    <script src="js/modulos/mod_inicio.js?v=1.2"></script>
+    <script src="js/modulos/mod_escuela.js?v=1.1"></script>
+    <script src="js/modulos/mod_configuracion.js"></script>
+    <script src="js/modulos/mod_calendario.js"></script>
+    <script src="js/modulos/mod_asignacion.js?v=1.0"></script>
+    <script src="js/modulos/mod_matricula.js?v=1.0"></script>
+    <script src="js/modulos/mod_seguridad.js?v=1.1"></script>
+    <script src="js/modulos/mod_usuarios.js?v=1.3"></script>
+    <script src="js/modulos/mod_roles.js?v=6.2"></script>
+    <script src="js/modulos/mod_preguntas.js?v=1.1"></script> 
+    <script src="js/modulos/mod_auditoria.js?v=1.2"></script> 
+    <script src="js/modulos/mod_espacios.js"></script>
+    <script src="js/modulos/mod_empresa.js"></script>
+    <script src="js/modulos/mod_cargos.js"></script>
+    <script src="js/modulos/mod_jerarquia.js"></script>
+    <script src="js/modulos/mod_colectivos.js"></script>
+    <script src="js/modulos/mod_salones.js"></script>
+    <script src="js/modulos/mod_guiaturas.js"></script>
+    <script src="js/modulos/mod_actualizacion.js?v=12.0"></script>
+    <script src="js/modulos/mod_solicitud.js?v=13.0"></script>
+    <script src="js/modulos/mod_admisiones.js?v=1.0"></script>
+    <script src="js/modulos/mod_transporte.js?v=6.0"></script>
+    <script src="js/modulos/mod_verificaciones.js?v=5.0"></script>
+    <script src="js/modulos/mod_mis_solicitudes.js?v=1.0"></script>
+    <script src="js/modulos/mod_administracion.js?v=1.0"></script>
+    <script src="js/modulos/mod_expediente_docente.js?v=1.0"></script>
+    <script src="js/modulos/mod_administracion.js?v=1.0"></script>
+    <script src="js/modulos/mod_expediente_docente.js?v=1.0"></script>
+    <script src="js/modulos/mod_gestion_expedientes.js?v=1.0"></script> ```
+    <script src="js/nucleo/auth_ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<div class="container-fluid p-0 animate__animated animate__fadeIn">
+    <div class="rounded-4 p-4 p-md-5 mb-4 position-relative overflow-hidden shadow-sm" style="background: linear-gradient(135deg, #0066FF 0%, #003399 100%);">
+        <div class="burbuja-3d burbuja-1"></div>
+        <div class="burbuja-3d burbuja-2"></div>
+        <div class="row align-items-center position-relative z-1">
+            <div class="col-md-auto text-center mb-3 mb-md-0">
+                <div class="rounded-circle shadow-lg d-inline-flex align-items-center justify-content-center bg-white" style="width: 100px; height: 100px;">
+                    <i class="bi bi-shield-lock-fill text-primary" style="font-size: 3.5rem;"></i>
+                </div>
+            </div>
+            <div class="col-md text-center text-md-start text-white">
+                <h1 class="fw-bolder mb-1" id="perfil-nombre-display">Cargando...</h1>
+                <p class="mb-0 opacity-75 fw-bold"><i class="bi bi-person-vcard me-2"></i>C.I: <span id="perfil-cedula-display">---</span></p>
+                <div class="mt-2">
+                    <span class="badge bg-white text-primary rounded-pill px-3 py-2 fw-bold shadow-sm">
+                        <i class="bi bi-shield-check me-1"></i> <span id="perfil-rol-display">---</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-body p-4 p-md-5">
+                    <form id="form-mi-perfil">
+                <div class="row g-4">
+                    <div class="col-12"><h5 class="fw-bold text-dark border-bottom pb-2 mb-4">Información Personal</h5></div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-muted">Nombre Completo</label>
+                        <input type="text" id="perfil-nombre" class="input-moderno" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted">Correo Electrónico</label>
+                        <input type="email" id="perfil-email" class="input-moderno">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-muted">Teléfono</label>
+                        <input type="text" id="perfil-telefono" class="input-moderno">
+                    </div>
+                    <div class="col-12 mt-5"><h5 class="fw-bold text-dark border-bottom pb-2 mb-4 text-danger">Seguridad</h5></div>
+                    <div class="col-12 form-check form-switch mb-3 ps-5">
+                        <input class="form-check-input" type="checkbox" id="check-clave">
+                        <label class="form-check-label fw-bold" for="check-clave">Deseo cambiar mi contraseña</label>
+                    </div>
+                    <div class="row g-3" id="bloque-claves" style="display: none;">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Clave Actual</label>
+                            <input type="password" id="perfil-clave-actual" class="input-moderno border-danger">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Nueva Clave</label>
+                            <input type="password" id="perfil-clave-nueva" class="input-moderno border-success">
+                            <div class="progress mt-2" style="height: 6px;">
+                                <div id="perfil-fuerza-barra" class="progress-bar bg-danger" role="progressbar" style="width: 0%;"></div>
+                            </div>
+                            <small id="perfil-fuerza-texto" class="text-danger mt-1 d-block" style="font-size: 0.75rem;">Requiere mayúscula, minúscula, número y símbolo</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Confirmar Nueva</label>
+                            <input type="password" id="perfil-clave-confirmar" class="input-moderno border-success">
+                        </div>
+                    </div>
+                    <div class="col-12 form-check form-switch mb-3 ps-5 mt-4">
+                        <input class="form-check-input" type="checkbox" id="check-preguntas">
+                        <label class="form-check-label fw-bold" for="check-preguntas">Deseo actualizar mis preguntas de seguridad</label>
+                    </div>
+                    <div class="row g-3" id="bloque-preguntas" style="display: none;">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Pregunta 1</label>
+                            <select id="perfil-preg1" class="input-moderno"></select>
+                            <input type="text" id="perfil-resp1" class="input-moderno mt-2" placeholder="Respuesta 1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Pregunta 2</label>
+                            <select id="perfil-preg2" class="input-moderno"></select>
+                            <input type="text" id="perfil-resp2" class="input-moderno mt-2" placeholder="Respuesta 2">
+                        </div>
+                    </div>
+                </div>
+                <div class="text-end border-top pt-4 mt-5">
+                            <button type="submit" class="btn btn-primary fw-bold px-5 rounded-pill shadow-sm">
+                                <i class="bi bi-floppy-fill me-2"></i>Guardar Perfil
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tarjeta de Seguridad Biométrica -->
+            <div class="card border-0 shadow-sm rounded-4 mt-4">
+                <div class="card-body p-5">
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
+                            <i class="bi bi-fingerprint fs-3 text-primary"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold text-dark mb-1">Acceso Rápido Biométrico</h5>
+                            <p class="text-muted mb-0 small">Configura tu huella dactilar, FaceID o PIN del dispositivo para entrar sin contraseña.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-light border shadow-sm rounded-3 d-flex align-items-center">
+                        <i class="bi bi-info-circle-fill text-primary fs-4 me-3"></i>
+                        <div class="small text-muted">
+                            Esta función usa <strong>WebAuthn (Passkeys)</strong>. La huella nunca sale de tu teléfono, garantizando máxima seguridad.
+                        </div>
+                    </div>
+                    
+                    <div class="text-end mt-4">
+                        <button type="button" class="btn btn-outline-primary fw-bold px-4 rounded-pill" onclick="window.Aplicacion.registrarHuella()">
+                            <i class="bi bi-plus-circle me-2"></i>Configurar Huella / Passkey
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Termómetro Global de Seguridad -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100" style="background: #f8fafc;">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-dark text-center mb-4"><i class="bi bi-shield-lock-fill text-primary me-2"></i>Nivel de Seguridad</h5>
+                    
+                    <!-- Termómetro Circular/Barra -->
+                    <div class="text-center mb-4">
+                        <div class="position-relative d-inline-block">
+                            <svg viewBox="0 0 36 36" style="width: 120px; height: 120px;">
+                                <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e2e8f0" stroke-width="3"/>
+                                <path id="svg-seguridad-progreso" class="circle" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#0066FF" stroke-width="3" style="transition: stroke-dasharray 1s ease-out;"/>
+                            </svg>
+                            <div class="position-absolute top-50 start-50 translate-middle">
+                                <span id="lbl-seguridad-porcentaje" class="fs-2 fw-bolder text-dark">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Chequeo -->
+                    <div class="list-group list-group-flush bg-transparent">
+                        <div class="list-group-item bg-transparent px-0 d-flex align-items-center py-3 border-bottom-0">
+                            <i id="icon-chk-email" class="bi bi-x-circle-fill text-danger fs-4 me-3"></i>
+                            <div><h6 class="mb-0 fw-bold text-dark">Correo Electrónico</h6><small class="text-muted" style="font-size: 0.75rem;">Para notificaciones y recuperación</small></div>
+                        </div>
+                        <div class="list-group-item bg-transparent px-0 d-flex align-items-center py-3 border-bottom-0">
+                            <i id="icon-chk-telefono" class="bi bi-x-circle-fill text-danger fs-4 me-3"></i>
+                            <div><h6 class="mb-0 fw-bold text-dark">Teléfono Celular</h6><small class="text-muted" style="font-size: 0.75rem;">Contacto en caso de emergencias</small></div>
+                        </div>
+                        <div class="list-group-item bg-transparent px-0 d-flex align-items-center py-3 border-bottom-0">
+                            <i id="icon-chk-clave" class="bi bi-x-circle-fill text-danger fs-4 me-3"></i>
+                            <div><h6 class="mb-0 fw-bold text-dark">Contraseña Vigente</h6><small class="text-muted" style="font-size: 0.75rem;">Cambiada hace menos de 30 días</small></div>
+                        </div>
+                        <div class="list-group-item bg-transparent px-0 d-flex align-items-center py-3 border-bottom-0">
+                            <i id="icon-chk-preg1" class="bi bi-x-circle-fill text-danger fs-4 me-3"></i>
+                            <div><h6 class="mb-0 fw-bold text-dark">Pregunta de Seguridad 1</h6><small class="text-muted" style="font-size: 0.75rem;">Método de recuperación alterno</small></div>
+                        </div>
+                        <div class="list-group-item bg-transparent px-0 d-flex align-items-center py-3 border-bottom-0">
+                            <i id="icon-chk-preg2" class="bi bi-x-circle-fill text-danger fs-4 me-3"></i>
+                            <div><h6 class="mb-0 fw-bold text-dark">Pregunta de Seguridad 2</h6><small class="text-muted" style="font-size: 0.75rem;">Doble factor de validación</small></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

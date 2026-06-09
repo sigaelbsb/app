@@ -1,0 +1,153 @@
+<div class="row mb-5 animate__animated animate__fadeInDown">
+    <div class="col-12">
+        <div class="banner-modulo p-4 p-md-5 text-white shadow-sm" style="background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%); border-radius: 24px; position: relative; overflow: hidden;">
+            <div class="burbuja-3d burbuja-1"></div>
+            <div class="burbuja-3d burbuja-2"></div>
+            <div class="burbuja-3d burbuja-3"></div>
+            <div class="row align-items-center position-relative z-1">
+                <div class="col-md-9 text-center text-md-start mb-3 mb-md-0">
+                    <span class="badge bg-white mb-3 px-3 py-2 shadow-sm fw-bold text-dark" style="letter-spacing: 1px; font-size: 0.85rem;">
+                        <i class="bi bi-building me-1"></i> DIRECCIÓN Y SISTEMA
+                    </span>
+                    <h1 class="fw-bolder mb-2 text-white" style="font-size: 2.8rem; text-shadow: 0 2px 4px rgba(0,0,0,0.2);"><i class="bi bi-bank2 me-3"></i>Perfil del Complejo Educativo</h1>
+                    <p class="mb-0 fw-bold fs-5" style="color: rgba(255,255,255,0.9);">Configura la identidad y filosofía de ambas instituciones en simultáneo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-5 animate__animated animate__fadeInUp">
+    <!-- COLUMNA: UE Libertador Bolívar -->
+    <div class="col-xl-6" id="col-perfil-lb">
+        <div class="card border-0 shadow-sm rounded-4 h-100 border-top border-primary border-5">
+            <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center rounded-top-4">
+                <h4 class="fw-bold text-primary mb-0"><i class="bi bi-building-check me-2"></i>UE Libertador Bolívar</h4>
+                <img src="assets/img/logo_lb.png" alt="Logo LB" style="height: 45px;" onerror="this.style.display='none'">
+            </div>
+            <div class="card-body p-4 bg-light">
+                
+                <!-- Identidad LB -->
+                <div class="tarjeta-modulo p-4 bg-white shadow-sm mb-4 border-top border-5 border-primary" style="border-radius: 16px;">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-bank2 text-primary me-2"></i>Identidad Institucional</h5>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="fw-bold text-muted small mb-1">Nombre Oficial <span class="text-danger">*</span></label>
+                            <input type="text" id="pe-nombre-lb" class="form-control fw-bold" placeholder="Ej: UE Libertador Bolívar">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold text-muted small mb-1">Código DEA</label>
+                            <input type="text" id="pe-dea-lb" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold text-muted small mb-1">RIF</label>
+                            <input type="text" id="pe-rif-lb" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-12">
+                            <label class="fw-bold text-muted small mb-1">Dirección Completa</label>
+                            <textarea id="pe-direccion-lb" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filosofía LB -->
+                <div class="tarjeta-modulo p-4 bg-white shadow-sm mb-4 border-top border-5 border-info" style="border-radius: 16px;">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-compass text-info me-2"></i>Filosofía de Gestión</h5>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="fw-bold text-primary small mb-1"><i class="bi bi-rocket-takeoff-fill me-1"></i>Misión</label>
+                            <textarea id="pe-mision-lb" class="form-control" rows="3" style="background: #eff6ff; border-color: #bfdbfe;"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="fw-bold text-info small mb-1"><i class="bi bi-eye-fill me-1"></i>Visión</label>
+                            <textarea id="pe-vision-lb" class="form-control" rows="3" style="background: #ecfeff; border-color: #a5f3fc;"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="fw-bold text-success small mb-1"><i class="bi bi-gem me-1"></i>Valores / Objetivo</label>
+                            <textarea id="pe-objetivo-lb" class="form-control" rows="2" style="background: #f0fdf4; border-color: #bbf7d0;"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PEIC LB -->
+                <div class="tarjeta-modulo p-4 bg-white shadow-sm border-top border-5 border-warning" style="border-radius: 16px;">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-journal-bookmark-fill text-warning me-2"></i>Proyecto Educativo (PEIC)</h5>
+                    <div class="col-12">
+                        <textarea id="pe-peic-lb" class="form-control" rows="2" style="background: #fffbeb; border-color: #fde68a;"></textarea>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUMNA: UE Santa Bárbara -->
+    <div class="col-xl-6" id="col-perfil-sb">
+        <div class="card border-0 shadow-sm rounded-4 h-100 border-top border-success border-5">
+            <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center rounded-top-4">
+                <h4 class="fw-bold text-success mb-0"><i class="bi bi-building-check me-2"></i>UE Santa Bárbara</h4>
+                <img src="assets/img/logo_sb.png" alt="Logo SB" style="height: 45px;" onerror="this.style.display='none'">
+            </div>
+            <div class="card-body p-4 bg-light">
+                
+                <!-- Identidad SB -->
+                <div class="tarjeta-modulo p-4 bg-white shadow-sm mb-4 border-top border-5 border-success" style="border-radius: 16px;">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-bank2 text-success me-2"></i>Identidad Institucional</h5>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="fw-bold text-muted small mb-1">Nombre Oficial <span class="text-danger">*</span></label>
+                            <input type="text" id="pe-nombre-sb" class="form-control fw-bold" placeholder="Ej: UE Santa Bárbara">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold text-muted small mb-1">Código DEA</label>
+                            <input type="text" id="pe-dea-sb" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold text-muted small mb-1">RIF</label>
+                            <input type="text" id="pe-rif-sb" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-12">
+                            <label class="fw-bold text-muted small mb-1">Dirección Completa</label>
+                            <textarea id="pe-direccion-sb" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filosofía SB -->
+                <div class="tarjeta-modulo p-4 bg-white shadow-sm mb-4 border-top border-5 border-info" style="border-radius: 16px;">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-compass text-info me-2"></i>Filosofía de Gestión</h5>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="fw-bold text-primary small mb-1"><i class="bi bi-rocket-takeoff-fill me-1"></i>Misión</label>
+                            <textarea id="pe-mision-sb" class="form-control" rows="3" style="background: #eff6ff; border-color: #bfdbfe;"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="fw-bold text-info small mb-1"><i class="bi bi-eye-fill me-1"></i>Visión</label>
+                            <textarea id="pe-vision-sb" class="form-control" rows="3" style="background: #ecfeff; border-color: #a5f3fc;"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="fw-bold text-success small mb-1"><i class="bi bi-gem me-1"></i>Valores / Objetivo</label>
+                            <textarea id="pe-objetivo-sb" class="form-control" rows="2" style="background: #f0fdf4; border-color: #bbf7d0;"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PEIC SB -->
+                <div class="tarjeta-modulo p-4 bg-white shadow-sm border-top border-5 border-warning" style="border-radius: 16px;">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-journal-bookmark-fill text-warning me-2"></i>Proyecto Educativo (PEIC)</h5>
+                    <div class="col-12">
+                        <textarea id="pe-peic-sb" class="form-control" rows="2" style="background: #fffbeb; border-color: #fde68a;"></textarea>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-end mb-5 pb-5">
+    <button class="btn btn-primary rounded-pill px-5 py-3 shadow-lg fs-5 w-100 w-md-auto d-inline-flex align-items-center justify-content-center hover-efecto" onclick="window.ModEscuela.guardarPerfil()">
+        <i class="bi bi-save-fill me-2"></i> Guardar Cambios del Complejo Educativo
+    </button>
+</div>
+
