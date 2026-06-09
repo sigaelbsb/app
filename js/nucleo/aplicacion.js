@@ -1355,7 +1355,7 @@ window.Aplicacion = {
             let rawId = Array.from(new Uint8Array(credential.rawId)).map(b => b.toString(16).padStart(2, '0')).join('');
             
             window.Aplicacion.mostrarCarga();
-            const { error } = await window.supabaseDB.from('usuarios').update({ credencial_biometrica: rawId }).eq('id_usuario', this.usuario.id_usuario);
+            const { error } = await window.supabaseDB.from('usuarios').update({ credencial_biometrica: rawId }).eq('id_usuario', this.usuario.id);
             window.Aplicacion.ocultarCarga();
             
             if(error) throw error;
