@@ -1345,7 +1345,7 @@ window.Aplicacion = {
                     displayName: this.usuario.nombre_completo,
                 },
                 pubKeyCredParams: [{alg: -7, type: "public-key"}, {alg: -257, type: "public-key"}],
-                authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+                authenticatorSelection: { userVerification: "preferred" },
                 timeout: 60000,
                 attestation: "none"
             };
@@ -1368,7 +1368,7 @@ window.Aplicacion = {
             console.error(e);
             window.Aplicacion.ocultarCarga();
             if (e.name !== "NotAllowedError") {
-                Swal.fire('Error', 'No se pudo configurar la biometría. Asegúrate de tener un PIN o Huella activa en tu teléfono.', 'error');
+                Swal.fire('Error FIDO2', 'Falla técnica: ' + e.name + ' - ' + e.message + '. Asegúrate de que el navegador permita Passkeys y no estés en modo Incógnito estricto.', 'error');
             }
         }
     },
