@@ -1,0 +1,71 @@
+<div class="container-fluid p-0 animate__animated animate__fadeIn">
+    <div class="rounded-4 p-4 p-md-5 mb-4 position-relative overflow-hidden shadow-sm" style="background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%);">
+        <div class="burbuja-3d burbuja-1" style="background: rgba(255,255,255,0.2);"></div>
+        <div class="burbuja-3d burbuja-2" style="background: rgba(255,255,255,0.1);"></div>
+        <div class="row align-items-center position-relative z-1">
+            <div class="col-md-auto text-center mb-3 mb-md-0">
+                <div class="rounded-circle shadow-lg d-inline-flex align-items-center justify-content-center bg-white" style="width: 100px; height: 100px;">
+                    <i class="bi bi-fingerprint text-success" style="font-size: 4rem;"></i>
+                </div>
+            </div>
+            <div class="col-md text-center text-md-start text-dark">
+                <h1 class="fw-bolder mb-1">Métodos de Acceso</h1>
+                <p class="mb-0 opacity-75 fw-bold"><i class="bi bi-shield-check me-2"></i>Configuración de inicio de sesión seguro</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-md-5">
+                    <h4 class="fw-bold text-dark mb-4 border-bottom pb-2">Acceso Rápido Biométrico (Passkeys)</h4>
+                    
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="bg-success bg-opacity-10 p-4 rounded-circle me-4">
+                            <i class="bi bi-person-bounding-box fs-1 text-success"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold text-dark mb-2">Ingresa usando tu Huella o FaceID</h5>
+                            <p class="text-muted mb-0">Reemplaza tu contraseña por el método de desbloqueo nativo de este dispositivo. Es mucho más rápido y seguro contra ataques de phishing, ya que la credencial nunca sale de tu equipo físico.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info border-0 shadow-sm rounded-3 d-flex align-items-start mb-5">
+                        <i class="bi bi-info-circle-fill fs-4 me-3 mt-1"></i>
+                        <div>
+                            <strong class="d-block mb-1">¿Cómo funciona?</strong>
+                            <span class="small">Al configurar esto, el sistema vinculará matemáticamente tu navegador actual con el lector de huellas o PIN de tu teléfono o computadora. La próxima vez que inicies sesión en este mismo equipo, solo tendrás que usar tu huella.</span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button type="button" class="btn btn-success fw-bold px-5 py-3 rounded-pill shadow-sm hover-efecto" onclick="window.Aplicacion.registrarHuella()" style="font-size: 1.1rem;">
+                            <i class="bi bi-plus-circle-fill me-2"></i> Configurar Huella en este Dispositivo
+                        </button>
+                    </div>
+
+                    <!-- Futuras implementaciones (placeholder) -->
+                    <div class="mt-5 pt-4 border-top opacity-50">
+                        <h6 class="fw-bold text-muted mb-3"><i class="bi bi-lock me-2"></i>Otros métodos de autenticación (Próximamente)</h6>
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded-3 mb-2">
+                            <div>
+                                <span class="fw-bold d-block">Aplicación de Autenticación (2FA)</span>
+                                <small>Usar Google Authenticator o Authy</small>
+                            </div>
+                            <span class="badge bg-secondary">Próximamente</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded-3">
+                            <div>
+                                <span class="fw-bold d-block">Llave de Seguridad Física (USB/NFC)</span>
+                                <small>YubiKey o similar</small>
+                            </div>
+                            <span class="badge bg-secondary">Próximamente</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

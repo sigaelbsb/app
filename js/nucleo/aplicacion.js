@@ -70,6 +70,7 @@ window.ModulosSistema = {
         icono: "bi-shield-lock", color: "#455A64", desc: "Usuarios, contraseñas y permisos del sistema.", 
         items: [
             { vista: "Mi Perfil", icono: "bi-person-badge" }, 
+            { vista: "Métodos de Acceso", icono: "bi-fingerprint" },
             { vista: "Gestión de Usuarios", icono: "bi-people" }, 
             { vista: "Roles y Privilegios", icono: "bi-key" },
             { vista: "Preguntas de Seguridad", icono: "bi-patch-question" },

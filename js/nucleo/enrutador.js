@@ -7,6 +7,7 @@ const Enrutador = {
         "Roles y Privilegios": { url: "vistas/seguridad/roles.html" },
         "Preguntas de Seguridad": { url: "vistas/seguridad/preguntas.html" },
         "Auditoría del Sistema": { url: "vistas/seguridad/auditoria.html" },
+        "Métodos de Acceso": { url: "vistas/seguridad/metodos_acceso.html" },
         "Gestión de Registros": { url: "vistas/sistema/registros.html" }, // ✨ RUTA NUEVA
         "Perfil de la Escuela": { url: "vistas/escuela/perfil.html" },
         "Espacios Escolares": { url: "vistas/escuela/espacios.html" },
