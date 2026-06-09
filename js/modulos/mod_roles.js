@@ -117,7 +117,7 @@ window.ModRoles = {
                 "Transporte Escolar": ["Tarjeta: Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Tarjeta: Visor de Recorrido"]
             },
             "Seguridad y Accesos": {
-                "Mi Perfil": [], "Gestión de Usuarios": [], "Roles y Privilegios": [], "Preguntas de Seguridad": [], "Auditoría del Sistema": []
+                "Mi Perfil": [], "Métodos de Acceso": [], "Gestión de Usuarios": [], "Roles y Privilegios": [], "Preguntas de Seguridad": [], "Auditoría del Sistema": []
             }
         };
 
