@@ -107,8 +107,13 @@ window.Aplicacion = {
 
         const guardado = localStorage.getItem('sigae_usuario'); 
         if (guardado) { 
-            this.usuario = JSON.parse(guardado); 
-            this.prepararApp(false); 
+            try {
+                this.usuario = JSON.parse(guardado); 
+                this.prepararApp(false); 
+            } catch(e) {
+                localStorage.removeItem('sigae_usuario');
+                location.reload();
+            }
         } else { 
             setTimeout(() => { 
                 document.getElementById('pantalla-carga').style.display = 'none'; 
