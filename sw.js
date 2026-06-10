@@ -3,7 +3,7 @@
  * Gestiona la instalación de la app y el caché básico.
  */
 
-const CACHE_NAME = 'sigae-cache-v3';
+const CACHE_NAME = 'sigae-cache-v4';
 
 // Archivos básicos que la app guardará en la memoria del teléfono/PC para arrancar rápido
 const urlsToCache = [
