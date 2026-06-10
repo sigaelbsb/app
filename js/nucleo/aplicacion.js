@@ -932,14 +932,32 @@ window.Aplicacion = {
         Swal.fire({ title: '¿Cerrar Sesión?', icon: 'question', showCancelButton: true, confirmButtonColor: '#FF3D00', confirmButtonText: 'Sí, salir', cancelButtonText: 'Cancelar' }).then((result) => { 
             if (result.isConfirmed) { 
                 this.auditar('Seguridad y Accesos', 'Cierre de Sesión', 'El usuario cerró sesión manualmente.');
-                localStorage.clear(); 
+                localStorage.removeItem('sigae_usuario');
+                localStorage.removeItem('sigae_ultima_vista');
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('sigae_paso_exp_')) keysToRemove.push(key);
+                }
+                keysToRemove.forEach(key => localStorage.removeItem(key));
                 location.reload(); 
             } 
         }); 
     },
     iniciarControlSesion: function() { if(!localStorage.getItem('sigae_usuario')) return; const resetearTiempo = () => { if(typeof Swal !== 'undefined' && Swal.isVisible() && Swal.getTitle().textContent === '¿Sigues ahí?') return; clearTimeout(this.temporizadorInactivo); clearTimeout(this.temporizadorCierre); this.temporizadorInactivo = setTimeout(() => { this.mostrarAdvertenciaSesion(); }, this.tiempoInactividad); }; window.addEventListener('mousemove', resetearTiempo); window.addEventListener('keypress', resetearTiempo); window.addEventListener('click', resetearTiempo); window.addEventListener('scroll', resetearTiempo); resetearTiempo(); },
     mostrarAdvertenciaSesion: function() { Swal.fire({ title: '¿Sigues ahí?', text: 'Cerraremos la sesión en 1 minuto por inactividad.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#0066FF', cancelButtonColor: '#FF3D00', confirmButtonText: 'Seguir activo', cancelButtonText: 'Cerrar sesión', allowOutsideClick: false, allowEscapeKey: false }).then((result) => { clearTimeout(this.temporizadorCierre); if (result.isConfirmed) { this.iniciarControlSesion(); } else { this.cerrarSesionSilenciosa(); } }); this.temporizadorCierre = setTimeout(() => { this.cerrarSesionSilenciosa(); }, this.tiempoAdvertencia); },
-    cerrarSesionSilenciosa: function() { if(this.radarIntervalo) clearInterval(this.radarIntervalo); localStorage.clear(); location.reload(); },
+    cerrarSesionSilenciosa: function() { 
+        if(this.radarIntervalo) clearInterval(this.radarIntervalo); 
+        localStorage.removeItem('sigae_usuario');
+        localStorage.removeItem('sigae_ultima_vista');
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('sigae_paso_exp_')) keysToRemove.push(key);
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        location.reload(); 
+    },
 
     dibujarMenuPrincipal: function() { 
         const contenedorEnlaces = document.getElementById('contenedor-enlaces'); 
