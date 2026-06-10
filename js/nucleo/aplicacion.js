@@ -1366,7 +1366,7 @@ window.Aplicacion = {
         try {
             const publicKeyCredentialCreationOptions = {
                 challenge: crypto.getRandomValues(new Uint8Array(32)),
-                rp: { name: "SIGAE Unificado", id: window.location.hostname },
+                rp: { name: "SIGAE Unificado" },
                 user: {
                     id: new TextEncoder().encode(String(this.usuario.id)),
                     name: this.usuario.cedula,
@@ -1396,7 +1396,7 @@ window.Aplicacion = {
             console.error(e);
             window.Aplicacion.ocultarCarga();
             if (e.name !== "NotAllowedError") {
-                Swal.fire('Error FIDO2', 'Falla técnica: ' + e.name + ' - ' + e.message + '. Asegúrate de que el navegador permita Passkeys y no estés en modo Incógnito estricto.', 'error');
+                Swal.fire('Error FIDO2', 'Falla técnica: ' + e.name + ' - ' + e.message + '. Asegúrate de usar localhost en lugar de 127.0.0.1 o tener HTTPS.', 'error');
             }
         }
     },
@@ -1408,7 +1408,6 @@ window.Aplicacion = {
         try {
             const publicKeyCredentialRequestOptions = {
                 challenge: crypto.getRandomValues(new Uint8Array(32)),
-                rpId: window.location.hostname,
                 userVerification: "preferred",
                 timeout: 60000
             };
