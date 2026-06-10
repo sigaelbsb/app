@@ -148,6 +148,7 @@ window.Aplicacion = {
         .then(res => res.json())
         .then(data => { try { callback(data); } catch(e) {} })
         .catch(err => { this.ocultarCarga(); if(typeof Swal !== 'undefined') Swal.fire('Error', 'Falla de conexión al servidor.', 'error'); }); 
+    },
     volverLogin: function() {
         document.getElementById('paso-clave').style.display = 'none';
         document.getElementById('paso-cedula').style.display = 'block';
