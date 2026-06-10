@@ -1373,7 +1373,11 @@ window.Aplicacion = {
                     displayName: this.usuario.nombre,
                 },
                 pubKeyCredParams: [{alg: -7, type: "public-key"}, {alg: -257, type: "public-key"}],
-                authenticatorSelection: { userVerification: "preferred" },
+                authenticatorSelection: { 
+                    userVerification: "preferred",
+                    residentKey: "required",
+                    requireResidentKey: true
+                },
                 timeout: 60000,
                 attestation: "none"
             };
