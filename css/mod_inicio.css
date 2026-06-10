@@ -16,9 +16,14 @@
 .btn-voltear { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; border-radius: 50px; padding: 6px 18px; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; pointer-events: none; }
 .flip-card:hover .btn-voltear { background: #e2e8f0; color: #1e293b; }
 
-.flip-card-back { background: #f8fafc; transform: rotateY(180deg); border-width: 2px; padding: 25px; overflow-y: auto; display: block; text-align: left; }
-.flip-card-back h5 { font-weight: bold; margin-bottom: 15px; text-align: center; border-bottom: 2px solid rgba(0,0,0,0.1); padding-bottom: 10px; }
-.flip-card-back p { font-size: 0.95rem; color: #334155; line-height: 1.5; text-align: justify; margin: 0; }
+.flip-card-back { background: #f8fafc; transform: rotateY(180deg); border-width: 2px; padding: 1.5rem; overflow-y: auto; display: block; text-align: left; }
+.flip-card-back h5 { font-weight: bold; margin-bottom: 10px; text-align: center; border-bottom: 2px solid rgba(0,0,0,0.1); padding-bottom: 8px; }
+.flip-card-back p { font-size: 0.85rem; color: #334155; line-height: 1.4; text-align: left; margin: 0; word-break: break-word; }
+
+/* Scrollbar para las tarjetas por si el texto es muy largo */
+.flip-card-back::-webkit-scrollbar { width: 5px; }
+.flip-card-back::-webkit-scrollbar-track { background: transparent; }
+.flip-card-back::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.15); border-radius: 10px; }
 
 /* Barra Inferior Organigrama */
 .barra-organigrama { background: #ffffff; border: 2px solid #e2e8f0; border-radius: 20px; padding: 20px 30px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; }
