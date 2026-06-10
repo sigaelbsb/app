@@ -104,3 +104,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Lógica para el Prompt de Instalación PWA Automático
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Verificar si el usuario ya declinó la instalación
+    if (localStorage.getItem('sigae_pwa_declined')) return;
+    
+    // Esperar unos segundos para no interrumpir la carga inicial
+    setTimeout(() => {
+        if (typeof Swal !== 'undefined' && deferredPrompt) {
+            Swal.fire({
+                title: '📲 Instalar Aplicación',
+                text: '¿Deseas instalar SIGAE en tu dispositivo? Obtendrás acceso directo y una experiencia más rápida a pantalla completa.',
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#0066FF',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="bi bi-download me-1"></i> Instalar',
+                cancelButtonText: 'Más tarde'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'dismissed') {
+                            localStorage.setItem('sigae_pwa_declined', 'true');
+                        }
+                        deferredPrompt = null;
+                    });
+                } else {
+                    localStorage.setItem('sigae_pwa_declined', 'true');
+                }
+            });
+        }
+    }, 2500);
+});
