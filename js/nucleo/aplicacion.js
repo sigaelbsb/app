@@ -132,7 +132,10 @@ window.Aplicacion = {
 
     sincronizarRelojInternet: async function() {
         try {
-            const r = await fetch('https://timeapi.io/api/Time/current/zone?timeZone=America/Caracas', { cache: 'no-store' });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+            const r = await fetch('https://timeapi.io/api/Time/current/zone?timeZone=America/Caracas', { cache: 'no-store', signal: controller.signal });
+            clearTimeout(timeoutId);
             const d = await r.json();
             const horaInternet = new Date(d.dateTime + "-04:00").getTime();
             this.diferenciaTiempoMs = horaInternet - new Date().getTime();
