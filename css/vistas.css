@@ -703,3 +703,26 @@
 .list-item-subtexto {
     font-size: 0.75rem;
 }
+
+/* --- Ajustes de Responsividad Móvil --- */
+@media (max-width: 768px) {
+    .banner-titulo-config,
+    .banner-titulo-espacios,
+    .roles-titulo-banner {
+        font-size: 1.8rem !important;
+    }
+    .banner-subtitulo-config,
+    .banner-subtitulo-espacios,
+    .roles-desc-banner {
+        font-size: 1rem !important;
+    }
+    .banner-modulo {
+        padding: 1.5rem !important;
+    }
+    .w-buscador-espacios {
+        width: 100% !important;
+    }
+    .banner-perfil h1 {
+        font-size: 1.8rem !important;
+    }
+}
