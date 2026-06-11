@@ -150,3 +150,95 @@ body.auth-body {
 .panel-notificaciones-header {
     border-radius: 16px 16px 0 0;
 }
+
+/* --- Estilos extraídos de index.html --- */
+.loader-text {
+    letter-spacing: 2px;
+}
+
+.contenedor-login-estilo {
+    display: none;
+    position: relative;
+    z-index: 1;
+    background: url('../assets/img/fondo_login.png') no-repeat center center fixed;
+    background-size: cover;
+}
+
+.logo-selector-escuela {
+    max-height: 250px;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+}
+
+.escuela-subtexto {
+    font-size: 0.95rem;
+}
+
+#vista-formulario {
+    display: none;
+}
+
+.btn-fit {
+    width: fit-content;
+}
+
+.login-form-container {
+    max-width: 380px;
+}
+
+#btn-biometrico-container {
+    display: none;
+}
+
+.btn-border-2 {
+    border-width: 2px !important;
+}
+
+#paso-clave,
+#paso-recuperacion,
+#paso-primer-ingreso,
+#paso-invitado {
+    display: none;
+}
+
+.progress-clave {
+    height: 5px;
+}
+
+.progress-bar-fuerza {
+    width: 0%;
+    transition: width 0.3s, background-color 0.3s;
+}
+
+.pi-fuerza-texto-estilo {
+    margin-top: -10px;
+    font-weight: bold;
+    font-size: 0.75rem;
+}
+
+.vista-app-estilo {
+    display: none;
+    background: #F8FAFC;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.text-anio {
+    font-size: 0.85rem;
+}
+
+.text-lapso {
+    font-size: 0.75rem;
+}
+
+#badge-notificaciones {
+    display: none;
+    width: 12px;
+    height: 12px;
+}
+
+.svg-inbox-opacity {
+    opacity: 0.5;
+}
+

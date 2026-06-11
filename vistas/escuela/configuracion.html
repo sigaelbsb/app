@@ -1,2 +1,79 @@
-<div class="row mb-4 animate__animated animate__fadeInDown">    <div class="col-12">        <div class="banner-modulo p-4 p-md-5 text-white shadow-sm" style="background: linear-gradient(135deg, #4F46E5 0%, #312E81 100%); border-radius: 24px; position: relative; overflow: hidden;">            <div class="burbuja-3d burbuja-1"></div>            <div class="burbuja-3d burbuja-2"></div>            <div class="burbuja-3d burbuja-3"></div>            <div class="row align-items-center position-relative z-1">                <div class="col-md-9 text-center text-md-start mb-3 mb-md-0">                    <span class="badge bg-white text-primary mb-3 px-3 py-2 shadow-sm fw-bold" style="letter-spacing: 1px; font-size: 0.85rem;"><i class="bi bi-sliders me-1"></i> DIRECCIÓN Y SISTEMA</span>                    <h1 class="fw-bolder mb-2 text-white" style="font-size: 2.8rem; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">Configuración Global</h1>                    <p class="mb-0 fw-bold fs-5" style="color: rgba(255,255,255,0.8);">Parámetros, años escolares y fases académicas del sistema.</p>                </div>                            </div>        </div>    </div></div><div class="row g-4 animate__animated animate__fadeIn">    <div class="col-md-4">        <div class="card border-0 shadow-sm rounded-4 h-100" style="border-top: 5px solid #4F46E5 !important;">            <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar-event-fill me-2" style="color: #4F46E5;"></i>Años Escolares</h5>                <button class="btn btn-sm text-white fw-bold shadow-sm" style="background: #4F46E5;" onclick="window.ModConfiguracion.nuevoParametro('Periodo_Escolar')">                    <i class="bi bi-plus-lg"></i>                </button>            </div>            <div class="card-body p-0">                <div class="list-group list-group-flush" id="lista-periodos">                </div>            </div>        </div>    </div>    <div class="col-md-4">        <div class="card border-0 shadow-sm rounded-4 h-100" style="border-top: 5px solid #06B6D4 !important;">            <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2" style="color: #06B6D4;"></i>Fases Académicas</h5>                <button class="btn btn-sm text-white fw-bold shadow-sm" style="background: #06B6D4;" onclick="window.ModConfiguracion.nuevoParametro('Fase_Escolar')">                    <i class="bi bi-plus-lg"></i>                </button>            </div>            <div class="card-body p-0">                <div class="list-group list-group-flush" id="lista-lapsos">                </div>            </div>        </div>    </div>    <div class="col-md-4">        <div class="card border-0 shadow-sm rounded-4 h-100" style="border-top: 5px solid #10B981 !important;">            <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-mortarboard-fill me-2" style="color: #10B981;"></i>Niveles Educativos</h5>                <button class="btn btn-sm text-white fw-bold shadow-sm" style="background: #10B981;" onclick="window.ModConfiguracion.nuevoParametro('Nivel_Educativo', false)">                    <i class="bi bi-plus-lg"></i>                </button>            </div>            <div class="card-body p-0">                <div class="list-group list-group-flush" id="lista-niveles">                </div>            </div>        </div>    </div></div>
+<div class="row mb-4 animate__animated animate__fadeInDown">
+    <div class="col-12">
+        <div class="banner-modulo banner-configuracion p-4 p-md-5 text-white shadow-sm">
+            <div class="burbuja-3d burbuja-1"></div>
+            <div class="burbuja-3d burbuja-2"></div>
+            <div class="burbuja-3d burbuja-3"></div>
+            <div class="row align-items-center position-relative z-1">
+                <div class="col-md-9 text-center text-md-start mb-3 mb-md-0">
+                    <span class="badge bg-white text-primary mb-3 px-3 py-2 shadow-sm fw-bold banner-badge-config"><i class="bi bi-sliders me-1"></i> DIRECCIÓN Y SISTEMA</span>
+                    <h1 class="fw-bolder mb-2 text-white banner-titulo-config">Configuración Global</h1>
+                    <p class="mb-0 fw-bold fs-5 banner-subtitulo-config">Parámetros, años escolares y fases académicas del sistema.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 animate__animated animate__fadeIn">
+    <!-- Años Escolares -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 card-periodos">
+            <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-calendar-event-fill me-2 color-periodos"></i>Años Escolares</h5>
+                <div class="d-flex gap-1" id="acciones-periodos">
+                    <button class="btn btn-sm btn-light border fw-bold shadow-sm" id="btn-importar-periodos" title="Importar desde CSV">
+                        <i class="bi bi-filetype-csv text-primary"></i>
+                    </button>
+                    <button class="btn btn-sm text-white fw-bold shadow-sm bg-periodos" id="btn-nuevo-periodo">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="lista-periodos"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fases Académicas (Lapsos) -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 card-lapsos">
+            <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-clock-history me-2 color-lapsos"></i>Fases Académicas</h5>
+                <div class="d-flex gap-1" id="acciones-lapsos">
+                    <button class="btn btn-sm btn-light border fw-bold shadow-sm" id="btn-importar-lapsos" title="Importar desde CSV">
+                        <i class="bi bi-filetype-csv text-info"></i>
+                    </button>
+                    <button class="btn btn-sm text-white fw-bold shadow-sm bg-lapsos" id="btn-nuevo-lapso">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="lista-lapsos"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Niveles Educativos -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 card-niveles">
+            <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-mortarboard-fill me-2 color-niveles"></i>Niveles Educativos</h5>
+                <div class="d-flex gap-1" id="acciones-niveles">
+                    <button class="btn btn-sm btn-light border fw-bold shadow-sm" id="btn-importar-niveles" title="Importar desde CSV">
+                        <i class="bi bi-filetype-csv text-success"></i>
+                    </button>
+                    <button class="btn btn-sm text-white fw-bold shadow-sm bg-niveles" id="btn-nuevo-nivel">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" id="lista-niveles"></div>
+            </div>
+        </div>
+    </div>
+</div>
 

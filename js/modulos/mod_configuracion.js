@@ -21,7 +21,53 @@ window.ModConfiguracion = {
         }
 
         this.aplicarSeguridadVisual();
+        this.aplicarEventos();
         this.cargarConfiguraciones(); 
+    },
+
+    aplicarEventos: function() {
+        const btnImpPer = document.getElementById('btn-importar-periodos');
+        if(btnImpPer) btnImpPer.onclick = () => this.abrirImportadorCSV('conf_periodos');
+
+        const btnNuePer = document.getElementById('btn-nuevo-periodo');
+        if(btnNuePer) btnNuePer.onclick = () => this.nuevoParametro('Periodo_Escolar');
+
+        const btnImpLap = document.getElementById('btn-importar-lapsos');
+        if(btnImpLap) btnImpLap.onclick = () => this.abrirImportadorCSV('conf_lapsos');
+
+        const btnNueLap = document.getElementById('btn-nuevo-lapso');
+        if(btnNueLap) btnNueLap.onclick = () => this.nuevoParametro('Fase_Escolar');
+
+        const btnImpNiv = document.getElementById('btn-importar-niveles');
+        if(btnImpNiv) btnImpNiv.onclick = () => this.abrirImportadorCSV('conf_niveles');
+
+        const btnNueNiv = document.getElementById('btn-nuevo-nivel');
+        if(btnNueNiv) btnNueNiv.onclick = () => this.nuevoParametro('Nivel_Educativo', false);
+
+        // Delegación de eventos para botones dinámicos de las listas (Editar y Eliminar)
+        const listas = ['lista-periodos', 'lista-lapsos', 'lista-niveles'];
+        listas.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.onclick = (e) => {
+                    const btn = e.target.closest('button');
+                    if(!btn) return;
+                    
+                    const idParam = btn.getAttribute('data-id');
+                    const tabla = btn.getAttribute('data-tabla');
+                    
+                    if(btn.classList.contains('btn-editar-param')) {
+                        const valor = btn.getAttribute('data-valor');
+                        const inicio = btn.getAttribute('data-inicio') === 'null' ? null : btn.getAttribute('data-inicio');
+                        const fin = btn.getAttribute('data-fin') === 'null' ? null : btn.getAttribute('data-fin');
+                        const reqFechas = btn.getAttribute('data-req-fechas') === 'true';
+                        this.editar(idParam, tabla, valor, inicio, fin, reqFechas);
+                    } else if(btn.classList.contains('btn-eliminar-param')) {
+                        this.eliminar(idParam, tabla);
+                    }
+                };
+            }
+        });
     },
 
     // ✨ 2. OCULTAMIENTO DE TARJETAS Y BOTONES (VER Y CREAR) ✨
@@ -72,7 +118,17 @@ window.ModConfiguracion = {
             if (window.Aplicacion.permiso('Tarjeta: Niveles Educativos', 'ver')) this.renderizarLista('lista-niveles', niveles, false);
         } catch (e) {
             window.Aplicacion.ocultarCarga();
-            Swal.fire("Error", "No se pudieron cargar las configuraciones.", "error");
+            console.error(e);
+            if (e.code === 'PGRST205' || (e.message && e.message.includes('Could not find the table'))) {
+                Swal.fire({
+                    title: 'Tablas de Configuración No Encontradas',
+                    html: `Las tablas de configuración (<code>conf_periodos</code>, <code>conf_lapsos</code> o <code>conf_niveles</code>) no existen en el esquema de su base de datos Supabase.<br><br>Por favor, ejecute la consulta SQL de creación provista en el <strong>Plan de Implementación</strong> desde el SQL Editor de su panel de Supabase.`,
+                    icon: 'warning',
+                    confirmButtonColor: '#4F46E5'
+                });
+            } else {
+                Swal.fire("Error", "No se pudieron cargar las configuraciones.", "error");
+            }
         }
     },
 
@@ -124,8 +180,8 @@ window.ModConfiguracion = {
             let valFin = item.fin ? `'${item.fin}'` : `null`;
             
             // ✨ 3. BLOQUEO DE BOTONES DE EDICIÓN Y ELIMINACIÓN ✨
-            let btnEditar = pCrear ? `<button class="btn btn-sm btn-light text-primary rounded-circle shadow-sm me-1" onclick="window.ModConfiguracion.editar('${item.id}', '${item.tabla}', '${item.valor}', ${valInicio}, ${valFin}, ${requiereFechas})" title="Editar"><i class="bi bi-pencil-square"></i></button>` : '';
-            let btnEliminar = pElim ? `<button class="btn btn-sm btn-light text-danger rounded-circle shadow-sm" onclick="window.ModConfiguracion.eliminar('${item.id}', '${item.tabla}')" title="Eliminar"><i class="bi bi-trash3-fill"></i></button>` : '';
+            let btnEditar = pCrear ? `<button class="btn btn-sm btn-light text-primary rounded-circle shadow-sm me-1 btn-editar-param" data-id="${item.id}" data-tabla="${item.tabla}" data-valor="${item.valor}" data-inicio="${item.inicio || null}" data-fin="${item.fin || null}" data-req-fechas="${requiereFechas}" title="Editar"><i class="bi bi-pencil-square"></i></button>` : '';
+            let btnEliminar = pElim ? `<button class="btn btn-sm btn-light text-danger rounded-circle shadow-sm btn-eliminar-param" data-id="${item.id}" data-tabla="${item.tabla}" title="Eliminar"><i class="bi bi-trash3-fill"></i></button>` : '';
 
             html += `
             <div class="list-group-item p-3 border-0 border-bottom d-flex justify-content-between align-items-center hover-efecto" style="transition: background 0.2s;">
@@ -251,13 +307,190 @@ window.ModConfiguracion = {
                     window.Aplicacion.ocultarCarga();
                     if (error) throw error;
                     
-                    // ✨ AUDITORÍA ✨
+                    // ⚙️ AUDITORÍA ⚙️
                     window.Aplicacion.auditar('Configuración del Sistema', 'Eliminar Parámetro', `Se eliminó un parámetro de configuración interno.`);
                     
                     this.cargarConfiguraciones();
                 } catch(e) { window.Aplicacion.ocultarCarga(); Swal.fire('Error', 'No se pudo eliminar.', 'error'); }
             }
         });
+    },
+
+    abrirImportadorCSV: function(tabla) {
+        let cardName = tabla === 'conf_periodos' ? 'Tarjeta: Períodos Escolares' : (tabla === 'conf_lapsos' ? 'Tarjeta: Lapsos Académicos' : 'Tarjeta: Niveles Educativos');
+        if (!window.Aplicacion.permiso(cardName, 'crear')) {
+            return Swal.fire('Acceso Denegado', 'No tienes permiso para importar registros.', 'error');
+        }
+
+        Swal.fire({
+            title: 'Carga Masiva CSV',
+            html: `
+                <div class="text-start">
+                    <p class="small text-muted mb-2">Sube un archivo <b>CSV (separado por punto y coma o comas)</b> con el formato correcto.</p>
+                    <p class="small text-muted mb-2">Columnas esperadas: <code>id_parametro</code>, <code>valor</code>, y opcionalmente <code>fecha_inicio</code>, <code>fecha_fin</code>.</p>
+                    <input type="file" id="file-csv-config" class="form-control border-primary" accept=".csv">
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-cloud-upload-fill me-1"></i> Procesar',
+            confirmButtonColor: '#4F46E5',
+            preConfirm: () => {
+                const file = document.getElementById('file-csv-config').files[0];
+                if(!file) {
+                    Swal.showValidationMessage('Debes seleccionar un archivo CSV');
+                    return false;
+                }
+                return file;
+            }
+        }).then(res => {
+            if(res.isConfirmed) this.procesarCSV(res.value, tabla);
+        });
+    },
+
+    procesarCSV: function(file, tabla) {
+        let reader = new FileReader();
+        reader.onload = async (e) => {
+            let text = e.target.result;
+            let lines = text.split(/\r?\n/);
+            let validos = [];
+            let rechazados = [];
+            let startIndex = 0;
+            
+            // Detectar encabezado
+            if(lines.length > 0 && (lines[0].toLowerCase().includes('id_parametro') || lines[0].toLowerCase().includes('valor'))) {
+                startIndex = 1;
+            }
+
+            for(let i = startIndex; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if(!line) continue;
+                let row = line.split(/[;,]/);
+                
+                if(row.length < 2) {
+                    rechazados.push({ linea: i+1, datos: line, motivo: "Columnas insuficientes (se requiere al menos id_parametro y valor)." });
+                    continue;
+                }
+
+                let id = row[0].trim();
+                let valor = row[1].trim();
+                let inicio = row.length > 2 ? row[2].trim() : null;
+                let fin = row.length > 3 ? row[3].trim() : null;
+
+                if(!id || !valor) {
+                    rechazados.push({ linea: i+1, datos: line, motivo: "id_parametro o valor están en blanco." });
+                    continue;
+                }
+
+                let registro = { id_parametro: id, valor: valor };
+                if (tabla !== 'conf_niveles') {
+                    if (inicio) registro.fecha_inicio = inicio;
+                    if (fin) registro.fecha_fin = fin;
+                }
+                validos.push(registro);
+            }
+
+            if(validos.length === 0 && rechazados.length === 0) {
+                return Swal.fire('Error', 'El archivo está vacío o el formato es incorrecto.', 'error');
+            }
+
+            window.Aplicacion.mostrarCarga();
+            let insertados = 0;
+            let actualizados = 0;
+
+            try {
+                if (validos.length > 0) {
+                    // Obtener IDs existentes para clasificar en insertar vs actualizar
+                    let idsNuevos = validos.map(v => v.id_parametro);
+                    const { data: existentes, error: queryErr } = await window.supabaseDB.from(tabla).select('id_parametro').in('id_parametro', idsNuevos);
+                    if (queryErr) throw queryErr;
+                    
+                    let idsBD = (existentes || []).map(ex => ex.id_parametro);
+                    let registrosIns = [];
+                    let registrosUpd = [];
+
+                    validos.forEach(v => {
+                        if(idsBD.includes(v.id_parametro)) {
+                            registrosUpd.push(v);
+                        } else {
+                            registrosIns.push(v);
+                        }
+                    });
+
+                    if(registrosIns.length > 0) {
+                        const { error } = await window.supabaseDB.from(tabla).insert(registrosIns);
+                        if(error) throw error;
+                        insertados = registrosIns.length;
+                    }
+
+                    if(registrosUpd.length > 0) {
+                        const { error } = await window.supabaseDB.from(tabla).upsert(registrosUpd, { onConflict: 'id_parametro' });
+                        if(error) throw error;
+                        actualizados = registrosUpd.length;
+                    }
+                }
+
+                window.Aplicacion.ocultarCarga();
+                this._rechazadosTemporales = rechazados;
+                
+                let htmlResumen = `
+                    <div class="text-start">
+                        <p class="mb-3 text-muted">Se leyeron <b>${validos.length + rechazados.length}</b> filas del archivo.</p>
+                        <div class="bg-light p-3 border rounded-3 mb-2">
+                            <p class="text-success m-0 fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Nuevos agregados: ${insertados}</p>
+                            <p class="text-info m-0 mt-2 fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Actualizados: ${actualizados}</p>
+                            <p class="text-danger m-0 mt-2 fw-bold"><i class="bi bi-x-circle-fill me-2"></i>Rechazados: ${rechazados.length}</p>
+                        </div>
+                    </div>
+                `;
+
+                let confText = '<i class="bi bi-check-lg"></i> Entendido';
+                let cancelText = '';
+                let showCancel = false;
+                
+                if (rechazados.length > 0) {
+                    showCancel = true;
+                    cancelText = '<i class="bi bi-download me-1"></i> Bajar Errores';
+                }
+
+                Swal.fire({
+                    title: 'Resumen de Carga',
+                    html: htmlResumen,
+                    icon: rechazados.length > 0 ? 'warning' : 'success',
+                    showCancelButton: showCancel,
+                    confirmButtonText: confText,
+                    cancelButtonText: cancelText,
+                    cancelButtonColor: '#dc3545',
+                    confirmButtonColor: '#4F46E5',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.dismiss === Swal.DismissReason.cancel && rechazados.length > 0) {
+                        this.descargarRechazados(tabla);
+                    }
+                });
+
+                this.cargarConfiguraciones();
+                window.Aplicacion.auditar('Configuración del Sistema', 'Carga Masiva', `Tabla: ${tabla}, Insertados: ${insertados}, Actualizados: ${actualizados}, Rechazados: ${rechazados.length}`);
+            } catch(errorDb) {
+                window.Aplicacion.ocultarCarga();
+                Swal.fire('Error en Base de Datos', 'No se pudo procesar la carga masiva. ' + errorDb.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+    },
+
+    descargarRechazados: function(tabla) {
+        if(!this._rechazadosTemporales || this._rechazadosTemporales.length === 0) return;
+        let csv = "Linea_Excel;Datos_Originales;Motivo_del_Rechazo\n";
+        this._rechazadosTemporales.forEach(r => {
+            let datosSafe = r.datos.replace(/"/g, '""');
+            let motivoSafe = r.motivo.replace(/"/g, '""');
+            csv += `${r.linea};"${datosSafe}";"${motivoSafe}"\n`;
+        });
+        const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Rechazados_${tabla}_${new Date().getTime()}.csv`;
+        link.click();
     }
 };
 

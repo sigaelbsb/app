@@ -247,6 +247,9 @@ window.Aplicacion = {
             
             this.iniciarMotorNotificaciones(); 
 
+            // Vincular eventos globales del layout
+            this.enlazarEventosApp();
+
             setTimeout(() => {
                 const btnSonido = document.getElementById('btn-toggle-sonido');
                 if(btnSonido) btnSonido.innerHTML = this.sonidoHabilitado ? '<i class="bi bi-volume-up-fill fs-5"></i>' : '<i class="bi bi-volume-mute-fill fs-5"></i>';
@@ -278,9 +281,74 @@ window.Aplicacion = {
         }
     },
 
+    enlazarEventosApp: function() {
+        const btnLogo = document.getElementById('btn-logo-nav');
+        if(btnLogo) {
+            btnLogo.onclick = () => {
+                if(typeof Enrutador !== 'undefined') Enrutador.navegar('Inicio');
+            };
+        }
+
+        const btnColapsar = document.getElementById('btn-colapsar-menu');
+        if(btnColapsar) {
+            btnColapsar.onclick = () => this.alternarMenu();
+        }
+
+        const btnMenuMovil = document.getElementById('btn-menu-movil');
+        if(btnMenuMovil) {
+            btnMenuMovil.onclick = () => this.alternarMenuMovil();
+        }
+
+        const btnDarkMode = document.getElementById('btn-dark-mode');
+        if(btnDarkMode) {
+            btnDarkMode.onclick = () => this.toggleTemaVisual();
+        }
+
+        const btnNotif = document.getElementById('campana-notificaciones');
+        if(btnNotif) {
+            btnNotif.onclick = () => this.alternarPanelNotificaciones();
+        }
+
+        const btnSonido = document.getElementById('btn-toggle-sonido');
+        if(btnSonido) {
+            btnSonido.onclick = () => this.toggleSonidoNotificaciones();
+        }
+
+        const btnMarcarLeidas = document.getElementById('btn-marcar-leidas');
+        if(btnMarcarLeidas) {
+            btnMarcarLeidas.onclick = () => this.marcarNotificacionesLeidas();
+        }
+
+        const btnCerrarSesion = document.getElementById('btn-cerrar-sesion');
+        if(btnCerrarSesion) {
+            btnCerrarSesion.onclick = () => this.cerrarSesion();
+        }
+    },
+
     permiso: function(modulo, accion = 'ver') {
         if(!this.usuario) return false; 
         if(modulo === "Mi Perfil") return true; 
+        
+        // Soporte de visualización cruzada para Espacios Escolares
+        if (modulo === "Espacios Escolares") {
+            if (this.permisosActuales && this.permisosActuales[modulo] && this.permisosActuales[modulo][accion] === true) {
+                return true;
+            }
+            if (this.rolesDelSistema) {
+                const miRol = this.rolesDelSistema.find(r => r.nombre === this.usuario.rol);
+                if (miRol && miRol.permisos) {
+                    try {
+                        const permisos = typeof miRol.permisos === 'string' ? JSON.parse(miRol.permisos) : miRol.permisos;
+                        for (let esc in permisos) {
+                            if (permisos[esc] && permisos[esc][modulo] && permisos[esc][modulo][accion] === true) {
+                                return true;
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
+            return false;
+        }
         
         if(!this.permisosActuales || !this.permisosActuales[modulo]) return false;
         return this.permisosActuales[modulo][accion] === true;
@@ -556,6 +624,16 @@ window.Aplicacion = {
             return Swal.fire('Datos Incompletos', 'Por motivos de seguridad, TODOS los campos son obligatorios para garantizar la recuperación de tu cuenta.', 'warning'); 
         }
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return Swal.fire('Correo Inválido', 'Debe ingresar una dirección de correo electrónico válida (Ej: usuario@correo.com).', 'warning');
+        }
+
+        const telRegex = /^04(12|14|16|24|26)\d{7}$/;
+        if (!telRegex.test(tel)) {
+            return Swal.fire('Teléfono Inválido', 'Debe ingresar un número de teléfono celular válido de 11 dígitos que comience con 04 (Ej: 04121234567).', 'warning');
+        }
+
         if(p1 !== p2) return Swal.fire('Error', 'Las contraseñas no coinciden.', 'error'); 
         if(preg1 === preg2) return Swal.fire('Error', 'Debe seleccionar dos preguntas de seguridad distintas.', 'error'); 
         if(!/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#.])[A-Za-z\d@$!%*?&#.]{8,}$/.test(p1)) return Swal.fire('Contraseña Débil', 'Mínimo 8 caracteres, 1 mayúscula, 1 número y 1 símbolo (@$!%*?&#.).', 'error'); 
@@ -698,19 +776,27 @@ window.Aplicacion = {
         }).then(async (result) => {
             if(result.isConfirmed) {
                 this.mostrarCarga();
-                await window.supabaseDB.from('notificaciones').insert([{
-                    titulo: 'Solicitud de Reseteo de Clave',
-                    mensaje: `El usuario con cédula ${c} olvidó sus datos y solicita reseteo de cuenta.`,
-                    tipo: 'alerta',
-                    leido: false,
-                    id_escuela: localStorage.getItem('sigae_escuela_codigo')
-                }]);
-                // También actualizar el estado del usuario para que un admin lo vea
-                await window.supabaseDB.from('usuarios').update({ estado: 'Requiere Reseteo' }).eq('cedula', String(c));
-                this.ocultarCarga();
-                Swal.fire('Solicitud Enviada', 'El administrador procesará su solicitud pronto. Por favor contacte con dirección.', 'success').then(() => {
-                    location.reload();
-                });
+                try {
+                    await window.supabaseDB.from('notificaciones').insert([{
+                        id_notificacion: "NOT-" + new Date().getTime(),
+                        titulo: 'Solicitud de Reseteo de Clave',
+                        mensaje: `El usuario con cédula ${c} olvidó sus datos y solicita reseteo de cuenta.`,
+                        tipo: 'alerta',
+                        leido: false,
+                        roles_destino: 'Administrador,Director',
+                        id_escuela: localStorage.getItem('sigae_escuela_codigo')
+                    }]);
+                    // También actualizar el estado del usuario para que un admin lo vea
+                    await window.supabaseDB.from('usuarios').update({ estado: 'Requiere Reseteo', solicito_reseteo: true }).eq('cedula', String(c));
+                    this.ocultarCarga();
+                    Swal.fire('Solicitud Enviada', 'El administrador procesará su solicitud pronto. Por favor contacte con dirección.', 'success').then(() => {
+                        location.reload();
+                    });
+                } catch(e) {
+                    this.ocultarCarga();
+                    console.error("Error al solicitar soporte:", e);
+                    Swal.fire('Error', 'No se pudo enviar la solicitud al servidor.', 'error');
+                }
             }
         });
     },
@@ -1167,17 +1253,51 @@ window.Aplicacion = {
         try {
             const { data, error } = await window.supabaseDB.from('notificaciones')
                 .select('*')
-                .eq('leida', false)
+                .eq('leido', false)
                 .gte('created_at', inicioDiaUTC) 
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
 
             let misNotificaciones = (data || []).filter(n => {
-                let paraMiRol = n.roles_destino && n.roles_destino.includes(miRol);
-                let paraMiCedula = n.usuarios_destino && n.usuarios_destino.includes(miCedula);
+                let paraMiRol = false;
+                if (n.roles_destino && miRol) {
+                    let rolesArr = n.roles_destino.split(',').map(r => r.trim().toLowerCase());
+                    paraMiRol = rolesArr.includes(miRol.toLowerCase());
+                }
+                let paraMiCedula = false;
+                if (n.usuarios_destino && miCedula) {
+                    let cedsArr = n.usuarios_destino.split(',').map(c => c.trim());
+                    paraMiCedula = cedsArr.includes(miCedula);
+                }
                 return paraMiRol || paraMiCedula;
             });
+
+            // Si soy admin o director, buscar solicitudes de reseteo activas en la tabla de usuarios (evita problemas de RLS de invitados)
+            if (miRol === 'Administrador' || miRol === 'Director') {
+                try {
+                    const { data: reseteos, error: reseteosErr } = await window.supabaseDB
+                        .from('usuarios')
+                        .select('id_usuario, cedula, nombre_completo, updated_at')
+                        .eq('solicito_reseteo', true);
+                    
+                    if (!reseteosErr && reseteos && reseteos.length > 0) {
+                        reseteos.forEach(r => {
+                            misNotificaciones.push({
+                                id_notificacion: "RESET-" + r.id_usuario,
+                                titulo: 'Solicitud de Reseteo de Cuenta',
+                                mensaje: `El usuario ${r.nombre_completo} (C.I. ${r.cedula}) olvidó sus datos y solicita reseteo de cuenta.`,
+                                tipo: 'alerta',
+                                created_at: r.updated_at || new Date().toISOString(),
+                                leida: false,
+                                leido: false
+                            });
+                        });
+                    }
+                } catch(e) {
+                    console.log("Error al escanear solicitudes de reseteo en usuarios: ", e.message);
+                }
+            }
 
             let hayNuevas = false;
             misNotificaciones.forEach(n => {
@@ -1392,9 +1512,15 @@ window.Aplicacion = {
             
             if(error) throw error;
             
+            this.usuario.credencial_biometrica = rawId;
+            localStorage.setItem('sigae_usuario', JSON.stringify(this.usuario));
             localStorage.setItem('sigae_tiene_huella', this.usuario.cedula);
             
-            Swal.fire('¡Huella Registrada!', 'La próxima vez que inicies sesión en este dispositivo, verás un botón para usar tu huella o PIN.', 'success');
+            Swal.fire('¡Huella Registrada!', 'La próxima vez que inicies sesión en este dispositivo, verás un botón para usar tu huella o PIN.', 'success').then(() => {
+                if (window.ModPerfil && typeof window.ModPerfil.cargarTodo === 'function') {
+                    window.ModPerfil.cargarTodo();
+                }
+            });
             window.Aplicacion.auditar('Seguridad', 'Registro Biométrico', 'El usuario configuró una Passkey/Huella para su cuenta.');
         } catch (e) {
             console.error(e);

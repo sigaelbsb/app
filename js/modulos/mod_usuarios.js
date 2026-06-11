@@ -102,7 +102,7 @@ window.ModUsuarios = {
                                 u.rol.toLowerCase().includes(txt);
             let coincideEscuela = true;
             if (filtroEsc !== 'TODAS') {
-                coincideEscuela = (u.escuela === filtroEsc);
+                coincideEscuela = (u.id_escuela === filtroEsc);
             }
             return coincideTexto && coincideEscuela;
         });
@@ -134,9 +134,9 @@ window.ModUsuarios = {
                 : '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger">Bloqueado</span>';
             
             let badgeEscuela = '<span class="badge bg-secondary">Sin Asignar</span>';
-            if (u.escuela === 'lb') badgeEscuela = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-building me-1"></i>LB</span>';
-            else if (u.escuela === 'sb') badgeEscuela = '<span class="badge bg-success bg-opacity-10 text-success border border-success"><i class="bi bi-building me-1"></i>SB</span>';
-            else if (u.escuela === 'ambas') badgeEscuela = '<span class="badge bg-dark bg-opacity-10 text-dark border border-dark"><i class="bi bi-buildings me-1"></i>Ambas</span>';
+            if (u.id_escuela === 'lb') badgeEscuela = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary"><i class="bi bi-building me-1"></i>LB</span>';
+            else if (u.id_escuela === 'sb') badgeEscuela = '<span class="badge bg-success bg-opacity-10 text-success border border-success"><i class="bi bi-building me-1"></i>SB</span>';
+            else if (u.id_escuela === 'ambas') badgeEscuela = '<span class="badge bg-dark bg-opacity-10 text-dark border border-dark"><i class="bi bi-buildings me-1"></i>Ambas</span>';
 
             html += `
             <tr class="align-middle hover-efecto">
@@ -204,9 +204,9 @@ window.ModUsuarios = {
                     <div class="col-6">
                         <label class="small fw-bold mb-1 text-muted">Escuela Asignada <span class="text-danger">*</span></label>
                         <select id="swal-escuela" class="swal2-input input-moderno m-0 w-100">
-                            <option value="lb" ${u && u.escuela === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
-                            <option value="sb" ${u && u.escuela === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
-                            <option value="ambas" ${u && u.escuela === 'ambas' ? 'selected' : ''}>Ambas Instituciones</option>
+                            <option value="lb" ${u && u.id_escuela === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
+                            <option value="sb" ${u && u.id_escuela === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
+                            <option value="ambas" ${u && u.id_escuela === 'ambas' ? 'selected' : ''}>Ambas Instituciones</option>
                         </select>
                     </div>
                     <div class="col-6">
@@ -214,12 +214,47 @@ window.ModUsuarios = {
                         <select id="swal-rol" class="swal2-input input-moderno m-0 w-100">${opcionesRoles}</select>
                     </div>
                 </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="small fw-bold mb-1 text-muted">Correo Electrónico</label>
+                        <input type="email" id="swal-email" class="swal2-input input-moderno m-0 w-100" placeholder="correo@ejemplo.com" value="${u && u.email ? u.email : ''}">
+                    </div>
+                    <div class="col-6">
+                        <label class="small fw-bold mb-1 text-muted">Teléfono Celular</label>
+                        <input type="text" id="swal-telefono" class="swal2-input input-moderno m-0 w-100" placeholder="04121234567" value="${u && u.telefono ? u.telefono : ''}">
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="small fw-bold mb-1 text-muted">Estado de la Cuenta <span class="text-danger">*</span></label>
+                        <select id="swal-estado" class="swal2-input input-moderno m-0 w-100">
+                            <option value="Activo" ${!u || u.estado === 'Activo' ? 'selected' : ''}>Activo</option>
+                            <option value="Bloqueado" ${u && u.estado === 'Bloqueado' ? 'selected' : ''}>Bloqueado</option>
+                            <option value="Requiere Reseteo" ${u && u.estado === 'Requiere Reseteo' ? 'selected' : ''}>Requiere Reseteo</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="small fw-bold mb-1 text-muted">Primer Ingreso (Wizard) <span class="text-danger">*</span></label>
+                        <select id="swal-primer-ingreso" class="swal2-input input-moderno m-0 w-100">
+                            <option value="true" ${!u || u.primer_ingreso === true ? 'selected' : ''}>Sí (Forzar wizard)</option>
+                            <option value="false" ${u && u.primer_ingreso === false ? 'selected' : ''}>No (Omitir wizard)</option>
+                        </select>
+                    </div>
+                </div>
                 <small class="text-muted d-block mt-2"><i class="bi bi-info-circle text-primary me-1"></i>Nota: El Cargo institucional se asigna desde el módulo de Organización Escolar.</small>
             </div>`;
         Swal.fire({ title: titulo, html: htmlForm, showCancelButton: true, confirmButtonText: txtBoton, cancelButtonText: 'Cancelar', confirmButtonColor: '#10B981', width: '600px', preConfirm: () => {
-            let cedula = document.getElementById('swal-cedula').value.trim(); let nombre = document.getElementById('swal-nombre').value.trim(); let rol = document.getElementById('swal-rol').value; let escuela = document.getElementById('swal-escuela').value;
-            if (!cedula || !nombre || !rol || !escuela) { Swal.showValidationMessage('Todos los campos son obligatorios'); return false; }
-            return { id_usuario: idEditar, cedula, nombre, rol, escuela };
+            let cedula = document.getElementById('swal-cedula').value.trim(); 
+            let nombre = document.getElementById('swal-nombre').value.trim(); 
+            let rol = document.getElementById('swal-rol').value; 
+            let id_escuela = document.getElementById('swal-escuela').value;
+            let email = document.getElementById('swal-email').value.trim() || null;
+            let telefono = document.getElementById('swal-telefono').value.trim() || null;
+            let estado = document.getElementById('swal-estado').value;
+            let primer_ingreso = document.getElementById('swal-primer-ingreso').value === 'true';
+            
+            if (!cedula || !nombre || !rol || !id_escuela || !estado) { Swal.showValidationMessage('Todos los campos obligatorios (*) no pueden estar vacíos'); return false; }
+            return { id_usuario: idEditar, cedula, nombre, rol, id_escuela, email, telefono, estado, primer_ingreso };
         }}).then((result) => { if(result.isConfirmed) this.guardarUsuario(result.value); });
     },
     nuevoUsuario: function() { this.mostrarFormulario(); },
@@ -227,13 +262,33 @@ window.ModUsuarios = {
     guardarUsuario: async function(datos) {
         window.Aplicacion.mostrarCarga();
         try {
-            const payload = { cedula: datos.cedula, nombre_completo: datos.nombre, rol: datos.rol, escuela: datos.escuela }; let errorProceso;
-            if (datos.id_usuario) { const { error } = await window.supabaseDB.from('usuarios').update(payload).eq('id_usuario', datos.id_usuario); errorProceso = error; } 
-            else { payload.clave = datos.cedula; payload.primer_ingreso = true; payload.estado = 'Activo'; payload.solicito_reseteo = false; const { error } = await window.supabaseDB.from('usuarios').insert([payload]); errorProceso = error; }
+            const payload = { 
+                cedula: datos.cedula, 
+                nombre_completo: datos.nombre, 
+                rol: datos.rol, 
+                id_escuela: datos.id_escuela,
+                email: datos.email,
+                telefono: datos.telefono,
+                estado: datos.estado,
+                primer_ingreso: datos.primer_ingreso
+            }; 
+            let errorProceso;
+            if (datos.id_usuario) { 
+                const { error } = await window.supabaseDB.from('usuarios').update(payload).eq('id_usuario', datos.id_usuario); 
+                errorProceso = error; 
+            } 
+            else { 
+                payload.clave = datos.cedula; 
+                payload.primer_ingreso = datos.primer_ingreso;
+                payload.estado = datos.estado;
+                payload.solicito_reseteo = false; 
+                const { error } = await window.supabaseDB.from('usuarios').insert([payload]); 
+                errorProceso = error; 
+            }
             window.Aplicacion.ocultarCarga();
             if (errorProceso) { if(errorProceso.code === '23505') return Swal.fire('Error', 'Esa cédula ya se encuentra registrada en el sistema.', 'error'); throw errorProceso; }
-            if (datos.id_usuario) { Swal.fire('¡Actualizado!', 'Los datos del usuario han sido actualizados.', 'success'); window.Aplicacion.auditar('Gestión de Usuarios', 'Editar Usuario', `Actualizó datos de: ${datos.cedula} (${datos.escuela})`); } 
-            else { Swal.fire('¡Usuario Creado!', `Se ha registrado a ${datos.nombre}.<br><br>Su clave temporal de acceso es: <b>${datos.cedula}</b>`, 'success'); window.Aplicacion.auditar('Gestión de Usuarios', 'Nuevo Usuario', `Creó usuario: ${datos.cedula} (${datos.escuela})`); }
+            if (datos.id_usuario) { Swal.fire('¡Actualizado!', 'Los datos del usuario han sido actualizados.', 'success'); window.Aplicacion.auditar('Gestión de Usuarios', 'Editar Usuario', `Actualizó datos de: ${datos.cedula} (${datos.id_escuela})`); } 
+            else { Swal.fire('¡Usuario Creado!', `Se ha registrado a ${datos.nombre}.<br><br>Su clave temporal de acceso es: <b>${datos.cedula}</b>`, 'success'); window.Aplicacion.auditar('Gestión de Usuarios', 'Nuevo Usuario', `Creó usuario: ${datos.cedula} (${datos.id_escuela})`); }
             this.cargarUsuarios();
         } catch (e) { window.Aplicacion.ocultarCarga(); Swal.fire('Error', 'Falla al guardar los datos en el servidor.', 'error'); }
     },
@@ -329,9 +384,9 @@ window.ModUsuarios = {
             let html = '';
             solicitudes.forEach(u => {
                 let badgeEscuela = '<span class="badge bg-secondary">Sin Asignar</span>';
-                if (u.escuela === 'lb') badgeEscuela = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary">LB</span>';
-                else if (u.escuela === 'sb') badgeEscuela = '<span class="badge bg-success bg-opacity-10 text-success border border-success">SB</span>';
-                else if (u.escuela === 'ambas') badgeEscuela = '<span class="badge bg-dark bg-opacity-10 text-dark border border-dark">Ambas</span>';
+                if (u.id_escuela === 'lb') badgeEscuela = '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary">LB</span>';
+                else if (u.id_escuela === 'sb') badgeEscuela = '<span class="badge bg-success bg-opacity-10 text-success border border-success">SB</span>';
+                else if (u.id_escuela === 'ambas') badgeEscuela = '<span class="badge bg-dark bg-opacity-10 text-dark border border-dark">Ambas</span>';
 
                 html += `
                 <tr class="align-middle">
@@ -379,6 +434,7 @@ window.ModUsuarios = {
                         preguntas_seguridad: null,
                         intentos_fallidos: 0,
                         bloqueo_hasta: null,
+                        estado: 'Activo',
                         primer_ingreso: true, // Forzamos el wizard
                         solicito_reseteo: false // Quitamos la bandera
                     };

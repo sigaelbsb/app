@@ -18,7 +18,10 @@ window.ModPerfil = {
         if(chkClave) {
             chkClave.onchange = () => {
                 const blk = document.getElementById('bloque-claves');
-                if(blk) blk.style.display = chkClave.checked ? 'flex' : 'none';
+                if(blk) {
+                    blk.classList.toggle('d-none', !chkClave.checked);
+                    blk.classList.toggle('d-flex', chkClave.checked);
+                }
             };
         }
         
@@ -27,7 +30,32 @@ window.ModPerfil = {
         if(chkPreguntas) {
             chkPreguntas.onchange = () => {
                 const blk = document.getElementById('bloque-preguntas');
-                if(blk) blk.style.display = chkPreguntas.checked ? 'flex' : 'none';
+                if(blk) {
+                    blk.classList.toggle('d-none', !chkPreguntas.checked);
+                    blk.classList.toggle('d-flex', chkPreguntas.checked);
+                }
+            };
+        }
+
+        // Manejador de visibilidad para Biometría
+        const chkBiometrico = document.getElementById('check-biometrico');
+        if(chkBiometrico) {
+            chkBiometrico.onchange = () => {
+                const blk = document.getElementById('bloque-biometrico');
+                if(blk) {
+                    blk.classList.toggle('d-none', !chkBiometrico.checked);
+                    blk.classList.toggle('d-flex', chkBiometrico.checked);
+                }
+            };
+        }
+
+        // Botón de configurar biometría
+        const btnBiometrico = document.getElementById('btn-configurar-biometria');
+        if(btnBiometrico) {
+            btnBiometrico.onclick = () => {
+                if(window.Aplicacion && typeof window.Aplicacion.registrarHuella === 'function') {
+                    window.Aplicacion.registrarHuella();
+                }
             };
         }
 
@@ -150,13 +178,35 @@ window.ModPerfil = {
                 user.pregJSON = pregJSON; // Inyectado para calcularTermometro
                 this.calcularTermometro(user);
 
+                // Estado biométrico
+                const statusTxt = document.getElementById('txt-biometrico-status');
+                const btnBiom = document.getElementById('btn-configurar-biometria');
+                const hasBiometric = user.credencial_biometrica && user.credencial_biometrica.trim().length > 0;
+                
+                if (statusTxt) {
+                    if (hasBiometric) {
+                        statusTxt.innerHTML = '<strong>¡Configurado!</strong> Credencial registrada en el sistema.';
+                        statusTxt.className = 'small text-success';
+                    } else {
+                        statusTxt.innerText = 'No configurado en este perfil.';
+                        statusTxt.className = 'small text-muted';
+                    }
+                }
+                
+                if (btnBiom) {
+                    btnBiom.innerHTML = hasBiometric ? '<i class="bi bi-arrow-repeat me-2"></i>Actualizar Huella' : '<i class="bi bi-plus-circle-fill me-2"></i>Registrar Huella';
+                }
+
                 // Ocultar características de seguridad para Invitados
                 if (user.rol === 'Invitado' || user.rol === 'Visitante') {
                     const chkClave = document.getElementById('check-clave');
-                    if (chkClave && chkClave.parentElement) chkClave.parentElement.style.display = 'none';
+                    if (chkClave && chkClave.parentElement) chkClave.parentElement.classList.add('d-none');
                     
                     const chkPreg = document.getElementById('check-preguntas');
-                    if (chkPreg && chkPreg.parentElement) chkPreg.parentElement.style.display = 'none';
+                    if (chkPreg && chkPreg.parentElement) chkPreg.parentElement.classList.add('d-none');
+
+                    const chkBiom = document.getElementById('check-biometrico');
+                    if (chkBiom && chkBiom.parentElement) chkBiom.parentElement.classList.add('d-none');
                     
                     // Ocultar encabezado "Seguridad"
                     const formRow = document.querySelector('#form-mi-perfil .row.g-4');
@@ -164,7 +214,7 @@ window.ModPerfil = {
                         const h5s = formRow.querySelectorAll('h5');
                         h5s.forEach(h => { 
                             if(h.innerText.includes('Seguridad') && h.parentElement) {
-                                h.parentElement.style.display = 'none'; 
+                                h.parentElement.classList.add('d-none'); 
                             }
                         });
                     }
@@ -203,14 +253,14 @@ window.ModPerfil = {
             setCheck('icon-chk-telefono', user.telefono && user.telefono.trim().length > 0, 50);
             
             // Ocultar de la lista los que no aplican
-            ['icon-chk-clave', 'icon-chk-preg1', 'icon-chk-preg2'].forEach(id => {
+            ['icon-chk-clave', 'icon-chk-preg1', 'icon-chk-preg2', 'icon-chk-biometrico'].forEach(id => {
                 const el = document.getElementById(id);
-                if(el && el.closest('.list-group-item')) el.closest('.list-group-item').style.display = 'none';
+                if(el && el.closest('.list-group-item')) el.closest('.list-group-item').classList.add('d-none');
             });
         } else {
-            // Usuarios Regulares: 20% cada uno (5 items)
-            setCheck('icon-chk-email', user.email && user.email.trim().length > 0, 20);
-            setCheck('icon-chk-telefono', user.telefono && user.telefono.trim().length > 0, 20);
+            // Usuarios Regulares: 6 items (email/phone/preguntas = 15% cada uno; clave/biometría = 20% cada uno)
+            setCheck('icon-chk-email', user.email && user.email.trim().length > 0, 15);
+            setCheck('icon-chk-telefono', user.telefono && user.telefono.trim().length > 0, 15);
             
             let claveVigente = false;
             if(user.fecha_ult_clave) {
@@ -218,8 +268,18 @@ window.ModPerfil = {
                 if(diffDias < 30) claveVigente = true;
             }
             setCheck('icon-chk-clave', claveVigente, 20);
-            setCheck('icon-chk-preg1', user.pregJSON && user.pregJSON.pregunta_1 && user.pregJSON.respuesta_1, 20);
-            setCheck('icon-chk-preg2', user.pregJSON && user.pregJSON.pregunta_2 && user.pregJSON.respuesta_2, 20);
+            setCheck('icon-chk-preg1', user.pregJSON && user.pregJSON.pregunta_1 && user.pregJSON.respuesta_1, 15);
+            setCheck('icon-chk-preg2', user.pregJSON && user.pregJSON.pregunta_2 && user.pregJSON.respuesta_2, 15);
+            
+            let biometriaConfigurada = user.credencial_biometrica && user.credencial_biometrica.trim().length > 0;
+            setCheck('icon-chk-biometrico', biometriaConfigurada, 20);
+
+            // Asegurar que el ítem de biometría sea visible
+            const elBiom = document.getElementById('icon-chk-biometrico');
+            if(elBiom && elBiom.closest('.list-group-item')) {
+                elBiom.closest('.list-group-item').classList.remove('d-none');
+                elBiom.closest('.list-group-item').classList.add('d-flex');
+            }
         }
 
         // Actualizar UI del Termómetro Circular
