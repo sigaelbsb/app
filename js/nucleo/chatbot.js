@@ -306,7 +306,7 @@ window.Sigma = {
         }
 
         this.setThinking(true);
-        this.mostrarMensaje("<div class="text-center"><span class="spinner-border spinner-border-sm text-primary"></span> <i>Procesando en la red neuronal...</i></div>");
+        this.mostrarMensaje("<div class='text-center'><span class='spinner-border spinner-border-sm text-primary'></span> <i>Procesando en la red neuronal...</i></div>");
 
         try {
             const systemPrompt = `Eres Sigma, un orbe holográfico abstracto y minimalista que actúa como la IA central del sistema escolar SIGAE. 
