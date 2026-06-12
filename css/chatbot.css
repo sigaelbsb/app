@@ -116,27 +116,28 @@
 }
 
 /* ==========================================================
-   BURBUJA DE DIÁLOGO (ESTILO CLÁSICO OFFICE 97)
+   BURBUJA DE DIÁLOGO (ESTILO MODERNO SIGAE)
 ============================================================= */
 .sigma-speech-bubble {
     position: absolute;
-    background: #ffffcc; /* Amarillo pálido clásico */
-    border: 1.5px solid #000000;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 102, 255, 0.2);
+    border-radius: 16px;
     padding: 15px 20px;
     width: max-content;
     max-width: 320px;
-    box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.15); /* Sombra dura retro */
-    color: #000000;
-    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+    box-shadow: 0 10px 25px rgba(0, 30, 80, 0.15);
+    color: #1e293b;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
     font-size: 0.9rem;
-    line-height: 1.4;
+    line-height: 1.5;
     opacity: 0;
     visibility: hidden;
     transform: scale(0.8) translateY(20px);
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     z-index: 1;
-    cursor: default;
     
     /* Posición por defecto */
     bottom: 100px;
@@ -149,18 +150,7 @@
     transform: scale(1) translateY(0);
 }
 
-/* Triángulo de la burbuja (Borde negro) */
-.sigma-speech-bubble::before {
-    content: '';
-    position: absolute;
-    bottom: -13px;
-    right: 43px;
-    border-width: 12px 12px 0;
-    border-style: solid;
-    border-color: #000000 transparent transparent transparent;
-}
-
-/* Triángulo de la burbuja (Fondo amarillo) */
+/* Triángulo de la burbuja */
 .sigma-speech-bubble::after {
     content: '';
     position: absolute;
@@ -168,7 +158,8 @@
     right: 45px;
     border-width: 10px 10px 0;
     border-style: solid;
-    border-color: #ffffcc transparent transparent transparent;
+    border-color: rgba(255, 255, 255, 0.95) transparent transparent transparent;
+    filter: drop-shadow(0 3px 2px rgba(0, 102, 255, 0.1));
 }
 
 /* Header de la burbuja */
@@ -176,25 +167,28 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px dashed #000000;
-    padding-bottom: 5px;
-    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(0, 102, 255, 0.15);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 .sigma-bubble-title {
     font-weight: bold;
-    color: #000000;
+    color: #0066FF;
     font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .sigma-bubble-close {
     background: transparent;
     border: none;
-    color: #000000;
+    color: #94a3b8;
     cursor: pointer;
     font-size: 1.2rem;
     line-height: 1;
-    font-weight: bold;
+    transition: color 0.2s;
 }
 
 .sigma-bubble-close:hover {
@@ -209,6 +203,10 @@
     padding-right: 5px;
 }
 
+.sigma-bubble-content::-webkit-scrollbar { width: 5px; }
+.sigma-bubble-content::-webkit-scrollbar-track { background: transparent; }
+.sigma-bubble-content::-webkit-scrollbar-thumb { background: rgba(0,102,255,0.2); border-radius: 10px; }
+
 /* Entrada de texto Gemini */
 .sigma-input-group {
     display: flex;
@@ -218,35 +216,39 @@
 
 .sigma-input {
     flex: 1;
-    border: 1px solid #000000;
-    border-radius: 4px;
-    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 50px;
+    padding: 8px 15px;
     font-size: 0.85rem;
-    background: #ffffff;
+    background: #f8fafc;
     outline: none;
-    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+    transition: all 0.2s;
 }
 
 .sigma-input:focus {
-    box-shadow: inset 0 0 0 1px #000000;
+    background: #ffffff;
+    border-color: #0066FF;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
 }
 
 .sigma-btn-send {
-    background: #e5e5e5;
-    color: #000000;
-    border: 1px solid #000000;
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
+    background: #0066FF;
+    color: #ffffff;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    box-shadow: 1px 1px 0px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 10px rgba(0, 102, 255, 0.2);
+    transition: all 0.2s;
 }
 
 .sigma-btn-send:hover {
-    background: #d4d4d4;
+    background: #0052cc;
+    transform: scale(1.05);
 }
 
 /* ==========================================================

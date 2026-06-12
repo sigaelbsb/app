@@ -66,9 +66,18 @@ window.Sigma = {
     },
 
     inyectarHTML: function() {
-        // Recuperar posición guardada o usar por defecto
-        let posX = localStorage.getItem('sigma_pos_x') || (window.innerWidth - 120) + 'px';
-        let posY = localStorage.getItem('sigma_pos_y') || (window.innerHeight - 120) + 'px';
+        // Recuperar posición guardada o usar por defecto, asegurando que no se salga de la pantalla
+        let savedX = parseInt(localStorage.getItem('sigma_pos_x'));
+        let savedY = parseInt(localStorage.getItem('sigma_pos_y'));
+        
+        let maxX = window.innerWidth - 100;
+        let maxY = window.innerHeight - 100;
+        
+        if (isNaN(savedX) || savedX < 0 || savedX > maxX) savedX = maxX - 20;
+        if (isNaN(savedY) || savedY < 0 || savedY > maxY) savedY = maxY - 20;
+
+        let posX = savedX + 'px';
+        let posY = savedY + 'px';
 
         const container = document.createElement('div');
         container.id = 'sigma-container';
