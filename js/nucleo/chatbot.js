@@ -410,20 +410,18 @@ window.Sigma = {
             const resultados = this.fuseInstance.search(query);
 
             if (resultados.length > 0) {
-                // Tomamos el mejor match
-                const mejorCoincidencia = resultados[0].item;
-                const score = resultados[0].score;
-
-                // Si hay más de un resultado y los scores son similares (ambigüedad), podríamos mostrar opciones.
-                // Por ahora ejecutamos el mejor directamente para mayor velocidad.
-                this.ejecutarRespuesta(mejorCoincidencia);
+                // Tomamos los 3 mejores matches
+                const topMatches = resultados.slice(0, 3).map(r => r.item);
+                this.ejecutarRespuesta(topMatches);
             } else {
                 this.mostrarMensaje("Lo siento, no entendí eso. ¿Podrías intentar usar otras palabras? (ej: 'inscribir alumno', 'cargar notas', 'asistencia')");
             }
         }, 500);
     },
 
-    ejecutarRespuesta: function(item) {
+    ejecutarRespuesta: function(items) {
+        if (!Array.isArray(items)) items = [items];
+        const item = items[0];
         let htmlRespuesta = item.respuesta;
         
         // Inyectar el nombre del usuario si existe la variable {nombre}
@@ -440,16 +438,33 @@ window.Sigma = {
 
         // Validar si la respuesta tiene una acción de navegación o interfaz
         if (item.accion_tipo === 'navegar' && item.accion_valor) {
-            // Se le dice al enrutador que cambie la vista automáticamente
             const vista = item.accion_valor.replace('#', '');
-            if (window.Enrutador && window.Enrutador.cargarVista) {
-                window.location.hash = vista;
-            }
+            htmlRespuesta += `<div class="mt-3 text-center">
+                <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="window.location.hash = '${vista}'; document.getElementById('sigma-speech-bubble').classList.remove('active');">
+                    <i class="bi bi-link me-1"></i> Ir a ${item.tema}
+                </button>
+            </div>`;
         } else if (item.accion_tipo === 'abrir_modal' && item.accion_valor) {
-            const modalEl = document.getElementById(item.accion_valor);
-            if (modalEl) {
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
+            htmlRespuesta += `<div class="mt-3 text-center">
+                <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="const mEl = document.getElementById('${item.accion_valor}'); if(mEl){ new bootstrap.Modal(mEl).show(); } document.getElementById('sigma-speech-bubble').classList.remove('active');">
+                    <i class="bi bi-window me-1"></i> Abrir ${item.tema}
+                </button>
+            </div>`;
+        }
+
+        if (items.length > 1) {
+            htmlRespuesta += `<hr class="my-2 border-secondary"><div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>¿O te referías a...?</div>`;
+            for (let i = 1; i < items.length; i++) {
+                let alt = items[i];
+                if (alt.accion_tipo === 'navegar' && alt.accion_valor) {
+                    let vista = alt.accion_valor.replace('#', '');
+                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="window.location.hash = '${vista}'; document.getElementById('sigma-speech-bubble').classList.remove('active');"><i class="bi bi-link me-1"></i> ${alt.tema}</button>`;
+                } else if (alt.accion_tipo === 'abrir_modal' && alt.accion_valor) {
+                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="const mEl = document.getElementById('${alt.accion_valor}'); if(mEl){ new bootstrap.Modal(mEl).show(); } document.getElementById('sigma-speech-bubble').classList.remove('active');"><i class="bi bi-window me-1"></i> ${alt.tema}</button>`;
+                } else {
+                    // Si solo es texto, recargamos la respuesta con ese item
+                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="const itemsCopia = window.Sigma.conocimientoCache.filter(c => c.id === '${alt.id}'); if(itemsCopia.length > 0) window.Sigma.ejecutarRespuesta(itemsCopia);"><i class="bi bi-chat-dots me-1"></i> ${alt.tema}</button>`;
+                }
             }
         }
 
