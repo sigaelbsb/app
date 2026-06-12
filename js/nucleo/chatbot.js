@@ -95,7 +95,10 @@ window.Sigma = {
         `;
     },
 
-    init: function() {
+    conocimientoCache: [],
+    fuseInstance: null,
+
+    init: async function() {
         if (document.getElementById('sigma-container')) return;
         
         this.inyectarHTML();
@@ -104,6 +107,39 @@ window.Sigma = {
         
         console.log("🌌 Sigma IA inicializada.");
         this.saludar();
+        await this.cargarConocimiento();
+    },
+
+    cargarConocimiento: async function() {
+        try {
+            if (!window.supabaseClient) {
+                console.warn("Supabase no inicializado. Sigma operará en modo offline.");
+                return;
+            }
+            const { data, error } = await window.supabaseClient
+                .from('sigma_conocimiento')
+                .select('*');
+                
+            if (error) throw error;
+            if (data) {
+                this.conocimientoCache = data;
+                
+                // Configurar Fuse.js para búsqueda difusa
+                const opcionesFuse = {
+                    includeScore: true,
+                    threshold: 0.4, // Tolerancia a errores (0 es exacto, 1 es muy suelto)
+                    keys: [
+                        { name: 'palabras_clave', weight: 0.7 },
+                        { name: 'tema', weight: 0.3 }
+                    ]
+                };
+                // El Fuse busca dentro del array de palabras clave
+                this.fuseInstance = new Fuse(this.conocimientoCache, opcionesFuse);
+                console.log("🧠 Conocimiento de Sigma cargado:", data.length, "temas.");
+            }
+        } catch (e) {
+            console.error("Error cargando conocimiento de Sigma:", e);
+        }
     },
 
     inyectarHTML: function() {
@@ -251,9 +287,9 @@ window.Sigma = {
         // ==========================================
         btnClose.onclick = () => this.toggleBurbuja(false);
 
-        btnSend.onclick = () => this.procesarPreguntaGemini();
+        btnSend.onclick = () => this.procesarPreguntaUsuario();
         input.onkeypress = (e) => {
-            if (e.key === 'Enter') this.procesarPreguntaGemini();
+            if (e.key === 'Enter') this.procesarPreguntaUsuario();
         };
     },
 
@@ -337,91 +373,62 @@ window.Sigma = {
     },
 
     // ==========================================================
-    // NÚCLEO DE INTELIGENCIA ARTIFICIAL (GEMINI API)
+    // NÚCLEO DE ASISTENTE DE ACCIÓN (SUPABASE + FUSE.JS)
     // ==========================================================
-    procesarPreguntaGemini: async function() {
+    procesarPreguntaUsuario: function(textoManual = null) {
         const input = document.getElementById('sigma-input');
-        const query = input.value.trim();
+        const query = textoManual !== null ? textoManual : input.value.trim();
         if (!query) return;
 
         input.value = '';
-        
-        const apiKey = localStorage.getItem('sigae_gemini_api_key');
-        if (!apiKey) {
-            this.mostrarMensaje(`
-                <strong class="d-block mb-1 text-danger">⚠️ Requiere Configuración API</strong>
-                <p class="small text-muted mb-2">Para que pueda usar mi motor cognitivo avanzado, necesito que ingreses tu clave de Google Gemini API.</p>
-                <div class="d-flex gap-2">
-                    <input type="password" id="sigma-api-key" class="form-control form-control-sm rounded-pill" placeholder="AIzaSy...">
-                    <button class="btn btn-sm btn-primary rounded-pill fw-bold" id="btn-save-sigma-key">Conectar</button>
-                </div>
-            `);
-            
-            setTimeout(() => {
-                const btn = document.getElementById('btn-save-sigma-key');
-                const inp = document.getElementById('sigma-api-key');
-                if (btn && inp) {
-                    btn.onclick = () => {
-                        const val = inp.value.trim();
-                        if(val) {
-                            localStorage.setItem('sigae_gemini_api_key', val);
-                            this.mostrarMensaje("✨ ¡Conexión neuronal establecida! Ya puedes preguntarme lo que sea.");
-                        }
-                    };
-                }
-            }, 100);
-            return;
-        }
-
         this.setThinking(true);
-        this.mostrarMensaje("<div class='text-center'><span class='spinner-border spinner-border-sm text-primary'></span> <i>Procesando en la red neuronal...</i></div>");
-
-        try {
-            const systemPrompt = `Eres Sigma, un orbe holográfico abstracto y minimalista que actúa como la IA central del sistema escolar SIGAE. 
-Tu personalidad es profesional, muy analítica, concisa, y elegante, parecida a un asistente virtual futurista de alta tecnología. 
-Estás integrado directamente en la pantalla de los usuarios como un asistente que flota.
-Responde estrictamente a las preguntas relacionadas con la gestión escolar y el uso del sistema SIGAE (matrículas, roles, aulas, importaciones). No uses párrafos largos; utiliza listas viñetadas y formato limpio.
-Responde siempre en español.`;
-
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: query }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] }
-                })
-            });
-
+        this.mostrarMensaje("<div class='text-center'><span class='spinner-border spinner-border-sm text-primary'></span> <i>Analizando solicitud...</i></div>");
+        
+        // Simular un pequeño tiempo de "pensamiento" para interactividad
+        setTimeout(() => {
             this.setThinking(false);
-
-            if (!response.ok) {
-                const errData = await response.json();
-                if (response.status === 400 || response.status === 403) {
-                    this.mostrarMensaje("Mi núcleo lógico detectó que la clave API ha caducado o es inválida. Por favor, revísala.");
-                    localStorage.removeItem('sigae_gemini_api_key');
-                } else {
-                    throw new Error(errData.error?.message || "Falla de conectividad");
-                }
+            
+            if (!this.fuseInstance) {
+                this.mostrarMensaje("Actualmente estoy desconectado de la base de datos central. No puedo procesar tu solicitud.");
                 return;
             }
 
-            const data = await response.json();
-            const answer = data.candidates[0].content.parts[0].text;
-            
-            // Formatear markdown básico a HTML
-            const htmlAnswer = answer
-                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-                .replace(/\*(.*?)\*/g, '<i>$1</i>')
-                .replace(/\n/g, '<br>');
-                
-            this.mostrarMensaje(htmlAnswer);
+            const resultados = this.fuseInstance.search(query);
 
-        } catch (e) {
-            this.setThinking(false);
-            console.error("Sigma Error:", e);
-            this.mostrarMensaje("Hubo un error de conectividad en mis sensores. Por favor, intenta de nuevo en unos segundos.");
+            if (resultados.length > 0) {
+                // Tomamos el mejor match
+                const mejorCoincidencia = resultados[0].item;
+                const score = resultados[0].score;
+
+                // Si hay más de un resultado y los scores son similares (ambigüedad), podríamos mostrar opciones.
+                // Por ahora ejecutamos el mejor directamente para mayor velocidad.
+                this.ejecutarRespuesta(mejorCoincidencia);
+            } else {
+                this.mostrarMensaje("Lo siento, no entendí eso. ¿Podrías intentar usar otras palabras? (ej: 'inscribir alumno', 'cargar notas', 'asistencia')");
+            }
+        }, 500);
+    },
+
+    ejecutarRespuesta: function(item) {
+        let htmlRespuesta = item.respuesta;
+
+        // Validar si la respuesta tiene una acción de navegación o interfaz
+        if (item.accion_tipo === 'navegar' && item.accion_valor) {
+            // Se le dice al enrutador que cambie la vista automáticamente
+            const vista = item.accion_valor.replace('#', '');
+            if (window.Enrutador && window.Enrutador.cargarVista) {
+                window.location.hash = vista;
+            }
+        } else if (item.accion_tipo === 'abrir_modal' && item.accion_valor) {
+            const modalEl = document.getElementById(item.accion_valor);
+            if (modalEl) {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
         }
+
+        // Mostrar la respuesta en texto
+        this.mostrarMensaje(htmlRespuesta, false);
     }
 };
 
