@@ -89,6 +89,7 @@ window.ModRoles = {
                 "Espacios Escolares": [],
                 "Gestión de Registros": [],
                 "Configuración del Sistema": ["Tarjeta: Períodos Escolares", "Tarjeta: Lapsos Académicos", "Tarjeta: Niveles Educativos"],
+                "Cerebro de Sigma": [],
                 "Calendario Escolar": ["Tarjeta: Calendario Oficial MPPE", "Tarjeta: Calendario Administrativo", "Tarjeta: Calendario Pedagógico", "Tarjeta: Planificador"],
                 "Panel de Control": [] 
             },
