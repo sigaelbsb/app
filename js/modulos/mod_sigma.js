@@ -116,7 +116,8 @@ window.ModSigma = {
         document.getElementById('sigma-roles').value = '';
         document.getElementById('modalSigmaTitle').innerHTML = '<i class="bi bi-robot text-primary me-2"></i>Enseñar a Sigma';
         
-        const modal = new bootstrap.Modal(document.getElementById('modalSigma'));
+        let modalEl = document.getElementById('modalSigma');
+        let modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
         modal.show();
     },
 
@@ -133,7 +134,8 @@ window.ModSigma = {
         document.getElementById('sigma-roles').value = (item.roles_permitidos || []).join(', ');
         document.getElementById('modalSigmaTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i>Editar Conocimiento';
 
-        const modal = new bootstrap.Modal(document.getElementById('modalSigma'));
+        let modalEl = document.getElementById('modalSigma');
+        let modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
         modal.show();
     },
 
@@ -181,7 +183,18 @@ window.ModSigma = {
                 window.Aplicacion.auditar('Cerebro de Sigma', 'Nuevo Conocimiento', `Tema: ${tema}`);
             }
 
-            bootstrap.Modal.getInstance(document.getElementById('modalSigma')).hide();
+            let modalEl = document.getElementById('modalSigma');
+            let modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) {
+                modal.hide();
+            } else {
+                // Fallback de limpieza manual si Bootstrap falla
+                modalEl.classList.remove('show');
+                modalEl.style.display = 'none';
+                document.body.classList.remove('modal-open');
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            }
+
             Swal.fire({toast: true, position: 'top-end', icon: 'success', title: 'Conocimiento guardado', showConfirmButton: false, timer: 1500});
             
             this.cargarDatos();
