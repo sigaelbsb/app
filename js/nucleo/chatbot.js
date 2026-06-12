@@ -12,7 +12,7 @@ window.Sigma = {
     // Generador del SVG del Personaje Sigma (Escolar + Clippy)
     obtenerSvgSigma: function() {
         return `
-            <svg viewBox="-10 -20 120 120" class="sigma-svg">
+            <svg viewBox="-10 -30 120 130" class="sigma-svg">
                 <defs>
                     <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stop-color="#e2e8f0" />
@@ -38,6 +38,19 @@ window.Sigma = {
                           stroke-width="12" 
                           stroke-linecap="round" 
                           stroke-linejoin="round" />
+                    
+                    <!-- Elemento Escolar: Birrete de Graduación (Tamaño Grande y Centrado) -->
+                    <g class="sigma-grad-cap">
+                        <!-- Copa del sombrero -->
+                        <path d="M 40 -6 L 40 4 Q 55 10 70 4 L 70 -6 Z" fill="#0f172a" />
+                        <!-- Tapa plana (Rombo) -->
+                        <polygon points="55,-22 15,-6 55,10 95,-6" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+                        <!-- Botón central -->
+                        <circle cx="55" cy="-6" r="4" fill="#f59e0b" />
+                        <!-- Borla cayendo a la derecha -->
+                        <path d="M 55 -6 L 85 4 L 88 18" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="88" cy="21" r="3.5" fill="#f59e0b" />
+                    </g>
                     
                     <!-- Ojos Grandes (Movidos hacia arriba) -->
                     <g class="sigma-eyes-group">
@@ -65,19 +78,6 @@ window.Sigma = {
                             <circle cx="45" cy="29" r="5" fill="#0f172a" />
                             <circle cx="63" cy="29" r="5" fill="#0f172a" />
                         </g>
-                    </g>
-
-                    <!-- Elemento Escolar: Birrete de Graduación -->
-                    <g class="sigma-grad-cap" transform="translate(14, -20) scale(0.95)">
-                        <!-- Copa del sombrero -->
-                        <path d="M 50 20 L 50 28 Q 60 33 70 28 L 70 20 Z" fill="#0f172a" />
-                        <!-- Tapa plana (Rombo) -->
-                        <polygon points="60,10 35,20 60,30 85,20" fill="#1e293b" stroke="#334155" stroke-width="1" />
-                        <!-- Botón central -->
-                        <circle cx="60" cy="20" r="3" fill="#f59e0b" />
-                        <!-- Borla cayendo a la derecha -->
-                        <path d="M 60 20 L 78 28 L 80 36" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-                        <circle cx="80" cy="38" r="2.5" fill="#f59e0b" />
                     </g>
 
                     <!-- Cejas Expresivas (Ajustadas arriba de los ojos y lentes) -->
