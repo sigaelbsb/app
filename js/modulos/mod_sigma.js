@@ -4,6 +4,8 @@
  */
 window.ModSigma = {
     datosCache: [],
+    pendientesCache: [],
+    pendienteActivoId: null,
 
     init: function() {
         if (!window.Aplicacion.permiso('Cerebro de Sigma', 'ver')) {
@@ -54,11 +56,41 @@ window.ModSigma = {
                 .select('*')
                 .order('creado_en', { ascending: false });
 
-            window.Aplicacion.ocultarCarga();
             if (error) throw error;
             
             this.datosCache = data || [];
             this.renderizarTabla(this.datosCache);
+
+            // Cargar pendientes
+            const { data: dataPendientes, error: errorPendientes } = await window.supabaseDB
+                .from('sigma_preguntas_pendientes')
+                .select('*')
+                .eq('estado', 'pendiente')
+                .order('fecha', { ascending: false });
+
+            if (errorPendientes) {
+                console.warn("No se pudo cargar sigma_preguntas_pendientes (quizás la tabla no existe aún)");
+                const tbody = document.getElementById('tabla-pendientes');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle fs-2 d-block mb-2"></i>Error: La tabla <b>sigma_preguntas_pendientes</b> no existe en la base de datos.<br>Por favor, ejecuta el script SQL de creación de la tabla.</td></tr>`;
+                }
+            } else {
+                this.pendientesCache = dataPendientes || [];
+                this.renderizarTablaPendientes(this.pendientesCache);
+                
+                // Actualizar el badge
+                const badge = document.getElementById('badge-pendientes');
+                if (badge) {
+                    badge.textContent = this.pendientesCache.length;
+                    if (this.pendientesCache.length > 0) {
+                        badge.classList.remove('d-none');
+                    } else {
+                        badge.classList.add('d-none');
+                    }
+                }
+            }
+
+            window.Aplicacion.ocultarCarga();
         } catch (e) {
             window.Aplicacion.ocultarCarga();
             console.error(e);
@@ -112,7 +144,42 @@ window.ModSigma = {
         tbody.innerHTML = html;
     },
 
+    renderizarTablaPendientes: function(datos) {
+        const tbody = document.getElementById('tabla-pendientes');
+        if (!tbody) return;
+
+        if (datos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center py-5 text-muted"><i class="bi bi-check-circle fs-2 d-block mb-2 text-success"></i>No hay preguntas pendientes. ¡Sigma está al día!</td></tr>`;
+            return;
+        }
+
+        let html = '';
+        datos.forEach(item => {
+            const fechaStr = new Date(item.fecha).toLocaleString();
+            html += `
+            <tr class="hover-efecto">
+                <td class="ps-4 py-3">
+                    <div class="fw-bold text-dark"><i class="bi bi-question-circle text-primary me-2"></i>${item.pregunta}</div>
+                </td>
+                <td class="py-3 text-muted small">
+                    ${fechaStr}
+                </td>
+                <td class="py-3">
+                    <span class="badge bg-warning text-dark rounded-pill">Pendiente</span>
+                </td>
+                <td class="text-center pe-4 py-3">
+                    <button class="btn btn-sm btn-primary rounded-pill shadow-sm px-3" onclick="window.ModSigma.responderPregunta('${item.id}', '${item.pregunta.replace(/'/g, "\\'")}')" title="Responder y Enseñar">
+                        <i class="bi bi-reply-fill me-1"></i>Responder
+                    </button>
+                    <button class="btn btn-sm btn-light text-danger rounded-circle shadow-sm ms-1" onclick="window.ModSigma.eliminarPendiente('${item.id}')" title="Descartar"><i class="bi bi-x-lg"></i></button>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    },
+
     abrirModalNuevo: function() {
+        this.pendienteActivoId = null;
         document.getElementById('sigma-id').value = '';
         document.getElementById('sigma-tema').value = '';
         document.getElementById('sigma-claves').value = '';
@@ -128,6 +195,7 @@ window.ModSigma = {
     },
 
     abrirModalEditar: function(id) {
+        this.pendienteActivoId = null;
         const item = this.datosCache.find(d => d.id === id);
         if (!item) return;
 
@@ -189,6 +257,12 @@ window.ModSigma = {
                 window.Aplicacion.auditar('Cerebro de Sigma', 'Nuevo Conocimiento', `Tema: ${tema}`);
             }
 
+            // Si viene de responder una pendiente, la marcamos como resuelta
+            if (this.pendienteActivoId) {
+                await window.supabaseDB.from('sigma_preguntas_pendientes').update({estado: 'resuelta'}).eq('id', this.pendienteActivoId);
+                this.pendienteActivoId = null;
+            }
+
             let modalEl = document.getElementById('modalSigma');
             let modal = bootstrap.Modal.getInstance(modalEl);
             if (modal) {
@@ -247,6 +321,47 @@ window.ModSigma = {
                 } catch(e) {
                     window.Aplicacion.ocultarCarga();
                     Swal.fire('Error', 'No se pudo eliminar.', 'error');
+                }
+            }
+        });
+    },
+
+    responderPregunta: function(id, pregunta) {
+        this.pendienteActivoId = id;
+        
+        document.getElementById('sigma-id').value = '';
+        document.getElementById('sigma-tema').value = pregunta;
+        document.getElementById('sigma-claves').value = pregunta.split(' ').filter(w => w.length > 3).join(', ');
+        document.getElementById('sigma-respuesta').value = '';
+        document.getElementById('sigma-accion-tipo').value = '';
+        document.getElementById('sigma-accion-valor').value = '';
+        document.getElementById('sigma-roles').value = '';
+        document.getElementById('modalSigmaTitle').innerHTML = '<i class="bi bi-robot text-primary me-2"></i>Responder a Pregunta Pendiente';
+        
+        let modalEl = document.getElementById('modalSigma');
+        let modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.show();
+    },
+
+    eliminarPendiente: function(id) {
+        Swal.fire({
+            title: '¿Descartar pregunta?',
+            text: "Esta pregunta se eliminará de la bandeja de pendientes.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, descartar'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                window.Aplicacion.mostrarCarga();
+                try {
+                    const { error } = await window.supabaseDB.from('sigma_preguntas_pendientes').delete().eq('id', id);
+                    window.Aplicacion.ocultarCarga();
+                    if (error) throw error;
+                    this.cargarDatos();
+                } catch(e) {
+                    window.Aplicacion.ocultarCarga();
+                    Swal.fire('Error', 'No se pudo descartar.', 'error');
                 }
             }
         });

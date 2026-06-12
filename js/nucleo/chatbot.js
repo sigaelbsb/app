@@ -106,8 +106,8 @@ window.Sigma = {
         this.hookEnrutador();
         
         console.log("🌌 Sigma IA inicializada.");
-        this.saludar();
         await this.cargarConocimiento();
+        this.saludar();
     },
 
     cargarConocimiento: async function() {
@@ -368,6 +368,23 @@ window.Sigma = {
             "¡Hola! Soy <b>Sigma</b>, la Inteligencia Artificial del SIGAE. Estoy listo para asistirte en la plataforma. Arrástrame por la pantalla y pregúntame lo que necesites." : 
             "Saludos, soy <b>Sigma</b>. Bienvenido a SIGAE. Si eres visitante, busca el acceso en tu escuela. Si tienes dudas, pregúntame directamente aquí.";
         
+        // Intentar buscar el mensaje de bienvenida desde la base de datos (tema "Bienvenida" o "Saludo")
+        if (this.conocimientoCache && this.conocimientoCache.length > 0) {
+            let saludoBD = this.conocimientoCache.find(c => c.tema && (c.tema.toLowerCase() === 'bienvenida' || c.tema.toLowerCase() === 'saludo' || c.tema.toLowerCase() === 'mensaje de bienvenida'));
+            
+            if (saludoBD) {
+                msj = saludoBD.respuesta;
+                let userName = 'visitante';
+                try {
+                    const us = JSON.parse(localStorage.getItem('sigae_usuario'));
+                    if (us && (us.nombres || us.nombre)) {
+                        userName = (us.nombres || us.nombre).split(' ')[0];
+                    }
+                } catch(e){}
+                msj = msj.replace(/\{\s*nombre\s*\}/gi, userName);
+            }
+        }
+
         this.mostrarMensaje(msj);
     },
 
@@ -414,9 +431,23 @@ window.Sigma = {
                 const topMatches = resultados.slice(0, 3).map(r => r.item);
                 this.ejecutarRespuesta(topMatches);
             } else {
-                this.mostrarMensaje("Lo siento, no entendí eso. ¿Podrías intentar usar otras palabras? (ej: 'inscribir alumno', 'cargar notas', 'asistencia')");
+                this.registrarPreguntaPendiente(query);
             }
         }, 500);
+    },
+
+    registrarPreguntaPendiente: async function(query) {
+        this.mostrarMensaje("Lo siento, aún no conozco la respuesta a esa pregunta. La he registrado para que mis administradores me enseñen y así poder ayudarte mejor en el futuro.");
+        
+        if (window.supabaseDB) {
+            try {
+                await window.supabaseDB.from('sigma_preguntas_pendientes').insert([
+                    { pregunta: query, estado: 'pendiente' }
+                ]);
+            } catch (e) {
+                console.error("Error registrando pregunta pendiente:", e);
+            }
+        }
     },
 
     ejecutarRespuesta: function(items) {
