@@ -438,11 +438,22 @@ window.Sigma = {
 
         // Validar si la respuesta tiene una acción de navegación o interfaz
         if (item.accion_tipo === 'navegar' && item.accion_valor) {
-            htmlRespuesta += `<div class="mt-3 text-center">
-                <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="window.Sigma.ejecutarAccion('${item.accion_tipo}', '${item.accion_valor}')">
-                    <i class="bi bi-link me-1"></i> Ir a ${item.tema}
-                </button>
-            </div>`;
+            const vistaInfo = window.Sigma.obtenerVistaReal(item.accion_valor);
+            const tienePermiso = window.Aplicacion && window.Aplicacion.permiso ? window.Aplicacion.permiso(vistaInfo, 'ver') : true;
+            
+            if (tienePermiso || vistaInfo === 'Inicio' || vistaInfo === 'Mi Perfil' || !vistaInfo) {
+                htmlRespuesta += `<div class="mt-3 text-center">
+                    <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="window.Sigma.ejecutarAccion('${item.accion_tipo}', '${item.accion_valor}')">
+                        <i class="bi bi-link me-1"></i> Ir a ${item.tema}
+                    </button>
+                </div>`;
+            } else {
+                htmlRespuesta += `<div class="mt-3 text-center">
+                    <button class="btn btn-sm btn-secondary rounded-pill px-3 shadow-sm w-100 opacity-75" disabled>
+                        <i class="bi bi-lock-fill me-1"></i> Acceso denegado a ${item.tema}
+                    </button>
+                </div>`;
+            }
         } else if (item.accion_tipo === 'abrir_modal' && item.accion_valor) {
             htmlRespuesta += `<div class="mt-3 text-center">
                 <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="window.Sigma.ejecutarAccion('${item.accion_tipo}', '${item.accion_valor}')">
@@ -456,7 +467,14 @@ window.Sigma = {
             for (let i = 1; i < items.length; i++) {
                 let alt = items[i];
                 if (alt.accion_tipo === 'navegar' && alt.accion_valor) {
-                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="window.Sigma.ejecutarAccion('${alt.accion_tipo}', '${alt.accion_valor}')"><i class="bi bi-link me-1"></i> ${alt.tema}</button>`;
+                    const vistaInfoAlt = window.Sigma.obtenerVistaReal(alt.accion_valor);
+                    const tienePermisoAlt = window.Aplicacion && window.Aplicacion.permiso ? window.Aplicacion.permiso(vistaInfoAlt, 'ver') : true;
+
+                    if (tienePermisoAlt || vistaInfoAlt === 'Inicio' || vistaInfoAlt === 'Mi Perfil' || !vistaInfoAlt) {
+                        htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="window.Sigma.ejecutarAccion('${alt.accion_tipo}', '${alt.accion_valor}')"><i class="bi bi-link me-1"></i> ${alt.tema}</button>`;
+                    } else {
+                        htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate opacity-50" disabled><i class="bi bi-lock-fill me-1 text-danger"></i> ${alt.tema}</button>`;
+                    }
                 } else if (alt.accion_tipo === 'abrir_modal' && alt.accion_valor) {
                     htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="window.Sigma.ejecutarAccion('${alt.accion_tipo}', '${alt.accion_valor}')"><i class="bi bi-window me-1"></i> ${alt.tema}</button>`;
                 } else {
@@ -470,63 +488,66 @@ window.Sigma = {
         this.mostrarMensaje(htmlRespuesta, false);
     },
 
+    obtenerVistaReal: function(valor) {
+        let vistaNombre = valor;
+        const RouterGlobal = typeof Enrutador !== 'undefined' ? Enrutador : null;
+
+        if (RouterGlobal && RouterGlobal.MAPA_RUTAS) {
+            // Si ya es un nombre exacto
+            if (RouterGlobal.MAPA_RUTAS[vistaNombre] || (window.Aplicacion && window.Aplicacion.ModulosSistema && window.Aplicacion.ModulosSistema[vistaNombre])) {
+                return vistaNombre;
+            }
+
+            let claveLimpia = valor.replace('#', '').toLowerCase().trim();
+            const mapToView = {
+                'escuela': 'Perfil de la Escuela',
+                'roles': 'Roles y Privilegios',
+                'usuarios': 'Gestión de Usuarios',
+                'auditoria': 'Auditoría del Sistema',
+                'calendario': 'Calendario Escolar',
+                'espacios': 'Espacios Escolares',
+                'salones': 'Grados y Salones',
+                'matricula': 'Gestión de Matrícula',
+                'admisiones': 'Gestión de Admisiones',
+                'inscripcion': 'Gestión de Admisiones',
+                'inscripciones': 'Gestión de Admisiones',
+                'actualizacion': 'Actualización de Datos',
+                'notas': 'Carga de Notas y Calificaciones',
+                'asignacion': 'Vincular Estudiante',
+                'guiaturas': 'Asignar Guiaturas',
+                'expediente': 'Expediente Estudiantil',
+                'expediente_docente': 'Mi Expediente',
+                'cargos': 'Cargos Institucionales',
+                'jerarquia': 'Cadena Supervisoria',
+                'colectivos': 'Gestión de Colectivos',
+                'transporte': 'Transporte Escolar',
+                'solicitud': 'Solicitud de Cupos',
+                'mis_solicitudes': 'Mis Solicitudes',
+                'sigma': 'Cerebro de Sigma',
+                'inicio': 'Inicio',
+                'panel': 'Panel de Control'
+            };
+            
+            vistaNombre = mapToView[claveLimpia];
+
+            // Búsqueda difusa en las rutas si no se halló en el mapa
+            if (!vistaNombre) {
+                const keys = Object.keys(RouterGlobal.MAPA_RUTAS);
+                const match = keys.find(k => k.toLowerCase().includes(claveLimpia));
+                if (match) vistaNombre = match;
+            }
+        }
+        return vistaNombre || valor.replace('#', '');
+    },
+
     ejecutarAccion: function(tipo, valor) {
         if (tipo === 'navegar') {
-            let vistaNombre = valor;
+            let vistaNombre = this.obtenerVistaReal(valor);
             const RouterGlobal = typeof Enrutador !== 'undefined' ? Enrutador : null;
 
-            if (RouterGlobal && RouterGlobal.MAPA_RUTAS) {
-                // Si ya es un nombre exacto
-                if (RouterGlobal.MAPA_RUTAS[vistaNombre] || (window.Aplicacion && window.Aplicacion.ModulosSistema && window.Aplicacion.ModulosSistema[vistaNombre])) {
-                    RouterGlobal.navegar(vistaNombre);
-                    document.getElementById('sigma-speech-bubble').classList.remove('active');
-                    return;
-                }
-
-                let claveLimpia = valor.replace('#', '').toLowerCase().trim();
-                const mapToView = {
-                    'escuela': 'Perfil de la Escuela',
-                    'roles': 'Roles y Privilegios',
-                    'usuarios': 'Gestión de Usuarios',
-                    'auditoria': 'Auditoría del Sistema',
-                    'calendario': 'Calendario Escolar',
-                    'espacios': 'Espacios Escolares',
-                    'salones': 'Grados y Salones',
-                    'matricula': 'Gestión de Matrícula',
-                    'admisiones': 'Gestión de Admisiones',
-                    'inscripcion': 'Gestión de Admisiones',
-                    'inscripciones': 'Gestión de Admisiones',
-                    'actualizacion': 'Actualización de Datos',
-                    'notas': 'Carga de Notas y Calificaciones',
-                    'asignacion': 'Vincular Estudiante',
-                    'guiaturas': 'Asignar Guiaturas',
-                    'expediente': 'Expediente Estudiantil',
-                    'expediente_docente': 'Mi Expediente',
-                    'cargos': 'Cargos Institucionales',
-                    'jerarquia': 'Cadena Supervisoria',
-                    'colectivos': 'Gestión de Colectivos',
-                    'transporte': 'Transporte Escolar',
-                    'solicitud': 'Solicitud de Cupos',
-                    'mis_solicitudes': 'Mis Solicitudes',
-                    'sigma': 'Cerebro de Sigma',
-                    'inicio': 'Inicio',
-                    'panel': 'Panel de Control'
-                };
-                
-                vistaNombre = mapToView[claveLimpia];
-
-                // Búsqueda difusa en las rutas si no se halló en el mapa
-                if (!vistaNombre) {
-                    const keys = Object.keys(RouterGlobal.MAPA_RUTAS);
-                    const match = keys.find(k => k.toLowerCase().includes(claveLimpia));
-                    if (match) vistaNombre = match;
-                }
-            }
-
             if (RouterGlobal && RouterGlobal.navegar) {
-                RouterGlobal.navegar(vistaNombre || valor.replace('#', ''));
+                RouterGlobal.navegar(vistaNombre);
             }
-
         } else if (tipo === 'abrir_modal') {
             const mEl = document.getElementById(valor);
             if (mEl) new bootstrap.Modal(mEl).show();
