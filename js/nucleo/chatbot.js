@@ -9,7 +9,7 @@ window.Sigma = {
     isDragging: false,
     dragOffset: { x: 0, y: 0 },
     
-    // Generador del SVG del Personaje Sigma (Estilo Clippy)
+    // Generador del SVG del Personaje Sigma (Escolar + Clippy)
     obtenerSvgSigma: function() {
         return `
             <svg viewBox="0 0 100 100" class="sigma-svg">
@@ -22,32 +22,59 @@ window.Sigma = {
                     <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
                         <feDropShadow dx="2" dy="5" stdDeviation="3" flood-color="#000000" flood-opacity="0.4"/>
                     </filter>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#0066FF" flood-opacity="0.8"/>
+                    </filter>
                 </defs>
 
                 <g filter="url(#shadow3d)" class="sigma-body-group">
+                    <!-- Símbolo Sigma brillante de fondo para identidad -->
+                    <text x="55" y="50" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="60" font-weight="bold" fill="rgba(0, 102, 255, 0.15)" filter="url(#glow)">Σ</text>
+
                     <!-- Forma de Sigma como clip doblado -->
                     <path d="M 85 20 L 25 20 L 55 50 L 25 80 L 85 80" 
                           fill="none" 
                           stroke="url(#metalGradient)" 
-                          stroke-width="14" 
+                          stroke-width="12" 
                           stroke-linecap="round" 
                           stroke-linejoin="round" />
                     
-                    <!-- Ojos -->
+                    <!-- Elemento Escolar: Birrete de Graduación -->
+                    <g class="sigma-grad-cap" transform="translate(0, -12)">
+                        <!-- Copa del sombrero -->
+                        <path d="M 40 20 L 40 28 Q 50 33 60 28 L 60 20 Z" fill="#0f172a" />
+                        <!-- Tapa plana (Rombo) -->
+                        <polygon points="50,10 25,20 50,30 75,20" fill="#1e293b" stroke="#334155" stroke-width="1" />
+                        <!-- Botón central -->
+                        <circle cx="50" cy="20" r="3" fill="#f59e0b" />
+                        <!-- Borla cayendo a la derecha -->
+                        <path d="M 50 20 L 68 28 L 70 36" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="70" cy="38" r="2.5" fill="#f59e0b" />
+                    </g>
+                    
+                    <!-- Ojos Grandes -->
                     <g class="sigma-eyes-group">
-                        <ellipse cx="40" cy="35" rx="14" ry="18" fill="white" stroke="#334155" stroke-width="2"/>
-                        <ellipse cx="68" cy="35" rx="14" ry="18" fill="white" stroke="#334155" stroke-width="2"/>
+                        <ellipse cx="40" cy="40" rx="14" ry="18" fill="white" stroke="#334155" stroke-width="2"/>
+                        <ellipse cx="68" cy="40" rx="14" ry="18" fill="white" stroke="#334155" stroke-width="2"/>
                         
                         <g class="sigma-pupils">
-                            <circle cx="45" cy="38" r="6" fill="#0f172a" />
-                            <circle cx="63" cy="38" r="6" fill="#0f172a" />
+                            <circle cx="45" cy="43" r="6" fill="#0f172a" />
+                            <circle cx="63" cy="43" r="6" fill="#0f172a" />
                         </g>
                     </g>
 
-                    <!-- Cejas -->
+                    <!-- Cejas Expresivas -->
                     <g class="sigma-eyebrows-group">
-                        <path d="M 25 15 Q 40 5 50 18" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
-                        <path d="M 55 18 Q 68 5 85 15" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
+                        <path d="M 25 20 Q 40 10 50 23" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
+                        <path d="M 55 23 Q 68 10 85 20" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
+                    </g>
+
+                    <!-- Elemento Escolar: Lápiz Flotante a la izquierda -->
+                    <g class="sigma-pencil" transform="translate(-8, 30) rotate(-15)">
+                        <polygon points="15,40 20,40 17.5,50" fill="#fcd34d" />
+                        <polygon points="15,10 20,10 20,40 15,40" fill="#fbbf24" stroke="#d97706" stroke-width="1" />
+                        <rect x="15" y="5" width="5" height="5" fill="#94a3b8" />
+                        <rect x="15" y="0" width="5" height="5" fill="#f43f5e" rx="1" />
                     </g>
                 </g>
             </svg>
