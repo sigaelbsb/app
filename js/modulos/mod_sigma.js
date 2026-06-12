@@ -21,6 +21,12 @@ window.ModSigma = {
             return;
         }
 
+        // Mover el modal al body para evitar problemas de z-index (que quede detrás del fondo oscuro)
+        const modalEl = document.getElementById('modalSigma');
+        if (modalEl && modalEl.parentNode !== document.body) {
+            document.body.appendChild(modalEl);
+        }
+
         this.enlazarEventos();
         this.cargarDatos();
     },
