@@ -12,7 +12,7 @@ window.Sigma = {
     // Generador del SVG del Personaje Sigma (Escolar + Clippy)
     obtenerSvgSigma: function() {
         return `
-            <svg viewBox="-10 -30 120 130" class="sigma-svg">
+            <svg viewBox="-10 -50 120 150" class="sigma-svg">
                 <defs>
                     <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stop-color="#e2e8f0" />
@@ -39,50 +39,36 @@ window.Sigma = {
                           stroke-linecap="round" 
                           stroke-linejoin="round" />
                     
-                    <!-- Elemento Escolar: Birrete de Graduación (Tamaño Grande y Centrado) -->
+                    <!-- Elemento Escolar: Birrete de Graduación (Tamaño Grande y Centrado arriba de los ojos) -->
                     <g class="sigma-grad-cap">
                         <!-- Copa del sombrero -->
-                        <path d="M 40 -6 L 40 4 Q 55 10 70 4 L 70 -6 Z" fill="#0f172a" />
+                        <path d="M 40 -27 L 40 -17 Q 55 -11 70 -17 L 70 -27 Z" fill="#0f172a" />
                         <!-- Tapa plana (Rombo) -->
-                        <polygon points="55,-22 15,-6 55,10 95,-6" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+                        <polygon points="55,-43 15,-27 55,-11 95,-27" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
                         <!-- Botón central -->
-                        <circle cx="55" cy="-6" r="4" fill="#f59e0b" />
+                        <circle cx="55" cy="-27" r="4" fill="#f59e0b" />
                         <!-- Borla cayendo a la derecha -->
-                        <path d="M 55 -6 L 85 4 L 88 18" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                        <circle cx="88" cy="21" r="3.5" fill="#f59e0b" />
+                        <path d="M 55 -27 L 85 -17 L 88 -3" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="88" cy="0" r="3.5" fill="#f59e0b" />
                     </g>
                     
-                    <!-- Ojos Grandes (Movidos hacia arriba) -->
+                    <!-- Ojos Grandes (Descansando SOBRE el borde superior de la Sigma) -->
                     <g class="sigma-eyes-group">
                         <!-- Escleróticas (fondo blanco) -->
-                        <ellipse cx="40" cy="26" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
-                        <ellipse cx="68" cy="26" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
-                        
-                        <!-- Lentes / Gafas de profesor -->
-                        <g class="sigma-glasses">
-                            <!-- Marco izquierdo -->
-                            <rect x="24" y="7" width="31" height="38" rx="8" fill="rgba(0, 195, 255, 0.15)" stroke="#0f172a" stroke-width="3.5" />
-                            <!-- Marco derecho -->
-                            <rect x="55" y="7" width="31" height="38" rx="8" fill="rgba(0, 195, 255, 0.15)" stroke="#0f172a" stroke-width="3.5" />
-                            <!-- Puente -->
-                            <line x1="52" y1="25" x2="58" y2="25" stroke="#0f172a" stroke-width="3.5" />
-                            <!-- Patillas -->
-                            <path d="M 24 15 L 12 10" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round" />
-                            <path d="M 86 15 L 98 10" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round" />
-                            <!-- Brillo en el cristal -->
-                            <path d="M 28 12 L 40 12 M 59 12 L 71 12" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
-                        </g>
+                        <ellipse cx="40" cy="5" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
+                        <ellipse cx="68" cy="5" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
 
                         <!-- Pupilas -->
                         <g class="sigma-pupils">
-                            <circle cx="45" cy="29" r="5" fill="#0f172a" />
-                            <circle cx="63" cy="29" r="5" fill="#0f172a" />
+                            <circle cx="45" cy="8" r="5" fill="#0f172a" />
+                            <circle cx="63" cy="8" r="5" fill="#0f172a" />
                         </g>
                     </g>
 
-                    <!-- Cejas Expresivas (Ajustadas arriba de los ojos y lentes) -->
+                    <!-- Cejas Expresivas (Restaurando ambas) -->
                     <g class="sigma-eyebrows-group">
-                        <path d="M 25 3 Q 40 -7 50 6" fill="none" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" />
+                        <path d="M 25 -15 Q 40 -25 50 -12" fill="none" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" />
+                        <path d="M 55 -12 Q 68 -25 85 -15" fill="none" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" />
                     </g>
 
                     <!-- Elemento Escolar: Lápiz Flotante a la izquierda -->

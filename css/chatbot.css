@@ -71,7 +71,7 @@
 }
 
 .sigma-eyes-group {
-    transform-origin: 54px 26px;
+    transform-origin: 54px 5px;
     animation: blink 4s infinite;
 }
 
