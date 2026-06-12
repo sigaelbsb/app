@@ -9,51 +9,30 @@ window.Sigma = {
     isDragging: false,
     dragOffset: { x: 0, y: 0 },
     
-    // Generador del SVG del Personaje Sigma (Estilo Clippy)
+    // Generador del SVG Holográfico de Sigma (Orbe Avanzado)
     obtenerSvgSigma: function() {
         return `
             <svg viewBox="0 0 100 100" class="sigma-svg">
+                <!-- Anillos Exteriores Reactivos -->
+                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(0, 195, 255, 0.4)" stroke-width="2.5" class="sigma-ring-1" stroke-dasharray="60 20" />
+                <circle cx="50" cy="50" r="35" fill="none" stroke="rgba(123, 36, 241, 0.5)" stroke-width="2" class="sigma-ring-2" stroke-dasharray="40 30" />
+                <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1" class="sigma-ring-3" stroke-dasharray="10 10" />
+                
+                <!-- Orbe Central Glassmorphism -->
+                <circle cx="50" cy="50" r="28" fill="url(#sigmaGradient)" filter="drop-shadow(0 0 12px rgba(0, 195, 255, 0.8))" class="sigma-core" />
+                
+                <!-- Brillo de Cristal -->
+                <path d="M 35 35 Q 50 25 65 35 A 25 25 0 0 0 35 35" fill="rgba(255,255,255,0.6)" class="sigma-glare" />
+                
+                <!-- Símbolo Sigma en el Centro -->
+                <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="28" font-weight="bold" fill="#ffffff" filter="drop-shadow(0 0 5px rgba(255,255,255,0.9))" class="sigma-symbol">Σ</text>
+                
                 <defs>
-                    <!-- Gradiente Metálico para el cuerpo de Sigma -->
-                    <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#e2e8f0" />
-                        <stop offset="50%" stop-color="#94a3b8" />
-                        <stop offset="100%" stop-color="#475569" />
+                    <linearGradient id="sigmaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#00C3FF" class="sigma-grad-start" />
+                        <stop offset="100%" stop-color="#0b2e59" class="sigma-grad-end" />
                     </linearGradient>
-                    <!-- Filtro de sombra paralela 3D -->
-                    <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="2" dy="5" stdDeviation="3" flood-color="#000000" flood-opacity="0.4"/>
-                    </filter>
                 </defs>
-
-                <!-- Grupo Principal con Sombra -->
-                <g filter="url(#shadow3d)">
-                    <!-- Cuerpo con forma de letra Sigma (Σ) parecido a un clip de papel doblado -->
-                    <path d="M 85 20 L 25 20 L 55 50 L 25 80 L 85 80" 
-                          fill="none" 
-                          stroke="url(#metalGradient)" 
-                          stroke-width="14" 
-                          stroke-linecap="round" 
-                          stroke-linejoin="round" />
-                    
-                    <!-- Ojos Grandes (Fondo Blanco) -->
-                    <g class="sigma-eyes">
-                        <ellipse cx="40" cy="35" rx="14" ry="18" fill="white" stroke="#334155" stroke-width="2"/>
-                        <ellipse cx="68" cy="35" rx="14" ry="18" fill="white" stroke="#334155" stroke-width="2"/>
-                        
-                        <!-- Pupilas Negras (Mirando un poco hacia abajo/centro) -->
-                        <circle cx="45" cy="38" r="6" fill="#0f172a" class="sigma-pupil" />
-                        <circle cx="63" cy="38" r="6" fill="#0f172a" class="sigma-pupil" />
-                    </g>
-
-                    <!-- Cejas Flotantes Expresivas -->
-                    <g class="sigma-eyebrows">
-                        <!-- Ceja Izquierda -->
-                        <path d="M 25 15 Q 40 5 50 18" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
-                        <!-- Ceja Derecha -->
-                        <path d="M 55 18 Q 68 5 85 15" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
-                    </g>
-                </g>
             </svg>
         `;
     },

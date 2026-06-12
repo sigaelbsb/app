@@ -54,41 +54,58 @@
     animation: sigma-hover 3s ease-in-out infinite;
 }
 
-/* Efectos de Movimiento (Clippy style) */
+/* Efectos de Movimiento Base */
 @keyframes sigma-hover {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-10px) scale(1.02); }
 }
 
-@keyframes sigma-flip {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+/* ==========================================================
+   REACCIONES ANIMADAS (ESTADO DE LA IA)
+============================================================= */
+
+/* ESTADO: PENSANDO (Procesando solicitud) */
+@keyframes sigma-think-pulse {
+    0%, 100% { transform: scale(1) rotate(0deg); filter: hue-rotate(0deg) brightness(1); }
+    50% { transform: scale(1.15) rotate(180deg); filter: hue-rotate(60deg) brightness(1.5); }
 }
 
-@keyframes sigma-nod {
-    0%, 100% { transform: translateY(0) rotate(0); }
-    25% { transform: translateY(5px) rotate(5deg); }
-    75% { transform: translateY(5px) rotate(-5deg); }
-}
-
-/* Estados de la IA */
 .sigma-container.thinking .sigma-svg {
-    animation: sigma-flip 1s linear infinite;
+    animation: sigma-think-pulse 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.sigma-container.thinking .sigma-ring-1,
+.sigma-container.thinking .sigma-ring-2,
+.sigma-container.thinking .sigma-ring-3 {
+    animation-duration: 0.5s; /* Anillos giran muy rápido */
+    stroke: #ff007b;
+}
+
+/* ESTADO: HABLANDO (Respondiendo) */
+@keyframes sigma-talk-bounce {
+    0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 15px rgba(0, 195, 255, 0.8)); }
+    25% { transform: translateY(-5px) scale(1.08); filter: drop-shadow(0 0 25px rgba(0, 255, 170, 0.9)); }
+    75% { transform: translateY(2px) scale(0.95); filter: drop-shadow(0 0 10px rgba(0, 195, 255, 0.6)); }
 }
 
 .sigma-container.talking .sigma-svg {
-    animation: sigma-nod 0.5s ease-in-out infinite;
+    animation: sigma-talk-bounce 0.4s ease-in-out infinite;
 }
 
 /* Anillos Holográficos */
 .sigma-ring-1 {
     transform-origin: center;
-    animation: spin-ring 8s linear infinite;
+    animation: spin-ring 6s linear infinite;
 }
 
 .sigma-ring-2 {
     transform-origin: center;
-    animation: spin-ring-reverse 12s linear infinite;
+    animation: spin-ring-reverse 8s linear infinite;
+}
+
+.sigma-ring-3 {
+    transform-origin: center;
+    animation: spin-ring 12s linear infinite;
 }
 
 @keyframes spin-ring { 100% { transform: rotate(360deg); } }
@@ -112,21 +129,22 @@
 }
 
 /* ==========================================================
-   BURBUJA DE DIÁLOGO (ESTILO CLÁSICO OFFICE 97)
+   BURBUJA DE DIÁLOGO (SPEECH BUBBLE MODERNA)
 ============================================================= */
 .sigma-speech-bubble {
     position: absolute;
-    background: #ffffcc; /* Amarillo pálido clásico */
-    border: 1.5px solid #000000;
-    border-radius: 8px;
+    background: var(--sigma-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 20px;
     padding: 15px 20px;
     width: max-content;
     max-width: 320px;
-    box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.15); /* Sombra dura retro */
-    color: #000000;
-    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+    box-shadow: var(--sigma-shadow);
+    color: #1e293b;
     font-size: 0.9rem;
-    line-height: 1.4;
+    line-height: 1.5;
     opacity: 0;
     visibility: hidden;
     transform: scale(0.8) translateY(20px);
@@ -134,7 +152,7 @@
     z-index: 1;
     cursor: default;
     
-    /* Posición por defecto */
+    /* Posición por defecto: Arriba del personaje */
     bottom: 100px;
     right: -20px;
 }
@@ -145,18 +163,7 @@
     transform: scale(1) translateY(0);
 }
 
-/* Triángulo de la burbuja (Borde negro) */
-.sigma-speech-bubble::before {
-    content: '';
-    position: absolute;
-    bottom: -13px;
-    right: 43px;
-    border-width: 12px 12px 0;
-    border-style: solid;
-    border-color: #000000 transparent transparent transparent;
-}
-
-/* Triángulo de la burbuja (Fondo amarillo) */
+/* Triángulo de la burbuja */
 .sigma-speech-bubble::after {
     content: '';
     position: absolute;
@@ -164,7 +171,8 @@
     right: 45px;
     border-width: 10px 10px 0;
     border-style: solid;
-    border-color: #ffffcc transparent transparent transparent;
+    border-color: var(--sigma-bg) transparent transparent transparent;
+    filter: drop-shadow(0 4px 2px rgba(0,0,0,0.05));
 }
 
 /* Header de la burbuja */
@@ -172,25 +180,27 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px dashed #000000;
+    border-bottom: 1px solid rgba(0, 102, 255, 0.1);
     padding-bottom: 5px;
     margin-bottom: 10px;
 }
 
 .sigma-bubble-title {
-    font-weight: bold;
-    color: #000000;
+    font-weight: 800;
+    color: var(--sigma-primary);
     font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .sigma-bubble-close {
     background: transparent;
     border: none;
-    color: #000000;
+    color: #94a3b8;
     cursor: pointer;
     font-size: 1.2rem;
     line-height: 1;
-    font-weight: bold;
 }
 
 .sigma-bubble-close:hover {
@@ -205,6 +215,10 @@
     padding-right: 5px;
 }
 
+.sigma-bubble-content::-webkit-scrollbar { width: 4px; }
+.sigma-bubble-content::-webkit-scrollbar-track { background: transparent; }
+.sigma-bubble-content::-webkit-scrollbar-thumb { background: rgba(0,102,255,0.2); border-radius: 10px; }
+
 /* Entrada de texto Gemini */
 .sigma-input-group {
     display: flex;
@@ -214,35 +228,39 @@
 
 .sigma-input {
     flex: 1;
-    border: 1px solid #000000;
-    border-radius: 4px;
-    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 50px;
+    padding: 8px 15px;
     font-size: 0.85rem;
-    background: #ffffff;
+    background: #f8fafc;
     outline: none;
-    font-family: 'Tahoma', 'Segoe UI', sans-serif;
+    transition: all 0.2s;
 }
 
 .sigma-input:focus {
-    box-shadow: inset 0 0 0 1px #000000;
+    border-color: var(--sigma-primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
 }
 
 .sigma-btn-send {
-    background: #e5e5e5;
-    color: #000000;
-    border: 1px solid #000000;
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
+    background: var(--sigma-primary);
+    color: white;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    box-shadow: 1px 1px 0px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 10px rgba(0, 102, 255, 0.2);
+    transition: all 0.2s;
 }
 
 .sigma-btn-send:hover {
-    background: #d4d4d4;
+    background: #0052cc;
+    transform: scale(1.05);
 }
 
 /* ==========================================================
