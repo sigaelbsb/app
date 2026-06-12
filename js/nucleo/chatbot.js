@@ -12,7 +12,7 @@ window.Sigma = {
     // Generador del SVG del Personaje Sigma (Escolar + Clippy)
     obtenerSvgSigma: function() {
         return `
-            <svg viewBox="0 0 100 100" class="sigma-svg">
+            <svg viewBox="-10 -20 120 120" class="sigma-svg">
                 <defs>
                     <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stop-color="#e2e8f0" />
@@ -41,17 +41,34 @@ window.Sigma = {
                     
                     <!-- Ojos Grandes (Movidos hacia arriba) -->
                     <g class="sigma-eyes-group">
+                        <!-- Escleróticas (fondo blanco) -->
                         <ellipse cx="40" cy="26" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
                         <ellipse cx="68" cy="26" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
                         
+                        <!-- Lentes / Gafas de profesor -->
+                        <g class="sigma-glasses">
+                            <!-- Marco izquierdo -->
+                            <rect x="24" y="7" width="31" height="38" rx="8" fill="rgba(0, 195, 255, 0.15)" stroke="#0f172a" stroke-width="3.5" />
+                            <!-- Marco derecho -->
+                            <rect x="55" y="7" width="31" height="38" rx="8" fill="rgba(0, 195, 255, 0.15)" stroke="#0f172a" stroke-width="3.5" />
+                            <!-- Puente -->
+                            <line x1="52" y1="25" x2="58" y2="25" stroke="#0f172a" stroke-width="3.5" />
+                            <!-- Patillas -->
+                            <path d="M 24 15 L 12 10" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round" />
+                            <path d="M 86 15 L 98 10" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round" />
+                            <!-- Brillo en el cristal -->
+                            <path d="M 28 12 L 40 12 M 59 12 L 71 12" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" />
+                        </g>
+
+                        <!-- Pupilas -->
                         <g class="sigma-pupils">
                             <circle cx="45" cy="29" r="5" fill="#0f172a" />
                             <circle cx="63" cy="29" r="5" fill="#0f172a" />
                         </g>
                     </g>
 
-                    <!-- Elemento Escolar: Birrete de Graduación (Sobre el ojo derecho) -->
-                    <g class="sigma-grad-cap" transform="translate(10, -22) scale(0.9)">
+                    <!-- Elemento Escolar: Birrete de Graduación -->
+                    <g class="sigma-grad-cap" transform="translate(14, -20) scale(0.95)">
                         <!-- Copa del sombrero -->
                         <path d="M 50 20 L 50 28 Q 60 33 70 28 L 70 20 Z" fill="#0f172a" />
                         <!-- Tapa plana (Rombo) -->
@@ -63,9 +80,9 @@ window.Sigma = {
                         <circle cx="80" cy="38" r="2.5" fill="#f59e0b" />
                     </g>
 
-                    <!-- Cejas Expresivas (Ajustadas arriba de los ojos) -->
+                    <!-- Cejas Expresivas (Ajustadas arriba de los ojos y lentes) -->
                     <g class="sigma-eyebrows-group">
-                        <path d="M 25 8 Q 40 -2 50 11" fill="none" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" />
+                        <path d="M 25 3 Q 40 -7 50 6" fill="none" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" />
                     </g>
 
                     <!-- Elemento Escolar: Lápiz Flotante a la izquierda -->
