@@ -15,68 +15,80 @@ window.Sigma = {
             <svg viewBox="-10 -50 120 150" class="sigma-svg">
                 <defs>
                     <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#e2e8f0" />
+                        <stop offset="0%" stop-color="#ffffff" />
+                        <stop offset="20%" stop-color="#cbd5e1" />
                         <stop offset="50%" stop-color="#94a3b8" />
-                        <stop offset="100%" stop-color="#475569" />
+                        <stop offset="80%" stop-color="#64748b" />
+                        <stop offset="100%" stop-color="#1e293b" />
                     </linearGradient>
                     <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="2" dy="5" stdDeviation="3" flood-color="#000000" flood-opacity="0.4"/>
+                        <feDropShadow dx="2" dy="6" stdDeviation="4" flood-color="#000000" flood-opacity="0.35"/>
                     </filter>
                     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#0066FF" flood-opacity="0.8"/>
+                        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#0066FF" flood-opacity="0.6"/>
                     </filter>
                 </defs>
 
                 <g filter="url(#shadow3d)" class="sigma-body-group">
                     <!-- Símbolo Sigma brillante de fondo para identidad -->
-                    <text x="55" y="55" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="55" font-weight="bold" fill="rgba(0, 102, 255, 0.15)" filter="url(#glow)">Σ</text>
+                    <text x="55" y="55" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="65" font-weight="bold" fill="rgba(0, 102, 255, 0.12)" filter="url(#glow)">Σ</text>
 
                     <!-- Forma de Sigma como clip doblado -->
                     <path d="M 85 20 L 25 20 L 55 50 L 25 80 L 85 80" 
                           fill="none" 
                           stroke="url(#metalGradient)" 
-                          stroke-width="12" 
+                          stroke-width="13" 
                           stroke-linecap="round" 
                           stroke-linejoin="round" />
                     
-                    <!-- Elemento Escolar: Birrete de Graduación (Tamaño Grande y Centrado arriba de los ojos) -->
+                    <!-- Elemento Escolar: Birrete de Graduación (Tamaño Grande y Centrado) -->
                     <g class="sigma-grad-cap">
                         <!-- Copa del sombrero -->
-                        <path d="M 40 -27 L 40 -17 Q 55 -11 70 -17 L 70 -27 Z" fill="#0f172a" />
+                        <path d="M 40 -27 L 40 -17 Q 55 -10 70 -17 L 70 -27 Z" fill="#0f172a" />
                         <!-- Tapa plana (Rombo) -->
-                        <polygon points="55,-43 15,-27 55,-11 95,-27" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+                        <polygon points="55,-45 12,-27 55,-9 98,-27" fill="#1e293b" stroke="#475569" stroke-width="2" stroke-linejoin="round" />
                         <!-- Botón central -->
-                        <circle cx="55" cy="-27" r="4" fill="#f59e0b" />
+                        <circle cx="55" cy="-27" r="4.5" fill="#f59e0b" />
                         <!-- Borla cayendo a la derecha -->
-                        <path d="M 55 -27 L 85 -17 L 88 -3" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-                        <circle cx="88" cy="0" r="3.5" fill="#f59e0b" />
+                        <path d="M 55 -27 L 88 -14 L 92 2" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                        <circle cx="92" cy="5" r="4" fill="#f59e0b" />
                     </g>
                     
                     <!-- Ojos Grandes (Descansando SOBRE el borde superior de la Sigma) -->
                     <g class="sigma-eyes-group">
                         <!-- Escleróticas (fondo blanco) -->
-                        <ellipse cx="40" cy="5" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
-                        <ellipse cx="68" cy="5" rx="13" ry="17" fill="white" stroke="#334155" stroke-width="2"/>
+                        <ellipse cx="38" cy="4" rx="14" ry="18" fill="#ffffff" stroke="#1e293b" stroke-width="2.5"/>
+                        <ellipse cx="68" cy="4" rx="14" ry="18" fill="#ffffff" stroke="#1e293b" stroke-width="2.5"/>
 
                         <!-- Pupilas -->
                         <g class="sigma-pupils">
-                            <circle cx="45" cy="8" r="5" fill="#0f172a" />
-                            <circle cx="63" cy="8" r="5" fill="#0f172a" />
+                            <circle cx="43" cy="7" r="5.5" fill="#0f172a" />
+                            <circle cx="41.5" cy="5.5" r="2" fill="#ffffff" opacity="0.9" /> <!-- Catchlight -->
+                            <circle cx="63" cy="7" r="5.5" fill="#0f172a" />
+                            <circle cx="61.5" cy="5.5" r="2" fill="#ffffff" opacity="0.9" /> <!-- Catchlight -->
                         </g>
                     </g>
 
-                    <!-- Cejas Expresivas (Restaurando ambas) -->
+                    <!-- Cejas Expresivas -->
                     <g class="sigma-eyebrows-group">
-                        <path d="M 25 -15 Q 40 -25 50 -12" fill="none" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" />
-                        <path d="M 55 -12 Q 68 -25 85 -15" fill="none" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" />
+                        <path d="M 23 -16 Q 38 -27 48 -13" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
+                        <path d="M 58 -13 Q 68 -27 83 -16" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
                     </g>
 
-                    <!-- Elemento Escolar: Lápiz Flotante a la izquierda -->
-                    <g class="sigma-pencil" transform="translate(-8, 30) rotate(-15)">
+                    <!-- Elemento Escolar: Lápiz Flotante a la izquierda (Altamente Detallado) -->
+                    <g class="sigma-pencil" transform="translate(-10, 32) rotate(-15)">
+                        <!-- Madera -->
                         <polygon points="15,40 20,40 17.5,50" fill="#fcd34d" />
-                        <polygon points="15,10 20,10 20,40 15,40" fill="#fbbf24" stroke="#d97706" stroke-width="1" />
-                        <rect x="15" y="5" width="5" height="5" fill="#94a3b8" />
-                        <rect x="15" y="0" width="5" height="5" fill="#f43f5e" rx="1" />
+                        <!-- Punta (Grafito) -->
+                        <polygon points="16.5,46 18.5,46 17.5,50" fill="#334155" />
+                        <!-- Cuerpo Principal -->
+                        <polygon points="15,10 20,10 20,40 15,40" fill="#fbbf24" stroke="#d97706" stroke-width="1" stroke-linejoin="round" />
+                        <!-- Línea central del lápiz hex -->
+                        <line x1="17.5" y1="10" x2="17.5" y2="40" stroke="#f59e0b" stroke-width="1" />
+                        <!-- Metal del borrador -->
+                        <rect x="14" y="5" width="7" height="5" fill="#cbd5e1" stroke="#64748b" stroke-width="1" />
+                        <!-- Borrador -->
+                        <rect x="14" y="0" width="7" height="5" fill="#f43f5e" rx="1.5" />
                     </g>
                 </g>
             </svg>

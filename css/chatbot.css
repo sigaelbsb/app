@@ -36,8 +36,8 @@
 ============================================================= */
 .sigma-avatar-wrapper {
     position: relative;
-    width: 80px;
-    height: 80px;
+    width: 120px;
+    height: 120px;
     transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     filter: drop-shadow(0 10px 15px rgba(0, 102, 255, 0.3));
     z-index: 2;
