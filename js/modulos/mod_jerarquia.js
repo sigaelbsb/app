@@ -184,7 +184,12 @@ window.ModJerarquia = {
     },
 
     // ✨ GENERADOR DE NODO HTML COMPACTO ✨
-    construirNodoHTML: function(cargo, mostrarNombres) {
+    construirNodoHTML: function(cargo, mostrarNombres, visitados = new Set()) {
+        if (visitados.has(cargo.id_cargo)) {
+            return `<li><div class="nodo-cargo-custom" style="border-color:#ef4444; background:#fee2e2;">⚠️ Ciclo: ${cargo.nombre_cargo}</div></li>`;
+        }
+        visitados.add(cargo.id_cargo);
+
         let tipo = (cargo.tipo_cargo || '').toLowerCase();
         let cBg = '#ffffff', cBorde = '#0066FF', cTexto = '#0066FF';
         
@@ -221,7 +226,7 @@ window.ModJerarquia = {
         if (hijos.length > 0) {
             htmlHijos += '<ul>';
             hijos.forEach(h => {
-                htmlHijos += this.construirNodoHTML(h, mostrarNombres);
+                htmlHijos += this.construirNodoHTML(h, mostrarNombres, new Set(visitados));
             });
             htmlHijos += '</ul>';
         }
@@ -239,14 +244,17 @@ window.ModJerarquia = {
         
         let raices = [];
         if (idFiltro) {
-            let r = this.cargos.find(c => c.id_cargo === idFiltro);
+            let r = this.cargos.find(c => String(c.id_cargo) === String(idFiltro));
             if (r) raices.push(r);
         } else {
             raices = this.cargos.filter(c => !c.depende_de); 
             raices.sort((a, b) => a.nombre_cargo.localeCompare(b.nombre_cargo));
         }
 
-        if (raices.length === 0) { div.innerHTML = "<div class='text-muted fs-5 text-danger'>Advertencia: No hay ningún director o jefe principal asignado.</div>"; return; }
+        if (raices.length === 0) { 
+            div.innerHTML = "<div class='alert alert-warning border-warning shadow-sm mt-3'><i class='bi bi-exclamation-triangle-fill me-2'></i><strong>Atención:</strong> No se pudo encontrar un Líder o Director Principal. Asegúrate de que el cargo más alto de la escuela <strong>NO TENGA</strong> ningún supervisor asignado.</div>"; 
+            return; 
+        }
 
         let htmlEstructura = '<div class="mi-organigrama"><ul>';
         raices.forEach(raiz => {
