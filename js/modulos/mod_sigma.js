@@ -211,7 +211,10 @@ window.ModSigma = {
             }
         } catch (e) {
             console.error(e);
-            Swal.fire('Error', 'No se pudo guardar el conocimiento.', 'error');
+            let modalEl = document.getElementById('modalSigma');
+            let modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            Swal.fire('Error', 'No se pudo guardar el conocimiento. Es posible que te falte ejecutar el script SQL en Supabase.', 'error');
         } finally {
             btn.innerHTML = oldText;
             btn.disabled = false;
