@@ -71,7 +71,7 @@
 }
 
 .sigma-eyes-group {
-    transform-origin: 54px 35px;
+    transform-origin: 54px 26px;
     animation: blink 4s infinite;
 }
 
@@ -84,7 +84,7 @@
 
 @keyframes raise-eyebrows {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px) rotate(5deg); }
+    50% { transform: translateY(-4px) rotate(3deg); }
 }
 
 .sigma-container.thinking .sigma-pupils {
