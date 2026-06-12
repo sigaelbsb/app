@@ -473,10 +473,12 @@ window.Sigma = {
     ejecutarAccion: function(tipo, valor) {
         if (tipo === 'navegar') {
             let vistaNombre = valor;
-            if (window.Enrutador && window.Enrutador.MAPA_RUTAS) {
+            const RouterGlobal = typeof Enrutador !== 'undefined' ? Enrutador : null;
+
+            if (RouterGlobal && RouterGlobal.MAPA_RUTAS) {
                 // Si ya es un nombre exacto
-                if (window.Enrutador.MAPA_RUTAS[vistaNombre] || (window.Aplicacion && window.Aplicacion.ModulosSistema && window.Aplicacion.ModulosSistema[vistaNombre])) {
-                    window.Enrutador.navegar(vistaNombre);
+                if (RouterGlobal.MAPA_RUTAS[vistaNombre] || (window.Aplicacion && window.Aplicacion.ModulosSistema && window.Aplicacion.ModulosSistema[vistaNombre])) {
+                    RouterGlobal.navegar(vistaNombre);
                     document.getElementById('sigma-speech-bubble').classList.remove('active');
                     return;
                 }
@@ -515,14 +517,14 @@ window.Sigma = {
 
                 // Búsqueda difusa en las rutas si no se halló en el mapa
                 if (!vistaNombre) {
-                    const keys = Object.keys(window.Enrutador.MAPA_RUTAS);
+                    const keys = Object.keys(RouterGlobal.MAPA_RUTAS);
                     const match = keys.find(k => k.toLowerCase().includes(claveLimpia));
                     if (match) vistaNombre = match;
                 }
             }
 
-            if (window.Enrutador && window.Enrutador.navegar) {
-                window.Enrutador.navegar(vistaNombre || valor.replace('#', ''));
+            if (RouterGlobal && RouterGlobal.navegar) {
+                RouterGlobal.navegar(vistaNombre || valor.replace('#', ''));
             }
 
         } else if (tipo === 'abrir_modal') {
