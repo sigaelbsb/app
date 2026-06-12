@@ -435,7 +435,8 @@ window.Sigma = {
             }
         } catch(e){}
         
-        htmlRespuesta = htmlRespuesta.replace(/\{nombre\}/g, userName);
+        // Reemplaza {nombre}, {Nombre}, { nombre } etc.
+        htmlRespuesta = htmlRespuesta.replace(/\{\s*nombre\s*\}/gi, userName);
 
         // Validar si la respuesta tiene una acción de navegación o interfaz
         if (item.accion_tipo === 'navegar' && item.accion_valor) {
