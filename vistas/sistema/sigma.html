@@ -1,0 +1,105 @@
+<div class="container-fluid animate__animated animate__fadeIn">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h3 class="fw-bold text-dark mb-1"><i class="bi bi-robot text-primary me-2"></i>Cerebro de Sigma</h3>
+            <p class="text-muted mb-0">Gestiona la base de conocimientos, respuestas y acciones de la IA del sistema.</p>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <button class="btn btn-primary rounded-pill shadow-sm fw-bold" onclick="window.ModSigma.abrirModalNuevo()">
+                <i class="bi bi-plus-lg me-1"></i> Añadir Conocimiento
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros y Buscador -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="sigma-buscar" class="form-control border-start-0 bg-light" placeholder="Buscar por tema o respuesta...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Conocimiento -->
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-muted small fw-bold text-uppercase">
+                        <tr>
+                            <th class="ps-4">Tema y Roles</th>
+                            <th>Palabras Clave</th>
+                            <th>Respuesta y Acción</th>
+                            <th class="text-center pe-4" width="100">Opciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-sigma">
+                        <tr><td colspan="4" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Cargando cerebro...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear/Editar Conocimiento -->
+<div class="modal fade" id="modalSigma" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark" id="modalSigmaTitle"><i class="bi bi-robot text-primary me-2"></i>Enseñar a Sigma</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="sigma-id">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">Tema o Título <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="sigma-tema" placeholder="Ej: Gestión de Notas">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">Palabras Clave (Separadas por coma) <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="sigma-claves" placeholder="Ej: notas, calificaciones, cargar notas">
+                    <div class="form-text small text-muted">Sigma usará esto para saber de qué habla el usuario.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">Respuesta de Sigma <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="sigma-respuesta" rows="3" placeholder="Ej: ¡Hola {nombre}! Te llevo al módulo de notas."></textarea>
+                    <div class="form-text small text-muted">Puedes usar <code>{nombre}</code> para que Sigma diga el nombre del usuario.</div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Acción (Opcional)</label>
+                        <select class="form-select" id="sigma-accion-tipo">
+                            <option value="">Solo texto (Ninguna)</option>
+                            <option value="navegar">Navegar a otra vista</option>
+                            <option value="abrir_modal">Abrir un Modal (Emergente)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Valor de la Acción</label>
+                        <input type="text" class="form-control" id="sigma-accion-valor" placeholder="Ej: #notas o modalNotas">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">Roles Permitidos (Opcional)</label>
+                    <input type="text" class="form-control" id="sigma-roles" placeholder="Ej: admin, directivo, control_estudio">
+                    <div class="form-text small text-muted">Si lo dejas en blanco, cualquier usuario (incluso visitantes) podrá recibir esta respuesta. Sepáralos con coma.</div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pe-4 pb-4">
+                <button type="button" class="btn btn-light rounded-pill fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary rounded-pill fw-bold px-4" id="btn-guardar-sigma" onclick="window.ModSigma.guardar()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>

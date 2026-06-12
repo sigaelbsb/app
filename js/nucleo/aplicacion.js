@@ -11,6 +11,7 @@ window.ModulosSistema = {
             { vista: "Perfil de la Escuela", icono: "bi-building" }, 
             { vista: "Espacios Escolares", icono: "bi-door-open" },
             { vista: "Configuración del Sistema", icono: "bi-sliders" },
+            { vista: "Cerebro de Sigma", icono: "bi-robot" },
             { vista: "Calendario Escolar", icono: "bi-calendar-range" },
             { vista: "Gestión de Registros", icono: "bi-database-fill-gear" },
             { vista: "Panel de Control", icono: "bi-terminal-fill" }

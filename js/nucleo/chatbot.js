@@ -122,20 +122,34 @@ window.Sigma = {
                 
             if (error) throw error;
             if (data) {
-                this.conocimientoCache = data;
+                // Obtener datos del usuario logueado para filtrar por rol
+                let userRole = 'invitado';
+                try {
+                    const us = JSON.parse(localStorage.getItem('sigae_usuario'));
+                    if (us && us.rol) userRole = us.rol.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                } catch(e){}
+
+                // Filtrar conocimientos: si roles_permitidos está vacío, es público. 
+                // Si tiene roles, el rol del usuario debe estar en el array.
+                const conocimientoFiltrado = data.filter(item => {
+                    if (!item.roles_permitidos || item.roles_permitidos.length === 0) return true;
+                    // Verificar si el rol del usuario actual hace match con alguno de los permitidos
+                    return item.roles_permitidos.some(rolPermitido => userRole.includes(rolPermitido.toLowerCase()));
+                });
+
+                this.conocimientoCache = conocimientoFiltrado;
                 
                 // Configurar Fuse.js para búsqueda difusa
                 const opcionesFuse = {
                     includeScore: true,
-                    threshold: 0.4, // Tolerancia a errores (0 es exacto, 1 es muy suelto)
+                    threshold: 0.4, 
                     keys: [
                         { name: 'palabras_clave', weight: 0.7 },
                         { name: 'tema', weight: 0.3 }
                     ]
                 };
-                // El Fuse busca dentro del array de palabras clave
                 this.fuseInstance = new Fuse(this.conocimientoCache, opcionesFuse);
-                console.log("🧠 Conocimiento de Sigma cargado:", data.length, "temas.");
+                console.log("🧠 Conocimiento de Sigma cargado:", this.conocimientoCache.length, "temas accesibles para el rol actual.");
             }
         } catch (e) {
             console.error("Error cargando conocimiento de Sigma:", e);
@@ -411,6 +425,17 @@ window.Sigma = {
 
     ejecutarRespuesta: function(item) {
         let htmlRespuesta = item.respuesta;
+        
+        // Inyectar el nombre del usuario si existe la variable {nombre}
+        let userName = 'visitante';
+        try {
+            const us = JSON.parse(localStorage.getItem('sigae_usuario'));
+            if (us && (us.nombres || us.nombre)) {
+                userName = (us.nombres || us.nombre).split(' ')[0]; // Solo el primer nombre
+            }
+        } catch(e){}
+        
+        htmlRespuesta = htmlRespuesta.replace(/\{nombre\}/g, userName);
 
         // Validar si la respuesta tiene una acción de navegación o interfaz
         if (item.accion_tipo === 'navegar' && item.accion_valor) {

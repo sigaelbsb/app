@@ -12,6 +12,7 @@ const Enrutador = {
         "Perfil de la Escuela": { url: "vistas/escuela/perfil.html" },
         "Espacios Escolares": { url: "vistas/escuela/espacios.html" },
         "Configuración del Sistema": { url: "vistas/escuela/configuracion.html" },
+        "Cerebro de Sigma": { url: "vistas/sistema/sigma.html" },
         "Calendario Escolar": { url: "vistas/escuela/calendario.html" },
         "Cargos Institucionales": { url: "vistas/personal/cargos.html" },
         "Cadena Supervisoria": { url: "vistas/personal/jerarquia.html" },
@@ -101,3 +102,4 @@ window.init_Mi_Expediente = function() { if(window.ModExpedienteDocente) window.
 window.init_Expediente_Docente = function() { if(window.ModExpedienteDocente) window.ModExpedienteDocente.init(); };
 window.init_Mi_Expediente = function() { if(window.ModExpedienteDocente) window.ModExpedienteDocente.init(); };
 window.init_Gestor_de_Expedientes = function() { if(window.ModGestionExpedientes) window.ModGestionExpedientes.init(); };
+window.init_Cerebro_de_Sigma = function() { if(window.ModSigma) window.ModSigma.init(); };
