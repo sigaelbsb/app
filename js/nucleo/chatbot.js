@@ -112,11 +112,11 @@ window.Sigma = {
 
     cargarConocimiento: async function() {
         try {
-            if (!window.supabaseClient) {
+            if (!window.supabaseDB) {
                 console.warn("Supabase no inicializado. Sigma operará en modo offline.");
                 return;
             }
-            const { data, error } = await window.supabaseClient
+            const { data, error } = await window.supabaseDB
                 .from('sigma_conocimiento')
                 .select('*');
                 
