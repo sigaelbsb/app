@@ -473,35 +473,58 @@ window.Sigma = {
     ejecutarAccion: function(tipo, valor) {
         if (tipo === 'navegar') {
             let vistaNombre = valor;
-            if (valor.startsWith('#')) {
-                const mapHashToView = {
-                    '#escuela': 'Perfil de la Escuela',
-                    '#roles': 'Roles y Privilegios',
-                    '#usuarios': 'Gestión de Usuarios',
-                    '#auditoria': 'Auditoría del Sistema',
-                    '#calendario': 'Calendario Escolar',
-                    '#espacios': 'Espacios Escolares',
-                    '#salones': 'Grados y Salones',
-                    '#matricula': 'Gestión de Matrícula',
-                    '#admisiones': 'Gestión de Admisiones',
-                    '#actualizacion': 'Actualización de Datos',
-                    '#notas': 'Carga de Notas y Calificaciones',
-                    '#asignacion': 'Asignación Docente',
-                    '#guiaturas': 'Asignar Guiaturas',
-                    '#expediente_docente': 'Mi Expediente',
-                    '#cargos': 'Cargos Institucionales',
-                    '#jerarquia': 'Cadena Supervisoria',
-                    '#colectivos': 'Gestión de Colectivos',
-                    '#transporte': 'Transporte Escolar',
-                    '#solicitud': 'Gestión de Solicitudes (Tickets)',
-                    '#mis_solicitudes': 'Mis Solicitudes',
-                    '#sigma': 'Cerebro de Sigma'
+            if (window.Enrutador && window.Enrutador.MAPA_RUTAS) {
+                // Si ya es un nombre exacto
+                if (window.Enrutador.MAPA_RUTAS[vistaNombre] || (window.Aplicacion && window.Aplicacion.ModulosSistema && window.Aplicacion.ModulosSistema[vistaNombre])) {
+                    window.Enrutador.navegar(vistaNombre);
+                    document.getElementById('sigma-speech-bubble').classList.remove('active');
+                    return;
+                }
+
+                let claveLimpia = valor.replace('#', '').toLowerCase().trim();
+                const mapToView = {
+                    'escuela': 'Perfil de la Escuela',
+                    'roles': 'Roles y Privilegios',
+                    'usuarios': 'Gestión de Usuarios',
+                    'auditoria': 'Auditoría del Sistema',
+                    'calendario': 'Calendario Escolar',
+                    'espacios': 'Espacios Escolares',
+                    'salones': 'Grados y Salones',
+                    'matricula': 'Gestión de Matrícula',
+                    'admisiones': 'Gestión de Admisiones',
+                    'inscripcion': 'Gestión de Admisiones',
+                    'inscripciones': 'Gestión de Admisiones',
+                    'actualizacion': 'Actualización de Datos',
+                    'notas': 'Carga de Notas y Calificaciones',
+                    'asignacion': 'Vincular Estudiante',
+                    'guiaturas': 'Asignar Guiaturas',
+                    'expediente': 'Expediente Estudiantil',
+                    'expediente_docente': 'Mi Expediente',
+                    'cargos': 'Cargos Institucionales',
+                    'jerarquia': 'Cadena Supervisoria',
+                    'colectivos': 'Gestión de Colectivos',
+                    'transporte': 'Transporte Escolar',
+                    'solicitud': 'Solicitud de Cupos',
+                    'mis_solicitudes': 'Mis Solicitudes',
+                    'sigma': 'Cerebro de Sigma',
+                    'inicio': 'Inicio',
+                    'panel': 'Panel de Control'
                 };
-                vistaNombre = mapHashToView[valor] || valor.replace('#', '');
+                
+                vistaNombre = mapToView[claveLimpia];
+
+                // Búsqueda difusa en las rutas si no se halló en el mapa
+                if (!vistaNombre) {
+                    const keys = Object.keys(window.Enrutador.MAPA_RUTAS);
+                    const match = keys.find(k => k.toLowerCase().includes(claveLimpia));
+                    if (match) vistaNombre = match;
+                }
             }
+
             if (window.Enrutador && window.Enrutador.navegar) {
-                window.Enrutador.navegar(vistaNombre);
+                window.Enrutador.navegar(vistaNombre || valor.replace('#', ''));
             }
+
         } else if (tipo === 'abrir_modal') {
             const mEl = document.getElementById(valor);
             if (mEl) new bootstrap.Modal(mEl).show();
