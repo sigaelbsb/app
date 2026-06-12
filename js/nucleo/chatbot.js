@@ -438,15 +438,14 @@ window.Sigma = {
 
         // Validar si la respuesta tiene una acción de navegación o interfaz
         if (item.accion_tipo === 'navegar' && item.accion_valor) {
-            const vista = item.accion_valor.replace('#', '');
             htmlRespuesta += `<div class="mt-3 text-center">
-                <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="window.location.hash = '${vista}'; document.getElementById('sigma-speech-bubble').classList.remove('active');">
+                <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="window.Sigma.ejecutarAccion('${item.accion_tipo}', '${item.accion_valor}')">
                     <i class="bi bi-link me-1"></i> Ir a ${item.tema}
                 </button>
             </div>`;
         } else if (item.accion_tipo === 'abrir_modal' && item.accion_valor) {
             htmlRespuesta += `<div class="mt-3 text-center">
-                <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="const mEl = document.getElementById('${item.accion_valor}'); if(mEl){ new bootstrap.Modal(mEl).show(); } document.getElementById('sigma-speech-bubble').classList.remove('active');">
+                <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100" onclick="window.Sigma.ejecutarAccion('${item.accion_tipo}', '${item.accion_valor}')">
                     <i class="bi bi-window me-1"></i> Abrir ${item.tema}
                 </button>
             </div>`;
@@ -457,10 +456,9 @@ window.Sigma = {
             for (let i = 1; i < items.length; i++) {
                 let alt = items[i];
                 if (alt.accion_tipo === 'navegar' && alt.accion_valor) {
-                    let vista = alt.accion_valor.replace('#', '');
-                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="window.location.hash = '${vista}'; document.getElementById('sigma-speech-bubble').classList.remove('active');"><i class="bi bi-link me-1"></i> ${alt.tema}</button>`;
+                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="window.Sigma.ejecutarAccion('${alt.accion_tipo}', '${alt.accion_valor}')"><i class="bi bi-link me-1"></i> ${alt.tema}</button>`;
                 } else if (alt.accion_tipo === 'abrir_modal' && alt.accion_valor) {
-                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="const mEl = document.getElementById('${alt.accion_valor}'); if(mEl){ new bootstrap.Modal(mEl).show(); } document.getElementById('sigma-speech-bubble').classList.remove('active');"><i class="bi bi-window me-1"></i> ${alt.tema}</button>`;
+                    htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="window.Sigma.ejecutarAccion('${alt.accion_tipo}', '${alt.accion_valor}')"><i class="bi bi-window me-1"></i> ${alt.tema}</button>`;
                 } else {
                     // Si solo es texto, recargamos la respuesta con ese item
                     htmlRespuesta += `<button class="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate" onclick="const itemsCopia = window.Sigma.conocimientoCache.filter(c => c.id === '${alt.id}'); if(itemsCopia.length > 0) window.Sigma.ejecutarRespuesta(itemsCopia);"><i class="bi bi-chat-dots me-1"></i> ${alt.tema}</button>`;
@@ -470,6 +468,45 @@ window.Sigma = {
 
         // Mostrar la respuesta en texto
         this.mostrarMensaje(htmlRespuesta, false);
+    },
+
+    ejecutarAccion: function(tipo, valor) {
+        if (tipo === 'navegar') {
+            let vistaNombre = valor;
+            if (valor.startsWith('#')) {
+                const mapHashToView = {
+                    '#escuela': 'Perfil de la Escuela',
+                    '#roles': 'Roles y Privilegios',
+                    '#usuarios': 'Gestión de Usuarios',
+                    '#auditoria': 'Auditoría del Sistema',
+                    '#calendario': 'Calendario Escolar',
+                    '#espacios': 'Espacios Escolares',
+                    '#salones': 'Grados y Salones',
+                    '#matricula': 'Gestión de Matrícula',
+                    '#admisiones': 'Gestión de Admisiones',
+                    '#actualizacion': 'Actualización de Datos',
+                    '#notas': 'Carga de Notas y Calificaciones',
+                    '#asignacion': 'Asignación Docente',
+                    '#guiaturas': 'Asignar Guiaturas',
+                    '#expediente_docente': 'Mi Expediente',
+                    '#cargos': 'Cargos Institucionales',
+                    '#jerarquia': 'Cadena Supervisoria',
+                    '#colectivos': 'Gestión de Colectivos',
+                    '#transporte': 'Transporte Escolar',
+                    '#solicitud': 'Gestión de Solicitudes (Tickets)',
+                    '#mis_solicitudes': 'Mis Solicitudes',
+                    '#sigma': 'Cerebro de Sigma'
+                };
+                vistaNombre = mapHashToView[valor] || valor.replace('#', '');
+            }
+            if (window.Enrutador && window.Enrutador.navegar) {
+                window.Enrutador.navegar(vistaNombre);
+            }
+        } else if (tipo === 'abrir_modal') {
+            const mEl = document.getElementById(valor);
+            if (mEl) new bootstrap.Modal(mEl).show();
+        }
+        document.getElementById('sigma-speech-bubble').classList.remove('active');
     }
 };
 
