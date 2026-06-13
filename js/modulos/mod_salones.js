@@ -4,6 +4,17 @@
  */
 window.ModSalones = {
     niveles: [], grados: [], secciones: [], salones: [],
+    
+    // Lista de escuelas del sistema
+    ESCUELAS: [
+        { codigo: 'sb', nombre: 'UE Santa Bárbara' },
+        { codigo: 'lb', nombre: 'UE Libertador Bolívar' }
+    ],
+
+    // Retorna las escuelas a las que el usuario tiene acceso según sus roles
+    obtenerEscuelasConAcceso: function() {
+        return this.ESCUELAS.filter(e => window.Aplicacion.tieneAccesoEscuela(e.codigo));
+    },
 
     init: function() { 
         let pGrupos = window.Aplicacion.permiso('Tarjeta: Configurar Grados', 'ver');
@@ -65,8 +76,19 @@ window.ModSalones = {
                 // ✨ LOS GRADOS AHORA SE ORDENAN POR SU COLUMNA 'ORDEN' ✨
                 window.supabaseDB.from('conf_grados').select('*').order('orden', { ascending: true }),
                 window.supabaseDB.from('conf_secciones').select('*').order('valor', { ascending: true }),
-                window.supabaseDB.from('salones').select('*') 
             ]);
+
+            // Cargar salones de TODAS las escuelas a las que el usuario tiene acceso
+            let escuelas = this.obtenerEscuelasConAcceso();
+            let codigos = escuelas.map(e => e.codigo);
+            
+            let salonesQuery = window.supabaseDB.from('salones').select('*');
+            if (codigos.length === 1) {
+                salonesQuery = salonesQuery.eq('id_escuela', codigos[0]);
+            } else if (codigos.length > 1) {
+                salonesQuery = salonesQuery.in('id_escuela', codigos);
+            }
+            const salonesRes = await salonesQuery;
 
             window.Aplicacion.ocultarCarga();
 
@@ -305,7 +327,7 @@ window.ModSalones = {
         if(!tbody) return;
 
         if (this.salones.length === 0) { 
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center p-5 text-muted"><i class="bi bi-door-closed fs-1 d-block mb-3"></i>No hay salones aperturados.</td></tr>`; 
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center p-5 text-muted"><i class="bi bi-door-closed fs-1 d-block mb-3"></i>No hay salones aperturados.</td></tr>`; 
             return; 
         }
 
@@ -313,13 +335,20 @@ window.ModSalones = {
         let pElim = window.Aplicacion.permiso('Tarjeta: Apertura de Salones', 'eliminar');
         let html = '';
 
+        const nombreEscuela = (codigo) => {
+            const e = this.ESCUELAS.find(x => x.codigo === codigo);
+            return e ? e.nombre : codigo;
+        };
+
         this.salones.forEach(s => {
             let btnEditar = pCrear ? `<button class="btn btn-sm btn-light text-primary border shadow-sm hover-efecto me-1" onclick="window.ModSalones.editarSalon('${s.id_salon}')" title="Editar Salón"><i class="bi bi-pencil-fill"></i></button>` : '';
             let btnEliminar = pElim ? `<button class="btn btn-sm btn-light text-danger border shadow-sm hover-efecto" onclick="window.ModSalones.eliminarSalon('${s.id_salon}', '${s.nombre_salon}')" title="Clausurar Salón"><i class="bi bi-trash3-fill"></i></button>` : '';
+            let badgeEscuela = `<span class="badge rounded-pill ${s.id_escuela === 'lb' ? 'bg-danger' : 'bg-primary'} shadow-sm" style="font-size:0.7rem">${nombreEscuela(s.id_escuela)}</span>`;
 
             html += `
             <tr class="align-middle hover-efecto">
-                <td class="ps-4 fw-bold text-dark text-uppercase"><i class="bi bi-geo-alt-fill text-secondary me-2"></i>${s.nombre_salon}</td>
+                <td class="ps-3">${badgeEscuela}</td>
+                <td class="fw-bold text-dark text-uppercase"><i class="bi bi-door-open text-secondary me-2"></i>${s.nombre_salon}</td>
                 <td><span class="badge bg-light text-dark border shadow-sm">${s.nivel_educativo}</span></td>
                 <td class="fw-bold text-secondary">${s.grado_anio}</td>
                 <td><span class="badge bg-info rounded-circle shadow-sm" style="width: 30px; height: 30px; line-height: 20px; font-size: 14px;">${s.seccion}</span></td>
@@ -336,12 +365,28 @@ window.ModSalones = {
             return Swal.fire("Faltan Datos", "Debe configurar los Niveles Educativos (Configuración Global), Grados y Secciones antes de aperturar un salón.", "warning");
         }
 
+        // Obtener solo las escuelas a las que el usuario tiene acceso
+        let escuelasDisponibles = this.obtenerEscuelasConAcceso();
+        if (escuelasDisponibles.length === 0) {
+            return Swal.fire('Sin Acceso', 'No tienes acceso a ninguna escuela configurada. Verifica tus roles y privilegios.', 'error');
+        }
+
+        let optEscuelas = '<option value="">Seleccione Escuela...</option>';
+        escuelasDisponibles.forEach(e => optEscuelas += `<option value="${e.codigo}">${e.nombre}</option>`);
+        // Si solo tiene acceso a una escuela, la pre-seleccionamos
+        if (escuelasDisponibles.length === 1) {
+            optEscuelas = `<option value="${escuelasDisponibles[0].codigo}" selected>${escuelasDisponibles[0].nombre}</option>`;
+        }
+
         let optNiveles = '<option value="">Seleccione Nivel...</option>'; this.niveles.forEach(n => optNiveles += `<option value="${n.valor}">${n.valor}</option>`);
         let optGrados = '<option value="">Seleccione Grado...</option>'; this.grados.forEach(g => optGrados += `<option value="${g.valor}">${g.valor}</option>`);
         let optSecc = '<option value="">Seleccione Sección...</option>'; this.secciones.forEach(s => optSecc += `<option value="${s.valor}">${s.valor}</option>`);
         
         let htmlForm = `
         <div class="text-start">
+            <label class="small fw-bold mb-1 text-muted"><i class="bi bi-building text-primary me-1"></i>Escuela</label>
+            <select id="swal-escuela" class="swal2-input input-moderno m-0 mb-3 w-100">${optEscuelas}</select>
+
             <label class="small fw-bold mb-1 text-muted">Nivel Educativo</label>
             <select id="swal-nivel" class="swal2-input input-moderno m-0 mb-3 w-100">${optNiveles}</select>
             
@@ -361,11 +406,12 @@ window.ModSalones = {
         Swal.fire({ 
             title: 'Aperturar Salón', html: htmlForm, showCancelButton: true, confirmButtonText: 'Aperturar', confirmButtonColor: '#00BCD4',
             preConfirm: () => {
+                const esc = document.getElementById('swal-escuela').value;
                 const niv = document.getElementById('swal-nivel').value;
                 const gra = document.getElementById('swal-grado').value;
                 const sec = document.getElementById('swal-secc').value;
-                if (!niv || !gra || !sec) { Swal.showValidationMessage('Todos los campos son obligatorios'); return false; }
-                return { nivel: niv, grado: gra, seccion: sec };
+                if (!esc || !niv || !gra || !sec) { Swal.showValidationMessage('Todos los campos son obligatorios'); return false; }
+                return { escuela: esc, nivel: niv, grado: gra, seccion: sec };
             }
         }).then((result) => { if (result.isConfirmed) this.guardarSalon(result.value); });
     },
@@ -424,6 +470,7 @@ window.ModSalones = {
         }).then(async (result) => {
             if (result.isConfirmed) {
                 let datos = result.value;
+                let codigoEscuela = localStorage.getItem('sigae_escuela_codigo') || 'sb';
                 window.Aplicacion.mostrarCarga();
                 try {
                     const { data: existen } = await window.supabaseDB.from('salones')
@@ -431,6 +478,7 @@ window.ModSalones = {
                         .eq('nivel_educativo', datos.nivel)
                         .eq('grado_anio', datos.grado)
                         .eq('seccion', datos.seccion)
+                        .eq('id_escuela', codigoEscuela)
                         .neq('id_salon', id_salon);
 
                     if (existen && existen.length > 0) {
@@ -465,13 +513,15 @@ window.ModSalones = {
     },
 
     guardarSalon: async function(datos) {
+        let codigoEscuela = datos.escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb';
         window.Aplicacion.mostrarCarga();
         try {
             const { data: existen } = await window.supabaseDB.from('salones')
                 .select('id_salon')
                 .eq('nivel_educativo', datos.nivel)
                 .eq('grado_anio', datos.grado)
-                .eq('seccion', datos.seccion);
+                .eq('seccion', datos.seccion)
+                .eq('id_escuela', codigoEscuela);
 
             if (existen && existen.length > 0) { 
                 window.Aplicacion.ocultarCarga(); 
@@ -481,6 +531,7 @@ window.ModSalones = {
             let nombreSal = `${datos.grado} ${datos.seccion}`;
             const payload = { 
                 id_salon: "SAL-" + new Date().getTime(), 
+                id_escuela: codigoEscuela,
                 nivel_educativo: datos.nivel, 
                 grado_anio: datos.grado, 
                 seccion: datos.seccion, 
