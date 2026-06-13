@@ -41,9 +41,12 @@ window.ModSalones = {
         if (!pSecc) document.getElementById('col-nav-secciones').style.display = 'none';
         if (!pSalones) document.getElementById('col-nav-apertura').style.display = 'none';
 
-        if (!window.Aplicacion.permiso('Tarjeta: Configurar Grados', 'crear')) document.querySelector('.btn-crear-grado').style.display = 'none';
-        if (!window.Aplicacion.permiso('Tarjeta: Configurar Secciones', 'crear')) document.querySelector('.btn-crear-seccion').style.display = 'none';
-        if (!window.Aplicacion.permiso('Tarjeta: Apertura de Salones', 'crear')) document.querySelector('.btn-crear-salon').style.display = 'none';
+        const btnCrearGrado = document.querySelector('.btn-crear-grado');
+        const btnCrearSeccion = document.querySelector('.btn-crear-seccion');
+        const btnCrearSalon = document.querySelector('.btn-crear-salon');
+        if (!window.Aplicacion.permiso('Tarjeta: Configurar Grados', 'crear') && btnCrearGrado) btnCrearGrado.style.display = 'none';
+        if (!window.Aplicacion.permiso('Tarjeta: Configurar Secciones', 'crear') && btnCrearSeccion) btnCrearSeccion.style.display = 'none';
+        if (!window.Aplicacion.permiso('Tarjeta: Apertura de Salones', 'crear') && btnCrearSalon) btnCrearSalon.style.display = 'none';
 
         this.cargarDatos(); 
         
