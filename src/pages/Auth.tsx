@@ -315,18 +315,73 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     }
   };
 
-  const completarLogin = (userData: any) => {
+  const verifySchoolAccess = async (userData: any): Promise<'sb' | 'lb' | null> => {
+    if (userData.rol === 'SuperAdmin') {
+      return school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+    }
+
+    try {
+      const { data: roleData, error: roleError } = await supabase
+        .from('roles')
+        .select('permisos')
+        .eq('nombre', userData.rol)
+        .maybeSingle();
+
+      if (roleError || !roleData) {
+        return null;
+      }
+
+      let rolePerms: any = {};
+      if (typeof roleData.permisos === 'string') {
+        try { rolePerms = JSON.parse(roleData.permisos); } catch (e) {}
+      } else {
+        rolePerms = roleData.permisos || {};
+      }
+
+      const tieneAcceso = (cod: string) => {
+        const privs = rolePerms[cod];
+        if (!privs) return false;
+        if (privs.hasOwnProperty('__acceso_plantel__')) {
+          return privs['__acceso_plantel__']?.ver === true;
+        }
+        for (let mod in privs) {
+          if (privs[mod] && (privs[mod].ver === true || privs[mod] === true)) return true;
+        }
+        return false;
+      };
+
+      const selectedSchoolCode = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+      if (tieneAcceso(selectedSchoolCode)) {
+        return selectedSchoolCode;
+      }
+
+      const otherSchool = selectedSchoolCode === 'sb' ? 'lb' : 'sb';
+      if (tieneAcceso(otherSchool)) {
+        return otherSchool;
+      }
+
+      return null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  };
+
+  const completarLogin = (userData: any, resolvedSchool?: 'sb' | 'lb') => {
+    const activeSchool = resolvedSchool || school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
     const cleanUserData = {
       id: userData.id || userData.id_usuario,
       nombre: userData.nombre_completo || userData.nombre,
       cedula: userData.cedula,
       rol: userData.rol,
       cargo: userData.cargo || '',
-      id_escuela: school || localStorage.getItem('sigae_escuela_codigo') || 'sb',
-      nombre_escuela: school === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar',
+      id_escuela: activeSchool,
+      nombre_escuela: activeSchool === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar',
       email: userData.email || userData.correo
     };
     localStorage.setItem('sesion_sigae', 'activa');
+    localStorage.setItem('sigae_escuela_codigo', activeSchool);
+    localStorage.setItem('sigae_escuela_activa', activeSchool === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
     localStorage.setItem('usuario_sigae', JSON.stringify(cleanUserData));
     localStorage.removeItem('sigae_bloqueado_total');
     
@@ -334,14 +389,14 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     onLogin(cleanUserData);
   };
 
-  const pedirCodigo2FA = (userData: any, secret: string) => {
+  const pedirCodigo2FA = (userData: any, secret: string, resolvedSchool: 'sb' | 'lb') => {
     const Swal = (window as any).Swal;
     if (!Swal) {
       const code = prompt("Ingresa el código de 2FA:");
       if (code && code.trim().length === 6) {
         verificarTOTP(secret, code).then(verificado => {
           if (verificado) {
-            completarLogin(userData);
+            completarLogin(userData, resolvedSchool);
           } else {
             alert("Código incorrecto");
           }
@@ -378,7 +433,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       }
     }).then((result: any) => {
       if (result.isConfirmed) {
-        completarLogin(userData);
+        completarLogin(userData, resolvedSchool);
       }
     });
   };
@@ -418,6 +473,14 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         return;
       }
 
+      // Verify school access
+      const resolvedSchool = await verifySchoolAccess(data);
+      if (!resolvedSchool) {
+        setErrorMsg('Su usuario no cuenta con accesos configurados para ningún plantel.');
+        setLoading(false);
+        return;
+      }
+
       // Check 2FA
       let pregJSON: any = {};
       if (data.preguntas_seguridad) {
@@ -430,11 +493,11 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
       if (pregJSON && pregJSON.otp_enabled === true && pregJSON.otp_secret) {
         setLoading(false);
-        pedirCodigo2FA(data, pregJSON.otp_secret);
+        pedirCodigo2FA(data, pregJSON.otp_secret, resolvedSchool);
         return;
       }
 
-      completarLogin(data);
+      completarLogin(data, resolvedSchool);
     } catch (e: any) {
       console.error(e);
       if (e.name !== "NotAllowedError") {
@@ -504,6 +567,14 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         await supabase.from('usuarios').update({ intentos_fallidos: 0, bloqueo_hasta: null }).eq('cedula', cedula);
       }
 
+      // Verify school access
+      const resolvedSchool = await verifySchoolAccess(data);
+      if (!resolvedSchool) {
+        setErrorMsg('Su usuario no cuenta con accesos configurados para ningún plantel.');
+        setLoading(false);
+        return;
+      }
+
       // Check 2FA
       let pregJSON: any = {};
       if (data.preguntas_seguridad) {
@@ -516,11 +587,11 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
       if (pregJSON && pregJSON.otp_enabled === true && pregJSON.otp_secret) {
         setLoading(false);
-        pedirCodigo2FA(data, pregJSON.otp_secret);
+        pedirCodigo2FA(data, pregJSON.otp_secret, resolvedSchool);
         return;
       }
 
-      completarLogin(data);
+      completarLogin(data, resolvedSchool);
     } catch (err) {
       console.error(err);
       setErrorMsg('Error de conexión.');

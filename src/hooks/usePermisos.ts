@@ -13,6 +13,10 @@ export const usePermisos = () => {
   useEffect(() => {
     const stored = localStorage.getItem('usuario_sigae');
     if (!stored) {
+      cachePermisos = null;
+      cacheFullPermisos = null;
+      setPermisos(null);
+      setFullPermisos(null);
       setLoading(false);
       return;
     }
@@ -45,7 +49,36 @@ export const usePermisos = () => {
           cacheFullPermisos = parsed;
           setFullPermisos(parsed);
 
-          const esc = usr.id_escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb';
+          let esc = usr.id_escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb';
+
+          // Verificar si el usuario tiene acceso a la escuela seleccionada
+          const tieneAcceso = (cod: string) => {
+            if (usr.rol === 'SuperAdmin') return true;
+            const privs = parsed[cod];
+            if (!privs) return false;
+            if (privs.hasOwnProperty('__acceso_plantel__')) {
+              return privs['__acceso_plantel__']?.ver === true;
+            }
+            for (let mod in privs) {
+              if (privs[mod] && (privs[mod].ver === true || privs[mod] === true)) return true;
+            }
+            return false;
+          };
+
+          if (usr.rol !== 'SuperAdmin' && !tieneAcceso(esc)) {
+            const otherEsc = esc === 'sb' ? 'lb' : 'sb';
+            if (tieneAcceso(otherEsc)) {
+              esc = otherEsc;
+              localStorage.setItem('sigae_escuela_codigo', otherEsc);
+              localStorage.setItem('sigae_escuela_activa', otherEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+              usr.id_escuela = otherEsc;
+              usr.nombre_escuela = otherEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+              localStorage.setItem('usuario_sigae', JSON.stringify(usr));
+              window.location.reload();
+              return;
+            }
+          }
+
           const escPerms = parsed[esc] || parsed || {};
           cachePermisos = escPerms;
           setPermisos(escPerms);

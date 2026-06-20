@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { usePermisos } from '../hooks/usePermisos';
 
 interface EscuelaPerfil {
   id_escuela: string;
@@ -17,6 +18,7 @@ export const Dashboard = () => {
   const [escuelas, setEscuelas] = useState<EscuelaPerfil[]>([]);
   const [fechaTexto, setFechaTexto] = useState('Cargando fecha...');
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const { tieneAccesoEscuela, loading: permLoading } = usePermisos();
 
   const userStr = localStorage.getItem('usuario_sigae');
   const usuario = userStr ? JSON.parse(userStr) : { nombre: 'Usuario' };
@@ -80,6 +82,19 @@ export const Dashboard = () => {
   const lbData = getEscuelaData('lb');
   const sbData = getEscuelaData('sb');
 
+  const hasAccessSB = tieneAccesoEscuela('sb');
+  const hasAccessLB = tieneAccesoEscuela('lb');
+
+  if (permLoading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: '400px' }}>
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Cargando permisos...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="animate__animated animate__fadeIn">
       {/* SALUDO GLOBAL */}
@@ -101,7 +116,8 @@ export const Dashboard = () => {
       <div className="row g-4 mb-4">
         
         {/* COLUMNA IZQUIERDA: UE Libertador Bolívar (lb) */}
-        <div className="col-xl-6" id="tarjeta-inicio-lb">
+        {hasAccessLB && (
+          <div className={hasAccessSB ? "col-xl-6" : "col-12"} id="tarjeta-inicio-lb">
           <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-primary border-5 hover-efecto">
             <div className="banner-inicio mb-4 rounded-top-4 p-4 position-relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0066FF 0%, #00C3FF 100%)' }}>
               <div className="banner-orb" style={{ width: '150px', height: '150px', top: '-50px', left: '-20px', opacity: 0.3 }}></div>
@@ -186,9 +202,11 @@ export const Dashboard = () => {
             </div>
           </div>
         </div>
+      )}
 
         {/* COLUMNA DERECHA: UE Santa Bárbara (sb) */}
-        <div className="col-xl-6" id="tarjeta-inicio-sb">
+        {hasAccessSB && (
+          <div className={hasAccessLB ? "col-xl-6" : "col-12"} id="tarjeta-inicio-sb">
           <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-success border-5 hover-efecto">
             <div className="banner-inicio mb-4 rounded-top-4 p-4 position-relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' }}>
               <div className="banner-orb" style={{ width: '150px', height: '150px', top: '-50px', left: '-20px', opacity: 0.3 }}></div>
@@ -273,6 +291,7 @@ export const Dashboard = () => {
             </div>
           </div>
         </div>
+      )}
       </div>
 
       {/* Organigrama */}
