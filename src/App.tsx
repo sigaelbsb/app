@@ -15,6 +15,7 @@ import { EspaciosEscolares } from './pages/direccion/EspaciosEscolares';
 import { ConfiguracionSistema } from './pages/direccion/ConfiguracionSistema';
 import { DivisionTerritorial } from './pages/direccion/DivisionTerritorial';
 import { CerebroSigma } from './pages/direccion/CerebroSigma';
+import { GestionRegistros } from './pages/direccion/GestionRegistros';
 import { EstructuraEmpresa } from './pages/organizacion/EstructuraEmpresa';
 import { CargosInstitucionales } from './pages/organizacion/CargosInstitucionales';
 import { CadenaSupervisoria } from './pages/organizacion/CadenaSupervisoria';
@@ -123,6 +124,7 @@ function App() {
           <Route path="categoria/Dirección y Sistema/Configuración del Sistema" element={<ConfiguracionSistema />} />
           <Route path="categoria/Dirección y Sistema/División Territorial" element={<DivisionTerritorial />} />
           <Route path="categoria/Dirección y Sistema/Cerebro de Sigma" element={<CerebroSigma />} />
+          <Route path="categoria/Dirección y Sistema/Gestión de Registros" element={<GestionRegistros />} />
           <Route path="categoria/Organización Escolar/Estructura Empresa" element={<EstructuraEmpresa />} />
           <Route path="categoria/Organización Escolar/Cargos Institucionales" element={<CargosInstitucionales />} />
           <Route path="categoria/Organización Escolar/Cadena Supervisoria" element={<CadenaSupervisoria />} />

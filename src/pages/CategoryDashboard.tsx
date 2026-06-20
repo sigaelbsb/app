@@ -128,7 +128,8 @@ export const CategoryDashboard = () => {
          vista === "Espacios Escolares" || 
          vista === "Configuración del Sistema" || 
          vista === "División Territorial" ||
-         vista === "Cerebro de Sigma")) ||
+         vista === "Cerebro de Sigma" ||
+         vista === "Gestión de Registros")) ||
       (decodedCategory === "Organización Escolar" && 
         (vista === "Estructura Empresa" || 
          vista === "Cargos Institucionales" || 
