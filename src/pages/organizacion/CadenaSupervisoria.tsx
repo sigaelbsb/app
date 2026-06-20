@@ -27,12 +27,14 @@ const OrganigramaNodo = ({
   cargos,
   usuarios,
   mostrarNombres,
+  escuelaContext = null,
   visitados = new Set<string>()
 }: {
   cargo: Cargo;
   cargos: Cargo[];
   usuarios: UsuarioSimple[];
   mostrarNombres: boolean;
+  escuelaContext?: 'sb' | 'lb' | null;
   visitados?: Set<string>;
 }) => {
   if (visitados.has(cargo.id_cargo)) {
@@ -77,6 +79,9 @@ const OrganigramaNodo = ({
 
   let dueños = usuarios.filter(u => {
     if (u.cargo !== cargo.nombre_cargo) return false;
+    if (escuelaContext) {
+      return u.id_escuela === escuelaContext;
+    }
     if (cargo.id_escuela) {
       return u.id_escuela === cargo.id_escuela;
     }
@@ -86,11 +91,27 @@ const OrganigramaNodo = ({
   const hijos = cargos.filter(c => c.depende_de === cargo.id_cargo);
   hijos.sort((a, b) => a.nombre_cargo.localeCompare(b.nombre_cargo));
 
+  // Duplicar el nodo del director si estamos en la parte global y queremos separar las dos escuelas
+  const hijosParaRender = hijos.flatMap(h => {
+    if (escuelaContext === null && h.nombre_cargo.toLowerCase().includes('director')) {
+      return [
+        { cargoHijo: h, escCtx: 'sb' as const },
+        { cargoHijo: h, escCtx: 'lb' as const }
+      ];
+    }
+    return [{ cargoHijo: h, escCtx: escuelaContext }];
+  });
+
+  let nombreMostrado = cargo.nombre_cargo;
+  if (escuelaContext && !cargo.id_escuela) {
+    nombreMostrado += escuelaContext === 'sb' ? ' (Santa Bárbara)' : ' (Libertador Bolívar)';
+  }
+
   return (
     <li>
       <div className="nodo-cargo-custom" style={{ borderColor: cBorde, backgroundColor: cBg }}>
         <div style={{ color: cTexto, fontWeight: 900, fontSize: '11px', fontFamily: 'sans-serif', textTransform: 'uppercase', marginBottom: '3px', lineHeight: 1.2 }}>
-          {cargo.nombre_cargo}
+          {nombreMostrado}
         </div>
         <div style={{ color: '#475569', fontSize: '9px', fontFamily: 'sans-serif', fontWeight: 600 }}>
           {cargo.tipo_cargo}
@@ -110,15 +131,16 @@ const OrganigramaNodo = ({
         )}
       </div>
 
-      {hijos.length > 0 && (
+      {hijosParaRender.length > 0 && (
         <ul>
-          {hijos.map(h => (
+          {hijosParaRender.map(({ cargoHijo, escCtx }, idx) => (
             <OrganigramaNodo
-              key={h.id_cargo}
-              cargo={h}
+              key={`${cargoHijo.id_cargo}-${escCtx || 'global'}-${idx}`}
+              cargo={cargoHijo}
               cargos={cargos}
               usuarios={usuarios}
               mostrarNombres={mostrarNombres}
+              escuelaContext={escCtx}
               visitados={newVisitados}
             />
           ))}
@@ -871,6 +893,7 @@ export const CadenaSupervisoria = () => {
                           cargos={cargosVisibles}
                           usuarios={usuariosVisibles}
                           mostrarNombres={mostrarNombres}
+                          escuelaContext={escuelaFiltroMapa === 'consolidado' ? null : escuelaFiltroMapa}
                         />
                       ))}
                     </ul>
