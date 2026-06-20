@@ -169,7 +169,7 @@ export const ChatbotSigma = () => {
 
   // Saludo de bienvenida
   useEffect(() => {
-    let saludo = "¡Hola! Soy <b>Sigma</b>, la Inteligencia Artificial del SIGAE. Estoy listo para asistirte en la plataforma. Desplázame por la pantalla y pregúntame lo que necesites.";
+    let saludo = "¡Hola! Soy <b>Sigma</b>, el Asistente Virtual de SIGAE. Estoy listo para asistirte en la plataforma. Desplázame por la pantalla y pregúntame lo que necesites.";
     
     if (conocimientoCache.length > 0) {
       const saludoBD = conocimientoCache.find(c => 
@@ -623,7 +623,7 @@ export const ChatbotSigma = () => {
       {/* Burbuja de Diálogo Interactiva */}
       <div className={`sigma-speech-bubble ${activo ? 'active' : ''}`} id="sigma-speech-bubble">
         <div className="sigma-bubble-header">
-          <span className="sigma-bubble-title"><i className="bi bi-stars"></i> Sigma IA</span>
+          <span className="sigma-bubble-title"><i className="bi bi-stars"></i> Asistente Sigma</span>
           <button className="sigma-bubble-close" onClick={() => setActivo(false)}>&times;</button>
         </div>
         

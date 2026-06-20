@@ -346,7 +346,7 @@ export const CerebroSigma = () => {
               <div className="col-12 text-center text-md-start mb-3 mb-md-0">
               <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                 <span className="badge bg-white text-primary px-3 py-2 shadow-sm fw-bold" style={{ letterSpacing: '1px', fontSize: '0.85rem' }}>
-                  <i className="bi bi-cpu-fill me-1"></i> INTELIGENCIA ARTIFICIAL
+                  <i className="bi bi-cpu-fill me-1"></i> ASISTENTE VIRTUAL
                 </span>
                 <button 
                   onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')} 
@@ -359,7 +359,7 @@ export const CerebroSigma = () => {
                   <i className="bi bi-robot me-3"></i>Cerebro de Sigma
                 </h1>
                 <p className="mb-4 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Gestiona la base de conocimientos, respuestas y acciones de la IA del sistema.
+                  Gestiona la base de conocimientos, respuestas y acciones del asistente virtual del sistema.
                 </p>
                 {canEdit && (
                   <button className="btn btn-light text-primary rounded-pill shadow-sm fw-bold px-4 py-2 hover-efecto" onClick={abrirModalNuevo}>

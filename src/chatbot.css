@@ -1,6 +1,6 @@
 /* ==========================================================
    ESTILOS DE SIGMA (ASISTENTE FLOTANTE TIPO CLIPPY)
-   ✨ ARRASTRABLE, ANIMADO E IMPULSADO POR GEMINI ✨
+   ✨ ARRASTRABLE, ANIMADO Y ASISTENTE DEL SISTEMA ✨
 ============================================================= */
 
 :root {
@@ -292,7 +292,7 @@
 .sigma-bubble-content::-webkit-scrollbar-track { background: transparent; }
 .sigma-bubble-content::-webkit-scrollbar-thumb { background: rgba(0,102,255,0.2); border-radius: 10px; }
 
-/* Entrada de texto Gemini */
+/* Entrada de texto del Asistente */
 .sigma-input-group {
     display: flex;
     gap: 8px;
