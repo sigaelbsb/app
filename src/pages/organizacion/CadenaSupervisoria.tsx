@@ -75,7 +75,13 @@ const OrganigramaNodo = ({
     cTexto = '#0f172a';
   }
 
-  let dueños = usuarios.filter(u => u.cargo === cargo.nombre_cargo);
+  let dueños = usuarios.filter(u => {
+    if (u.cargo !== cargo.nombre_cargo) return false;
+    if (cargo.id_escuela) {
+      return u.id_escuela === cargo.id_escuela;
+    }
+    return true;
+  });
 
   const hijos = cargos.filter(c => c.depende_de === cargo.id_cargo);
   hijos.sort((a, b) => a.nombre_cargo.localeCompare(b.nombre_cargo));
