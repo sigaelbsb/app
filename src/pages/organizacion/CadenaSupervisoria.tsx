@@ -10,6 +10,7 @@ interface Cargo {
   tipo_cargo: string;
   descripcion: string;
   depende_de: string | null;
+  id_escuela: string | null;
 }
 
 interface UsuarioSimple {
@@ -17,6 +18,7 @@ interface UsuarioSimple {
   cedula: string;
   nombre_completo: string;
   cargo: string | null;
+  id_escuela: string | null;
 }
 
 // Recursive Node Component for Organigram Tree
@@ -122,7 +124,7 @@ const OrganigramaNodo = ({
 
 export const CadenaSupervisoria = () => {
   const navigate = useNavigate();
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermiso, tieneAccesoEscuela, user, loading: permLoading } = usePermisos();
   const Swal = (window as any).Swal;
 
   const [activeView, setActiveView] = useState<'dashboard' | 'constructor' | 'mapa'>('dashboard');
@@ -132,9 +134,13 @@ export const CadenaSupervisoria = () => {
   const [usuarios, setUsuarios] = useState<UsuarioSimple[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Constructor state
-  const [selectedSupervisor, setSelectedSupervisor] = useState('');
-  const [checkboxesLocales, setCheckboxesLocales] = useState<{ [cargoId: string]: boolean }>({});
+  // Escuela Activa del Organigrama
+  const [escuelaFiltroMapa, setEscuelaFiltroMapa] = useState<'sb' | 'lb' | 'consolidado'>('sb');
+
+  // Constructor state (Cargo-centric)
+  const [cambiosPendientes, setCambiosPendientes] = useState<{ [cargoId: string]: string | null }>({});
+  const [busquedaConstructor, setBusquedaConstructor] = useState('');
+  const [filtroEscuelaConstructor, setFiltroEscuelaConstructor] = useState<'todos' | 'sb' | 'lb' | 'global'>('todos');
 
   // Organigram map state
   const [filtroRama, setFiltroRama] = useState('');
@@ -147,6 +153,21 @@ export const CadenaSupervisoria = () => {
   const hasModuloAcceso = tienePermiso('Cadena Supervisoria', 'ver');
   const isRestricted = !permLoading && !hasModuloAcceso;
 
+  // Initialize school filter based on privileges
+  useEffect(() => {
+    if (!permLoading && user) {
+      const canSB = tieneAccesoEscuela('sb');
+      const canLB = tieneAccesoEscuela('lb');
+      if (canSB && canLB) {
+        setEscuelaFiltroMapa('consolidado');
+      } else if (canLB) {
+        setEscuelaFiltroMapa('lb');
+      } else {
+        setEscuelaFiltroMapa('sb');
+      }
+    }
+  }, [permLoading, user]);
+
   useEffect(() => {
     if (!permLoading && hasModuloAcceso) {
       cargarDatosMaestros();
@@ -158,7 +179,7 @@ export const CadenaSupervisoria = () => {
     try {
       const [resCargos, resUsers] = await Promise.all([
         supabase.from('cargos').select('*').order('nombre_cargo', { ascending: true }),
-        supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, cargo')
+        supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, cargo, id_escuela')
       ]);
 
       if (resCargos.error) throw resCargos.error;
@@ -173,26 +194,36 @@ export const CadenaSupervisoria = () => {
     if (!silencioso) setLoading(false);
   };
 
-  // Populate checkboxes when selecting a supervisor in constructor
-  const handleSelectSupervisor = (supId: string) => {
-    setSelectedSupervisor(supId);
-    if (!supId) {
-      setCheckboxesLocales({});
-      return;
+  // Prevenir ciclos jerárquicos
+  const detectarCiclo = (cargoId: string, supervisorId: string, cargosList: Cargo[]): boolean => {
+    if (cargoId === supervisorId) return true;
+    let currentSup = cargosList.find(c => c.id_cargo === supervisorId);
+    const visitados = new Set<string>();
+    while (currentSup && currentSup.depende_de) {
+      if (currentSup.depende_de === cargoId) return true;
+      if (visitados.has(currentSup.depende_de)) break; // Evitar bucles infinitos por datos corruptos
+      visitados.add(currentSup.depende_de);
+      currentSup = cargosList.find(c => c.id_cargo === currentSup!.depende_de);
     }
-
-    const locals: { [cargoId: string]: boolean } = {};
-    cargos.forEach(c => {
-      locals[c.id_cargo] = String(c.depende_de) === String(supId);
-    });
-    setCheckboxesLocales(locals);
+    return false;
   };
 
-  const handleCheckboxToggle = (cargoId: string) => {
-    setCheckboxesLocales(prev => ({
-      ...prev,
-      [cargoId]: !prev[cargoId]
-    }));
+  const handleChangeSupervisor = (cargoId: string, nuevoSupId: string) => {
+    const cargo = cargos.find(c => c.id_cargo === cargoId);
+    if (!cargo) return;
+
+    const valGuardar = nuevoSupId === "" ? null : nuevoSupId;
+    const esOriginal = cargo.depende_de === valGuardar;
+
+    setCambiosPendientes(prev => {
+      const copia = { ...prev };
+      if (esOriginal) {
+        delete copia[cargoId];
+      } else {
+        copia[cargoId] = valGuardar;
+      }
+      return copia;
+    });
   };
 
   const handleSaveJerarquia = async () => {
@@ -201,32 +232,18 @@ export const CadenaSupervisoria = () => {
       return;
     }
 
-    if (!selectedSupervisor) {
-      if (Swal) Swal.fire('Aviso', 'Seleccione el supervisor primero.', 'warning');
+    if (Object.keys(cambiosPendientes).length === 0) {
+      if (Swal) Swal.fire('Aviso', 'No hay cambios pendientes por guardar.', 'warning');
       return;
     }
 
     setLoading(true);
     try {
-      // Sincronizar subordinados
       const promesas: any[] = [];
-      cargos.forEach(c => {
-        if (c.id_cargo === selectedSupervisor) return;
-
-        const isChecked = checkboxesLocales[c.id_cargo] || false;
-        const previouslyChild = c.depende_de === selectedSupervisor;
-
-        if (isChecked && !previouslyChild) {
-          // Add dependencies
-          promesas.push(
-            supabase.from('cargos').update({ depende_de: selectedSupervisor }).eq('id_cargo', c.id_cargo)
-          );
-        } else if (!isChecked && previouslyChild) {
-          // Remove dependencies
-          promesas.push(
-            supabase.from('cargos').update({ depende_de: null }).eq('id_cargo', c.id_cargo)
-          );
-        }
+      Object.entries(cambiosPendientes).forEach(([cargoId, nuevoSup]) => {
+        promesas.push(
+          supabase.from('cargos').update({ depende_de: nuevoSup }).eq('id_cargo', cargoId)
+        );
       });
 
       if (promesas.length > 0) {
@@ -244,11 +261,9 @@ export const CadenaSupervisoria = () => {
         });
       }
 
-      const supCargo = cargos.find(c => c.id_cargo === selectedSupervisor);
-      auditar('Cadena Supervisoria', 'Estructurar Cadena', `Se actualizaron los subordinados directos de: ${supCargo?.nombre_cargo || 'Desconocido'}`);
+      auditar('Cadena Supervisoria', 'Estructurar Cadena', `Se actualizaron las dependencias de ${Object.keys(cambiosPendientes).length} cargos.`);
       
-      setSelectedSupervisor('');
-      setCheckboxesLocales({});
+      setCambiosPendientes({});
       await cargarDatosMaestros(true);
       setActiveView('dashboard');
     } catch (e: any) {
@@ -368,7 +383,7 @@ export const CadenaSupervisoria = () => {
       doc.text('República Bolivariana de Venezuela', textX, margin + 4);
       doc.text('Ministerio del Poder Popular para la Educación', textX, margin + 8);
       
-      const escuelaNombre = localStorage.getItem('sigae_escuela_activa') || 'Unidad Educativa';
+      const escuelaNombre = escuelaFiltroMapa === 'sb' ? 'U.E. Santa Bárbara' : escuelaFiltroMapa === 'lb' ? 'U.E. Libertador Bolívar' : 'Estructura Consolidada';
       doc.setFont('helvetica', 'bold');
       doc.text(escuelaNombre, textX, margin + 12);
 
@@ -445,17 +460,30 @@ export const CadenaSupervisoria = () => {
     }
   };
 
-  // Find root leaders (those with depende_de === null)
+  // Filtrar cargos y usuarios según escuela seleccionada en el mapa
+  const cargosVisibles = cargos.filter(c => {
+    if (escuelaFiltroMapa === 'consolidado') return true;
+    return c.id_escuela === escuelaFiltroMapa || !c.id_escuela;
+  });
+
+  const usuariosVisibles = usuarios.filter(u => {
+    if (escuelaFiltroMapa === 'consolidado') return true;
+    return u.id_escuela === escuelaFiltroMapa;
+  });
+
+  // Find root leaders (those with depende_de === null or reports to someone outside this view)
   let raices: Cargo[] = [];
   if (filtroRama) {
-    const r = cargos.find(c => String(c.id_cargo) === String(filtroRama));
+    const r = cargosVisibles.find(c => String(c.id_cargo) === String(filtroRama));
     if (r) raices.push(r);
   } else {
-    raices = cargos.filter(c => !c.depende_de);
+    raices = cargosVisibles.filter(c => {
+      if (!c.depende_de) return true;
+      // Si el supervisor directo no forma parte de los cargos visibles en esta escuela, este cargo se convierte en raíz aquí
+      return !cargosVisibles.some(x => x.id_cargo === c.depende_de);
+    });
     raices.sort((a, b) => a.nombre_cargo.localeCompare(b.nombre_cargo));
   }
-
-  const supervisorSeleccionado = cargos.find(c => c.id_cargo === selectedSupervisor);
 
   if (permLoading || (loading && cargos.length === 0)) {
     return (
@@ -566,115 +594,163 @@ export const CadenaSupervisoria = () => {
             <div className="card border-0 shadow-sm rounded-4">
               <div className="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div>
-                  <h5 className="mb-1 fw-bold text-dark">Estructurar Cadena Supervisoria</h5>
-                  <p className="mb-0 text-muted small">Selecciona un cargo jerárquico y marca a sus subordinados directos.</p>
+                  <h5 className="mb-1 fw-bold text-dark">Constructor de Jerarquías (Cadena Supervisoria)</h5>
+                  <p className="mb-0 text-muted small">Asigna directamente el supervisor a cada uno de los cargos de la institución.</p>
                 </div>
-                {pCrear ? (
-                  <button 
-                    onClick={handleSaveJerarquia} 
-                    className="btn btn-success rounded-pill fw-bold hover-efecto"
-                    disabled={!selectedSupervisor}
-                  >
-                    <i className="bi bi-floppy-fill me-2"></i> Guardar Estructura
-                  </button>
-                ) : (
-                  <span className="text-danger small fw-bold"><i className="bi bi-lock-fill me-1"></i>Sin permisos para modificar.</span>
-                )}
+                <div className="d-flex align-items-center gap-2">
+                  {pCrear ? (
+                    <button 
+                      onClick={handleSaveJerarquia} 
+                      className="btn btn-success rounded-pill fw-bold hover-efecto"
+                      disabled={Object.keys(cambiosPendientes).length === 0}
+                    >
+                      <i className="bi bi-floppy-fill me-2"></i> Guardar Estructura ({Object.keys(cambiosPendientes).length})
+                    </button>
+                  ) : (
+                    <span className="text-danger small fw-bold"><i className="bi bi-lock-fill me-1"></i>Sin permisos para modificar.</span>
+                  )}
+                </div>
               </div>
               <div className="card-body p-4">
-                <div className="row g-4">
-                  {/* Selector */}
+                {/* Filtros Constructor */}
+                <div className="row g-3 mb-4">
                   <div className="col-md-6 col-lg-4">
-                    <label className="form-label small fw-bold text-muted">Supervisor (Cargo Jerárquico)</label>
-                    <select 
-                      className="form-select input-moderno" 
-                      value={selectedSupervisor}
-                      onChange={(e) => handleSelectSupervisor(e.target.value)}
+                    <label className="form-label small fw-bold text-muted">Filtrar por Escuela</label>
+                    <select
+                      className="form-select form-select-sm input-moderno"
+                      value={filtroEscuelaConstructor}
+                      onChange={(e) => setFiltroEscuelaConstructor(e.target.value as any)}
                     >
-                      <option value="">-- Seleccione un Cargo --</option>
-                      {cargos.map(c => (
-                        <option key={c.id_cargo} value={c.id_cargo}>
-                          {c.nombre_cargo}
-                        </option>
-                      ))}
+                      <option value="todos">Todos los Cargos</option>
+                      <option value="sb">U.E. Santa Bárbara</option>
+                      <option value="lb">U.E. Libertador Bolívar</option>
+                      <option value="global">Globales</option>
                     </select>
                   </div>
-
-                  {/* Detalle */}
-                  <div className="col-md-6 col-lg-8 d-flex align-items-end">
-                    <div className="p-3 border rounded-3 w-100 bg-light bg-opacity-50">
-                      {supervisorSeleccionado ? (
-                        <div>
-                          <span className="small text-muted fw-bold uppercase">Supervisor Seleccionado:</span>
-                          <h6 className="fw-bold mb-1 text-primary mt-1">{supervisorSeleccionado.nombre_cargo}</h6>
-                          <span className="badge bg-secondary">{supervisorSeleccionado.tipo_cargo}</span>
-                        </div>
-                      ) : (
-                        <div className="text-muted small py-2">
-                          <i className="bi bi-info-circle-fill text-info me-2"></i>
-                          Seleccione un cargo de supervisor para activar la asignación.
-                        </div>
-                      )}
+                  <div className="col-md-6 col-lg-8">
+                    <label className="form-label small fw-bold text-muted">Buscar Cargo</label>
+                    <div className="position-relative">
+                      <span className="position-absolute start-0 top-50 translate-middle-y ms-3 text-muted">
+                        <i className="bi bi-search"></i>
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm rounded-pill ps-5 input-moderno"
+                        placeholder="Escribe el nombre del cargo..."
+                        value={busquedaConstructor}
+                        onChange={(e) => setBusquedaConstructor(e.target.value)}
+                      />
                     </div>
                   </div>
+                </div>
 
-                  {/* Subordinados checkboxes */}
-                  <div className="col-12 border-top pt-4">
-                    <h6 className="fw-bold text-dark mb-3">Marque los cargos que dependen directamente de este supervisor:</h6>
-                    
-                    {!selectedSupervisor ? (
-                      <div className="text-center py-5 text-muted bg-light bg-opacity-30 rounded-4 border border-dashed">
-                        <i className="bi bi-diagram-3 fs-1 text-muted"></i>
-                        <p className="mb-0 mt-2 small fw-bold text-muted">Seleccione un cargo supervisor arriba para listar subordinados.</p>
-                      </div>
-                    ) : (
-                      <div className="row g-3">
-                        {cargos
-                          .filter(c => c.id_cargo !== selectedSupervisor)
-                          .map(c => {
-                            const isChecked = checkboxesLocales[c.id_cargo] || false;
-                            
-                            // Check if this cargo already reports to another supervisor
-                            let supervisorActual = '';
-                            if (c.depende_de && c.depende_de !== selectedSupervisor) {
-                              const sup = cargos.find(x => x.id_cargo === c.depende_de);
-                              if (sup) supervisorActual = `(Reporta a: ${sup.nombre_cargo})`;
-                            }
+                {/* Grid de Cargos */}
+                <div className="row g-3">
+                  {cargos
+                    .filter(c => {
+                      const coincideNombre = c.nombre_cargo.toLowerCase().includes(busquedaConstructor.toLowerCase());
+                      const coincideEscuela =
+                        filtroEscuelaConstructor === 'todos' ||
+                        (filtroEscuelaConstructor === 'sb' && c.id_escuela === 'sb') ||
+                        (filtroEscuelaConstructor === 'lb' && c.id_escuela === 'lb') ||
+                        (filtroEscuelaConstructor === 'global' && !c.id_escuela);
+                      return coincideNombre && coincideEscuela;
+                    })
+                    .map(c => {
+                      const isPending = cambiosPendientes.hasOwnProperty(c.id_cargo);
+                      const currentSupId = isPending ? (cambiosPendientes[c.id_cargo] || '') : (c.depende_de || '');
+                      const dueños = usuarios.filter(u => u.cargo === c.nombre_cargo);
 
-                            return (
-                              <div key={c.id_cargo} className="col-md-6 col-lg-4">
-                                <div 
-                                  className="form-check bg-white border p-3 rounded-3 shadow-sm hover-efecto d-flex align-items-center" 
-                                  style={{ cursor: 'pointer' }}
-                                  onClick={() => handleCheckboxToggle(c.id_cargo)}
-                                >
-                                  <input 
-                                    className="form-check-input ms-0 me-3 border-secondary" 
-                                    type="checkbox" 
-                                    value={c.id_cargo} 
-                                    id={`chk-${c.id_cargo}`} 
-                                    checked={isChecked} 
-                                    onChange={() => {}} // Controlled by outer div click
-                                    onClick={(e) => e.stopPropagation()} // Stop bubbling
-                                  />
-                                  <label 
-                                    className={`form-check-label fw-bold ${supervisorActual ? 'text-warning' : 'text-dark'}`} 
-                                    htmlFor={`chk-${c.id_cargo}`} 
-                                    style={{ fontSize: '0.9rem', cursor: 'pointer', flexGrow: 1 }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {c.nombre_cargo}
-                                    {supervisorActual && (
-                                      <small className="text-muted fw-normal d-block" style={{ fontSize: '0.75rem' }}>{supervisorActual}</small>
-                                    )}
-                                  </label>
+                      const tipo = (c.tipo_cargo || '').toLowerCase();
+                      let badgeColor = 'secondary';
+                      if (tipo.includes('directiv')) badgeColor = 'danger';
+                      else if (tipo.includes('coord') || tipo.includes('superv')) badgeColor = 'warning text-dark';
+                      else if (tipo.includes('docen') || tipo.includes('pedag')) badgeColor = 'success';
+                      else if (tipo.includes('admin')) badgeColor = 'primary';
+
+                      return (
+                        <div className="col-md-6 col-lg-4 animate__animated animate__fadeIn" key={c.id_cargo}>
+                          <div 
+                            className="card border shadow-sm rounded-4 h-100" 
+                            style={{
+                              backgroundColor: '#ffffff',
+                              border: isPending ? '2px solid #eab308' : '1px solid #e2e8f0'
+                            }}
+                          >
+                            <div className="card-body p-4 d-flex flex-column justify-content-between">
+                              <div>
+                                <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                  <span className={`badge bg-${badgeColor.replace(' text-dark', '')} bg-opacity-10 text-${badgeColor.replace(' text-dark', '')} border border-${badgeColor.replace(' text-dark', '')} px-2 py-0.5`} style={{ fontSize: '0.7rem' }}>
+                                    {c.tipo_cargo}
+                                  </span>
+                                  {c.id_escuela === 'sb' && (
+                                    <span className="badge bg-success bg-opacity-10 text-success border border-success" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                      Santa Bárbara
+                                    </span>
+                                  )}
+                                  {c.id_escuela === 'lb' && (
+                                    <span className="badge bg-primary bg-opacity-10 text-primary border border-primary" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                      Libertador Bolívar
+                                    </span>
+                                  )}
+                                  {!c.id_escuela && (
+                                    <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                      Global
+                                    </span>
+                                  )}
+                                </div>
+                                <h6 className="fw-bold text-dark mb-2">{c.nombre_cargo}</h6>
+                                
+                                <div className="small text-muted mb-3" style={{ fontSize: '0.78rem' }}>
+                                  <strong className="text-dark">Personal asignado:</strong>{' '}
+                                  {dueños.length > 0 ? (
+                                    <span className="fw-bold text-primary">{dueños.map(d => d.nombre_completo).join(', ')}</span>
+                                  ) : (
+                                    <span className="text-danger italic">Vacante</span>
+                                  )}
                                 </div>
                               </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                  </div>
+
+                              <div className="pt-2 border-top">
+                                <label className="form-label small fw-bold text-muted mb-1" style={{ fontSize: '0.75rem' }}>
+                                  <i className="bi bi-chevron-bar-up me-1"></i>Supervisor Directo (Reporta a)
+                                </label>
+                                <select
+                                  className="form-select form-select-sm input-moderno fw-bold"
+                                  value={currentSupId}
+                                  onChange={(e) => handleChangeSupervisor(c.id_cargo, e.target.value)}
+                                  disabled={!pCrear}
+                                  style={{ fontSize: '0.8rem', cursor: 'pointer' }}
+                                >
+                                  <option value="">-- Sin Supervisor (Raíz) --</option>
+                                  {cargos
+                                    .filter(posSup => {
+                                      if (posSup.id_cargo === c.id_cargo) return false;
+                                      // Restricción: un cargo de escuela no puede reportar a otra escuela
+                                      if (c.id_escuela && posSup.id_escuela && c.id_escuela !== posSup.id_escuela) return false;
+                                      // Prevenir ciclos jerárquicos
+                                      return !detectarCiclo(c.id_cargo, posSup.id_cargo, cargos);
+                                    })
+                                    .map(posSup => (
+                                      <option key={posSup.id_cargo} value={posSup.id_cargo}>
+                                        {posSup.nombre_cargo} {posSup.id_escuela ? `(${posSup.id_escuela.toUpperCase()})` : '(Global)'}
+                                      </option>
+                                    ))}
+                                </select>
+
+                                {isPending && (
+                                  <div className="mt-2 text-end">
+                                    <span className="badge bg-warning bg-opacity-20 text-warning px-2 py-0.5" style={{ fontSize: '0.7rem', color: '#854d0e', border: '1px solid #fef08a' }}>
+                                      <i className="bi bi-exclamation-circle-fill me-1"></i>Cambio sin guardar
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             </div>
@@ -690,6 +766,39 @@ export const CadenaSupervisoria = () => {
             <div className="card border-0 shadow-sm rounded-4">
               <div className="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-4">
                 <div className="d-flex align-items-center gap-3 flex-wrap">
+                  {/* Selector de escuela para Organigrama (solo si tiene acceso a ambas) */}
+                  {tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb') && (
+                    <div>
+                      <label className="form-label small fw-bold text-muted mb-1">Estructura Escolar</label>
+                      <div className="btn-group btn-group-sm shadow-sm border rounded-pill overflow-hidden" role="group">
+                        <button 
+                          type="button" 
+                          onClick={() => { setEscuelaFiltroMapa('sb'); setFiltroRama(''); }} 
+                          className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'sb' ? 'btn-primary' : 'btn-light text-muted'}`}
+                          style={{ border: 'none' }}
+                        >
+                          U.E. Santa Bárbara
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => { setEscuelaFiltroMapa('lb'); setFiltroRama(''); }} 
+                          className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'lb' ? 'btn-primary' : 'btn-light text-muted'}`}
+                          style={{ border: 'none' }}
+                        >
+                          U.E. Libertador Bolívar
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => { setEscuelaFiltroMapa('consolidado'); setFiltroRama(''); }} 
+                          className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'consolidado' ? 'btn-primary' : 'btn-light text-muted'}`}
+                          style={{ border: 'none' }}
+                        >
+                          Consolidado
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="form-label small fw-bold text-muted mb-1">Filtrar por Rama</label>
                     <select 
@@ -698,8 +807,8 @@ export const CadenaSupervisoria = () => {
                       value={filtroRama}
                       onChange={(e) => setFiltroRama(e.target.value)}
                     >
-                      <option value="">Mostrar Toda la Escuela</option>
-                      {cargos.map(c => (
+                      <option value="">Mostrar Toda la Estructura</option>
+                      {cargosVisibles.map(c => (
                         <option key={c.id_cargo} value={c.id_cargo}>
                           {c.nombre_cargo}
                         </option>
@@ -736,9 +845,9 @@ export const CadenaSupervisoria = () => {
             <div className="card border-0 shadow-sm rounded-4" style={{ overflow: 'auto' }}>
               <div className="card-body p-5 text-center bg-white" style={{ minHeight: '400px' }}>
                 
-                {cargos.length === 0 ? (
+                {cargosVisibles.length === 0 ? (
                   <div className="text-muted fs-5 py-5">
-                    No hay cargos creados en el sistema.
+                    No hay cargos creados en el sistema para esta vista.
                   </div>
                 ) : raices.length === 0 ? (
                   <div className="alert alert-warning border-warning shadow-sm mx-auto" style={{ maxWidth: '600px' }}>
@@ -753,8 +862,8 @@ export const CadenaSupervisoria = () => {
                         <OrganigramaNodo
                           key={raiz.id_cargo}
                           cargo={raiz}
-                          cargos={cargos}
-                          usuarios={usuarios}
+                          cargos={cargosVisibles}
+                          usuarios={usuariosVisibles}
                           mostrarNombres={mostrarNombres}
                         />
                       ))}

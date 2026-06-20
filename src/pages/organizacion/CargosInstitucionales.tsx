@@ -9,6 +9,7 @@ interface Cargo {
   nombre_cargo: string;
   tipo_cargo: string;
   descripcion: string;
+  id_escuela: string | null;
 }
 
 interface Usuario {
@@ -37,6 +38,7 @@ export const CargosInstitucionales = () => {
   const [formNombre, setFormNombre] = useState('');
   const [formTipo, setFormTipo] = useState('');
   const [formDescripcion, setFormDescripcion] = useState('');
+  const [formEscuela, setFormEscuela] = useState('');
   const [busquedaCargo, setBusquedaCargo] = useState('');
 
   // Pagination for cargos
@@ -167,7 +169,8 @@ export const CargosInstitucionales = () => {
       const payload = {
         nombre_cargo: nombreLimpio,
         tipo_cargo: formTipo,
-        descripcion: formDescripcion.trim()
+        descripcion: formDescripcion.trim(),
+        id_escuela: formEscuela || null
       };
 
       if (formId) {
@@ -226,6 +229,7 @@ export const CargosInstitucionales = () => {
     setFormNombre(c.nombre_cargo);
     setFormTipo(c.tipo_cargo);
     setFormDescripcion(c.descripcion || '');
+    setFormEscuela(c.id_escuela || '');
   };
 
   const handleCancelForm = () => {
@@ -233,6 +237,7 @@ export const CargosInstitucionales = () => {
     setFormNombre('');
     setFormTipo('');
     setFormDescripcion('');
+    setFormEscuela('');
   };
 
   const handleDeleteCargo = (id: string, nombre: string) => {
@@ -376,7 +381,8 @@ export const CargosInstitucionales = () => {
 
   // Filtering lists of cargos
   const filteredCargos = cargos.filter(c =>
-    c.nombre_cargo.toLowerCase().includes(busquedaCargo.toLowerCase())
+    c.nombre_cargo.toLowerCase().includes(busquedaCargo.toLowerCase()) &&
+    (filtroEscuela === 'todos' || c.id_escuela === filtroEscuela || !c.id_escuela)
   );
 
   const startCargos = (paginaCargos - 1) * itemsPorPaginaCargos;
@@ -509,6 +515,18 @@ export const CargosInstitucionales = () => {
                         <option value="Obrero/Apoyo">Obrero/Apoyo</option>
                       </select>
                     </div>
+                    <div className="mb-3">
+                      <label className="form-label small fw-bold text-muted">Escuela o Plantel *</label>
+                      <select 
+                        className="form-select input-moderno" 
+                        value={formEscuela}
+                        onChange={(e) => setFormEscuela(e.target.value)}
+                      >
+                        <option value="">Global / Ambas Escuelas</option>
+                        <option value="sb">U.E. Santa Bárbara</option>
+                        <option value="lb">U.E. Libertador Bolívar</option>
+                      </select>
+                    </div>
                     <div className="mb-4">
                       <label className="form-label small fw-bold text-muted">Descripción (Opcional)</label>
                       <textarea 
@@ -605,7 +623,26 @@ export const CargosInstitucionales = () => {
 
                           return (
                             <tr key={c.id_cargo} className="hover-efecto">
-                              <td className="ps-4 fw-bold text-dark">{c.nombre_cargo}</td>
+                              <td className="ps-4 fw-bold text-dark">
+                                {c.nombre_cargo}
+                                <div className="mt-1 d-flex gap-1">
+                                  {c.id_escuela === 'sb' && (
+                                    <span className="badge bg-success bg-opacity-10 text-success border border-success" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                      Santa Bárbara
+                                    </span>
+                                  )}
+                                  {c.id_escuela === 'lb' && (
+                                    <span className="badge bg-primary bg-opacity-10 text-primary border border-primary" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                      Libertador Bolívar
+                                    </span>
+                                  )}
+                                  {!c.id_escuela && (
+                                    <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                      Global
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
                               <td>
                                 <span className={`badge bg-${badgeColor} bg-opacity-10 text-${badgeColor.replace(' text-dark', '')} border border-${badgeColor.replace(' text-dark', '')} px-2 py-1`}>
                                   {c.tipo_cargo}
@@ -773,11 +810,13 @@ export const CargosInstitucionales = () => {
                                     style={{ backgroundColor: '#f8fafc', cursor: 'pointer' }}
                                   >
                                     <option value="">-- Sin cargo asignado --</option>
-                                    {cargos.map(c => (
-                                      <option key={c.id_cargo} value={c.nombre_cargo}>
-                                        {c.nombre_cargo}
-                                      </option>
-                                    ))}
+                                    {cargos
+                                      .filter(c => !c.id_escuela || c.id_escuela === u.id_escuela)
+                                      .map(c => (
+                                        <option key={c.id_cargo} value={c.nombre_cargo}>
+                                          {c.nombre_cargo}
+                                        </option>
+                                      ))}
                                   </select>
                                 </div>
                                 {hasChanged && (
