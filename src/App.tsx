@@ -19,7 +19,6 @@ import { EstructuraEmpresa } from './pages/organizacion/EstructuraEmpresa';
 import { CargosInstitucionales } from './pages/organizacion/CargosInstitucionales';
 import { CadenaSupervisoria } from './pages/organizacion/CadenaSupervisoria';
 import { GradosSalones } from './pages/estudios/GradosSalones';
-import { TransporteEscolar } from './pages/servicios/TransporteEscolar';
 import './componentes.css';
 import './principal.css';
 import './auth_ui.css';
@@ -128,7 +127,6 @@ function App() {
           <Route path="categoria/Organización Escolar/Cargos Institucionales" element={<CargosInstitucionales />} />
           <Route path="categoria/Organización Escolar/Cadena Supervisoria" element={<CadenaSupervisoria />} />
           <Route path="categoria/Control de Estudios/Grados y Salones" element={<GradosSalones />} />
-          <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<TransporteEscolar />} />
         </Route>
       </Routes>
     </Router>

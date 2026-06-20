@@ -133,8 +133,7 @@ export const CategoryDashboard = () => {
         (vista === "Estructura Empresa" || 
          vista === "Cargos Institucionales" || 
          vista === "Cadena Supervisoria")) ||
-      (decodedCategory === "Control de Estudios" && vista === "Grados y Salones") ||
-      (decodedCategory === "Servicios y Bienestar" && vista === "Transporte Escolar")
+      (decodedCategory === "Control de Estudios" && vista === "Grados y Salones")
     ) {
       navigate(`/categoria/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(vista)}`);
       return;
