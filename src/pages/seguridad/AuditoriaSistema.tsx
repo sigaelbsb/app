@@ -6,7 +6,7 @@ import { usePermisos } from '../../hooks/usePermisos';
 
 export const AuditoriaSistema = () => {
   const navigate = useNavigate();
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const [registros, setRegistros] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +14,11 @@ export const AuditoriaSistema = () => {
   // Unique users for filter
   const [usuariosUnicos, setUsuariosUnicos] = useState<string[]>([]);
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
+
+  // Permissions flags
+  const hasAccessSB = tienePermisoEnEscuela('sb', 'Auditoría del Sistema', 'ver');
+  const hasAccessLB = tienePermisoEnEscuela('lb', 'Auditoría del Sistema', 'ver');
+  const isDualAccess = hasAccessSB && hasAccessLB;
 
   // Filters & Pagination
   const [filtroEscuela, setFiltroEscuela] = useState('TODAS');
@@ -25,6 +30,18 @@ export const AuditoriaSistema = () => {
   const Swal = (window as any).Swal;
 
   useEffect(() => {
+    if (!permLoading) {
+      if (isDualAccess) {
+        setFiltroEscuela('TODAS');
+      } else if (hasAccessSB) {
+        setFiltroEscuela('sb');
+      } else {
+        setFiltroEscuela('lb');
+      }
+    }
+  }, [permLoading, isDualAccess, hasAccessSB]);
+
+  useEffect(() => {
     if (!permLoading && tienePermiso('Auditoría del Sistema', 'ver')) {
       cargarHistorial();
     }
@@ -33,10 +50,12 @@ export const AuditoriaSistema = () => {
   const cargarHistorial = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('historial_auditoria')
-        .select('*')
-        .order('fecha', { ascending: false });
+      let query = supabase.from('historial_auditoria').select('*');
+      if (!isDualAccess) {
+        const authorizedSchool = hasAccessSB ? 'sb' : 'lb';
+        query = query.eq('escuela', authorizedSchool);
+      }
+      const { data, error } = await query.order('fecha', { ascending: false });
 
       if (error) throw error;
       setRegistros(data || []);
@@ -331,18 +350,42 @@ export const AuditoriaSistema = () => {
                 <span className="badge bg-white text-secondary px-3 py-2 shadow-sm fw-bold" style={{ letterSpacing: '1px', fontSize: '0.85rem' }}>
                   <i className="bi bi-shield-lock me-1"></i> SEGURIDAD Y ACCESOS
                 </span>
-                <button 
-                  onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
-                  className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                >
-                  <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                </button>
+                <div className="d-flex gap-2">
+                  {isDualAccess && (
+                    <div className="btn-group bg-white p-1 rounded-pill shadow-sm">
+                      <button 
+                        onClick={() => { setFiltroEscuela('TODAS'); setPaginaActual(1); }} 
+                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'TODAS' ? 'btn-secondary text-white' : 'btn-light text-muted border-0'}`}
+                      >
+                        Consolidado
+                      </button>
+                      <button 
+                        onClick={() => { setFiltroEscuela('sb'); setPaginaActual(1); }} 
+                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'sb' ? 'btn-success text-white' : 'btn-light text-muted border-0'}`}
+                      >
+                        Santa Bárbara
+                      </button>
+                      <button 
+                        onClick={() => { setFiltroEscuela('lb'); setPaginaActual(1); }} 
+                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'lb' ? 'btn-primary text-white' : 'btn-light text-muted border-0'}`}
+                      >
+                        Libertador
+                      </button>
+                    </div>
+                  )}
+                  <button 
+                    onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
+                    className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
+                  >
+                    <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
+                  </button>
+                </div>
               </div>
               <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                 <i className="bi bi-clock-history me-3"></i>Auditoría del Sistema
               </h1>
               <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Historial detallado de movimientos y acciones de los usuarios.
+                Historial detallado de movimientos y acciones de los usuarios para {filtroEscuela === 'TODAS' ? 'Ambas Instituciones' : (filtroEscuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar')}.
               </p>
             </div>
           </div>
@@ -354,19 +397,7 @@ export const AuditoriaSistema = () => {
         <div className="card border-0 shadow-sm rounded-4 h-100" style={{ borderTop: '5px solid #475569 !important' }}>
           <div className="card-header bg-white border-bottom p-4">
             <div className="row g-3 align-items-end">
-              <div className="col-md-2">
-                <label className="small fw-bold text-muted mb-1"><i className="bi bi-building me-1"></i>Escuela</label>
-                <select 
-                  className="form-select input-moderno border-primary fw-bold"
-                  value={filtroEscuela}
-                  onChange={(e) => { setFiltroEscuela(e.target.value); setPaginaActual(1); }}
-                >
-                  <option value="TODAS">Ambas Escuelas</option>
-                  <option value="lb">UE Libertador Bolívar</option>
-                  <option value="sb">UE Santa Bárbara</option>
-                </select>
-              </div>
-              <div className="col-md-3">
+              <div className="col-md-4">
                 <label className="small fw-bold text-muted mb-1"><i className="bi bi-person me-1"></i>Filtrar por Usuario</label>
                 <select 
                   className="form-select input-moderno"
@@ -379,7 +410,7 @@ export const AuditoriaSistema = () => {
                   ))}
                 </select>
               </div>
-              <div className="col-md-2">
+              <div className="col-md-3">
                 <label className="small fw-bold text-muted mb-1"><i className="bi bi-sort-down me-1"></i>Ordenar por</label>
                 <select 
                   className="form-select input-moderno"
