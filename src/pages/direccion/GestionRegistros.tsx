@@ -29,13 +29,13 @@ interface AuditLog {
 
 export const GestionRegistros = () => {
   const navigate = useNavigate();
-  const { tienePermiso, tieneAccesoEscuela, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
   const Swal = (window as any).Swal;
 
   // Active School Code / Dual access check
   const activeSchoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-  const hasSbAccess = tieneAccesoEscuela('sb');
-  const hasLbAccess = tieneAccesoEscuela('lb');
+  const hasSbAccess = tienePermisoEnEscuela('sb', 'Gestión de Registros', 'ver');
+  const hasLbAccess = tienePermisoEnEscuela('lb', 'Gestión de Registros', 'ver');
   const isDualAccess = hasSbAccess && hasLbAccess;
 
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState<string>(

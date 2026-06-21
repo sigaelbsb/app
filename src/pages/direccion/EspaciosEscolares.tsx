@@ -16,7 +16,7 @@ interface Espacio {
 
 export const EspaciosEscolares = () => {
   const navigate = useNavigate();
-  const { tienePermisoEnEscuela, tieneAccesoEscuela, loading: permLoading } = usePermisos();
+  const { tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const [espacios, setEspacios] = useState<Espacio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +35,8 @@ export const EspaciosEscolares = () => {
 
   const Swal = (window as any).Swal;
 
-  const hasAccessSB = tieneAccesoEscuela('sb');
-  const hasAccessLB = tieneAccesoEscuela('lb');
+  const hasAccessSB = tienePermisoEnEscuela('sb', 'Espacios Escolares', 'ver');
+  const hasAccessLB = tienePermisoEnEscuela('lb', 'Espacios Escolares', 'ver');
   const escuelasAutorizadas = [
     ...(hasAccessSB ? ['sb'] : []),
     ...(hasAccessLB ? ['lb'] : [])

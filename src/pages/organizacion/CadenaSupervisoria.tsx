@@ -152,7 +152,7 @@ const OrganigramaNodo = ({
 
 export const CadenaSupervisoria = () => {
   const navigate = useNavigate();
-  const { tienePermiso, tieneAccesoEscuela, user, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, user, loading: permLoading } = usePermisos();
   const Swal = (window as any).Swal;
 
   const [activeView, setActiveView] = useState<'dashboard' | 'constructor' | 'mapa'>('dashboard');
@@ -184,8 +184,8 @@ export const CadenaSupervisoria = () => {
   // Initialize school filter based on privileges
   useEffect(() => {
     if (!permLoading && user) {
-      const canSB = tieneAccesoEscuela('sb');
-      const canLB = tieneAccesoEscuela('lb');
+      const canSB = tienePermisoEnEscuela('sb', 'Cadena Supervisoria', 'ver');
+      const canLB = tienePermisoEnEscuela('lb', 'Cadena Supervisoria', 'ver');
       if (canSB && canLB) {
         setEscuelaFiltroMapa('consolidado');
       } else if (canLB) {
@@ -795,7 +795,7 @@ export const CadenaSupervisoria = () => {
               <div className="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-4">
                 <div className="d-flex align-items-center gap-3 flex-wrap">
                   {/* Selector de escuela para Organigrama (solo si tiene acceso a ambas) */}
-                  {tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb') && (
+                  {tienePermisoEnEscuela('sb', 'Cadena Supervisoria', 'ver') && tienePermisoEnEscuela('lb', 'Cadena Supervisoria', 'ver') && (
                     <div>
                       <label className="form-label small fw-bold text-muted mb-1">Estructura Escolar</label>
                       <div className="btn-group btn-group-sm shadow-sm border rounded-pill overflow-hidden" role="group">

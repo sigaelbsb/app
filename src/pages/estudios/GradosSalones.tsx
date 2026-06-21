@@ -41,7 +41,7 @@ interface SalonItem {
 
 export const GradosSalones = () => {
   const navigate = useNavigate();
-  const { tienePermiso, tieneAccesoEscuela, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
   const Swal = (window as any).Swal;
 
   const [activeTab, setActiveTab] = useState<'grados' | 'secciones' | 'salones'>('grados');
@@ -73,8 +73,8 @@ export const GradosSalones = () => {
 
   const isModuleRestricted = !permLoading && !pGrupos && !pSecc && !pSalones;
 
-  const hasAccessSB = tieneAccesoEscuela('sb');
-  const hasAccessLB = tieneAccesoEscuela('lb');
+  const hasAccessSB = tienePermisoEnEscuela('sb', 'Grados y Salones', 'ver');
+  const hasAccessLB = tienePermisoEnEscuela('lb', 'Grados y Salones', 'ver');
   const escuelasAutorizadas = [
     ...(hasAccessSB ? ['sb'] : []),
     ...(hasAccessLB ? ['lb'] : [])

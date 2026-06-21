@@ -19,7 +19,7 @@ interface EscuelaData {
 export const PerfilEscuela = () => {
   const navigate = useNavigate();
   const Swal = (window as any).Swal;
-  const { tieneAccesoEscuela, loading: permLoading } = usePermisos();
+  const { tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const [loadingData, setLoadingData] = useState(true);
   const [perfiles, setPerfiles] = useState<Record<string, EscuelaData>>({
@@ -27,8 +27,8 @@ export const PerfilEscuela = () => {
     sb: { id_escuela: 'sb', nombre_institucion: '', codigo_dea: '', rif: '', direccion: '', mision: '', vision: '', objetivo: '', peic: '' }
   });
 
-  const hasAccessLB = tieneAccesoEscuela('lb');
-  const hasAccessSB = tieneAccesoEscuela('sb');
+  const hasAccessLB = tienePermisoEnEscuela('lb', 'Perfil de la Escuela', 'ver');
+  const hasAccessSB = tienePermisoEnEscuela('sb', 'Perfil de la Escuela', 'ver');
   const noAccess = !permLoading && !hasAccessLB && !hasAccessSB;
 
   useEffect(() => {
