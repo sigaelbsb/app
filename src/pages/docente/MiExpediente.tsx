@@ -162,12 +162,23 @@ export const MiExpediente = () => {
   const hasAccess = tienePermiso('Mi Expediente', 'ver');
   const canUpdate = tienePermiso('Mi Expediente', 'modificar') || tienePermiso('Mi Expediente', 'crear');
 
+  const [savingStatus, setSavingStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+
   useEffect(() => {
     if (permLoading || !hasAccess || !user) return;
 
     const cargarExpediente = async () => {
       setLoadingData(true);
       try {
+        // Cargar borrador local si existe para no perder avances
+        const localDraftStr = localStorage.getItem(`sigae_expediente_borrador_${user.cedula}`);
+        let draftData = null;
+        if (localDraftStr) {
+          try {
+            draftData = JSON.parse(localDraftStr);
+          } catch (e) {}
+        }
+
         // Cargar email y teléfono en tiempo real de la tabla usuarios para mantener paridad
         const { data: dbUser, error: userError } = await supabase
           .from('usuarios')
@@ -175,12 +186,18 @@ export const MiExpediente = () => {
           .eq('cedula', user.cedula)
           .maybeSingle();
 
-        if (!userError && dbUser) {
-          setUserEmail(dbUser.email || '');
-          setUserTelefono(dbUser.telefono || '');
+        if (draftData) {
+          setFormData(draftData.formData);
+          setUserEmail(draftData.userEmail || '');
+          setUserTelefono(draftData.userTelefono || '');
         } else {
-          setUserEmail(user.email || '');
-          setUserTelefono(user.telefono || '');
+          if (!userError && dbUser) {
+            setUserEmail(dbUser.email || '');
+            setUserTelefono(dbUser.telefono || '');
+          } else {
+            setUserEmail(user.email || '');
+            setUserTelefono(user.telefono || '');
+          }
         }
 
         const { data, error } = await supabase
@@ -189,46 +206,48 @@ export const MiExpediente = () => {
           .eq('usuario_cedula', user.cedula)
           .maybeSingle();
 
-        if (error) {
-          // If table does not exist, trigger demo/simulation mode
-          if (error.code === 'PGRST205' || error.message.includes('relation "public.expedientes_docentes" does not exist')) {
-            console.warn("Table 'expedientes_docentes' not found. Activating simulation mode.");
-            setIsDemoMode(true);
-            const localDemo = localStorage.getItem(`sigae_expediente_demo_${user.cedula}`);
-            if (localDemo) {
-              setFormData(JSON.parse(localDemo));
+        if (!draftData) {
+          if (error) {
+            // If table does not exist, trigger demo/simulation mode
+            if (error.code === 'PGRST205' || error.message.includes('relation "public.expedientes_docentes" does not exist')) {
+              console.warn("Table 'expedientes_docentes' not found. Activating simulation mode.");
+              setIsDemoMode(true);
+              const localDemo = localStorage.getItem(`sigae_expediente_demo_${user.cedula}`);
+              if (localDemo) {
+                setFormData(JSON.parse(localDemo));
+              }
+              // En simulación local, cargamos del localStorage del usuario
+              const stored = localStorage.getItem('usuario_sigae');
+              if (stored) {
+                const parsed = JSON.parse(stored);
+                setUserEmail(parsed.email || '');
+                setUserTelefono(parsed.telefono || '');
+              }
+            } else {
+              throw error;
             }
-            // En simulación local, cargamos del localStorage del usuario
-            const stored = localStorage.getItem('usuario_sigae');
-            if (stored) {
-              const parsed = JSON.parse(stored);
-              setUserEmail(parsed.email || '');
-              setUserTelefono(parsed.telefono || '');
-            }
-          } else {
-            throw error;
+          } else if (data) {
+            setFormData({
+              sexo: data.sexo || '',
+              fecha_nacimiento: data.fecha_nacimiento || '',
+              estado_civil: data.estado_civil || '',
+              direccion: data.direccion || '',
+              titulo_obtenido: data.titulo_obtenido || '',
+              nivel_instruccion: data.nivel_instruccion || '',
+              universidad: data.universidad || '',
+              anio_egreso: data.anio_egreso || new Date().getFullYear(),
+              fecha_ingreso: data.fecha_ingreso || '',
+              tipo_nomina: data.tipo_nomina || 'Fijo',
+              carga_horaria: data.carga_horaria || 36,
+              estatus_laboral: data.estatus_laboral || 'Activo',
+              documentos: data.documentos || DEFAULT_EXPEDIENTE.documentos,
+              datos_salud: data.datos_salud || DEFAULT_SALUD,
+              datos_electoral: data.datos_electoral || DEFAULT_ELECTORAL,
+              datos_vivienda: data.datos_vivienda || DEFAULT_VIVIENDA,
+              carga_familiar: data.carga_familiar || [],
+              cursos_realizados: data.cursos_realizados || []
+            });
           }
-        } else if (data) {
-          setFormData({
-            sexo: data.sexo || '',
-            fecha_nacimiento: data.fecha_nacimiento || '',
-            estado_civil: data.estado_civil || '',
-            direccion: data.direccion || '',
-            titulo_obtenido: data.titulo_obtenido || '',
-            nivel_instruccion: data.nivel_instruccion || '',
-            universidad: data.universidad || '',
-            anio_egreso: data.anio_egreso || new Date().getFullYear(),
-            fecha_ingreso: data.fecha_ingreso || '',
-            tipo_nomina: data.tipo_nomina || 'Fijo',
-            carga_horaria: data.carga_horaria || 36,
-            estatus_laboral: data.estatus_laboral || 'Activo',
-            documentos: data.documentos || DEFAULT_EXPEDIENTE.documentos,
-            datos_salud: data.datos_salud || DEFAULT_SALUD,
-            datos_electoral: data.datos_electoral || DEFAULT_ELECTORAL,
-            datos_vivienda: data.datos_vivienda || DEFAULT_VIVIENDA,
-            carga_familiar: data.carga_familiar || [],
-            cursos_realizados: data.cursos_realizados || []
-          });
         }
       } catch (e: any) {
         console.error("Error loading teacher profile:", e);
@@ -240,6 +259,84 @@ export const MiExpediente = () => {
 
     cargarExpediente();
   }, [permLoading, hasAccess, userCedula]);
+
+  // Efecto de Auto-guardado Silencioso (con Debounce de 1.5s)
+  useEffect(() => {
+    if (loadingData || !user?.cedula) return;
+
+    // Guardar borrador local de inmediato como respaldo principal
+    localStorage.setItem(`sigae_expediente_borrador_${user.cedula}`, JSON.stringify({
+      formData,
+      userEmail,
+      userTelefono
+    }));
+
+    setSavingStatus('saving');
+
+    const timer = setTimeout(async () => {
+      try {
+        if (isDemoMode) {
+          // Guardado local simulado
+          localStorage.setItem(`sigae_expediente_demo_${user.cedula}`, JSON.stringify(formData));
+          
+          const stored = localStorage.getItem('usuario_sigae');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            parsed.email = userEmail;
+            parsed.telefono = userTelefono;
+            localStorage.setItem('usuario_sigae', JSON.stringify(parsed));
+          }
+          setSavingStatus('saved');
+        } else {
+          // Sólo guardamos en Supabase si se han ingresado los campos mínimos no nulos requeridos
+          // para evitar errores de restricción SQL
+          if (!formData.sexo || !formData.fecha_nacimiento || !formData.fecha_ingreso) {
+            setSavingStatus('saved'); // El borrador ya se salvó localmente
+            return;
+          }
+
+          const payload = {
+            usuario_cedula: user.cedula,
+            ...formData,
+            actualizado_en: new Date().toISOString()
+          };
+
+          const { error } = await supabase
+            .from('expedientes_docentes')
+            .upsert(payload, { onConflict: 'usuario_cedula' });
+
+          if (error) throw error;
+
+          // Sincronizar email y teléfono en tabla usuarios
+          const { error: userError } = await supabase
+            .from('usuarios')
+            .update({
+              email: userEmail.trim() || null,
+              telefono: userTelefono.trim() || null
+            })
+            .eq('cedula', user.cedula);
+
+          if (userError) throw userError;
+
+          // Actualizar localStorage de sesión
+          const stored = localStorage.getItem('usuario_sigae');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            parsed.email = userEmail;
+            parsed.telefono = userTelefono;
+            localStorage.setItem('usuario_sigae', JSON.stringify(parsed));
+          }
+
+          setSavingStatus('saved');
+        }
+      } catch (err) {
+        console.error("Error en autosave silencioso:", err);
+        setSavingStatus('error');
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [formData, userEmail, userTelefono, loadingData, isDemoMode, user?.cedula]);
 
   const handleChange = (field: keyof ExpedienteData, val: any) => {
     setFormData(prev => ({
@@ -491,7 +588,39 @@ export const MiExpediente = () => {
   }
 
   return (
-    <div className="modulo-animado container-fluid p-0">
+    <div className="modulo-animado container-fluid p-0 expediente-wizard">
+      <style>{`
+        .expediente-wizard .wizard-step {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .expediente-wizard .wizard-step-wrapper.activo .wizard-step {
+          background-color: #10b981 !important;
+          border-color: #10b981 !important;
+          color: white !important;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25) !important;
+          transform: scale(1.1);
+        }
+        .expediente-wizard .wizard-step-wrapper.completado .wizard-step {
+          background-color: #e6f4ea !important;
+          border-color: #10b981 !important;
+          color: #10b981 !important;
+        }
+        .expediente-wizard .wizard-step-wrapper.activo .wizard-label {
+          color: #059669 !important;
+          font-weight: 700 !important;
+        }
+        .expediente-wizard .wizard-step-wrapper.completado .wizard-label {
+          color: #10b981 !important;
+        }
+        .expediente-wizard .wizard-step-wrapper:hover .wizard-step {
+          border-color: #059669 !important;
+          color: #059669 !important;
+        }
+        .expediente-wizard .input-moderno:focus {
+          border-color: #10b981 !important;
+          box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.15) !important;
+        }
+      `}</style>
       {/* Banner */}
       <div className="row mb-4 animate__animated animate__fadeInDown">
         <div className="col-12">
@@ -543,13 +672,36 @@ export const MiExpediente = () => {
         <div className="col-lg-12">
           <div className="card border-0 shadow-sm rounded-4 bg-white p-4">
             
+            {/* Cabecera del formulario con indicador de guardado silencioso */}
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <h5 className="fw-bold text-dark mb-0"><i className="bi bi-card-checklist me-2 text-success"></i>Formulario de Registro</h5>
+              {savingStatus === 'saving' && (
+                <span className="badge bg-warning bg-opacity-10 text-warning border border-warning rounded-pill px-3 py-2 animate__animated animate__pulse animate__infinite">
+                  <span className="spinner-border spinner-border-sm me-2" role="status" style={{ width: '0.85rem', height: '0.85rem' }}></span>
+                  Guardando borrador...
+                </span>
+              )}
+              {savingStatus === 'saved' && (
+                <span className="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2 animate__animated animate__fadeIn">
+                  <i className="bi bi-cloud-check-fill me-2"></i>
+                  Cambios guardados
+                </span>
+              )}
+              {savingStatus === 'error' && (
+                <span className="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-3 py-2 animate__animated animate__shakeX">
+                  <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                  Error al guardar borrador
+                </span>
+              )}
+            </div>
+
             {/* Steps Stepper */}
             <div className="wizard-container mt-2" style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', overflowX: 'auto', paddingBottom: '10px' }}>
               <div className="wizard-line" style={{ width: '92%' }}></div>
               
               <div 
                 className={`wizard-step-wrapper ${activeStep === 1 ? 'activo' : ''} ${activeStep > 1 ? 'completado' : ''}`}
-                onClick={() => activeStep > 1 && setActiveStep(1)}
+                onClick={() => setActiveStep(1)}
               >
                 <div className="wizard-step">1</div>
                 <span className="wizard-label">Identificación</span>
@@ -557,7 +709,7 @@ export const MiExpediente = () => {
 
               <div 
                 className={`wizard-step-wrapper ${activeStep === 2 ? 'activo' : ''} ${activeStep > 2 ? 'completado' : ''}`}
-                onClick={() => activeStep > 2 && setActiveStep(2)}
+                onClick={() => setActiveStep(2)}
               >
                 <div className="wizard-step">2</div>
                 <span className="wizard-label">Salud y Tallas</span>
@@ -565,7 +717,7 @@ export const MiExpediente = () => {
 
               <div 
                 className={`wizard-step-wrapper ${activeStep === 3 ? 'activo' : ''} ${activeStep > 3 ? 'completado' : ''}`}
-                onClick={() => activeStep > 3 && setActiveStep(3)}
+                onClick={() => setActiveStep(3)}
               >
                 <div className="wizard-step">3</div>
                 <span className="wizard-label">Votación y Vivienda</span>
@@ -573,7 +725,7 @@ export const MiExpediente = () => {
 
               <div 
                 className={`wizard-step-wrapper ${activeStep === 4 ? 'activo' : ''} ${activeStep > 4 ? 'completado' : ''}`}
-                onClick={() => activeStep > 4 && setActiveStep(4)}
+                onClick={() => setActiveStep(4)}
               >
                 <div className="wizard-step">4</div>
                 <span className="wizard-label">Núcleo Familiar</span>
@@ -581,7 +733,7 @@ export const MiExpediente = () => {
 
               <div 
                 className={`wizard-step-wrapper ${activeStep === 5 ? 'activo' : ''} ${activeStep > 5 ? 'completado' : ''}`}
-                onClick={() => activeStep > 5 && setActiveStep(5)}
+                onClick={() => setActiveStep(5)}
               >
                 <div className="wizard-step">5</div>
                 <span className="wizard-label">Formación</span>
@@ -589,7 +741,7 @@ export const MiExpediente = () => {
 
               <div 
                 className={`wizard-step-wrapper ${activeStep === 6 ? 'activo' : ''}`}
-                onClick={() => activeStep > 6 && setActiveStep(6)}
+                onClick={() => setActiveStep(6)}
               >
                 <div className="wizard-step">6</div>
                 <span className="wizard-label">Laboral y Soportes</span>
