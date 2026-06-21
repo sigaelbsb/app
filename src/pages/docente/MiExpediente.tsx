@@ -63,6 +63,8 @@ export const MiExpediente = () => {
 
   // Form State
   const [formData, setFormData] = useState<ExpedienteData>(DEFAULT_EXPEDIENTE);
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [userTelefono, setUserTelefono] = useState<string>('');
 
   const hasAccess = tienePermiso('Mi Expediente', 'ver');
   const canUpdate = tienePermiso('Mi Expediente', 'modificar') || tienePermiso('Mi Expediente', 'crear');
@@ -73,6 +75,21 @@ export const MiExpediente = () => {
     const cargarExpediente = async () => {
       setLoadingData(true);
       try {
+        // Cargar email y teléfono en tiempo real de la tabla usuarios para mantener paridad
+        const { data: dbUser, error: userError } = await supabase
+          .from('usuarios')
+          .select('email, telefono')
+          .eq('cedula', user.cedula)
+          .maybeSingle();
+
+        if (!userError && dbUser) {
+          setUserEmail(dbUser.email || '');
+          setUserTelefono(dbUser.telefono || '');
+        } else {
+          setUserEmail(user.email || '');
+          setUserTelefono(user.telefono || '');
+        }
+
         const { data, error } = await supabase
           .from('expedientes_docentes')
           .select('*')
@@ -87,6 +104,13 @@ export const MiExpediente = () => {
             const localDemo = localStorage.getItem(`sigae_expediente_demo_${user.cedula}`);
             if (localDemo) {
               setFormData(JSON.parse(localDemo));
+            }
+            // En simulación local, cargamos del localStorage del usuario
+            const stored = localStorage.getItem('usuario_sigae');
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              setUserEmail(parsed.email || '');
+              setUserTelefono(parsed.telefono || '');
             }
           } else {
             throw error;
@@ -138,6 +162,14 @@ export const MiExpediente = () => {
 
   const validarPaso = (step: number): boolean => {
     if (step === 1) {
+      if (!userEmail.trim()) {
+        if (Swal) Swal.fire("Atención", "El correo electrónico es requerido.", "warning");
+        return false;
+      }
+      if (!userTelefono.trim()) {
+        if (Swal) Swal.fire("Atención", "El teléfono celular es requerido.", "warning");
+        return false;
+      }
       if (!formData.sexo) {
         if (Swal) Swal.fire("Atención", "Debe seleccionar su género.", "warning");
         return false;
@@ -206,6 +238,16 @@ export const MiExpediente = () => {
       if (isDemoMode) {
         // Local simulation save
         localStorage.setItem(`sigae_expediente_demo_${user.cedula}`, JSON.stringify(formData));
+        
+        // Simular guardado de correo y teléfono del usuario en local storage
+        const stored = localStorage.getItem('usuario_sigae');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.email = userEmail;
+          parsed.telefono = userTelefono;
+          localStorage.setItem('usuario_sigae', JSON.stringify(parsed));
+        }
+
         if (Swal) {
           Swal.fire({
             title: "¡Expediente Guardado!",
@@ -228,9 +270,29 @@ export const MiExpediente = () => {
 
         if (error) throw error;
 
-        auditar('Mi Expediente', 'Actualizar Expediente', `El docente ${user.nombre} actualizó su expediente personal.`);
+        // Actualizar el correo y teléfono en la tabla 'usuarios' para mantener paridad
+        const { error: userError } = await supabase
+          .from('usuarios')
+          .update({
+            email: userEmail.trim() || null,
+            telefono: userTelefono.trim() || null
+          })
+          .eq('cedula', user.cedula);
 
-        if (Swal) Swal.fire("¡Éxito!", "Tu expediente se ha guardado correctamente en el sistema en la nube.", "success");
+        if (userError) throw userError;
+
+        // Sincronizar local storage para reflejar el cambio inmediato
+        const stored = localStorage.getItem('usuario_sigae');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.email = userEmail;
+          parsed.telefono = userTelefono;
+          localStorage.setItem('usuario_sigae', JSON.stringify(parsed));
+        }
+
+        auditar('Mi Expediente', 'Actualizar Expediente', `El docente ${user.nombre_completo || user.nombre} actualizó su expediente personal y datos de contacto.`);
+
+        if (Swal) Swal.fire("¡Éxito!", "Tu expediente y datos de contacto se han guardado correctamente.", "success");
       }
     } catch (err: any) {
       console.error(err);
@@ -360,26 +422,38 @@ export const MiExpediente = () => {
               {/* Account Data Box (Read-Only) */}
               <div className="bg-light p-3 rounded-4 mb-4 border">
                 <div className="row g-3">
-                  <div className="col-md-6 col-lg-3">
+                  <div className="col-md-6">
                     <span className="small fw-bold text-muted d-block">Nombre Completo</span>
-                    <span className="fw-bold text-dark">{user.nombre}</span>
+                    <span className="fw-bold text-dark">{user.nombre_completo || user.nombre}</span>
                   </div>
-                  <div className="col-md-6 col-lg-3">
+                  <div className="col-md-6">
                     <span className="small fw-bold text-muted d-block">Cédula de Identidad</span>
                     <span className="fw-bold text-dark">{user.cedula}</span>
-                  </div>
-                  <div className="col-md-6 col-lg-3">
-                    <span className="small fw-bold text-muted d-block">Correo Electrónico</span>
-                    <span className="fw-bold text-dark">{user.email || 'No registrado'}</span>
-                  </div>
-                  <div className="col-md-6 col-lg-3">
-                    <span className="small fw-bold text-muted d-block">Teléfono</span>
-                    <span className="fw-bold text-dark">{user.telefono || 'No registrado'}</span>
                   </div>
                 </div>
               </div>
 
               <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Correo Electrónico <span className="text-danger">*</span></label>
+                  <input 
+                    type="email"
+                    className="form-control input-moderno"
+                    placeholder="correo@ejemplo.com"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Teléfono Celular <span className="text-danger">*</span></label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    placeholder="Ej. 04121234567"
+                    value={userTelefono}
+                    onChange={(e) => setUserTelefono(e.target.value)}
+                  />
+                </div>
                 <div className="col-md-6">
                   <label className="form-label">Género <span className="text-danger">*</span></label>
                   <select 
