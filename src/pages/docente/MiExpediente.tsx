@@ -4,6 +4,22 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 
+interface Familiar {
+  nombres: string;
+  parentesco: string;
+  cedula: string;
+  fecha_nacimiento: string;
+  vive_con_trabajador: string;
+  condicion_neuro: string;
+}
+
+interface Curso {
+  titulo: string;
+  lugar: string;
+  horas: string;
+  fecha: string;
+}
+
 interface ExpedienteData {
   sexo: string;
   fecha_nacimiento: string;
@@ -23,7 +39,64 @@ interface ExpedienteData {
     cv: boolean;
     constancia: boolean;
   };
+  datos_salud: {
+    conapdis: string;
+    talla_botas: string;
+    talla_braga: string;
+    talla_camisa: string;
+    talla_calzado: string;
+    talla_chemise: string;
+    emergencia_tel: string;
+    talla_pantalon: string;
+    condicion_neuro: string;
+    grupo_sanguineo: string;
+    condicion_medica: string;
+    emergencia_nombre: string;
+  };
+  datos_electoral: {
+    estado: string;
+    municipio: string;
+    parroquia: string;
+    centro_votacion: string;
+  };
+  datos_vivienda: {
+    tipo: string;
+    condicion: string;
+    detalle_otra: string;
+    credito_5_sueldos: string;
+  };
+  carga_familiar: Familiar[];
+  cursos_realizados: Curso[];
 }
+
+const DEFAULT_SALUD = {
+  conapdis: 'No',
+  talla_botas: '',
+  talla_braga: '',
+  talla_camisa: '',
+  talla_calzado: '',
+  talla_chemise: '',
+  emergencia_tel: '',
+  talla_pantalon: '',
+  condicion_neuro: 'Neurotípico',
+  grupo_sanguineo: '',
+  condicion_medica: '',
+  emergencia_nombre: ''
+};
+
+const DEFAULT_ELECTORAL = {
+  estado: '',
+  municipio: '',
+  parroquia: '',
+  centro_votacion: ''
+};
+
+const DEFAULT_VIVIENDA = {
+  tipo: '',
+  condicion: '',
+  detalle_otra: '',
+  credito_5_sueldos: 'No Solicitado'
+};
 
 const DEFAULT_EXPEDIENTE: ExpedienteData = {
   sexo: '',
@@ -35,7 +108,7 @@ const DEFAULT_EXPEDIENTE: ExpedienteData = {
   universidad: '',
   anio_egreso: new Date().getFullYear(),
   fecha_ingreso: '',
-  tipo_nomina: '',
+  tipo_nomina: 'Fijo',
   carga_horaria: 36,
   estatus_laboral: 'Activo',
   documentos: {
@@ -43,7 +116,12 @@ const DEFAULT_EXPEDIENTE: ExpedienteData = {
     titulo: false,
     cv: false,
     constancia: false
-  }
+  },
+  datos_salud: DEFAULT_SALUD,
+  datos_electoral: DEFAULT_ELECTORAL,
+  datos_vivienda: DEFAULT_VIVIENDA,
+  carga_familiar: [],
+  cursos_realizados: []
 };
 
 export const MiExpediente = () => {
@@ -56,15 +134,30 @@ export const MiExpediente = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
-  // User Account Details (Read-only for profile sheet)
+  // Session User Info
   const storedUser = localStorage.getItem('usuario_sigae');
   const user = storedUser ? JSON.parse(storedUser) : null;
   const userCedula = user?.cedula;
 
-  // Form State
-  const [formData, setFormData] = useState<ExpedienteData>(DEFAULT_EXPEDIENTE);
+  // Contact Parity States
   const [userEmail, setUserEmail] = useState<string>('');
   const [userTelefono, setUserTelefono] = useState<string>('');
+
+  // Form State
+  const [formData, setFormData] = useState<ExpedienteData>(DEFAULT_EXPEDIENTE);
+
+  // Dynamic Add inputs: Familiar
+  const [famNombre, setFamNombre] = useState('');
+  const [famParentesco, setFamParentesco] = useState('Hijo(a)');
+  const [famCedula, setFamCedula] = useState('');
+  const [famFechaNac, setFamFechaNac] = useState('');
+  const [famVive, setFamVive] = useState('Sí');
+
+  // Dynamic Add inputs: Curso
+  const [curTitulo, setCurTitulo] = useState('');
+  const [curLugar, setCurLugar] = useState('');
+  const [curHoras, setCurHoras] = useState('');
+  const [curFecha, setCurFecha] = useState('');
 
   const hasAccess = tienePermiso('Mi Expediente', 'ver');
   const canUpdate = tienePermiso('Mi Expediente', 'modificar') || tienePermiso('Mi Expediente', 'crear');
@@ -126,10 +219,15 @@ export const MiExpediente = () => {
             universidad: data.universidad || '',
             anio_egreso: data.anio_egreso || new Date().getFullYear(),
             fecha_ingreso: data.fecha_ingreso || '',
-            tipo_nomina: data.tipo_nomina || '',
+            tipo_nomina: data.tipo_nomina || 'Fijo',
             carga_horaria: data.carga_horaria || 36,
             estatus_laboral: data.estatus_laboral || 'Activo',
-            documentos: data.documentos || DEFAULT_EXPEDIENTE.documentos
+            documentos: data.documentos || DEFAULT_EXPEDIENTE.documentos,
+            datos_salud: data.datos_salud || DEFAULT_SALUD,
+            datos_electoral: data.datos_electoral || DEFAULT_ELECTORAL,
+            datos_vivienda: data.datos_vivienda || DEFAULT_VIVIENDA,
+            carga_familiar: data.carga_familiar || [],
+            cursos_realizados: data.cursos_realizados || []
           });
         }
       } catch (e: any) {
@@ -150,6 +248,16 @@ export const MiExpediente = () => {
     }));
   };
 
+  const handleNestedChange = (parent: 'datos_salud' | 'datos_electoral' | 'datos_vivienda', field: string, val: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [parent]: {
+        ...prev[parent],
+        [field]: val
+      }
+    }));
+  };
+
   const handleDocumentToggle = (docKey: keyof ExpedienteData['documentos']) => {
     setFormData(prev => ({
       ...prev,
@@ -157,6 +265,65 @@ export const MiExpediente = () => {
         ...prev.documentos,
         [docKey]: !prev.documentos[docKey]
       }
+    }));
+  };
+
+  const agregarFamiliar = () => {
+    if (!famNombre.trim()) {
+      if (Swal) Swal.fire("Atención", "El nombre del familiar es requerido.", "warning");
+      return;
+    }
+    const nuevo: Familiar = {
+      nombres: famNombre.trim(),
+      parentesco: famParentesco,
+      cedula: famCedula.trim(),
+      fecha_nacimiento: famFechaNac,
+      vive_con_trabajador: famVive,
+      condicion_neuro: 'Neurotípico'
+    };
+    setFormData(prev => ({
+      ...prev,
+      carga_familiar: [...prev.carga_familiar, nuevo]
+    }));
+    // Clear inputs
+    setFamNombre('');
+    setFamCedula('');
+    setFamFechaNac('');
+  };
+
+  const eliminarFamiliar = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      carga_familiar: prev.carga_familiar.filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const agregarCurso = () => {
+    if (!curTitulo.trim()) {
+      if (Swal) Swal.fire("Atención", "El título del curso es requerido.", "warning");
+      return;
+    }
+    const nuevo: Curso = {
+      titulo: curTitulo.trim(),
+      lugar: curLugar.trim(),
+      horas: curHoras.trim(),
+      fecha: curFecha
+    };
+    setFormData(prev => ({
+      ...prev,
+      cursos_realizados: [...prev.cursos_realizados, nuevo]
+    }));
+    // Clear inputs
+    setCurTitulo('');
+    setCurLugar('');
+    setCurHoras('');
+    setCurFecha('');
+  };
+
+  const eliminarCurso = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      cursos_realizados: prev.cursos_realizados.filter((_, idx) => idx !== index)
     }));
   };
 
@@ -186,7 +353,7 @@ export const MiExpediente = () => {
         if (Swal) Swal.fire("Atención", "La dirección de habitación es requerida.", "warning");
         return false;
       }
-    } else if (step === 2) {
+    } else if (step === 5) {
       if (!formData.nivel_instruccion) {
         if (Swal) Swal.fire("Atención", "Debe indicar su nivel de instrucción.", "warning");
         return false;
@@ -199,7 +366,7 @@ export const MiExpediente = () => {
         if (Swal) Swal.fire("Atención", "La universidad/institución es requerida.", "warning");
         return false;
       }
-    } else if (step === 3) {
+    } else if (step === 6) {
       if (!formData.fecha_ingreso) {
         if (Swal) Swal.fire("Atención", "Debe ingresar la fecha de ingreso al plantel.", "warning");
         return false;
@@ -341,7 +508,7 @@ export const MiExpediente = () => {
                     <i className="bi bi-person-workspace me-1"></i> GESTIÓN DOCENTE
                   </span>
                   <button 
-                    onClick={() => navigate('/categoria/Gesti%C3%B3n%20Docente')} 
+                    onClick={() => navigate('/categoria/Gestión%20Docente')} 
                     className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
                   >
                     <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
@@ -351,7 +518,7 @@ export const MiExpediente = () => {
                   <i className="bi bi-person-vcard me-3"></i>Mi Expediente
                 </h1>
                 <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Consulta y edita tu perfil personal, formación y estatus laboral en el complejo.
+                  Consulta y edita tu expediente laboral, datos de salud, núcleo familiar y formación.
                 </p>
               </div>
             </div>
@@ -373,19 +540,19 @@ export const MiExpediente = () => {
 
       {/* Wizard Card */}
       <div className="row g-4 justify-content-center">
-        <div className="col-lg-10">
+        <div className="col-lg-12">
           <div className="card border-0 shadow-sm rounded-4 bg-white p-4">
             
             {/* Steps Stepper */}
-            <div className="wizard-container mt-2">
-              <div className="wizard-line"></div>
+            <div className="wizard-container mt-2" style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', overflowX: 'auto', paddingBottom: '10px' }}>
+              <div className="wizard-line" style={{ width: '92%' }}></div>
               
               <div 
                 className={`wizard-step-wrapper ${activeStep === 1 ? 'activo' : ''} ${activeStep > 1 ? 'completado' : ''}`}
                 onClick={() => activeStep > 1 && setActiveStep(1)}
               >
                 <div className="wizard-step">1</div>
-                <span className="wizard-label">Información Personal</span>
+                <span className="wizard-label">Identificación</span>
               </div>
 
               <div 
@@ -393,7 +560,7 @@ export const MiExpediente = () => {
                 onClick={() => activeStep > 2 && setActiveStep(2)}
               >
                 <div className="wizard-step">2</div>
-                <span className="wizard-label">Formación Académica</span>
+                <span className="wizard-label">Salud y Tallas</span>
               </div>
 
               <div 
@@ -401,15 +568,31 @@ export const MiExpediente = () => {
                 onClick={() => activeStep > 3 && setActiveStep(3)}
               >
                 <div className="wizard-step">3</div>
-                <span className="wizard-label">Datos Laborales</span>
+                <span className="wizard-label">Votación y Vivienda</span>
               </div>
 
               <div 
-                className={`wizard-step-wrapper ${activeStep === 4 ? 'activo' : ''}`}
+                className={`wizard-step-wrapper ${activeStep === 4 ? 'activo' : ''} ${activeStep > 4 ? 'completado' : ''}`}
                 onClick={() => activeStep > 4 && setActiveStep(4)}
               >
                 <div className="wizard-step">4</div>
-                <span className="wizard-label">Documentos Soporte</span>
+                <span className="wizard-label">Núcleo Familiar</span>
+              </div>
+
+              <div 
+                className={`wizard-step-wrapper ${activeStep === 5 ? 'activo' : ''} ${activeStep > 5 ? 'completado' : ''}`}
+                onClick={() => activeStep > 5 && setActiveStep(5)}
+              >
+                <div className="wizard-step">5</div>
+                <span className="wizard-label">Formación</span>
+              </div>
+
+              <div 
+                className={`wizard-step-wrapper ${activeStep === 6 ? 'activo' : ''}`}
+                onClick={() => activeStep > 6 && setActiveStep(6)}
+              >
+                <div className="wizard-step">6</div>
+                <span className="wizard-label">Laboral y Soportes</span>
               </div>
             </div>
 
@@ -417,7 +600,7 @@ export const MiExpediente = () => {
 
             {/* STEP 1: PERSONAL INFORMATION */}
             <div className={`wizard-panel ${activeStep === 1 ? 'activo' : ''}`}>
-              <div className="seccion-titulo"><i className="bi bi-person-fill me-2 text-success"></i>Paso 1: Información Personal</div>
+              <div className="seccion-titulo"><i className="bi bi-person-fill me-2 text-success"></i>Paso 1: Información Personal y de Contacto</div>
               
               {/* Account Data Box (Read-Only) */}
               <div className="bg-light p-3 rounded-4 mb-4 border">
@@ -487,6 +670,7 @@ export const MiExpediente = () => {
                     <option value="Casado/a">Casado/a</option>
                     <option value="Divorciado/a">Divorciado/a</option>
                     <option value="Viudo/a">Viudo/a</option>
+                    <option value="Concubino/a">Concubino/a</option>
                   </select>
                 </div>
                 <div className="col-12">
@@ -502,10 +686,264 @@ export const MiExpediente = () => {
               </div>
             </div>
 
-            {/* STEP 2: ACADEMIC PROFILE */}
+            {/* STEP 2: HEALTH & UNIFORM SIZES */}
             <div className={`wizard-panel ${activeStep === 2 ? 'activo' : ''}`}>
-              <div className="seccion-titulo"><i className="bi bi-mortarboard-fill me-2 text-success"></i>Paso 2: Formación Académica</div>
+              <div className="seccion-titulo"><i className="bi bi-heart-pulse-fill me-2 text-success"></i>Paso 2: Datos de Salud y Tallas de Uniforme</div>
               <div className="row g-3">
+                <div className="col-md-4">
+                  <label className="form-label">Grupo Sanguíneo</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_salud.grupo_sanguineo}
+                    onChange={(e) => handleNestedChange('datos_salud', 'grupo_sanguineo', e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">¿Posee carnet CONAPDIS?</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_salud.conapdis}
+                    onChange={(e) => handleNestedChange('datos_salud', 'conapdis', e.target.value)}
+                  >
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Condición Neurodivergente</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_salud.condicion_neuro}
+                    onChange={(e) => handleNestedChange('datos_salud', 'condicion_neuro', e.target.value)}
+                  >
+                    <option value="Neurotípico">Neurotípico</option>
+                    <option value="Neurodivergente">Neurodivergente</option>
+                  </select>
+                </div>
+                
+                <div className="col-12 col-md-6">
+                  <label className="form-label">Condición Médica / Alergias</label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    placeholder="Ej. Hipertensión, Asma, Alérgica a la Penicilina..."
+                    value={formData.datos_salud.condicion_medica}
+                    onChange={(e) => handleNestedChange('datos_salud', 'condicion_medica', e.target.value)}
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <div className="row g-2">
+                    <div className="col-6 col-md-3">
+                      <label className="form-label">Talla Camisa</label>
+                      <input type="text" className="form-control input-moderno" placeholder="Ej. L" value={formData.datos_salud.talla_camisa} onChange={(e) => handleNestedChange('datos_salud', 'talla_camisa', e.target.value)} />
+                    </div>
+                    <div className="col-6 col-md-3">
+                      <label className="form-label">Talla Chemise</label>
+                      <input type="text" className="form-control input-moderno" placeholder="Ej. L" value={formData.datos_salud.talla_chemise} onChange={(e) => handleNestedChange('datos_salud', 'talla_chemise', e.target.value)} />
+                    </div>
+                    <div className="col-6 col-md-3">
+                      <label className="form-label">Talla Pantalón</label>
+                      <input type="text" className="form-control input-moderno" placeholder="Ej. 34" value={formData.datos_salud.talla_pantalon} onChange={(e) => handleNestedChange('datos_salud', 'talla_pantalon', e.target.value)} />
+                    </div>
+                    <div className="col-6 col-md-3">
+                      <label className="form-label">Talla Calzado</label>
+                      <input type="text" className="form-control input-moderno" placeholder="Ej. 41" value={formData.datos_salud.talla_calzado} onChange={(e) => handleNestedChange('datos_salud', 'talla_calzado', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Nombre del Contacto de Emergencia</label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    placeholder="Nombre completo del familiar/pareja"
+                    value={formData.datos_salud.emergencia_nombre}
+                    onChange={(e) => handleNestedChange('datos_salud', 'emergencia_nombre', e.target.value)}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Teléfono del Contacto de Emergencia</label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    placeholder="Ej. 04141234567"
+                    value={formData.datos_salud.emergencia_tel}
+                    onChange={(e) => handleNestedChange('datos_salud', 'emergencia_tel', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 3: ELECTORAL DATA & HOUSING */}
+            <div className={`wizard-panel ${activeStep === 3 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-geo-alt-fill me-2 text-success"></i>Paso 3: Información Electoral y de Vivienda</div>
+              <div className="row g-3">
+                <div className="col-md-6 col-lg-3">
+                  <label className="form-label">Estado Electoral</label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. Monagas" value={formData.datos_electoral.estado} onChange={(e) => handleNestedChange('datos_electoral', 'estado', e.target.value)} />
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <label className="form-label">Municipio Electoral</label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. Maturín" value={formData.datos_electoral.municipio} onChange={(e) => handleNestedChange('datos_electoral', 'municipio', e.target.value)} />
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <label className="form-label">Parroquia Electoral</label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. Santa Cruz" value={formData.datos_electoral.parroquia} onChange={(e) => handleNestedChange('datos_electoral', 'parroquia', e.target.value)} />
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <label className="form-label">Centro de Votación</label>
+                  <input type="text" className="form-control input-moderno" placeholder="Nombre de la escuela centro" value={formData.datos_electoral.centro_votacion} onChange={(e) => handleNestedChange('datos_electoral', 'centro_votacion', e.target.value)} />
+                </div>
+
+                <div className="col-md-4">
+                  <label className="form-label">Tipo de Vivienda</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.tipo}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'tipo', e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="Casa">Casa</option>
+                    <option value="Apartamento">Apartamento</option>
+                    <option value="Quinta">Quinta</option>
+                    <option value="Habitación">Habitación</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Condición de Habitación</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.condicion}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'condicion', e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="Propia">Propia</option>
+                    <option value="Alquilada">Alquilada</option>
+                    <option value="Arrimado/a">Arrimado/a</option>
+                    <option value="Prestada">Prestada / Cedida</option>
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Crédito Habitacional (5 Sueldos)</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.credito_5_sueldos}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'credito_5_sueldos', e.target.value)}
+                  >
+                    <option value="No Solicitado">No Solicitado</option>
+                    <option value="Solicitado (En Espera)">Solicitado (En Espera)</option>
+                    <option value="Pagando">Pagando</option>
+                    <option value="Pagado">Pagado</option>
+                  </select>
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Detalle sobre la condición de la vivienda (Opcional)</label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. Casa en terreno mancomunado / requiere ampliación..." value={formData.datos_vivienda.detalle_otra} onChange={(e) => handleNestedChange('datos_vivienda', 'detalle_otra', e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 4: DEPENDENTS FAMILY */}
+            <div className={`wizard-panel ${activeStep === 4 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-people-fill me-2 text-success"></i>Paso 4: Carga Familiar y Dependientes</div>
+              <p className="small text-muted mb-3">Registra los miembros de tu núcleo familiar directo (hijos, cónyuge, padres dependientes).</p>
+              
+              {/* Form to add familiar */}
+              <div className="bg-light p-3 border rounded-4 mb-4">
+                <div className="row g-2 align-items-end">
+                  <div className="col-md-3">
+                    <label className="small fw-bold text-muted mb-1">Nombre Completo</label>
+                    <input type="text" className="form-control input-moderno animate__animated animate__fadeIn" placeholder="Ej. Siuly Velásquez" value={famNombre} onChange={(e) => setFamNombre(e.target.value)} />
+                  </div>
+                  <div className="col-md-2">
+                    <label className="small fw-bold text-muted mb-1">Parentesco</label>
+                    <select className="form-select input-moderno" value={famParentesco} onChange={(e) => setFamParentesco(e.target.value)}>
+                      <option value="Hijo(a)">Hijo(a)</option>
+                      <option value="Esposo(a)">Esposo(a)</option>
+                      <option value="Concubino(a)">Concubino(a)</option>
+                      <option value="Madre">Madre</option>
+                      <option value="Padre">Padre</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                  </div>
+                  <div className="col-md-2">
+                    <label className="small fw-bold text-muted mb-1">Cédula</label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. 30123456" value={famCedula} onChange={(e) => setFamCedula(e.target.value)} />
+                  </div>
+                  <div className="col-md-2">
+                    <label className="small fw-bold text-muted mb-1">Fecha Nac.</label>
+                    <input type="date" className="form-control input-moderno" value={famFechaNac} onChange={(e) => setFamFechaNac(e.target.value)} />
+                  </div>
+                  <div className="col-md-1">
+                    <label className="small fw-bold text-muted mb-1">¿Vive contigo?</label>
+                    <select className="form-select input-moderno" value={famVive} onChange={(e) => setFamVive(e.target.value)}>
+                      <option value="Sí">Sí</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+                  <div className="col-md-2">
+                    <button type="button" onClick={agregarFamiliar} className="btn btn-success w-100 rounded-pill fw-bold hover-efecto"><i className="bi bi-plus-circle me-1"></i> Agregar</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table of family charges */}
+              <div className="table-responsive">
+                <table className="table table-hover align-middle border">
+                  <thead className="bg-light text-muted small">
+                    <tr>
+                      <th>Nombre Completo</th>
+                      <th>Parentesco</th>
+                      <th>Cédula</th>
+                      <th>Fecha de Nacimiento</th>
+                      <th>¿Vive con Trabajador?</th>
+                      <th className="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.carga_familiar.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-4 text-muted">
+                          No tienes cargas familiares registradas.
+                        </td>
+                      </tr>
+                    ) : (
+                      formData.carga_familiar.map((f, idx) => (
+                        <tr key={idx}>
+                          <td className="fw-bold">{f.nombres}</td>
+                          <td><span className="badge bg-light text-dark border">{f.parentesco}</span></td>
+                          <td>{f.cedula || 'Sin Cédula'}</td>
+                          <td>{f.fecha_nacimiento || 'No registrada'}</td>
+                          <td>{f.vive_con_trabajador}</td>
+                          <td className="text-end">
+                            <button type="button" onClick={() => eliminarFamiliar(idx)} className="btn btn-sm btn-outline-danger rounded-pill"><i className="bi bi-trash-fill"></i> Eliminar</button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* STEP 5: ACADEMIC PROFILE & COMPLETED COURSES */}
+            <div className={`wizard-panel ${activeStep === 5 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-mortarboard-fill me-2 text-success"></i>Paso 5: Formación Académica y Cursos Realizados</div>
+              
+              <div className="row g-3 mb-4">
                 <div className="col-md-6">
                   <label className="form-label">Último Grado de Instrucción <span className="text-danger">*</span></label>
                   <select 
@@ -515,7 +953,7 @@ export const MiExpediente = () => {
                   >
                     <option value="">Seleccione...</option>
                     <option value="T.S.U.">T.S.U. (Técnico Superior Universitario)</option>
-                    <option value="Licenciatura / Educación">Licenciatura / Educación</option>
+                    <option value="Licenciatura / Profesorado">Licenciatura / Profesorado</option>
                     <option value="Especialización">Especialización</option>
                     <option value="Maestría">Maestría</option>
                     <option value="Doctorado">Doctorado</option>
@@ -553,12 +991,75 @@ export const MiExpediente = () => {
                   />
                 </div>
               </div>
+
+              <div className="seccion-titulo mt-4"><i className="bi bi-patch-check-fill me-2 text-success"></i>Cursos y Certificados Realizados</div>
+              
+              {/* Form to add course */}
+              <div className="bg-light p-3 border rounded-4 mb-4">
+                <div className="row g-2 align-items-end">
+                  <div className="col-md-4">
+                    <label className="small fw-bold text-muted mb-1">Título del Curso / Taller</label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. Inteligencia Artificial en el Aula" value={curTitulo} onChange={(e) => setCurTitulo(e.target.value)} />
+                  </div>
+                  <div className="col-md-3">
+                    <label className="small fw-bold text-muted mb-1">Institución / Lugar</label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. CIED Maturín" value={curLugar} onChange={(e) => setCurLugar(e.target.value)} />
+                  </div>
+                  <div className="col-md-2">
+                    <label className="small fw-bold text-muted mb-1">Horas Duración</label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. 16 Horas" value={curHoras} onChange={(e) => setCurHoras(e.target.value)} />
+                  </div>
+                  <div className="col-md-2">
+                    <label className="small fw-bold text-muted mb-1">Fecha / Año</label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. 2014" value={curFecha} onChange={(e) => setCurFecha(e.target.value)} />
+                  </div>
+                  <div className="col-md-1">
+                    <button type="button" onClick={agregarCurso} className="btn btn-success w-100 rounded-pill fw-bold hover-efecto"><i className="bi bi-plus-circle me-1"></i></button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table of courses */}
+              <div className="table-responsive">
+                <table className="table table-hover align-middle border">
+                  <thead className="bg-light text-muted small">
+                    <tr>
+                      <th>Título del Curso / Taller</th>
+                      <th>Lugar de Realización</th>
+                      <th>Horas</th>
+                      <th>Fecha / Año</th>
+                      <th className="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.cursos_realizados.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-4 text-muted">
+                          No tienes cursos ni talleres certificados registrados.
+                        </td>
+                      </tr>
+                    ) : (
+                      formData.cursos_realizados.map((c, idx) => (
+                        <tr key={idx}>
+                          <td className="fw-bold">{c.titulo}</td>
+                          <td>{c.lugar}</td>
+                          <td>{c.horas || 'N/A'}</td>
+                          <td>{c.fecha}</td>
+                          <td className="text-end">
+                            <button type="button" onClick={() => eliminarCurso(idx)} className="btn btn-sm btn-outline-danger rounded-pill"><i className="bi bi-trash-fill"></i> Eliminar</button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* STEP 3: LABOR DATA */}
-            <div className={`wizard-panel ${activeStep === 3 ? 'activo' : ''}`}>
-              <div className="seccion-titulo"><i className="bi bi-briefcase-fill me-2 text-success"></i>Paso 3: Datos Laborales</div>
-              <div className="row g-3">
+            {/* STEP 6: LABOR DATA & DOCUMENTS */}
+            <div className={`wizard-panel ${activeStep === 6 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-briefcase-fill me-2 text-success"></i>Paso 6: Datos Laborales y Documentos Soporte</div>
+              <div className="row g-3 mb-4">
                 <div className="col-md-6">
                   <label className="form-label">Fecha de Ingreso al Plantel <span className="text-danger">*</span></label>
                   <input 
@@ -610,13 +1111,10 @@ export const MiExpediente = () => {
                   </select>
                 </div>
               </div>
-            </div>
 
-            {/* STEP 4: SUPPORTING DOCUMENTS */}
-            <div className={`wizard-panel ${activeStep === 4 ? 'activo' : ''}`}>
-              <div className="seccion-titulo"><i className="bi bi-file-earmark-arrow-up-fill me-2 text-success"></i>Paso 4: Documentos de Soporte</div>
+              <div className="seccion-titulo mt-4"><i className="bi bi-file-earmark-arrow-up-fill me-2 text-success"></i>Consignación de Documentos Soporte</div>
               <p className="small text-muted mb-4">
-                Indica la consignación física o digital de tus documentos obligatorios en la carpeta de expediente de la dirección.
+                Indica los documentos que has entregado físicamente en la carpeta de tu expediente.
               </p>
 
               <div className="row g-3">
@@ -678,7 +1176,7 @@ export const MiExpediente = () => {
                   <div className="caja-dinamica d-flex align-items-center justify-content-between">
                     <div>
                       <h6 className="mb-1 fw-bold text-dark"><i className="bi bi-file-earmark-check text-muted me-2"></i>Constancia de Trabajo</h6>
-                      <small className="text-muted">O credencial del MPPE activa.</small>
+                      <small className="text-muted">Credencial de nómina activa.</small>
                     </div>
                     <div className="form-check form-switch fs-4">
                       <input 
@@ -708,7 +1206,7 @@ export const MiExpediente = () => {
                 <div></div>
               )}
 
-              {activeStep < 4 ? (
+              {activeStep < 6 ? (
                 <button 
                   onClick={handleNext}
                   className="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-efecto text-white"
