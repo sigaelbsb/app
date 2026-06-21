@@ -1,0 +1,669 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
+import { auditar } from '../../lib/audit';
+import { usePermisos } from '../../hooks/usePermisos';
+
+interface ExpedienteData {
+  sexo: string;
+  fecha_nacimiento: string;
+  estado_civil: string;
+  direccion: string;
+  titulo_obtenido: string;
+  nivel_instruccion: string;
+  universidad: string;
+  anio_egreso: number;
+  fecha_ingreso: string;
+  tipo_nomina: string;
+  carga_horaria: number;
+  estatus_laboral: string;
+  documentos: {
+    cedula: boolean;
+    titulo: boolean;
+    cv: boolean;
+    constancia: boolean;
+  };
+}
+
+const DEFAULT_EXPEDIENTE: ExpedienteData = {
+  sexo: '',
+  fecha_nacimiento: '',
+  estado_civil: '',
+  direccion: '',
+  titulo_obtenido: '',
+  nivel_instruccion: '',
+  universidad: '',
+  anio_egreso: new Date().getFullYear(),
+  fecha_ingreso: '',
+  tipo_nomina: '',
+  carga_horaria: 36,
+  estatus_laboral: 'Activo',
+  documentos: {
+    cedula: false,
+    titulo: false,
+    cv: false,
+    constancia: false
+  }
+};
+
+export const MiExpediente = () => {
+  const navigate = useNavigate();
+  const { tienePermiso, loading: permLoading } = usePermisos();
+  const Swal = (window as any).Swal;
+
+  const [activeStep, setActiveStep] = useState<number>(1);
+  const [loadingData, setLoadingData] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+
+  // User Account Details (Read-only for profile sheet)
+  const storedUser = localStorage.getItem('usuario_sigae');
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const userCedula = user?.cedula;
+
+  // Form State
+  const [formData, setFormData] = useState<ExpedienteData>(DEFAULT_EXPEDIENTE);
+
+  const hasAccess = tienePermiso('Mi Expediente', 'ver');
+  const canUpdate = tienePermiso('Mi Expediente', 'modificar') || tienePermiso('Mi Expediente', 'crear');
+
+  useEffect(() => {
+    if (permLoading || !hasAccess || !user) return;
+
+    const cargarExpediente = async () => {
+      setLoadingData(true);
+      try {
+        const { data, error } = await supabase
+          .from('expedientes_docentes')
+          .select('*')
+          .eq('usuario_cedula', user.cedula)
+          .maybeSingle();
+
+        if (error) {
+          // If table does not exist, trigger demo/simulation mode
+          if (error.code === 'PGRST205' || error.message.includes('relation "public.expedientes_docentes" does not exist')) {
+            console.warn("Table 'expedientes_docentes' not found. Activating simulation mode.");
+            setIsDemoMode(true);
+            const localDemo = localStorage.getItem(`sigae_expediente_demo_${user.cedula}`);
+            if (localDemo) {
+              setFormData(JSON.parse(localDemo));
+            }
+          } else {
+            throw error;
+          }
+        } else if (data) {
+          setFormData({
+            sexo: data.sexo || '',
+            fecha_nacimiento: data.fecha_nacimiento || '',
+            estado_civil: data.estado_civil || '',
+            direccion: data.direccion || '',
+            titulo_obtenido: data.titulo_obtenido || '',
+            nivel_instruccion: data.nivel_instruccion || '',
+            universidad: data.universidad || '',
+            anio_egreso: data.anio_egreso || new Date().getFullYear(),
+            fecha_ingreso: data.fecha_ingreso || '',
+            tipo_nomina: data.tipo_nomina || '',
+            carga_horaria: data.carga_horaria || 36,
+            estatus_laboral: data.estatus_laboral || 'Activo',
+            documentos: data.documentos || DEFAULT_EXPEDIENTE.documentos
+          });
+        }
+      } catch (e: any) {
+        console.error("Error loading teacher profile:", e);
+        if (Swal) Swal.fire("Aviso", "No se pudo sincronizar el expediente con la nube. Cargando borrador local.", "info");
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    cargarExpediente();
+  }, [permLoading, hasAccess, userCedula]);
+
+  const handleChange = (field: keyof ExpedienteData, val: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: val
+    }));
+  };
+
+  const handleDocumentToggle = (docKey: keyof ExpedienteData['documentos']) => {
+    setFormData(prev => ({
+      ...prev,
+      documentos: {
+        ...prev.documentos,
+        [docKey]: !prev.documentos[docKey]
+      }
+    }));
+  };
+
+  const validarPaso = (step: number): boolean => {
+    if (step === 1) {
+      if (!formData.sexo) {
+        if (Swal) Swal.fire("Atención", "Debe seleccionar su género.", "warning");
+        return false;
+      }
+      if (!formData.fecha_nacimiento) {
+        if (Swal) Swal.fire("Atención", "Debe ingresar su fecha de nacimiento.", "warning");
+        return false;
+      }
+      if (!formData.estado_civil) {
+        if (Swal) Swal.fire("Atención", "Debe seleccionar su estado civil.", "warning");
+        return false;
+      }
+      if (!formData.direccion.trim()) {
+        if (Swal) Swal.fire("Atención", "La dirección de habitación es requerida.", "warning");
+        return false;
+      }
+    } else if (step === 2) {
+      if (!formData.nivel_instruccion) {
+        if (Swal) Swal.fire("Atención", "Debe indicar su nivel de instrucción.", "warning");
+        return false;
+      }
+      if (!formData.titulo_obtenido.trim()) {
+        if (Swal) Swal.fire("Atención", "El título profesional es requerido.", "warning");
+        return false;
+      }
+      if (!formData.universidad.trim()) {
+        if (Swal) Swal.fire("Atención", "La universidad/institución es requerida.", "warning");
+        return false;
+      }
+    } else if (step === 3) {
+      if (!formData.fecha_ingreso) {
+        if (Swal) Swal.fire("Atención", "Debe ingresar la fecha de ingreso al plantel.", "warning");
+        return false;
+      }
+      if (!formData.tipo_nomina) {
+        if (Swal) Swal.fire("Atención", "Debe seleccionar el tipo de nómina.", "warning");
+        return false;
+      }
+      if (formData.carga_horaria <= 0) {
+        if (Swal) Swal.fire("Atención", "Carga horaria inválida.", "warning");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validarPaso(activeStep)) {
+      setActiveStep(prev => prev + 1);
+    }
+  };
+
+  const handleBack = () => {
+    setActiveStep(prev => prev - 1);
+  };
+
+  const handleGuardar = async () => {
+    if (!validarPaso(activeStep)) return;
+    if (!canUpdate) {
+      if (Swal) Swal.fire("Acceso Denegado", "Tu rol no tiene privilegios para guardar o actualizar el expediente.", "error");
+      return;
+    }
+
+    setGuardando(true);
+    try {
+      if (isDemoMode) {
+        // Local simulation save
+        localStorage.setItem(`sigae_expediente_demo_${user.cedula}`, JSON.stringify(formData));
+        if (Swal) {
+          Swal.fire({
+            title: "¡Expediente Guardado!",
+            html: "Los datos se guardaron en la <b>Simulación Local (Borrador)</b> de tu navegador debido a que la tabla <code>expedientes_docentes</code> aún no está migrada en la base de datos Supabase.<br/><br/><small className='text-muted'>Pide a tu administrador aplicar el script de migración para activar el almacenamiento en la nube.</small>",
+            icon: "success",
+            confirmButtonColor: "#00E676"
+          });
+        }
+      } else {
+        // Real cloud save (upsert)
+        const payload = {
+          usuario_cedula: user.cedula,
+          ...formData,
+          actualizado_en: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+          .from('expedientes_docentes')
+          .upsert(payload, { onConflict: 'usuario_cedula' });
+
+        if (error) throw error;
+
+        auditar('Mi Expediente', 'Actualizar Expediente', `El docente ${user.nombre} actualizó su expediente personal.`);
+
+        if (Swal) Swal.fire("¡Éxito!", "Tu expediente se ha guardado correctamente en el sistema en la nube.", "success");
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (Swal) Swal.fire("Error", "Ocurrió un error al guardar el expediente en el servidor.", "error");
+    }
+    setGuardando(false);
+  };
+
+  if (permLoading || (loadingData && hasAccess)) {
+    return (
+      <div className="d-flex justify-content-center align-items-center py-5 h-100">
+        <div className="spinner-border text-success" role="status">
+          <span className="visually-hidden">Cargando expediente...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAccess || !user) {
+    return (
+      <div className="col-12 text-center py-5 mt-4">
+        <div className="bg-light d-inline-flex justify-content-center align-items-center rounded-circle mb-3 shadow-sm border" style={{ width: '100px', height: '100px' }}>
+          <i className="bi bi-shield-lock-fill text-muted" style={{ fontSize: '3.5rem' }}></i>
+        </div>
+        <h4 className="text-dark fw-bold mb-2">Área Restringida</h4>
+        <p className="text-muted mb-0">No tienes permisos asignados para visualizar tu expediente.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modulo-animado container-fluid p-0">
+      {/* Banner */}
+      <div className="row mb-4 animate__animated animate__fadeInDown">
+        <div className="col-12">
+          <div 
+            className="banner-modulo p-4 p-md-5 text-white shadow-sm" 
+            style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}
+          >
+            <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.06)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
+            <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.04)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
+            <div className="row align-items-center position-relative z-1">
+              <div className="col-12 text-center text-md-start">
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                  <span className="badge bg-white text-success mb-0 px-3 py-2 shadow-sm fw-bold" style={{ letterSpacing: '1px', fontSize: '0.85rem' }}>
+                    <i className="bi bi-person-workspace me-1"></i> GESTIÓN DOCENTE
+                  </span>
+                  <button 
+                    onClick={() => navigate('/categoria/Gesti%C3%B3n%20Docente')} 
+                    className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
+                  >
+                    <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
+                  </button>
+                </div>
+                <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                  <i className="bi bi-person-vcard me-3"></i>Mi Expediente
+                </h1>
+                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  Consulta y edita tu perfil personal, formación y estatus laboral en el complejo.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isDemoMode && (
+        <div className="alert alert-warning border border-warning rounded-4 shadow-sm py-3 px-4 mb-4 d-flex align-items-center gap-3 animate__animated animate__fadeIn">
+          <i className="bi bi-exclamation-triangle-fill fs-3 text-warning"></i>
+          <div>
+            <h6 className="mb-1 fw-bold text-dark">Modo de Simulación Local Activo</h6>
+            <p className="mb-0 small text-muted">
+              La tabla <code>expedientes_docentes</code> no está creada en la base de datos Supabase. Los datos se guardarán temporalmente en tu borrador de navegador.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Wizard Card */}
+      <div className="row g-4 justify-content-center">
+        <div className="col-lg-10">
+          <div className="card border-0 shadow-sm rounded-4 bg-white p-4">
+            
+            {/* Steps Stepper */}
+            <div className="wizard-container mt-2">
+              <div className="wizard-line"></div>
+              
+              <div 
+                className={`wizard-step-wrapper ${activeStep === 1 ? 'activo' : ''} ${activeStep > 1 ? 'completado' : ''}`}
+                onClick={() => activeStep > 1 && setActiveStep(1)}
+              >
+                <div className="wizard-step">1</div>
+                <span className="wizard-label">Información Personal</span>
+              </div>
+
+              <div 
+                className={`wizard-step-wrapper ${activeStep === 2 ? 'activo' : ''} ${activeStep > 2 ? 'completado' : ''}`}
+                onClick={() => activeStep > 2 && setActiveStep(2)}
+              >
+                <div className="wizard-step">2</div>
+                <span className="wizard-label">Formación Académica</span>
+              </div>
+
+              <div 
+                className={`wizard-step-wrapper ${activeStep === 3 ? 'activo' : ''} ${activeStep > 3 ? 'completado' : ''}`}
+                onClick={() => activeStep > 3 && setActiveStep(3)}
+              >
+                <div className="wizard-step">3</div>
+                <span className="wizard-label">Datos Laborales</span>
+              </div>
+
+              <div 
+                className={`wizard-step-wrapper ${activeStep === 4 ? 'activo' : ''}`}
+                onClick={() => activeStep > 4 && setActiveStep(4)}
+              >
+                <div className="wizard-step">4</div>
+                <span className="wizard-label">Documentos Soporte</span>
+              </div>
+            </div>
+
+            <hr className="my-4 text-muted opacity-25" />
+
+            {/* STEP 1: PERSONAL INFORMATION */}
+            <div className={`wizard-panel ${activeStep === 1 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-person-fill me-2 text-success"></i>Paso 1: Información Personal</div>
+              
+              {/* Account Data Box (Read-Only) */}
+              <div className="bg-light p-3 rounded-4 mb-4 border">
+                <div className="row g-3">
+                  <div className="col-md-6 col-lg-3">
+                    <span className="small fw-bold text-muted d-block">Nombre Completo</span>
+                    <span className="fw-bold text-dark">{user.nombre}</span>
+                  </div>
+                  <div className="col-md-6 col-lg-3">
+                    <span className="small fw-bold text-muted d-block">Cédula de Identidad</span>
+                    <span className="fw-bold text-dark">{user.cedula}</span>
+                  </div>
+                  <div className="col-md-6 col-lg-3">
+                    <span className="small fw-bold text-muted d-block">Correo Electrónico</span>
+                    <span className="fw-bold text-dark">{user.email || 'No registrado'}</span>
+                  </div>
+                  <div className="col-md-6 col-lg-3">
+                    <span className="small fw-bold text-muted d-block">Teléfono</span>
+                    <span className="fw-bold text-dark">{user.telefono || 'No registrado'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Género <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.sexo}
+                    onChange={(e) => handleChange('sexo', e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="Femenino">Femenino</option>
+                    <option value="Masculino">Masculino</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Fecha de Nacimiento <span className="text-danger">*</span></label>
+                  <input 
+                    type="date"
+                    className="form-control input-moderno"
+                    value={formData.fecha_nacimiento}
+                    onChange={(e) => handleChange('fecha_nacimiento', e.target.value)}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Estado Civil <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.estado_civil}
+                    onChange={(e) => handleChange('estado_civil', e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="Soltero/a">Soltero/a</option>
+                    <option value="Casado/a">Casado/a</option>
+                    <option value="Divorciado/a">Divorciado/a</option>
+                    <option value="Viudo/a">Viudo/a</option>
+                  </select>
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Dirección de Habitación <span className="text-danger">*</span></label>
+                  <textarea 
+                    className="form-control input-moderno"
+                    rows={3}
+                    placeholder="Ingresa la dirección detallada de domicilio..."
+                    value={formData.direccion}
+                    onChange={(e) => handleChange('direccion', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 2: ACADEMIC PROFILE */}
+            <div className={`wizard-panel ${activeStep === 2 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-mortarboard-fill me-2 text-success"></i>Paso 2: Formación Académica</div>
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Último Grado de Instrucción <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.nivel_instruccion}
+                    onChange={(e) => handleChange('nivel_instruccion', e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="T.S.U.">T.S.U. (Técnico Superior Universitario)</option>
+                    <option value="Licenciatura / Educación">Licenciatura / Educación</option>
+                    <option value="Especialización">Especialización</option>
+                    <option value="Maestría">Maestría</option>
+                    <option value="Doctorado">Doctorado</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Título Universitario <span className="text-danger">*</span></label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    placeholder="Ej. Licenciado en Educación mención Ciencias"
+                    value={formData.titulo_obtenido}
+                    onChange={(e) => handleChange('titulo_obtenido', e.target.value)}
+                  />
+                </div>
+                <div className="col-md-8">
+                  <label className="form-label">Universidad / Instituto Egreso <span className="text-danger">*</span></label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    placeholder="Ej. Universidad de Oriente (UDO)"
+                    value={formData.universidad}
+                    onChange={(e) => handleChange('universidad', e.target.value)}
+                  />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Año de Egreso <span className="text-danger">*</span></label>
+                  <input 
+                    type="number"
+                    className="form-control input-moderno"
+                    min="1970"
+                    max={new Date().getFullYear()}
+                    value={formData.anio_egreso}
+                    onChange={(e) => handleChange('anio_egreso', parseInt(e.target.value) || new Date().getFullYear())}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 3: LABOR DATA */}
+            <div className={`wizard-panel ${activeStep === 3 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-briefcase-fill me-2 text-success"></i>Paso 3: Datos Laborales</div>
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Fecha de Ingreso al Plantel <span className="text-danger">*</span></label>
+                  <input 
+                    type="date"
+                    className="form-control input-moderno"
+                    value={formData.fecha_ingreso}
+                    onChange={(e) => handleChange('fecha_ingreso', e.target.value)}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Tipo de Nómina <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.tipo_nomina}
+                    onChange={(e) => handleChange('tipo_nomina', e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    <option value="Fijo">Fijo (Docente Titular)</option>
+                    <option value="Contratado">Contratado</option>
+                    <option value="Interino">Interino</option>
+                    <option value="Jubilado">Jubilado (Activo)</option>
+                  </select>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Carga Horaria Semanal <span className="text-danger">*</span></label>
+                  <div className="input-group">
+                    <input 
+                      type="number"
+                      className="form-control input-moderno"
+                      min="1"
+                      max="50"
+                      value={formData.carga_horaria}
+                      onChange={(e) => handleChange('carga_horaria', parseInt(e.target.value) || 0)}
+                    />
+                    <span className="input-group-text bg-light text-muted fw-bold">Horas</span>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Estatus Laboral <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.estatus_laboral}
+                    onChange={(e) => handleChange('estatus_laboral', e.target.value)}
+                  >
+                    <option value="Activo">Activo</option>
+                    <option value="Incapacitado / Reposo">Incapacitado / Reposo</option>
+                    <option value="Comisión de Servicio">Comisión de Servicio</option>
+                    <option value="Permiso No Remunerado">Permiso No Remunerado</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 4: SUPPORTING DOCUMENTS */}
+            <div className={`wizard-panel ${activeStep === 4 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-file-earmark-arrow-up-fill me-2 text-success"></i>Paso 4: Documentos de Soporte</div>
+              <p className="small text-muted mb-4">
+                Indica la consignación física o digital de tus documentos obligatorios en la carpeta de expediente de la dirección.
+              </p>
+
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <div className="caja-dinamica d-flex align-items-center justify-content-between">
+                    <div>
+                      <h6 className="mb-1 fw-bold text-dark"><i className="bi bi-card-image text-muted me-2"></i>Cédula de Identidad</h6>
+                      <small className="text-muted">Copia ampliada y legible.</small>
+                    </div>
+                    <div className="form-check form-switch fs-4">
+                      <input 
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={formData.documentos.cedula}
+                        onChange={() => handleDocumentToggle('cedula')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <div className="caja-dinamica d-flex align-items-center justify-content-between">
+                    <div>
+                      <h6 className="mb-1 fw-bold text-dark"><i className="bi bi-award text-muted me-2"></i>Título Universitario</h6>
+                      <small className="text-muted">Título registrado y visible.</small>
+                    </div>
+                    <div className="form-check form-switch fs-4">
+                      <input 
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={formData.documentos.titulo}
+                        onChange={() => handleDocumentToggle('titulo')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <div className="caja-dinamica d-flex align-items-center justify-content-between">
+                    <div>
+                      <h6 className="mb-1 fw-bold text-dark"><i className="bi bi-file-earmark-person text-muted me-2"></i>Síntesis Curricular</h6>
+                      <small className="text-muted">CV actualizado y firmado.</small>
+                    </div>
+                    <div className="form-check form-switch fs-4">
+                      <input 
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={formData.documentos.cv}
+                        onChange={() => handleDocumentToggle('cv')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <div className="caja-dinamica d-flex align-items-center justify-content-between">
+                    <div>
+                      <h6 className="mb-1 fw-bold text-dark"><i className="bi bi-file-earmark-check text-muted me-2"></i>Constancia de Trabajo</h6>
+                      <small className="text-muted">O credencial del MPPE activa.</small>
+                    </div>
+                    <div className="form-check form-switch fs-4">
+                      <input 
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={formData.documentos.constancia}
+                        onChange={() => handleDocumentToggle('constancia')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stepper Footer Controls */}
+            <hr className="my-4 text-muted opacity-25" />
+            <div className="d-flex justify-content-between">
+              {activeStep > 1 ? (
+                <button 
+                  onClick={handleBack}
+                  className="btn btn-secondary rounded-pill px-4 fw-bold shadow-sm hover-efecto"
+                >
+                  <i className="bi bi-arrow-left-short me-1"></i> Atrás
+                </button>
+              ) : (
+                <div></div>
+              )}
+
+              {activeStep < 4 ? (
+                <button 
+                  onClick={handleNext}
+                  className="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-efecto text-white"
+                >
+                  Siguiente <i className="bi bi-arrow-right-short ms-1"></i>
+                </button>
+              ) : (
+                <button 
+                  onClick={handleGuardar}
+                  className="btn btn-success rounded-pill px-5 fw-bold shadow-sm hover-efecto text-white"
+                  disabled={guardando}
+                >
+                  {guardando ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-floppy-fill me-2"></i>Guardar Expediente
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
