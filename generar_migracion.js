@@ -89,6 +89,8 @@ function run() {
   sqlOutput += `    datos_vivienda JSONB DEFAULT '{}'::jsonb,\n`;
   sqlOutput += `    carga_familiar JSONB DEFAULT '[]'::jsonb,\n`;
   sqlOutput += `    cursos_realizados JSONB DEFAULT '[]'::jsonb,\n`;
+  sqlOutput += `    plan_formacion JSONB DEFAULT '[]'::jsonb,\n`;
+  sqlOutput += `    necesidades_extra TEXT,\n`;
   sqlOutput += `    creado_en TIMESTAMPTZ DEFAULT NOW(),\n`;
   sqlOutput += `    actualizado_en TIMESTAMPTZ DEFAULT NOW()\n`;
   sqlOutput += `);\n\n`;
@@ -142,6 +144,8 @@ function run() {
     let datosVivienda = {};
     let cargaFamiliar = [];
     let cursosRealizados = [];
+    let planFormacion = [];
+    let necesidadesExtra = '';
 
     if (datosFicha) {
       if (datosFicha.correos) {
@@ -179,6 +183,16 @@ function run() {
     if (curriculumVitae) {
       if (curriculumVitae.cursos_realizados) {
         cursosRealizados = curriculumVitae.cursos_realizados;
+      }
+    }
+
+    const planificacionEstrategica = cleanJsonQuotes(columns[7]);
+    if (planificacionEstrategica) {
+      if (planificacionEstrategica.plan_formacion) {
+        planFormacion = planificacionEstrategica.plan_formacion;
+      }
+      if (planificacionEstrategica.necesidades_extra) {
+        necesidadesExtra = planificacionEstrategica.necesidades_extra;
       }
     }
 
@@ -226,7 +240,7 @@ function run() {
     sqlOutput += `  usuario_cedula, sexo, fecha_nacimiento, estado_civil, direccion,\n`;
     sqlOutput += `  titulo_obtenido, nivel_instruccion, universidad, anio_egreso,\n`;
     sqlOutput += `  fecha_ingreso, tipo_nomina, carga_horaria, estatus_laboral, documentos,\n`;
-    sqlOutput += `  datos_salud, datos_electoral, datos_vivienda, carga_familiar, cursos_realizados\n`;
+    sqlOutput += `  datos_salud, datos_electoral, datos_vivienda, carga_familiar, cursos_realizados, plan_formacion, necesidades_extra\n`;
     sqlOutput += `)\n`;
     sqlOutput += `VALUES (\n`;
     sqlOutput += `  ${escapeSql(cedula)},\n`;
@@ -247,7 +261,9 @@ function run() {
     sqlOutput += `  ${escapeSql(JSON.stringify(datosElectoral))}::jsonb,\n`;
     sqlOutput += `  ${escapeSql(JSON.stringify(datosVivienda))}::jsonb,\n`;
     sqlOutput += `  ${escapeSql(JSON.stringify(cargaFamiliar))}::jsonb,\n`;
-    sqlOutput += `  ${escapeSql(JSON.stringify(cursosRealizados))}::jsonb\n`;
+    sqlOutput += `  ${escapeSql(JSON.stringify(cursosRealizados))}::jsonb,\n`;
+    sqlOutput += `  ${escapeSql(JSON.stringify(planFormacion))}::jsonb,\n`;
+    sqlOutput += `  ${escapeSql(necesidadesExtra)}\n`;
     sqlOutput += `)\n`;
     sqlOutput += `ON CONFLICT (usuario_cedula) DO UPDATE SET\n`;
     sqlOutput += `  sexo = EXCLUDED.sexo,\n`;
@@ -263,7 +279,9 @@ function run() {
     sqlOutput += `  datos_electoral = EXCLUDED.datos_electoral,\n`;
     sqlOutput += `  datos_vivienda = EXCLUDED.datos_vivienda,\n`;
     sqlOutput += `  carga_familiar = EXCLUDED.carga_familiar,\n`;
-    sqlOutput += `  cursos_realizados = EXCLUDED.cursos_realizados;\n\n`;
+    sqlOutput += `  cursos_realizados = EXCLUDED.cursos_realizados,\n`;
+    sqlOutput += `  plan_formacion = EXCLUDED.plan_formacion,\n`;
+    sqlOutput += `  necesidades_extra = EXCLUDED.necesidades_extra;\n\n`;
     expedientesCount++;
   }
 

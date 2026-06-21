@@ -20,6 +20,12 @@ interface Curso {
   fecha: string;
 }
 
+interface PlanCurso {
+  nivel: string;
+  titulo: string;
+  categoria: string;
+}
+
 interface ExpedienteData {
   sexo: string;
   fecha_nacimiento: string;
@@ -67,6 +73,8 @@ interface ExpedienteData {
   };
   carga_familiar: Familiar[];
   cursos_realizados: Curso[];
+  plan_formacion: PlanCurso[];
+  necesidades_extra: string;
 }
 
 const DEFAULT_SALUD = {
@@ -121,8 +129,46 @@ const DEFAULT_EXPEDIENTE: ExpedienteData = {
   datos_electoral: DEFAULT_ELECTORAL,
   datos_vivienda: DEFAULT_VIVIENDA,
   carga_familiar: [],
-  cursos_realizados: []
+  cursos_realizados: [],
+  plan_formacion: [],
+  necesidades_extra: ''
 };
+
+const CATALOGO_PLAN_FORMACION: PlanCurso[] = [
+  { nivel: "Intermedio", titulo: "Inteligencia Artificial para el Aula", categoria: "Tecnología Educativa (EdTech)" },
+  { nivel: "Intermedio", titulo: "Liderazgo Pedagógico: Inspirar sin Autoritarismo", categoria: "Gestión y Liderazgo Educativo" },
+  { nivel: "Intermedio", titulo: "Plataformas de Evaluación en Línea", categoria: "Evaluación y Medición del Aprendizaje" },
+  { nivel: "Básico", titulo: "Comunicación Asertiva y Resolución de Conflictos", categoria: "Gestión y Liderazgo Educativo" },
+  { nivel: "Avanzado", titulo: "Estrategias para la Neurodiversidad en el Aula", categoria: "Educación Inclusiva y Diversidad" },
+  { nivel: "Básico", titulo: "Paquetería Ofimática (Word, Excel, PowerPoint/Libres)", categoria: "Tecnología Educativa (EdTech)" },
+  { nivel: "Básico", titulo: "Inteligencia Emocional para Liderar el Aula", categoria: "Gestión y Liderazgo Educativo" },
+  { nivel: "Básico", titulo: "Prevención del Burnout Docente: Autocuidado Profesional", categoria: "Innovación y Desarrollo Profesional" },
+  { nivel: "Básico", titulo: "Microlearning: Diseño de Píldoras Formativas", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Intermedio", titulo: "Oratoria y Comunicación Efectiva para Educadores", categoria: "Innovación y Desarrollo Profesional" },
+  { nivel: "Básico", titulo: "Rutinas de Pensamiento para Desarrollar la Mente", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Intermedio", titulo: "Evaluación Formativa con Retroalimentación Efectiva", categoria: "Evaluación y Medición del Aprendizaje" },
+  { nivel: "Básico", titulo: "Enseñanza Basada en Problemas (EBP)", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Intermedio", titulo: "Análisis de Datos Educativos con Excel", categoria: "Evaluación y Medición del Aprendizaje" },
+  { nivel: "Básico", titulo: "Design Thinking para Innovación Educativa", categoria: "Innovación y Desarrollo Profesional" },
+  { nivel: "Básico", titulo: "Edición de Videos Educativos", categoria: "Tecnología Educativa (EdTech)" },
+  { nivel: "Intermedio", titulo: "Automatización de Tareas Docentes con IA", categoria: "Tecnología Educativa (EdTech)" },
+  { nivel: "Avanzado", titulo: "Aprendizaje Servicio: Conectar Aula y Comunidad", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Básico", titulo: "Investigación-Acción en el Aula: Mejora Continua", categoria: "Innovación y Desarrollo Profesional" },
+  { nivel: "Básico", titulo: "Pedagogía de la Pregunta: Fomentar la Curiosidad", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Intermedio", titulo: "Apoyo a Estudiantes con Altas Capacidades", categoria: "Educación Inclusiva y Diversidad" },
+  { nivel: "Básico", titulo: "Creación de Contenidos Digitales Interactivos", categoria: "Tecnología Educativa (EdTech)" },
+  { nivel: "Intermedio", titulo: "Gestión de Aulas Virtuales con LMS", categoria: "Tecnología Educativa (EdTech)" },
+  { nivel: "Intermedio", titulo: "Programación Neurolingüística (PNL) en el Aula", categoria: "Gestión y Liderazgo Educativo" },
+  { nivel: "Avanzado", titulo: "Mentoría entre Pares y Comunidades de Aprendizaje", categoria: "Innovación y Desarrollo Profesional" },
+  { nivel: "Avanzado", titulo: "Gamificación Educativa: Motivación con Propósito", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Básico", titulo: "Sensibilización sobre Discapacidad Invisible", categoria: "Educación Inclusiva y Diversidad" },
+  { nivel: "Intermedio", titulo: "Adaptaciones Curriculares No Significativas", categoria: "Educación Inclusiva y Diversidad" },
+  { nivel: "Intermedio", titulo: "Pensamiento Crítico y Creatividad en el Aula", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Avanzado", titulo: "Estrategias para la Gestión del Estrés Estudiantil", categoria: "Gestión y Liderazgo Educativo" },
+  { nivel: "Básico", titulo: "Enseñanza Diferenciada: Atender la Diversidad", categoria: "Educación Inclusiva y Diversidad" },
+  { nivel: "Básico", titulo: "Aula Invertida: Estrategias Prácticas", categoria: "Formación Pedagógica y Didáctica" },
+  { nivel: "Básico", titulo: "Ética y Uso Responsable de la IA en Educación", categoria: "Tecnología Educativa (EdTech)" }
+];
 
 export const MiExpediente = () => {
   const navigate = useNavigate();
@@ -245,7 +291,9 @@ export const MiExpediente = () => {
               datos_electoral: data.datos_electoral || DEFAULT_ELECTORAL,
               datos_vivienda: data.datos_vivienda || DEFAULT_VIVIENDA,
               carga_familiar: data.carga_familiar || [],
-              cursos_realizados: data.cursos_realizados || []
+              cursos_realizados: data.cursos_realizados || [],
+              plan_formacion: data.plan_formacion || [],
+              necesidades_extra: data.necesidades_extra || ''
             });
           }
         }
@@ -424,6 +472,34 @@ export const MiExpediente = () => {
     }));
   };
 
+  const handleToggleCursoPlan = (curso: PlanCurso) => {
+    const isSelected = formData.plan_formacion?.some(c => c.titulo === curso.titulo) || false;
+    if (isSelected) {
+      setFormData(prev => ({
+        ...prev,
+        plan_formacion: prev.plan_formacion.filter(c => c.titulo !== curso.titulo)
+      }));
+    } else {
+      if ((formData.plan_formacion?.length || 0) >= 5) {
+        if (Swal) {
+          Swal.fire({
+            title: "Plan de Formación",
+            text: "Solo puedes seleccionar un máximo de 5 formaciones del catálogo.",
+            icon: "warning",
+            confirmButtonColor: "#10b981"
+          });
+        } else {
+          alert("Solo puedes seleccionar un máximo de 5 formaciones.");
+        }
+        return;
+      }
+      setFormData(prev => ({
+        ...prev,
+        plan_formacion: [...(prev.plan_formacion || []), curso]
+      }));
+    }
+  };
+
   const validarPaso = (step: number): boolean => {
     if (step === 1) {
       if (!userEmail.trim()) {
@@ -464,6 +540,8 @@ export const MiExpediente = () => {
         return false;
       }
     } else if (step === 6) {
+      return true; // Plan de formacion opcional
+    } else if (step === 7) {
       if (!formData.fecha_ingreso) {
         if (Swal) Swal.fire("Atención", "Debe ingresar la fecha de ingreso al plantel.", "warning");
         return false;
@@ -620,6 +698,10 @@ export const MiExpediente = () => {
           border-color: #10b981 !important;
           box-shadow: 0 0 0 0.25rem rgba(16, 185, 129, 0.15) !important;
         }
+        .expediente-wizard .check-verde:checked {
+          background-color: #10b981 !important;
+          border-color: #10b981 !important;
+        }
       `}</style>
       {/* Banner */}
       <div className="row mb-4 animate__animated animate__fadeInDown">
@@ -740,10 +822,18 @@ export const MiExpediente = () => {
               </div>
 
               <div 
-                className={`wizard-step-wrapper ${activeStep === 6 ? 'activo' : ''}`}
+                className={`wizard-step-wrapper ${activeStep === 6 ? 'activo' : ''} ${activeStep > 6 ? 'completado' : ''}`}
                 onClick={() => setActiveStep(6)}
               >
                 <div className="wizard-step">6</div>
+                <span className="wizard-label">Plan de Formación</span>
+              </div>
+
+              <div 
+                className={`wizard-step-wrapper ${activeStep === 7 ? 'activo' : ''}`}
+                onClick={() => setActiveStep(7)}
+              >
+                <div className="wizard-step">7</div>
                 <span className="wizard-label">Laboral y Soportes</span>
               </div>
             </div>
@@ -1208,9 +1298,69 @@ export const MiExpediente = () => {
               </div>
             </div>
 
-            {/* STEP 6: LABOR DATA & DOCUMENTS */}
+            {/* STEP 6: PLAN DE FORMACION (CHOOSE UP TO 5 COURSES) */}
             <div className={`wizard-panel ${activeStep === 6 ? 'activo' : ''}`}>
-              <div className="seccion-titulo"><i className="bi bi-briefcase-fill me-2 text-success"></i>Paso 6: Datos Laborales y Documentos Soporte</div>
+              <div className="seccion-titulo"><i className="bi bi-award-fill me-2 text-success"></i>Paso 6: Plan de Formación y Capacitación</div>
+              <p className="small text-muted mb-3">
+                Selecciona <strong>hasta 5 formaciones</strong> del catálogo oficial de SIGAE en las que deseas participar para tu desarrollo profesional continuo.
+              </p>
+
+              {/* Grid of Courses */}
+              <div className="row g-3 mb-4" style={{ maxHeight: '400px', overflowY: 'auto', padding: '5px' }}>
+                {CATALOGO_PLAN_FORMACION.map((curso, idx) => {
+                  const isSelected = formData.plan_formacion?.some(c => c.titulo === curso.titulo) || false;
+                  return (
+                    <div key={idx} className="col-12 col-md-6 col-lg-4">
+                      <div 
+                        className={`caja-dinamica h-100 d-flex flex-column justify-content-between p-3 border rounded-4 cursor-pointer hover-efecto ${isSelected ? 'border-success bg-success bg-opacity-10' : 'bg-white'}`}
+                        style={{ cursor: 'pointer', transition: 'all 0.2s', border: isSelected ? '2px solid #10b981' : '1px solid #cbd5e1' }}
+                        onClick={() => handleToggleCursoPlan(curso)}
+                      >
+                        <div>
+                          <div className="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
+                            <span className="badge bg-light text-dark border small">{curso.categoria}</span>
+                            <span className={`badge ${curso.nivel === 'Avanzado' ? 'bg-danger bg-opacity-10 text-danger' : curso.nivel === 'Intermedio' ? 'bg-warning bg-opacity-10 text-warning' : 'bg-info bg-opacity-10 text-info'} small`}>
+                              {curso.nivel || 'General'}
+                            </span>
+                          </div>
+                          <h6 className={`fw-bold mb-1 ${isSelected ? 'text-success' : 'text-dark'}`}>{curso.titulo}</h6>
+                        </div>
+                        <div className="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
+                          <span className="small text-muted">{isSelected ? 'Seleccionado' : 'Haga clic para elegir'}</span>
+                          <div className="form-check">
+                            <input 
+                              type="checkbox" 
+                              className="form-check-input check-verde"
+                              checked={isSelected}
+                              readOnly
+                              style={{ pointerEvents: 'none', cursor: 'pointer' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Extra Needs Textarea */}
+              <div className="row g-3">
+                <div className="col-12">
+                  <label className="form-label fw-bold">Otras necesidades de formación (Opcional)</label>
+                  <textarea 
+                    className="form-control input-moderno"
+                    rows={3}
+                    placeholder="Escribe aquí cualquier otro curso, taller o tema específico que consideres necesario para tu desarrollo pedagógico..."
+                    value={formData.necesidades_extra || ''}
+                    onChange={(e) => handleChange('necesidades_extra', e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 7: LABOR DATA & DOCUMENTS */}
+            <div className={`wizard-panel ${activeStep === 7 ? 'activo' : ''}`}>
+              <div className="seccion-titulo"><i className="bi bi-briefcase-fill me-2 text-success"></i>Paso 7: Datos Laborales y Documentos Soporte</div>
               <div className="row g-3 mb-4">
                 <div className="col-md-6">
                   <label className="form-label">Fecha de Ingreso al Plantel <span className="text-danger">*</span></label>
@@ -1358,7 +1508,7 @@ export const MiExpediente = () => {
                 <div></div>
               )}
 
-              {activeStep < 6 ? (
+              {activeStep < 7 ? (
                 <button 
                   onClick={handleNext}
                   className="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-efecto text-white"
