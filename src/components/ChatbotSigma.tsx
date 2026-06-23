@@ -230,7 +230,10 @@ export const ChatbotSigma = () => {
     }
 
     if (currentModule && !minimizado) {
-      setMensaje(`Has ingresado al módulo de <b>${currentModule}</b>. Si no sabes cómo utilizar esta sección, consúltame y te explicaré paso a paso.`);
+      const schoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+      const schoolName = localStorage.getItem('sigae_escuela_activa') || (schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+      
+      setMensaje(`Has ingresado al módulo de <b>${currentModule}</b> para la institución <b>${schoolName}</b>. Si no sabes cómo utilizar esta sección, consúltame y te explicaré paso a paso.`);
       setAcciones([]);
       setActivo(true);
     }
@@ -447,6 +450,138 @@ export const ChatbotSigma = () => {
     setAcciones([]);
     setActivo(true);
 
+    const queryClean = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    // 1. CHEQUEAR PALABRAS CLAVE DEL DICCIONARIO (DINÁMICAMENTE DESDE LA BASE DE DATOS)
+    const pideDiccionario = /\b(diccionario|glosario|terminos|conceptos|definiciones)\b/i.test(queryClean);
+    if (pideDiccionario) {
+      setTimeout(() => {
+        setPensando(false);
+        // Filtrar temas que no sean saludos o bienvenidas
+        const terminosList = conocimientoCache
+          .filter(item => {
+            const t = item.tema.toLowerCase();
+            return !t.includes('bienvenida') && !t.includes('saludo') && !t.includes('despedida') && !t.includes('hola');
+          })
+          .map(item => item.tema)
+          .filter((value, index, self) => self.indexOf(value) === index);
+        
+        const terminosHtml = terminosList.map(t => `<li>${t}</li>`).join('');
+        
+        setMensaje(`📚 <b>Diccionario Educativo y Guía de SIGAE</b><br/><br/>
+          Aquí tienes una lista de conceptos y temas del ámbito escolar que puedo definirte. Escribe su nombre o pregúntame por ellos:<br/><br/>
+          <ul>${terminosHtml}</ul>`);
+        
+        // Sugerir clics de los primeros 4 conceptos del glosario cargados
+        const glosarioItems = conocimientoCache.filter(item => {
+          const t = item.tema.toLowerCase();
+          return !t.includes('bienvenida') && !t.includes('saludo') && !t.includes('despedida') && !t.includes('hola');
+        });
+
+        const quickActions = glosarioItems
+          .slice(0, 4)
+          .map(item => ({
+            id: item.id,
+            tipo: 'pregunta',
+            valor: item.tema,
+            tema: item.tema.includes('(') ? item.tema.split(' ')[0] : item.tema.substring(0, 15),
+            esAlternativa: true
+          }));
+
+        setAcciones(quickActions);
+      }, 500);
+      return;
+    }
+    
+    // Detectar si pregunta por la escuela/plantel
+    const preguntaEscuela = /\b(escuela|plantel|colegio|sede|institucion|institución|donde estoy|dónde estoy|en que escuela|en qué escuela)\b/i.test(queryClean);
+    // Detectar si pregunta por módulos/permisos/accesos
+    const preguntaModulos = /\b(modulo|módulo|seccion|sección|activo|permiso|acceso|que puedo hacer|qué puedo hacer|mis accesos)\b/i.test(queryClean);
+
+    if (preguntaEscuela || preguntaModulos) {
+      setTimeout(() => {
+        setPensando(false);
+        const schoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+        const schoolName = localStorage.getItem('sigae_escuela_activa') || (schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+        
+        let userRole = 'Invitado';
+        let userName = 'visitante';
+        let userObj: any = null;
+        try {
+          const usStr = localStorage.getItem('usuario_sigae');
+          if (usStr) {
+            userObj = JSON.parse(usStr);
+            userRole = userObj.rol || 'Invitado';
+            userName = (userObj.nombre || userObj.nombres || 'visitante').split(' ')[0];
+          }
+        } catch (e) {}
+
+        if (preguntaEscuela && !preguntaModulos) {
+          setMensaje(`Hola <b>${userName}</b>, actualmente has ingresado a la institución: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>).<br/><br/>Toda la información y registros que gestiones corresponden a esta sede.`);
+          setAcciones([{
+            id: 'escuela-acc',
+            tipo: 'navegar',
+            valor: 'Perfil de la Escuela',
+            tema: 'Perfil de la Escuela',
+            allowed: tienePermiso('Perfil de la Escuela', 'ver')
+          }]);
+        } else if (preguntaModulos && !preguntaEscuela) {
+          const modulosPermitidos: string[] = [];
+          const modulosPosibles = [
+            'Perfil de la Escuela', 'Roles y Privilegios', 'Gestión de Usuarios', 'Auditoría del Sistema',
+            'Espacios Escolares', 'Grados y Salones', 'Gestión de Matrícula', 'Gestión de Admisiones',
+            'Carga de Notas y Calificaciones', 'Vincular Estudiante', 'Asignar Guiaturas',
+            'Expediente Estudiantil', 'Mi Expediente', 'Cargos Institucionales', 'Cadena Supervisoria',
+            'Gestión de Colectivos', 'Transporte Escolar', 'Solicitud de Cupos', 'Cerebro de Sigma'
+          ];
+          
+          modulosPosibles.forEach(mod => {
+            if (tienePermiso(mod, 'ver')) {
+              modulosPermitidos.push(mod);
+            }
+          });
+
+          if (userRole === 'SuperAdmin') {
+            setMensaje(`Hola <b>${userName}</b>, al ser <b>SuperAdmin</b> tienes acceso total a <b>todos los módulos</b> del sistema en <b>${schoolName}</b>.`);
+          } else if (modulosPermitidos.length > 0) {
+            const listHtml = modulosPermitidos.map(m => `<li><b>${m}</b></li>`).join('');
+            setMensaje(`Hola <b>${userName}</b>, de acuerdo con tu rol de <b>${userRole}</b> en <b>${schoolName}</b>, tienes los siguientes módulos activos:<br/><br/><ul>${listHtml}</ul>`);
+          } else {
+            setMensaje(`Hola <b>${userName}</b>, actualmente no posees ningún módulo con permisos activos en <b>${schoolName}</b>.`);
+          }
+          setAcciones([]);
+        } else {
+          const modulosPermitidos: string[] = [];
+          const modulosPosibles = [
+            'Perfil de la Escuela', 'Roles y Privilegios', 'Gestión de Usuarios', 'Auditoría del Sistema',
+            'Espacios Escolares', 'Grados y Salones', 'Gestión de Matrícula', 'Gestión de Admisiones',
+            'Carga de Notas y Calificaciones', 'Vincular Estudiante', 'Asignar Guiaturas',
+            'Expediente Estudiantil', 'Mi Expediente', 'Cargos Institucionales', 'Cadena Supervisoria',
+            'Gestión de Colectivos', 'Transporte Escolar', 'Solicitud de Cupos', 'Cerebro de Sigma'
+          ];
+          
+          modulosPosibles.forEach(mod => {
+            if (tienePermiso(mod, 'ver')) {
+              modulosPermitidos.push(mod);
+            }
+          });
+
+          let modsText = '';
+          if (userRole === 'SuperAdmin') {
+            modsText = `acceso total como <b>SuperAdmin</b> a todos los módulos.`;
+          } else if (modulosPermitidos.length > 0) {
+            modsText = `los siguientes módulos activos:<br/><br/><ul>${modulosPermitidos.map(m => `<li><b>${m}</b></li>`).join('')}</ul>`;
+          } else {
+            modsText = `ningún módulo activo.`;
+          }
+
+          setMensaje(`Te encuentras en la institución: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>) con el rol de <b>${userRole}</b>.<br/><br/>Tienes ${modsText}`);
+          setAcciones([]);
+        }
+      }, 500);
+      return;
+    }
+
     setTimeout(() => {
       setPensando(false);
 
@@ -470,9 +605,14 @@ export const ChatbotSigma = () => {
     setMensaje("Lo siento, aún no conozco la respuesta a esa pregunta. La he registrado para que mis administradores me enseñen y así poder ayudarte mejor en el futuro.");
     setAcciones([]);
     try {
-      await supabase.from('sigma_preguntas_pendientes').insert([
+      const { error } = await supabase.from('sigma_preguntas_pendientes').insert([
         { pregunta: query, estado: 'pendiente' }
       ]);
+      if (error) {
+        console.error("Error de Supabase al insertar pregunta pendiente:", error);
+      } else {
+        window.dispatchEvent(new CustomEvent('sigae-sigma-pending-refresh'));
+      }
     } catch (e) {
       console.error("Error registrando pregunta pendiente:", e);
     }
@@ -519,8 +659,8 @@ export const ChatbotSigma = () => {
         const allowedAlt = tienePermiso(vistaInfoAlt, 'ver') || vistaInfoAlt === 'Inicio' || vistaInfoAlt === 'Mi Perfil' || !vistaInfoAlt;
         listAcciones.push({
           id: alt.id,
-          tipo: alt.accion_tipo || 'texto',
-          valor: alt.accion_valor || '',
+          tipo: alt.accion_tipo || 'pregunta',
+          valor: alt.accion_valor || alt.tema,
           tema: alt.tema,
           allowed: allowedAlt,
           esAlternativa: true
@@ -706,8 +846,12 @@ export const ChatbotSigma = () => {
                           key={idx}
                           className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate"
                           onClick={() => {
-                            const itemMatch = conocimientoCache.filter(c => c.id === act.id);
-                            if (itemMatch.length > 0) ejecutarRespuesta(itemMatch);
+                            if (act.tipo === 'texto') {
+                              procesarPreguntaUsuario(act.valor);
+                            } else {
+                              const itemMatch = conocimientoCache.filter(c => c.id === act.id);
+                              if (itemMatch.length > 0) ejecutarRespuesta(itemMatch);
+                            }
                           }}
                         >
                           <i className="bi bi-chat-dots me-1"></i> {act.tema}

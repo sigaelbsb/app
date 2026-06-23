@@ -175,8 +175,18 @@ export const CadenaSupervisoria = () => {
   const [mostrarNombres, setMostrarNombres] = useState(false);
 
   // Permisos
-  const pCrear = tienePermiso('Función: Estructurar Cadena', 'crear');
-  const pImprimir = tienePermiso('Función: Imprimir Organigrama', 'imprimir');
+  const canEstructurarSB = tienePermisoEnEscuela('sb', 'Función: Estructurar Cadena', 'ver');
+  const canEstructurarLB = tienePermisoEnEscuela('lb', 'Función: Estructurar Cadena', 'ver');
+  const isDualAccessConstructor = canEstructurarSB && canEstructurarLB;
+
+  const canEstructurarCrearSB = tienePermisoEnEscuela('sb', 'Función: Estructurar Cadena', 'crear');
+  const canEstructurarCrearLB = tienePermisoEnEscuela('lb', 'Función: Estructurar Cadena', 'crear');
+  const pCrear = canEstructurarCrearSB || canEstructurarCrearLB;
+
+  const canImprimirSB = tienePermisoEnEscuela('sb', 'Función: Imprimir Organigrama', 'ver');
+  const canImprimirLB = tienePermisoEnEscuela('lb', 'Función: Imprimir Organigrama', 'ver');
+  const isDualAccessImprimir = canImprimirSB && canImprimirLB;
+  const pImprimir = tienePermisoEnEscuela('sb', 'Función: Imprimir Organigrama', 'imprimir') || tienePermisoEnEscuela('lb', 'Función: Imprimir Organigrama', 'imprimir');
 
   const hasModuloAcceso = tienePermiso('Cadena Supervisoria', 'ver');
   const isRestricted = !permLoading && !hasModuloAcceso;
@@ -184,17 +194,26 @@ export const CadenaSupervisoria = () => {
   // Initialize school filter based on privileges
   useEffect(() => {
     if (!permLoading && user) {
-      const canSB = tienePermisoEnEscuela('sb', 'Cadena Supervisoria', 'ver');
-      const canLB = tienePermisoEnEscuela('lb', 'Cadena Supervisoria', 'ver');
-      if (canSB && canLB) {
+      if (canImprimirSB && canImprimirLB) {
         setEscuelaFiltroMapa('consolidado');
-      } else if (canLB) {
+      } else if (canImprimirLB) {
         setEscuelaFiltroMapa('lb');
       } else {
         setEscuelaFiltroMapa('sb');
       }
     }
-  }, [permLoading, user]);
+  }, [permLoading, user, canImprimirSB, canImprimirLB]);
+
+  // Sincronizar filtro del constructor según permisos del usuario
+  useEffect(() => {
+    if (!permLoading) {
+      if (canEstructurarSB && !canEstructurarLB) {
+        setFiltroEscuelaConstructor('sb');
+      } else if (canEstructurarLB && !canEstructurarSB) {
+        setFiltroEscuelaConstructor('lb');
+      }
+    }
+  }, [permLoading, canEstructurarSB, canEstructurarLB]);
 
   useEffect(() => {
     if (!permLoading && hasModuloAcceso) {
@@ -255,8 +274,15 @@ export const CadenaSupervisoria = () => {
   };
 
   const handleSaveJerarquia = async () => {
-    if (!pCrear) {
-      if (Swal) Swal.fire('Aviso', 'Sin permisos para editar la jerarquía.', 'error');
+    const currentSchool = isDualAccessConstructor ? filtroEscuelaConstructor : (canEstructurarSB ? 'sb' : 'lb');
+    const hasPermissionToSave = 
+      (currentSchool === 'sb' && canEstructurarCrearSB) ||
+      (currentSchool === 'lb' && canEstructurarCrearLB) ||
+      (currentSchool === 'todos' && canEstructurarCrearSB && canEstructurarCrearLB) ||
+      (isDualAccessConstructor && (canEstructurarCrearSB || canEstructurarCrearLB));
+
+    if (!hasPermissionToSave) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No posees permisos de edición para la escuela seleccionada.', 'error');
       return;
     }
 
@@ -328,26 +354,54 @@ export const CadenaSupervisoria = () => {
     if (!Swal) return;
 
     Swal.fire({
-      title: 'Exportar Organigrama',
-      text: '¿Cómo desea orientar la hoja PDF?',
-      icon: 'question',
-      showDenyButton: true,
+      title: 'Exportar Organigrama a PDF',
+      html: `
+        <div class="text-start p-2">
+          <label class="form-label fw-bold text-muted mb-2 small d-block">Orientación de la página:</label>
+          <div class="d-flex gap-4 mb-4">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="pdf-orientacion" id="pdf-orientacion-horiz" value="landscape" checked>
+              <label class="form-check-label fw-bold small text-dark" for="pdf-orientacion-horiz">
+                <i class="bi bi-aspect-ratio me-1 text-primary"></i> Horizontal (Recomendado)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="pdf-orientacion" id="pdf-orientacion-vert" value="portrait">
+              <label class="form-check-label fw-bold small text-dark" for="pdf-orientacion-vert">
+                <i class="bi bi-file-earmark-pdf me-1 text-secondary"></i> Vertical
+              </label>
+            </div>
+          </div>
+
+          <label class="form-label fw-bold text-muted mb-2 small d-block">Tamaño del papel:</label>
+          <select id="pdf-formato" class="form-select form-select-sm input-moderno fw-bold text-dark" style="cursor: pointer;">
+            <option value="letter">Carta (Letter - 216 x 279 mm)</option>
+            <option value="legal">Oficio (Legal - 216 x 356 mm)</option>
+            <option value="a4">A4 (210 x 297 mm)</option>
+          </select>
+        </div>
+      `,
       showCancelButton: true,
-      confirmButtonText: '<i class="bi bi-aspect-ratio me-1"></i> Horizontal',
-      denyButtonText: '<i class="bi bi-file-earmark-pdf me-1"></i> Vertical',
+      confirmButtonText: '<i class="bi bi-cloud-arrow-down-fill me-1"></i> Generar PDF',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#0066FF',
-      denyButtonColor: '#455A64'
+      confirmButtonColor: 'var(--color-primario, #0066FF)',
+      preConfirm: () => {
+        const orientacionEl = document.querySelector('input[name="pdf-orientacion"]:checked') as HTMLInputElement;
+        const formatoEl = document.getElementById('pdf-formato') as HTMLSelectElement;
+        return {
+          orientacion: orientacionEl ? orientacionEl.value : 'landscape',
+          formato: formatoEl ? formatoEl.value : 'letter'
+        };
+      }
     }).then((result: any) => {
-      if (result.isConfirmed) {
-        generarPDF('landscape');
-      } else if (result.isDenied) {
-        generarPDF('portrait');
+      if (result.isConfirmed && result.value) {
+        const { orientacion, formato } = result.value;
+        generarPDF(orientacion, formato);
       }
     });
   };
 
-  const generarPDF = async (orientacion: 'landscape' | 'portrait') => {
+  const generarPDF = async (orientacion: 'landscape' | 'portrait', formato: 'letter' | 'legal' | 'a4') => {
     const div = document.getElementById('chart_div');
     if (!div || div.innerHTML === '' || cargos.length === 0) {
       if (Swal) Swal.fire('Atención', 'No hay organigrama para exportar.', 'warning');
@@ -371,7 +425,9 @@ export const CadenaSupervisoria = () => {
     }
 
     try {
-      const base64LogoEscuela = await obtenerImagenBase64('/assets/img/sigae.png'); // fallback to sigae
+      const base64LogoSB = await obtenerImagenBase64('/assets/img/logo_sb.png');
+      const base64LogoLB = await obtenerImagenBase64('/assets/img/logo_lb.png');
+      const base64LogoSistema = await obtenerImagenBase64('/assets/img/sigae.png');
       const base64CintilloMPPE = await obtenerImagenBase64('/assets/img/logoMPPE.png');
 
       const clon = div.cloneNode(true) as HTMLElement;
@@ -392,7 +448,7 @@ export const CadenaSupervisoria = () => {
       const imgData = canvas.toDataURL('image/png');
 
       const jsPDFClass = jspdf.jsPDF;
-      const doc = new jsPDFClass({ orientation: orientacion, unit: 'mm', format: 'letter' });
+      const doc = new jsPDFClass({ orientation: orientacion, unit: 'mm', format: formato });
 
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -400,9 +456,24 @@ export const CadenaSupervisoria = () => {
 
       // Header
       let textX = margin;
-      if (base64LogoEscuela) {
-        doc.addImage(base64LogoEscuela, 'PNG', margin, margin, 14, 14);
-        textX = margin + 18;
+      if (escuelaFiltroMapa === 'consolidado') {
+        if (base64LogoSB) {
+          doc.addImage(base64LogoSB, 'PNG', margin, margin, 14, 14);
+        }
+        if (base64LogoLB) {
+          doc.addImage(base64LogoLB, 'PNG', margin + 16, margin, 14, 14);
+        }
+        textX = margin + 32;
+      } else if (escuelaFiltroMapa === 'sb') {
+        if (base64LogoSB) {
+          doc.addImage(base64LogoSB, 'PNG', margin, margin, 14, 14);
+          textX = margin + 18;
+        }
+      } else if (escuelaFiltroMapa === 'lb') {
+        if (base64LogoLB) {
+          doc.addImage(base64LogoLB, 'PNG', margin, margin, 14, 14);
+          textX = margin + 18;
+        }
       }
 
       doc.setTextColor(30, 41, 59);
@@ -411,9 +482,17 @@ export const CadenaSupervisoria = () => {
       doc.text('República Bolivariana de Venezuela', textX, margin + 4);
       doc.text('Ministerio del Poder Popular para la Educación', textX, margin + 8);
       
-      const escuelaNombre = escuelaFiltroMapa === 'sb' ? 'U.E. Santa Bárbara' : escuelaFiltroMapa === 'lb' ? 'U.E. Libertador Bolívar' : 'Estructura Consolidada';
       doc.setFont('helvetica', 'bold');
-      doc.text(escuelaNombre, textX, margin + 12);
+      if (escuelaFiltroMapa === 'consolidado') {
+        doc.text('U.E. Santa Bárbara', textX, margin + 12);
+        doc.text('U.E. Libertador Bolívar', textX, margin + 15.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.text('Escuelas DEP Oriente', textX, margin + 19);
+      } else {
+        const escuelaNombre = escuelaFiltroMapa === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+        doc.text(escuelaNombre, textX, margin + 12);
+      }
 
       // Title
       doc.setTextColor(109, 40, 217);
@@ -462,7 +541,13 @@ export const CadenaSupervisoria = () => {
       });
 
       doc.text(`Generado: ${fechaHoy}`, margin + 32, footerY + 5);
-      doc.text('Sistema SIGAE Unificado v1.0', pageWidth - margin, footerY + 5, { align: 'right' });
+      
+      let systemTextX = pageWidth - margin;
+      if (base64LogoSistema) {
+        doc.addImage(base64LogoSistema, 'PNG', pageWidth - margin - 8, footerY, 8, 8);
+        systemTextX = pageWidth - margin - 10;
+      }
+      doc.text('Sistema SIGAE v1.0', systemTextX, footerY + 5, { align: 'right' });
 
       doc.save('Organigrama_Institucional.pdf');
       
@@ -649,10 +734,10 @@ export const CadenaSupervisoria = () => {
                       value={filtroEscuelaConstructor}
                       onChange={(e) => setFiltroEscuelaConstructor(e.target.value as any)}
                     >
-                      <option value="todos">Todos los Cargos</option>
-                      <option value="sb">U.E. Santa Bárbara</option>
-                      <option value="lb">U.E. Libertador Bolívar</option>
-                      <option value="global">Globales</option>
+                      {isDualAccessConstructor && <option value="todos">Todos los Cargos</option>}
+                      {(canEstructurarSB || isDualAccessConstructor) && <option value="sb">U.E. Santa Bárbara</option>}
+                      {(canEstructurarLB || isDualAccessConstructor) && <option value="lb">U.E. Libertador Bolívar</option>}
+                      {isDualAccessConstructor && <option value="global">Globales</option>}
                     </select>
                   </div>
                   <div className="col-md-6 col-lg-8">
@@ -677,17 +762,25 @@ export const CadenaSupervisoria = () => {
                   {cargos
                     .filter(c => {
                       const coincideNombre = c.nombre_cargo.toLowerCase().includes(busquedaConstructor.toLowerCase());
+                      const schoolFilter = isDualAccessConstructor ? filtroEscuelaConstructor : (canEstructurarSB ? 'sb' : 'lb');
                       const coincideEscuela =
-                        filtroEscuelaConstructor === 'todos' ||
-                        (filtroEscuelaConstructor === 'sb' && c.id_escuela === 'sb') ||
-                        (filtroEscuelaConstructor === 'lb' && c.id_escuela === 'lb') ||
-                        (filtroEscuelaConstructor === 'global' && !c.id_escuela);
+                        schoolFilter === 'todos' ||
+                        (schoolFilter === 'sb' && (c.id_escuela === 'sb' || !c.id_escuela)) ||
+                        (schoolFilter === 'lb' && (c.id_escuela === 'lb' || !c.id_escuela)) ||
+                        (schoolFilter === 'global' && !c.id_escuela);
                       return coincideNombre && coincideEscuela;
                     })
                     .map(c => {
                       const isPending = cambiosPendientes.hasOwnProperty(c.id_cargo);
                       const currentSupId = isPending ? (cambiosPendientes[c.id_cargo] || '') : (c.depende_de || '');
-                      const dueños = usuarios.filter(u => u.cargo === c.nombre_cargo);
+                      
+                      const schoolFilter = isDualAccessConstructor ? filtroEscuelaConstructor : (canEstructurarSB ? 'sb' : 'lb');
+                      const dueños = usuarios.filter(u => {
+                        if (u.cargo !== c.nombre_cargo) return false;
+                        if (schoolFilter === 'sb') return u.id_escuela === 'sb';
+                        if (schoolFilter === 'lb') return u.id_escuela === 'lb';
+                        return true;
+                      });
 
                       const tipo = (c.tipo_cargo || '').toLowerCase();
                       let badgeColor = 'secondary';
@@ -756,6 +849,13 @@ export const CadenaSupervisoria = () => {
                                       if (posSup.id_cargo === c.id_cargo) return false;
                                       // Restricción: un cargo de escuela no puede reportar a otra escuela
                                       if (c.id_escuela && posSup.id_escuela && c.id_escuela !== posSup.id_escuela) return false;
+                                      
+                                      // Restricción: si no es dual, el supervisor debe ser de la escuela permitida
+                                      if (!isDualAccessConstructor) {
+                                        const permittedSchool = canEstructurarSB ? 'sb' : 'lb';
+                                        if (posSup.id_escuela && posSup.id_escuela !== permittedSchool) return false;
+                                      }
+                                      
                                       // Prevenir ciclos jerárquicos
                                       return !detectarCiclo(c.id_cargo, posSup.id_cargo, cargos);
                                     })
@@ -795,7 +895,7 @@ export const CadenaSupervisoria = () => {
               <div className="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-4">
                 <div className="d-flex align-items-center gap-3 flex-wrap">
                   {/* Selector de escuela para Organigrama (solo si tiene acceso a ambas) */}
-                  {tienePermisoEnEscuela('sb', 'Cadena Supervisoria', 'ver') && tienePermisoEnEscuela('lb', 'Cadena Supervisoria', 'ver') && (
+                  {isDualAccessImprimir && (
                     <div>
                       <label className="form-label small fw-bold text-muted mb-1">Estructura Escolar</label>
                       <div className="btn-group btn-group-sm shadow-sm border rounded-pill overflow-hidden" role="group">

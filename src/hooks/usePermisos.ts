@@ -94,6 +94,30 @@ export const usePermisos = () => {
 
   const tienePermiso = (modulo: string, accion: string = 'ver') => {
     if (user?.rol === 'SuperAdmin') return true;
+
+    // Módulos divididos por escuelas: permitir si tiene acceso en al menos una
+    const modulosDivididos = [
+      "Perfil de la Escuela",
+      "Espacios Escolares",
+      "Gestión de Registros",
+      "Cargos Institucionales",
+      "Tarjeta: Asignar Personal",
+      "Cadena Supervisoria",
+      "Función: Estructurar Cadena",
+      "Función: Imprimir Organigrama",
+      "Grados y Salones",
+      "Tarjeta: Apertura de Salones",
+      "Gestión de Usuarios",
+      "Roles y Privilegios",
+      "Auditoría del Sistema"
+    ];
+
+    if (modulosDivididos.includes(modulo)) {
+      const tieneEnSB = fullPermisos?.sb?.[modulo]?.[accion] === true;
+      const tieneEnLB = fullPermisos?.lb?.[modulo]?.[accion] === true;
+      return tieneEnSB || tieneEnLB;
+    }
+
     if (!permisos || !permisos[modulo]) return false;
     return permisos[modulo][accion] === true;
   };

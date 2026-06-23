@@ -23,7 +23,7 @@ interface Usuario {
 
 export const CargosInstitucionales = () => {
   const navigate = useNavigate();
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
   const Swal = (window as any).Swal;
 
   // Tabs state
@@ -64,8 +64,12 @@ export const CargosInstitucionales = () => {
   const pDefinirCrear = tienePermiso('Tarjeta: Definir Cargos', 'crear');
   const pDefinirEliminar = tienePermiso('Tarjeta: Definir Cargos', 'eliminar');
   
-  const pAsignarVer = tienePermiso('Tarjeta: Asignar Personal', 'ver');
-  const pAsignarMasivo = tienePermiso('Tarjeta: Asignar Personal', 'masivo');
+  const canAsignarSB = tienePermisoEnEscuela('sb', 'Tarjeta: Asignar Personal', 'ver');
+  const canAsignarLB = tienePermisoEnEscuela('lb', 'Tarjeta: Asignar Personal', 'ver');
+  const isDualAccess = canAsignarSB && canAsignarLB;
+
+  const pAsignarVer = canAsignarSB || canAsignarLB;
+  const pAsignarMasivo = tienePermisoEnEscuela('sb', 'Tarjeta: Asignar Personal', 'masivo') || tienePermisoEnEscuela('lb', 'Tarjeta: Asignar Personal', 'masivo');
 
   const hasModuloAcceso = tienePermiso('Cargos Institucionales', 'ver');
   const isRestricted = !permLoading && !hasModuloAcceso;
@@ -84,6 +88,20 @@ export const CargosInstitucionales = () => {
       else if (pAsignarVer) setActiveTab('asignar');
     }
   }, [permLoading, pDefinirVer, pAsignarVer]);
+
+  // Sincronizar filtro de escuela según permisos del usuario
+  useEffect(() => {
+    if (!permLoading) {
+      if (canAsignarSB && !canAsignarLB) {
+        setFiltroEscuela('sb');
+      } else if (canAsignarLB && !canAsignarSB) {
+        setFiltroEscuela('lb');
+      } else if (isDualAccess) {
+        const activeSchool = localStorage.getItem('sigae_escuela_codigo');
+        setFiltroEscuela(activeSchool === 'sb' || activeSchool === 'lb' ? activeSchool : 'todos');
+      }
+    }
+  }, [permLoading, canAsignarSB, canAsignarLB, isDualAccess]);
 
   const cargarCargos = async (silencioso = false) => {
     if (!silencioso) setLoadingCargos(true);
@@ -114,7 +132,18 @@ export const CargosInstitucionales = () => {
       
       // Excluir estudiantes, representantes, visitantes
       const rolesExcluidos = ['Estudiante', 'Representante', 'Invitado', 'Visitante'];
-      const validUsers = (data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
+      let validUsers = (data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
+
+      // Filtrar por permisos de asignación por escuela
+      if (!isDualAccess) {
+        if (canAsignarSB) {
+          validUsers = validUsers.filter((u: any) => u.id_escuela === 'sb');
+        } else if (canAsignarLB) {
+          validUsers = validUsers.filter((u: any) => u.id_escuela === 'lb');
+        } else {
+          validUsers = [];
+        }
+      }
 
       setUsuarios(validUsers);
       setUsuariosFiltrados(validUsers);
@@ -698,30 +727,36 @@ export const CargosInstitucionales = () => {
                   
                   {/* Selector de escuela */}
                   <div className="btn-group btn-group-sm shadow-sm border rounded-pill overflow-hidden" role="group">
-                    <button 
-                      type="button" 
-                      onClick={() => setFiltroEscuela('todos')} 
-                      className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'todos' ? 'btn-primary' : 'btn-light text-muted'}`}
-                      style={{ border: 'none' }}
-                    >
-                      Todos
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => setFiltroEscuela('sb')} 
-                      className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'sb' ? 'btn-primary' : 'btn-light text-muted'}`}
-                      style={{ border: 'none' }}
-                    >
-                      UE Santa Bárbara
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={() => setFiltroEscuela('lb')} 
-                      className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'lb' ? 'btn-primary' : 'btn-light text-muted'}`}
-                      style={{ border: 'none' }}
-                    >
-                      UE Libertador Bolívar
-                    </button>
+                    {isDualAccess && (
+                      <button 
+                        type="button" 
+                        onClick={() => setFiltroEscuela('todos')} 
+                        className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'todos' ? 'btn-primary' : 'btn-light text-muted'}`}
+                        style={{ border: 'none' }}
+                      >
+                        Todos
+                      </button>
+                    )}
+                    {(canAsignarSB || isDualAccess) && (
+                      <button 
+                        type="button" 
+                        onClick={() => setFiltroEscuela('sb')} 
+                        className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'sb' ? 'btn-primary' : 'btn-light text-muted'}`}
+                        style={{ border: 'none' }}
+                      >
+                        UE Santa Bárbara
+                      </button>
+                    )}
+                    {(canAsignarLB || isDualAccess) && (
+                      <button 
+                        type="button" 
+                        onClick={() => setFiltroEscuela('lb')} 
+                        className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'lb' ? 'btn-primary' : 'btn-light text-muted'}`}
+                        style={{ border: 'none' }}
+                      >
+                        UE Libertador Bolívar
+                      </button>
+                    )}
                   </div>
                 </div>
 

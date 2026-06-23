@@ -87,6 +87,18 @@ export const CerebroSigma = () => {
     }
   }, [permLoading]);
 
+  useEffect(() => {
+    const handlePendingRefresh = () => {
+      if (!permLoading && tienePermiso('Cerebro de Sigma', 'ver')) {
+        cargarDatos();
+      }
+    };
+    window.addEventListener('sigae-sigma-pending-refresh', handlePendingRefresh);
+    return () => {
+      window.removeEventListener('sigae-sigma-pending-refresh', handlePendingRefresh);
+    };
+  }, [permLoading]);
+
   if (permLoading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>

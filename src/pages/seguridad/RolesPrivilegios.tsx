@@ -62,7 +62,7 @@ const SUPER_PODERES = { ver: true, crear: true, eliminar: true, modificar: true,
 
 export const RolesPrivilegios = () => {
   const navigate = useNavigate();
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,13 +72,25 @@ export const RolesPrivilegios = () => {
   // We represent it as a nested state object: { lb: { [nombre]: boolean }, sb: { [nombre]: boolean } }
   const [permisosState, setPermisosState] = useState<any>({ lb: {}, sb: {} });
 
+  // Permisos por escuela para el módulo
+  const canRolesSB = tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'ver');
+  const canRolesLB = tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'ver');
+  const pRoles = canRolesSB || canRolesLB;
+
+  const canEditRolesSB = tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'crear');
+  const canEditRolesLB = tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'crear');
+  const canEditAny = canEditRolesSB || canEditRolesLB;
+
+  const canDeleteRolesSB = tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'eliminar');
+  const canDeleteRolesLB = tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'eliminar');
+
   const Swal = (window as any).Swal;
 
   useEffect(() => {
-    if (!permLoading && tienePermiso('Roles y Privilegios', 'ver')) {
+    if (!permLoading && pRoles) {
       cargarRoles();
     }
-  }, [permLoading]);
+  }, [permLoading, pRoles]);
 
   const cargarRoles = async () => {
     setLoading(true);
@@ -212,6 +224,11 @@ export const RolesPrivilegios = () => {
   const guardarPrivilegios = async () => {
     if (!rolSeleccionado) return;
 
+    if (!canEditAny) {
+      if (Swal) Swal.fire('Error', 'No tiene permisos para guardar o editar privilegios.', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
       // Build permission payload matching the standard structure
@@ -238,8 +255,8 @@ export const RolesPrivilegios = () => {
       };
 
       const finalPermisos = {
-        lb: buildEscPayload('lb'),
-        sb: buildEscPayload('sb')
+        lb: canEditRolesLB ? buildEscPayload('lb') : (rolSeleccionado.privilegios?.lb || {}),
+        sb: canEditRolesSB ? buildEscPayload('sb') : (rolSeleccionado.privilegios?.sb || {})
       };
 
       const { error } = await supabase
@@ -249,16 +266,26 @@ export const RolesPrivilegios = () => {
 
       if (error) throw error;
 
-      if (Swal) Swal.fire('¡Éxito!', 'Los accesos y privilegios se han guardado correctamente.', 'success');
       auditar('Roles y Privilegios', 'Actualizar Privilegios', `Accesos simplificados actualizados para: ${rolSeleccionado.nombre}`);
 
-      // Refresh current user's locally stored session permissions if modified
-      const stored = localStorage.getItem('usuario_sigae');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.rol === rolSeleccionado.nombre) {
-          // Force reload or sync window object
-          (window as any).location.reload();
+      if (Swal) {
+        Swal.fire('¡Éxito!', 'Los accesos y privilegios se han guardado correctamente.', 'success').then(() => {
+          // Refresh current user's locally stored session permissions if modified
+          const stored = localStorage.getItem('usuario_sigae');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.rol === rolSeleccionado.nombre) {
+              window.location.reload();
+            }
+          }
+        });
+      } else {
+        const stored = localStorage.getItem('usuario_sigae');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.rol === rolSeleccionado.nombre) {
+            window.location.reload();
+          }
         }
       }
 
@@ -272,6 +299,11 @@ export const RolesPrivilegios = () => {
 
   const crearRol = () => {
     if (!Swal) return;
+
+    if (!canEditAny) {
+      Swal.fire('Error', 'No tiene suficientes privilegios para crear roles.', 'error');
+      return;
+    }
 
     Swal.fire({
       title: 'Nuevo Rol Global',
@@ -317,6 +349,13 @@ export const RolesPrivilegios = () => {
   const eliminarRolActual = () => {
     if (!rolSeleccionado || !Swal) return;
 
+    // Se requiere permiso de eliminación en al menos un plantel para borrar roles
+    const hasDeletePermission = canDeleteRolesSB || canDeleteRolesLB;
+    if (!hasDeletePermission) {
+      Swal.fire('Error', 'No tiene suficientes privilegios para eliminar roles.', 'error');
+      return;
+    }
+
     Swal.fire({
       title: `¿Eliminar Rol ${rolSeleccionado.nombre}?`,
       text: "Los usuarios con este rol perderán todos sus accesos de forma inmediata.",
@@ -359,7 +398,7 @@ export const RolesPrivilegios = () => {
     );
   }
 
-  if (!tienePermiso('Roles y Privilegios', 'ver')) {
+  if (!pRoles) {
     return (
       <div className="col-12 text-center py-5 mt-4">
         <div className="bg-light d-inline-flex justify-content-center align-items-center rounded-circle mb-3 shadow-sm border" style={{ width: '100px', height: '100px' }}>
@@ -480,194 +519,206 @@ export const RolesPrivilegios = () => {
               <div className="card-body p-4 bg-light rounded-bottom-4">
                 <div className="row g-4">
                   {/* UE Libertador Bolívar Panel */}
-                  <div className="col-lg-6">
-                    <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-primary border-5">
-                      <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-                        <h6 className="mb-0 fw-bold text-primary"><i className="bi bi-building me-2"></i>UE Libertador Bolívar</h6>
-                        <div className="form-check form-switch m-0">
-                          <input 
-                            className="form-check-input" 
-                            type="checkbox" 
-                            id="chk-marcar-todos-lb"
-                            checked={isTodosMarcados('lb')}
-                            onChange={(e) => handleToggleTodos('lb', e.target.checked)}
-                            style={{ cursor: 'pointer' }}
-                          />
-                          <label className="form-check-label small fw-bold text-dark ms-1 mt-1" htmlFor="chk-marcar-todos-lb" style={{ cursor: 'pointer' }}>Otorgar Todo</label>
-                        </div>
-                      </div>
-                      
-                      <div className="card-body p-3 bg-light">
-                        {/* Acceso plantel check */}
-                        <div className="alert d-flex align-items-center justify-content-between mb-3 border border-2 border-white shadow-sm rounded-4 bg-light">
-                          <div>
-                            <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-door-open-fill text-primary me-2"></i>Acceso al Plantel (Inicio)</h6>
-                            <small className="text-muted" style={{ fontSize: '0.75rem' }}>Permite ver esta escuela en la pantalla principal.</small>
-                          </div>
-                          <div className="form-check form-switch m-0 fs-5">
+                  {canRolesLB && (
+                    <div className={canRolesSB ? "col-lg-6 col-12" : "col-12"}>
+                      <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-primary border-5">
+                        <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
+                          <h6 className="mb-0 fw-bold text-primary"><i className="bi bi-building me-2"></i>UE Libertador Bolívar</h6>
+                          <div className="form-check form-switch m-0">
                             <input 
                               className="form-check-input" 
-                              type="checkbox"
-                              checked={!!permisosState.lb['__acceso_plantel__']}
-                              onChange={() => handleCheckboxChange('lb', '__acceso_plantel__', false)}
+                              type="checkbox" 
+                              id="chk-marcar-todos-lb"
+                              checked={isTodosMarcados('lb')}
+                              onChange={(e) => handleToggleTodos('lb', e.target.checked)}
+                              style={{ cursor: 'pointer' }}
+                              disabled={!canEditRolesLB}
                             />
+                            <label className="form-check-label small fw-bold text-dark ms-1 mt-1" htmlFor="chk-marcar-todos-lb" style={{ cursor: 'pointer' }}>Otorgar Todo</label>
                           </div>
                         </div>
-
-                        {/* Módulos */}
-                        {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
-                          <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
-                            <div className="card-header text-white py-2 rounded-top-4 bg-primary">
-                              <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
-                                <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
-                              </h6>
+                        
+                        <div className="card-body p-3 bg-light">
+                          {/* Acceso plantel check */}
+                          <div className="alert d-flex align-items-center justify-content-between mb-3 border border-2 border-white shadow-sm rounded-4 bg-light">
+                            <div>
+                              <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-door-open-fill text-primary me-2"></i>Acceso al Plantel (Inicio)</h6>
+                              <small className="text-muted" style={{ fontSize: '0.75rem' }}>Permite ver esta escuela en la pantalla principal.</small>
                             </div>
-                            <div className="card-body p-2 bg-white rounded-bottom-4">
-                              <div className="row g-2">
-                                {Object.entries(submods).map(([subName, subcards]) => (
-                                  <div key={subName} className="col-12">
-                                    <div className="p-2 border rounded-2 border-light">
-                                      <div className="d-flex justify-content-between align-items-center">
-                                        <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
-                                          <i className="bi bi-box me-2 text-primary"></i>{subName}
-                                        </div>
-                                        <div className="form-check form-switch m-0">
-                                          <input 
-                                            className="form-check-input" 
-                                            type="checkbox"
-                                            checked={!!permisosState.lb[subName]}
-                                            onChange={() => handleCheckboxChange('lb', subName, true, undefined, subcards)}
-                                          />
-                                        </div>
-                                      </div>
-
-                                      {subcards.length > 0 && (
-                                        <div className="row g-1 mt-2 ps-3 border-start ms-1 border-primary border-opacity-25 animate__animated animate__fadeIn">
-                                          {subcards.map(card => (
-                                            <div key={card} className="col-12">
-                                              <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
-                                                <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
-                                                  <i className="bi bi-window-stack me-1 text-secondary"></i>
-                                                  {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
-                                                </span>
-                                                <div className="form-check form-switch m-0">
-                                                  <input 
-                                                    className="form-check-input" 
-                                                    type="checkbox"
-                                                    checked={!!permisosState.lb[card]}
-                                                    onChange={() => handleCheckboxChange('lb', card, false, subName)}
-                                                  />
-                                                </div>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                            <div className="form-check form-switch m-0 fs-5">
+                              <input 
+                                className="form-check-input" 
+                                type="checkbox"
+                                checked={!!permisosState.lb['__acceso_plantel__']}
+                                onChange={() => handleCheckboxChange('lb', '__acceso_plantel__', false)}
+                                disabled={!canEditRolesLB}
+                              />
                             </div>
                           </div>
-                        ))}
+ 
+                          {/* Módulos */}
+                          {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
+                            <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
+                              <div className="card-header text-white py-2 rounded-top-4 bg-primary">
+                                <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
+                                  <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
+                                </h6>
+                              </div>
+                              <div className="card-body p-2 bg-white rounded-bottom-4">
+                                <div className="row g-2">
+                                  {Object.entries(submods).map(([subName, subcards]) => (
+                                    <div key={subName} className="col-12">
+                                      <div className="p-2 border rounded-2 border-light">
+                                        <div className="d-flex justify-content-between align-items-center">
+                                          <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
+                                            <i className="bi bi-box me-2 text-primary"></i>{subName}
+                                          </div>
+                                          <div className="form-check form-switch m-0">
+                                            <input 
+                                              className="form-check-input" 
+                                              type="checkbox"
+                                              checked={!!permisosState.lb[subName]}
+                                              onChange={() => handleCheckboxChange('lb', subName, true, undefined, subcards)}
+                                              disabled={!canEditRolesLB}
+                                            />
+                                          </div>
+                                        </div>
+ 
+                                        {subcards.length > 0 && (
+                                          <div className="row g-1 mt-2 ps-3 border-start ms-1 border-primary border-opacity-25 animate__animated animate__fadeIn">
+                                            {subcards.map(card => (
+                                              <div key={card} className="col-12">
+                                                <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
+                                                  <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
+                                                    <i className="bi bi-window-stack me-1 text-secondary"></i>
+                                                    {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
+                                                  </span>
+                                                  <div className="form-check form-switch m-0">
+                                                    <input 
+                                                      className="form-check-input" 
+                                                      type="checkbox"
+                                                      checked={!!permisosState.lb[card]}
+                                                      onChange={() => handleCheckboxChange('lb', card, false, subName)}
+                                                      disabled={!canEditRolesLB}
+                                                    />
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* UE Santa Bárbara Panel */}
-                  <div className="col-lg-6">
-                    <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-success border-5">
-                      <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-                        <h6 className="mb-0 fw-bold text-success"><i className="bi bi-building me-2"></i>UE Santa Bárbara</h6>
-                        <div className="form-check form-switch m-0">
-                          <input 
-                            className="form-check-input" 
-                            type="checkbox" 
-                            id="chk-marcar-todos-sb"
-                            checked={isTodosMarcados('sb')}
-                            onChange={(e) => handleToggleTodos('sb', e.target.checked)}
-                            style={{ cursor: 'pointer' }}
-                          />
-                          <label className="form-check-label small fw-bold text-dark ms-1 mt-1" htmlFor="chk-marcar-todos-sb" style={{ cursor: 'pointer' }}>Otorgar Todo</label>
-                        </div>
-                      </div>
-                      
-                      <div className="card-body p-3 bg-light">
-                        {/* Acceso plantel check */}
-                        <div className="alert d-flex align-items-center justify-content-between mb-3 border border-2 border-white shadow-sm rounded-4 bg-light">
-                          <div>
-                            <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-door-open-fill text-success me-2"></i>Acceso al Plantel (Inicio)</h6>
-                            <small className="text-muted" style={{ fontSize: '0.75rem' }}>Permite ver esta escuela en la pantalla principal.</small>
-                          </div>
-                          <div className="form-check form-switch m-0 fs-5">
+                  {canRolesSB && (
+                    <div className={canRolesLB ? "col-lg-6 col-12" : "col-12"}>
+                      <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-success border-5">
+                        <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
+                          <h6 className="mb-0 fw-bold text-success"><i className="bi bi-building me-2"></i>UE Santa Bárbara</h6>
+                          <div className="form-check form-switch m-0">
                             <input 
                               className="form-check-input" 
-                              type="checkbox"
-                              checked={!!permisosState.sb['__acceso_plantel__']}
-                              onChange={() => handleCheckboxChange('sb', '__acceso_plantel__', false)}
+                              type="checkbox" 
+                              id="chk-marcar-todos-sb"
+                              checked={isTodosMarcados('sb')}
+                              onChange={(e) => handleToggleTodos('sb', e.target.checked)}
+                              style={{ cursor: 'pointer' }}
+                              disabled={!canEditRolesSB}
                             />
+                            <label className="form-check-label small fw-bold text-dark ms-1 mt-1" htmlFor="chk-marcar-todos-sb" style={{ cursor: 'pointer' }}>Otorgar Todo</label>
                           </div>
                         </div>
-
-                        {/* Módulos */}
-                        {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
-                          <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
-                            <div className="card-header text-white py-2 rounded-top-4 bg-success">
-                              <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
-                                <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
-                              </h6>
+                        
+                        <div className="card-body p-3 bg-light">
+                          {/* Acceso plantel check */}
+                          <div className="alert d-flex align-items-center justify-content-between mb-3 border border-2 border-white shadow-sm rounded-4 bg-light">
+                            <div>
+                              <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-door-open-fill text-success me-2"></i>Acceso al Plantel (Inicio)</h6>
+                              <small className="text-muted" style={{ fontSize: '0.75rem' }}>Permite ver esta escuela en la pantalla principal.</small>
                             </div>
-                            <div className="card-body p-2 bg-white rounded-bottom-4">
-                              <div className="row g-2">
-                                {Object.entries(submods).map(([subName, subcards]) => (
-                                  <div key={subName} className="col-12">
-                                    <div className="p-2 border rounded-2 border-light">
-                                      <div className="d-flex justify-content-between align-items-center">
-                                        <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
-                                          <i className="bi bi-box me-2 text-success"></i>{subName}
-                                        </div>
-                                        <div className="form-check form-switch m-0">
-                                          <input 
-                                            className="form-check-input" 
-                                            type="checkbox"
-                                            checked={!!permisosState.sb[subName]}
-                                            onChange={() => handleCheckboxChange('sb', subName, true, undefined, subcards)}
-                                          />
-                                        </div>
-                                      </div>
-
-                                      {subcards.length > 0 && (
-                                        <div className="row g-1 mt-2 ps-3 border-start ms-1 border-success border-opacity-25 animate__animated animate__fadeIn">
-                                          {subcards.map(card => (
-                                            <div key={card} className="col-12">
-                                              <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
-                                                <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
-                                                  <i className="bi bi-window-stack me-1 text-secondary"></i>
-                                                  {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
-                                                </span>
-                                                <div className="form-check form-switch m-0">
-                                                  <input 
-                                                    className="form-check-input" 
-                                                    type="checkbox"
-                                                    checked={!!permisosState.sb[card]}
-                                                    onChange={() => handleCheckboxChange('sb', card, false, subName)}
-                                                  />
-                                                </div>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
+                            <div className="form-check form-switch m-0 fs-5">
+                              <input 
+                                className="form-check-input" 
+                                type="checkbox"
+                                checked={!!permisosState.sb['__acceso_plantel__']}
+                                onChange={() => handleCheckboxChange('sb', '__acceso_plantel__', false)}
+                                disabled={!canEditRolesSB}
+                              />
                             </div>
                           </div>
-                        ))}
+ 
+                          {/* Módulos */}
+                          {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
+                            <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
+                              <div className="card-header text-white py-2 rounded-top-4 bg-success">
+                                <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
+                                  <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
+                                </h6>
+                              </div>
+                              <div className="card-body p-2 bg-white rounded-bottom-4">
+                                <div className="row g-2">
+                                  {Object.entries(submods).map(([subName, subcards]) => (
+                                    <div key={subName} className="col-12">
+                                      <div className="p-2 border rounded-2 border-light">
+                                        <div className="d-flex justify-content-between align-items-center">
+                                          <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
+                                            <i className="bi bi-box me-2 text-success"></i>{subName}
+                                          </div>
+                                          <div className="form-check form-switch m-0">
+                                            <input 
+                                              className="form-check-input" 
+                                              type="checkbox"
+                                              checked={!!permisosState.sb[subName]}
+                                              onChange={() => handleCheckboxChange('sb', subName, true, undefined, subcards)}
+                                              disabled={!canEditRolesSB}
+                                            />
+                                          </div>
+                                        </div>
+ 
+                                        {subcards.length > 0 && (
+                                          <div className="row g-1 mt-2 ps-3 border-start ms-1 border-success border-opacity-25 animate__animated animate__fadeIn">
+                                            {subcards.map(card => (
+                                              <div key={card} className="col-12">
+                                                <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
+                                                  <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
+                                                    <i className="bi bi-window-stack me-1 text-secondary"></i>
+                                                    {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
+                                                  </span>
+                                                  <div className="form-check form-switch m-0">
+                                                    <input 
+                                                      className="form-check-input" 
+                                                      type="checkbox"
+                                                      checked={!!permisosState.sb[card]}
+                                                      onChange={() => handleCheckboxChange('sb', card, false, subName)}
+                                                      disabled={!canEditRolesSB}
+                                                    />
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

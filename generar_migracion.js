@@ -141,11 +141,21 @@ function run() {
 
     let datosSalud = {};
     let datosElectoral = {};
-    let datosVivienda = {};
     let cargaFamiliar = [];
     let cursosRealizados = [];
     let planFormacion = [];
     let necesidadesExtra = '';
+    let datosVivienda = {
+      tipo_prestamo: '',
+      num_convivientes: 1,
+      discapacidad_trabajador: 'No',
+      discapacidad_familiar: 'No',
+      conyuge_nombre: '',
+      conyuge_cedula: '',
+      conyuge_trabaja_pdvsa: 'Nunca ha trabajado en PDVSA',
+      condicion_habitabilidad: '',
+      prioridad: ''
+    };
 
     if (datosFicha) {
       if (datosFicha.correos) {
@@ -168,15 +178,40 @@ function run() {
       }
       if (datosFicha.salud) {
         datosSalud = datosFicha.salud;
+        if (datosFicha.salud.conapdis) {
+          datosVivienda.discapacidad_trabajador = datosFicha.salud.conapdis;
+        }
       }
       if (datosFicha.electoral) {
         datosElectoral = datosFicha.electoral;
       }
       if (datosFicha.vivienda_creditos) {
-        datosVivienda = datosFicha.vivienda_creditos;
+        if (datosFicha.vivienda_creditos.condicion) {
+          datosVivienda.condicion_habitabilidad = datosFicha.vivienda_creditos.condicion;
+        }
+        if (datosFicha.vivienda_creditos.solicitud_unica && datosFicha.vivienda_creditos.solicitud_unica.tipo) {
+          datosVivienda.tipo_prestamo = datosFicha.vivienda_creditos.solicitud_unica.tipo;
+        } else if (datosFicha.vivienda_creditos.credito_5_sueldos && datosFicha.vivienda_creditos.credito_5_sueldos !== 'No Solicitado') {
+          datosVivienda.tipo_prestamo = 'Inicial/Adquisición';
+        }
       }
       if (datosFicha.carga_familiar) {
         cargaFamiliar = datosFicha.carga_familiar;
+        if (Array.isArray(cargaFamiliar)) {
+          const livingWithWorker = cargaFamiliar.filter(f => f.vive_con_trabajador === 'Sí').length;
+          datosVivienda.num_convivientes = 1 + livingWithWorker;
+
+          if (cargaFamiliar.some(f => f.conapdis === 'Sí')) {
+            datosVivienda.discapacidad_familiar = 'Sí';
+          }
+
+          const conyuge = cargaFamiliar.find(f => f.parentesco === 'Esposo(a)' || f.parentesco === 'Concubino(a)');
+          if (conyuge) {
+            datosVivienda.conyuge_nombre = conyuge.nombres || '';
+            datosVivienda.conyuge_cedula = conyuge.cedula || '';
+            datosVivienda.conyuge_trabaja_pdvsa = conyuge.estatus_pdvsa || 'Nunca ha trabajado en PDVSA';
+          }
+        }
       }
     }
 

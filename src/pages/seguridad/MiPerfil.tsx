@@ -217,7 +217,7 @@ export const MiPerfil = () => {
 
       const publicKeyCredentialCreationOptions: any = {
         challenge: challenge,
-        rp: { name: "SIGAE Unificado" },
+        rp: { name: "SIGAE" },
         user: {
           id: userId,
           name: appUser.cedula,

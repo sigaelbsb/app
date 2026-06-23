@@ -58,6 +58,8 @@ interface ExpedienteData {
     grupo_sanguineo: string;
     condicion_medica: string;
     emergencia_nombre: string;
+    informe_salud_ocupacional: string;
+    informe_actualizado: string;
   };
   datos_electoral: {
     estado: string;
@@ -66,10 +68,19 @@ interface ExpedienteData {
     centro_votacion: string;
   };
   datos_vivienda: {
-    tipo: string;
-    condicion: string;
-    detalle_otra: string;
-    credito_5_sueldos: string;
+    tipo_prestamo: string;
+    num_convivientes: number | '';
+    discapacidad_trabajador: string;
+    discapacidad_familiar: string;
+    conyuge_nombre: string;
+    conyuge_cedula: string;
+    conyuge_trabaja_pdvsa: string;
+    condicion_habitabilidad: string;
+    prioridad: string;
+    estado_hab: string;
+    municipio_hab: string;
+    parroquia_hab: string;
+    direccion_detalle: string;
   };
   carga_familiar: Familiar[];
   cursos_realizados: Curso[];
@@ -86,10 +97,12 @@ const DEFAULT_SALUD = {
   talla_chemise: '',
   emergencia_tel: '',
   talla_pantalon: '',
-  condicion_neuro: 'Neurotípico',
+  condicion_neuro: '',
   grupo_sanguineo: '',
   condicion_medica: '',
-  emergencia_nombre: ''
+  emergencia_nombre: '',
+  informe_salud_ocupacional: 'No',
+  informe_actualizado: 'No'
 };
 
 const DEFAULT_ELECTORAL = {
@@ -100,10 +113,19 @@ const DEFAULT_ELECTORAL = {
 };
 
 const DEFAULT_VIVIENDA = {
-  tipo: '',
-  condicion: '',
-  detalle_otra: '',
-  credito_5_sueldos: 'No Solicitado'
+  tipo_prestamo: '',
+  num_convivientes: '' as number | '',
+  discapacidad_trabajador: 'No',
+  discapacidad_familiar: 'No',
+  conyuge_nombre: '',
+  conyuge_cedula: '',
+  conyuge_trabaja_pdvsa: '',
+  condicion_habitabilidad: '',
+  prioridad: '',
+  estado_hab: '',
+  municipio_hab: '',
+  parroquia_hab: '',
+  direccion_detalle: ''
 };
 
 const DEFAULT_EXPEDIENTE: ExpedienteData = {
@@ -170,6 +192,14 @@ const CATALOGO_PLAN_FORMACION: PlanCurso[] = [
   { nivel: "Básico", titulo: "Ética y Uso Responsable de la IA en Educación", categoria: "Tecnología Educativa (EdTech)" }
 ];
 
+const FALLBACK_DIV_POL = [
+  { estado: "Monagas", municipio: "Maturín", parroquia: "Boquerón" },
+  { estado: "Monagas", municipio: "Maturín", parroquia: "Las Cocuizas" },
+  { estado: "Monagas", municipio: "Maturín", parroquia: "Santa Cruz" },
+  { estado: "Monagas", municipio: "Punceres", parroquia: "Cachipo" },
+  { estado: "Monagas", municipio: "Piar", parroquia: "Aragua de Maturín" }
+];
+
 export const MiExpediente = () => {
   const navigate = useNavigate();
   const { tienePermiso, loading: permLoading } = usePermisos();
@@ -179,6 +209,8 @@ export const MiExpediente = () => {
   const [loadingData, setLoadingData] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<string>('Todas');
+  const [divPolRecords, setDivPolRecords] = useState<any[]>([]);
 
   // Session User Info
   const storedUser = localStorage.getItem('usuario_sigae');
@@ -209,6 +241,24 @@ export const MiExpediente = () => {
   const canUpdate = tienePermiso('Mi Expediente', 'modificar') || tienePermiso('Mi Expediente', 'crear');
 
   const [savingStatus, setSavingStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+
+  useEffect(() => {
+    const fetchDivPol = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('div_pol_vzla')
+          .select('*');
+        if (!error && data) {
+          setDivPolRecords(data);
+        } else {
+          setDivPolRecords(FALLBACK_DIV_POL);
+        }
+      } catch (e) {
+        setDivPolRecords(FALLBACK_DIV_POL);
+      }
+    };
+    fetchDivPol();
+  }, []);
 
   useEffect(() => {
     if (permLoading || !hasAccess || !user) return;
@@ -287,9 +337,15 @@ export const MiExpediente = () => {
               carga_horaria: data.carga_horaria || 36,
               estatus_laboral: data.estatus_laboral || 'Activo',
               documentos: data.documentos || DEFAULT_EXPEDIENTE.documentos,
-              datos_salud: data.datos_salud || DEFAULT_SALUD,
+              datos_salud: { ...DEFAULT_SALUD, ...(data.datos_salud || {}) },
               datos_electoral: data.datos_electoral || DEFAULT_ELECTORAL,
-              datos_vivienda: data.datos_vivienda || DEFAULT_VIVIENDA,
+              datos_vivienda: (() => {
+                const loadedV = { ...DEFAULT_VIVIENDA, ...(data.datos_vivienda || {}) };
+                if (!loadedV.direccion_detalle && data.direccion) {
+                  loadedV.direccion_detalle = data.direccion;
+                }
+                return loadedV;
+              })(),
               carga_familiar: data.carga_familiar || [],
               cursos_realizados: data.cursos_realizados || [],
               plan_formacion: data.plan_formacion || [],
@@ -346,6 +402,7 @@ export const MiExpediente = () => {
           const payload = {
             usuario_cedula: user.cedula,
             ...formData,
+            direccion: `${formData.datos_vivienda.estado_hab || ''}, ${formData.datos_vivienda.municipio_hab || ''}, ${formData.datos_vivienda.parroquia_hab || ''}. ${formData.datos_vivienda.direccion_detalle || ''}`,
             actualizado_en: new Date().toISOString()
           };
 
@@ -390,6 +447,56 @@ export const MiExpediente = () => {
     setFormData(prev => ({
       ...prev,
       [field]: val
+    }));
+  };
+
+  const calcularEdadRaw = (fechaNacStr: string): string => {
+    if (!fechaNacStr) return 'N/A';
+    const birthDate = new Date(fechaNacStr);
+    if (isNaN(birthDate.getTime())) return 'N/A';
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age >= 0 ? `${age} años` : 'N/A';
+  };
+
+  const estadosList = [...new Set(divPolRecords.map(r => r.estado))].sort();
+
+  const municipiosList = formData.datos_vivienda.estado_hab
+    ? [...new Set(divPolRecords
+        .filter(r => r.estado === formData.datos_vivienda.estado_hab)
+        .map(r => r.municipio))].sort()
+    : [];
+
+  const parroquiasList = (formData.datos_vivienda.estado_hab && formData.datos_vivienda.municipio_hab)
+    ? [...new Set(divPolRecords
+        .filter(r => r.estado === formData.datos_vivienda.estado_hab && r.municipio === formData.datos_vivienda.municipio_hab)
+        .map(r => r.parroquia))].sort()
+    : [];
+
+  const handleEstadoHabChange = (val: string) => {
+    setFormData(prev => ({
+      ...prev,
+      datos_vivienda: {
+        ...prev.datos_vivienda,
+        estado_hab: val,
+        municipio_hab: '',
+        parroquia_hab: ''
+      }
+    }));
+  };
+
+  const handleMunicipioHabChange = (val: string) => {
+    setFormData(prev => ({
+      ...prev,
+      datos_vivienda: {
+        ...prev.datos_vivienda,
+        municipio_hab: val,
+        parroquia_hab: ''
+      }
     }));
   };
 
@@ -522,8 +629,20 @@ export const MiExpediente = () => {
         if (Swal) Swal.fire("Atención", "Debe seleccionar su estado civil.", "warning");
         return false;
       }
-      if (!formData.direccion.trim()) {
-        if (Swal) Swal.fire("Atención", "La dirección de habitación es requerida.", "warning");
+      if (!formData.datos_vivienda.estado_hab) {
+        if (Swal) Swal.fire("Atención", "Debe seleccionar el estado de habitación.", "warning");
+        return false;
+      }
+      if (!formData.datos_vivienda.municipio_hab) {
+        if (Swal) Swal.fire("Atención", "Debe seleccionar el municipio de habitación.", "warning");
+        return false;
+      }
+      if (!formData.datos_vivienda.parroquia_hab) {
+        if (Swal) Swal.fire("Atención", "Debe seleccionar la parroquia de habitación.", "warning");
+        return false;
+      }
+      if (!formData.datos_vivienda.direccion_detalle.trim()) {
+        if (Swal) Swal.fire("Atención", "La dirección detallada de habitación es requerida.", "warning");
         return false;
       }
     } else if (step === 5) {
@@ -603,6 +722,7 @@ export const MiExpediente = () => {
         const payload = {
           usuario_cedula: user.cedula,
           ...formData,
+          direccion: `${formData.datos_vivienda.estado_hab || ''}, ${formData.datos_vivienda.municipio_hab || ''}, ${formData.datos_vivienda.parroquia_hab || ''}. ${formData.datos_vivienda.direccion_detalle || ''}`,
           actualizado_en: new Date().toISOString()
         };
 
@@ -802,7 +922,7 @@ export const MiExpediente = () => {
                 onClick={() => setActiveStep(3)}
               >
                 <div className="wizard-step">3</div>
-                <span className="wizard-label">Votación y Vivienda</span>
+                <span className="wizard-label">Votación y Ficha Socio-Familiar</span>
               </div>
 
               <div 
@@ -887,17 +1007,28 @@ export const MiExpediente = () => {
                     onChange={(e) => handleChange('sexo', e.target.value)}
                   >
                     <option value="">Seleccione...</option>
-                    <option value="Femenino">Femenino</option>
                     <option value="Masculino">Masculino</option>
+                    <option value="Femenino">Femenino</option>
                   </select>
                 </div>
-                <div className="col-md-6">
+                <div className="col-md-3">
                   <label className="form-label">Fecha de Nacimiento <span className="text-danger">*</span></label>
                   <input 
                     type="date"
                     className="form-control input-moderno"
                     value={formData.fecha_nacimiento}
                     onChange={(e) => handleChange('fecha_nacimiento', e.target.value)}
+                  />
+                </div>
+                <div className="col-md-3">
+                  <label className="form-label">Edad (Calculada)</label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    value={calcularEdadRaw(formData.fecha_nacimiento)}
+                    disabled
+                    readOnly
+                    style={{ backgroundColor: '#f8fafc', color: '#1e293b', fontWeight: 'bold' }}
                   />
                 </div>
                 <div className="col-md-6">
@@ -915,14 +1046,60 @@ export const MiExpediente = () => {
                     <option value="Concubino/a">Concubino/a</option>
                   </select>
                 </div>
+                
+                <div className="col-md-4">
+                  <label className="form-label">Estado de Habitación <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.estado_hab}
+                    onChange={(e) => handleEstadoHabChange(e.target.value)}
+                  >
+                    <option value="">Seleccione...</option>
+                    {estadosList.map(e => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Municipio de Habitación <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.municipio_hab}
+                    onChange={(e) => handleMunicipioHabChange(e.target.value)}
+                    disabled={!formData.datos_vivienda.estado_hab}
+                  >
+                    <option value="">Seleccione...</option>
+                    {municipiosList.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Parroquia de Habitación <span className="text-danger">*</span></label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.parroquia_hab}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'parroquia_hab', e.target.value)}
+                    disabled={!formData.datos_vivienda.municipio_hab}
+                  >
+                    <option value="">Seleccione...</option>
+                    {parroquiasList.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
                 <div className="col-12">
-                  <label className="form-label">Dirección de Habitación <span className="text-danger">*</span></label>
+                  <label className="form-label">Dirección Detallada (Calle, Casa, Punto de Referencia) <span className="text-danger">*</span></label>
                   <textarea 
                     className="form-control input-moderno"
-                    rows={3}
+                    rows={2}
                     placeholder="Ingresa la dirección detallada de domicilio..."
-                    value={formData.direccion}
-                    onChange={(e) => handleChange('direccion', e.target.value)}
+                    value={formData.datos_vivienda.direccion_detalle}
+                    onChange={(e) => {
+                      const det = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        direccion: det,
+                        datos_vivienda: {
+                          ...prev.datos_vivienda,
+                          direccion_detalle: det
+                        }
+                      }));
+                    }}
                   />
                 </div>
               </div>
@@ -932,7 +1109,7 @@ export const MiExpediente = () => {
             <div className={`wizard-panel ${activeStep === 2 ? 'activo' : ''}`}>
               <div className="seccion-titulo"><i className="bi bi-heart-pulse-fill me-2 text-success"></i>Paso 2: Datos de Salud y Tallas de Uniforme</div>
               <div className="row g-3">
-                <div className="col-md-4">
+                <div className="col-md-3">
                   <label className="form-label">Grupo Sanguíneo</label>
                   <select 
                     className="form-select input-moderno"
@@ -950,7 +1127,7 @@ export const MiExpediente = () => {
                     <option value="AB-">AB-</option>
                   </select>
                 </div>
-                <div className="col-md-4">
+                <div className="col-md-3">
                   <label className="form-label">¿Posee carnet CONAPDIS?</label>
                   <select 
                     className="form-select input-moderno"
@@ -961,24 +1138,46 @@ export const MiExpediente = () => {
                     <option value="Sí">Sí</option>
                   </select>
                 </div>
-                <div className="col-md-4">
-                  <label className="form-label">Condición Neurodivergente</label>
+                <div className="col-md-3">
+                  <label className="form-label">Con Informe de Salud Ocupacional</label>
                   <select 
                     className="form-select input-moderno"
-                    value={formData.datos_salud.condicion_neuro}
-                    onChange={(e) => handleNestedChange('datos_salud', 'condicion_neuro', e.target.value)}
+                    value={formData.datos_salud.informe_salud_ocupacional}
+                    onChange={(e) => handleNestedChange('datos_salud', 'informe_salud_ocupacional', e.target.value)}
                   >
-                    <option value="Neurotípico">Neurotípico</option>
-                    <option value="Neurodivergente">Neurodivergente</option>
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <label className="form-label">Actualizado</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_salud.informe_actualizado}
+                    onChange={(e) => handleNestedChange('datos_salud', 'informe_actualizado', e.target.value)}
+                    disabled={formData.datos_salud.informe_salud_ocupacional !== 'Sí'}
+                  >
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
                   </select>
                 </div>
                 
-                <div className="col-12 col-md-6">
-                  <label className="form-label">Condición Médica / Alergias</label>
+                <div className="col-md-6">
+                  <label className="form-label">Condición Neurológica</label>
                   <input 
                     type="text"
                     className="form-control input-moderno"
-                    placeholder="Ej. Hipertensión, Asma, Alérgica a la Penicilina..."
+                    placeholder="Ej. TDAH, Asperger, Autismo, Ninguna..."
+                    value={formData.datos_salud.condicion_neuro}
+                    onChange={(e) => handleNestedChange('datos_salud', 'condicion_neuro', e.target.value)}
+                  />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Condición Médica</label>
+                  <input 
+                    type="text"
+                    className="form-control input-moderno"
+                    placeholder="Ej. Hipertensión, Asma, Diabetes, Ninguna..."
                     value={formData.datos_salud.condicion_medica}
                     onChange={(e) => handleNestedChange('datos_salud', 'condicion_medica', e.target.value)}
                   />
@@ -1028,10 +1227,15 @@ export const MiExpediente = () => {
               </div>
             </div>
 
-            {/* STEP 3: ELECTORAL DATA & HOUSING */}
+            {/* STEP 3: ELECTORAL DATA & SOCIO-FAMILY PROFILE */}
             <div className={`wizard-panel ${activeStep === 3 ? 'activo' : ''}`}>
-              <div className="seccion-titulo"><i className="bi bi-geo-alt-fill me-2 text-success"></i>Paso 3: Información Electoral y de Vivienda</div>
-              <div className="row g-3">
+              <div className="seccion-titulo"><i className="bi bi-geo-alt-fill me-2 text-success"></i>Paso 3: Información Electoral y Ficha Socio-Familiar</div>
+              
+              <div className="text-success fw-bold border-bottom pb-2 mb-3 mt-4">
+                <i className="bi bi-person-check-fill me-2"></i>Información de Registro Electoral
+              </div>
+              
+              <div className="row g-3 mb-4">
                 <div className="col-md-6 col-lg-3">
                   <label className="form-label">Estado Electoral</label>
                   <input type="text" className="form-control input-moderno" placeholder="Ej. Monagas" value={formData.datos_electoral.estado} onChange={(e) => handleNestedChange('datos_electoral', 'estado', e.target.value)} />
@@ -1048,52 +1252,117 @@ export const MiExpediente = () => {
                   <label className="form-label">Centro de Votación</label>
                   <input type="text" className="form-control input-moderno" placeholder="Nombre de la escuela centro" value={formData.datos_electoral.centro_votacion} onChange={(e) => handleNestedChange('datos_electoral', 'centro_votacion', e.target.value)} />
                 </div>
+              </div>
 
-                <div className="col-md-4">
-                  <label className="form-label">Tipo de Vivienda</label>
+              <div className="text-success fw-bold border-bottom pb-2 mb-3">
+                <i className="bi bi-people-fill me-2"></i>Entorno Familiar y de Habitabilidad
+              </div>
+
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Tipo de requerimiento o solicitud de bienestar social</label>
                   <select 
                     className="form-select input-moderno"
-                    value={formData.datos_vivienda.tipo}
-                    onChange={(e) => handleNestedChange('datos_vivienda', 'tipo', e.target.value)}
+                    value={formData.datos_vivienda.tipo_prestamo}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'tipo_prestamo', e.target.value)}
                   >
                     <option value="">Seleccione...</option>
-                    <option value="Casa">Casa</option>
-                    <option value="Apartamento">Apartamento</option>
-                    <option value="Quinta">Quinta</option>
-                    <option value="Habitación">Habitación</option>
-                    <option value="Otro">Otro</option>
+                    <option value="Inicial/Adquisición">Adquisición / Instalación Inicial</option>
+                    <option value="Inicial/Mejoras">Acondicionamiento o Mejoras Iniciales</option>
+                    <option value="Adicional/Adquisición">Adquisición / Instalación Complementaria</option>
+                    <option value="Adicional/Mejoras">Acondicionamiento o Mejoras Complementarias</option>
                   </select>
                 </div>
-                <div className="col-md-4">
-                  <label className="form-label">Condición de Habitación</label>
+
+                <div className="col-md-6">
+                  <label className="form-label">¿Cuántas personas conviven en su núcleo familiar principal?</label>
+                  <input 
+                    type="number" 
+                    className="form-control input-moderno" 
+                    min="1"
+                    placeholder="Cantidad de personas"
+                    value={formData.datos_vivienda.num_convivientes} 
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'num_convivientes', e.target.value === '' ? '' : parseInt(e.target.value) || 1)} 
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">¿Posee usted alguna condición de discapacidad certificada (CONAPDIS)?</label>
                   <select 
                     className="form-select input-moderno"
-                    value={formData.datos_vivienda.condicion}
-                    onChange={(e) => handleNestedChange('datos_vivienda', 'condicion', e.target.value)}
+                    value={formData.datos_vivienda.discapacidad_trabajador}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'discapacidad_trabajador', e.target.value)}
+                  >
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                  </select>
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">¿Algún familiar directo de su grupo de convivencia posee discapacidad certificada (CONAPDIS)?</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.discapacidad_familiar}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'discapacidad_familiar', e.target.value)}
+                  >
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                  </select>
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Nombre y apellido del cónyuge o pareja</label>
+                  <input 
+                    type="text" 
+                    className="form-control input-moderno" 
+                    placeholder="Dejar vacío si no aplica"
+                    value={formData.datos_vivienda.conyuge_nombre} 
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'conyuge_nombre', e.target.value)} 
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Cédula del cónyuge o pareja</label>
+                  <input 
+                    type="text" 
+                    className="form-control input-moderno" 
+                    placeholder="Dejar vacío si no aplica"
+                    value={formData.datos_vivienda.conyuge_cedula} 
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'conyuge_cedula', e.target.value)} 
+                  />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Relación laboral de su cónyuge o pareja con la institución / empresa de origen</label>
+                  <select 
+                    className="form-select input-moderno"
+                    value={formData.datos_vivienda.conyuge_trabaja_pdvsa}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'conyuge_trabaja_pdvsa', e.target.value)}
                   >
                     <option value="">Seleccione...</option>
-                    <option value="Propia">Propia</option>
-                    <option value="Alquilada">Alquilada</option>
-                    <option value="Arrimado/a">Arrimado/a</option>
-                    <option value="Prestada">Prestada / Cedida</option>
+                    <option value="Trabajador(a) Activo(a)">Personal activo en la institución / empresa de origen</option>
+                    <option value="Trabajó / Está Retirado(a)">Personal jubilado / retirado</option>
+                    <option value="Nunca ha trabajado en PDVSA">Ninguna relación laboral en dicha institución / empresa</option>
                   </select>
                 </div>
-                <div className="col-md-4">
-                  <label className="form-label">Crédito Habitacional (5 Sueldos)</label>
+
+                <div className="col-md-6">
+                  <label className="form-label">Situación actual de habitabilidad o residencia</label>
                   <select 
                     className="form-select input-moderno"
-                    value={formData.datos_vivienda.credito_5_sueldos}
-                    onChange={(e) => handleNestedChange('datos_vivienda', 'credito_5_sueldos', e.target.value)}
+                    value={formData.datos_vivienda.condicion_habitabilidad}
+                    onChange={(e) => handleNestedChange('datos_vivienda', 'condicion_habitabilidad', e.target.value)}
                   >
-                    <option value="No Solicitado">No Solicitado</option>
-                    <option value="Solicitado (En Espera)">Solicitado (En Espera)</option>
-                    <option value="Pagando">Pagando</option>
-                    <option value="Pagado">Pagado</option>
+                    <option value="">Seleccione...</option>
+                    <option value="1) Habite en condición de hacinamiento, solo o con su grupo familiar.">Habita en condición de hacinamiento, solo o con su grupo familiar</option>
+                    <option value="2) Habite en condición de arrimado, solo o con su grupo familiar.">Habita en condición de arrimado, solo o con su grupo familiar</option>
+                    <option value="3) Habite en condición de alquiler, solo o con su grupo familiar.">Habita en condición de alquiler, solo o con su grupo familiar</option>
+                    <option value="4) Habite en condición de alquiler, con solicitud u orden de desalojo.">Habita en condición de alquiler, con solicitud u orden de desalojo</option>
+                    <option value="5) Habite en vivienda catalogada de alto riesgo, así declarado por la autoridad competente (Protección Civil o Bomberos)">Habita en vivienda declarada de alto riesgo por autoridad competente</option>
+                    <option value="6) Habite en vivienda prestada, bajo su cuidado.">Habita en vivienda prestada bajo su cuidado</option>
+                    <option value="7) Habite en un inmueble asignado, propiedad de la Empresa.">Habita en un inmueble asignado propiedad de la institución o empresa</option>
+                    <option value="8) Habite un inmueble bajo otra condición diferente a las anteriores">Habita bajo otra condición habitacional diferente a las anteriores</option>
                   </select>
-                </div>
-                <div className="col-12">
-                  <label className="form-label">Detalle sobre la condición de la vivienda (Opcional)</label>
-                  <input type="text" className="form-control input-moderno" placeholder="Ej. Casa en terreno mancomunado / requiere ampliación..." value={formData.datos_vivienda.detalle_otra} onChange={(e) => handleNestedChange('datos_vivienda', 'detalle_otra', e.target.value)} />
                 </div>
               </div>
             </div>
@@ -1305,39 +1574,57 @@ export const MiExpediente = () => {
                 Selecciona <strong>hasta 5 formaciones</strong> del catálogo oficial de SIGAE en las que deseas participar para tu desarrollo profesional continuo.
               </p>
 
-              {/* Grid of Courses */}
-              <div className="row g-3 mb-4" style={{ maxHeight: '400px', overflowY: 'auto', padding: '5px' }}>
-                {CATALOGO_PLAN_FORMACION.map((curso, idx) => {
+              {/* Category Filter Pills */}
+              <div className="mb-3">
+                <div className="d-flex gap-2 overflow-x-auto pb-2 scrollbar-delgada" style={{ whiteSpace: 'nowrap' }}>
+                  {['Todas', ...Array.from(new Set(CATALOGO_PLAN_FORMACION.map(c => c.categoria)))].map((cat, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCategoriaSeleccionada(cat)}
+                      className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${categoriaSeleccionada === cat ? 'btn-success text-white shadow-sm' : 'btn-light text-muted border'}`}
+                      style={{ flexShrink: 0 }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* List of Courses */}
+              <div className="list-group mb-4 scrollbar-delgada" style={{ maxHeight: '420px', overflowY: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                {CATALOGO_PLAN_FORMACION.filter(c => categoriaSeleccionada === 'Todas' || c.categoria === categoriaSeleccionada).map((curso, idx) => {
                   const isSelected = formData.plan_formacion?.some(c => c.titulo === curso.titulo) || false;
                   return (
-                    <div key={idx} className="col-12 col-md-6 col-lg-4">
-                      <div 
-                        className={`caja-dinamica h-100 d-flex flex-column justify-content-between p-3 border rounded-4 cursor-pointer hover-efecto ${isSelected ? 'border-success bg-success bg-opacity-10' : 'bg-white'}`}
-                        style={{ cursor: 'pointer', transition: 'all 0.2s', border: isSelected ? '2px solid #10b981' : '1px solid #cbd5e1' }}
-                        onClick={() => handleToggleCursoPlan(curso)}
-                      >
+                    <div 
+                      key={idx}
+                      onClick={() => handleToggleCursoPlan(curso)}
+                      className={`list-group-item list-group-item-action d-flex align-items-center justify-content-between p-3 border-start-0 border-end-0 ${isSelected ? 'bg-success bg-opacity-10 border-success-subtle text-success' : 'text-dark'}`}
+                      style={{ cursor: 'pointer', transition: 'background-color 0.15s ease', borderBottom: '1px solid #edf2f7' }}
+                    >
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="form-check m-0">
+                          <input 
+                            type="checkbox" 
+                            className="form-check-input check-verde"
+                            checked={isSelected}
+                            readOnly
+                            style={{ cursor: 'pointer', transform: 'scale(1.1)' }}
+                          />
+                        </div>
                         <div>
-                          <div className="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
-                            <span className="badge bg-light text-dark border small">{curso.categoria}</span>
-                            <span className={`badge ${curso.nivel === 'Avanzado' ? 'bg-danger bg-opacity-10 text-danger' : curso.nivel === 'Intermedio' ? 'bg-warning bg-opacity-10 text-warning' : 'bg-info bg-opacity-10 text-info'} small`}>
+                          <div className="fw-bold mb-1" style={{ fontSize: '1rem' }}>{curso.titulo}</div>
+                          <div className="d-flex gap-2 align-items-center flex-wrap">
+                            <span className="badge bg-light text-muted border small" style={{ fontSize: '0.75rem' }}>{curso.categoria}</span>
+                            <span className={`badge ${curso.nivel === 'Avanzado' ? 'bg-danger bg-opacity-10 text-danger' : curso.nivel === 'Intermedio' ? 'bg-warning bg-opacity-10 text-warning' : 'bg-info bg-opacity-10 text-info'} small`} style={{ fontSize: '0.75rem' }}>
                               {curso.nivel || 'General'}
                             </span>
                           </div>
-                          <h6 className={`fw-bold mb-1 ${isSelected ? 'text-success' : 'text-dark'}`}>{curso.titulo}</h6>
-                        </div>
-                        <div className="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
-                          <span className="small text-muted">{isSelected ? 'Seleccionado' : 'Haga clic para elegir'}</span>
-                          <div className="form-check">
-                            <input 
-                              type="checkbox" 
-                              className="form-check-input check-verde"
-                              checked={isSelected}
-                              readOnly
-                              style={{ pointerEvents: 'none', cursor: 'pointer' }}
-                            />
-                          </div>
                         </div>
                       </div>
+                      <span className="small text-muted d-none d-sm-inline fw-semibold">
+                        {isSelected ? 'Seleccionado' : 'Hacer clic para elegir'}
+                      </span>
                     </div>
                   );
                 })}

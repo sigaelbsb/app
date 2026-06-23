@@ -6,11 +6,23 @@ import { usePermisos } from '../../hooks/usePermisos';
 
 export const GestionUsuarios = () => {
   const navigate = useNavigate();
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolesDisponibles, setRolesDisponibles] = useState<string[]>([]);
+
+  // Permisos por escuela para el módulo
+  const canUsersSB = tienePermisoEnEscuela('sb', 'Gestión de Usuarios', 'ver');
+  const canUsersLB = tienePermisoEnEscuela('lb', 'Gestión de Usuarios', 'ver');
+  const pUsuarios = canUsersSB || canUsersLB;
+
+  const canCreateSB = tienePermisoEnEscuela('sb', 'Gestión de Usuarios', 'crear');
+  const canCreateLB = tienePermisoEnEscuela('lb', 'Gestión de Usuarios', 'crear');
+  const canCreateAny = canCreateSB || canCreateLB;
+
+  const canDeleteSB = tienePermisoEnEscuela('sb', 'Gestión de Usuarios', 'eliminar');
+  const canDeleteLB = tienePermisoEnEscuela('lb', 'Gestión de Usuarios', 'eliminar');
 
   // Filtering & Pagination
   const [filtroEscuela, setFiltroEscuela] = useState('TODAS');
@@ -41,11 +53,21 @@ export const GestionUsuarios = () => {
   const Swal = (window as any).Swal;
 
   useEffect(() => {
-    if (!permLoading && tienePermiso('Gestión de Usuarios', 'ver')) {
+    if (!permLoading) {
+      if (canUsersSB && !canUsersLB) {
+        setFiltroEscuela('sb');
+      } else if (canUsersLB && !canUsersSB) {
+        setFiltroEscuela('lb');
+      }
+    }
+  }, [permLoading, canUsersSB, canUsersLB]);
+
+  useEffect(() => {
+    if (!permLoading && pUsuarios) {
       cargarRoles();
       cargarUsuarios();
     }
-  }, [permLoading]);
+  }, [permLoading, pUsuarios]);
 
   const cargarRoles = async () => {
     try {
@@ -67,8 +89,16 @@ export const GestionUsuarios = () => {
       if (error) throw error;
       setUsuarios(data || []);
 
-      // Cargar solicitudes de reseteo
-      const solicitudes = (data || []).filter(u => u.solicito_reseteo === true);
+      // Cargar solicitudes de reseteo con filtro de permisos por escuela
+      const solicitudes = (data || []).filter(u => {
+        if (u.solicito_reseteo !== true) return false;
+        const cSB = tienePermisoEnEscuela('sb', 'Gestión de Usuarios', 'ver');
+        const cLB = tienePermisoEnEscuela('lb', 'Gestión de Usuarios', 'ver');
+        if (u.id_escuela === 'sb' && !cSB) return false;
+        if (u.id_escuela === 'lb' && !cLB) return false;
+        if (u.id_escuela === 'ambas' && (!cSB || !cLB)) return false;
+        return true;
+      });
       setSolicitudesReseteo(solicitudes);
     } catch (e) {
       console.error(e);
@@ -87,7 +117,7 @@ export const GestionUsuarios = () => {
     );
   }
 
-  if (!tienePermiso('Gestión de Usuarios', 'ver')) {
+  if (!pUsuarios) {
     return (
       <div className="col-12 text-center py-5 mt-4">
         <div className="bg-light d-inline-flex justify-content-center align-items-center rounded-circle mb-3 shadow-sm border" style={{ width: '100px', height: '100px' }}>
@@ -101,6 +131,12 @@ export const GestionUsuarios = () => {
 
   // Filter logic
   const usuariosFiltrados = usuarios.filter(u => {
+    // Restringir visibilidad según permisos por escuela
+    const targetEsc = u.id_escuela;
+    if (targetEsc === 'sb' && !canUsersSB) return false;
+    if (targetEsc === 'lb' && !canUsersLB) return false;
+    if (targetEsc === 'ambas' && (!canUsersSB || !canUsersLB)) return false;
+
     const txt = searchQuery.toLowerCase();
     const coincideTexto = 
       (u.cedula || '').toLowerCase().includes(txt) || 
@@ -140,7 +176,9 @@ export const GestionUsuarios = () => {
     } else {
       setFormCedula('');
       setFormNombre('');
-      setFormEscuela('sb');
+      // Preseleccionar escuela con permisos de creación
+      const defaultEscuela = canCreateSB ? 'sb' : (canCreateLB ? 'lb' : 'sb');
+      setFormEscuela(defaultEscuela);
       setFormRol(rolesDisponibles[0] || '');
       setFormEmail('');
       setFormTelefono('');
@@ -155,6 +193,39 @@ export const GestionUsuarios = () => {
     if (!formCedula || !formNombre || !formRol || !formEscuela || !formEstado) {
       if (Swal) Swal.fire('Atención', 'Complete todos los campos obligatorios.', 'warning');
       return;
+    }
+
+    // Validar permisos programáticamente para la escuela destino
+    let isAuthorized = false;
+    if (formEscuela === 'ambas') {
+      isAuthorized = canCreateSB && canCreateLB;
+    } else if (formEscuela === 'sb') {
+      isAuthorized = canCreateSB;
+    } else if (formEscuela === 'lb') {
+      isAuthorized = canCreateLB;
+    }
+
+    if (!isAuthorized) {
+      if (Swal) Swal.fire('Error', 'No tiene permisos para asignar o gestionar usuarios en la escuela seleccionada.', 'error');
+      return;
+    }
+
+    // Si estamos editando, validar que tengan permisos en la escuela origen del usuario
+    if (editingUser) {
+      const oldSchool = editingUser.id_escuela;
+      let isOldAuthorized = false;
+      if (oldSchool === 'ambas') {
+        isOldAuthorized = canCreateSB && canCreateLB;
+      } else if (oldSchool === 'sb') {
+        isOldAuthorized = canCreateSB;
+      } else if (oldSchool === 'lb') {
+        isOldAuthorized = canCreateLB;
+      }
+
+      if (!isOldAuthorized) {
+        if (Swal) Swal.fire('Error', 'No tiene permisos para modificar usuarios de la escuela de origen.', 'error');
+        return;
+      }
     }
 
     setLoading(true);
@@ -211,6 +282,12 @@ export const GestionUsuarios = () => {
   const resetearClave = async (u: any) => {
     if (!Swal) return;
 
+    const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
+    if (!canDeleteU) {
+      Swal.fire('Error', 'No tiene permisos para resetear la clave de usuarios de esta escuela.', 'error');
+      return;
+    }
+
     Swal.fire({
       title: '¿Resetear Contraseña?',
       text: `La contraseña de ${u.nombre_completo} volverá a ser su número de cédula (${u.cedula}) y se desbloqueará su cuenta.`,
@@ -250,6 +327,12 @@ export const GestionUsuarios = () => {
   const eliminarUsuario = (u: any) => {
     if (!Swal) return;
 
+    const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
+    if (!canDeleteU) {
+      Swal.fire('Error', 'No tiene permisos para eliminar usuarios de esta escuela.', 'error');
+      return;
+    }
+
     Swal.fire({
       title: `¿Eliminar a ${u.nombre_completo}?`,
       text: "Esta acción es definitiva y borrará la cuenta permanentemente.",
@@ -282,6 +365,12 @@ export const GestionUsuarios = () => {
 
   const aprobarReseteo = async (u: any) => {
     if (!Swal) return;
+
+    const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
+    if (!canDeleteU) {
+      Swal.fire('Error', 'No tiene permisos para aprobar reseteos de usuarios de esta escuela.', 'error');
+      return;
+    }
 
     Swal.fire({
       title: '¿Aprobar Reseteo?',
@@ -355,6 +444,15 @@ export const GestionUsuarios = () => {
 
   const procesarCSV = () => {
     if (!csvFile) return;
+
+    // Validar permiso en la escuela activa
+    const activeSchool = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+    const canCreateInActive = activeSchool === 'sb' ? canCreateSB : canCreateLB;
+    if (!canCreateInActive) {
+      if (Swal) Swal.fire('Error', 'No tiene permisos para realizar carga masiva de usuarios en la escuela activa.', 'error');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (e: any) => {
       let text = e.target.result;
@@ -529,9 +627,9 @@ export const GestionUsuarios = () => {
                   value={filtroEscuela}
                   onChange={(e) => { setFiltroEscuela(e.target.value); setPaginaActual(1); }}
                 >
-                  <option value="TODAS">Ambas Escuelas</option>
-                  <option value="lb">UE Libertador Bolívar</option>
-                  <option value="sb">UE Santa Bárbara</option>
+                  {canUsersSB && canUsersLB && <option value="TODAS">Ambas Escuelas</option>}
+                  {canUsersLB && <option value="lb">UE Libertador Bolívar</option>}
+                  {canUsersSB && <option value="sb">UE Santa Bárbara</option>}
                 </select>
               </div>
               <div className="col-md-3">
@@ -545,29 +643,35 @@ export const GestionUsuarios = () => {
                 />
               </div>
               <div className="col-md-6 text-md-end">
-                <button 
-                  className="btn btn-warning fw-bold shadow-sm px-3 rounded-pill hover-efecto me-1 position-relative" 
-                  onClick={() => setShowReseteosModal(true)}
-                >
-                  <i className="bi bi-arrow-counterclockwise me-1"></i>Reseteos
-                  {solicitudesReseteo.length > 0 && (
-                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                      {solicitudesReseteo.length}
-                    </span>
-                  )}
-                </button>
-                <button 
-                  className="btn btn-dark fw-bold shadow-sm px-3 rounded-pill hover-efecto me-1" 
-                  onClick={() => setShowCargaModal(true)}
-                >
-                  <i className="bi bi-cloud-arrow-up-fill me-1"></i>Carga Masiva
-                </button>
-                <button 
-                  className="btn btn-success fw-bold shadow-sm px-3 rounded-pill hover-efecto" 
-                  onClick={() => abrirFormModal()}
-                >
-                  <i className="bi bi-person-plus-fill me-1"></i>Nuevo
-                </button>
+                {(canDeleteSB || canDeleteLB) && (
+                  <button 
+                    className="btn btn-warning fw-bold shadow-sm px-3 rounded-pill hover-efecto me-1 position-relative" 
+                    onClick={() => setShowReseteosModal(true)}
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1"></i>Reseteos
+                    {solicitudesReseteo.length > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        {solicitudesReseteo.length}
+                      </span>
+                    )}
+                  </button>
+                )}
+                {canCreateAny && (
+                  <button 
+                    className="btn btn-dark fw-bold shadow-sm px-3 rounded-pill hover-efecto me-1" 
+                    onClick={() => setShowCargaModal(true)}
+                  >
+                    <i className="bi bi-cloud-arrow-up-fill me-1"></i>Carga Masiva
+                  </button>
+                )}
+                {canCreateAny && (
+                  <button 
+                    className="btn btn-success fw-bold shadow-sm px-3 rounded-pill hover-efecto" 
+                    onClick={() => abrirFormModal()}
+                  >
+                    <i className="bi bi-person-plus-fill me-1"></i>Nuevo
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -602,52 +706,63 @@ export const GestionUsuarios = () => {
                         </td>
                       </tr>
                     ) : (
-                      usuariosPaginados.map(u => (
-                        <tr key={u.id_usuario} className="align-middle hover-efecto">
-                          <td className="fw-bold ps-4">{u.cedula}</td>
-                          <td>
-                            {u.id_escuela === 'lb' && <span className="badge bg-primary bg-opacity-10 text-primary border border-primary"><i className="bi bi-building me-1"></i>LB</span>}
-                            {u.id_escuela === 'sb' && <span className="badge bg-success bg-opacity-10 text-success border border-success"><i className="bi bi-building me-1"></i>SB</span>}
-                            {u.id_escuela === 'ambas' && <span className="badge bg-dark bg-opacity-10 text-dark border border-dark"><i className="bi bi-buildings me-1"></i>Ambas</span>}
-                          </td>
-                          <td>
-                            <div className="fw-bold text-dark">{u.nombre_completo}</div>
-                            <div className="small text-muted">{u.email || 'Sin correo'}</div>
-                          </td>
-                          <td><span className="badge bg-light text-dark border">{u.rol}</span></td>
-                          <td><span className="text-muted small"><i className="bi bi-briefcase me-1"></i>{u.cargo || 'Sin asignar'}</span></td>
-                          <td>
-                            {u.estado === 'Activo' ? (
-                              <span className="badge bg-success bg-opacity-10 text-success border border-success">Activo</span>
-                            ) : (
-                              <span className="badge bg-danger bg-opacity-10 text-danger border border-danger">{u.estado}</span>
-                            )}
-                          </td>
-                          <td className="text-end pe-4 text-nowrap">
-                            <button 
-                              className="btn btn-sm btn-light text-primary shadow-sm border me-1" 
-                              onClick={() => abrirFormModal(u)} 
-                              title="Editar Usuario"
-                            >
-                              <i className="bi bi-pencil-square"></i>
-                            </button>
-                            <button 
-                              className="btn btn-sm btn-light text-warning shadow-sm border me-1" 
-                              onClick={() => resetearClave(u)} 
-                              title="Resetear Clave a Cédula"
-                            >
-                              <i className="bi bi-key-fill"></i>
-                            </button>
-                            <button 
-                              className="btn btn-sm btn-light text-danger shadow-sm border" 
-                              onClick={() => eliminarUsuario(u)} 
-                              title="Eliminar Usuario"
-                            >
-                              <i className="bi bi-trash3-fill"></i>
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      usuariosPaginados.map(u => {
+                        const canEditU = u.id_escuela === 'ambas' ? (canCreateSB && canCreateLB) : (u.id_escuela === 'sb' ? canCreateSB : canCreateLB);
+                        const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
+
+                        return (
+                          <tr key={u.id_usuario} className="align-middle hover-efecto">
+                            <td className="fw-bold ps-4">{u.cedula}</td>
+                            <td>
+                              {u.id_escuela === 'lb' && <span className="badge bg-primary bg-opacity-10 text-primary border border-primary"><i className="bi bi-building me-1"></i>LB</span>}
+                              {u.id_escuela === 'sb' && <span className="badge bg-success bg-opacity-10 text-success border border-success"><i className="bi bi-building me-1"></i>SB</span>}
+                              {u.id_escuela === 'ambas' && <span className="badge bg-dark bg-opacity-10 text-dark border border-dark"><i className="bi bi-buildings me-1"></i>Ambas</span>}
+                            </td>
+                            <td>
+                              <div className="fw-bold text-dark">{u.nombre_completo}</div>
+                              <div className="small text-muted">{u.email || 'Sin correo'}</div>
+                            </td>
+                            <td><span className="badge bg-light text-dark border">{u.rol}</span></td>
+                            <td><span className="text-muted small"><i className="bi bi-briefcase me-1"></i>{u.cargo || 'Sin asignar'}</span></td>
+                            <td>
+                              {u.estado === 'Activo' ? (
+                                <span className="badge bg-success bg-opacity-10 text-success border border-success">Activo</span>
+                              ) : (
+                                <span className="badge bg-danger bg-opacity-10 text-danger border border-danger">{u.estado}</span>
+                              )}
+                            </td>
+                            <td className="text-end pe-4 text-nowrap">
+                              {canEditU && (
+                                <button 
+                                  className="btn btn-sm btn-light text-primary shadow-sm border me-1" 
+                                  onClick={() => abrirFormModal(u)} 
+                                  title="Editar Usuario"
+                                >
+                                  <i className="bi bi-pencil-square"></i>
+                                </button>
+                              )}
+                              {canDeleteU && (
+                                <button 
+                                  className="btn btn-sm btn-light text-warning shadow-sm border me-1" 
+                                  onClick={() => resetearClave(u)} 
+                                  title="Resetear Clave a Cédula"
+                                >
+                                  <i className="bi bi-key-fill"></i>
+                                </button>
+                              )}
+                              {canDeleteU && (
+                                <button 
+                                  className="btn btn-sm btn-light text-danger shadow-sm border" 
+                                  onClick={() => eliminarUsuario(u)} 
+                                  title="Eliminar Usuario"
+                                >
+                                  <i className="bi bi-trash3-fill"></i>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -721,9 +836,9 @@ export const GestionUsuarios = () => {
                         value={formEscuela}
                         onChange={(e) => setFormEscuela(e.target.value)}
                       >
-                        <option value="lb">UE Libertador Bolívar</option>
-                        <option value="sb">UE Santa Bárbara</option>
-                        <option value="ambas">Ambas Instituciones</option>
+                        {canCreateLB && <option value="lb">UE Libertador Bolívar</option>}
+                        {canCreateSB && <option value="sb">UE Santa Bárbara</option>}
+                        {canCreateLB && canCreateSB && <option value="ambas">Ambas Instituciones</option>}
                       </select>
                     </div>
                     <div className="col-6">

@@ -60,7 +60,11 @@ export const GradosSalones = () => {
   // Permissions checks
   const pGrupos = tienePermiso('Tarjeta: Configurar Grados', 'ver');
   const pSecc = tienePermiso('Tarjeta: Configurar Secciones', 'ver');
-  const pSalones = tienePermiso('Tarjeta: Apertura de Salones', 'ver');
+  
+  // Apertura de salones específica por escuela
+  const canSalonesSB = tienePermisoEnEscuela('sb', 'Tarjeta: Apertura de Salones', 'ver');
+  const canSalonesLB = tienePermisoEnEscuela('lb', 'Tarjeta: Apertura de Salones', 'ver');
+  const pSalones = canSalonesSB || canSalonesLB;
 
   const canCrearGrados = tienePermiso('Tarjeta: Configurar Grados', 'crear');
   const canEliminarGrados = tienePermiso('Tarjeta: Configurar Grados', 'eliminar');
@@ -68,16 +72,19 @@ export const GradosSalones = () => {
   const canCrearSecciones = tienePermiso('Tarjeta: Configurar Secciones', 'crear');
   const canEliminarSecciones = tienePermiso('Tarjeta: Configurar Secciones', 'eliminar');
 
-  const canCrearSalones = tienePermiso('Tarjeta: Apertura de Salones', 'crear');
-  const canEliminarSalones = tienePermiso('Tarjeta: Apertura de Salones', 'eliminar');
+  // Crear/Eliminar salones específicas por escuela
+  const canCrearSalonesSB = tienePermisoEnEscuela('sb', 'Tarjeta: Apertura de Salones', 'crear');
+  const canCrearSalonesLB = tienePermisoEnEscuela('lb', 'Tarjeta: Apertura de Salones', 'crear');
+  const canCrearSalones = canCrearSalonesSB || canCrearSalonesLB;
+
+  const canEliminarSalonesSB = tienePermisoEnEscuela('sb', 'Tarjeta: Apertura de Salones', 'eliminar');
+  const canEliminarSalonesLB = tienePermisoEnEscuela('lb', 'Tarjeta: Apertura de Salones', 'eliminar');
 
   const isModuleRestricted = !permLoading && !pGrupos && !pSecc && !pSalones;
 
-  const hasAccessSB = tienePermisoEnEscuela('sb', 'Grados y Salones', 'ver');
-  const hasAccessLB = tienePermisoEnEscuela('lb', 'Grados y Salones', 'ver');
-  const escuelasAutorizadas = [
-    ...(hasAccessSB ? ['sb'] : []),
-    ...(hasAccessLB ? ['lb'] : [])
+  const escuelasAutorizadasSalones = [
+    ...(canSalonesSB ? ['sb'] : []),
+    ...(canSalonesLB ? ['lb'] : [])
   ];
 
   useEffect(() => {
@@ -114,24 +121,24 @@ export const GradosSalones = () => {
       setSecciones(secRes.data || []);
       setEspacios(espRes.data || []);
 
-      // Fetch salones according to authorized schools
+      // Fetch salones according to authorized schools for classroom opening
       let salonesQuery = supabase.from('salones').select('*');
-      if (escuelasAutorizadas.length === 1) {
-        salonesQuery = salonesQuery.eq('id_escuela', escuelasAutorizadas[0]);
-      } else if (escuelasAutorizadas.length === 0) {
+      if (escuelasAutorizadasSalones.length === 1) {
+        salonesQuery = salonesQuery.eq('id_escuela', escuelasAutorizadasSalones[0]);
+      } else if (escuelasAutorizadasSalones.length === 0) {
         salonesQuery = salonesQuery.eq('id_escuela', 'ninguna');
       } else {
-        salonesQuery = salonesQuery.in('id_escuela', escuelasAutorizadas);
+        salonesQuery = salonesQuery.in('id_escuela', escuelasAutorizadasSalones);
       }
 
       const salonesRes = await salonesQuery;
       if (salonesRes.error) throw salonesRes.error;
       setSalones(salonesRes.data || []);
 
-      // Initialize filter
-      if (escuelaFiltro === 'todas' || !escuelasAutorizadas.includes(escuelaFiltro)) {
-        if (escuelasAutorizadas.length === 1) {
-          setEscuelaFiltro(escuelasAutorizadas[0]);
+      // Initialize filter based on authorized schools for salones
+      if (escuelaFiltro === 'todas' || !escuelasAutorizadasSalones.includes(escuelaFiltro)) {
+        if (escuelasAutorizadasSalones.length === 1) {
+          setEscuelaFiltro(escuelasAutorizadasSalones[0]);
         } else {
           setEscuelaFiltro('todas');
         }
@@ -379,7 +386,18 @@ export const GradosSalones = () => {
     let optSecc = '<option value="">Seleccione Sección...</option>';
     secciones.forEach(s => optSecc += `<option value="${s.valor}">${s.valor}</option>`);
 
-    const espaciosFiltrados = espacios.filter(e => escuelasAutorizadas.includes(e.id_escuela));
+    // Filter spaces by school-specific permissions (must have ver and crear permission for classroom opening)
+    const espaciosFiltrados = espacios.filter(e => {
+      const canVer = e.id_escuela === 'sb' ? canSalonesSB : canSalonesLB;
+      const canCrear = e.id_escuela === 'sb' ? canCrearSalonesSB : canCrearSalonesLB;
+      return canVer && canCrear;
+    });
+
+    if (espaciosFiltrados.length === 0) {
+      Swal.fire('Sin Permisos o Espacios', 'No posee espacios físicos configurados en las escuelas autorizadas para aperturar salones.', 'warning');
+      return;
+    }
+
     let optEspacios = '<option value="">Seleccione Espacio Físico...</option>';
     espaciosFiltrados.forEach(e => {
       const nombreEscuelaStr = e.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar';
@@ -460,6 +478,14 @@ export const GradosSalones = () => {
           Swal.showValidationMessage('Todos los campos son obligatorios');
           return false;
         }
+        
+        // Double check creation privileges for target school
+        const rowCanCrear = esc === 'sb' ? canCrearSalonesSB : canCrearSalonesLB;
+        if (!rowCanCrear) {
+          Swal.showValidationMessage('No tiene permisos de creación para esta escuela');
+          return false;
+        }
+        
         return { escuela: esc, nivel: niv, grado: gra, seccion: sec, id_espacio: esp };
       }
     }).then(async (result: any) => {
@@ -520,10 +546,15 @@ export const GradosSalones = () => {
   };
 
   const editarSalon = (id_salon: string) => {
-    if (!canCrearSalones) return;
-
     const salon = salones.find(s => s.id_salon === id_salon);
     if (!salon) return;
+
+    // Check specific school creation/modifying privileges
+    const rowCanCrear = salon.id_escuela === 'sb' ? canCrearSalonesSB : canCrearSalonesLB;
+    if (!rowCanCrear) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No posee permisos de edición para la escuela de este salón.', 'error');
+      return;
+    }
 
     let optNiveles = '<option value="">Seleccione Nivel...</option>';
     niveles.forEach(n => {
@@ -673,7 +704,15 @@ export const GradosSalones = () => {
   };
 
   const eliminarSalon = (id_salon: string, nombre_salon: string) => {
-    if (!canEliminarSalones) return;
+    const salon = salones.find(s => s.id_salon === id_salon);
+    if (!salon) return;
+
+    // Check specific school deletion privileges
+    const rowCanEliminar = salon.id_escuela === 'sb' ? canEliminarSalonesSB : canEliminarSalonesLB;
+    if (!rowCanEliminar) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No posee permisos para clausurar salones en esta escuela.', 'error');
+      return;
+    }
 
     if (!Swal) return;
 
@@ -953,7 +992,7 @@ export const GradosSalones = () => {
           <div className="col-12">
             {/* Resumen Cards */}
             <div className="row g-4 mb-4">
-              {escuelasAutorizadas.map(codigo => {
+              {escuelasAutorizadasSalones.map(codigo => {
                 const nombreEscuelaStr = codigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
                 const salonesEsc = salones.filter(s => s.id_escuela === codigo);
                 const total = salonesEsc.length;
@@ -1025,7 +1064,7 @@ export const GradosSalones = () => {
 
             {/* Quick Filter Pills */}
             <div className="d-flex justify-content-start align-items-center mb-3 flex-wrap gap-2">
-              {escuelasAutorizadas.length > 1 && (
+              {escuelasAutorizadasSalones.length > 1 && (
                 <button 
                   className={`btn rounded-pill px-3 py-2 fw-bold me-2 mb-2 border-0 ${escuelaFiltro === 'todas' ? 'bg-info text-white shadow-sm' : 'text-secondary bg-light'}`}
                   style={{ fontSize: '0.85rem' }}
@@ -1035,7 +1074,7 @@ export const GradosSalones = () => {
                 </button>
               )}
 
-              {escuelasAutorizadas.map(codigo => {
+              {escuelasAutorizadasSalones.map(codigo => {
                 const nombreEscuelaStr = codigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
                 const count = salones.filter(s => s.id_escuela === codigo).length;
                 return (
@@ -1119,6 +1158,9 @@ export const GradosSalones = () => {
                             </span>
                           );
 
+                          const rowCanCrear = s.id_escuela === 'sb' ? canCrearSalonesSB : canCrearSalonesLB;
+                          const rowCanEliminar = s.id_escuela === 'sb' ? canEliminarSalonesSB : canEliminarSalonesLB;
+
                           return (
                             <tr key={s.id_salon} className="align-middle hover-efecto">
                               <td className="ps-4">
@@ -1138,10 +1180,10 @@ export const GradosSalones = () => {
                                 </span>
                               </td>
                               <td className="text-end pe-4 text-nowrap">
-                                {canCrearSalones && (
+                                {rowCanCrear && (
                                   <button className="btn btn-sm btn-light text-primary border shadow-sm hover-efecto me-1" onClick={() => editarSalon(s.id_salon)} title="Editar Salón"><i className="bi bi-pencil-fill"></i></button>
                                 )}
-                                {canEliminarSalones && (
+                                {rowCanEliminar && (
                                   <button className="btn btn-sm btn-light text-danger border shadow-sm hover-efecto" onClick={() => eliminarSalon(s.id_salon, s.nombre_salon)} title="Clausurar Salón"><i className="bi bi-trash3-fill"></i></button>
                                 )}
                               </td>

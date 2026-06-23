@@ -330,7 +330,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             <img src="/assets/img/logo_carga.png" alt="SIGAE" height="70" />
           </div>
           <div className="fw-bold text-center mb-2 footer-anio">
-            Escuelas DEP Oriente <span>2024</span> | <span className="text-primary">Versión 1.0</span>
+            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary">Versión 1.0</span>
           </div>
         </footer>
       </main>

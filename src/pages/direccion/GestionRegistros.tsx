@@ -274,12 +274,17 @@ export const GestionRegistros = () => {
     }).then(async (res: any) => {
       if (res.isConfirmed) {
         try {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('invitados')
             .delete()
-            .eq('id_invitado', id);
+            .eq('id_invitado', id)
+            .select();
 
           if (error) throw error;
+
+          if (!data || data.length === 0) {
+            throw new Error("No se eliminó ningún registro en la base de datos. Verifique que la política RLS de tipo DELETE esté configurada para la tabla 'invitados'.");
+          }
 
           auditar(
             'Gestión de Registros', 
@@ -289,9 +294,9 @@ export const GestionRegistros = () => {
 
           await cargarVisitantes();
           Swal.fire("Eliminado", "El registro ha sido removido.", "success");
-        } catch (err) {
+        } catch (err: any) {
           console.error(err);
-          Swal.fire("Error", "No se pudo eliminar el registro de visita.", "error");
+          Swal.fire("Error", err?.message || "No se pudo eliminar el registro de visita.", "error");
         }
       }
     });
