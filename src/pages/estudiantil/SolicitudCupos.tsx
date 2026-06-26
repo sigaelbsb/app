@@ -4,31 +4,28 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 
+// ─── HELPER: MODO TÍTULO ────────────────────────────────────────────────────────
+// Convierte cada palabra a Title Case sin forzar mayúscula/minúscula sostenida
+const toTitulo = (value: string): string =>
+  value
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
+// Handler para inputs de texto que aplica modo título al escribir
+const handleTituloChange = (
+  e: React.ChangeEvent<HTMLInputElement>,
+  setter: (val: string) => void
+) => {
+  const raw = e.target.value;
+  // Sólo aplica título si el usuario NO está borrando (evitar conflicto al borrar)
+  // Se preserva el espacio al final para permitir escribir la siguiente palabra
+  const endsWithSpace = raw.endsWith(' ');
+  const converted = toTitulo(raw.trimEnd());
+  setter(endsWithSpace ? converted + ' ' : converted);
+};
+
 // ─── CONSTANTES ────────────────────────────────────────────────────────────────
-
-const GRADOS = [
-  'II Grupo (Inicial)',
-  'III Grupo (Inicial)',
-  '1° Grado',
-  '2° Grado',
-  '3° Grado',
-  '4° Grado',
-  '5° Grado',
-  '6° Grado',
-  '1° Año (Media General)',
-  '2° Año (Media General)',
-  '3° Año (Media General)',
-  '4° Año (Media General)',
-  '5° Año (Media General)',
-];
-
-const PARENTESCOS = [
-  'Hijo o Hija',
-  'Sobrino o Sobrina',
-  'Nieto o Nieta',
-  'Hermano o Hermana',
-  'Otro',
-];
 
 const GERENCIAS_PDVSA = [
   'Ambiente',
@@ -66,10 +63,118 @@ const GERENCIAS_PDVSA = [
   'OTROS',
 ];
 
-const ANIOS_PREVIOS = ['2021 - 2022', '2022 - 2023', '2023 - 2024', 'Ninguna'];
+// ─── GEODATOS VENEZUELA ────────────────────────────────────────────────────────
+// Estados y sus municipios/parroquias más comunes
+const GEO_VENEZUELA: Record<string, Record<string, string[]>> = {
+  'Anzoátegui': {
+    'Simón Bolívar (El Tigre)': ['El Tigre', 'El Chaparro', 'Pariaguán', 'Punta de Mata'],
+    'Sotillo (Puerto La Cruz)': ['Puerto La Cruz', 'Guanta', 'El Morro'],
+    'Bolívar (Barcelona)': ['Barcelona', 'El Límon', 'Pozuelos'],
+    'Diego Bautista Urbaneja (Lecherías)': ['Lecherías', 'El Morro'],
+    'Anaco': ['Anaco', 'San Joaquín de Guere'],
+    'Juan Antonio Sotillo': ['Puerto La Cruz'],
+    'Independencia (Puerto Píritu)': ['Puerto Píritu', 'Boca de Uchire'],
+  },
+  'Monagas': {
+    'Maturín': ['Maturín', 'Santa Cruz', 'Boquerón', 'La Pica'],
+    'Cedeño (Caripito)': ['Caripito', 'El Tejero'],
+    'Ezequiel Zamora (Punta de Mata)': ['Punta de Mata'],
+    'Libertador (Temblador)': ['Temblador'],
+  },
+  'Bolívar': {
+    'Caroní (Puerto Ordaz)': ['Puerto Ordaz', 'San Félix', 'Cachamay', 'Unare'],
+    'Heres (Ciudad Bolívar)': ['Ciudad Bolívar', 'Vista al Sol', 'La Sabanita'],
+    'Sucre (Cumaná)': ['Cumaná'],
+  },
+  'Sucre': {
+    'Sucre (Cumaná)': ['Cumaná', 'Altagracia', 'San Juan'],
+    'Benítez (El Pilar)': ['El Pilar', 'Guaraúnos'],
+    'Bermúdez (Carúpano)': ['Carúpano', 'Macarapana'],
+  },
+  'Miranda': {
+    'Sucre (Petare)': ['Petare', 'Caucagua', 'La Dolorita'],
+    'Baruta': ['Baruta', 'El Cafetal', 'Las Minas'],
+    'Chacao': ['Chacao'],
+    'El Hatillo': ['El Hatillo', 'La Unión'],
+    'Guaicaipuro (Los Teques)': ['Los Teques', 'Carrizal'],
+  },
+  'Distrito Capital': {
+    'Libertador': ['Antimano', 'Caricuao', 'El Paraíso', 'El Valle', 'La Candelaria', 'La Pastora', 'Santa Rosalía'],
+  },
+  'Carabobo': {
+    'Valencia': ['El Viñedo', 'Naguanagua', 'San José', 'Candelaria'],
+    'Libertador (Tocuyito)': ['Tocuyito'],
+    'San Diego': ['San Diego'],
+  },
+  'Aragua': {
+    'Girardot (Maracay)': ['Maracay', 'Las Delicias', 'El Limón'],
+    'Santiago Mariño': ['Turmero', 'Cagua'],
+  },
+  'Lara': {
+    'Iribarren (Barquisimeto)': ['Barquisimeto', 'Catedral', 'Concepción', 'Juan de Villegas'],
+    'Jiménez (Quíbor)': ['Quíbor'],
+  },
+  'Zulia': {
+    'Maracaibo': ['Coquivacoa', 'Santa Lucía', 'Raúl Leoni', 'Juana de Ávila'],
+    'Cabimas': ['Cabimas', 'Punta Gorda'],
+    'Lagunillas (Ciudad Ojeda)': ['Ciudad Ojeda', 'Lagunillas'],
+  },
+  'Falcón': {
+    'Miranda (Coro)': ['Coro', 'Santa Ana', 'La Vela de Coro'],
+    'Carirubana (Punto Fijo)': ['Punto Fijo', 'Carirubana', 'Judibana'],
+  },
+  'Mérida': {
+    'Libertador (Mérida)': ['Mérida', 'El Llano', 'Milla', 'Sagrario'],
+    'Campo Elías (Ejido)': ['Ejido'],
+  },
+  'Táchira': {
+    'San Cristóbal': ['San Juan de Colón', 'La Concordia', 'Pedro María Morantes'],
+    'Lobatera': ['Lobatera'],
+  },
+  'Trujillo': {
+    'Valera': ['Valera', 'La Beatriz', 'Mendoza Fría'],
+    'Boconó': ['Boconó'],
+  },
+  'Portuguesa': {
+    'Guanare': ['Guanare', 'San José de la Montaña'],
+    'Páez (Acarigua)': ['Acarigua', 'Araure'],
+  },
+  'Barinas': {
+    'Barinas': ['Barinas', 'Corazón de Jesús', 'El Carmen'],
+    'Pedraza (Barrancas)': ['Barrancas'],
+  },
+  'Apure': {
+    'San Fernando': ['San Fernando de Apure', 'El Recreo'],
+    'Achaguas': ['Achaguas'],
+  },
+  'Guárico': {
+    'Juan Germán Roscio (San Juan de los Morros)': ['San Juan de los Morros', 'Parapara'],
+    'Ribas (Valle de La Pascua)': ['Valle de La Pascua'],
+  },
+  'Cojedes': {
+    'Tinaquillo': ['Tinaquillo'],
+    'San Carlos': ['San Carlos', 'Rómulo Gallegos'],
+  },
+  'Yaracuy': {
+    'San Felipe': ['San Felipe', 'Cocorote'],
+    'Nirgua': ['Nirgua'],
+  },
+  'Nueva Esparta': {
+    'Mariño (Porlamar)': ['Porlamar', 'Los Robles'],
+    'Maneiro (Pampatar)': ['Pampatar'],
+  },
+  'Delta Amacuro': {
+    'Tucupita': ['Tucupita'],
+  },
+  'Amazonas': {
+    'Atures (Puerto Ayacucho)': ['Puerto Ayacucho'],
+  },
+  'Dependencias Federales': {
+    'Dependencias Federales': ['Isla La Tortuga', 'Los Roques', 'Isla de Aves'],
+  },
+};
 
 // ─── GENERACIÓN DE CÓDIGO ÚNICO ────────────────────────────────────────────────
-
 const generarCodigoUnico = (escCodigo: string): string => {
   const year = new Date().getFullYear();
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -81,13 +186,10 @@ const generarCodigoUnico = (escCodigo: string): string => {
 };
 
 // ─── INTERFACES ────────────────────────────────────────────────────────────────
-
 interface SolicitudForm {
-  // Paso 1 - Términos
   acepta_terminos: boolean;
   codigo_unico: string;
-
-  // Paso 2 - Estudiante
+  // Estudiante
   estudiante_nombres: string;
   estudiante_apellidos: string;
   estudiante_cedula: string;
@@ -96,13 +198,15 @@ interface SolicitudForm {
   estudiante_orden_nacimiento: string;
   grado_solicitado: string;
   parentesco: string;
+  // Dirección
+  estado_habitacion: string;
+  municipio_habitacion: string;
+  parroquia_habitacion: string;
   direccion_habitacion: string;
-  localidad_habitacion: string;
-  solicitudes_previas: string[];
+  // Otros
   tiene_otros_inscritos: boolean;
   plantel_procedencia: string;
-
-  // Paso 3 - Representante
+  // Representante
   representante_nombres: string;
   representante_apellidos: string;
   representante_cedula: string;
@@ -111,8 +215,7 @@ interface SolicitudForm {
   representante_email: string;
   representante_parentesco: string;
   representante_trabaja_pdvsa: string;
-
-  // Paso 4 - PDVSA / Madre
+  // PDVSA / Madre
   pdvsa_tipo_nomina: string;
   pdvsa_gerencia: string;
   pdvsa_email_empresa: string;
@@ -144,10 +247,11 @@ const defaultForm = (): SolicitudForm => ({
   estudiante_sexo: 'Femenino',
   estudiante_orden_nacimiento: '',
   grado_solicitado: '',
-  parentesco: 'Hijo o Hija',
+  parentesco: '',
+  estado_habitacion: '',
+  municipio_habitacion: '',
+  parroquia_habitacion: '',
   direccion_habitacion: '',
-  localidad_habitacion: '',
-  solicitudes_previas: [],
   tiene_otros_inscritos: false,
   plantel_procedencia: '',
   representante_nombres: '',
@@ -170,7 +274,6 @@ const defaultForm = (): SolicitudForm => ({
 });
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
-
 export const SolicitudCupos = () => {
   const navigate = useNavigate();
   const { user, loading: permLoading } = usePermisos();
@@ -182,10 +285,17 @@ export const SolicitudCupos = () => {
   const [filterEstado, setFilterEstado] = useState('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Catálogos desde BD
+  const [gradosDB, setGradosDB] = useState<string[]>([]);
+  const [parentescosDB, setParentescosDB] = useState<string[]>([]);
+
   // Wizard state
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
+
+  // GPS state
+  const [loadingGPS, setLoadingGPS] = useState(false);
 
   // Evaluation state
   const [selectedSol, setSelectedSol] = useState<SolicitudDB | null>(null);
@@ -196,10 +306,17 @@ export const SolicitudCupos = () => {
   const escNombre = escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
   const isUserAdmin = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(user?.rol);
 
+  // Geodatos calculados
+  const municipiosDisponibles = form.estado_habitacion ? Object.keys(GEO_VENEZUELA[form.estado_habitacion] || {}) : [];
+  const parroquiasDisponibles = (form.estado_habitacion && form.municipio_habitacion)
+    ? (GEO_VENEZUELA[form.estado_habitacion]?.[form.municipio_habitacion] || [])
+    : [];
+
   useEffect(() => {
     if (!permLoading && user) {
       setActiveTab(isUserAdmin ? 'gestion' : 'mis_solicitudes');
       cargarDatos();
+      cargarCatalogos();
     }
   }, [permLoading, user, escCodigo]);
 
@@ -217,6 +334,33 @@ export const SolicitudCupos = () => {
       }));
     }
   }, [user, activeTab]);
+
+  const cargarCatalogos = async () => {
+    try {
+      const [gradosRes, parentescosRes] = await Promise.all([
+        supabase.from('conf_grados').select('valor').eq('codigo_escuela', localStorage.getItem('sigae_escuela_codigo') || 'sb').order('orden', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
+      ]);
+
+      if (gradosRes.data && gradosRes.data.length > 0) {
+        setGradosDB(gradosRes.data.map((g: any) => g.valor));
+      } else {
+        // Fallback si no hay filtro por escuela
+        const gr2 = await supabase.from('conf_grados').select('valor').order('orden', { ascending: true });
+        setGradosDB((gr2.data || []).map((g: any) => g.valor));
+      }
+
+      if (parentescosRes.data && parentescosRes.data.length > 0) {
+        setParentescosDB(parentescosRes.data.map((p: any) => p.valor));
+      } else {
+        setParentescosDB(['Hijo o Hija', 'Sobrino o Sobrina', 'Nieto o Nieta', 'Hermano o Hermana', 'Otro']);
+      }
+    } catch (e) {
+      console.error('Error cargando catálogos:', e);
+      setGradosDB(['II Grupo (Inicial)', 'III Grupo (Inicial)', '1° Grado', '2° Grado', '3° Grado', '4° Grado', '5° Grado', '6° Grado', '1° Año', '2° Año', '3° Año', '4° Año', '5° Año']);
+      setParentescosDB(['Hijo o Hija', 'Sobrino o Sobrina', 'Nieto o Nieta', 'Hermano o Hermana', 'Otro']);
+    }
+  };
 
   const cargarDatos = useCallback(async () => {
     setLoading(true);
@@ -237,18 +381,55 @@ export const SolicitudCupos = () => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleSolicitudPrevia = (anio: string) => {
-    const prev = form.solicitudes_previas;
-    if (anio === 'Ninguna') {
-      setForm(f => ({ ...f, solicitudes_previas: prev.includes('Ninguna') ? [] : ['Ninguna'] }));
-    } else {
-      const sinNinguna = prev.filter(a => a !== 'Ninguna');
-      if (sinNinguna.includes(anio)) {
-        setForm(f => ({ ...f, solicitudes_previas: sinNinguna.filter(a => a !== anio) }));
-      } else {
-        setForm(f => ({ ...f, solicitudes_previas: [...sinNinguna, anio] }));
-      }
+  // GPS: Obtener ubicación actual y reverse-geocodear con Nominatim
+  const handleObtenerUbicacion = () => {
+    if (!navigator.geolocation) {
+      if (Swal) Swal.fire('No disponible', 'Tu navegador no soporta geolocalización.', 'warning');
+      return;
     }
+    setLoadingGPS(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const resp = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=es`,
+            { headers: { 'Accept-Language': 'es' } }
+          );
+          const data = await resp.json();
+          const addr = data.address || {};
+          // Armar dirección aproximada
+          const calleNum = [addr.road, addr.house_number].filter(Boolean).join(' #');
+          const barrio = addr.suburb || addr.neighbourhood || addr.city_district || '';
+          const dirAprox = [calleNum, barrio].filter(Boolean).join(', ');
+          updateForm('direccion_habitacion', dirAprox || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+          // Intentar mapear estado venezolano
+          const stateRaw = addr.state || '';
+          const estadoMatch = Object.keys(GEO_VENEZUELA).find(e =>
+            stateRaw.toLowerCase().includes(e.split(' ')[0].toLowerCase())
+          );
+          if (estadoMatch) {
+            updateForm('estado_habitacion', estadoMatch);
+            updateForm('municipio_habitacion', '');
+            updateForm('parroquia_habitacion', '');
+          }
+        } catch {
+          if (Swal) Swal.fire('Error', 'No se pudo obtener la dirección desde la ubicación.', 'error');
+        } finally {
+          setLoadingGPS(false);
+        }
+      },
+      (err) => {
+        setLoadingGPS(false);
+        const msgs: Record<number, string> = {
+          1: 'Permiso de ubicación denegado. Por favor actívalo en la configuración de tu navegador.',
+          2: 'No se pudo obtener la posición. Verifica tu conexión GPS.',
+          3: 'Tiempo de espera agotado al obtener la ubicación.',
+        };
+        if (Swal) Swal.fire('Ubicación no disponible', msgs[err.code] || 'Error desconocido.', 'warning');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleIniciarSolicitud = () => {
@@ -266,24 +447,18 @@ export const SolicitudCupos = () => {
       if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios (*)', 'warning');
       return;
     }
-
     try {
       const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at'> = {
         ...form,
         codigo_escuela: escCodigo,
-        estudiante_orden_nacimiento: form.estudiante_orden_nacimiento,
-        solicitudes_previas: form.solicitudes_previas,
         estado: 'Pendiente',
         observaciones: '',
         creado_por: user?.cedula || form.representante_cedula,
       };
-
       const { data, error } = await supabase.from('solicitud_cupos').insert([payload]).select().single();
       if (error) throw error;
-
       await auditar('Solicitud de Cupos', 'Crear Solicitud',
         `Nueva solicitud ${form.codigo_unico} para: ${form.estudiante_nombres} ${form.estudiante_apellidos}`);
-
       setSolicitudGuardada(data as SolicitudDB);
       setStep(5);
     } catch (e: any) {
@@ -374,7 +549,6 @@ export const SolicitudCupos = () => {
     rechazados: solicitudes.filter(s => s.estado === 'Rechazado').length,
   };
 
-  // ─── QR URL ─────────────────────────────────────────────────────────────────
   const getQrUrl = (codigo: string) =>
     `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=SC:${encodeURIComponent(codigo)}&bgcolor=ffffff&color=166534&margin=10`;
 
@@ -398,7 +572,7 @@ export const SolicitudCupos = () => {
             >
               {step > s.num ? <i className="bi bi-check-lg"></i> : <i className={`bi ${s.icon}`}></i>}
             </div>
-            <span className={`text-center fw-semibold`} style={{ fontSize: '0.7rem', color: step >= s.num ? '#166534' : '#9ca3af' }}>
+            <span style={{ fontSize: '0.7rem', color: step >= s.num ? '#166534' : '#9ca3af', fontWeight: 600 }}>
               {s.label}
             </span>
           </div>
@@ -413,11 +587,12 @@ export const SolicitudCupos = () => {
     </div>
   );
 
-  // ─── PASO 1: TÉRMINOS Y CONDICIONES ──────────────────────────────────────────
+  // ─── PASO 1: TÉRMINOS ────────────────────────────────────────────────────────
   const renderStep1 = () => (
     <div className="animate__animated animate__fadeIn">
       <div className="text-center mb-4">
-        <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: 72, height: 72, border: '2px solid rgba(22,163,74,0.2)' }}>
+        <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+          style={{ width: 72, height: 72, border: '2px solid rgba(22,163,74,0.2)' }}>
           <i className="bi bi-shield-check text-success" style={{ fontSize: 32 }}></i>
         </div>
         <h5 className="fw-bold text-dark mb-1">Términos y Condiciones</h5>
@@ -426,10 +601,7 @@ export const SolicitudCupos = () => {
 
       <div className="bg-light rounded-4 p-4 border mb-4" style={{ maxHeight: 260, overflowY: 'auto', fontSize: '0.88rem', lineHeight: 1.7 }}>
         <p><strong>Estimado/a representante:</strong></p>
-        <p>
-          A continuación se presenta el formulario oficial de solicitud de cupos para el <strong>{escNombre}</strong>.
-          Lea detenidamente cada sección y proceda a dar respuesta a cada pregunta de forma veraz y actualizada.
-        </p>
+        <p>A continuación se presenta el formulario oficial de solicitud de cupos para el <strong>{escNombre}</strong>. Lea detenidamente cada sección y proceda a dar respuesta a cada pregunta de forma veraz y actualizada.</p>
         <ul>
           <li>La información suministrada será utilizada exclusivamente con fines académicos e institucionales.</li>
           <li>Toda información falsa o inexacta puede resultar en la anulación de la solicitud.</li>
@@ -437,13 +609,11 @@ export const SolicitudCupos = () => {
           <li>La institución se reserva el derecho de aprobar o rechazar las solicitudes según disponibilidad de cupos y criterios internos.</li>
           <li>La solicitud de cupo <strong>no garantiza</strong> la inscripción definitiva del estudiante.</li>
         </ul>
-        <p>
-          Al aceptar, declara que la información aportada en este formulario es <strong>veraz y actualizada</strong>, y autoriza al plantel a procesar dicha información conforme a sus políticas institucionales.
-        </p>
+        <p>Al aceptar, declara que la información aportada es <strong>veraz y actualizada</strong>, y autoriza al plantel a procesarla conforme a sus políticas institucionales.</p>
       </div>
 
       <div
-        className={`p-4 rounded-4 border-2 mb-4 cursor-pointer ${form.acepta_terminos ? 'bg-success bg-opacity-10 border-success' : 'bg-white border'}`}
+        className={`p-4 rounded-4 mb-4 ${form.acepta_terminos ? 'bg-success bg-opacity-10' : 'bg-white border'}`}
         style={{ cursor: 'pointer', borderStyle: 'solid', borderWidth: 2, borderColor: form.acepta_terminos ? '#16a34a' : '#d1d5db', transition: 'all 0.3s' }}
         onClick={() => updateForm('acepta_terminos', !form.acepta_terminos)}
       >
@@ -462,11 +632,7 @@ export const SolicitudCupos = () => {
       </div>
 
       <div className="text-end">
-        <button
-          className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto"
-          onClick={handleIniciarSolicitud}
-          disabled={!form.acepta_terminos}
-        >
+        <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={handleIniciarSolicitud} disabled={!form.acepta_terminos}>
           Continuar <i className="bi bi-arrow-right ms-1"></i>
         </button>
       </div>
@@ -482,20 +648,35 @@ export const SolicitudCupos = () => {
       </div>
 
       <div className="row g-3">
-        <div className="col-md-6">
-          <label className="form-label fw-semibold">Nombres y Apellidos del Estudiante <span className="text-danger">*</span></label>
-          <input type="text" className="form-control input-moderno" placeholder="Ej. María Alejandra García López"
-            value={`${form.estudiante_nombres}${form.estudiante_apellidos ? ' ' + form.estudiante_apellidos : ''}`}
-            onChange={(e) => {
-              const parts = e.target.value.split(' ');
-              const mid = Math.ceil(parts.length / 2);
-              updateForm('estudiante_nombres', parts.slice(0, mid).join(' '));
-              updateForm('estudiante_apellidos', parts.slice(mid).join(' '));
-            }} required />
-          <div className="form-text">Escribe el nombre completo (nombres y apellidos)</div>
+        {/* NOMBRES — campo separado con modo título */}
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Nombres del Estudiante <span className="text-danger">*</span></label>
+          <input
+            type="text"
+            className="form-control input-moderno"
+            placeholder="Ej. María Alejandra"
+            value={form.estudiante_nombres}
+            onChange={(e) => handleTituloChange(e, (v) => updateForm('estudiante_nombres', v))}
+            required
+          />
+          <div className="form-text">Solo los nombres (sin apellidos)</div>
         </div>
 
-        <div className="col-md-3">
+        {/* APELLIDOS — campo separado con modo título */}
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Apellidos del Estudiante <span className="text-danger">*</span></label>
+          <input
+            type="text"
+            className="form-control input-moderno"
+            placeholder="Ej. García López"
+            value={form.estudiante_apellidos}
+            onChange={(e) => handleTituloChange(e, (v) => updateForm('estudiante_apellidos', v))}
+            required
+          />
+          <div className="form-text">Solo los apellidos</div>
+        </div>
+
+        <div className="col-md-4">
           <label className="form-label fw-semibold">N° Cédula / Escolar</label>
           <input type="text" className="form-control input-moderno" placeholder="Ej. 32123456"
             value={form.estudiante_cedula} onChange={(e) => updateForm('estudiante_cedula', e.target.value)} />
@@ -522,66 +703,43 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="col-md-3">
-          <label className="form-label fw-semibold">N° de Hijo/a en la Familia <span className="text-danger">*</span></label>
+          <label className="form-label fw-semibold">N° de Hijo/a en la Familia</label>
           <input type="number" min="1" max="20" className="form-control input-moderno" placeholder="Ej. 2"
             value={form.estudiante_orden_nacimiento} onChange={(e) => updateForm('estudiante_orden_nacimiento', e.target.value)} />
           <div className="form-text">Orden de nacimiento entre sus hermanos</div>
         </div>
 
         <div className="col-md-3">
+          <label className="form-label fw-semibold">Plantel de Procedencia</label>
+          <input type="text" className="form-control input-moderno" placeholder="Escuela anterior (si aplica)"
+            value={form.plantel_procedencia}
+            onChange={(e) => handleTituloChange(e, (v) => updateForm('plantel_procedencia', v))} />
+        </div>
+
+        {/* Grado desde BD */}
+        <div className="col-md-4">
           <label className="form-label fw-semibold">Grado o Año a Cursar <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.grado_solicitado}
             onChange={(e) => updateForm('grado_solicitado', e.target.value)} required>
             <option value="">Seleccione...</option>
-            {GRADOS.map((g, i) => <option key={i} value={g}>{g}</option>)}
+            {gradosDB.map((g, i) => <option key={i} value={g}>{g}</option>)}
           </select>
         </div>
 
-        <div className="col-md-3">
-          <label className="form-label fw-semibold">Parentesco <span className="text-danger">*</span></label>
+        {/* Parentesco desde BD */}
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Parentesco con el Estudiante <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.parentesco}
             onChange={(e) => updateForm('parentesco', e.target.value)} required>
-            {PARENTESCOS.map((p, i) => <option key={i} value={p}>{p}</option>)}
+            <option value="">Seleccione...</option>
+            {parentescosDB.map((p, i) => <option key={i} value={p}>{p}</option>)}
           </select>
-          <div className="form-text">Parentesco con quien llena el formulario</div>
+          <div className="form-text">Parentesco del solicitante con el estudiante</div>
         </div>
 
-        <div className="col-md-6">
-          <label className="form-label fw-semibold">Dirección de Habitación <span className="text-danger">*</span></label>
-          <input type="text" className="form-control input-moderno"
-            placeholder="Ej. Guaritos I, Vereda 52, Casa #24"
-            value={form.direccion_habitacion} onChange={(e) => updateForm('direccion_habitacion', e.target.value)} required />
-        </div>
-
-        <div className="col-md-3">
-          <label className="form-label fw-semibold">Localidad <span className="text-danger">*</span></label>
-          <input type="text" className="form-control input-moderno" placeholder="Ej. Guaritos, El Tigre..."
-            value={form.localidad_habitacion} onChange={(e) => updateForm('localidad_habitacion', e.target.value)} required />
-        </div>
-
-        <div className="col-md-3">
-          <label className="form-label fw-semibold">Plantel de Procedencia</label>
-          <input type="text" className="form-control input-moderno" placeholder="Escuela anterior (si aplica)"
-            value={form.plantel_procedencia} onChange={(e) => updateForm('plantel_procedencia', e.target.value)} />
-        </div>
-
-        <div className="col-12">
-          <label className="form-label fw-semibold">Solicitudes Realizadas en Años Anteriores <span className="text-danger">*</span></label>
-          <div className="d-flex flex-wrap gap-2 mt-1">
-            {ANIOS_PREVIOS.map(anio => (
-              <button key={anio} type="button"
-                className={`btn rounded-pill px-3 fw-semibold ${form.solicitudes_previas.includes(anio) ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                onClick={() => toggleSolicitudPrevia(anio)}>
-                {form.solicitudes_previas.includes(anio) && <i className="bi bi-check-lg me-1"></i>}
-                {anio}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="col-12">
-          <label className="form-label fw-semibold">¿Tiene otro(s) representado(s) inscrito(s) en el plantel? <span className="text-danger">*</span></label>
-          <div className="d-flex gap-3 mt-1">
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">¿Tiene otros representados inscritos? <span className="text-danger">*</span></label>
+          <div className="d-flex gap-3 mt-2">
             {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
               <button key={opt.label} type="button"
                 className={`btn rounded-pill px-4 fw-semibold ${form.tiene_otros_inscritos === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
@@ -591,6 +749,78 @@ export const SolicitudCupos = () => {
             ))}
           </div>
         </div>
+
+        {/* SECCIÓN DIRECCIÓN CON GPS */}
+        <div className="col-12 mt-3">
+          <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+            <i className="bi bi-geo-alt-fill text-success fs-5"></i>
+            <h6 className="fw-bold text-dark mb-0">Dirección de Habitación</h6>
+          </div>
+        </div>
+
+        {/* Botón GPS */}
+        <div className="col-12">
+          <button
+            type="button"
+            className="btn btn-outline-success rounded-pill fw-semibold hover-efecto"
+            onClick={handleObtenerUbicacion}
+            disabled={loadingGPS}
+          >
+            {loadingGPS
+              ? <><span className="spinner-border spinner-border-sm me-2"></span>Obteniendo ubicación...</>
+              : <><i className="bi bi-geo-alt-fill me-2"></i>Usar mi ubicación actual (GPS)</>
+            }
+          </button>
+          <span className="text-muted small ms-3">O completa los campos manualmente</span>
+        </div>
+
+        {/* Estado */}
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Estado <span className="text-danger">*</span></label>
+          <select className="form-select input-moderno" value={form.estado_habitacion}
+            onChange={(e) => {
+              updateForm('estado_habitacion', e.target.value);
+              updateForm('municipio_habitacion', '');
+              updateForm('parroquia_habitacion', '');
+            }} required>
+            <option value="">Seleccione el Estado...</option>
+            {Object.keys(GEO_VENEZUELA).sort().map(est => (
+              <option key={est} value={est}>{est}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Municipio (cascada) */}
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Municipio <span className="text-danger">*</span></label>
+          <select className="form-select input-moderno" value={form.municipio_habitacion}
+            onChange={(e) => { updateForm('municipio_habitacion', e.target.value); updateForm('parroquia_habitacion', ''); }}
+            required disabled={!form.estado_habitacion}>
+            <option value="">Seleccione el Municipio...</option>
+            {municipiosDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+
+        {/* Parroquia (cascada) */}
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Parroquia / Sector</label>
+          <select className="form-select input-moderno" value={form.parroquia_habitacion}
+            onChange={(e) => updateForm('parroquia_habitacion', e.target.value)}
+            disabled={!form.municipio_habitacion}>
+            <option value="">Seleccione la Parroquia...</option>
+            {parroquiasDisponibles.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+
+        {/* Dirección detallada */}
+        <div className="col-12">
+          <label className="form-label fw-semibold">Dirección Detallada <span className="text-danger">*</span></label>
+          <input type="text" className="form-control input-moderno"
+            placeholder="Ej. Guaritos I, Vereda 52, Casa #24"
+            value={form.direccion_habitacion}
+            onChange={(e) => updateForm('direccion_habitacion', e.target.value)} required />
+          <div className="form-text">Indica la urbanización, vereda, casa o apartamento</div>
+        </div>
       </div>
 
       <div className="d-flex justify-content-between mt-4 pt-3 border-top">
@@ -599,7 +829,7 @@ export const SolicitudCupos = () => {
         </button>
         <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto"
           onClick={() => {
-            if (!form.estudiante_nombres || !form.estudiante_fecha_nacimiento || !form.grado_solicitado || !form.direccion_habitacion || !form.localidad_habitacion) {
+            if (!form.estudiante_nombres || !form.estudiante_apellidos || !form.estudiante_fecha_nacimiento || !form.grado_solicitado || !form.estado_habitacion || !form.direccion_habitacion) {
               if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios (*)', 'warning');
               return;
             }
@@ -620,44 +850,46 @@ export const SolicitudCupos = () => {
       </div>
 
       <div className="row g-3">
-        <div className="col-md-6">
-          <label className="form-label fw-semibold">Nombres y Apellidos (Representante) <span className="text-danger">*</span></label>
-          <input type="text" className="form-control input-moderno" placeholder="Nombres completos"
-            value={`${form.representante_nombres}${form.representante_apellidos ? ' ' + form.representante_apellidos : ''}`}
-            onChange={(e) => {
-              const parts = e.target.value.split(' ');
-              const mid = Math.ceil(parts.length / 2);
-              updateForm('representante_nombres', parts.slice(0, mid).join(' '));
-              updateForm('representante_apellidos', parts.slice(mid).join(' '));
-            }} required />
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Nombres (Representante) <span className="text-danger">*</span></label>
+          <input type="text" className="form-control input-moderno" placeholder="Ej. Carlos Alberto"
+            value={form.representante_nombres}
+            onChange={(e) => handleTituloChange(e, (v) => updateForm('representante_nombres', v))} required />
         </div>
 
-        <div className="col-md-3">
-          <label className="form-label fw-semibold">N° Cédula de Identidad (Padre/Rep.) <span className="text-danger">*</span></label>
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Apellidos (Representante) <span className="text-danger">*</span></label>
+          <input type="text" className="form-control input-moderno" placeholder="Ej. Ramírez Pérez"
+            value={form.representante_apellidos}
+            onChange={(e) => handleTituloChange(e, (v) => updateForm('representante_apellidos', v))} required />
+        </div>
+
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">N° Cédula (Padre/Rep.) <span className="text-danger">*</span></label>
           <input type="text" className="form-control input-moderno" placeholder="Ej. 13567896"
             value={form.representante_cedula} onChange={(e) => updateForm('representante_cedula', e.target.value)} required />
           <div className="form-text">Solo el número, sin puntos ni letras</div>
         </div>
 
-        <div className="col-md-3">
+        <div className="col-md-4">
           <label className="form-label fw-semibold">Parentesco <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.representante_parentesco}
             onChange={(e) => updateForm('representante_parentesco', e.target.value)}>
-            <option>Padre</option>
-            <option>Madre</option>
-            <option>Abuelo/a</option>
-            <option>Tío/a</option>
-            <option>Representante Legal</option>
+            <option value="Padre">Padre</option>
+            <option value="Madre">Madre</option>
+            <option value="Abuelo/a">Abuelo/a</option>
+            <option value="Tío/a">Tío/a</option>
+            <option value="Representante Legal">Representante Legal</option>
           </select>
         </div>
 
-        <div className="col-md-3">
+        <div className="col-md-4">
           <label className="form-label fw-semibold">Teléfono Principal <span className="text-danger">*</span></label>
           <input type="text" className="form-control input-moderno" placeholder="Ej. 0291-6518384 ó 0416-6263890"
             value={form.representante_telefono} onChange={(e) => updateForm('representante_telefono', e.target.value)} required />
         </div>
 
-        <div className="col-md-3">
+        <div className="col-md-4">
           <label className="form-label fw-semibold">Teléfono Alternativo</label>
           <input type="text" className="form-control input-moderno" placeholder="Ej. 0291-6518384 ó 0416-6263890"
             value={form.representante_telefono2} onChange={(e) => updateForm('representante_telefono2', e.target.value)} />
@@ -669,7 +901,7 @@ export const SolicitudCupos = () => {
             value={form.representante_email} onChange={(e) => updateForm('representante_email', e.target.value)} required />
         </div>
 
-        <div className="col-md-3">
+        <div className="col-md-6">
           <label className="form-label fw-semibold">¿Trabaja en PDVSA? <span className="text-danger">*</span></label>
           <div className="d-flex flex-column gap-1 mt-1">
             {['No', 'Sí - Contractual', 'Sí - No Contractual', 'Jubilado/Pensionado'].map(op => (
@@ -691,7 +923,7 @@ export const SolicitudCupos = () => {
           </div>
           <div className="row g-3">
             <div className="col-md-4">
-              <label className="form-label fw-semibold">N° Cédula de Identidad (Madre)</label>
+              <label className="form-label fw-semibold">N° Cédula (Madre)</label>
               <input type="text" className="form-control input-moderno" placeholder="Ej. 13567896"
                 value={form.madre_cedula} onChange={(e) => updateForm('madre_cedula', e.target.value)} />
               <div className="form-text">Solo el número entero, sin puntos</div>
@@ -759,7 +991,6 @@ export const SolicitudCupos = () => {
                   ))}
                 </div>
               </div>
-
               <div className="col-md-6">
                 <label className="form-label fw-semibold">Organización / Gerencia <span className="text-danger">*</span></label>
                 <select className="form-select input-moderno" value={form.pdvsa_gerencia}
@@ -768,17 +999,16 @@ export const SolicitudCupos = () => {
                   {GERENCIAS_PDVSA.map((g, i) => <option key={i} value={g}>{g}</option>)}
                 </select>
               </div>
-
               <div className="col-md-3">
-                <label className="form-label fw-semibold">Correo Corporativo (Empresa)</label>
+                <label className="form-label fw-semibold">Correo Corporativo</label>
                 <input type="email" className="form-control input-moderno" placeholder="usuario@pdvsa.com"
                   value={form.pdvsa_email_empresa} onChange={(e) => updateForm('pdvsa_email_empresa', e.target.value)} />
               </div>
-
               <div className="col-md-3">
                 <label className="form-label fw-semibold">Localidad de Trabajo <span className="text-danger">*</span></label>
                 <input type="text" className="form-control input-moderno" placeholder="Ej. El Tigre, Maturín..."
-                  value={form.pdvsa_localidad_trabajo} onChange={(e) => updateForm('pdvsa_localidad_trabajo', e.target.value)} />
+                  value={form.pdvsa_localidad_trabajo}
+                  onChange={(e) => handleTituloChange(e, (v) => updateForm('pdvsa_localidad_trabajo', v))} />
               </div>
             </div>
           </>
@@ -801,12 +1031,11 @@ export const SolicitudCupos = () => {
               ))}
             </div>
           </div>
-
           {form.requiere_transporte && (
             <div className="col-md-8">
-              <label className="form-label fw-semibold">Ruta de Transporte Preferida</label>
+              <label className="form-label fw-semibold">Ruta o Sector Preferido</label>
               <input type="text" className="form-control input-moderno"
-                placeholder="Indica tu ruta o sector (Ej. Ruta 3 - Guaritos, Ruta 7 - El Tigre Centro)"
+                placeholder="Indica tu sector o ruta (Ej. Ruta 3 - Guaritos, Ruta 7 - El Tigre Centro)"
                 value={form.ruta_transporte} onChange={(e) => updateForm('ruta_transporte', e.target.value)} />
               <div className="form-text">La asignación final de ruta queda sujeta a la disponibilidad del plantel.</div>
             </div>
@@ -842,27 +1071,23 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="row g-3 justify-content-center mb-4">
-          {/* QR CODE CARD */}
           <div className="col-md-5">
-            <div className="card rounded-4 border-0 shadow p-4 h-100" style={{ background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '2px solid #86efac' }}>
+            <div className="card rounded-4 border-0 shadow p-4 h-100"
+              style={{ background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '2px solid #86efac' }}>
               <div className="fw-bold text-success text-uppercase small mb-2">
                 <i className="bi bi-qr-code-scan me-1"></i> Código de Verificación
               </div>
               <div className="bg-white rounded-3 p-2 d-inline-block mb-3 shadow-sm mx-auto">
-                <img src={qrUrl} alt="QR Code Solicitud" width={180} height={180}
-                  style={{ display: 'block', borderRadius: 8 }} />
+                <img src={qrUrl} alt="QR Code Solicitud" width={180} height={180} style={{ display: 'block', borderRadius: 8 }} />
               </div>
-              <div className="bg-success text-white rounded-3 py-2 px-3 d-inline-block mx-auto mb-2 fw-bold letter-spacing"
+              <div className="bg-success text-white rounded-3 py-2 px-3 d-inline-block mx-auto mb-2 fw-bold"
                 style={{ fontSize: '1rem', letterSpacing: 2, fontFamily: 'monospace' }}>
                 {sol.codigo_unico}
               </div>
-              <p className="text-muted small mb-0">
-                Guarda este código. Podrás usarlo para verificar el estado de tu solicitud en cualquier momento.
-              </p>
+              <p className="text-muted small mb-0">Guarda este código. Podrás usarlo para verificar el estado de tu solicitud.</p>
             </div>
           </div>
 
-          {/* RESUMEN CARD */}
           <div className="col-md-7">
             <div className="card rounded-4 border shadow-sm p-4 text-start h-100 bg-white">
               <div className="fw-bold text-dark text-uppercase small mb-3 border-bottom pb-2">
@@ -871,28 +1096,20 @@ export const SolicitudCupos = () => {
               <div className="row g-2 small">
                 <div className="col-5 text-muted">Estudiante:</div>
                 <div className="col-7 fw-semibold">{sol.estudiante_nombres} {sol.estudiante_apellidos}</div>
-
                 <div className="col-5 text-muted">Grado Solicitado:</div>
                 <div className="col-7 fw-semibold">{sol.grado_solicitado}</div>
-
                 <div className="col-5 text-muted">Representante:</div>
                 <div className="col-7 fw-semibold">{sol.representante_nombres} {sol.representante_apellidos}</div>
-
                 <div className="col-5 text-muted">C.I. Representante:</div>
                 <div className="col-7 fw-semibold">{sol.representante_cedula}</div>
-
                 <div className="col-5 text-muted">Teléfono:</div>
                 <div className="col-7 fw-semibold">{sol.representante_telefono}</div>
-
                 <div className="col-5 text-muted">Correo:</div>
                 <div className="col-7 fw-semibold text-truncate">{sol.representante_email}</div>
-
+                <div className="col-5 text-muted">Dirección:</div>
+                <div className="col-7 fw-semibold">{[sol.parroquia_habitacion, sol.municipio_habitacion, sol.estado_habitacion].filter(Boolean).join(', ')}</div>
                 <div className="col-5 text-muted">Plantel:</div>
                 <div className="col-7 fw-semibold">{escNombre}</div>
-
-                <div className="col-5 text-muted">Fecha de Registro:</div>
-                <div className="col-7 fw-semibold">{sol.created_at ? new Date(sol.created_at).toLocaleDateString('es-VE') : new Date().toLocaleDateString('es-VE')}</div>
-
                 <div className="col-5 text-muted">Estado:</div>
                 <div className="col-7">{getStatusBadge('Pendiente')}</div>
               </div>
@@ -904,8 +1121,7 @@ export const SolicitudCupos = () => {
           <div className="d-flex gap-2">
             <i className="bi bi-info-circle-fill text-warning fs-5 flex-shrink-0 mt-1"></i>
             <div className="small text-muted">
-              <strong className="text-dark">Próximos pasos:</strong> La Dirección del plantel evaluará tu solicitud y recibirás una notificación de respuesta.
-              Puedes hacer seguimiento en la sección <strong>"Mis Solicitudes"</strong> usando el código de verificación arriba.
+              <strong className="text-dark">Próximos pasos:</strong> La Dirección evaluará tu solicitud. Puedes hacer seguimiento en la sección <strong>"Mis Solicitudes"</strong> usando el código de verificación.
             </div>
           </div>
         </div>
@@ -945,7 +1161,7 @@ export const SolicitudCupos = () => {
         </button>
       </div>
 
-      {/* STATS (admin only) */}
+      {/* STATS (admin) */}
       {isUserAdmin && (
         <div className="row g-3 mb-4">
           {[
@@ -992,7 +1208,7 @@ export const SolicitudCupos = () => {
       {/* CONTENIDO */}
       <div className="bg-white border rounded-4 p-4 shadow-sm">
 
-        {/* TAB: GESTIÓN (admin) */}
+        {/* GESTIÓN (admin) */}
         {activeTab === 'gestion' && isUserAdmin && (
           <div>
             <h5 className="fw-bold text-dark mb-3"><i className="bi bi-card-checklist text-success me-2"></i>Control de Solicitudes de Admisión</h5>
@@ -1023,7 +1239,6 @@ export const SolicitudCupos = () => {
             {loading ? (
               <div className="text-center py-5">
                 <div className="spinner-border text-success" role="status"><span className="visually-hidden">Cargando...</span></div>
-                <div className="text-muted mt-2 small">Cargando solicitudes...</div>
               </div>
             ) : filteredSolicitudes.length === 0 ? (
               <div className="text-center py-5 text-muted bg-light rounded-4 border">
@@ -1055,11 +1270,9 @@ export const SolicitudCupos = () => {
                         </td>
                         <td>
                           <div className="fw-bold text-dark">{sol.estudiante_apellidos}, {sol.estudiante_nombres}</div>
-                          <span className="text-muted small"><i className="bi bi-person-badge me-1"></i>{sol.estudiante_cedula || 'Sin Cédula'}</span>
+                          <span className="text-muted small"><i className="bi bi-geo-alt me-1"></i>{[sol.municipio_habitacion, sol.estado_habitacion].filter(Boolean).join(', ') || '—'}</span>
                         </td>
-                        <td>
-                          <span className="badge bg-light text-dark border px-2" style={{ fontSize: '0.8rem' }}>{sol.grado_solicitado}</span>
-                        </td>
+                        <td><span className="badge bg-light text-dark border px-2">{sol.grado_solicitado}</span></td>
                         <td>
                           <div className="fw-semibold">{sol.representante_nombres} {sol.representante_apellidos}</div>
                           <span className="text-muted small">C.I: {sol.representante_cedula}</span>
@@ -1092,7 +1305,7 @@ export const SolicitudCupos = () => {
           </div>
         )}
 
-        {/* TAB: MIS SOLICITUDES */}
+        {/* MIS SOLICITUDES */}
         {activeTab === 'mis_solicitudes' && (
           <div>
             <div className="d-flex justify-content-between align-items-center mb-3">
@@ -1137,23 +1350,20 @@ export const SolicitudCupos = () => {
                           </div>
                         </div>
                       </div>
-
                       <div className="row g-2 mb-2 small">
                         <div className="col-6">
                           <span className="text-muted d-block">Representante:</span>
                           <span className="fw-semibold">{sol.representante_nombres} {sol.representante_apellidos}</span>
                         </div>
                         <div className="col-6">
-                          <span className="text-muted d-block">Teléfono:</span>
-                          <span className="fw-semibold">{sol.representante_telefono}</span>
+                          <span className="text-muted d-block">Ubicación:</span>
+                          <span className="fw-semibold">{[sol.municipio_habitacion, sol.estado_habitacion].filter(Boolean).join(', ') || sol.direccion_habitacion || '—'}</span>
                         </div>
                       </div>
-
                       <div className={`p-2 rounded-3 border small ${sol.estado === 'Aprobado' ? 'bg-success bg-opacity-10 text-success border-success-subtle' : sol.estado === 'Rechazado' ? 'bg-danger bg-opacity-10 text-danger border-danger-subtle' : 'bg-light text-secondary'}`}>
                         <div className="fw-bold mb-1"><i className="bi bi-chat-left-text-fill me-1"></i>Comentarios de Dirección:</div>
                         <div>{sol.observaciones || <em>Tu solicitud está en proceso de evaluación.</em>}</div>
                       </div>
-
                       {sol.estado === 'Pendiente' && (
                         <div className="text-end mt-2">
                           <button onClick={() => handleEliminarSolicitud(sol)} className="btn btn-sm btn-outline-danger border-0 rounded-pill">
@@ -1169,7 +1379,7 @@ export const SolicitudCupos = () => {
           </div>
         )}
 
-        {/* TAB: NUEVA SOLICITUD (WIZARD) */}
+        {/* NUEVA SOLICITUD (WIZARD) */}
         {activeTab === 'nueva_solicitud' && (
           <div>
             <div className="d-flex justify-content-between align-items-center mb-4">
@@ -1181,9 +1391,7 @@ export const SolicitudCupos = () => {
                 Paso {step} de 5
               </span>
             </div>
-
             {renderStepper()}
-
             <div className="mt-4">
               {step === 1 && renderStep1()}
               {step === 2 && renderStep2()}
@@ -1205,7 +1413,6 @@ export const SolicitudCupos = () => {
               </h5>
               <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="btn-close-eval-modal"></button>
             </div>
-
             <div className="modal-body p-4 bg-light">
               {selectedSol && (
                 <div className="row g-3">
@@ -1219,8 +1426,8 @@ export const SolicitudCupos = () => {
                         <div className="mb-1"><span className="text-muted">Nombre: </span><strong>{selectedSol.estudiante_nombres} {selectedSol.estudiante_apellidos}</strong></div>
                         <div className="mb-1"><span className="text-muted">Fecha Nac.: </span>{selectedSol.estudiante_fecha_nacimiento}</div>
                         <div className="mb-1"><span className="text-muted">Grado: </span><span className="badge bg-success bg-opacity-10 text-success border">{selectedSol.grado_solicitado}</span></div>
-                        <div className="mb-1"><span className="text-muted">Dirección: </span>{selectedSol.direccion_habitacion}</div>
-                        <div><span className="text-muted">PDVSA: </span>{selectedSol.representante_trabaja_pdvsa || '—'} {selectedSol.pdvsa_gerencia ? `• ${selectedSol.pdvsa_gerencia}` : ''}</div>
+                        <div className="mb-1"><span className="text-muted">Municipio: </span>{selectedSol.municipio_habitacion} — {selectedSol.estado_habitacion}</div>
+                        <div><span className="text-muted">Dirección: </span>{selectedSol.direccion_habitacion}</div>
                       </div>
                     </div>
                   </div>
@@ -1239,7 +1446,6 @@ export const SolicitudCupos = () => {
                       </div>
                     </div>
                   </div>
-
                   <div className="col-12 mt-3 pt-3 border-top">
                     <div className="row g-3">
                       <div className="col-md-4">
@@ -1261,7 +1467,6 @@ export const SolicitudCupos = () => {
                 </div>
               )}
             </div>
-
             <div className="modal-footer bg-white py-3 rounded-bottom-4 border-top">
               <button type="button" className="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Cerrar</button>
               <button type="button" onClick={handleEvaluarSolicitud} className="btn btn-success rounded-pill px-4 fw-semibold shadow hover-efecto">
