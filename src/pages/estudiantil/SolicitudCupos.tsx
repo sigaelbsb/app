@@ -338,7 +338,7 @@ export const SolicitudCupos = () => {
   const cargarCatalogos = async () => {
     try {
       const [gradosRes, parentescosRes] = await Promise.all([
-        supabase.from('conf_grados').select('valor').eq('codigo_escuela', localStorage.getItem('sigae_escuela_codigo') || 'sb').order('orden', { ascending: true }),
+        supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
       ]);
 
@@ -875,11 +875,8 @@ export const SolicitudCupos = () => {
           <label className="form-label fw-semibold">Parentesco <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.representante_parentesco}
             onChange={(e) => updateForm('representante_parentesco', e.target.value)}>
-            <option value="Padre">Padre</option>
-            <option value="Madre">Madre</option>
-            <option value="Abuelo/a">Abuelo/a</option>
-            <option value="Tío/a">Tío/a</option>
-            <option value="Representante Legal">Representante Legal</option>
+            <option value="">Seleccione...</option>
+            {parentescosDB.map((p, i) => <option key={i} value={p}>{p}</option>)}
           </select>
         </div>
 
