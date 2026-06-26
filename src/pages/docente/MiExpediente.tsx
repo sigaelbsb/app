@@ -2914,94 +2914,91 @@ export const MiExpediente = () => {
                 </table>
               </div>
 
-              {/* Sección de Estudios Superiores Adicionales (sólo Visible para Administradores) */}
-              {mostrarPaso7 && (
-                <>
-                  <div className="seccion-titulo mt-5"><i className="bi bi-mortarboard-fill me-2 text-success"></i>Ficha Docente: Estudios Superiores (Títulos Adicionales)</div>
-                  <p className="small text-muted mb-3">Registra y "suma" todos los títulos universitarios o de postgrado que posea el docente.</p>
+              {/* Sección de Estudios Superiores Adicionales (Títulos Universitarios / Postgrados Adicionales) */}
+              <div className="seccion-titulo mt-5"><i className="bi bi-mortarboard-fill me-2 text-success"></i>Estudios Superiores y Títulos Adicionales</div>
+              <p className="small text-muted mb-3">Registra y añade todos los títulos universitarios, pregrados o postgrados adicionales que poseas.</p>
 
-                  <div className="bg-light p-3 border rounded-4 mb-4">
-                    <div className="row g-2 align-items-end">
-                      <div className="col-md-3">
-                        <label className="small fw-bold text-muted mb-1">Nivel de Instrucción</label>
-                        <select className="form-select input-moderno" value={estNivel} onChange={(e) => setEstNivel(e.target.value)}>
-                          <option value="T.S.U.">T.S.U. (Técnico Superior)</option>
-                          <option value="Licenciatura / Profesorado">Licenciatura / Profesorado</option>
-                          <option value="Especialización">Especialización</option>
-                          <option value="Maestría">Maestría</option>
-                          <option value="Doctorado">Doctorado</option>
-                        </select>
-                      </div>
-                      <div className="col-md-3">
-                        <label className="small fw-bold text-muted mb-1">Título Obtenido</label>
-                        <input type="text" className="form-control input-moderno" placeholder="Ej. Magister en Gerencia" value={estTitulo} onChange={(e) => setEstTitulo(e.target.value)} onBlur={(e) => setEstTitulo(formatTitleCase(e.target.value))} />
-                      </div>
-                      <div className="col-md-3">
-                        <label className="small fw-bold text-muted mb-1">Universidad / Instituto</label>
-                        <input type="text" className="form-control input-moderno" placeholder="Ej. UPEL Maturín" value={estUniversidad} onChange={(e) => setEstUniversidad(e.target.value)} onBlur={(e) => setEstUniversidad(formatTitleCase(e.target.value))} />
-                      </div>
-                      <div className="col-md-1">
-                        <label className="small fw-bold text-muted mb-1">Año Egreso</label>
-                        <input type="number" className="form-control input-moderno" min="1970" max={new Date().getFullYear()} value={estAnio} onChange={(e) => setEstAnio(parseInt(e.target.value) || new Date().getFullYear())} />
-                      </div>
-                      <div className="col-md-2 d-flex gap-2">
-                        {editingEstudioIndex !== null ? (
-                          <>
-                            <button type="button" onClick={agregarEstudio} className="btn btn-success flex-grow-1 rounded-pill fw-bold hover-efecto" title="Guardar cambios">
-                              <i className="bi bi-check-circle"></i>
-                            </button>
-                            <button type="button" onClick={cancelarEdicionEstudio} className="btn btn-secondary rounded-pill fw-bold hover-efecto" title="Cancelar">
-                              <i className="bi bi-x-circle"></i>
-                            </button>
-                          </>
-                        ) : (
-                          <button type="button" onClick={agregarEstudio} className="btn btn-success w-100 rounded-pill fw-bold hover-efecto">
-                            <i className="bi bi-plus-circle me-1"></i> Sumar
-                          </button>
-                        )}
-                      </div>
-                    </div>
+              <div className="bg-light p-3 border rounded-4 mb-4">
+                <div className="row g-2 align-items-end">
+                  <div className="col-md-3">
+                    <label className="small fw-bold text-muted mb-1">Nivel de Instrucción</label>
+                    <select className="form-select input-moderno" value={estNivel} onChange={(e) => setEstNivel(e.target.value)}>
+                      <option value="T.S.U.">T.S.U. (Técnico Superior)</option>
+                      <option value="Licenciatura / Profesorado">Licenciatura / Profesorado</option>
+                      <option value="Especialización">Especialización</option>
+                      <option value="Maestría">Maestría</option>
+                      <option value="Doctorado">Doctorado</option>
+                    </select>
                   </div>
+                  <div className="col-md-3">
+                    <label className="small fw-bold text-muted mb-1">Título Obtenido</label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. Magister en Gerencia" value={estTitulo} onChange={(e) => setEstTitulo(e.target.value)} onBlur={(e) => setEstTitulo(formatTitleCase(e.target.value))} />
+                  </div>
+                  <div className="col-md-3">
+                    <label className="small fw-bold text-muted mb-1">Universidad / Instituto</label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. UPEL Maturín" value={estUniversidad} onChange={(e) => setEstUniversidad(e.target.value)} onBlur={(e) => setEstUniversidad(formatTitleCase(e.target.value))} />
+                  </div>
+                  <div className="col-md-1">
+                    <label className="small fw-bold text-muted mb-1">Año Egreso</label>
+                    <input type="number" className="form-control input-moderno" min="1970" max={new Date().getFullYear()} value={estAnio} onChange={(e) => setEstAnio(parseInt(e.target.value) || new Date().getFullYear())} />
+                  </div>
+                  <div className="col-md-2 d-flex gap-2">
+                    {editingEstudioIndex !== null ? (
+                      <>
+                        <button type="button" onClick={agregarEstudio} className="btn btn-success flex-grow-1 rounded-pill fw-bold hover-efecto" title="Guardar cambios">
+                          <i className="bi bi-check-circle"></i>
+                        </button>
+                        <button type="button" onClick={cancelarEdicionEstudio} className="btn btn-secondary rounded-pill fw-bold hover-efecto" title="Cancelar">
+                          <i className="bi bi-x-circle"></i>
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={agregarEstudio} className="btn btn-success w-100 rounded-pill fw-bold hover-efecto">
+                        <i className="bi bi-plus-circle me-1"></i> Sumar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                  <div className="table-responsive">
-                    <table className="table table-hover align-middle border">
-                      <thead className="bg-light text-muted small">
-                        <tr>
-                          <th>Nivel</th>
-                          <th>Título Obtenido</th>
-                          <th>Universidad / Instituto</th>
-                          <th>Año Egreso</th>
-                          <th className="text-end">Acciones</th>
+              <div className="table-responsive">
+                <table className="table table-hover align-middle border">
+                  <thead className="bg-light text-muted small">
+                    <tr>
+                      <th>Nivel</th>
+                      <th>Título Obtenido</th>
+                      <th>Universidad / Instituto</th>
+                      <th>Año Egreso</th>
+                      <th className="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(!formData.estudios_superiores || formData.estudios_superiores.length === 0) ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-4 text-muted">
+                          No hay títulos adicionales registrados en la Ficha Docente.
+                        </td>
+                      </tr>
+                    ) : (
+                      formData.estudios_superiores.map((est, idx) => (
+                        <tr key={idx} className={editingEstudioIndex === idx ? 'table-warning' : ''}>
+                          <td><span className="badge bg-info bg-opacity-10 text-info border">{est.nivel}</span></td>
+                          <td className="fw-bold">{est.titulo}</td>
+                          <td>{est.universidad}</td>
+                          <td>{est.anio_egreso}</td>
+                          <td className="text-end">
+                            <div className="d-flex justify-content-end gap-2">
+                              <button type="button" onClick={() => editarEstudio(idx)} className="btn btn-sm btn-outline-primary rounded-pill"><i className="bi bi-pencil-fill me-1"></i> Editar</button>
+                              <button type="button" onClick={() => eliminarEstudio(idx)} className="btn btn-sm btn-outline-danger rounded-pill"><i className="bi bi-trash-fill"></i> Eliminar</button>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {(!formData.estudios_superiores || formData.estudios_superiores.length === 0) ? (
-                          <tr>
-                            <td colSpan={5} className="text-center py-4 text-muted">
-                              No hay títulos adicionales registrados en la Ficha Docente.
-                            </td>
-                          </tr>
-                        ) : (
-                          formData.estudios_superiores.map((est, idx) => (
-                            <tr key={idx} className={editingEstudioIndex === idx ? 'table-warning' : ''}>
-                              <td><span className="badge bg-info bg-opacity-10 text-info border">{est.nivel}</span></td>
-                              <td className="fw-bold">{est.titulo}</td>
-                              <td>{est.universidad}</td>
-                              <td>{est.anio_egreso}</td>
-                              <td className="text-end">
-                                <div className="d-flex justify-content-end gap-2">
-                                  <button type="button" onClick={() => editarEstudio(idx)} className="btn btn-sm btn-outline-primary rounded-pill"><i className="bi bi-pencil-fill me-1"></i> Editar</button>
-                                  <button type="button" onClick={() => eliminarEstudio(idx)} className="btn btn-sm btn-outline-danger rounded-pill"><i className="bi bi-trash-fill"></i> Eliminar</button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
             </div>
 
             {/* STEP 6: PLAN DE FORMACION (CHOOSE UP TO 5 COURSES) */}
