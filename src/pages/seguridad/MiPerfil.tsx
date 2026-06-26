@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
+import { formatPhoneNumber } from '../../lib/formatters';
 
 export const MiPerfil = () => {
   const navigate = useNavigate();
@@ -116,7 +117,7 @@ export const MiPerfil = () => {
         setAppUser(userDetails);
         setNombre(userDetails.nombre_completo || userDetails.nombre || 'Usuario');
         setEmail(userDetails.email || '');
-        setTelefono(userDetails.telefono || '');
+        setTelefono(formatPhoneNumber(userDetails.telefono || ''));
         setClaveUltimaFecha(userDetails.fecha_ult_clave || null);
 
         let parsedPreg: any = {};
@@ -515,8 +516,9 @@ export const MiPerfil = () => {
                     <input 
                       type="text" 
                       className="input-moderno form-control" 
+                      placeholder="Ej. 0412-1234567"
                       value={telefono} 
-                      onChange={(e) => setTelefono(e.target.value)} 
+                      onChange={(e) => setTelefono(formatPhoneNumber(e.target.value))} 
                     />
                   </div>
 

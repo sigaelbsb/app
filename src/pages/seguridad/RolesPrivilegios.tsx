@@ -13,7 +13,7 @@ const ESTRUCTURA_ACCESOS = {
     "Configuración del Sistema": ["Tarjeta: Períodos Escolares", "Tarjeta: Lapsos Académicos", "Tarjeta: Niveles Educativos"],
     "Cerebro de Sigma": [],
     "Calendario Escolar": ["Tarjeta: Calendario Oficial MPPE", "Tarjeta: Calendario Administrativo", "Tarjeta: Calendario Pedagógico", "Tarjeta: Planificador"],
-    "Panel de Control": [] 
+    "Panel de Control": ["Ingresar en Mantenimiento"] 
   },
   "Organización Escolar": {
     "Cargos Institucionales": ["Tarjeta: Definir Cargos", "Tarjeta: Asignar Personal"],
@@ -35,8 +35,7 @@ const ESTRUCTURA_ACCESOS = {
     "Verificaciones": ["Función: Escanear QR", "Función: Re-imprimir Comprobante"]
   },
   "Gestión Docente": {
-    "Asignar Guiaturas": [], 
-    "Mi Expediente": [], 
+    "Mi Expediente": ["Tarjeta: Modificar Ficha Docente"], 
     "Gestor de Expedientes": []
   },
   "Formación y Capacitación": {

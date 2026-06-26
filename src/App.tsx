@@ -16,11 +16,14 @@ import { ConfiguracionSistema } from './pages/direccion/ConfiguracionSistema';
 import { DivisionTerritorial } from './pages/direccion/DivisionTerritorial';
 import { CerebroSigma } from './pages/direccion/CerebroSigma';
 import { GestionRegistros } from './pages/direccion/GestionRegistros';
+import { PanelControl } from './pages/direccion/PanelControl';
 import { EstructuraEmpresa } from './pages/organizacion/EstructuraEmpresa';
 import { CargosInstitucionales } from './pages/organizacion/CargosInstitucionales';
 import { CadenaSupervisoria } from './pages/organizacion/CadenaSupervisoria';
+import { GestionColectivos } from './pages/organizacion/GestionColectivos';
 import { GradosSalones } from './pages/estudios/GradosSalones';
 import { MiExpediente } from './pages/docente/MiExpediente';
+import { GestorExpedientes } from './pages/docente/GestorExpedientes';
 import './componentes.css';
 import './principal.css';
 import './auth_ui.css';
@@ -126,11 +129,14 @@ function App() {
           <Route path="categoria/Dirección y Sistema/División Territorial" element={<DivisionTerritorial />} />
           <Route path="categoria/Dirección y Sistema/Cerebro de Sigma" element={<CerebroSigma />} />
           <Route path="categoria/Dirección y Sistema/Gestión de Registros" element={<GestionRegistros />} />
+          <Route path="categoria/Dirección y Sistema/Panel de Control" element={<PanelControl />} />
           <Route path="categoria/Organización Escolar/Estructura Empresa" element={<EstructuraEmpresa />} />
           <Route path="categoria/Organización Escolar/Cargos Institucionales" element={<CargosInstitucionales />} />
           <Route path="categoria/Organización Escolar/Cadena Supervisoria" element={<CadenaSupervisoria />} />
+          <Route path="categoria/Organización Escolar/Gestión de Colectivos" element={<GestionColectivos />} />
           <Route path="categoria/Control de Estudios/Grados y Salones" element={<GradosSalones />} />
           <Route path="categoria/Gestión Docente/Mi Expediente" element={<MiExpediente />} />
+          <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<GestorExpedientes />} />
         </Route>
       </Routes>
     </Router>

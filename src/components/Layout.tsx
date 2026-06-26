@@ -46,18 +46,100 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
+  const verificarMantenimiento = async () => {
+    const usrStr = localStorage.getItem('usuario_sigae');
+    if (!usrStr) return;
+    
+    let usr: any;
+    try {
+      usr = JSON.parse(usrStr);
+    } catch (e) {
+      return;
+    }
+
+    try {
+      const { data: maintData } = await supabase
+        .from('ajustes_globales')
+        .select('valor')
+        .eq('clave', 'mantenimiento_activo')
+        .maybeSingle();
+
+      if (maintData && maintData.valor === 'true') {
+        let hasAccess = false;
+        if (usr.rol === 'SuperAdmin') {
+          hasAccess = true;
+        } else {
+          const { data: roleData } = await supabase
+            .from('roles')
+            .select('permisos')
+            .eq('nombre', usr.rol)
+            .maybeSingle();
+
+          if (roleData && roleData.permisos) {
+            const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
+            const escPerms = parsed[usr.id_escuela || 'sb'] || {};
+            if (escPerms["Ingresar en Mantenimiento"]?.ver === true) {
+              hasAccess = true;
+            }
+          }
+        }
+
+        if (!hasAccess) {
+          const disconnectUser = () => {
+            localStorage.removeItem('sesion_sigae');
+            localStorage.removeItem('usuario_sigae');
+            onLogout();
+            navigate('/login');
+          };
+
+          const Swal = (window as any).Swal;
+          if (Swal) {
+            Swal.fire({
+              title: 'Sistema en Mantenimiento',
+              text: 'El sistema ha entrado en mantenimiento global (acceso restringido solo a administradores y personal autorizado). Tu sesión ha sido finalizada.',
+              icon: 'warning',
+              confirmButtonColor: '#FF8D00',
+              confirmButtonText: 'Entendido',
+              allowOutsideClick: false,
+              allowEscapeKey: false
+            }).then(() => {
+              disconnectUser();
+            });
+          } else {
+            alert('El sistema ha entrado en mantenimiento global. Tu sesión ha sido finalizada.');
+            disconnectUser();
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error al comprobar mantenimiento activo:", e);
+    }
+  };
+
   useEffect(() => {
     cargarConfigGlobal();
+    verificarMantenimiento();
 
     // Listen for custom events when config changes in ConfiguracionSistema
     const handleConfigChange = () => {
       cargarConfigGlobal();
     };
-    window.addEventListener('sigae-config-changed', handleConfigChange);
-    return () => {
-      window.removeEventListener('sigae-config-changed', handleConfigChange);
+
+    const handleMaintenanceChange = () => {
+      verificarMantenimiento();
     };
-  }, []);
+
+    const intervalMaint = setInterval(verificarMantenimiento, 20000);
+
+    window.addEventListener('sigae-config-changed', handleConfigChange);
+    window.addEventListener('sigae-maintenance-changed', handleMaintenanceChange);
+
+    return () => {
+      clearInterval(intervalMaint);
+      window.removeEventListener('sigae-config-changed', handleConfigChange);
+      window.removeEventListener('sigae-maintenance-changed', handleMaintenanceChange);
+    };
+  }, [location.pathname]);
 
   const handleBloquearSesion = () => {
     localStorage.setItem('sesion_sigae', 'bloqueada');

@@ -46,7 +46,6 @@ export const ModulosSistema = {
   "Gestión Docente": { 
     icono: "bi-person-workspace", color: "#00E676", desc: "Administración del personal docente.", 
     items: [
-      { vista: "Asignar Guiaturas", icono: "bi-person-video3" },
       { vista: "Mi Expediente", icono: "bi-person-vcard" },
       { vista: "Gestor de Expedientes", icono: "bi-folder-symlink" }
     ] 
@@ -91,7 +90,7 @@ const paleta = [
 export const CategoryDashboard = () => {
   const { categoryName } = useParams<{ categoryName: string }>();
   const navigate = useNavigate();
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const decodedCategory = categoryName ? decodeURIComponent(categoryName) : '';
   const modulo = (ModulosSistema as any)[decodedCategory];
@@ -129,13 +128,15 @@ export const CategoryDashboard = () => {
          vista === "Configuración del Sistema" || 
          vista === "División Territorial" ||
          vista === "Cerebro de Sigma" ||
-         vista === "Gestión de Registros")) ||
+         vista === "Gestión de Registros" ||
+         vista === "Panel de Control")) ||
       (decodedCategory === "Organización Escolar" && 
         (vista === "Estructura Empresa" || 
          vista === "Cargos Institucionales" || 
-         vista === "Cadena Supervisoria")) ||
+         vista === "Cadena Supervisoria" ||
+         vista === "Gestión de Colectivos")) ||
       (decodedCategory === "Control de Estudios" && vista === "Grados y Salones") ||
-      (decodedCategory === "Gestión Docente" && vista === "Mi Expediente")
+      (decodedCategory === "Gestión Docente" && (vista === "Mi Expediente" || vista === "Gestor de Expedientes"))
     ) {
       navigate(`/categoria/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(vista)}`);
       return;
@@ -185,7 +186,14 @@ export const CategoryDashboard = () => {
 
       <div className="row g-4">
         {modulo.items
-          .filter((item: any) => tienePermiso(item.vista, 'ver'))
+          .filter((item: any) => {
+            // Para módulos con separación por escuela, basta con tener acceso en AL MENOS UNA escuela
+            if (item.vista === 'Gestión de Colectivos') {
+              return tienePermisoEnEscuela('sb', item.vista, 'ver') ||
+                     tienePermisoEnEscuela('lb', item.vista, 'ver');
+            }
+            return tienePermiso(item.vista, 'ver');
+          })
           .map((item: any, idx: number) => {
             const color = paleta[idx % paleta.length];
             return (

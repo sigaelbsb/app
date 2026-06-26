@@ -118,8 +118,22 @@ export const usePermisos = () => {
       return tieneEnSB || tieneEnLB;
     }
 
-    if (!permisos || !permisos[modulo]) return false;
-    return permisos[modulo][accion] === true;
+    if (permisos && permisos[modulo] && permisos[modulo][accion] === true) {
+      return true;
+    }
+
+    // Bypasses por defecto para simplificar desarrollo y asegurar accesos
+    if (modulo === "Mi Expediente") {
+      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
+      return rolesPermitidos.includes(user?.rol);
+    }
+
+    if (modulo === "Gestor de Expedientes") {
+      const rolesAdministrativos = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
+      return rolesAdministrativos.includes(user?.rol);
+    }
+
+    return false;
   };
 
   const tieneAccesoEscuela = (escuelaCodigo: string) => {

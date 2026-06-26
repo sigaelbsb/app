@@ -26,6 +26,7 @@ export const DivisionTerritorial = () => {
   const esAdmin = user?.rol && user.rol.toLowerCase().includes('administrador');
   const hasVer = esAdmin || tienePermiso('División Territorial', 'ver');
   const hasCrear = esAdmin || tienePermiso('División Territorial', 'crear');
+  const hasModificar = esAdmin || tienePermiso('División Territorial', 'modificar');
   const hasEliminar = esAdmin || tienePermiso('División Territorial', 'eliminar');
 
   const isModuleRestricted = !permLoading && !hasVer;
@@ -39,15 +40,25 @@ export const DivisionTerritorial = () => {
   const cargarDatos = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('div_pol_vzla')
-        .select('*')
-        .order('estado', { ascending: true })
-        .order('municipio', { ascending: true })
-        .order('parroquia', { ascending: true });
+      let allRecords: any[] = [];
+      let from = 0;
+      const limit = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('div_pol_vzla')
+          .select('*')
+          .order('estado', { ascending: true })
+          .order('municipio', { ascending: true })
+          .order('parroquia', { ascending: true })
+          .range(from, from + limit - 1);
 
-      if (error) throw error;
-      setRecords(data || []);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allRecords = [...allRecords, ...data];
+        if (data.length < limit) break;
+        from += limit;
+      }
+      setRecords(allRecords);
     } catch (e) {
       console.error(e);
       if (Swal) Swal.fire('Error', 'No se pudo conectar con la base de datos de divisiones territoriales.', 'error');
@@ -249,6 +260,179 @@ export const DivisionTerritorial = () => {
         } catch (e) {
           console.error(e);
           Swal.fire('Error', 'Falla en base de datos al guardar.', 'error');
+        }
+        setLoading(false);
+      }
+    });
+  };
+
+  const editarEstado = (nombreViejo: string) => {
+    if (!hasModificar) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permiso para modificar estados.', 'error');
+      return;
+    }
+    if (!Swal) return;
+
+    Swal.fire({
+      title: 'Editar Estado',
+      html: `<input type="text" id="swal-edit-estado" class="swal2-input input-moderno m-0 w-100" value="${nombreViejo}" placeholder="Nombre del Estado">`,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      confirmButtonColor: '#0f172a',
+      preConfirm: () => {
+        const valor = (document.getElementById('swal-edit-estado') as HTMLInputElement).value.trim();
+        if (!valor) {
+          Swal.showValidationMessage('El nombre del Estado es obligatorio');
+          return false;
+        }
+        return valor;
+      }
+    }).then(async (result: any) => {
+      if (result.isConfirmed) {
+        if (result.value.toLowerCase() === nombreViejo.toLowerCase()) {
+          return;
+        }
+
+        const existe = records.find(r => r.estado.toLowerCase() === result.value.toLowerCase());
+        if (existe) {
+          Swal.fire('Atención', 'Este estado ya existe en el sistema.', 'warning');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from('div_pol_vzla')
+            .update({ estado: result.value })
+            .eq('estado', nombreViejo);
+
+          if (error) throw error;
+
+          if (estadoSel === nombreViejo) {
+            setEstadoSel(result.value);
+          }
+
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Estado modificado', showConfirmButton: false, timer: 1500 });
+          auditar('División Territorial', 'Editar Estado', `Se renombró el Estado "${nombreViejo}" a "${result.value}".`);
+          await cargarDatos(true);
+        } catch (e) {
+          console.error(e);
+          Swal.fire('Error', 'Falla al renombrar el estado.', 'error');
+        }
+        setLoading(false);
+      }
+    });
+  };
+
+  const editarMunicipio = (nombreViejo: string) => {
+    if (!estadoSel) return;
+    if (!hasModificar) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permiso para modificar municipios.', 'error');
+      return;
+    }
+    if (!Swal) return;
+
+    Swal.fire({
+      title: 'Editar Municipio',
+      html: `<input type="text" id="swal-edit-muni" class="swal2-input input-moderno m-0 w-100" value="${nombreViejo}" placeholder="Nombre del Municipio">`,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      confirmButtonColor: '#1e293b',
+      preConfirm: () => {
+        const valor = (document.getElementById('swal-edit-muni') as HTMLInputElement).value.trim();
+        if (!valor) {
+          Swal.showValidationMessage('El nombre del Municipio es obligatorio');
+          return false;
+        }
+        return valor;
+      }
+    }).then(async (result: any) => {
+      if (result.isConfirmed) {
+        if (result.value.toLowerCase() === nombreViejo.toLowerCase()) {
+          return;
+        }
+
+        const existe = records.find(r => r.estado === estadoSel && r.municipio.toLowerCase() === result.value.toLowerCase());
+        if (existe) {
+          Swal.fire('Atención', 'Este municipio ya existe en este estado.', 'warning');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from('div_pol_vzla')
+            .update({ municipio: result.value })
+            .eq('estado', estadoSel)
+            .eq('municipio', nombreViejo);
+
+          if (error) throw error;
+
+          if (municipioSel === nombreViejo) {
+            setMunicipioSel(result.value);
+          }
+
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Municipio modificado', showConfirmButton: false, timer: 1500 });
+          auditar('División Territorial', 'Editar Municipio', `Se renombró el Municipio "${nombreViejo}" a "${result.value}" en Estado ${estadoSel}.`);
+          await cargarDatos(true);
+        } catch (e) {
+          console.error(e);
+          Swal.fire('Error', 'Falla al renombrar el municipio.', 'error');
+        }
+        setLoading(false);
+      }
+    });
+  };
+
+  const editarParroquia = (id: number, nombreViejo: string) => {
+    if (!estadoSel || !municipioSel) return;
+    if (!hasModificar) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permiso para modificar parroquias.', 'error');
+      return;
+    }
+    if (!Swal) return;
+
+    Swal.fire({
+      title: 'Editar Parroquia',
+      html: `<input type="text" id="swal-edit-parr" class="swal2-input input-moderno m-0 w-100" value="${nombreViejo}" placeholder="Nombre de la Parroquia">`,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      confirmButtonColor: '#334155',
+      preConfirm: () => {
+        const valor = (document.getElementById('swal-edit-parr') as HTMLInputElement).value.trim();
+        if (!valor) {
+          Swal.showValidationMessage('El nombre de la Parroquia es obligatorio');
+          return false;
+        }
+        return valor;
+      }
+    }).then(async (result: any) => {
+      if (result.isConfirmed) {
+        if (result.value.toLowerCase() === nombreViejo.toLowerCase()) {
+          return;
+        }
+
+        const existe = records.find(r => r.estado === estadoSel && r.municipio === municipioSel && r.parroquia.toLowerCase() === result.value.toLowerCase());
+        if (existe) {
+          Swal.fire('Atención', 'Esta parroquia ya existe en este municipio.', 'warning');
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from('div_pol_vzla')
+            .update({ parroquia: result.value })
+            .eq('id', id);
+
+          if (error) throw error;
+
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Parroquia modificada', showConfirmButton: false, timer: 1500 });
+          auditar('División Territorial', 'Editar Parroquia', `Se renombró la Parroquia "${nombreViejo}" a "${result.value}" en ${estadoSel} > ${municipioSel}.`);
+          await cargarDatos(true);
+        } catch (e) {
+          console.error(e);
+          Swal.fire('Error', 'Falla al renombrar la parroquia.', 'error');
         }
         setLoading(false);
       }
@@ -487,8 +671,17 @@ export const DivisionTerritorial = () => {
                         <div className="fw-bold d-flex align-items-center gap-2">
                           <i className={`bi bi-map-fill ${iconColor}`}></i> {est}
                         </div>
-                        {hasEliminar && (
-                          <div>
+                        <div className="d-flex align-items-center gap-1">
+                          {hasModificar && (
+                            <button 
+                              className={`btn btn-sm ${(estadoSel === est) ? 'btn-primary text-white border-white' : 'btn-light text-primary border'} rounded-circle shadow-sm hover-efecto`} 
+                              onClick={(e) => { e.stopPropagation(); editarEstado(est); }} 
+                              title="Editar Estado"
+                            >
+                              <i className="bi bi-pencil-fill"></i>
+                            </button>
+                          )}
+                          {hasEliminar && (
                             <button 
                               className={`btn btn-sm ${btnTrashColor} rounded-circle shadow-sm hover-efecto`} 
                               onClick={(e) => { e.stopPropagation(); eliminarEstado(est); }} 
@@ -496,8 +689,8 @@ export const DivisionTerritorial = () => {
                             >
                               <i className="bi bi-trash3-fill"></i>
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -551,8 +744,17 @@ export const DivisionTerritorial = () => {
                         <div className="fw-bold d-flex align-items-center gap-2">
                           <i className={`bi bi-compass-fill ${iconColor}`}></i> {muni}
                         </div>
-                        {hasEliminar && (
-                          <div>
+                        <div className="d-flex align-items-center gap-1">
+                          {hasModificar && (
+                            <button 
+                              className={`btn btn-sm ${(municipioSel === muni) ? 'btn-primary text-white border-white' : 'btn-light text-primary border'} rounded-circle shadow-sm hover-efecto`} 
+                              onClick={(e) => { e.stopPropagation(); editarMunicipio(muni); }} 
+                              title="Editar Municipio"
+                            >
+                              <i className="bi bi-pencil-fill"></i>
+                            </button>
+                          )}
+                          {hasEliminar && (
                             <button 
                               className={`btn btn-sm ${btnTrashColor} rounded-circle shadow-sm hover-efecto`} 
                               onClick={(e) => { e.stopPropagation(); eliminarMunicipio(muni); }} 
@@ -560,8 +762,8 @@ export const DivisionTerritorial = () => {
                             >
                               <i className="bi bi-trash3-fill"></i>
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -605,8 +807,17 @@ export const DivisionTerritorial = () => {
                       <div className="fw-bold d-flex align-items-center gap-2">
                         <i className="bi bi-geo-fill text-danger"></i> {parr.valor}
                       </div>
-                      {hasEliminar && (
-                        <div>
+                      <div className="d-flex align-items-center gap-1">
+                        {hasModificar && (
+                          <button 
+                            className="btn btn-sm btn-light text-primary rounded-circle shadow-sm hover-efecto border" 
+                            onClick={() => editarParroquia(parr.id, parr.valor)} 
+                            title="Editar Parroquia"
+                          >
+                            <i className="bi bi-pencil-fill"></i>
+                          </button>
+                        )}
+                        {hasEliminar && (
                           <button 
                             className="btn btn-sm btn-light text-danger rounded-circle shadow-sm hover-efecto border" 
                             onClick={() => eliminarParroquia(parr.id, parr.valor)} 
@@ -614,8 +825,8 @@ export const DivisionTerritorial = () => {
                           >
                             <i className="bi bi-trash3-fill"></i>
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -152,8 +152,12 @@ const OrganigramaNodo = ({
 
 export const CadenaSupervisoria = () => {
   const navigate = useNavigate();
-  const { tienePermiso, tienePermisoEnEscuela, user, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, tieneAccesoEscuela, user, loading: permLoading } = usePermisos();
   const Swal = (window as any).Swal;
+
+  const canSeeSB = tieneAccesoEscuela('sb');
+  const canSeeLB = tieneAccesoEscuela('lb');
+  const tieneDobleAcceso = user?.rol === 'SuperAdmin' || (canSeeSB && canSeeLB);
 
   const [activeView, setActiveView] = useState<'dashboard' | 'constructor' | 'mapa'>('dashboard');
 
@@ -183,26 +187,35 @@ export const CadenaSupervisoria = () => {
   const canEstructurarCrearLB = tienePermisoEnEscuela('lb', 'Función: Estructurar Cadena', 'crear');
   const pCrear = canEstructurarCrearSB || canEstructurarCrearLB;
 
-  const canImprimirSB = tienePermisoEnEscuela('sb', 'Función: Imprimir Organigrama', 'ver');
-  const canImprimirLB = tienePermisoEnEscuela('lb', 'Función: Imprimir Organigrama', 'ver');
-  const isDualAccessImprimir = canImprimirSB && canImprimirLB;
   const pImprimir = tienePermisoEnEscuela('sb', 'Función: Imprimir Organigrama', 'imprimir') || tienePermisoEnEscuela('lb', 'Función: Imprimir Organigrama', 'imprimir');
 
   const hasModuloAcceso = tienePermiso('Cadena Supervisoria', 'ver');
   const isRestricted = !permLoading && !hasModuloAcceso;
 
-  // Initialize school filter based on privileges
+  // Initialize school filter based on privileges and user role
   useEffect(() => {
     if (!permLoading && user) {
-      if (canImprimirSB && canImprimirLB) {
+      const canSeeSB = tieneAccesoEscuela('sb');
+      const canSeeLB = tieneAccesoEscuela('lb');
+      
+      if (user.rol === 'SuperAdmin' || (canSeeSB && canSeeLB)) {
         setEscuelaFiltroMapa('consolidado');
-      } else if (canImprimirLB) {
+      } else if (canSeeLB) {
         setEscuelaFiltroMapa('lb');
       } else {
         setEscuelaFiltroMapa('sb');
       }
     }
-  }, [permLoading, user, canImprimirSB, canImprimirLB]);
+  }, [permLoading, user]);
+
+  // Redirigir a vista de mapa si el usuario no tiene permisos de edición de jerarquías
+  useEffect(() => {
+    if (!permLoading) {
+      if (!pCrear && user?.rol !== 'SuperAdmin') {
+        setActiveView('mapa');
+      }
+    }
+  }, [permLoading, pCrear, user]);
 
   // Sincronizar filtro del constructor según permisos del usuario
   useEffect(() => {
@@ -637,7 +650,7 @@ export const CadenaSupervisoria = () => {
                   <span className="badge bg-white mb-0 px-3 py-2 shadow-sm fw-bold" style={{ color: '#0f172a', letterSpacing: '1px', fontSize: '0.85rem' }}>
                     <i className="bi bi-diagram-2-fill me-1"></i> ORGANIZACIÓN JERÁRQUICA
                   </span>
-                  {activeView !== 'dashboard' ? (
+                  {(activeView !== 'dashboard' && (pCrear || user?.rol === 'SuperAdmin')) ? (
                     <button 
                       onClick={() => setActiveView('dashboard')} 
                       className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
@@ -894,8 +907,8 @@ export const CadenaSupervisoria = () => {
             <div className="card border-0 shadow-sm rounded-4">
               <div className="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-4">
                 <div className="d-flex align-items-center gap-3 flex-wrap">
-                  {/* Selector de escuela para Organigrama (solo si tiene acceso a ambas) */}
-                  {isDualAccessImprimir && (
+                  {/* Selector de escuela para Organigrama (solo si es SuperAdmin y tiene acceso a ambas) */}
+                  {tieneDobleAcceso ? (
                     <div>
                       <label className="form-label small fw-bold text-muted mb-1">Estructura Escolar</label>
                       <div className="btn-group btn-group-sm shadow-sm border rounded-pill overflow-hidden" role="group">
@@ -924,6 +937,13 @@ export const CadenaSupervisoria = () => {
                           Consolidado
                         </button>
                       </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="form-label small fw-bold text-muted mb-1 d-block">Estructura Escolar</label>
+                      <span className="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 fw-bold" style={{ fontSize: '0.85rem' }}>
+                        <i className="bi bi-building me-1"></i> {escuelaFiltroMapa === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                      </span>
                     </div>
                   )}
 

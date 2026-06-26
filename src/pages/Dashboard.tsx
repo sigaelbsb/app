@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { usePermisos } from '../hooks/usePermisos';
 
@@ -15,10 +16,31 @@ interface EscuelaPerfil {
 }
 
 export const Dashboard = () => {
+  const navigate = useNavigate();
   const [escuelas, setEscuelas] = useState<EscuelaPerfil[]>([]);
   const [fechaTexto, setFechaTexto] = useState('Cargando fecha...');
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   const { tieneAccesoEscuela, loading: permLoading } = usePermisos();
+
+  const activeSchoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+
+  const cambiarEscuelaActiva = (nuevaEscuela: 'sb' | 'lb') => {
+    localStorage.setItem('sigae_escuela_codigo', nuevaEscuela);
+    localStorage.setItem('sigae_escuela_activa', nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    
+    // Si el usuario en localStorage tiene id_escuela, lo actualizamos también
+    const stored = localStorage.getItem('usuario_sigae');
+    if (stored) {
+      try {
+        const usr = JSON.parse(stored);
+        usr.id_escuela = nuevaEscuela;
+        usr.nombre_escuela = nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+        localStorage.setItem('usuario_sigae', JSON.stringify(usr));
+      } catch (e) {}
+    }
+    
+    window.location.reload();
+  };
 
   const userStr = localStorage.getItem('usuario_sigae');
   const usuario = userStr ? JSON.parse(userStr) : { nombre: 'Usuario' };
@@ -124,7 +146,22 @@ export const Dashboard = () => {
               <div className="banner-orb" style={{ width: '100px', height: '100px', bottom: '-20px', right: '20%', opacity: 0.2 }}></div>
               <div className="row align-items-center position-relative z-1">
                 <div className="col-8">
-                  <h4 className="fw-bolder mb-3 text-white" id="lbl-nombre-escuela-lb" style={{ lineHeight: 1.2 }}>{lbData.nombre_institucion}</h4>
+                  <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    <h4 className="fw-bolder mb-0 text-white" id="lbl-nombre-escuela-lb" style={{ lineHeight: 1.2 }}>{lbData.nombre_institucion}</h4>
+                    {activeSchoolCode === 'lb' ? (
+                      <span className="badge bg-white text-success border shadow-sm px-2.5 py-1.5 fw-bold" style={{ fontSize: '0.7rem' }}>
+                        <i className="bi bi-check-circle-fill me-1"></i>Activa
+                      </span>
+                    ) : (
+                      <button 
+                        onClick={() => cambiarEscuelaActiva('lb')}
+                        className="btn btn-xs btn-outline-light rounded-pill px-2.5 py-1 fw-bold border-white"
+                        style={{ fontSize: '0.65rem', border: '1.5px solid white' }}
+                      >
+                        Activar Escuela
+                      </button>
+                    )}
+                  </div>
                   <p className="mb-3 d-flex align-items-center text-white opacity-75 small text-truncate">
                     <i className="bi bi-geo-alt-fill text-warning me-2"></i>
                     <span id="lbl-direccion-escuela-lb">{lbData.direccion}</span>
@@ -213,7 +250,22 @@ export const Dashboard = () => {
               <div className="banner-orb" style={{ width: '100px', height: '100px', bottom: '-20px', right: '20%', opacity: 0.2 }}></div>
               <div className="row align-items-center position-relative z-1">
                 <div className="col-8">
-                  <h4 className="fw-bolder mb-3 text-white" id="lbl-nombre-escuela-sb" style={{ lineHeight: 1.2 }}>{sbData.nombre_institucion}</h4>
+                  <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    <h4 className="fw-bolder mb-0 text-white" id="lbl-nombre-escuela-sb" style={{ lineHeight: 1.2 }}>{sbData.nombre_institucion}</h4>
+                    {activeSchoolCode === 'sb' ? (
+                      <span className="badge bg-white text-success border shadow-sm px-2.5 py-1.5 fw-bold" style={{ fontSize: '0.7rem' }}>
+                        <i className="bi bi-check-circle-fill me-1"></i>Activa
+                      </span>
+                    ) : (
+                      <button 
+                        onClick={() => cambiarEscuelaActiva('sb')}
+                        className="btn btn-xs btn-outline-light rounded-pill px-2.5 py-1 fw-bold border-white"
+                        style={{ fontSize: '0.65rem', border: '1.5px solid white' }}
+                      >
+                        Activar Escuela
+                      </button>
+                    )}
+                  </div>
                   <p className="mb-3 d-flex align-items-center text-white opacity-75 small text-truncate">
                     <i className="bi bi-geo-alt-fill text-warning me-2"></i>
                     <span id="lbl-direccion-escuela-sb">{sbData.direccion}</span>
@@ -307,18 +359,7 @@ export const Dashboard = () => {
         </div>
         <button 
           className="btn btn-primary rounded-pill px-4 py-3 fw-bold shadow-sm hover-efecto" 
-          onClick={() => {
-            if ((window as any).Swal) {
-              (window as any).Swal.fire({
-                title: 'Módulo en Migración',
-                text: 'El módulo de Estructura Organizativa / Organigrama se encuentra en proceso de migración.',
-                icon: 'info',
-                confirmButtonColor: 'var(--color-primario)'
-              });
-            } else {
-              alert('El módulo de Estructura Organizativa / Organigrama se encuentra en proceso de migración.');
-            }
-          }}
+          onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar/Cadena%20Supervisoria')}
         >
           <i className="bi bi-search me-2"></i> Explorar Organigrama
         </button>

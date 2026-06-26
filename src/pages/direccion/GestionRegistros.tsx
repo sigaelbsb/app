@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { formatPhoneNumber } from '../../lib/formatters';
+
 
 interface Visitante {
   id_invitado: string;
@@ -673,9 +675,9 @@ export const GestionRegistros = () => {
                       <input 
                         type="text" 
                         className="form-control input-moderno" 
-                        placeholder="Ej: 04141234567" 
+                        placeholder="Ej: 0414-1234567" 
                         value={formTelefono}
-                        onChange={(e) => setFormTelefono(e.target.value.replace(/\D/g, ''))}
+                        onChange={(e) => setFormTelefono(formatPhoneNumber(e.target.value))}
                       />
                     </div>
                     <div className="col-12">
@@ -786,7 +788,7 @@ export const GestionRegistros = () => {
                               <div className="small text-muted fw-semibold">C.I: {v.cedula}</div>
                             </td>
                             <td>
-                              <div className="small text-dark">{v.telefono || 'Sin teléfono'}</div>
+                              <div className="small text-dark">{v.telefono ? formatPhoneNumber(v.telefono) : 'Sin teléfono'}</div>
                               <div className="small text-muted">{v.correo || 'Sin correo'}</div>
                             </td>
                             <td>
@@ -972,7 +974,7 @@ export const GestionRegistros = () => {
                     {selectedVisitante.telefono && (
                       <div className="info-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '6px', borderBottom: '1px solid #f1f5f9', paddingBottom: '4px', color: '#334155' }}>
                         <span className="info-label" style={{ fontWeight: 'bold' }}>Contacto:</span>
-                        <span>{selectedVisitante.telefono}</span>
+                        <span>{formatPhoneNumber(selectedVisitante.telefono)}</span>
                       </div>
                     )}
 

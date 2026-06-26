@@ -46,16 +46,16 @@ CREATE POLICY "Permitir modificacion de su propio expediente" ON public.expedien
 
 BEGIN;
 
--- Docente: Luis Alfredo Velásquez Alcázar
+-- Docente: Carlos José Gutiérrez Rojas
 INSERT INTO public.usuarios (cedula, nombre_completo, rol, id_escuela, email, telefono, clave, estado, primer_ingreso, solicito_reseteo)
 VALUES (
-  '17242954',
-  'Luis Alfredo Velásquez Alcázar',
+  '15888222',
+  'Carlos José Gutiérrez Rojas',
   'Docente',
   'lb',
-  'velarcaz@gmail.com',
-  '04249107303',
-  '17242954', -- Clave inicial igual a la cédula
+  'carlos.gutierrez@example.com',
+  '04149991122',
+  '15888222', -- Clave inicial igual a la cédula
   'Activo',
   true,
   false
@@ -72,26 +72,26 @@ INSERT INTO public.expedientes_docentes (
   datos_salud, datos_electoral, datos_vivienda, carga_familiar, cursos_realizados, plan_formacion, necesidades_extra
 )
 VALUES (
-  '17242954',
+  '15888222',
   'Masculino',
-  '1985-11-14',
-  'Concubino/a',
-  'Urbanización los Frailejones, Manzana 25, Casa 1, Zona Industrial',
-  'Profesor de Matemáticas',
+  '1983-05-10',
+  'Casado/a',
+  'Calle Principal, Sector Centro, Edificio A, Apto 2-B',
+  'Profesor de Física',
   'Licenciatura / Profesorado',
-  'Universidad Pedagógica Experimental Libertador',
-  2008,
-  '2008-04-04',
+  'Universidad de Oriente',
+  2005,
+  '2006-09-15',
   'Fijo',
   36,
   'Activo',
-  '{"cedula": true, "titulo": true, "cv": true, "constancia": false}'::jsonb,
-  '{"conapdis":"No","talla_botas":"42","talla_braga":"42","talla_camisa":"L","talla_calzado":"42","talla_chemise":"L","emergencia_tel":"04126067511","talla_pantalon":"34","condicion_neuro":"Neurodivergente","grupo_sanguineo":"A+","condicion_medica":"Componentes del Whisky","emergencia_nombre":"Yasivit González"}'::jsonb,
-  '{"estado":"Monagas","municipio":"Maturín","parroquia":"Alto de los Godos","centro_votacion":"Liceo Nacional los Guaritos"}'::jsonb,
-  '{"tipo_prestamo":"Inicial/Adquisición","num_convivientes":4,"discapacidad_trabajador":"No","discapacidad_familiar":"No","conyuge_nombre":"Yasivit del Valle González Guisseppi","conyuge_cedula":"18788707","conyuge_trabaja_pdvsa":"Trabajador(a) Activo(a)","condicion_habitabilidad":"8) Habita un inmueble bajo otra condición diferente a las anteriores","prioridad":""}'::jsonb,
-  '[{"edad":"5 Años","cedula":"12018788707","nombres":"Siuly Nazaret Velásquez González","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Inicial","condicion_neuro":"Neurotípico","fecha_nacimiento":"2020-05-13","vive_con_trabajador":"Sí"},{"edad":"3 Años","cedula":"12218788707","nombres":"Saily Nazaret Velásquez González","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Inicial","condicion_neuro":"Neurotípico","fecha_nacimiento":"2022-09-19","vive_con_trabajador":"Sí"},{"edad":"38 Años","cedula":"18788707","nombres":"Yasivit del Valle González Guisseppi","conapdis":"No","parentesco":"Concubino(a)","estatus_pdvsa":"Trabajador(a) Activo(a)","estudiante_de":"Estudios de Pregrado","condicion_neuro":"Neurotípico","fecha_nacimiento":"1987-12-26","vive_con_trabajador":"Sí"},{"edad":"71 Años","cedula":"4717430","nombres":"Eglis del Valle Alcázar de Velásquez","conapdis":"No","parentesco":"Madre","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Estudios de Pregrado","condicion_neuro":"Neurotípico","fecha_nacimiento":"1954-11-14","vive_con_trabajador":"No"},{"edad":"69 Años","cedula":"8569052","nombres":"Luis Alfredo Velásquez","conapdis":"No","parentesco":"Padre","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Primaria","condicion_neuro":"Neurotípico","fecha_nacimiento":"1956-06-14","vive_con_trabajador":"No"}]'::jsonb,
+  '{"cedula": true, "titulo": true, "cv": true, "constancia": true}'::jsonb,
+  '{"conapdis":"No","talla_botas":"41","talla_braga":"40","talla_camisa":"M","talla_calzado":"41","talla_chemise":"M","emergencia_tel":"04128883344","talla_pantalon":"32","condicion_neuro":"Ninguna","grupo_sanguineo":"O+","condicion_medica":"Ninguna","emergencia_nombre":"María Carolina Rojas"}'::jsonb,
+  '{"estado":"Monagas","municipio":"Maturín","parroquia":"Santa Cruz","centro_votacion":"Grupo Escolar República de Uruguay"}'::jsonb,
+  '{"tipo_prestamo":"Inicial/Adquisición","num_convivientes":4,"discapacidad_trabajador":"No","discapacidad_familiar":"No","conyuge_nombre":"Ana Sofía Delgado","conyuge_cedula":"16444888","conyuge_trabaja_pdvsa":"Nunca ha trabajado en PDVSA","condicion_habitabilidad":"3) Habite en condición de alquiler, solo o con su grupo familiar.","prioridad":""}'::jsonb,
+  '[{"edad":"9 Años","cedula":"32444555","nombres":"Sofía Valentina Gutiérrez Delgado","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Primaria","condicion_neuro":"Ninguna","fecha_nacimiento":"2017-03-12","vive_con_trabajador":"Sí"},{"edad":"5 Años","cedula":"","nombres":"Mateo Alejandro Gutiérrez Delgado","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Inicial","condicion_neuro":"Ninguna","fecha_nacimiento":"2021-08-20","vive_con_trabajador":"Sí"},{"edad":"38 Años","cedula":"16444888","nombres":"Ana Sofía Delgado","conapdis":"No","parentesco":"Esposo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Ninguno","condicion_neuro":"Ninguna","fecha_nacimiento":"1988-06-25","vive_con_trabajador":"Sí"},{"edad":"68 Años","cedula":"6123456","nombres":"Elvia María Rojas de Gutiérrez","conapdis":"No","parentesco":"Madre","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Ninguno","condicion_neuro":"Ninguna","fecha_nacimiento":"1958-05-10","vive_con_trabajador":"No"},{"edad":"71 Años","cedula":"5987654","nombres":"José Antonio Gutiérrez","conapdis":"No","parentesco":"Padre","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Ninguno","condicion_neuro":"Ninguna","fecha_nacimiento":"1955-09-15","vive_con_trabajador":"No"}]'::jsonb,
   '[]'::jsonb,
-  '[{"nivel":"Intermedio","titulo":"Inteligencia Artificial para el Aula","categoria":"Tecnología Educativa (EdTech)"},{"nivel":"Avanzado","titulo":"Liderazgo Pedagógico: Inspirar sin Autoritarismo","categoria":"Gestión y Liderazgo Educativo"},{"nivel":"Intermedio","titulo":"Plataformas de Evaluación en Línea","categoria":"Evaluación y Medición del Aprendizaje"},{"nivel":"Básico","titulo":"Comunicación Asertiva y Resolución de Conflictos","categoria":"Gestión y Liderazgo Educativo"},{"nivel":"Básico","titulo":"Estrategias para la Neurodiversidad en el Aula","categoria":"Educación Inclusiva y Diversidad"}]'::jsonb,
+  '[{"nivel":"Intermedio","titulo":"Inteligencia Artificial para el Aula","categoria":"Tecnología Educativa (EdTech)"},{"nivel":"Básico","titulo":"Comunicación Asertiva y Resolución de Conflictos","categoria":"Gestión y Liderazgo Educativo"}]'::jsonb,
   ''
 )
 ON CONFLICT (usuario_cedula) DO UPDATE SET
@@ -2264,10 +2264,10 @@ VALUES (
   36,
   'Activo',
   '{"cedula": true, "titulo": true, "cv": true, "constancia": false}'::jsonb,
-  '{"conapdis":"No","talla_botas":"40","talla_braga":"42","talla_camisa":"XL","talla_calzado":"40","talla_chemise":"XL","emergencia_tel":"04249107303","talla_pantalon":"40","condicion_neuro":"Neurotípico","grupo_sanguineo":"O+","condicion_medica":"","emergencia_nombre":"Luis Velásquez"}'::jsonb,
+  '{"conapdis":"No","talla_botas":"40","talla_braga":"42","talla_camisa":"XL","talla_calzado":"40","talla_chemise":"XL","emergencia_tel":"04147778899","talla_pantalon":"40","condicion_neuro":"Neurotípico","grupo_sanguineo":"O+","condicion_medica":"","emergencia_nombre":"Jesús Manuel Rivas Castro"}'::jsonb,
   '{"estado":"Monagas","municipio":"Maturín","parroquia":"Alto de los Godos","centro_votacion":"Cei Josefa Camejo."}'::jsonb,
-  '{"tipo_prestamo":"Adicional/Mejoras","num_convivientes":4,"discapacidad_trabajador":"No","discapacidad_familiar":"No","conyuge_nombre":"Luis Velásquez","conyuge_cedula":"17242954","conyuge_trabaja_pdvsa":"Trabajador(a) Activo(a)","condicion_habitabilidad":"","prioridad":""}'::jsonb,
-  '[{"edad":"40 Años","cedula":"17242954","nombres":"Luis Velásquez","conapdis":"No","parentesco":"Concubino(a)","estatus_pdvsa":"Trabajador(a) Activo(a)","estudiante_de":"Graduado","condicion_neuro":"Neurotípico","fecha_nacimiento":"1985-11-14","vive_con_trabajador":"Sí"},{"edad":"3 Años","cedula":"","nombres":"Saily Nazaret Velásquez González","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Inicial","condicion_neuro":"Neurotípico","fecha_nacimiento":"2022-09-19","vive_con_trabajador":"Sí"},{"edad":"5 Años","cedula":"","nombres":"Siuly Nazaret Velásquez González","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Inicial","condicion_neuro":"Neurotípico","fecha_nacimiento":"2020-05-13","vive_con_trabajador":"Sí"}]'::jsonb,
+  '{"tipo_prestamo":"Adicional/Mejoras","num_convivientes":4,"discapacidad_trabajador":"No","discapacidad_familiar":"No","conyuge_nombre":"Jesús Manuel Rivas Castro","conyuge_cedula":"13564789","conyuge_trabaja_pdvsa":"Trabajador(a) Activo(a)","condicion_habitabilidad":"","prioridad":""}'::jsonb,
+  '[{"edad":"46 Años","cedula":"13564789","nombres":"Jesús Manuel Rivas Castro","conapdis":"No","parentesco":"Concubino(a)","estatus_pdvsa":"Trabajador(a) Activo(a)","estudiante_de":"Graduado","condicion_neuro":"Neurotípico","fecha_nacimiento":"1980-04-12","vive_con_trabajador":"Sí"},{"edad":"6 Años","cedula":"","nombres":"Gabriela Alejandra Rivas González","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Inicial","condicion_neuro":"Neurotípico","fecha_nacimiento":"2020-05-15","vive_con_trabajador":"Sí"},{"edad":"8 Años","cedula":"","nombres":"Daniel Eduardo Rivas González","conapdis":"No","parentesco":"Hijo(a)","estatus_pdvsa":"Nunca ha trabajado en PDVSA","estudiante_de":"Educación Primaria","condicion_neuro":"Neurotípico","fecha_nacimiento":"2018-08-22","vive_con_trabajador":"Sí"}]'::jsonb,
   '[]'::jsonb,
   '[]'::jsonb,
   ''
@@ -2528,7 +2528,7 @@ VALUES (
   36,
   'Activo',
   '{"cedula": true, "titulo": true, "cv": true, "constancia": false}'::jsonb,
-  '{"conapdis":"No","talla_botas":"38","talla_braga":"38","talla_camisa":"M","talla_calzado":"38","talla_chemise":"M","emergencia_tel":"04149918333","talla_pantalon":"30","condicion_neuro":"Neurotípico","grupo_sanguineo":"","condicion_medica":"Cardiopatia","emergencia_nombre":"Cesar Velásquez"}'::jsonb,
+  '{"conapdis":"No","talla_botas":"38","talla_braga":"38","talla_camisa":"M","talla_calzado":"38","talla_chemise":"M","emergencia_tel":"04149918333","talla_pantalon":"30","condicion_neuro":"Neurotípico","grupo_sanguineo":"","condicion_medica":"Cardiopatia","emergencia_nombre":"Miguel Peña"}'::jsonb,
   '{"estado":"Monagas","municipio":"Maturín","parroquia":"San Simón","centro_votacion":"Escuela Básica San Simón la Muralla"}'::jsonb,
   '{"tipo_prestamo":"Inicial/Adquisición","num_convivientes":1,"discapacidad_trabajador":"No","discapacidad_familiar":"No","conyuge_nombre":"","conyuge_cedula":"","conyuge_trabaja_pdvsa":"Nunca ha trabajado en PDVSA","condicion_habitabilidad":"6) Habita en vivienda prestada, bajo su cuidado.","prioridad":""}'::jsonb,
   '[]'::jsonb,

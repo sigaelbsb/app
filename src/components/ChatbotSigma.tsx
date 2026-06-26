@@ -530,7 +530,7 @@ export const ChatbotSigma = () => {
           const modulosPosibles = [
             'Perfil de la Escuela', 'Roles y Privilegios', 'Gestión de Usuarios', 'Auditoría del Sistema',
             'Espacios Escolares', 'Grados y Salones', 'Gestión de Matrícula', 'Gestión de Admisiones',
-            'Carga de Notas y Calificaciones', 'Vincular Estudiante', 'Asignar Guiaturas',
+            'Carga de Notas y Calificaciones', 'Vincular Estudiante',
             'Expediente Estudiantil', 'Mi Expediente', 'Cargos Institucionales', 'Cadena Supervisoria',
             'Gestión de Colectivos', 'Transporte Escolar', 'Solicitud de Cupos', 'Cerebro de Sigma'
           ];
@@ -555,7 +555,7 @@ export const ChatbotSigma = () => {
           const modulosPosibles = [
             'Perfil de la Escuela', 'Roles y Privilegios', 'Gestión de Usuarios', 'Auditoría del Sistema',
             'Espacios Escolares', 'Grados y Salones', 'Gestión de Matrícula', 'Gestión de Admisiones',
-            'Carga de Notas y Calificaciones', 'Vincular Estudiante', 'Asignar Guiaturas',
+            'Carga de Notas y Calificaciones', 'Vincular Estudiante',
             'Expediente Estudiantil', 'Mi Expediente', 'Cargos Institucionales', 'Cadena Supervisoria',
             'Gestión de Colectivos', 'Transporte Escolar', 'Solicitud de Cupos', 'Cerebro de Sigma'
           ];
@@ -690,7 +690,6 @@ export const ChatbotSigma = () => {
       'actualizacion': 'Actualización de Datos',
       'notas': 'Carga de Notas y Calificaciones',
       'asignacion': 'Vincular Estudiante',
-      'guiaturas': 'Asignar Guiaturas',
       'expediente': 'Expediente Estudiantil',
       'expediente_docente': 'Mi Expediente',
       'cargos': 'Cargos Institucionales',
@@ -751,7 +750,9 @@ export const ChatbotSigma = () => {
 
   const stylePosition = {
     left: `${position.x}px`,
-    top: `${position.y}px`
+    top: `${position.y}px`,
+    right: 'auto',
+    bottom: 'auto'
   };
 
   return (

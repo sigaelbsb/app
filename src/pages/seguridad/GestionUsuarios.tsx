@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { formatPhoneNumber } from '../../lib/formatters';
+
 
 export const GestionUsuarios = () => {
   const navigate = useNavigate();
@@ -170,7 +172,7 @@ export const GestionUsuarios = () => {
       setFormEscuela(userToEdit.id_escuela || 'sb');
       setFormRol(userToEdit.rol || '');
       setFormEmail(userToEdit.email || '');
-      setFormTelefono(userToEdit.telefono || '');
+      setFormTelefono(formatPhoneNumber(userToEdit.telefono || ''));
       setFormEstado(userToEdit.estado || 'Activo');
       setFormPrimerIngreso(String(userToEdit.primer_ingreso));
     } else {
@@ -872,9 +874,9 @@ export const GestionUsuarios = () => {
                       <input 
                         type="text" 
                         className="form-control input-moderno m-0" 
-                        placeholder="04121234567" 
+                        placeholder="Ej. 0412-1234567" 
                         value={formTelefono} 
-                        onChange={(e) => setFormTelefono(e.target.value)}
+                        onChange={(e) => setFormTelefono(formatPhoneNumber(e.target.value))}
                       />
                     </div>
                   </div>

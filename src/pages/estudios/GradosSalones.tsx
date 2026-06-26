@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { formatPhoneNumber } from '../../lib/formatters';
+
 
 interface GradoItem {
   id_parametro: string;
@@ -37,6 +39,7 @@ interface SalonItem {
   nombre_salon: string;
   id_espacio: string;
   estatus: string;
+  docentes_guias?: string[];
 }
 
 export const GradosSalones = () => {
@@ -51,6 +54,7 @@ export const GradosSalones = () => {
   const [secciones, setSecciones] = useState<SeccionItem[]>([]);
   const [espacios, setEspacios] = useState<EspacioItem[]>([]);
   const [salones, setSalones] = useState<SalonItem[]>([]);
+  const [docentes, setDocentes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -104,22 +108,25 @@ export const GradosSalones = () => {
   const cargarDatos = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const [nivRes, graRes, secRes, espRes] = await Promise.all([
+      const [nivRes, graRes, secRes, espRes, docRes] = await Promise.all([
         supabase.from('conf_niveles').select('*').order('valor', { ascending: true }),
         supabase.from('conf_grados').select('*').order('orden', { ascending: true }),
         supabase.from('conf_secciones').select('*').order('valor', { ascending: true }),
-        supabase.from('espacios').select('*').order('nombre', { ascending: true })
+        supabase.from('espacios').select('*').order('nombre', { ascending: true }),
+        supabase.from('usuarios').select('cedula, nombre_completo, id_escuela, telefono, email').eq('rol', 'Docente').eq('estado', 'Activo').order('nombre_completo', { ascending: true })
       ]);
 
       if (nivRes.error) throw nivRes.error;
       if (graRes.error) throw graRes.error;
       if (secRes.error) throw secRes.error;
       if (espRes.error) throw espRes.error;
+      if (docRes.error) throw docRes.error;
 
       setNiveles(nivRes.data || []);
       setGrados(graRes.data || []);
       setSecciones(secRes.data || []);
       setEspacios(espRes.data || []);
+      setDocentes(docRes.data || []);
 
       // Fetch salones according to authorized schools for classroom opening
       let salonesQuery = supabase.from('salones').select('*');
@@ -368,6 +375,363 @@ export const GradosSalones = () => {
     });
   };
 
+  const abrirModalReporte = () => {
+    if (salones.length === 0) {
+      Swal.fire('Sin Registros', 'No existen salones aperturados en el sistema para descargar.', 'warning');
+      return;
+    }
+
+    const obtenerImagenBase64 = (url: string): Promise<string | null> => {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    };
+
+    let optEscuelas = '';
+    if (escuelasAutorizadasSalones.includes('sb') && escuelasAutorizadasSalones.includes('lb')) {
+      optEscuelas += '<option value="ambas">Ambas Escuelas (Consolidado)</option>';
+    }
+    if (escuelasAutorizadasSalones.includes('sb')) {
+      optEscuelas += '<option value="sb">UE Santa Bárbara</option>';
+    }
+    if (escuelasAutorizadasSalones.includes('lb')) {
+      optEscuelas += '<option value="lb">UE Libertador Bolívar</option>';
+    }
+
+    const htmlForm = `
+      <div class="text-start">
+        <label class="small fw-bold mb-1 text-muted"><i class="bi bi-building text-info me-1"></i>Escuela(s) a incluir</label>
+        <select id="rep-escuela" class="swal2-input input-moderno m-0 mb-3 w-100">${optEscuelas}</select>
+
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="small fw-bold mb-1 text-muted"><i class="bi bi-file-earmark text-primary me-1"></i>Tipo de Hoja</label>
+            <select id="rep-formato" class="swal2-input input-moderno m-0 w-100">
+              <option value="letter">Carta</option>
+              <option value="legal">Oficio</option>
+              <option value="a4">A4</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="small fw-bold mb-1 text-muted"><i class="bi bi-arrow-left-right text-success me-1"></i>Orientación</label>
+            <select id="rep-orientacion" class="swal2-input input-moderno m-0 w-100">
+              <option value="portrait">Vertical (Portrait)</option>
+              <option value="landscape">Horizontal (Landscape)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    `;
+
+    Swal.fire({
+      title: 'Descargar Reporte PDF',
+      html: htmlForm,
+      showCancelButton: true,
+      confirmButtonText: 'Generar PDF',
+      confirmButtonColor: '#00BCD4',
+      preConfirm: () => {
+        const escuela = (document.getElementById('rep-escuela') as HTMLSelectElement).value;
+        const formato = (document.getElementById('rep-formato') as HTMLSelectElement).value;
+        const orientacion = (document.getElementById('rep-orientacion') as HTMLSelectElement).value;
+        
+        if (!escuela || !formato || !orientacion) {
+          Swal.showValidationMessage('Todos los campos son obligatorios');
+          return false;
+        }
+        return { escuela, formato, orientacion };
+      }
+    }).then(async (result: any) => {
+      if (result.isConfirmed) {
+        const { escuela, formato, orientacion } = result.value;
+        
+        // Filter salones according to selected option and authorization
+        let salonesSeleccionados = salones;
+        if (escuela === 'ambas') {
+          salonesSeleccionados = salones.filter(s => escuelasAutorizadasSalones.includes(s.id_escuela));
+        } else {
+          salonesSeleccionados = salones.filter(s => s.id_escuela === escuela);
+        }
+
+        if (salonesSeleccionados.length === 0) {
+          Swal.fire('Reporte Vacío', 'No existen salones aperturados para la selección elegida.', 'info');
+          return;
+        }
+
+        // Sort by name
+        salonesSeleccionados.sort((a, b) => (a.nombre_salon || '').localeCompare(b.nombre_salon || ''));
+
+        // Load html2pdf from window
+        const html2pdf = (window as any).html2pdf;
+        if (!html2pdf) {
+          Swal.fire('Error', 'La librería de generación de PDF (html2pdf) no está cargada.', 'error');
+          return;
+        }
+
+        Swal.fire({
+          title: 'Generando Reporte...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        // Fetch logos as base64
+        const base64LogoSB = await obtenerImagenBase64('/assets/img/logo_sb.png');
+        const base64LogoLB = await obtenerImagenBase64('/assets/img/logo_lb.png');
+        const base64LogoSistema = await obtenerImagenBase64('/assets/img/sigae.png');
+        const base64CintilloMPPE = await obtenerImagenBase64('/assets/img/logoMPPE.png');
+
+        // Generate rows
+        let rowsHtml = '';
+        salonesSeleccionados.forEach(s => {
+          const escuelaNombre = s.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+          const badgeClass = s.id_escuela === 'sb' ? 'badge-sb' : 'badge-lb';
+          const espacio = espacios.find(e => e.id === s.id_espacio);
+          const espacioNombre = espacio ? `${espacio.nombre} (Cap: ${espacio.capacidad || 0} pax)` : 'Sin espacio físico asignado';
+          
+          let docentesStr = '';
+          if (s.docentes_guias && s.docentes_guias.length > 0) {
+            s.docentes_guias.forEach((cedula, i) => {
+              const docObj = docentes.find(d => d.cedula === cedula);
+              const nombre = docObj ? docObj.nombre_completo : `C.I. ${cedula}`;
+              const telefono = docObj && docObj.telefono ? formatPhoneNumber(docObj.telefono) : 'Sin teléfono';
+              const email = docObj && docObj.email ? docObj.email : 'Sin correo';
+              const rol = i === 0 ? 'Principal' : 'Auxiliar';
+              docentesStr += `
+                <div class="teacher-item">
+                  <b>${rol}:</b> ${nombre}<br/>
+                  <span style="font-size: 8px; color: #555; padding-left: 5px; font-weight: normal;">
+                    Tlf: ${telefono} | Correo: ${email}
+                  </span>
+                </div>
+              `;
+            });
+          } else {
+            docentesStr = '<span style="color: #999; font-style: italic;">Sin asignar</span>';
+          }
+
+          rowsHtml += `
+            <tr>
+              <td><span class="badge-pdf ${badgeClass}">${escuelaNombre}</span></td>
+              <td style="font-weight: bold; text-transform: uppercase;">${s.nombre_salon}</td>
+              <td>${espacioNombre}</td>
+              <td>${s.nivel_educativo}</td>
+              <td>${docentesStr}</td>
+            </tr>
+          `;
+        });
+
+        const escuelaStr = escuela === 'ambas' ? 'Santa Bárbara & Libertador Bolívar' : (escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+        
+        let logoHtml = '';
+        if (escuela === 'ambas') {
+          if (base64LogoSB) logoHtml += `<img src="${base64LogoSB}" style="height: 40px; object-fit: contain; margin-right: 5px;" />`;
+          if (base64LogoLB) logoHtml += `<img src="${base64LogoLB}" style="height: 40px; object-fit: contain;" />`;
+        } else if (escuela === 'sb') {
+          if (base64LogoSB) logoHtml += `<img src="${base64LogoSB}" style="height: 40px; object-fit: contain;" />`;
+        } else if (escuela === 'lb') {
+          if (base64LogoLB) logoHtml += `<img src="${base64LogoLB}" style="height: 40px; object-fit: contain;" />`;
+        }
+
+        let escuelaTitulo = '';
+        if (escuela === 'ambas') {
+          escuelaTitulo = 'U.E. Santa Bárbara & U.E. Libertador Bolívar';
+        } else if (escuela === 'sb') {
+          escuelaTitulo = 'U.E. Santa Bárbara';
+        } else if (escuela === 'lb') {
+          escuelaTitulo = 'U.E. Libertador Bolívar';
+        }
+
+        let cintilloHtml = '';
+        if (base64CintilloMPPE) {
+          cintilloHtml = `<img src="${base64CintilloMPPE}" style="height: 18px; object-fit: contain;" />`;
+        }
+
+        let logoSistemaHtml = '';
+        if (base64LogoSistema) {
+          logoSistemaHtml = `<img src="${base64LogoSistema}" style="height: 18px; object-fit: contain;" />`;
+        }
+
+        // Create a hidden wrapper in the DOM to lay out the content correctly without cluttering the screen
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'absolute';
+        wrapper.style.top = '-9999px';
+        wrapper.style.left = '-9999px';
+        wrapper.style.width = orientacion === 'landscape' ? '297mm' : '210mm';
+        wrapper.style.height = 'auto';
+        wrapper.style.overflow = 'visible';
+        wrapper.style.background = 'transparent';
+
+        // Create printable layout container (normal styles so it clones correctly inside html2pdf)
+        const container = document.createElement('div');
+        container.style.width = orientacion === 'landscape' ? '277mm' : '190mm';
+        container.style.background = '#ffffff';
+        container.style.padding = '10mm';
+        container.style.boxSizing = 'border-box';
+        container.style.fontFamily = "'Plus Jakarta Sans', Arial, sans-serif";
+
+        container.innerHTML = `
+          <style>
+            .pdf-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #00838F;
+              padding-bottom: 10px;
+              margin-bottom: 20px;
+            }
+            .pdf-title-container {
+              text-align: right;
+              line-height: 1.3;
+            }
+            .pdf-title {
+              font-size: 15px;
+              font-weight: bold;
+              color: #00838F;
+              margin: 0;
+              text-transform: uppercase;
+            }
+            .pdf-subtitle {
+              font-size: 8px;
+              color: #666;
+              margin: 2px 0 0 0;
+            }
+            .pdf-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            .pdf-table th {
+              background-color: #00838F;
+              color: #ffffff;
+              font-size: 10px;
+              font-weight: bold;
+              text-transform: uppercase;
+              padding: 8px;
+              border: 1px solid #ddd;
+              text-align: left;
+            }
+            .pdf-table td {
+              font-size: 10px;
+              padding: 8px;
+              border: 1px solid #ddd;
+              color: #333;
+            }
+            .pdf-table tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            .pdf-footer {
+              margin-top: 30px;
+              border-top: 1px solid #ddd;
+              padding-top: 10px;
+              font-size: 8px;
+              color: #777;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .badge-pdf {
+              display: inline-block;
+              padding: 2px 6px;
+              font-size: 8px;
+              font-weight: bold;
+              border-radius: 4px;
+            }
+            .badge-sb { background-color: #eff6ff; color: #0066FF; border: 1px solid #bfdbfe; }
+            .badge-lb { background-color: #fff1f2; color: #EF4444; border: 1px solid #fecdd3; }
+            .teacher-item {
+              display: block;
+              font-size: 9px;
+              margin-bottom: 4px;
+              border-bottom: 1px dashed #eee;
+              padding-bottom: 3px;
+            }
+            .teacher-item:last-child {
+              border-bottom: none;
+              padding-bottom: 0;
+            }
+          </style>
+          
+          <div class="pdf-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              ${logoHtml}
+              <div style="font-size: 9px; line-height: 1.3; color: #333;">
+                <p style="margin: 0; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">República Bolivariana de Venezuela</p>
+                <p style="margin: 0; font-weight: normal;">Ministerio del Poder Popular para la Educación</p>
+                <p style="margin: 0; font-weight: bold; font-size: 10px; color: #00838F;">${escuelaTitulo}</p>
+                <p style="margin: 0; color: #666; font-size: 8px;">Escuelas DEP Oriente</p>
+              </div>
+            </div>
+            <div class="pdf-title-container">
+              <h1 class="pdf-title">Reporte de Salones y Secciones</h1>
+              <p class="pdf-subtitle">Generado el ${new Date().toLocaleDateString()} a las ${new Date().toLocaleTimeString()}</p>
+              <span style="font-size: 8px; font-weight: bold; color: #00838F; display: block; margin-top: 2px;">Control de Estudios | Reporte Oficial</span>
+            </div>
+          </div>
+          
+          <table class="pdf-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Escuela</th>
+                <th style="width: 15%;">Salón / Sección</th>
+                <th style="width: 25%;">Espacio Físico</th>
+                <th style="width: 15%;">Nivel Educativo</th>
+                <th style="width: 25%;">Docente(s) Guía</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div class="pdf-footer">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${cintilloHtml}
+              <span>Reporte emitido de forma automatizada por el Sistema Integral de Gestión y Administración Escolar (SIGAE)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <span>Página 1 de 1</span>
+              ${logoSistemaHtml}
+            </div>
+          </div>
+        `;
+
+        wrapper.appendChild(container);
+        document.body.appendChild(wrapper);
+
+        const opt = {
+          margin: 10,
+          filename: `Reporte_Salones_${new Date().toISOString().slice(0, 10)}.pdf`,
+          image: { type: 'jpeg', quality: 1.0 },
+          html2canvas: { scale: 3.5, useCORS: true, scrollY: 0, scrollX: 0, imageTimeout: 0 },
+          jsPDF: { unit: 'mm', format: formato, orientation: orientacion }
+        };
+
+        html2pdf().set(opt).from(container).save().then(() => {
+          document.body.removeChild(wrapper);
+          Swal.close();
+          auditar('Control de Estudios', 'Exportar Reporte', `Se descargó el reporte PDF de salones para: ${escuelaStr}`);
+        }).catch((err: any) => {
+          console.error(err);
+          document.body.removeChild(wrapper);
+          Swal.close();
+          Swal.fire('Error', 'No se pudo generar el documento PDF.', 'error');
+        });
+      }
+    });
+  };
+
   // Opened classrooms actions
   const abrirModalSalon = () => {
     if (!canCrearSalones) return;
@@ -404,11 +768,25 @@ export const GradosSalones = () => {
       optEspacios += `<option value="${e.id}">${e.nombre} (${nombreEscuelaStr})</option>`;
     });
 
+    const assignedCedulas = new Set<string>();
+    salones.forEach(s => {
+      if (s.docentes_guias) {
+        s.docentes_guias.forEach(c => {
+          if (c) assignedCedulas.add(c);
+        });
+      }
+    });
+
+    let optDocentes = '<option value="">Sin Asignar</option>';
+    docentes.forEach(d => {
+      optDocentes += `<option value="${d.cedula}">${d.nombre_completo}</option>`;
+    });
+
     const htmlForm = `
     <div class="text-start">
       <label class="small fw-bold mb-1 text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Espacio Físico (Ambiente)</label>
       <select id="swal-espacio" class="swal2-input input-moderno m-0 mb-3 w-100">${optEspacios}</select>
-
+ 
       <div class="row g-3 mb-3">
         <div class="col-8">
           <label class="small fw-bold mb-1 text-muted"><i class="bi bi-building text-primary me-1"></i>Escuela</label>
@@ -420,11 +798,11 @@ export const GradosSalones = () => {
           <input type="text" id="swal-capacidad" class="form-control input-moderno mb-0 w-100" readonly disabled placeholder="-- pax">
         </div>
       </div>
-
+ 
       <label class="small fw-bold mb-1 text-muted">Nivel Educativo</label>
       <select id="swal-nivel" class="swal2-input input-moderno m-0 mb-3 w-100">${optNiveles}</select>
       
-      <div class="row g-3">
+      <div class="row g-3 mb-3">
         <div class="col-8">
           <label class="small fw-bold mb-1 text-muted">Grado / Año</label>
           <select id="swal-grado" class="swal2-input input-moderno m-0 w-100">${optGrados}</select>
@@ -434,6 +812,26 @@ export const GradosSalones = () => {
           <select id="swal-secc" class="swal2-input input-moderno m-0 w-100">${optSecc}</select>
         </div>
       </div>
+      
+      <div class="border-top mt-4 pt-3">
+        <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-person-video3 me-2"></i>Docente(s) Guía Responsable(s)</h6>
+        
+        <div class="mb-2">
+          <label class="small fw-bold mb-1 text-muted">Docente Guía 1 (Principal)</label>
+          <select id="swal-docente-1" class="swal2-input input-moderno m-0 w-100">${optDocentes}</select>
+        </div>
+        
+        <div class="mb-2">
+          <label class="small fw-bold mb-1 text-muted">Docente Guía 2 (Opcional)</label>
+          <select id="swal-docente-2" class="swal2-input input-moderno m-0 w-100">${optDocentes}</select>
+        </div>
+        
+        <div class="mb-2">
+          <label class="small fw-bold mb-1 text-muted">Docente Guía 3 (Opcional)</label>
+          <select id="swal-docente-3" class="swal2-input input-moderno m-0 w-100">${optDocentes}</select>
+        </div>
+      </div>
+      
       <div class="alert alert-info mt-3 small"><i class="bi bi-info-circle me-1"></i>El sistema unirá el Grado y la Sección para crear el Nombre Oficial del Salón automáticamente.</div>
     </div>`;
 
@@ -449,12 +847,33 @@ export const GradosSalones = () => {
         const inputEsc = document.getElementById('swal-escuela') as HTMLInputElement;
         const inputCap = document.getElementById('swal-capacidad') as HTMLInputElement;
 
+        const updateDocenteDropdowns = (schoolCode: string) => {
+          let filteredDocentes = docentes.filter(d => d.id_escuela === schoolCode);
+          if (schoolCode === 'lb') {
+            filteredDocentes = filteredDocentes.filter(d => !assignedCedulas.has(d.cedula));
+          }
+
+          let optDocs = '<option value="">Sin Asignar</option>';
+          filteredDocentes.forEach(d => {
+            optDocs += `<option value="${d.cedula}">${d.nombre_completo}</option>`;
+          });
+
+          const sel1 = document.getElementById('swal-docente-1') as HTMLSelectElement;
+          const sel2 = document.getElementById('swal-docente-2') as HTMLSelectElement;
+          const sel3 = document.getElementById('swal-docente-3') as HTMLSelectElement;
+
+          if (sel1) sel1.innerHTML = optDocs;
+          if (sel2) sel2.innerHTML = optDocs;
+          if (sel3) sel3.innerHTML = optDocs;
+        };
+
         const updateDetails = () => {
           const espId = selectEsp.value;
           if (!espId) {
             inputEscNom.value = '';
             inputEsc.value = '';
             inputCap.value = '';
+            updateDocenteDropdowns('');
             return;
           }
           const espObj = espacios.find(e => e.id === espId);
@@ -462,6 +881,7 @@ export const GradosSalones = () => {
             inputEscNom.value = espObj.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
             inputEsc.value = espObj.id_escuela;
             inputCap.value = `${espObj.capacidad || 0} pax`;
+            updateDocenteDropdowns(espObj.id_escuela);
           }
         };
 
@@ -474,6 +894,11 @@ export const GradosSalones = () => {
         const gra = (document.getElementById('swal-grado') as HTMLSelectElement).value;
         const sec = (document.getElementById('swal-secc') as HTMLSelectElement).value;
         const esp = (document.getElementById('swal-espacio') as HTMLSelectElement).value;
+        
+        const doc1 = (document.getElementById('swal-docente-1') as HTMLSelectElement).value;
+        const doc2 = (document.getElementById('swal-docente-2') as HTMLSelectElement).value;
+        const doc3 = (document.getElementById('swal-docente-3') as HTMLSelectElement).value;
+
         if (!esc || !niv || !gra || !sec || !esp) {
           Swal.showValidationMessage('Todos los campos son obligatorios');
           return false;
@@ -485,8 +910,15 @@ export const GradosSalones = () => {
           Swal.showValidationMessage('No tiene permisos de creación para esta escuela');
           return false;
         }
+
+        const docs = [doc1, doc2, doc3].filter(d => d);
+        const uniques = new Set(docs);
+        if (uniques.size !== docs.length) {
+          Swal.showValidationMessage('No puedes asignar el mismo docente guía más de una vez');
+          return false;
+        }
         
-        return { escuela: esc, nivel: niv, grado: gra, seccion: sec, id_espacio: esp };
+        return { escuela: esc, nivel: niv, grado: gra, seccion: sec, id_espacio: esp, docentes_guias: docs };
       }
     }).then(async (result: any) => {
       if (result.isConfirmed) {
@@ -519,7 +951,8 @@ export const GradosSalones = () => {
             seccion: datosSalon.seccion,
             nombre_salon: nombreSal,
             id_espacio: datosSalon.id_espacio,
-            estatus: 'Activo'
+            estatus: 'Activo',
+            docentes_guias: datosSalon.docentes_guias
           };
 
           const { error } = await supabase.from('salones').insert([payload]);
@@ -585,6 +1018,36 @@ export const GradosSalones = () => {
     const capInicial = espacioActual ? `${espacioActual.capacidad || 0} pax` : '-- pax';
     const nombreEscuelaStr = salon.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
 
+    const assignedCedulas = new Set<string>();
+    salones.forEach(s => {
+      if (s.id_salon !== salon.id_salon && s.docentes_guias) {
+        s.docentes_guias.forEach(c => {
+          if (c) assignedCedulas.add(c);
+        });
+      }
+    });
+
+    const getDocenteOptions = (idx: number) => {
+      const asignado = salon.docentes_guias && salon.docentes_guias[idx] ? salon.docentes_guias[idx] : '';
+      let opts = '<option value="">Sin Asignar</option>';
+      
+      const filteredDocentes = docentes.filter(d => {
+        if (d.id_escuela !== salon.id_escuela) return false;
+        if (salon.id_escuela === 'lb') {
+          if (assignedCedulas.has(d.cedula) && d.cedula !== asignado) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      filteredDocentes.forEach(d => {
+        const sel = d.cedula === asignado ? 'selected' : '';
+        opts += `<option value="${d.cedula}" ${sel}>${d.nombre_completo}</option>`;
+      });
+      return opts;
+    };
+
     const htmlForm = `
     <div class="text-start">
       <label class="small fw-bold mb-1 text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Espacio Físico (Ambiente)</label>
@@ -604,7 +1067,7 @@ export const GradosSalones = () => {
       <label class="small fw-bold mb-1 text-muted">Nivel Educativo</label>
       <select id="swal-nivel-ed" class="swal2-input input-moderno m-0 mb-3 w-100">${optNiveles}</select>
 
-      <div class="row g-3">
+      <div class="row g-3 mb-3">
         <div class="col-8">
           <label class="small fw-bold mb-1 text-muted">Grado / Año</label>
           <select id="swal-grado-ed" class="swal2-input input-moderno m-0 w-100">${optGrados}</select>
@@ -614,6 +1077,26 @@ export const GradosSalones = () => {
           <select id="swal-secc-ed" class="swal2-input input-moderno m-0 w-100">${optSecc}</select>
         </div>
       </div>
+
+      <div class="border-top mt-4 pt-3">
+        <h6 class="fw-bold mb-3 text-secondary"><i class="bi bi-person-video3 me-2"></i>Docente(s) Guía Responsable(s)</h6>
+        
+        <div class="mb-2">
+          <label class="small fw-bold mb-1 text-muted">Docente Guía 1 (Principal)</label>
+          <select id="swal-docente-1-ed" class="swal2-input input-moderno m-0 w-100">${getDocenteOptions(0)}</select>
+        </div>
+        
+        <div class="mb-2">
+          <label class="small fw-bold mb-1 text-muted">Docente Guía 2 (Opcional)</label>
+          <select id="swal-docente-2-ed" class="swal2-input input-moderno m-0 w-100">${getDocenteOptions(1)}</select>
+        </div>
+        
+        <div class="mb-2">
+          <label class="small fw-bold mb-1 text-muted">Docente Guía 3 (Opcional)</label>
+          <select id="swal-docente-3-ed" class="swal2-input input-moderno m-0 w-100">${getDocenteOptions(2)}</select>
+        </div>
+      </div>
+
       <div class="alert alert-warning mt-3 small"><i class="bi bi-exclamation-triangle me-1"></i>Modificar el grado, sección o espacio físico alterará el nombre oficial y la capacidad del salón.</div>
     </div>`;
 
@@ -642,11 +1125,24 @@ export const GradosSalones = () => {
         const gra = (document.getElementById('swal-grado-ed') as HTMLSelectElement).value;
         const sec = (document.getElementById('swal-secc-ed') as HTMLSelectElement).value;
         const esp = (document.getElementById('swal-espacio-ed') as HTMLSelectElement).value;
+        
+        const doc1 = (document.getElementById('swal-docente-1-ed') as HTMLSelectElement).value;
+        const doc2 = (document.getElementById('swal-docente-2-ed') as HTMLSelectElement).value;
+        const doc3 = (document.getElementById('swal-docente-3-ed') as HTMLSelectElement).value;
+
         if (!niv || !gra || !sec || !esp) {
           Swal.showValidationMessage('Todos los campos son obligatorios');
           return false;
         }
-        return { nivel: niv, grado: gra, seccion: sec, id_espacio: esp };
+
+        const docs = [doc1, doc2, doc3].filter(d => d);
+        const uniques = new Set(docs);
+        if (uniques.size !== docs.length) {
+          Swal.showValidationMessage('No puedes asignar el mismo docente guía más de una vez');
+          return false;
+        }
+
+        return { nivel: niv, grado: gra, seccion: sec, id_espacio: esp, docentes_guias: docs };
       }
     }).then(async (result: any) => {
       if (result.isConfirmed) {
@@ -677,7 +1173,8 @@ export const GradosSalones = () => {
             grado_anio: datosEd.grado,
             seccion: datosEd.seccion,
             nombre_salon: nombreSal,
-            id_espacio: datosEd.id_espacio
+            id_espacio: datosEd.id_espacio,
+            docentes_guias: datosEd.docentes_guias
           };
 
           const { error } = await supabase.from('salones').update(payload).eq('id_salon', id_salon);
@@ -1111,6 +1608,11 @@ export const GradosSalones = () => {
                       <option value="seccion">Ordenar por Sección</option>
                     </select>
                   </div>
+                   {pSalones && (
+                    <button className="btn btn-sm btn-outline-info fw-bold shadow-sm hover-efecto me-1" onClick={abrirModalReporte}>
+                      <i className="bi bi-file-earmark-pdf-fill me-1"></i>Reporte PDF
+                    </button>
+                  )}
                   {canCrearSalones && (
                     <button className="btn btn-sm btn-info text-white fw-bold shadow-sm hover-efecto" onClick={abrirModalSalon}>
                       <i className="bi bi-plus-lg me-1"></i>Aperturar Salón
@@ -1133,13 +1635,14 @@ export const GradosSalones = () => {
                 ) : (
                   <div className="table-responsive">
                     <table className="table table-hover align-middle mb-0">
-                      <thead className="bg-light text-muted small">
+                       <thead className="bg-light text-muted small">
                         <tr>
                           <th className="ps-4 py-3">Escuela</th>
                           <th className="py-3">Nombre del Salón</th>
                           <th className="py-3">Nivel Educativo</th>
                           <th className="py-3">Grado</th>
                           <th className="py-3">Sección</th>
+                          <th className="py-3">Docente(s) Guía</th>
                           <th className="text-end pe-4 py-3">Acción</th>
                         </tr>
                       </thead>
@@ -1178,6 +1681,25 @@ export const GradosSalones = () => {
                                 <span className="badge bg-info rounded-circle shadow-sm d-flex align-items-center justify-content-center text-white" style={{ width: '30px', height: '30px', fontSize: '14px' }}>
                                   {s.seccion}
                                 </span>
+                              </td>
+                              <td>
+                                {s.docentes_guias && s.docentes_guias.length > 0 ? (
+                                  <div className="d-flex flex-column gap-1">
+                                    {s.docentes_guias.map((cedula, i) => {
+                                      const docObj = docentes.find(d => d.cedula === cedula);
+                                      const nombre = docObj ? docObj.nombre_completo : `C.I. ${cedula}`;
+                                      const esPrincipal = i === 0;
+                                      return (
+                                        <span key={cedula} className={`badge ${esPrincipal ? 'bg-info bg-opacity-10 text-info border border-info-subtle' : 'bg-light text-secondary border'} px-2 py-1 text-start fw-semibold`} style={{ fontSize: '0.75rem', width: 'fit-content' }}>
+                                          <i className={`bi ${esPrincipal ? 'bi-person-badge-fill text-info' : 'bi-person-badge-fill text-info'/* Wait, maybe bi-person-fill for auxiliary and bi-person-badge-fill for principal */} me-1`}></i>
+                                          {nombre}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted small italic"><i className="bi bi-person-x me-1"></i>Sin asignar</span>
+                                )}
                               </td>
                               <td className="text-end pe-4 text-nowrap">
                                 {rowCanCrear && (

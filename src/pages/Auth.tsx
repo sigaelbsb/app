@@ -205,9 +205,65 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         .maybeSingle();
 
       if (error || !data) {
-        // No existe -> Invitado
+        // No existe -> Invitado (verificar mantenimiento e inhabilitación de invitados antes)
+        try {
+          const [maintRes, guestRes] = await Promise.all([
+            supabase.from('ajustes_globales').select('valor').eq('clave', 'mantenimiento_activo').maybeSingle(),
+            supabase.from('ajustes_globales').select('valor').eq('clave', 'bloquear_invitados').maybeSingle()
+          ]);
+
+          if (maintRes.data && maintRes.data.valor === 'true') {
+            setErrorMsg('El sistema se encuentra en mantenimiento global y solo se permitirá el acceso a los administradores y personal autorizado.');
+            setLoading(false);
+            return;
+          }
+
+          if (guestRes.data && guestRes.data.valor === 'true') {
+            setErrorMsg('El registro e ingreso de invitados y visitantes está temporalmente inhabilitado por la dirección.');
+            setLoading(false);
+            return;
+          }
+        } catch (err) {}
+
         setLoginStep('invitado');
       } else {
+        // Existe -> Verificar si está en mantenimiento
+        try {
+          const { data: maintData } = await supabase
+            .from('ajustes_globales')
+            .select('valor')
+            .eq('clave', 'mantenimiento_activo')
+            .maybeSingle();
+
+          if (maintData && maintData.valor === 'true') {
+            let hasMaintAccess = false;
+            if (data.rol === 'SuperAdmin') {
+              hasMaintAccess = true;
+            } else {
+              const activeSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+              const { data: roleData } = await supabase
+                .from('roles')
+                .select('permisos')
+                .eq('nombre', data.rol)
+                .maybeSingle();
+
+              if (roleData && roleData.permisos) {
+                const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
+                const escPerms = parsed[activeSchool] || {};
+                if (escPerms["Ingresar en Mantenimiento"]?.ver === true) {
+                  hasMaintAccess = true;
+                }
+              }
+            }
+
+            if (!hasMaintAccess) {
+              setErrorMsg('El sistema se encuentra en mantenimiento global y solo se permitirá el acceso a los administradores y personal autorizado.');
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (err) {}
+
         // Existe -> Pedir clave
         if (data.estado === 'Bloqueado') {
           setErrorMsg('Usuario BLOQUEADO permanentemente.');
@@ -367,8 +423,47 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     }
   };
 
-  const completarLogin = (userData: any, resolvedSchool?: 'sb' | 'lb') => {
+  const completarLogin = async (userData: any, resolvedSchool?: 'sb' | 'lb') => {
     const activeSchool = resolvedSchool || school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+    
+    // Check maintenance mode
+    try {
+      const { data: maintData } = await supabase
+        .from('ajustes_globales')
+        .select('valor')
+        .eq('clave', 'mantenimiento_activo')
+        .maybeSingle();
+
+      if (maintData && maintData.valor === 'true') {
+        let hasMaintAccess = false;
+        if (userData.rol === 'SuperAdmin') {
+          hasMaintAccess = true;
+        } else {
+          const { data: roleData } = await supabase
+            .from('roles')
+            .select('permisos')
+            .eq('nombre', userData.rol)
+            .maybeSingle();
+
+          if (roleData && roleData.permisos) {
+            const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
+            const escPerms = parsed[activeSchool] || {};
+            if (escPerms["Ingresar en Mantenimiento"]?.ver === true) {
+              hasMaintAccess = true;
+            }
+          }
+        }
+
+        if (!hasMaintAccess) {
+          setErrorMsg('El sistema se encuentra en mantenimiento global y solo se permitirá el acceso a los administradores y personal autorizado.');
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Error al comprobar mantenimiento en login:", err);
+    }
+
     const cleanUserData = {
       id: userData.id || userData.id_usuario,
       nombre: userData.nombre_completo || userData.nombre,
@@ -394,9 +489,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     if (!Swal) {
       const code = prompt("Ingresa el código de 2FA:");
       if (code && code.trim().length === 6) {
-        verificarTOTP(secret, code).then(verificado => {
+        verificarTOTP(secret, code).then(async verificado => {
           if (verificado) {
-            completarLogin(userData, resolvedSchool);
+            await completarLogin(userData, resolvedSchool);
           } else {
             alert("Código incorrecto");
           }
@@ -431,9 +526,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         }
         return true;
       }
-    }).then((result: any) => {
+    }).then(async (result: any) => {
       if (result.isConfirmed) {
-        completarLogin(userData, resolvedSchool);
+        await completarLogin(userData, resolvedSchool);
       }
     });
   };
@@ -497,7 +592,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         return;
       }
 
-      completarLogin(data, resolvedSchool);
+      await completarLogin(data, resolvedSchool);
     } catch (e: any) {
       console.error(e);
       if (e.name !== "NotAllowedError") {
@@ -591,7 +686,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         return;
       }
 
-      completarLogin(data, resolvedSchool);
+      await completarLogin(data, resolvedSchool);
     } catch (err) {
       console.error(err);
       setErrorMsg('Error de conexión.');
@@ -610,6 +705,24 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     setErrorMsg('');
 
     try {
+      // Check maintenance mode and visitors blocking
+      const [maintRes, guestRes] = await Promise.all([
+        supabase.from('ajustes_globales').select('valor').eq('clave', 'mantenimiento_activo').maybeSingle(),
+        supabase.from('ajustes_globales').select('valor').eq('clave', 'bloquear_invitados').maybeSingle()
+      ]);
+
+      if (maintRes.data && maintRes.data.valor === 'true') {
+        setErrorMsg('El sistema se encuentra en mantenimiento global. No se permiten accesos de visitantes.');
+        setLoading(false);
+        return;
+      }
+
+      if (guestRes.data && guestRes.data.valor === 'true') {
+        setErrorMsg('El registro e ingreso de invitados y visitantes está temporalmente inhabilitado por la dirección.');
+        setLoading(false);
+        return;
+      }
+
       // In Vanilla JS this inserts a record or just logs them in as Invitado.
       // We will create a local "Guest" session for now, or you can adjust to insert into your DB.
       const guestData = {
