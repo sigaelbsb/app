@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: sigae-app
+    name: sigaelbsb
     runtime: static
     buildCommand: npm install && npm run build
     publishDir: dist
