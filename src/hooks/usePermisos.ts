@@ -133,6 +133,11 @@ export const usePermisos = () => {
       return rolesAdministrativos.includes(user?.rol);
     }
 
+    if (modulo === "Solicitud de Cupos") {
+      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
+      return rolesPermitidos.includes(user?.rol);
+    }
+
     return false;
   };
 

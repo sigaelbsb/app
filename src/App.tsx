@@ -24,6 +24,7 @@ import { GestionColectivos } from './pages/organizacion/GestionColectivos';
 import { GradosSalones } from './pages/estudios/GradosSalones';
 import { MiExpediente } from './pages/docente/MiExpediente';
 import { GestorExpedientes } from './pages/docente/GestorExpedientes';
+import { SolicitudCupos } from './pages/estudiantil/SolicitudCupos';
 import './componentes.css';
 import './principal.css';
 import './auth_ui.css';
@@ -137,6 +138,7 @@ function App() {
           <Route path="categoria/Control de Estudios/Grados y Salones" element={<GradosSalones />} />
           <Route path="categoria/Gestión Docente/Mi Expediente" element={<MiExpediente />} />
           <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<GestorExpedientes />} />
+          <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<SolicitudCupos />} />
         </Route>
       </Routes>
     </Router>

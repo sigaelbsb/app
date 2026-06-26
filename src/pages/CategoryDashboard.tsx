@@ -136,7 +136,8 @@ export const CategoryDashboard = () => {
          vista === "Cadena Supervisoria" ||
          vista === "Gestión de Colectivos")) ||
       (decodedCategory === "Control de Estudios" && vista === "Grados y Salones") ||
-      (decodedCategory === "Gestión Docente" && (vista === "Mi Expediente" || vista === "Gestor de Expedientes"))
+      (decodedCategory === "Gestión Docente" && (vista === "Mi Expediente" || vista === "Gestor de Expedientes")) ||
+      (decodedCategory === "Gestión Estudiantil" && vista === "Solicitud de Cupos")
     ) {
       navigate(`/categoria/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(vista)}`);
       return;
