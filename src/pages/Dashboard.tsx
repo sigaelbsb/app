@@ -182,8 +182,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['lb-mision'] ? 'flipped' : ''}`} onClick={() => handleCardClick('lb-mision')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/3.png" alt="Misión" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/3.png" alt="Misión" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#0066FF' }} className="mb-0 fw-bold text-uppercase">Misión</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#0066FF', overflowY: 'auto' }}>
@@ -196,8 +196,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['lb-vision'] ? 'flipped' : ''}`} onClick={() => handleCardClick('lb-vision')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/4.png" alt="Visión" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/4.png" alt="Visión" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#00C3FF' }} className="mb-0 fw-bold text-uppercase">Visión</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#00C3FF', overflowY: 'auto' }}>
@@ -210,8 +210,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['lb-valores'] ? 'flipped' : ''}`} onClick={() => handleCardClick('lb-valores')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/5.png" alt="Valores" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/5.png" alt="Valores" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#34A853' }} className="mb-0 fw-bold text-uppercase">Valores</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#34A853', overflowY: 'auto' }}>
@@ -224,8 +224,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['lb-peic'] ? 'flipped' : ''}`} onClick={() => handleCardClick('lb-peic')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/6.png" alt="PEIC" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/6.png" alt="PEIC" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#FF8D00' }} className="mb-0 fw-bold text-uppercase">PEIC</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#FF8D00', overflowY: 'auto' }}>
@@ -286,8 +286,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['sb-mision'] ? 'flipped' : ''}`} onClick={() => handleCardClick('sb-mision')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/3.png" alt="Misión" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/3.png" alt="Misión" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#10b981' }} className="mb-0 fw-bold text-uppercase">Misión</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#10b981', overflowY: 'auto' }}>
@@ -300,8 +300,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['sb-vision'] ? 'flipped' : ''}`} onClick={() => handleCardClick('sb-vision')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/4.png" alt="Visión" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/4.png" alt="Visión" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#34d399' }} className="mb-0 fw-bold text-uppercase">Visión</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#34d399', overflowY: 'auto' }}>
@@ -314,8 +314,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['sb-valores'] ? 'flipped' : ''}`} onClick={() => handleCardClick('sb-valores')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/5.png" alt="Valores" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/5.png" alt="Valores" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#059669' }} className="mb-0 fw-bold text-uppercase">Valores</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#059669', overflowY: 'auto' }}>
@@ -328,8 +328,8 @@ export const Dashboard = () => {
                 <div className="col-6">
                   <div className={`flip-card ${flipped['sb-peic'] ? 'flipped' : ''}`} onClick={() => handleCardClick('sb-peic')}>
                     <div className="flip-card-inner">
-                      <div className="flip-card-front" style={{ padding: '1.5rem' }}>
-                        <img src="/assets/img/6.png" alt="PEIC" className="img-fluid mb-2" style={{ height: '150px' }} />
+                      <div className="flip-card-front">
+                        <img src="/assets/img/6.png" alt="PEIC" className="img-tarjeta-inicio" />
                         <h6 style={{ color: '#047857' }} className="mb-0 fw-bold text-uppercase">PEIC</h6>
                       </div>
                       <div className="flip-card-back p-3" style={{ borderColor: '#047857', overflowY: 'auto' }}>
