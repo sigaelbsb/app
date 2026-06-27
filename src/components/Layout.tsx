@@ -334,7 +334,9 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             </div>
             
             {Object.entries(ModulosSistema).map(([nombreCategoria, datosModulo]) => {
-              if (!permLoading && !datosModulo.items.some((item: any) => tienePermiso(item.vista, 'ver'))) {
+              // Mientras cargan permisos, no mostrar nada (evita flash de módulos sin filtrar)
+              if (permLoading) return null;
+              if (!datosModulo.items.some((item: any) => tienePermiso(item.vista, 'ver'))) {
                 return null;
               }
               const isActive = activeCategory === nombreCategoria;

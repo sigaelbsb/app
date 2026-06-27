@@ -386,11 +386,18 @@ body.menu-colapsado .menu-categoria i { margin: 0 !important; font-size: 1.5rem 
 /* ==========================================================
    GLOBAL RESPONSIVE FIXES (MOBILE FIXES)
 ============================================================= */
+/* Imágenes responsivas: solo asegurar que no se salgan del contenedor */
 img {
     max-width: 100%;
-    height: auto;
-    object-fit: cover;
 }
+/* Solo las imágenes de contenido deben escalar automáticamente (no logos con height fijo) */
+img.img-fluid, img.img-tarjeta-inicio {
+    height: auto;
+    object-fit: contain;
+}
+/* Logos del footer: tamaño controlado */
+.footer-logo-mppe  { height: 40px !important; width: auto; }
+.footer-logo-sigae { height: 55px !important; width: auto; }
 
 @media (max-width: 768px) {
     html {
