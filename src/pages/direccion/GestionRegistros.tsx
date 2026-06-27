@@ -181,52 +181,64 @@ export const GestionRegistros = () => {
     setLoadingLogs(false);
   };
 
-  // --- AUTOCOMPLETADO POR CÉDULA ---
-  const buscarDatosPorCedula = async (cedula: string) => {
-    if (cedula.length < 6) {
-      // Limpiar autocompletado si el usuario borra la cédula
-      if (autocompletado) {
-        setFormNombres('');
-        setFormApellidos('');
-        setFormCorreo('');
-        setFormTelefono('');
-        setAutocompletado(false);
-        setVisitasAnteriores(0);
-      }
+  // --- AUTOCOMPLETADO POR CÉDULA (useEffect con debounce 600ms) ---
+  useEffect(() => {
+    // Limpiar cuando cédula es corta
+    if (formCedula.length < 6) {
+      setFormNombres('');
+      setFormApellidos('');
+      setFormCorreo('');
+      setFormTelefono('');
+      setAutocompletado(false);
+      setVisitasAnteriores(0);
+      setBuscandoCedula(false);
       return;
     }
-    setBuscandoCedula(true);
-    try {
-      const { data } = await supabase
-        .from('invitados')
-        .select('nombres, apellidos, correo, telefono')
-        .eq('cedula', cedula)
-        .order('created_at', { ascending: false })
-        .limit(10);
 
-      if (data && data.length > 0) {
-        const ultimo = data[0];
-        setFormNombres(ultimo.nombres || '');
-        setFormApellidos(ultimo.apellidos || '');
-        setFormCorreo(ultimo.correo || '');
-        setFormTelefono(ultimo.telefono || '');
-        setAutocompletado(true);
-        setVisitasAnteriores(data.length);
-      } else {
-        setAutocompletado(false);
-        setVisitasAnteriores(0);
+    let cancelled = false;
+    setBuscandoCedula(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('invitados')
+          .select('nombres, apellidos, correo, telefono')
+          .eq('cedula', formCedula.trim())
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (cancelled) return;
+
+        if (!error && data && data.length > 0) {
+          const ultimo = data[0];
+          setFormNombres(ultimo.nombres || '');
+          setFormApellidos(ultimo.apellidos || '');
+          setFormCorreo(ultimo.correo || '');
+          setFormTelefono(ultimo.telefono || '');
+          setAutocompletado(true);
+          setVisitasAnteriores(data.length);
+        } else {
+          setAutocompletado(false);
+          setVisitasAnteriores(0);
+        }
+      } catch (e) {
+        console.error('Error buscando cédula:', e);
+        if (!cancelled) setAutocompletado(false);
       }
-    } catch (e) {
-      console.error('Error buscando cédula:', e);
-    }
-    setBuscandoCedula(false);
-  };
+      if (!cancelled) setBuscandoCedula(false);
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formCedula]);
 
   const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '');
     setFormCedula(val);
-    buscarDatosPorCedula(val);
   };
+
 
   const limpiarFormulario = () => {
     setFormCedula('');
