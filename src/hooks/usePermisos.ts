@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 
 let cachePermisos: any = null;
 let cacheFullPermisos: any = null;
+let cacheUserRol: string | null = null;
 
 export const usePermisos = () => {
   const [permisos, setPermisos] = useState<any>(cachePermisos);
@@ -15,6 +16,7 @@ export const usePermisos = () => {
     if (!stored) {
       cachePermisos = null;
       cacheFullPermisos = null;
+      cacheUserRol = null;
       setPermisos(null);
       setFullPermisos(null);
       setLoading(false);
@@ -23,7 +25,7 @@ export const usePermisos = () => {
     const usr = JSON.parse(stored);
     setUser(usr);
 
-    if (cachePermisos && cacheFullPermisos) {
+    if (cachePermisos && cacheFullPermisos && cacheUserRol === usr.rol) {
       setPermisos(cachePermisos);
       setFullPermisos(cacheFullPermisos);
       setLoading(false);
@@ -47,6 +49,7 @@ export const usePermisos = () => {
             parsed = data.permisos || {};
           }
           cacheFullPermisos = parsed;
+          cacheUserRol = usr.rol;
           setFullPermisos(parsed);
 
           let esc = usr.id_escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb';
@@ -116,6 +119,12 @@ export const usePermisos = () => {
       let tieneEnSB = fullPermisos?.sb?.[modulo]?.[accion] === true;
       let tieneEnLB = fullPermisos?.lb?.[modulo]?.[accion] === true;
       
+      if (user?.rol === 'Invitado') {
+        const activeSchool = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+        if (activeSchool === 'sb') tieneEnLB = false;
+        if (activeSchool === 'lb') tieneEnSB = false;
+      }
+      
       return tieneEnSB || tieneEnLB;
     }
 
@@ -144,6 +153,7 @@ export const usePermisos = () => {
 
   const tieneAccesoEscuela = (escuelaCodigo: string) => {
     if (user?.rol === 'SuperAdmin') return true;
+    if (user?.rol === 'Invitado' && localStorage.getItem('sigae_escuela_codigo') !== escuelaCodigo) return false;
     
     if (!fullPermisos) return false;
     const privsEscuela = fullPermisos[escuelaCodigo];

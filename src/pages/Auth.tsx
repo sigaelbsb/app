@@ -768,14 +768,12 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         return;
       }
 
-      const guestRole = escuelaID === 'lb' ? 'Invitado LB' : 'Invitado SB';
-
       const guestData = {
         id: 'guest-' + Date.now(),
         nombre: invNombres,
         apellido: invApellidos,
         cedula: cedula,
-        rol: guestRole,
+        rol: 'Invitado',
         email: invCorreo
       };
       localStorage.setItem('sesion_sigae', 'activa');
