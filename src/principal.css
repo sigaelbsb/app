@@ -390,14 +390,12 @@ body.menu-colapsado .menu-categoria i { margin: 0 !important; font-size: 1.5rem 
 img {
     max-width: 100%;
 }
-/* Solo las imágenes de contenido deben escalar automáticamente (no logos con height fijo) */
-img.img-fluid, img.img-tarjeta-inicio {
-    height: auto;
-    object-fit: contain;
-}
-/* Logos del footer: tamaño controlado */
+/* Logos del footer: tamaño fijo controlado por CSS */
 .footer-logo-mppe  { height: 40px !important; width: auto; }
 .footer-logo-sigae { height: 55px !important; width: auto; }
+/* Logos de escuelas en banner: respetar el maxHeight inline */
+#img-logo-escuela-banner-lb,
+#img-logo-escuela-banner-sb { height: auto; max-height: 90px; width: auto; }
 
 @media (max-width: 768px) {
     html {
