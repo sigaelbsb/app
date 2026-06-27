@@ -265,26 +265,26 @@ export const GestionRegistros = () => {
     const telefono = formTelefono.trim() || null;
     const razon_visita = formRazon.trim();
 
-    if (!cedula || !nombres || !apellidos || !razon_visita) {
-      if (Swal) Swal.fire("Atención", "Cédula, nombres, apellidos y motivo de la visita son campos obligatorios.", "warning");
-      return;
-    }
+    console.log('[GestionRegistros] hasCrearVisita:', hasCrearVisita, '| datos:', { cedula, nombres, apellidos, razon_visita });
+
+    if (!cedula) { if (Swal) Swal.fire("Atención", "La cédula es obligatoria.", "warning"); return; }
+    if (!nombres) { if (Swal) Swal.fire("Atención", "El nombre es obligatorio. Si el visitante es conocido, espera a que el sistema autocomplete o ingresa manualmente.", "warning"); return; }
+    if (!apellidos) { if (Swal) Swal.fire("Atención", "El apellido es obligatorio.", "warning"); return; }
+    if (!razon_visita) { if (Swal) Swal.fire("Atención", "El motivo de la visita es obligatorio.", "warning"); return; }
 
     setRegistrando(true);
     try {
+      // DEBUG: mostrar datos que se intentan guardar
+      const insertPayload = { cedula, nombres, apellidos, correo, telefono, razon_visita, escuela_id: escuelaSeleccionada };
+      console.log('[GestionRegistros] Intentando insertar visitante:', insertPayload);
+
       const { data, error } = await supabase
         .from('invitados')
-        .insert([{
-          cedula,
-          nombres,
-          apellidos,
-          correo,
-          telefono,
-          razon_visita,
-          escuela_id: escuelaSeleccionada
-        }])
+        .insert([insertPayload])
         .select()
         .single();
+
+      console.log('[GestionRegistros] Resultado insert - data:', data, ' | error:', error);
 
       if (error) throw error;
 
@@ -317,9 +317,10 @@ export const GestionRegistros = () => {
           }
         });
       }
-    } catch (err) {
-      console.error(err);
-      if (Swal) Swal.fire("Error", "No se pudo registrar la entrada del visitante.", "error");
+    } catch (err: any) {
+      console.error('[GestionRegistros] Error al guardar visitante:', err);
+      const msg = err?.message || err?.details || JSON.stringify(err) || 'Error desconocido';
+      if (Swal) Swal.fire("Error al guardar", `Detalle: ${msg}`, "error");
     }
     setRegistrando(false);
   };
