@@ -225,6 +225,30 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           }
         } catch (err) {}
 
+        // Intentar autocompletar si es un visitante recurrente
+        try {
+          const { data: pastVisit } = await supabase
+            .from('invitados')
+            .select('nombres, apellidos, correo, telefono')
+            .eq('cedula', cedula)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (pastVisit) {
+            setInvNombres(pastVisit.nombres || '');
+            setInvApellidos(pastVisit.apellidos || '');
+            setInvCorreo(pastVisit.correo || '');
+            setInvTelefono(pastVisit.telefono || '');
+          } else {
+            setInvNombres('');
+            setInvApellidos('');
+            setInvCorreo('');
+            setInvTelefono('');
+          }
+        } catch (err) {}
+        
+        setInvMotivo('');
         setLoginStep('invitado');
       } else {
         // Existe -> Verificar si está en mantenimiento
@@ -723,14 +747,33 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         return;
       }
 
-      // In Vanilla JS this inserts a record or just logs them in as Invitado.
-      // We will create a local "Guest" session for now, or you can adjust to insert into your DB.
+      // Insertar en la tabla de invitados
+      const escuelaID = school || localStorage.getItem('sigae_escuela_codigo') || 'sb';
+      const { error: insertError } = await supabase
+        .from('invitados')
+        .insert([{
+          cedula: cedula,
+          nombres: invNombres,
+          apellidos: invApellidos,
+          correo: invCorreo || null,
+          telefono: invTelefono || null,
+          razon_visita: invMotivo,
+          escuela_id: escuelaID
+        }]);
+
+      if (insertError) {
+        console.error('Error insertando invitado:', insertError);
+        setErrorMsg('Error al guardar el registro en la base de datos.');
+        setLoading(false);
+        return;
+      }
+
       const guestData = {
         id: 'guest-' + Date.now(),
         nombre: invNombres,
         apellido: invApellidos,
         cedula: cedula,
-        rol: 'Visitante',
+        rol: 'Invitado',
         email: invCorreo
       };
       localStorage.setItem('sesion_sigae', 'activa');
