@@ -162,8 +162,8 @@ export const Dashboard = () => {
                       </button>
                     )}
                   </div>
-                  <p className="mb-3 d-flex align-items-center text-white opacity-75 small text-truncate">
-                    <i className="bi bi-geo-alt-fill text-warning me-2"></i>
+                  <p className="mb-3 d-flex align-items-start text-white opacity-75 small">
+                    <i className="bi bi-geo-alt-fill text-warning me-2 mt-1 flex-shrink-0"></i>
                     <span id="lbl-direccion-escuela-lb">{lbData.direccion}</span>
                   </p>
                   <div className="d-flex gap-2 flex-wrap">
@@ -266,8 +266,8 @@ export const Dashboard = () => {
                       </button>
                     )}
                   </div>
-                  <p className="mb-3 d-flex align-items-center text-white opacity-75 small text-truncate">
-                    <i className="bi bi-geo-alt-fill text-warning me-2"></i>
+                  <p className="mb-3 d-flex align-items-start text-white opacity-75 small">
+                    <i className="bi bi-geo-alt-fill text-warning me-2 mt-1 flex-shrink-0"></i>
                     <span id="lbl-direccion-escuela-sb">{sbData.direccion}</span>
                   </p>
                   <div className="d-flex gap-2 flex-wrap">

@@ -439,5 +439,13 @@ img {
     .badge {
         font-size: 0.7rem !important;
     }
+    
+    /* Logo del footer más pequeño en móvil */
+    .footer-logo-mppe { height: 30px !important; }
+    .footer-logo-sigae { height: 38px !important; }
+    
+    /* Padding contenido principal en móvil */
+    .contenedor-dinamico.p-4.p-md-5 { padding: 1rem !important; }
 }
+
 
