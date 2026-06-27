@@ -1185,19 +1185,22 @@ export const SolicitudCupos = () => {
       )}
 
       {/* TABS */}
-      <div className="d-flex gap-2 border-bottom pb-3 mb-4 overflow-x-auto">
+      <div className="d-flex gap-2 border-bottom pb-3 mb-4" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
         {isUserAdmin && (
           <button onClick={() => setActiveTab('gestion')}
-            className={`btn rounded-pill px-4 fw-bold hover-efecto ${activeTab === 'gestion' ? 'btn-success shadow' : 'btn-outline-secondary'}`}>
+            className={`btn rounded-pill fw-bold hover-efecto flex-shrink-0 ${activeTab === 'gestion' ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+            style={{ whiteSpace: 'nowrap', fontSize: 'clamp(0.72rem, 2.2vw, 0.95rem)', padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)' }}>
             <i className="bi bi-list-task me-1"></i> Listado General
           </button>
         )}
         <button onClick={() => setActiveTab('mis_solicitudes')}
-          className={`btn rounded-pill px-4 fw-bold hover-efecto ${activeTab === 'mis_solicitudes' ? 'btn-success shadow' : 'btn-outline-secondary'}`}>
+          className={`btn rounded-pill fw-bold hover-efecto flex-shrink-0 ${activeTab === 'mis_solicitudes' ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+          style={{ whiteSpace: 'nowrap', fontSize: 'clamp(0.72rem, 2.2vw, 0.95rem)', padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)' }}>
           <i className="bi bi-inbox-fill me-1"></i> Mis Solicitudes
         </button>
         <button onClick={() => { setActiveTab('nueva_solicitud'); setStep(1); setSolicitudGuardada(null); }}
-          className={`btn rounded-pill px-4 fw-bold hover-efecto ${activeTab === 'nueva_solicitud' ? 'btn-success shadow' : 'btn-outline-secondary'}`}>
+          className={`btn rounded-pill fw-bold hover-efecto flex-shrink-0 ${activeTab === 'nueva_solicitud' ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+          style={{ whiteSpace: 'nowrap', fontSize: 'clamp(0.72rem, 2.2vw, 0.95rem)', padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)' }}>
           <i className="bi bi-plus-lg me-1"></i> Nueva Solicitud
         </button>
       </div>
