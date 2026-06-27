@@ -242,6 +242,16 @@ body.auth-body {
     opacity: 0.5;
 }
 
+/* Tamaños base (Desktop) del selector de escuela */
+.logo-selector-escuela {
+    max-height: 160px;
+    width: auto;
+}
+.logo-escuela {
+    max-height: 130px;
+    width: auto;
+}
+
 /* --- Ajustes de Responsividad Móvil --- */
 @media (max-width: 768px) {
     /* Selector de Escuela */
