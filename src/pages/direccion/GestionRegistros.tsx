@@ -61,6 +61,9 @@ export const GestionRegistros = () => {
   const [formTelefono, setFormTelefono] = useState('');
   const [formRazon, setFormRazon] = useState('');
   const [registrando, setRegistrando] = useState(false);
+  const [buscandoCedula, setBuscandoCedula] = useState(false);
+  const [autocompletado, setAutocompletado] = useState(false);
+  const [visitasAnteriores, setVisitasAnteriores] = useState(0);
 
   // Print Pass state
   const [selectedVisitante, setSelectedVisitante] = useState<Visitante | null>(null);
@@ -178,6 +181,64 @@ export const GestionRegistros = () => {
     setLoadingLogs(false);
   };
 
+  // --- AUTOCOMPLETADO POR CÉDULA ---
+  const buscarDatosPorCedula = async (cedula: string) => {
+    if (cedula.length < 6) {
+      // Limpiar autocompletado si el usuario borra la cédula
+      if (autocompletado) {
+        setFormNombres('');
+        setFormApellidos('');
+        setFormCorreo('');
+        setFormTelefono('');
+        setAutocompletado(false);
+        setVisitasAnteriores(0);
+      }
+      return;
+    }
+    setBuscandoCedula(true);
+    try {
+      const { data } = await supabase
+        .from('invitados')
+        .select('nombres, apellidos, correo, telefono')
+        .eq('cedula', cedula)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (data && data.length > 0) {
+        const ultimo = data[0];
+        setFormNombres(ultimo.nombres || '');
+        setFormApellidos(ultimo.apellidos || '');
+        setFormCorreo(ultimo.correo || '');
+        setFormTelefono(ultimo.telefono || '');
+        setAutocompletado(true);
+        setVisitasAnteriores(data.length);
+      } else {
+        setAutocompletado(false);
+        setVisitasAnteriores(0);
+      }
+    } catch (e) {
+      console.error('Error buscando cédula:', e);
+    }
+    setBuscandoCedula(false);
+  };
+
+  const handleCedulaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '');
+    setFormCedula(val);
+    buscarDatosPorCedula(val);
+  };
+
+  const limpiarFormulario = () => {
+    setFormCedula('');
+    setFormNombres('');
+    setFormApellidos('');
+    setFormCorreo('');
+    setFormTelefono('');
+    setFormRazon('');
+    setAutocompletado(false);
+    setVisitasAnteriores(0);
+  };
+
   const handleSaveVisitante = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasCrearVisita) {
@@ -223,12 +284,7 @@ export const GestionRegistros = () => {
       );
 
       // Clean inputs
-      setFormCedula('');
-      setFormNombres('');
-      setFormApellidos('');
-      setFormCorreo('');
-      setFormTelefono('');
-      setFormRazon('');
+      limpiarFormulario();
 
       // Refresh data
       await cargarVisitantes();
@@ -627,85 +683,117 @@ export const GestionRegistros = () => {
               <div className="card-body p-4">
                 {hasCrearVisita ? (
                   <form onSubmit={handleSaveVisitante} className="row g-3">
+                    {/* CÉDULA + búsqueda automática */}
                     <div className="col-12">
                       <label className="form-label small fw-bold text-muted">Cédula de Identidad <span className="text-danger">*</span></label>
-                      <input 
-                        type="text" 
-                        className="form-control input-moderno" 
-                        placeholder="Ej: 25888999" 
-                        value={formCedula}
-                        onChange={(e) => setFormCedula(e.target.value.replace(/\D/g, ''))}
-                        required
-                      />
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className="form-control input-moderno"
+                          placeholder="Ej: 25888999"
+                          value={formCedula}
+                          onChange={handleCedulaChange}
+                          required
+                        />
+                        {buscandoCedula && (
+                          <span className="input-group-text bg-white border">
+                            <span className="spinner-border spinner-border-sm text-primary" role="status"></span>
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="col-md-6">
-                      <label className="form-label small fw-bold text-muted">Nombres <span className="text-danger">*</span></label>
-                      <input 
-                        type="text" 
-                        className="form-control input-moderno" 
-                        placeholder="Ej: Pedro" 
-                        value={formNombres}
-                        onChange={(e) => setFormNombres(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label small fw-bold text-muted">Apellidos <span className="text-danger">*</span></label>
-                      <input 
-                        type="text" 
-                        className="form-control input-moderno" 
-                        placeholder="Ej: Pérez" 
-                        value={formApellidos}
-                        onChange={(e) => setFormApellidos(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="col-md-12">
-                      <label className="form-label small fw-bold text-muted">Correo Electrónico</label>
-                      <input 
-                        type="email" 
-                        className="form-control input-moderno" 
-                        placeholder="Ej: pedro.perez@email.com" 
-                        value={formCorreo}
-                        onChange={(e) => setFormCorreo(e.target.value)}
-                      />
-                    </div>
-                    <div className="col-md-12">
-                      <label className="form-label small fw-bold text-muted">Teléfono de Contacto</label>
-                      <input 
-                        type="text" 
-                        className="form-control input-moderno" 
-                        placeholder="Ej: 0414-1234567" 
-                        value={formTelefono}
-                        onChange={(e) => setFormTelefono(formatPhoneNumber(e.target.value))}
-                      />
-                    </div>
+
+                    {/* BANNER: visitante reconocido */}
+                    {autocompletado && (
+                      <div className="col-12">
+                        <div className="alert alert-success border-0 rounded-3 py-2 px-3 d-flex align-items-center gap-2 mb-0" style={{ background: 'linear-gradient(135deg,#d1fae5,#a7f3d0)' }}>
+                          <i className="bi bi-person-check-fill fs-4 text-success"></i>
+                          <div className="flex-grow-1">
+                            <div className="fw-bold text-success small">✅ Visitante reconocido</div>
+                            <div className="fw-bolder text-dark">{formNombres} {formApellidos}</div>
+                            <div className="small text-muted">{visitasAnteriores} visita(s) anterior(es) registrada(s)</div>
+                          </div>
+                          <button type="button" className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => { setAutocompletado(false); setFormNombres(''); setFormApellidos(''); setFormCorreo(''); setFormTelefono(''); }}>
+                            <i className="bi bi-pencil-fill"></i>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Datos personales: colapsados si hay autocompletado */}
+                    {!autocompletado && (
+                      <>
+                        <div className="col-md-6">
+                          <label className="form-label small fw-bold text-muted">Nombres <span className="text-danger">*</span></label>
+                          <input
+                            type="text"
+                            className="form-control input-moderno"
+                            placeholder="Ej: Pedro"
+                            value={formNombres}
+                            onChange={(e) => setFormNombres(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label small fw-bold text-muted">Apellidos <span className="text-danger">*</span></label>
+                          <input
+                            type="text"
+                            className="form-control input-moderno"
+                            placeholder="Ej: Pérez"
+                            value={formApellidos}
+                            onChange={(e) => setFormApellidos(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="col-12">
+                          <label className="form-label small fw-bold text-muted">Correo Electrónico</label>
+                          <input
+                            type="email"
+                            className="form-control input-moderno"
+                            placeholder="Ej: pedro.perez@email.com"
+                            value={formCorreo}
+                            onChange={(e) => setFormCorreo(e.target.value)}
+                          />
+                        </div>
+                        <div className="col-12">
+                          <label className="form-label small fw-bold text-muted">Teléfono de Contacto</label>
+                          <input
+                            type="text"
+                            className="form-control input-moderno"
+                            placeholder="Ej: 0414-1234567"
+                            value={formTelefono}
+                            onChange={(e) => setFormTelefono(formatPhoneNumber(e.target.value))}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Motivo: siempre visible */}
                     <div className="col-12">
                       <label className="form-label small fw-bold text-muted">Motivo de la Visita <span className="text-danger">*</span></label>
-                      <textarea 
-                        className="form-control input-moderno" 
-                        placeholder="Escribe el motivo detallado de la visita..." 
+                      <textarea
+                        className="form-control input-moderno"
+                        placeholder="Escribe el motivo detallado de la visita..."
                         rows={3}
                         value={formRazon}
                         onChange={(e) => setFormRazon(e.target.value)}
                         required
+                        autoFocus={autocompletado}
                       />
                     </div>
-                    <div className="col-12 pt-2 text-end">
-                      <button 
-                        type="submit" 
-                        className="btn btn-success w-100 rounded-pill fw-bold hover-efecto shadow-sm"
+
+                    <div className="col-12 pt-2">
+                      <button
+                        type="submit"
+                        className={`btn w-100 rounded-pill fw-bold hover-efecto shadow-sm ${autocompletado ? 'btn-success' : 'btn-primary'}`}
                         disabled={registrando}
                       >
                         {registrando ? (
-                          <>
-                            <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                            Guardando...
-                          </>
+                          <><span className="spinner-border spinner-border-sm me-2" role="status"></span>Guardando...</>
+                        ) : autocompletado ? (
+                          <><i className="bi bi-lightning-charge-fill me-2"></i>Registrar Acceso Rápido</>
                         ) : (
-                          <>
-                            <i className="bi bi-floppy-fill me-2"></i>Registrar Entrada
-                          </>
+                          <><i className="bi bi-floppy-fill me-2"></i>Registrar Entrada</>
                         )}
                       </button>
                     </div>
