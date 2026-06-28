@@ -64,115 +64,7 @@ const GERENCIAS_PDVSA = [
 ];
 
 // ─── GEODATOS VENEZUELA ────────────────────────────────────────────────────────
-// Estados y sus municipios/parroquias más comunes
-const GEO_VENEZUELA: Record<string, Record<string, string[]>> = {
-  'Anzoátegui': {
-    'Simón Bolívar (El Tigre)': ['El Tigre', 'El Chaparro', 'Pariaguán', 'Punta de Mata'],
-    'Sotillo (Puerto La Cruz)': ['Puerto La Cruz', 'Guanta', 'El Morro'],
-    'Bolívar (Barcelona)': ['Barcelona', 'El Límon', 'Pozuelos'],
-    'Diego Bautista Urbaneja (Lecherías)': ['Lecherías', 'El Morro'],
-    'Anaco': ['Anaco', 'San Joaquín de Guere'],
-    'Juan Antonio Sotillo': ['Puerto La Cruz'],
-    'Independencia (Puerto Píritu)': ['Puerto Píritu', 'Boca de Uchire'],
-  },
-  'Monagas': {
-    'Maturín': ['Maturín', 'Santa Cruz', 'Boquerón', 'La Pica'],
-    'Cedeño (Caripito)': ['Caripito', 'El Tejero'],
-    'Ezequiel Zamora (Punta de Mata)': ['Punta de Mata'],
-    'Libertador (Temblador)': ['Temblador'],
-  },
-  'Bolívar': {
-    'Caroní (Puerto Ordaz)': ['Puerto Ordaz', 'San Félix', 'Cachamay', 'Unare'],
-    'Heres (Ciudad Bolívar)': ['Ciudad Bolívar', 'Vista al Sol', 'La Sabanita'],
-    'Sucre (Cumaná)': ['Cumaná'],
-  },
-  'Sucre': {
-    'Sucre (Cumaná)': ['Cumaná', 'Altagracia', 'San Juan'],
-    'Benítez (El Pilar)': ['El Pilar', 'Guaraúnos'],
-    'Bermúdez (Carúpano)': ['Carúpano', 'Macarapana'],
-  },
-  'Miranda': {
-    'Sucre (Petare)': ['Petare', 'Caucagua', 'La Dolorita'],
-    'Baruta': ['Baruta', 'El Cafetal', 'Las Minas'],
-    'Chacao': ['Chacao'],
-    'El Hatillo': ['El Hatillo', 'La Unión'],
-    'Guaicaipuro (Los Teques)': ['Los Teques', 'Carrizal'],
-  },
-  'Distrito Capital': {
-    'Libertador': ['Antimano', 'Caricuao', 'El Paraíso', 'El Valle', 'La Candelaria', 'La Pastora', 'Santa Rosalía'],
-  },
-  'Carabobo': {
-    'Valencia': ['El Viñedo', 'Naguanagua', 'San José', 'Candelaria'],
-    'Libertador (Tocuyito)': ['Tocuyito'],
-    'San Diego': ['San Diego'],
-  },
-  'Aragua': {
-    'Girardot (Maracay)': ['Maracay', 'Las Delicias', 'El Limón'],
-    'Santiago Mariño': ['Turmero', 'Cagua'],
-  },
-  'Lara': {
-    'Iribarren (Barquisimeto)': ['Barquisimeto', 'Catedral', 'Concepción', 'Juan de Villegas'],
-    'Jiménez (Quíbor)': ['Quíbor'],
-  },
-  'Zulia': {
-    'Maracaibo': ['Coquivacoa', 'Santa Lucía', 'Raúl Leoni', 'Juana de Ávila'],
-    'Cabimas': ['Cabimas', 'Punta Gorda'],
-    'Lagunillas (Ciudad Ojeda)': ['Ciudad Ojeda', 'Lagunillas'],
-  },
-  'Falcón': {
-    'Miranda (Coro)': ['Coro', 'Santa Ana', 'La Vela de Coro'],
-    'Carirubana (Punto Fijo)': ['Punto Fijo', 'Carirubana', 'Judibana'],
-  },
-  'Mérida': {
-    'Libertador (Mérida)': ['Mérida', 'El Llano', 'Milla', 'Sagrario'],
-    'Campo Elías (Ejido)': ['Ejido'],
-  },
-  'Táchira': {
-    'San Cristóbal': ['San Juan de Colón', 'La Concordia', 'Pedro María Morantes'],
-    'Lobatera': ['Lobatera'],
-  },
-  'Trujillo': {
-    'Valera': ['Valera', 'La Beatriz', 'Mendoza Fría'],
-    'Boconó': ['Boconó'],
-  },
-  'Portuguesa': {
-    'Guanare': ['Guanare', 'San José de la Montaña'],
-    'Páez (Acarigua)': ['Acarigua', 'Araure'],
-  },
-  'Barinas': {
-    'Barinas': ['Barinas', 'Corazón de Jesús', 'El Carmen'],
-    'Pedraza (Barrancas)': ['Barrancas'],
-  },
-  'Apure': {
-    'San Fernando': ['San Fernando de Apure', 'El Recreo'],
-    'Achaguas': ['Achaguas'],
-  },
-  'Guárico': {
-    'Juan Germán Roscio (San Juan de los Morros)': ['San Juan de los Morros', 'Parapara'],
-    'Ribas (Valle de La Pascua)': ['Valle de La Pascua'],
-  },
-  'Cojedes': {
-    'Tinaquillo': ['Tinaquillo'],
-    'San Carlos': ['San Carlos', 'Rómulo Gallegos'],
-  },
-  'Yaracuy': {
-    'San Felipe': ['San Felipe', 'Cocorote'],
-    'Nirgua': ['Nirgua'],
-  },
-  'Nueva Esparta': {
-    'Mariño (Porlamar)': ['Porlamar', 'Los Robles'],
-    'Maneiro (Pampatar)': ['Pampatar'],
-  },
-  'Delta Amacuro': {
-    'Tucupita': ['Tucupita'],
-  },
-  'Amazonas': {
-    'Atures (Puerto Ayacucho)': ['Puerto Ayacucho'],
-  },
-  'Dependencias Federales': {
-    'Dependencias Federales': ['Isla La Tortuga', 'Los Roques', 'Isla de Aves'],
-  },
-};
+// (Se cargarán dinámicamente desde la base de datos: tabla div_pol_vzla)
 
 // ─── GENERACIÓN DE CÓDIGO ÚNICO ────────────────────────────────────────────────
 const generarCodigoUnico = (escCodigo: string): string => {
@@ -288,6 +180,10 @@ export const SolicitudCupos = () => {
   // Catálogos desde BD
   const [gradosDB, setGradosDB] = useState<string[]>([]);
   const [parentescosDB, setParentescosDB] = useState<string[]>([]);
+  
+  // Geodatos DB state
+  const [geoData, setGeoData] = useState<any[]>([]);
+  const [estadosDB, setEstadosDB] = useState<string[]>([]);
 
   // Wizard state
   const [step, setStep] = useState(1);
@@ -307,10 +203,38 @@ export const SolicitudCupos = () => {
   const isUserAdmin = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(user?.rol);
 
   // Geodatos calculados
-  const municipiosDisponibles = form.estado_habitacion ? Object.keys(GEO_VENEZUELA[form.estado_habitacion] || {}) : [];
-  const parroquiasDisponibles = (form.estado_habitacion && form.municipio_habitacion)
-    ? (GEO_VENEZUELA[form.estado_habitacion]?.[form.municipio_habitacion] || [])
+  const municipiosDisponibles = form.estado_habitacion 
+    ? Array.from(new Set(geoData.filter(d => d.estado === form.estado_habitacion).map(d => d.municipio))).sort()
     : [];
+  const parroquiasDisponibles = (form.estado_habitacion && form.municipio_habitacion)
+    ? Array.from(new Set(geoData.filter(d => d.estado === form.estado_habitacion && d.municipio === form.municipio_habitacion).map(d => d.parroquia))).sort()
+    : [];
+
+  // Autosave: Cargar borrador al iniciar
+  useEffect(() => {
+    if (activeTab === 'nueva_solicitud') {
+      const borrador = localStorage.getItem(`sigae_borrador_cupo_${escCodigo}`);
+      if (borrador) {
+        try {
+          const parsed = JSON.parse(borrador);
+          if (parsed && Object.keys(parsed).length > 0) {
+            // Merge with default form to ensure all fields exist
+            setForm(prev => ({ ...prev, ...parsed }));
+          }
+        } catch (e) {}
+      }
+    }
+  }, [activeTab, escCodigo]);
+
+  // Autosave: Guardar borrador al cambiar form
+  useEffect(() => {
+    if (activeTab === 'nueva_solicitud') {
+      // Don't save if it's completely empty (just opened)
+      if (form.estudiante_nombres !== '' || form.estudiante_cedula !== '') {
+        localStorage.setItem(`sigae_borrador_cupo_${escCodigo}`, JSON.stringify(form));
+      }
+    }
+  }, [form, activeTab, escCodigo]);
 
   useEffect(() => {
     if (!permLoading && user) {
@@ -337,9 +261,10 @@ export const SolicitudCupos = () => {
 
   const cargarCatalogos = async () => {
     try {
-      const [gradosRes, parentescosRes] = await Promise.all([
+      const [gradosRes, parentescosRes, geoRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
+        supabase.from('div_pol_vzla').select('*').order('estado', { ascending: true }),
       ]);
 
       if (gradosRes.data && gradosRes.data.length > 0) {
@@ -354,6 +279,12 @@ export const SolicitudCupos = () => {
         setParentescosDB(parentescosRes.data.map((p: any) => p.valor));
       } else {
         setParentescosDB(['Hijo o Hija', 'Sobrino o Sobrina', 'Nieto o Nieta', 'Hermano o Hermana', 'Otro']);
+      }
+
+      if (geoRes.data && geoRes.data.length > 0) {
+        setGeoData(geoRes.data);
+        const uniqueEstados = Array.from(new Set(geoRes.data.map((d: any) => d.estado)));
+        setEstadosDB(uniqueEstados as string[]);
       }
     } catch (e) {
       console.error('Error cargando catálogos:', e);
@@ -405,7 +336,7 @@ export const SolicitudCupos = () => {
           updateForm('direccion_habitacion', dirAprox || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
           // Intentar mapear estado venezolano
           const stateRaw = addr.state || '';
-          const estadoMatch = Object.keys(GEO_VENEZUELA).find(e =>
+          const estadoMatch = estadosDB.find(e =>
             stateRaw.toLowerCase().includes(e.split(' ')[0].toLowerCase())
           );
           if (estadoMatch) {
@@ -459,6 +390,10 @@ export const SolicitudCupos = () => {
       if (error) throw error;
       await auditar('Solicitud de Cupos', 'Crear Solicitud',
         `Nueva solicitud ${form.codigo_unico} para: ${form.estudiante_nombres} ${form.estudiante_apellidos}`);
+      
+      // Limpiar el autoguardado tras el envío exitoso
+      localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}`);
+
       setSolicitudGuardada(data as SolicitudDB);
       setStep(5);
     } catch (e: any) {
@@ -784,7 +719,7 @@ export const SolicitudCupos = () => {
               updateForm('parroquia_habitacion', '');
             }} required>
             <option value="">Seleccione el Estado...</option>
-            {Object.keys(GEO_VENEZUELA).sort().map(est => (
+            {estadosDB.sort().map(est => (
               <option key={est} value={est}>{est}</option>
             ))}
           </select>
@@ -1136,6 +1071,34 @@ export const SolicitudCupos = () => {
     );
   };
 
+  // Cálculo de progreso del formulario
+  const calcularProgreso = () => {
+    // Definimos los campos clave requeridos para completar el formulario
+    const camposRequeridos = [
+      form.estudiante_nombres,
+      form.estudiante_apellidos,
+      form.estudiante_cedula,
+      form.estudiante_fecha_nacimiento,
+      form.grado_solicitado,
+      form.estado_habitacion,
+      form.municipio_habitacion,
+      form.parroquia_habitacion,
+      form.direccion_habitacion,
+      form.representante_nombres,
+      form.representante_apellidos,
+      form.representante_cedula,
+      form.representante_telefono,
+      form.representante_email,
+    ];
+    // Add pdvsa_tipo_nomina only if they work at PDVSA
+    if (form.representante_trabaja_pdvsa !== 'No' || form.madre_trabaja_pdvsa) {
+      camposRequeridos.push(form.pdvsa_tipo_nomina);
+    }
+    const completados = camposRequeridos.filter(c => c && c.toString().trim() !== '').length;
+    return Math.round((completados / camposRequeridos.length) * 100);
+  };
+  const progreso = calcularProgreso();
+
   // ─── RENDER PRINCIPAL ────────────────────────────────────────────────────────
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
@@ -1391,6 +1354,21 @@ export const SolicitudCupos = () => {
                 Paso {step} de 5
               </span>
             </div>
+            
+            <div className="mb-4 bg-white p-3 rounded-4 shadow-sm border sticky-top" style={{ top: '80px', zIndex: 100 }}>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h6 className="mb-0 fw-bold text-muted small"><i className="bi bi-thermometer-half me-1"></i> Progreso de la Solicitud</h6>
+                <span className="fw-bold text-primary small">{progreso}%</span>
+              </div>
+              <div className="progress" style={{ height: '8px' }}>
+                <div 
+                  className={`progress-bar progress-bar-striped progress-bar-animated ${progreso === 100 ? 'bg-success' : 'bg-primary'}`} 
+                  role="progressbar" 
+                  style={{ width: `${progreso}%` }}
+                ></div>
+              </div>
+            </div>
+
             {renderStepper()}
             <div className="mt-4">
               {step === 1 && renderStep1()}
