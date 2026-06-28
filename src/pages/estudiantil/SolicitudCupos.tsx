@@ -261,11 +261,25 @@ export const SolicitudCupos = () => {
 
   const cargarCatalogos = async () => {
     try {
-      const [gradosRes, parentescosRes, geoRes] = await Promise.all([
+      const [gradosRes, parentescosRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
-        supabase.from('div_pol_vzla').select('*').order('estado', { ascending: true }),
       ]);
+      
+      let allGeoData: any[] = [];
+      let from = 0;
+      const limit = 1000;
+      while (true) {
+        const geoRes = await supabase.from('div_pol_vzla')
+          .select('*')
+          .order('estado', { ascending: true })
+          .range(from, from + limit - 1);
+        if (geoRes.error) throw geoRes.error;
+        if (!geoRes.data || geoRes.data.length === 0) break;
+        allGeoData = [...allGeoData, ...geoRes.data];
+        if (geoRes.data.length < limit) break;
+        from += limit;
+      }
 
       if (gradosRes.data && gradosRes.data.length > 0) {
         setGradosDB(gradosRes.data.map((g: any) => g.valor));
@@ -281,9 +295,9 @@ export const SolicitudCupos = () => {
         setParentescosDB(['Hijo o Hija', 'Sobrino o Sobrina', 'Nieto o Nieta', 'Hermano o Hermana', 'Otro']);
       }
 
-      if (geoRes.data && geoRes.data.length > 0) {
-        setGeoData(geoRes.data);
-        const uniqueEstados = Array.from(new Set(geoRes.data.map((d: any) => d.estado)));
+      if (allGeoData.length > 0) {
+        setGeoData(allGeoData);
+        const uniqueEstados = Array.from(new Set(allGeoData.map((d: any) => d.estado)));
         setEstadosDB(uniqueEstados as string[]);
       }
     } catch (e) {
