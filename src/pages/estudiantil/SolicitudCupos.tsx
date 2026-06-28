@@ -589,7 +589,20 @@ export const SolicitudCupos = () => {
   );
 
   // ─── PASO 2: DATOS DEL ESTUDIANTE ─────────────────────────────────────────────
-  const renderStep2 = () => (
+  const renderStep2 = () => {
+    let edadEstudiante = '';
+    if (form.estudiante_fecha_nacimiento) {
+      const hoy = new Date();
+      const fechaNac = new Date(form.estudiante_fecha_nacimiento);
+      let edad = hoy.getFullYear() - fechaNac.getFullYear();
+      const mes = hoy.getMonth() - fechaNac.getMonth();
+      if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
+        edad--;
+      }
+      edadEstudiante = edad >= 0 ? `${edad} años` : '';
+    }
+
+    return (
     <div className="animate__animated animate__fadeIn">
       <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
         <i className="bi bi-mortarboard-fill text-success fs-5"></i>
@@ -645,10 +658,15 @@ export const SolicitudCupos = () => {
           </div>
         </div>
 
-        <div className="col-md-3">
+        <div className="col-md-2">
           <label className="form-label fw-semibold">Fecha de Nacimiento <span className="text-danger">*</span></label>
           <input type="date" className="form-control input-moderno" value={form.estudiante_fecha_nacimiento}
             onChange={(e) => updateForm('estudiante_fecha_nacimiento', e.target.value)} required />
+        </div>
+
+        <div className="col-md-1">
+          <label className="form-label fw-semibold">Edad</label>
+          <input type="text" className="form-control input-moderno text-center fw-bold" value={edadEstudiante} disabled />
         </div>
 
         <div className="col-md-3">
@@ -788,7 +806,8 @@ export const SolicitudCupos = () => {
         </button>
       </div>
     </div>
-  );
+    );
+  };
 
   // ─── PASO 3: DATOS DEL REPRESENTANTE ─────────────────────────────────────────
   const renderStep3 = () => (
