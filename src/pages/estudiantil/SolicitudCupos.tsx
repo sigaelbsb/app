@@ -630,9 +630,10 @@ export const SolicitudCupos = () => {
     { num: 1, label: 'Términos', icon: 'bi-file-text' },
     { num: 2, label: 'Representante', icon: 'bi-person-lines-fill' },
     { num: 3, label: 'Estudiante', icon: 'bi-mortarboard' },
-    { num: 4, label: 'Transporte Escolar', icon: 'bi-bus-front' },
-    { num: 5, label: 'Documentos', icon: 'bi-file-earmark-arrow-up' },
-    { num: 6, label: 'Confirmación', icon: 'bi-patch-check' },
+    { num: 4, label: 'Salud', icon: 'bi-heart-pulse-fill' },
+    { num: 5, label: 'Transporte Escolar', icon: 'bi-bus-front' },
+    { num: 6, label: 'Documentos', icon: 'bi-file-earmark-arrow-up' },
+    { num: 7, label: 'Confirmación', icon: 'bi-patch-check' },
   ];
 
   const renderStepper = () => (
@@ -793,66 +794,6 @@ export const SolicitudCupos = () => {
           <label className="form-label fw-semibold">Edad</label>
           <input type="text" className="form-control input-moderno text-center fw-bold" value={edadEstudiante} disabled />
         </div>
-
-        <div className="col-12 mt-4">
-          <h6 className="fw-bold text-dark border-bottom pb-2 mb-3">
-            <i className="bi bi-heart-pulse-fill text-danger me-2"></i>Información de Salud y Bienestar (Confidencial)
-          </h6>
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label fw-semibold">Condición / Discapacidad <span className="text-danger">*</span></label>
-          <select className="form-select input-moderno" value={form.estudiante_condicion_neuro}
-            onChange={(e) => updateForm('estudiante_condicion_neuro', e.target.value)} required>
-            <option value="Neurotípico">Neurotípico</option>
-            <option value="Neurodivergente o Discapacidad">Neurodivergente o Discapacidad</option>
-          </select>
-        </div>
-
-        {form.estudiante_condicion_neuro === 'Neurodivergente o Discapacidad' && (
-          <>
-            <div className="col-md-4 animate__animated animate__fadeIn">
-              <label className="form-label fw-semibold">Tipo de Condición / Discapacidad <span className="text-danger">*</span></label>
-              <select className="form-select input-moderno" value={form.estudiante_tipo_condicion}
-                onChange={(e) => updateForm('estudiante_tipo_condicion', e.target.value)} required>
-                <option value="">Seleccione...</option>
-                <option value="Discapacidad Intelectual">Discapacidad Intelectual</option>
-                <option value="Discapacidad Auditiva">Discapacidad Auditiva</option>
-                <option value="Discapacidad Visual">Discapacidad Visual</option>
-                <option value="Discapacidad Física Motora">Discapacidad Física Motora</option>
-                <option value="Trastorno Del Espectro Autista Tea">Trastorno Del Espectro Autista Tea</option>
-                <option value="Altas Potencialidades Intelectuales y Creativas">Altas Potencialidades Intelectuales y Creativas</option>
-                <option value="Dificultades para el Aprendizaje">Dificultades para el Aprendizaje</option>
-              </select>
-            </div>
-            
-            <div className="col-md-4 animate__animated animate__fadeIn">
-              <label className="form-label fw-semibold">¿Tiene informe médico? <span className="text-danger">*</span></label>
-              <div className="d-flex gap-3 mt-2">
-                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
-                  <button key={opt.label} type="button"
-                    className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_informe_neuro === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                    onClick={() => updateForm('estudiante_informe_neuro', opt.val)}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="col-md-4 animate__animated animate__fadeIn">
-              <label className="form-label fw-semibold">¿Tiene certificado CONAPDIS? <span className="text-danger">*</span></label>
-              <div className="d-flex gap-3 mt-2">
-                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
-                  <button key={opt.label} type="button"
-                    className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_certificado_conapdis === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                    onClick={() => updateForm('estudiante_certificado_conapdis', opt.val)}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
 
         <div className="col-md-3">
           <label className="form-label fw-semibold">N° de Hijo/a en la Familia</label>
@@ -1220,8 +1161,85 @@ export const SolicitudCupos = () => {
     </div>
   );
 
-  // ─── PASO 4: TRANSPORTE ESCOLAR ───────────────────────────────────────────────
+  // ─── PASO 4: SALUD Y BIENESTAR ─────────────────────────────────────────────
   const renderStep4 = () => {
+    return (
+      <div className="animate__animated animate__fadeIn">
+        <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+          <i className="bi bi-heart-pulse-fill text-danger fs-5"></i>
+          <h6 className="fw-bold text-dark mb-0">Información de Salud y Bienestar (Confidencial)</h6>
+        </div>
+        <div className="row g-3">
+<div className="col-md-4">
+          <label className="form-label fw-semibold">Condición / Discapacidad <span className="text-danger">*</span></label>
+          <select className="form-select input-moderno" value={form.estudiante_condicion_neuro}
+            onChange={(e) => updateForm('estudiante_condicion_neuro', e.target.value)} required>
+            <option value="Neurotípico">Neurotípico</option>
+            <option value="Neurodivergente o Discapacidad">Neurodivergente o Discapacidad</option>
+          </select>
+        </div>
+
+        {form.estudiante_condicion_neuro === 'Neurodivergente o Discapacidad' && (
+          <>
+            <div className="col-md-4 animate__animated animate__fadeIn">
+              <label className="form-label fw-semibold">Tipo de Condición / Discapacidad <span className="text-danger">*</span></label>
+              <select className="form-select input-moderno" value={form.estudiante_tipo_condicion}
+                onChange={(e) => updateForm('estudiante_tipo_condicion', e.target.value)} required>
+                <option value="">Seleccione...</option>
+                <option value="Discapacidad Intelectual">Discapacidad Intelectual</option>
+                <option value="Discapacidad Auditiva">Discapacidad Auditiva</option>
+                <option value="Discapacidad Visual">Discapacidad Visual</option>
+                <option value="Discapacidad Física Motora">Discapacidad Física Motora</option>
+                <option value="Trastorno Del Espectro Autista Tea">Trastorno Del Espectro Autista Tea</option>
+                <option value="Altas Potencialidades Intelectuales y Creativas">Altas Potencialidades Intelectuales y Creativas</option>
+                <option value="Dificultades para el Aprendizaje">Dificultades para el Aprendizaje</option>
+              </select>
+            </div>
+            
+            <div className="col-md-4 animate__animated animate__fadeIn">
+              <label className="form-label fw-semibold">¿Tiene informe médico? <span className="text-danger">*</span></label>
+              <div className="d-flex gap-3 mt-2">
+                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
+                  <button key={opt.label} type="button"
+                    className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_informe_neuro === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+                    onClick={() => updateForm('estudiante_informe_neuro', opt.val)}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="col-md-4 animate__animated animate__fadeIn">
+              <label className="form-label fw-semibold">¿Tiene certificado CONAPDIS? <span className="text-danger">*</span></label>
+              <div className="d-flex gap-3 mt-2">
+                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
+                  <button key={opt.label} type="button"
+                    className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_certificado_conapdis === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+                    onClick={() => updateForm('estudiante_certificado_conapdis', opt.val)}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+                </div>
+
+        <div className="d-flex justify-content-between mt-4 pt-3 border-top">
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(3)}>
+            <i className="bi bi-arrow-left me-1"></i> Anterior
+          </button>
+          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => setStep(5)}>
+            Siguiente <i className="bi bi-arrow-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── PASO 5: TRANSPORTE ESCOLAR ───────────────────────────────────────────────
+  const renderStep5 = () => {
     return (
       <div className="animate__animated animate__fadeIn">
         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
@@ -1253,10 +1271,10 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
-          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(3)}>
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(4)}>
             <i className="bi bi-arrow-left me-1"></i> Anterior
           </button>
-          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => setStep(5)}>
+          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => setStep(6)}>
             Siguiente <i className="bi bi-arrow-right ms-1"></i>
           </button>
         </div>
@@ -1264,8 +1282,8 @@ export const SolicitudCupos = () => {
     );
   };
 
-  // ─── PASO 5: DOCUMENTOS ADJUNTOS ─────────────────────────────────────────────
-  const renderStep5 = () => {
+  // ─── PASO 6: DOCUMENTOS ADJUNTOS ─────────────────────────────────────────────
+  const renderStep6 = () => {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: keyof typeof documentos) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -1312,7 +1330,7 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
-          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(4)} disabled={subiendoDocs}>
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(5)} disabled={subiendoDocs}>
             <i className="bi bi-arrow-left me-1"></i> Anterior
           </button>
           <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={handleSubmitFinal} disabled={subiendoDocs}>
@@ -1328,7 +1346,7 @@ export const SolicitudCupos = () => {
   };
 
   // ─── PASO 6: CONFIRMACIÓN + QR ────────────────────────────────────────────────
-  const renderStep6 = () => {
+  const renderStep7 = () => {
     const sol = solicitudGuardada;
     if (!sol) return null;
     const qrUrl = getQrUrl(sol.codigo_unico || '');
@@ -1729,6 +1747,7 @@ export const SolicitudCupos = () => {
               {step === 4 && renderStep4()}
               {step === 5 && renderStep5()}
               {step === 6 && renderStep6()}
+              {step === 7 && renderStep7()}
             </div>
           </div>
         )}
