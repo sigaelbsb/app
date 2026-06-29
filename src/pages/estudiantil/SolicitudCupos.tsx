@@ -113,6 +113,7 @@ interface SolicitudForm {
   // PDVSA / Madre
   pdvsa_condicion_laboral: string;
   pdvsa_tipo_nomina: string;
+  pdvsa_negocio_filial: string;
   pdvsa_gerencia: string;
   pdvsa_email_empresa: string;
   pdvsa_localidad_trabajo: string;
@@ -167,6 +168,7 @@ const defaultForm = (): SolicitudForm => ({
   representante_trabaja_pdvsa: 'No',
   pdvsa_condicion_laboral: '',
   pdvsa_tipo_nomina: '',
+  pdvsa_negocio_filial: '',
   pdvsa_gerencia: '',
   pdvsa_email_empresa: '',
   pdvsa_localidad_trabajo: '',
@@ -198,6 +200,8 @@ export const SolicitudCupos = () => {
   const [parentescosDB, setParentescosDB] = useState<string[]>([]);
   const [tiposNominaDB, setTiposNominaDB] = useState<string[]>([]);
   const [condicionLaboralDB, setCondicionLaboralDB] = useState<string[]>([]);
+  const [negociosDB, setNegociosDB] = useState<string[]>([]);
+  const [gerenciasDB, setGerenciasDB] = useState<string[]>([]);
   
   // Geodatos DB state
   const [geoData, setGeoData] = useState<any[]>([]);
@@ -289,11 +293,13 @@ export const SolicitudCupos = () => {
 
   const cargarCatalogos = async () => {
     try {
-      const [gradosRes, parentescosRes, nominasRes, condRes] = await Promise.all([
+      const [gradosRes, parentescosRes, nominasRes, condRes, negociosRes, gerenciasRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Tipos de Nómina').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición Laboral').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Negocios / Filiales').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Gerencias / Dptos.').order('valor', { ascending: true }),
       ]);
       
       let allGeoData: any[] = [];
@@ -335,6 +341,18 @@ export const SolicitudCupos = () => {
         setCondicionLaboralDB(condRes.data.map((p: any) => p.valor));
       } else {
         setCondicionLaboralDB(['Activo', 'Comunidad', 'Jubilado', 'Sobreviviente']);
+      }
+
+      if (negociosRes.data && negociosRes.data.length > 0) {
+        setNegociosDB(negociosRes.data.map((p: any) => p.valor));
+      } else {
+        setNegociosDB([]);
+      }
+
+      if (gerenciasRes.data && gerenciasRes.data.length > 0) {
+        setGerenciasDB(gerenciasRes.data.map((p: any) => p.valor));
+      } else {
+        setGerenciasDB(GERENCIAS_PDVSA);
       }
 
       if (allGeoData.length > 0) {
@@ -586,7 +604,7 @@ export const SolicitudCupos = () => {
     { num: 1, label: 'Términos', icon: 'bi-file-text' },
     { num: 2, label: 'Representante', icon: 'bi-person-lines-fill' },
     { num: 3, label: 'Estudiante', icon: 'bi-mortarboard' },
-    { num: 4, label: 'PDVSA & Transporte', icon: 'bi-buildings' },
+    { num: 4, label: 'Transporte Escolar', icon: 'bi-bus-front' },
     { num: 5, label: 'Documentos', icon: 'bi-file-earmark-arrow-up' },
     { num: 6, label: 'Confirmación', icon: 'bi-patch-check' },
   ];
@@ -813,7 +831,7 @@ export const SolicitudCupos = () => {
               }
             }} required>
             <option value="">Seleccione...</option>
-            {parentescosDB.map((p, i) => <option key={i} value={p}>{p}</option>)}
+            {parentescosDB.map((p, i) => <option key={i} value={p} disabled={p === 'Comunidad'}>{p}</option>)}
           </select>
           <div className="form-text">Parentesco del solicitante con el estudiante</div>
         </div>
@@ -967,7 +985,7 @@ export const SolicitudCupos = () => {
               }
             }}>
             <option value="">Seleccione...</option>
-            {parentescosDB.map((p, i) => <option key={i} value={p}>{p}</option>)}
+            {parentescosDB.map((p, i) => <option key={i} value={p} disabled={p === 'Comunidad'}>{p}</option>)}
           </select>
         </div>
 
@@ -1013,6 +1031,61 @@ export const SolicitudCupos = () => {
             <div className="form-text text-danger mt-2">No aplica por parentesco Comunidad</div>
           )}
         </div>
+
+        {form.representante_trabaja_pdvsa === 'Sí' && (
+          <div className="col-12 mt-3 animate__animated animate__fadeIn">
+            <div className="card shadow-sm border-success">
+              <div className="card-body bg-light rounded">
+                <h6 className="fw-bold text-success mb-3"><i className="bi bi-buildings me-2"></i>Información Laboral (Representante)</h6>
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Condición Laboral <span className="text-danger">*</span></label>
+                    <select className="form-select input-moderno" value={form.pdvsa_condicion_laboral}
+                      onChange={(e) => updateForm('pdvsa_condicion_laboral', e.target.value)} required>
+                      <option value="">Seleccione...</option>
+                      {condicionLaboralDB.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Tipo de Nómina <span className="text-danger">*</span></label>
+                    <select className="form-select input-moderno" value={form.pdvsa_tipo_nomina}
+                      onChange={(e) => updateForm('pdvsa_tipo_nomina', e.target.value)} required>
+                      <option value="">Seleccione...</option>
+                      {tiposNominaDB.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Negocio / Filial <span className="text-danger">*</span></label>
+                    <select className="form-select input-moderno" value={form.pdvsa_negocio_filial}
+                      onChange={(e) => updateForm('pdvsa_negocio_filial', e.target.value)} required>
+                      <option value="">Seleccione...</option>
+                      {negociosDB.map((n, i) => <option key={i} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Gerencia / Dpto. <span className="text-danger">*</span></label>
+                    <select className="form-select input-moderno" value={form.pdvsa_gerencia}
+                      onChange={(e) => updateForm('pdvsa_gerencia', e.target.value)} required>
+                      <option value="">Seleccione...</option>
+                      {gerenciasDB.map((g, i) => <option key={i} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Correo Corporativo</label>
+                    <input type="email" className="form-control input-moderno" placeholder="usuario@pdvsa.com"
+                      value={form.pdvsa_email_empresa} onChange={(e) => updateForm('pdvsa_email_empresa', e.target.value)} />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Localidad de Trabajo <span className="text-danger">*</span></label>
+                    <input type="text" className="form-control input-moderno" placeholder="Ej. El Tigre, Maturín..."
+                      value={form.pdvsa_localidad_trabajo}
+                      onChange={(e) => handleTituloChange(e, (v) => updateForm('pdvsa_localidad_trabajo', v))} required />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* DATOS DE LA MADRE */}
         <div className="col-12 mt-2 pt-3 border-top">
@@ -1076,58 +1149,10 @@ export const SolicitudCupos = () => {
     </div>
   );
 
-  // ─── PASO 4: PDVSA Y TRANSPORTE ───────────────────────────────────────────────
+  // ─── PASO 4: TRANSPORTE ESCOLAR ───────────────────────────────────────────────
   const renderStep4 = () => {
-    const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
-    const tienePdvsa = !esComunidad && (form.representante_trabaja_pdvsa !== 'No' || form.madre_trabaja_pdvsa);
     return (
       <div className="animate__animated animate__fadeIn">
-        {tienePdvsa && (
-          <>
-            <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-              <i className="bi bi-buildings text-success fs-5"></i>
-              <h6 className="fw-bold text-dark mb-0">Información PDVSA</h6>
-            </div>
-            <div className="row g-3 mb-4">
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Condición Laboral <span className="text-danger">*</span></label>
-                <select className="form-select input-moderno" value={form.pdvsa_condicion_laboral}
-                  onChange={(e) => updateForm('pdvsa_condicion_laboral', e.target.value)} required>
-                  <option value="">Seleccione...</option>
-                  {condicionLaboralDB.map((c, i) => <option key={i} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Tipo de Nómina <span className="text-danger">*</span></label>
-                <select className="form-select input-moderno" value={form.pdvsa_tipo_nomina}
-                  onChange={(e) => updateForm('pdvsa_tipo_nomina', e.target.value)} required>
-                  <option value="">Seleccione...</option>
-                  {tiposNominaDB.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="col-md-6">
-                <label className="form-label fw-semibold">Organización / Gerencia <span className="text-danger">*</span></label>
-                <select className="form-select input-moderno" value={form.pdvsa_gerencia}
-                  onChange={(e) => updateForm('pdvsa_gerencia', e.target.value)}>
-                  <option value="">Seleccione su gerencia...</option>
-                  {GERENCIAS_PDVSA.map((g, i) => <option key={i} value={g}>{g}</option>)}
-                </select>
-              </div>
-              <div className="col-md-3">
-                <label className="form-label fw-semibold">Correo Corporativo</label>
-                <input type="email" className="form-control input-moderno" placeholder="usuario@pdvsa.com"
-                  value={form.pdvsa_email_empresa} onChange={(e) => updateForm('pdvsa_email_empresa', e.target.value)} />
-              </div>
-              <div className="col-md-3">
-                <label className="form-label fw-semibold">Localidad de Trabajo <span className="text-danger">*</span></label>
-                <input type="text" className="form-control input-moderno" placeholder="Ej. El Tigre, Maturín..."
-                  value={form.pdvsa_localidad_trabajo}
-                  onChange={(e) => handleTituloChange(e, (v) => updateForm('pdvsa_localidad_trabajo', v))} />
-              </div>
-            </div>
-          </>
-        )}
-
         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
           <i className="bi bi-bus-front text-success fs-5"></i>
           <h6 className="fw-bold text-dark mb-0">Transporte Escolar</h6>
@@ -1335,11 +1360,13 @@ export const SolicitudCupos = () => {
       form.representante_telefono,
       form.representante_email,
     ];
-      // Add pdvsa_tipo_nomina and condicion_laboral only if they work at PDVSA
-      const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
-      if (!esComunidad && (form.representante_trabaja_pdvsa !== 'No' || form.madre_trabaja_pdvsa)) {
+      // Require PDVSA info only if representative works at PDVSA
+      if (form.representante_trabaja_pdvsa === 'Sí') {
         camposRequeridos.push(form.pdvsa_condicion_laboral);
         camposRequeridos.push(form.pdvsa_tipo_nomina);
+        camposRequeridos.push(form.pdvsa_negocio_filial);
+        camposRequeridos.push(form.pdvsa_gerencia);
+        camposRequeridos.push(form.pdvsa_localidad_trabajo);
       }
     const completados = camposRequeridos.filter(c => c && c.toString().trim() !== '').length;
     return Math.round((completados / camposRequeridos.length) * 100);
