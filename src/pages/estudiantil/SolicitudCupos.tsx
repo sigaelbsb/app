@@ -794,6 +794,12 @@ export const SolicitudCupos = () => {
           <input type="text" className="form-control input-moderno text-center fw-bold" value={edadEstudiante} disabled />
         </div>
 
+        <div className="col-12 mt-4">
+          <h6 className="fw-bold text-dark border-bottom pb-2 mb-3">
+            <i className="bi bi-heart-pulse-fill text-danger me-2"></i>Información de Salud y Bienestar (Confidencial)
+          </h6>
+        </div>
+
         <div className="col-md-4">
           <label className="form-label fw-semibold">Condición / Discapacidad <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.estudiante_condicion_neuro}
