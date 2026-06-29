@@ -89,6 +89,8 @@ interface SolicitudForm {
   estudiante_fecha_nacimiento: string;
   estudiante_sexo: string;
   estudiante_orden_nacimiento: string;
+  estudiante_condicion_neuro: string;
+  estudiante_informe_neuro: boolean;
   grado_solicitado: string;
   parentesco: string;
   // Dirección
@@ -144,6 +146,8 @@ const defaultForm = (): SolicitudForm => ({
   estudiante_fecha_nacimiento: '',
   estudiante_sexo: 'Femenino',
   estudiante_orden_nacimiento: '',
+  estudiante_condicion_neuro: 'Neurotípico',
+  estudiante_informe_neuro: false,
   grado_solicitado: '',
   parentesco: '',
   estado_habitacion: '',
@@ -562,8 +566,8 @@ export const SolicitudCupos = () => {
   // ─── WIZARD STEPPER ──────────────────────────────────────────────────────────
   const STEPS = [
     { num: 1, label: 'Términos', icon: 'bi-file-text' },
-    { num: 2, label: 'Estudiante', icon: 'bi-mortarboard' },
-    { num: 3, label: 'Representante', icon: 'bi-person-lines-fill' },
+    { num: 2, label: 'Representante', icon: 'bi-person-lines-fill' },
+    { num: 3, label: 'Estudiante', icon: 'bi-mortarboard' },
     { num: 4, label: 'PDVSA & Transporte', icon: 'bi-buildings' },
     { num: 5, label: 'Documentos', icon: 'bi-file-earmark-arrow-up' },
     { num: 6, label: 'Confirmación', icon: 'bi-patch-check' },
@@ -647,8 +651,8 @@ export const SolicitudCupos = () => {
     </div>
   );
 
-  // ─── PASO 2: DATOS DEL ESTUDIANTE ─────────────────────────────────────────────
-  const renderStep2 = () => {
+  // ─── PASO 3: DATOS DEL ESTUDIANTE ─────────────────────────────────────────────
+  const renderStep3 = () => {
     let edadEstudiante = '';
     if (form.estudiante_fecha_nacimiento) {
       const hoy = new Date();
@@ -728,6 +732,30 @@ export const SolicitudCupos = () => {
           <input type="text" className="form-control input-moderno text-center fw-bold" value={edadEstudiante} disabled />
         </div>
 
+        <div className="col-md-4">
+          <label className="form-label fw-semibold">Condición Neurológica <span className="text-danger">*</span></label>
+          <select className="form-select input-moderno" value={form.estudiante_condicion_neuro}
+            onChange={(e) => updateForm('estudiante_condicion_neuro', e.target.value)} required>
+            <option value="Neurotípico">Neurotípico</option>
+            <option value="Neurodivergente">Neurodivergente</option>
+          </select>
+        </div>
+
+        {form.estudiante_condicion_neuro === 'Neurodivergente' && (
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">¿Tiene informe médico? <span className="text-danger">*</span></label>
+            <div className="d-flex gap-3 mt-2">
+              {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
+                <button key={opt.label} type="button"
+                  className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_informe_neuro === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+                  onClick={() => updateForm('estudiante_informe_neuro', opt.val)}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="col-md-3">
           <label className="form-label fw-semibold">N° de Hijo/a en la Familia</label>
           <input type="number" min="1" max="20" className="form-control input-moderno" placeholder="Ej. 2"
@@ -754,7 +782,7 @@ export const SolicitudCupos = () => {
 
         {/* Parentesco desde BD */}
         <div className="col-md-4">
-          <label className="form-label fw-semibold">Parentesco con el Estudiante <span className="text-danger">*</span></label>
+          <label className="form-label fw-semibold">Parentesco con el Trabajador o Trabajadora <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.parentesco}
             onChange={(e) => updateForm('parentesco', e.target.value)} required>
             <option value="">Seleccione...</option>
@@ -850,7 +878,7 @@ export const SolicitudCupos = () => {
       </div>
 
       <div className="d-flex justify-content-between mt-4 pt-3 border-top">
-        <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(1)}>
+        <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(2)}>
           <i className="bi bi-arrow-left me-1"></i> Anterior
         </button>
         <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto"
@@ -859,7 +887,7 @@ export const SolicitudCupos = () => {
               if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios (*)', 'warning');
               return;
             }
-            setStep(3);
+            setStep(4);
           }}>
           Continuar <i className="bi bi-arrow-right ms-1"></i>
         </button>
@@ -868,8 +896,8 @@ export const SolicitudCupos = () => {
     );
   };
 
-  // ─── PASO 3: DATOS DEL REPRESENTANTE ─────────────────────────────────────────
-  const renderStep3 = () => (
+  // ─── PASO 2: DATOS DEL REPRESENTANTE ─────────────────────────────────────────
+  const renderStep2 = () => (
     <div className="animate__animated animate__fadeIn">
       <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
         <i className="bi bi-person-lines-fill text-success fs-5"></i>
@@ -974,7 +1002,7 @@ export const SolicitudCupos = () => {
       </div>
 
       <div className="d-flex justify-content-between mt-4 pt-3 border-top">
-        <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(2)}>
+        <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(1)}>
           <i className="bi bi-arrow-left me-1"></i> Anterior
         </button>
         <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto"
@@ -983,7 +1011,7 @@ export const SolicitudCupos = () => {
               if (Swal) Swal.fire('Atención', 'Por favor completa los campos obligatorios del representante (*)', 'warning');
               return;
             }
-            setStep(4);
+            setStep(3);
           }}>
           Continuar <i className="bi bi-arrow-right ms-1"></i>
         </button>
