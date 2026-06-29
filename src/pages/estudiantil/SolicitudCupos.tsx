@@ -90,7 +90,9 @@ interface SolicitudForm {
   estudiante_sexo: string;
   estudiante_orden_nacimiento: string;
   estudiante_condicion_neuro: string;
+  estudiante_tipo_condicion: string;
   estudiante_informe_neuro: boolean;
+  estudiante_certificado_conapdis: boolean;
   grado_solicitado: string;
   parentesco: string;
   // Dirección
@@ -150,7 +152,9 @@ const defaultForm = (): SolicitudForm => ({
   estudiante_sexo: 'Femenino',
   estudiante_orden_nacimiento: '',
   estudiante_condicion_neuro: 'Neurotípico',
+  estudiante_tipo_condicion: '',
   estudiante_informe_neuro: false,
+  estudiante_certificado_conapdis: false,
   grado_solicitado: '',
   parentesco: '',
   estado_habitacion: '',
@@ -782,27 +786,57 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="col-md-4">
-          <label className="form-label fw-semibold">Condición Neurológica <span className="text-danger">*</span></label>
+          <label className="form-label fw-semibold">Condición / Discapacidad <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.estudiante_condicion_neuro}
             onChange={(e) => updateForm('estudiante_condicion_neuro', e.target.value)} required>
             <option value="Neurotípico">Neurotípico</option>
-            <option value="Neurodivergente">Neurodivergente</option>
+            <option value="Neurodivergente o Discapacidad">Neurodivergente o Discapacidad</option>
           </select>
         </div>
 
-        {form.estudiante_condicion_neuro === 'Neurodivergente' && (
-          <div className="col-md-4">
-            <label className="form-label fw-semibold">¿Tiene informe médico? <span className="text-danger">*</span></label>
-            <div className="d-flex gap-3 mt-2">
-              {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
-                <button key={opt.label} type="button"
-                  className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_informe_neuro === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                  onClick={() => updateForm('estudiante_informe_neuro', opt.val)}>
-                  {opt.label}
-                </button>
-              ))}
+        {form.estudiante_condicion_neuro === 'Neurodivergente o Discapacidad' && (
+          <>
+            <div className="col-md-4 animate__animated animate__fadeIn">
+              <label className="form-label fw-semibold">Tipo de Condición / Discapacidad <span className="text-danger">*</span></label>
+              <select className="form-select input-moderno" value={form.estudiante_tipo_condicion}
+                onChange={(e) => updateForm('estudiante_tipo_condicion', e.target.value)} required>
+                <option value="">Seleccione...</option>
+                <option value="Discapacidad Intelectual">Discapacidad Intelectual</option>
+                <option value="Discapacidad Auditiva">Discapacidad Auditiva</option>
+                <option value="Discapacidad Visual">Discapacidad Visual</option>
+                <option value="Discapacidad Física Motora">Discapacidad Física Motora</option>
+                <option value="Trastorno Del Espectro Autista Tea">Trastorno Del Espectro Autista Tea</option>
+                <option value="Altas Potencialidades Intelectuales y Creativas">Altas Potencialidades Intelectuales y Creativas</option>
+                <option value="Dificultades para el Aprendizaje">Dificultades para el Aprendizaje</option>
+              </select>
             </div>
-          </div>
+            
+            <div className="col-md-4 animate__animated animate__fadeIn">
+              <label className="form-label fw-semibold">¿Tiene informe médico? <span className="text-danger">*</span></label>
+              <div className="d-flex gap-3 mt-2">
+                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
+                  <button key={opt.label} type="button"
+                    className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_informe_neuro === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+                    onClick={() => updateForm('estudiante_informe_neuro', opt.val)}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="col-md-4 animate__animated animate__fadeIn">
+              <label className="form-label fw-semibold">¿Tiene certificado CONAPDIS? <span className="text-danger">*</span></label>
+              <div className="d-flex gap-3 mt-2">
+                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
+                  <button key={opt.label} type="button"
+                    className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_certificado_conapdis === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+                    onClick={() => updateForm('estudiante_certificado_conapdis', opt.val)}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
         <div className="col-md-3">
@@ -1381,7 +1415,11 @@ export const SolicitudCupos = () => {
       form.representante_cedula,
       form.representante_telefono,
       form.representante_email,
+      form.estudiante_condicion_neuro,
     ];
+    if (form.estudiante_condicion_neuro === 'Neurodivergente o Discapacidad') {
+      camposRequeridos.push(form.estudiante_tipo_condicion);
+    }
       // Require PDVSA info only if representative works at PDVSA
       if (form.representante_trabaja_pdvsa === 'Sí') {
         camposRequeridos.push(form.pdvsa_condicion_laboral);

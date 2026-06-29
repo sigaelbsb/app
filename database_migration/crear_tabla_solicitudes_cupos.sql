@@ -19,8 +19,11 @@ CREATE TABLE IF NOT EXISTS public.solicitud_cupos (
     estudiante_fecha_nacimiento DATE NOT NULL,
     estudiante_sexo VARCHAR(10) NOT NULL,
     estudiante_orden_nacimiento SMALLINT,         -- N° de hijo en la familia (orden de nacimiento)
-    estudiante_condicion_neuro VARCHAR(50),       -- Neurotípico o Neurodivergente
+    estudiante_condicion_neuro VARCHAR(50),       -- Neurotípico o Neurodivergente o Discapacidad
+    estudiante_tipo_condicion VARCHAR(100),       -- Tipo de condición/discapacidad
     estudiante_informe_neuro BOOLEAN,             -- Si tiene informe médico
+    estudiante_certificado_conapdis BOOLEAN,      -- Si tiene certificado CONAPDIS
+
     grado_solicitado VARCHAR(50) NOT NULL,
     parentesco VARCHAR(50) NOT NULL,              -- Parentesco del representante con el estudiante
     plantel_procedencia VARCHAR(150),
@@ -88,7 +91,9 @@ CREATE INDEX IF NOT EXISTS idx_solicitud_cupos_escuela_estado
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS acepta_terminos BOOLEAN NOT NULL DEFAULT FALSE;
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS estudiante_orden_nacimiento SMALLINT;
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS estudiante_condicion_neuro VARCHAR(50);
+-- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS estudiante_tipo_condicion VARCHAR(100);
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS estudiante_informe_neuro BOOLEAN;
+-- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS estudiante_certificado_conapdis BOOLEAN;
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS parentesco VARCHAR(50);
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS estado_habitacion VARCHAR(100);
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS municipio_habitacion VARCHAR(150);
