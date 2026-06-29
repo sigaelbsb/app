@@ -390,6 +390,11 @@ export const EstructuraEmpresa = () => {
         <div className="col-12 col-md-6">
           {renderizarTarjeta('Gerencias / Dptos.', 'Organización/Gerencia', 'bi-briefcase-fill', '#1e293b', '#e2e8f0')}
         </div>
+
+        {/* Localidades */}
+        <div className="col-12 col-md-6">
+          {renderizarTarjeta('Localidades de Trabajo', 'Localidad', 'bi-geo-alt-fill', '#047857', '#d1fae5')}
+        </div>
       </div>
     </div>
   );

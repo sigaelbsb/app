@@ -202,6 +202,7 @@ export const SolicitudCupos = () => {
   const [condicionLaboralDB, setCondicionLaboralDB] = useState<string[]>([]);
   const [negociosDB, setNegociosDB] = useState<string[]>([]);
   const [gerenciasDB, setGerenciasDB] = useState<string[]>([]);
+  const [localidadesDB, setLocalidadesDB] = useState<string[]>([]);
   
   // Geodatos DB state
   const [geoData, setGeoData] = useState<any[]>([]);
@@ -293,13 +294,14 @@ export const SolicitudCupos = () => {
 
   const cargarCatalogos = async () => {
     try {
-      const [gradosRes, parentescosRes, nominasRes, condRes, negociosRes, gerenciasRes] = await Promise.all([
+      const [gradosRes, parentescosRes, nominasRes, condRes, negociosRes, gerenciasRes, localidadesRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Nómina').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Negocio/Filial').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Organización/Gerencia').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Localidad').order('valor', { ascending: true }),
       ]);
       
       let allGeoData: any[] = [];
@@ -353,6 +355,12 @@ export const SolicitudCupos = () => {
         setGerenciasDB(gerenciasRes.data.map((p: any) => p.valor));
       } else {
         setGerenciasDB(GERENCIAS_PDVSA);
+      }
+
+      if (localidadesRes.data && localidadesRes.data.length > 0) {
+        setLocalidadesDB(localidadesRes.data.map((p: any) => p.valor));
+      } else {
+        setLocalidadesDB([]);
       }
 
       if (allGeoData.length > 0) {
@@ -1077,9 +1085,11 @@ export const SolicitudCupos = () => {
                   </div>
                   <div className="col-md-6">
                     <label className="form-label fw-semibold">Localidad de Trabajo <span className="text-danger">*</span></label>
-                    <input type="text" className="form-control input-moderno" placeholder="Ej. El Tigre, Maturín..."
-                      value={form.pdvsa_localidad_trabajo}
-                      onChange={(e) => handleTituloChange(e, (v) => updateForm('pdvsa_localidad_trabajo', v))} required />
+                    <select className="form-select input-moderno" value={form.pdvsa_localidad_trabajo}
+                      onChange={(e) => updateForm('pdvsa_localidad_trabajo', e.target.value)} required>
+                      <option value="">Seleccione...</option>
+                      {localidadesDB.map((l, i) => <option key={i} value={l}>{l}</option>)}
+                    </select>
                   </div>
                 </div>
               </div>
