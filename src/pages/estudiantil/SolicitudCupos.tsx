@@ -802,7 +802,16 @@ export const SolicitudCupos = () => {
         <div className="col-md-4">
           <label className="form-label fw-semibold">Parentesco con el Trabajador o Trabajadora <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.parentesco}
-            onChange={(e) => updateForm('parentesco', e.target.value)} required>
+            onChange={(e) => {
+              const val = e.target.value;
+              updateForm('parentesco', val);
+              if (val === 'Comunidad' || form.representante_parentesco === 'Comunidad') {
+                updateForm('representante_trabaja_pdvsa', 'No');
+                updateForm('madre_trabaja_pdvsa', false);
+                updateForm('pdvsa_tipo_nomina', '');
+                updateForm('pdvsa_condicion_laboral', '');
+              }
+            }} required>
             <option value="">Seleccione...</option>
             {parentescosDB.map((p, i) => <option key={i} value={p}>{p}</option>)}
           </select>
@@ -947,7 +956,16 @@ export const SolicitudCupos = () => {
         <div className="col-md-4">
           <label className="form-label fw-semibold">Parentesco <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.representante_parentesco}
-            onChange={(e) => updateForm('representante_parentesco', e.target.value)}>
+            onChange={(e) => {
+              const val = e.target.value;
+              updateForm('representante_parentesco', val);
+              if (val === 'Comunidad' || form.parentesco === 'Comunidad') {
+                updateForm('representante_trabaja_pdvsa', 'No');
+                updateForm('madre_trabaja_pdvsa', false);
+                updateForm('pdvsa_tipo_nomina', '');
+                updateForm('pdvsa_condicion_laboral', '');
+              }
+            }}>
             <option value="">Seleccione...</option>
             {parentescosDB.map((p, i) => <option key={i} value={p}>{p}</option>)}
           </select>
@@ -974,14 +992,26 @@ export const SolicitudCupos = () => {
         <div className="col-md-6">
           <label className="form-label fw-semibold">¿Trabaja en PDVSA? <span className="text-danger">*</span></label>
           <div className="d-flex gap-3 mt-2">
-            {['Sí', 'No'].map(op => (
-              <button key={op} type="button"
-                className={`btn rounded-pill px-4 fw-semibold ${form.representante_trabaja_pdvsa === op ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                onClick={() => updateForm('representante_trabaja_pdvsa', op)}>
-                {op}
-              </button>
-            ))}
+            {['Sí', 'No'].map(op => {
+              const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
+              const disabled = esComunidad && op === 'Sí';
+              const isSelected = esComunidad ? op === 'No' : form.representante_trabaja_pdvsa === op;
+              return (
+                <button key={op} type="button"
+                  className={`btn rounded-pill px-4 fw-semibold ${isSelected ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+                  onClick={() => {
+                    if (!disabled) updateForm('representante_trabaja_pdvsa', op);
+                  }}
+                  disabled={disabled}
+                >
+                  {op}
+                </button>
+              );
+            })}
           </div>
+          {(form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad') && (
+            <div className="form-text text-danger mt-2">No aplica por parentesco Comunidad</div>
+          )}
         </div>
 
         {/* DATOS DE LA MADRE */}
@@ -1006,13 +1036,22 @@ export const SolicitudCupos = () => {
             <div className="col-md-4">
               <label className="form-label fw-semibold">¿La Madre Trabaja en PDVSA?</label>
               <div className="d-flex gap-3 mt-2">
-                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
-                  <button key={opt.label} type="button"
-                    className={`btn rounded-pill px-4 fw-semibold ${form.madre_trabaja_pdvsa === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                    onClick={() => updateForm('madre_trabaja_pdvsa', opt.val)}>
-                    {opt.label}
-                  </button>
-                ))}
+                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => {
+                  const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
+                  const disabled = esComunidad && opt.val === true;
+                  const isSelected = esComunidad ? opt.val === false : form.madre_trabaja_pdvsa === opt.val;
+                  return (
+                    <button key={opt.label} type="button"
+                      className={`btn rounded-pill px-4 fw-semibold ${isSelected ? 'btn-success shadow' : 'btn-outline-secondary'}`}
+                      onClick={() => {
+                        if (!disabled) updateForm('madre_trabaja_pdvsa', opt.val);
+                      }}
+                      disabled={disabled}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1039,7 +1078,8 @@ export const SolicitudCupos = () => {
 
   // ─── PASO 4: PDVSA Y TRANSPORTE ───────────────────────────────────────────────
   const renderStep4 = () => {
-    const tienePdvsa = form.representante_trabaja_pdvsa !== 'No' || form.madre_trabaja_pdvsa;
+    const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
+    const tienePdvsa = !esComunidad && (form.representante_trabaja_pdvsa !== 'No' || form.madre_trabaja_pdvsa);
     return (
       <div className="animate__animated animate__fadeIn">
         {tienePdvsa && (
@@ -1295,10 +1335,12 @@ export const SolicitudCupos = () => {
       form.representante_telefono,
       form.representante_email,
     ];
-    // Add pdvsa_tipo_nomina only if they work at PDVSA
-    if (form.representante_trabaja_pdvsa !== 'No' || form.madre_trabaja_pdvsa) {
-      camposRequeridos.push(form.pdvsa_tipo_nomina);
-    }
+      // Add pdvsa_tipo_nomina and condicion_laboral only if they work at PDVSA
+      const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
+      if (!esComunidad && (form.representante_trabaja_pdvsa !== 'No' || form.madre_trabaja_pdvsa)) {
+        camposRequeridos.push(form.pdvsa_condicion_laboral);
+        camposRequeridos.push(form.pdvsa_tipo_nomina);
+      }
     const completados = camposRequeridos.filter(c => c && c.toString().trim() !== '').length;
     return Math.round((completados / camposRequeridos.length) * 100);
   };
