@@ -946,7 +946,7 @@ export const SolicitudCupos = () => {
     <div className="animate__animated animate__fadeIn">
       <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
         <i className="bi bi-person-lines-fill text-success fs-5"></i>
-        <h6 className="fw-bold text-dark mb-0">Datos del Representante Legal</h6>
+        <h6 className="fw-bold text-dark mb-0">Datos del Representante Legal (Trabajador de la Empresa)</h6>
       </div>
 
       <div className="row g-3">
