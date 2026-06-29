@@ -117,6 +117,7 @@ interface SolicitudForm {
   pdvsa_gerencia: string;
   pdvsa_email_empresa: string;
   pdvsa_localidad_trabajo: string;
+  pdvsa_localidad_trabajo_otra?: string;
   madre_cedula: string;
   madre_email: string;
   madre_trabaja_pdvsa: boolean;
@@ -172,6 +173,7 @@ const defaultForm = (): SolicitudForm => ({
   pdvsa_gerencia: '',
   pdvsa_email_empresa: '',
   pdvsa_localidad_trabajo: '',
+  pdvsa_localidad_trabajo_otra: '',
   madre_cedula: '',
   madre_email: '',
   madre_trabaja_pdvsa: false,
@@ -493,8 +495,11 @@ export const SolicitudCupos = () => {
       const urlPartida = await subirArchivo(documentos.partida, 'partida');
       const urlCedula = await subirArchivo(documentos.cedula, 'cedula');
 
+      const { pdvsa_localidad_trabajo_otra, ...formToSubmit } = form;
+
       const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at'> = {
-        ...form,
+        ...formToSubmit,
+        pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo === 'Otra' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
         doc_ficha: urlFicha,
         doc_foto_estudiante: urlFoto,
         doc_partida_nacimiento: urlPartida,
@@ -1085,11 +1090,18 @@ export const SolicitudCupos = () => {
                   </div>
                   <div className="col-md-6">
                     <label className="form-label fw-semibold">Localidad de Trabajo <span className="text-danger">*</span></label>
-                    <select className="form-select input-moderno" value={form.pdvsa_localidad_trabajo}
+                    <select className="form-select input-moderno mb-2" value={form.pdvsa_localidad_trabajo}
                       onChange={(e) => updateForm('pdvsa_localidad_trabajo', e.target.value)} required>
                       <option value="">Seleccione...</option>
                       {localidadesDB.map((l, i) => <option key={i} value={l}>{l}</option>)}
+                      <option value="Otra">Otra (Especificar)</option>
                     </select>
+                    {form.pdvsa_localidad_trabajo === 'Otra' && (
+                      <input type="text" className="form-control input-moderno animate__animated animate__fadeIn" 
+                        placeholder="Especifique la localidad..."
+                        value={form.pdvsa_localidad_trabajo_otra || ''}
+                        onChange={(e) => updateForm('pdvsa_localidad_trabajo_otra', e.target.value)} required />
+                    )}
                   </div>
                 </div>
               </div>
@@ -1377,6 +1389,9 @@ export const SolicitudCupos = () => {
         camposRequeridos.push(form.pdvsa_negocio_filial);
         camposRequeridos.push(form.pdvsa_gerencia);
         camposRequeridos.push(form.pdvsa_localidad_trabajo);
+        if (form.pdvsa_localidad_trabajo === 'Otra') {
+          camposRequeridos.push(form.pdvsa_localidad_trabajo_otra || '');
+        }
       }
     const completados = camposRequeridos.filter(c => c && c.toString().trim() !== '').length;
     return Math.round((completados / camposRequeridos.length) * 100);
