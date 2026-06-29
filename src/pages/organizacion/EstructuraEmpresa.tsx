@@ -22,6 +22,9 @@ export const EstructuraEmpresa = () => {
   const hasVerNomina = tienePermiso('Diccionario: Nómina', 'ver');
   const hasVerParentesco = tienePermiso('Diccionario: Parentesco', 'ver');
   const hasVerCondicion = tienePermiso('Diccionario: Condición', 'ver');
+  const hasVerNegocio = tienePermiso('Diccionario: Negocio/Filial', 'ver');
+  const hasVerGerencia = tienePermiso('Diccionario: Organización/Gerencia', 'ver');
+  const hasVerLocalidad = tienePermiso('Diccionario: Localidad', 'ver');
   const hasVerModulo = tienePermiso('Estructura Empresa', 'ver');
 
   const canCrear = tienePermiso('Estructura Empresa', 'crear');
@@ -382,19 +385,25 @@ export const EstructuraEmpresa = () => {
         )}
 
         {/* Negocios / Filiales */}
-        <div className="col-12 col-md-6">
-          {renderizarTarjeta('Negocios / Filiales', 'Negocio/Filial', 'bi-building', '#0f172a', '#e2e8f0')}
-        </div>
+        {hasVerNegocio && (
+          <div className="col-12 col-md-6 col-xl-4">
+            {renderizarTarjeta('Negocios / Filiales', 'Negocio/Filial', 'bi-building', '#0f172a', '#e2e8f0')}
+          </div>
+        )}
 
         {/* Gerencias / Dptos */}
-        <div className="col-12 col-md-6">
-          {renderizarTarjeta('Gerencias / Dptos.', 'Organización/Gerencia', 'bi-briefcase-fill', '#1e293b', '#e2e8f0')}
-        </div>
+        {hasVerGerencia && (
+          <div className="col-12 col-md-6 col-xl-4">
+            {renderizarTarjeta('Gerencias / Dptos.', 'Organización/Gerencia', 'bi-briefcase-fill', '#1e293b', '#e2e8f0')}
+          </div>
+        )}
 
         {/* Localidades */}
-        <div className="col-12 col-md-6">
-          {renderizarTarjeta('Localidades de Trabajo', 'Localidad', 'bi-geo-alt-fill', '#047857', '#d1fae5')}
-        </div>
+        {hasVerLocalidad && (
+          <div className="col-12 col-md-6 col-xl-4">
+            {renderizarTarjeta('Localidades de Trabajo', 'Localidad', 'bi-geo-alt-fill', '#047857', '#d1fae5')}
+          </div>
+        )}
       </div>
     </div>
   );
