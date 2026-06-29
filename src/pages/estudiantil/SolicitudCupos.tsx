@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { compressImage } from '../../utils/imageCompression';
 
 // ─── HELPER: MODO TÍTULO ────────────────────────────────────────────────────────
 // Convierte cada palabra a Title Case sin forzar mayúscula/minúscula sostenida
@@ -117,6 +118,11 @@ interface SolicitudForm {
   madre_trabaja_pdvsa: boolean;
   requiere_transporte: boolean;
   ruta_transporte: string;
+  // Documentos
+  doc_ficha: string;
+  doc_foto_estudiante: string;
+  doc_partida_nacimiento: string;
+  doc_cedula_estudiante: string;
 }
 
 interface SolicitudDB extends SolicitudForm {
@@ -163,6 +169,10 @@ const defaultForm = (): SolicitudForm => ({
   madre_trabaja_pdvsa: false,
   requiere_transporte: false,
   ruta_transporte: '',
+  doc_ficha: '',
+  doc_foto_estudiante: '',
+  doc_partida_nacimiento: '',
+  doc_cedula_estudiante: '',
 });
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -189,6 +199,16 @@ export const SolicitudCupos = () => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
+
+  const [subiendoDocs, setSubiendoDocs] = useState(false);
+
+  // Documentos adjuntos a subir
+  const [documentos, setDocumentos] = useState<{
+    ficha: File | null;
+    foto: File | null;
+    partida: File | null;
+    cedula: File | null;
+  }>({ ficha: null, foto: null, partida: null, cedula: null });
 
   // GPS state
   const [loadingGPS, setLoadingGPS] = useState(false);
@@ -389,30 +409,68 @@ export const SolicitudCupos = () => {
 
   const handleSubmitFinal = async () => {
     if (!form.representante_cedula || !form.representante_telefono || !form.representante_email) {
-      if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios (*)', 'warning');
+      if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios del formulario', 'warning');
       return;
     }
+    if (!documentos.ficha || !documentos.foto || !documentos.partida) {
+      if (Swal) Swal.fire('Atención', 'Faltan documentos obligatorios (Ficha, Foto o Partida de Nacimiento)', 'warning');
+      return;
+    }
+
     try {
+      setSubiendoDocs(true);
+      
+      const subirArchivo = async (file: File | null, prefix: string): Promise<string> => {
+        if (!file) return '';
+        const ext = file.name.split('.').pop();
+        const fileName = `${prefix}_${form.codigo_unico}_${Date.now()}.${ext}`;
+        const filePath = `${escCodigo}/${fileName}`;
+        
+        const { error } = await supabase.storage
+          .from('documentos_solicitudes')
+          .upload(filePath, file);
+          
+        if (error) throw error;
+        
+        const { data } = supabase.storage
+          .from('documentos_solicitudes')
+          .getPublicUrl(filePath);
+          
+        return data.publicUrl;
+      };
+
+      // Subir cada documento
+      const urlFicha = await subirArchivo(documentos.ficha, 'ficha');
+      const urlFoto = await subirArchivo(documentos.foto, 'foto');
+      const urlPartida = await subirArchivo(documentos.partida, 'partida');
+      const urlCedula = await subirArchivo(documentos.cedula, 'cedula');
+
       const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at'> = {
         ...form,
+        doc_ficha: urlFicha,
+        doc_foto_estudiante: urlFoto,
+        doc_partida_nacimiento: urlPartida,
+        doc_cedula_estudiante: urlCedula,
         codigo_escuela: escCodigo,
         estado: 'Pendiente',
         observaciones: '',
         creado_por: user?.cedula || form.representante_cedula,
       };
+
       const { data, error } = await supabase.from('solicitud_cupos').insert([payload]).select().single();
       if (error) throw error;
-      await auditar('Solicitud de Cupos', 'Crear Solicitud',
-        `Nueva solicitud ${form.codigo_unico} para: ${form.estudiante_nombres} ${form.estudiante_apellidos}`);
+      await auditar('Solicitud de Cupos', 'Crear Solicitud', `Nueva solicitud ${form.codigo_unico} con documentos`);
       
       // Limpiar el autoguardado tras el envío exitoso
       localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}`);
 
       setSolicitudGuardada(data as SolicitudDB);
-      setStep(5);
-    } catch (e: any) {
-      console.error('Error al registrar solicitud:', e);
-      if (Swal) Swal.fire('Error', 'No se pudo registrar la solicitud: ' + e.message, 'error');
+      setStep(6);
+    } catch (error: any) {
+      console.error(error);
+      if (Swal) Swal.fire('Error', 'Hubo un problema procesando tu solicitud o subiendo los documentos: ' + error.message, 'error');
+    } finally {
+      setSubiendoDocs(false);
     }
   };
 
@@ -507,7 +565,8 @@ export const SolicitudCupos = () => {
     { num: 2, label: 'Estudiante', icon: 'bi-mortarboard' },
     { num: 3, label: 'Representante', icon: 'bi-person-lines-fill' },
     { num: 4, label: 'PDVSA & Transporte', icon: 'bi-buildings' },
-    { num: 5, label: 'Confirmación', icon: 'bi-patch-check' },
+    { num: 5, label: 'Documentos', icon: 'bi-file-earmark-arrow-up' },
+    { num: 6, label: 'Confirmación', icon: 'bi-patch-check' },
   ];
 
   const renderStepper = () => (
@@ -1011,16 +1070,79 @@ export const SolicitudCupos = () => {
           <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(3)}>
             <i className="bi bi-arrow-left me-1"></i> Anterior
           </button>
-          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={handleSubmitFinal}>
-            <i className="bi bi-send-check me-1"></i> Enviar Solicitud
+          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => setStep(5)}>
+            Siguiente <i className="bi bi-arrow-right ms-1"></i>
           </button>
         </div>
       </div>
     );
   };
 
-  // ─── PASO 5: CONFIRMACIÓN + QR ────────────────────────────────────────────────
+  // ─── PASO 5: DOCUMENTOS ADJUNTOS ─────────────────────────────────────────────
   const renderStep5 = () => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: keyof typeof documentos) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const compressed = await compressImage(file, 1280, 1280, 0.7);
+        setDocumentos(prev => ({ ...prev, [key]: compressed }));
+      } catch (error) {
+        console.error(error);
+        if (Swal) Swal.fire('Error', 'No se pudo procesar la imagen seleccionada.', 'error');
+      }
+    };
+
+    const renderInput = (key: keyof typeof documentos, label: string, required: boolean) => (
+      <div className="col-md-6 mb-3">
+        <label className="form-label fw-bold text-dark">{label} {required && <span className="text-danger">*</span>}</label>
+        <div className="d-flex align-items-center gap-2">
+          <input 
+            type="file" 
+            className="form-control input-moderno" 
+            accept="image/*" 
+            onChange={(e) => handleFileChange(e, key)}
+          />
+          {documentos[key] && <i className="bi bi-check-circle-fill text-success fs-4"></i>}
+        </div>
+        {documentos[key] && <div className="form-text text-success">Archivo listo: {documentos[key]?.name} ({(documentos[key]?.size! / 1024).toFixed(1)} KB)</div>}
+      </div>
+    );
+
+    return (
+      <div className="animate__animated animate__fadeIn">
+        <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+          <i className="bi bi-file-earmark-arrow-up fs-4 text-success"></i>
+          <h5 className="mb-0 fw-bold text-dark">Documentos Adjuntos</h5>
+        </div>
+        <p className="text-muted small mb-4">
+          Por favor sube imágenes legibles de los siguientes documentos.
+        </p>
+
+        <div className="row g-3">
+          {renderInput('ficha', 'Copia de la Ficha del Estudiante', true)}
+          {renderInput('foto', 'Foto del Estudiante', true)}
+          {renderInput('partida', 'Copia de la Partida de Nacimiento', true)}
+          {renderInput('cedula', 'Foto de la Cédula del Estudiante (Si aplica)', false)}
+        </div>
+
+        <div className="d-flex justify-content-between mt-4 pt-3 border-top">
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(4)} disabled={subiendoDocs}>
+            <i className="bi bi-arrow-left me-1"></i> Anterior
+          </button>
+          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={handleSubmitFinal} disabled={subiendoDocs}>
+            {subiendoDocs ? (
+              <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Procesando...</>
+            ) : (
+              <><i className="bi bi-send-check me-1"></i> Finalizar y Enviar</>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── PASO 6: CONFIRMACIÓN + QR ────────────────────────────────────────────────
+  const renderStep6 = () => {
     const sol = solicitudGuardada;
     if (!sol) return null;
     const qrUrl = getQrUrl(sol.codigo_unico || '');
@@ -1409,6 +1531,7 @@ export const SolicitudCupos = () => {
               {step === 3 && renderStep3()}
               {step === 4 && renderStep4()}
               {step === 5 && renderStep5()}
+              {step === 6 && renderStep6()}
             </div>
           </div>
         )}

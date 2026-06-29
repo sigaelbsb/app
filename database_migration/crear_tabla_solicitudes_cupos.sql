@@ -53,6 +53,12 @@ CREATE TABLE IF NOT EXISTS public.solicitud_cupos (
     requiere_transporte BOOLEAN DEFAULT FALSE,
     ruta_transporte VARCHAR(200),                 -- Ruta seleccionada
 
+    -- Documentos Adjuntos
+    doc_ficha TEXT,
+    doc_foto_estudiante TEXT,
+    doc_partida_nacimiento TEXT,
+    doc_cedula_estudiante TEXT,
+
     -- Estado e Historial
     estado VARCHAR(20) NOT NULL DEFAULT 'Pendiente', -- 'Pendiente', 'Aprobado', 'Rechazado'
     observaciones TEXT,
