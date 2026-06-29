@@ -296,10 +296,10 @@ export const SolicitudCupos = () => {
       const [gradosRes, parentescosRes, nominasRes, condRes, negociosRes, gerenciasRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
-        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Tipos de Nómina').order('valor', { ascending: true }),
-        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición Laboral').order('valor', { ascending: true }),
-        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Negocios / Filiales').order('valor', { ascending: true }),
-        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Gerencias / Dptos.').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Nómina').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Negocio/Filial').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Organización/Gerencia').order('valor', { ascending: true }),
       ]);
       
       let allGeoData: any[] = [];
