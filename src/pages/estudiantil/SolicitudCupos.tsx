@@ -6,11 +6,20 @@ import { usePermisos } from '../../hooks/usePermisos';
 import { compressImage } from '../../utils/imageCompression';
 
 // ─── HELPER: MODO TÍTULO ────────────────────────────────────────────────────────
-// Convierte cada palabra a Title Case sin forzar mayúscula/minúscula sostenida
+// Convierte cada palabra a Title Case sin forzar mayúscula/minúscula sostenida,
+// respetando abreviaturas conocidas en mayúscula.
+const ABREVIATURAS = ['CEI', 'TDA', 'TDH', 'TDHA', 'ADN', 'UE', 'CE', 'EB', 'PDVSA', 'PDV'];
+
 const toTitulo = (value: string): string =>
   value
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map(word => {
+      const wUpper = word.toUpperCase();
+      if (ABREVIATURAS.includes(wUpper)) {
+        return wUpper;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
     .join(' ');
 
 // Handler para inputs de texto que aplica modo título al escribir
