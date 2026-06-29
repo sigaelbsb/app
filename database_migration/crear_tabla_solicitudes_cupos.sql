@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS public.solicitud_cupos (
     representante_trabaja_pdvsa VARCHAR(50) NOT NULL DEFAULT 'No',
 
     -- Datos PDVSA del Representante (si aplica)
-    pdvsa_tipo_nomina VARCHAR(30),                -- Contractual / No Contractual / Jubilado
+    pdvsa_condicion_laboral VARCHAR(50),          -- Activo / Jubilado / etc.
+    pdvsa_tipo_nomina VARCHAR(50),                -- Contractual / No Contractual / etc.
     pdvsa_gerencia VARCHAR(100),                  -- Organización/Gerencia
     pdvsa_email_empresa VARCHAR(150),             -- Correo corporativo
     pdvsa_localidad_trabajo VARCHAR(100),         -- Ciudad/Localidad de trabajo
@@ -93,7 +94,8 @@ CREATE INDEX IF NOT EXISTS idx_solicitud_cupos_escuela_estado
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS parroquia_habitacion VARCHAR(150);
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS tiene_otros_inscritos BOOLEAN DEFAULT FALSE;
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS representante_telefono2 VARCHAR(30);
--- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS pdvsa_tipo_nomina VARCHAR(30);
+-- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS pdvsa_condicion_laboral VARCHAR(50);
+-- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS pdvsa_tipo_nomina VARCHAR(50);
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS pdvsa_gerencia VARCHAR(100);
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS pdvsa_email_empresa VARCHAR(150);
 -- ALTER TABLE public.solicitud_cupos ADD COLUMN IF NOT EXISTS pdvsa_localidad_trabajo VARCHAR(100);

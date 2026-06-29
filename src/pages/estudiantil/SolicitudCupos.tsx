@@ -111,6 +111,7 @@ interface SolicitudForm {
   representante_parentesco: string;
   representante_trabaja_pdvsa: string;
   // PDVSA / Madre
+  pdvsa_condicion_laboral: string;
   pdvsa_tipo_nomina: string;
   pdvsa_gerencia: string;
   pdvsa_email_empresa: string;
@@ -164,7 +165,8 @@ const defaultForm = (): SolicitudForm => ({
   representante_email: '',
   representante_parentesco: 'Padre',
   representante_trabaja_pdvsa: 'No',
-  pdvsa_tipo_nomina: 'Contractual',
+  pdvsa_condicion_laboral: '',
+  pdvsa_tipo_nomina: '',
   pdvsa_gerencia: '',
   pdvsa_email_empresa: '',
   pdvsa_localidad_trabajo: '',
@@ -194,6 +196,8 @@ export const SolicitudCupos = () => {
   // Catálogos desde BD
   const [gradosDB, setGradosDB] = useState<string[]>([]);
   const [parentescosDB, setParentescosDB] = useState<string[]>([]);
+  const [tiposNominaDB, setTiposNominaDB] = useState<string[]>([]);
+  const [condicionLaboralDB, setCondicionLaboralDB] = useState<string[]>([]);
   
   // Geodatos DB state
   const [geoData, setGeoData] = useState<any[]>([]);
@@ -285,9 +289,11 @@ export const SolicitudCupos = () => {
 
   const cargarCatalogos = async () => {
     try {
-      const [gradosRes, parentescosRes] = await Promise.all([
+      const [gradosRes, parentescosRes, nominasRes, condRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Tipos de Nómina').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición Laboral').order('valor', { ascending: true }),
       ]);
       
       let allGeoData: any[] = [];
@@ -317,6 +323,18 @@ export const SolicitudCupos = () => {
         setParentescosDB(parentescosRes.data.map((p: any) => p.valor));
       } else {
         setParentescosDB(['Hijo o Hija', 'Sobrino o Sobrina', 'Nieto o Nieta', 'Hermano o Hermana', 'Otro']);
+      }
+
+      if (nominasRes.data && nominasRes.data.length > 0) {
+        setTiposNominaDB(nominasRes.data.map((p: any) => p.valor));
+      } else {
+        setTiposNominaDB(['Comunidad', 'Jubilado', 'Nómina Contractual (Menor)', 'Nómina No Contractual (Mayor)']);
+      }
+
+      if (condRes.data && condRes.data.length > 0) {
+        setCondicionLaboralDB(condRes.data.map((p: any) => p.valor));
+      } else {
+        setCondicionLaboralDB(['Activo', 'Comunidad', 'Jubilado', 'Sobreviviente']);
       }
 
       if (allGeoData.length > 0) {
@@ -955,12 +973,12 @@ export const SolicitudCupos = () => {
 
         <div className="col-md-6">
           <label className="form-label fw-semibold">¿Trabaja en PDVSA? <span className="text-danger">*</span></label>
-          <div className="d-flex flex-column gap-1 mt-1">
-            {['No', 'Sí - Contractual', 'Sí - No Contractual', 'Jubilado/Pensionado'].map(op => (
+          <div className="d-flex gap-3 mt-2">
+            {['Sí', 'No'].map(op => (
               <button key={op} type="button"
-                className={`btn btn-sm text-start rounded-3 fw-semibold ${form.representante_trabaja_pdvsa === op ? 'btn-success' : 'btn-outline-secondary'}`}
+                className={`btn rounded-pill px-4 fw-semibold ${form.representante_trabaja_pdvsa === op ? 'btn-success shadow' : 'btn-outline-secondary'}`}
                 onClick={() => updateForm('representante_trabaja_pdvsa', op)}>
-                {form.representante_trabaja_pdvsa === op && <i className="bi bi-check-circle-fill me-1"></i>}{op}
+                {op}
               </button>
             ))}
           </div>
@@ -1031,17 +1049,21 @@ export const SolicitudCupos = () => {
               <h6 className="fw-bold text-dark mb-0">Información PDVSA</h6>
             </div>
             <div className="row g-3 mb-4">
-              <div className="col-12">
+              <div className="col-md-6">
+                <label className="form-label fw-semibold">Condición Laboral <span className="text-danger">*</span></label>
+                <select className="form-select input-moderno" value={form.pdvsa_condicion_laboral}
+                  onChange={(e) => updateForm('pdvsa_condicion_laboral', e.target.value)} required>
+                  <option value="">Seleccione...</option>
+                  {condicionLaboralDB.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="col-md-6">
                 <label className="form-label fw-semibold">Tipo de Nómina <span className="text-danger">*</span></label>
-                <div className="d-flex flex-wrap gap-2 mt-1">
-                  {['Contractual', 'No Contractual', 'Jubilado'].map(tipo => (
-                    <button key={tipo} type="button"
-                      className={`btn rounded-pill px-4 fw-semibold ${form.pdvsa_tipo_nomina === tipo ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                      onClick={() => updateForm('pdvsa_tipo_nomina', tipo)}>
-                      {form.pdvsa_tipo_nomina === tipo && <i className="bi bi-check-circle-fill me-1"></i>}{tipo}
-                    </button>
-                  ))}
-                </div>
+                <select className="form-select input-moderno" value={form.pdvsa_tipo_nomina}
+                  onChange={(e) => updateForm('pdvsa_tipo_nomina', e.target.value)} required>
+                  <option value="">Seleccione...</option>
+                  {tiposNominaDB.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                </select>
               </div>
               <div className="col-md-6">
                 <label className="form-label fw-semibold">Organización / Gerencia <span className="text-danger">*</span></label>
