@@ -102,6 +102,8 @@ interface SolicitudForm {
   estudiante_tipo_condicion: string;
   estudiante_informe_neuro: boolean;
   estudiante_certificado_conapdis: boolean;
+  estudiante_condicion_medica: string;
+  estudiante_alergico_medicamentos: string;
   grado_solicitado: string;
   parentesco: string;
   // Dirección
@@ -164,6 +166,8 @@ const defaultForm = (): SolicitudForm => ({
   estudiante_tipo_condicion: '',
   estudiante_informe_neuro: false,
   estudiante_certificado_conapdis: false,
+  estudiante_condicion_medica: 'Ninguna',
+  estudiante_alergico_medicamentos: 'Ninguna',
   grado_solicitado: '',
   parentesco: '',
   estado_habitacion: '',
@@ -218,6 +222,9 @@ export const SolicitudCupos = () => {
   const [negociosDB, setNegociosDB] = useState<string[]>([]);
   const [gerenciasDB, setGerenciasDB] = useState<string[]>([]);
   const [localidadesDB, setLocalidadesDB] = useState<string[]>([]);
+  const [condicionNeuroDB, setCondicionNeuroDB] = useState<string[]>([]);
+  const [condicionMedicaDB, setCondicionMedicaDB] = useState<string[]>([]);
+  const [alergiasDB, setAlergiasDB] = useState<string[]>([]);
   
   // Geodatos DB state
   const [geoData, setGeoData] = useState<any[]>([]);
@@ -309,7 +316,7 @@ export const SolicitudCupos = () => {
 
   const cargarCatalogos = async () => {
     try {
-      const [gradosRes, parentescosRes, nominasRes, condRes, negociosRes, gerenciasRes, localidadesRes] = await Promise.all([
+      const [gradosRes, parentescosRes, nominasRes, condRes, negociosRes, gerenciasRes, localidadesRes, neuroRes, medicaRes, alergiaRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Nómina').order('valor', { ascending: true }),
@@ -317,6 +324,9 @@ export const SolicitudCupos = () => {
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Negocio/Filial').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Organización/Gerencia').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Localidad').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición / Discapacidad').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición Médica').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Medicamento (Alergia)').order('valor', { ascending: true }),
       ]);
       
       let allGeoData: any[] = [];
@@ -376,6 +386,28 @@ export const SolicitudCupos = () => {
         setLocalidadesDB(localidadesRes.data.map((p: any) => p.valor));
       } else {
         setLocalidadesDB([]);
+      }
+
+      if (neuroRes.data && neuroRes.data.length > 0) {
+        setCondicionNeuroDB(neuroRes.data.map((p: any) => p.valor));
+      } else {
+        setCondicionNeuroDB([
+          'Discapacidad Intelectual', 'Discapacidad Auditiva', 'Discapacidad Visual', 
+          'Discapacidad Física Motora', 'Trastorno Del Espectro Autista Tea', 
+          'Altas Potencialidades Intelectuales y Creativas', 'Dificultades para el Aprendizaje'
+        ]);
+      }
+
+      if (medicaRes.data && medicaRes.data.length > 0) {
+        setCondicionMedicaDB(medicaRes.data.map((p: any) => p.valor));
+      } else {
+        setCondicionMedicaDB(['Asmático', 'Epiléptico', 'Diabético', 'Cardiópata', 'Ninguna']);
+      }
+
+      if (alergiaRes.data && alergiaRes.data.length > 0) {
+        setAlergiasDB(alergiaRes.data.map((p: any) => p.valor));
+      } else {
+        setAlergiasDB(['Acetaminofén', 'Dipirona', 'Diclofenac', 'Ibuprofeno', 'Penicilina', 'Ninguna']);
       }
 
       if (allGeoData.length > 0) {
@@ -1186,13 +1218,7 @@ export const SolicitudCupos = () => {
               <select className="form-select input-moderno" value={form.estudiante_tipo_condicion}
                 onChange={(e) => updateForm('estudiante_tipo_condicion', e.target.value)} required>
                 <option value="">Seleccione...</option>
-                <option value="Discapacidad Intelectual">Discapacidad Intelectual</option>
-                <option value="Discapacidad Auditiva">Discapacidad Auditiva</option>
-                <option value="Discapacidad Visual">Discapacidad Visual</option>
-                <option value="Discapacidad Física Motora">Discapacidad Física Motora</option>
-                <option value="Trastorno Del Espectro Autista Tea">Trastorno Del Espectro Autista Tea</option>
-                <option value="Altas Potencialidades Intelectuales y Creativas">Altas Potencialidades Intelectuales y Creativas</option>
-                <option value="Dificultades para el Aprendizaje">Dificultades para el Aprendizaje</option>
+                {condicionNeuroDB.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             
@@ -1224,7 +1250,25 @@ export const SolicitudCupos = () => {
           </>
         )}
 
-                </div>
+        <div className="col-md-6 animate__animated animate__fadeIn">
+          <label className="form-label fw-semibold">Condición Médica <span className="text-danger">*</span></label>
+          <select className="form-select input-moderno" value={form.estudiante_condicion_medica}
+            onChange={(e) => updateForm('estudiante_condicion_medica', e.target.value)} required>
+            <option value="">Seleccione...</option>
+            {condicionMedicaDB.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div className="col-md-6 animate__animated animate__fadeIn">
+          <label className="form-label fw-semibold">Alergias a Medicamentos <span className="text-danger">*</span></label>
+          <select className="form-select input-moderno" value={form.estudiante_alergico_medicamentos}
+            onChange={(e) => updateForm('estudiante_alergico_medicamentos', e.target.value)} required>
+            <option value="">Seleccione...</option>
+            {alergiasDB.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        </div>
 
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
           <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(3)}>

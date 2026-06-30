@@ -19,7 +19,7 @@ const ESTRUCTURA_ACCESOS = {
     "Cargos Institucionales": ["Tarjeta: Definir Cargos", "Tarjeta: Asignar Personal"],
     "Cadena Supervisoria": ["Función: Estructurar Cadena", "Función: Imprimir Organigrama"],
     "Gestión de Colectivos": [],
-    "Estructura Empresa": ["Diccionario: Nómina", "Diccionario: Parentesco", "Diccionario: Condición", "Diccionario: Negocio/Filial", "Diccionario: Organización/Gerencia", "Diccionario: Localidad"]
+    "Estructura Empresa": ["Diccionario: Nómina", "Diccionario: Parentesco", "Diccionario: Condición", "Diccionario: Negocio/Filial", "Diccionario: Organización/Gerencia", "Diccionario: Localidad", "Diccionario: Condición Neuro", "Diccionario: Condición Médica", "Diccionario: Alergias"]
   },
   "Control de Estudios": {
     "Grados y Salones": ["Tarjeta: Configurar Grados", "Tarjeta: Configurar Secciones", "Tarjeta: Apertura de Salones"]

@@ -18,11 +18,13 @@ CREATE TABLE IF NOT EXISTS public.solicitud_cupos (
     estudiante_cedula VARCHAR(20),
     estudiante_fecha_nacimiento DATE NOT NULL,
     estudiante_sexo VARCHAR(10) NOT NULL,
-    estudiante_orden_nacimiento SMALLINT,         -- N° de hijo en la familia (orden de nacimiento)
-    estudiante_condicion_neuro VARCHAR(50),       -- Neurotípico o Neurodivergente o Discapacidad
-    estudiante_tipo_condicion VARCHAR(100),       -- Tipo de condición/discapacidad
-    estudiante_informe_neuro BOOLEAN,             -- Si tiene informe médico
-    estudiante_certificado_conapdis BOOLEAN,      -- Si tiene certificado CONAPDIS
+    estudiante_orden_nacimiento VARCHAR(10),
+    estudiante_condicion_neuro VARCHAR(50) DEFAULT 'Neurotípico',
+    estudiante_tipo_condicion VARCHAR(100),
+    estudiante_informe_neuro BOOLEAN DEFAULT FALSE,
+    estudiante_certificado_conapdis BOOLEAN DEFAULT FALSE,
+    estudiante_condicion_medica TEXT DEFAULT 'Ninguna',
+    estudiante_alergico_medicamentos TEXT DEFAULT 'Ninguna',
 
     grado_solicitado VARCHAR(50) NOT NULL,
     parentesco VARCHAR(50) NOT NULL,              -- Parentesco del representante con el estudiante

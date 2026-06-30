@@ -25,6 +25,10 @@ export const EstructuraEmpresa = () => {
   const hasVerNegocio = tienePermiso('Diccionario: Negocio/Filial', 'ver');
   const hasVerGerencia = tienePermiso('Diccionario: Organización/Gerencia', 'ver');
   const hasVerLocalidad = tienePermiso('Diccionario: Localidad', 'ver');
+  const hasVerCondicionNeuro = tienePermiso('Diccionario: Condición Neuro', 'ver');
+  const hasVerCondicionMedica = tienePermiso('Diccionario: Condición Médica', 'ver');
+  const hasVerAlergia = tienePermiso('Diccionario: Alergias', 'ver');
+  
   const hasVerModulo = tienePermiso('Estructura Empresa', 'ver');
 
   const canCrear = tienePermiso('Estructura Empresa', 'crear');
@@ -404,7 +408,30 @@ export const EstructuraEmpresa = () => {
             {renderizarTarjeta('Localidades de Trabajo', 'Localidad', 'bi-geo-alt-fill', '#047857', '#d1fae5')}
           </div>
         )}
+
+        {/* Condición Neuro / Discapacidad */}
+        {hasVerCondicionNeuro && (
+          <div className="col-12 col-md-6 col-xl-4">
+            {renderizarTarjeta('Condición Neurológica / Discapacidad', 'Condición / Discapacidad', 'bi-person-wheelchair', '#7c3aed', '#ede9fe')}
+          </div>
+        )}
+
+        {/* Condición Médica */}
+        {hasVerCondicionMedica && (
+          <div className="col-12 col-md-6 col-xl-4">
+            {renderizarTarjeta('Condición Médica', 'Condición Médica', 'bi-heart-pulse-fill', '#be123c', '#ffe4e6')}
+          </div>
+        )}
+
+        {/* Alergias */}
+        {hasVerAlergia && (
+          <div className="col-12 col-md-6 col-xl-4">
+            {renderizarTarjeta('Alergias a Medicamentos', 'Medicamento (Alergia)', 'bi-capsule', '#ea580c', '#ffedd5')}
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
+export default EstructuraEmpresa;
