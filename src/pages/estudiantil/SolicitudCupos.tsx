@@ -454,7 +454,7 @@ export const SolicitudCupos = () => {
 
   const updateForm = (field: keyof SolicitudForm, value: any) => {
     let finalValue = value;
-    if (field === 'representante_telefono' || field === 'representante_telefono_secundario') {
+    if (field === 'representante_telefono' || field === 'representante_telefono2') {
       const numbers = String(value).replace(/\D/g, '');
       if (numbers.length > 4) {
         finalValue = `${numbers.slice(0, 4)}-${numbers.slice(4, 11)}`;
