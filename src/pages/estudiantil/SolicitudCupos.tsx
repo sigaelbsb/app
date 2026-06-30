@@ -100,10 +100,13 @@ interface SolicitudForm {
   estudiante_orden_nacimiento: string;
   estudiante_condicion_neuro: string;
   estudiante_tipo_condicion: string;
+  estudiante_tipo_condicion_otro: string;
   estudiante_informe_neuro: boolean;
   estudiante_certificado_conapdis: boolean;
   estudiante_condicion_medica: string;
+  estudiante_condicion_medica_otro: string;
   estudiante_alergico_medicamentos: string;
+  estudiante_alergico_medicamentos_otro: string;
   grado_solicitado: string;
   parentesco: string;
   // Dirección
@@ -164,10 +167,13 @@ const defaultForm = (): SolicitudForm => ({
   estudiante_orden_nacimiento: '',
   estudiante_condicion_neuro: 'Neurotípico',
   estudiante_tipo_condicion: '',
+  estudiante_tipo_condicion_otro: '',
   estudiante_informe_neuro: false,
   estudiante_certificado_conapdis: false,
   estudiante_condicion_medica: 'Ninguna',
+  estudiante_condicion_medica_otro: '',
   estudiante_alergico_medicamentos: 'Ninguna',
+  estudiante_alergico_medicamentos_otro: '',
   grado_solicitado: '',
   parentesco: '',
   estado_habitacion: '',
@@ -540,11 +546,20 @@ export const SolicitudCupos = () => {
       const urlPartida = await subirArchivo(documentos.partida, 'partida');
       const urlCedula = await subirArchivo(documentos.cedula, 'cedula');
 
-      const { pdvsa_localidad_trabajo_otra, ...formToSubmit } = form;
+      const { 
+        pdvsa_localidad_trabajo_otra, 
+        estudiante_tipo_condicion_otro, 
+        estudiante_condicion_medica_otro, 
+        estudiante_alergico_medicamentos_otro, 
+        ...formToSubmit 
+      } = form;
 
       const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at'> = {
         ...formToSubmit,
         pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo === 'Otra' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
+        estudiante_tipo_condicion: form.estudiante_tipo_condicion === 'Otro' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
+        estudiante_condicion_medica: form.estudiante_condicion_medica === 'Otro' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
+        estudiante_alergico_medicamentos: form.estudiante_alergico_medicamentos === 'Otro' ? estudiante_alergico_medicamentos_otro || '' : form.estudiante_alergico_medicamentos,
         doc_ficha: urlFicha,
         doc_foto_estudiante: urlFoto,
         doc_partida_nacimiento: urlPartida,
@@ -1219,7 +1234,13 @@ export const SolicitudCupos = () => {
                 onChange={(e) => updateForm('estudiante_tipo_condicion', e.target.value)} required>
                 <option value="">Seleccione...</option>
                 {condicionNeuroDB.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="Otro">Otra (Especifique)</option>
               </select>
+              {form.estudiante_tipo_condicion === 'Otro' && (
+                <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
+                  placeholder="Especifique la condición..." value={form.estudiante_tipo_condicion_otro}
+                  onChange={(e) => updateForm('estudiante_tipo_condicion_otro', e.target.value)} required />
+              )}
             </div>
             
             <div className="col-md-4 animate__animated animate__fadeIn">
@@ -1256,7 +1277,13 @@ export const SolicitudCupos = () => {
             onChange={(e) => updateForm('estudiante_condicion_medica', e.target.value)} required>
             <option value="">Seleccione...</option>
             {condicionMedicaDB.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="Otro">Otra (Especifique)</option>
           </select>
+          {form.estudiante_condicion_medica === 'Otro' && (
+            <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
+              placeholder="Especifique la condición médica..." value={form.estudiante_condicion_medica_otro}
+              onChange={(e) => updateForm('estudiante_condicion_medica_otro', e.target.value)} required />
+          )}
         </div>
 
         <div className="col-md-6 animate__animated animate__fadeIn">
@@ -1265,7 +1292,13 @@ export const SolicitudCupos = () => {
             onChange={(e) => updateForm('estudiante_alergico_medicamentos', e.target.value)} required>
             <option value="">Seleccione...</option>
             {alergiasDB.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="Otro">Otra (Especifique)</option>
           </select>
+          {form.estudiante_alergico_medicamentos === 'Otro' && (
+            <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
+              placeholder="Especifique el medicamento..." value={form.estudiante_alergico_medicamentos_otro}
+              onChange={(e) => updateForm('estudiante_alergico_medicamentos_otro', e.target.value)} required />
+          )}
         </div>
 
         </div>
