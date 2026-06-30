@@ -239,7 +239,11 @@ export const SolicitudCupos = () => {
   const [estadosDB, setEstadosDB] = useState<string[]>([]);
 
   // Wizard state
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    const escCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+    const savedStep = localStorage.getItem(`sigae_borrador_step_${escCode}`);
+    return savedStep ? parseInt(savedStep, 10) : 1;
+  });
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
 
@@ -298,8 +302,9 @@ export const SolicitudCupos = () => {
       if (form.estudiante_nombres !== '' || form.estudiante_cedula !== '') {
         localStorage.setItem(`sigae_borrador_cupo_${escCodigo}`, JSON.stringify(form));
       }
+      localStorage.setItem(`sigae_borrador_step_${escCodigo}`, step.toString());
     }
-  }, [form, activeTab, escCodigo]);
+  }, [form, step, activeTab, escCodigo]);
 
   useEffect(() => {
     if (!permLoading && user) {
@@ -448,7 +453,16 @@ export const SolicitudCupos = () => {
   }, [escCodigo, isUserAdmin, user]);
 
   const updateForm = (field: keyof SolicitudForm, value: any) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+    let finalValue = value;
+    if (field === 'representante_telefono' || field === 'representante_telefono_secundario') {
+      const numbers = String(value).replace(/\D/g, '');
+      if (numbers.length > 4) {
+        finalValue = `${numbers.slice(0, 4)}-${numbers.slice(4, 11)}`;
+      } else {
+        finalValue = numbers;
+      }
+    }
+    setForm(prev => ({ ...prev, [field]: finalValue }));
   };
 
   // GPS: Obtener ubicación actual y reverse-geocodear con Nominatim
@@ -598,7 +612,7 @@ export const SolicitudCupos = () => {
       
       // Limpiar el autoguardado tras el envío exitoso
       localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}`);
-
+      localStorage.removeItem(`sigae_borrador_step_${escCodigo}`);
       setSolicitudGuardada(data as SolicitudDB);
       setStep(6);
     } catch (error: any) {
@@ -712,7 +726,8 @@ export const SolicitudCupos = () => {
           <div className="d-flex flex-column align-items-center" style={{ minWidth: 70 }}>
             <div
               className={`rounded-circle d-flex align-items-center justify-content-center fw-bold mb-1 ${step === s.num ? 'bg-success text-white shadow' : step > s.num ? 'bg-success bg-opacity-25 text-success' : 'bg-light text-muted border'}`}
-              style={{ width: 44, height: 44, fontSize: 18, transition: 'all 0.3s' }}
+              style={{ width: 44, height: 44, fontSize: 18, transition: 'all 0.3s', cursor: 'pointer' }}
+              onClick={() => setStep(s.num)}
             >
               {step > s.num ? <i className="bi bi-check-lg"></i> : <i className={`bi ${s.icon}`}></i>}
             </div>
