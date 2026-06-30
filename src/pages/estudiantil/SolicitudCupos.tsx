@@ -536,9 +536,12 @@ export const SolicitudCupos = () => {
       return;
     }
 
-    const isSobrino = form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina');
-    const isNieto = form.parentesco?.toLowerCase().includes('nieto') || form.parentesco?.toLowerCase().includes('nieta');
-    const isHermano = form.parentesco?.toLowerCase().includes('hermano') || form.parentesco?.toLowerCase().includes('hermana');
+    const p1 = form.parentesco?.toLowerCase() || '';
+    const p2 = form.representante_parentesco?.toLowerCase() || '';
+    
+    const isSobrino = p1.includes('sobrino') || p1.includes('sobrina') || p2.includes('sobrino') || p2.includes('sobrina');
+    const isNieto = p1.includes('nieto') || p1.includes('nieta') || p2.includes('nieto') || p2.includes('nieta');
+    const isHermano = p1.includes('hermano') || p1.includes('hermana') || p2.includes('hermano') || p2.includes('hermana');
 
     if ((isSobrino || isHermano) && !documentos.partida_trabajador) {
       if (Swal) Swal.fire('Atención', 'Falta la Partida de Nacimiento del Trabajador', 'warning');
@@ -1441,11 +1444,13 @@ export const SolicitudCupos = () => {
           {renderInput('partida', 'Copia de la Partida de Nacimiento del Estudiante', true)}
           
           {/* Lógica condicional según parentesco */}
-          {(form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina') || form.parentesco?.toLowerCase().includes('hermano') || form.parentesco?.toLowerCase().includes('hermana')) && (
+          {((form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina') || form.parentesco?.toLowerCase().includes('hermano') || form.parentesco?.toLowerCase().includes('hermana')) || 
+            (form.representante_parentesco?.toLowerCase().includes('sobrino') || form.representante_parentesco?.toLowerCase().includes('sobrina') || form.representante_parentesco?.toLowerCase().includes('hermano') || form.representante_parentesco?.toLowerCase().includes('hermana'))) && (
             renderInput('partida_trabajador', 'Partida de Nacimiento del Trabajador', true)
           )}
 
-          {(form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina') || form.parentesco?.toLowerCase().includes('nieto') || form.parentesco?.toLowerCase().includes('nieta')) && (
+          {((form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina') || form.parentesco?.toLowerCase().includes('nieto') || form.parentesco?.toLowerCase().includes('nieta')) || 
+            (form.representante_parentesco?.toLowerCase().includes('sobrino') || form.representante_parentesco?.toLowerCase().includes('sobrina') || form.representante_parentesco?.toLowerCase().includes('nieto') || form.representante_parentesco?.toLowerCase().includes('nieta'))) && (
             renderInput('partida_nexo', 'Partida de Nacimiento de la Madre o Padre (Nexo con el Trabajador)', true)
           )}
 
