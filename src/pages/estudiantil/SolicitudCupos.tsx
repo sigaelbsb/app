@@ -554,7 +554,7 @@ export const SolicitudCupos = () => {
         ...formToSubmit 
       } = form;
 
-      const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at'> = {
+      const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at' | 'estudiante_tipo_condicion_otro' | 'estudiante_condicion_medica_otro' | 'estudiante_alergico_medicamentos_otro'> = {
         ...formToSubmit,
         pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otra' || form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otro' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
         estudiante_tipo_condicion: form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otro' || form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otra' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
