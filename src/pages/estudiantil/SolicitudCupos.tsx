@@ -556,10 +556,10 @@ export const SolicitudCupos = () => {
 
       const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at'> = {
         ...formToSubmit,
-        pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo === 'Otra' || form.pdvsa_localidad_trabajo === 'Otro' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
-        estudiante_tipo_condicion: form.estudiante_tipo_condicion === 'Otro' || form.estudiante_tipo_condicion === 'Otra' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
-        estudiante_condicion_medica: form.estudiante_condicion_medica === 'Otro' || form.estudiante_condicion_medica === 'Otra' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
-        estudiante_alergico_medicamentos: form.estudiante_alergico_medicamentos === 'Otro' || form.estudiante_alergico_medicamentos === 'Otra' ? estudiante_alergico_medicamentos_otro || '' : form.estudiante_alergico_medicamentos,
+        pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otra' || form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otro' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
+        estudiante_tipo_condicion: form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otro' || form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otra' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
+        estudiante_condicion_medica: form.estudiante_condicion_medica?.trim().toLowerCase() === 'otro' || form.estudiante_condicion_medica?.trim().toLowerCase() === 'otra' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
+        estudiante_alergico_medicamentos: form.estudiante_alergico_medicamentos?.trim().toLowerCase() === 'otro' || form.estudiante_alergico_medicamentos?.trim().toLowerCase() === 'otra' ? estudiante_alergico_medicamentos_otro || '' : form.estudiante_alergico_medicamentos,
         doc_ficha: urlFicha,
         doc_foto_estudiante: urlFoto,
         doc_partida_nacimiento: urlPartida,
@@ -1236,11 +1236,11 @@ export const SolicitudCupos = () => {
                 {condicionNeuroDB.map(c => <option key={c} value={c}>{c}</option>)}
                 <option value="Otra">Otra (Especifique)</option>
               </select>
-              {(form.estudiante_tipo_condicion === 'Otro' || form.estudiante_tipo_condicion === 'Otra') && (
+              {form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otro' || form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otra' ? (
                 <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
                   placeholder="Especifique la condición..." value={form.estudiante_tipo_condicion_otro}
                   onChange={(e) => updateForm('estudiante_tipo_condicion_otro', e.target.value)} required />
-              )}
+              ) : null}
             </div>
             
             <div className="col-md-4 animate__animated animate__fadeIn">
@@ -1279,11 +1279,11 @@ export const SolicitudCupos = () => {
             {condicionMedicaDB.map(c => <option key={c} value={c}>{c}</option>)}
             <option value="Otra">Otra (Especifique)</option>
           </select>
-          {(form.estudiante_condicion_medica === 'Otro' || form.estudiante_condicion_medica === 'Otra') && (
+          {form.estudiante_condicion_medica?.trim().toLowerCase() === 'otro' || form.estudiante_condicion_medica?.trim().toLowerCase() === 'otra' ? (
             <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
               placeholder="Especifique la condición médica..." value={form.estudiante_condicion_medica_otro}
               onChange={(e) => updateForm('estudiante_condicion_medica_otro', e.target.value)} required />
-          )}
+          ) : null}
         </div>
 
         <div className="col-md-6 animate__animated animate__fadeIn">
@@ -1294,11 +1294,11 @@ export const SolicitudCupos = () => {
             {alergiasDB.map(c => <option key={c} value={c}>{c}</option>)}
             <option value="Otra">Otra (Especifique)</option>
           </select>
-          {(form.estudiante_alergico_medicamentos === 'Otro' || form.estudiante_alergico_medicamentos === 'Otra') && (
+          {form.estudiante_alergico_medicamentos?.trim().toLowerCase() === 'otro' || form.estudiante_alergico_medicamentos?.trim().toLowerCase() === 'otra' ? (
             <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
               placeholder="Especifique el medicamento..." value={form.estudiante_alergico_medicamentos_otro}
               onChange={(e) => updateForm('estudiante_alergico_medicamentos_otro', e.target.value)} required />
-          )}
+          ) : null}
         </div>
 
         </div>
