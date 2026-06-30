@@ -517,8 +517,8 @@ export const SolicitudCupos = () => {
       if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios del formulario', 'warning');
       return;
     }
-    if (!documentos.ficha || !documentos.foto || !documentos.partida) {
-      if (Swal) Swal.fire('Atención', 'Faltan documentos obligatorios (Ficha, Foto o Partida de Nacimiento)', 'warning');
+    if (!documentos.partida) {
+      if (Swal) Swal.fire('Atención', 'Falta subir la Copia de la Partida de Nacimiento del Estudiante', 'warning');
       return;
     }
 
@@ -1422,9 +1422,6 @@ export const SolicitudCupos = () => {
         </p>
 
         <div className="row g-3">
-          {renderInput('ficha', 'Copia de la Ficha del Trabajador', true)}
-          {renderInput('foto', 'Foto del Estudiante', true)}
-          
           {/* Partida de Nacimiento del Estudiante siempre es requerida */}
           {renderInput('partida', 'Copia de la Partida de Nacimiento del Estudiante', true)}
           
@@ -1437,7 +1434,6 @@ export const SolicitudCupos = () => {
             renderInput('partida_nexo', 'Partida de Nacimiento de la Madre o Padre (Nexo con el Trabajador)', true)
           )}
 
-          {renderInput('cedula', 'Foto de la Cédula del Estudiante (Si aplica)', false)}
         </div>
 
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
