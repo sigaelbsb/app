@@ -556,10 +556,10 @@ export const SolicitudCupos = () => {
 
       const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at'> = {
         ...formToSubmit,
-        pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo === 'Otra' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
-        estudiante_tipo_condicion: form.estudiante_tipo_condicion === 'Otro' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
-        estudiante_condicion_medica: form.estudiante_condicion_medica === 'Otro' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
-        estudiante_alergico_medicamentos: form.estudiante_alergico_medicamentos === 'Otro' ? estudiante_alergico_medicamentos_otro || '' : form.estudiante_alergico_medicamentos,
+        pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo === 'Otra' || form.pdvsa_localidad_trabajo === 'Otro' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
+        estudiante_tipo_condicion: form.estudiante_tipo_condicion === 'Otro' || form.estudiante_tipo_condicion === 'Otra' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
+        estudiante_condicion_medica: form.estudiante_condicion_medica === 'Otro' || form.estudiante_condicion_medica === 'Otra' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
+        estudiante_alergico_medicamentos: form.estudiante_alergico_medicamentos === 'Otro' || form.estudiante_alergico_medicamentos === 'Otra' ? estudiante_alergico_medicamentos_otro || '' : form.estudiante_alergico_medicamentos,
         doc_ficha: urlFicha,
         doc_foto_estudiante: urlFoto,
         doc_partida_nacimiento: urlPartida,
@@ -1234,9 +1234,9 @@ export const SolicitudCupos = () => {
                 onChange={(e) => updateForm('estudiante_tipo_condicion', e.target.value)} required>
                 <option value="">Seleccione...</option>
                 {condicionNeuroDB.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="Otro">Otra (Especifique)</option>
+                <option value="Otra">Otra (Especifique)</option>
               </select>
-              {form.estudiante_tipo_condicion === 'Otro' && (
+              {(form.estudiante_tipo_condicion === 'Otro' || form.estudiante_tipo_condicion === 'Otra') && (
                 <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
                   placeholder="Especifique la condición..." value={form.estudiante_tipo_condicion_otro}
                   onChange={(e) => updateForm('estudiante_tipo_condicion_otro', e.target.value)} required />
@@ -1277,9 +1277,9 @@ export const SolicitudCupos = () => {
             onChange={(e) => updateForm('estudiante_condicion_medica', e.target.value)} required>
             <option value="">Seleccione...</option>
             {condicionMedicaDB.map(c => <option key={c} value={c}>{c}</option>)}
-            <option value="Otro">Otra (Especifique)</option>
+            <option value="Otra">Otra (Especifique)</option>
           </select>
-          {form.estudiante_condicion_medica === 'Otro' && (
+          {(form.estudiante_condicion_medica === 'Otro' || form.estudiante_condicion_medica === 'Otra') && (
             <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
               placeholder="Especifique la condición médica..." value={form.estudiante_condicion_medica_otro}
               onChange={(e) => updateForm('estudiante_condicion_medica_otro', e.target.value)} required />
@@ -1292,9 +1292,9 @@ export const SolicitudCupos = () => {
             onChange={(e) => updateForm('estudiante_alergico_medicamentos', e.target.value)} required>
             <option value="">Seleccione...</option>
             {alergiasDB.map(c => <option key={c} value={c}>{c}</option>)}
-            <option value="Otro">Otra (Especifique)</option>
+            <option value="Otra">Otra (Especifique)</option>
           </select>
-          {form.estudiante_alergico_medicamentos === 'Otro' && (
+          {(form.estudiante_alergico_medicamentos === 'Otro' || form.estudiante_alergico_medicamentos === 'Otra') && (
             <input type="text" className="form-control input-moderno mt-2 animate__animated animate__fadeIn"
               placeholder="Especifique el medicamento..." value={form.estudiante_alergico_medicamentos_otro}
               onChange={(e) => updateForm('estudiante_alergico_medicamentos_otro', e.target.value)} required />
