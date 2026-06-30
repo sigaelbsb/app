@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS public.solicitud_cupos (
     doc_foto_estudiante TEXT,
     doc_partida_nacimiento TEXT,
     doc_cedula_estudiante TEXT,
+    doc_partida_trabajador TEXT,
+    doc_partida_nexo TEXT,
 
     -- Estado e Historial
     estado VARCHAR(20) NOT NULL DEFAULT 'Pendiente', -- 'Pendiente', 'Aprobado', 'Rechazado'

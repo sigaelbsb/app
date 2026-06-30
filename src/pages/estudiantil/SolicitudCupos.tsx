@@ -154,6 +154,8 @@ interface SolicitudDB extends SolicitudForm {
   creado_por: string;
   created_at?: string;
   updated_at?: string;
+  doc_partida_trabajador?: string;
+  doc_partida_nexo?: string;
 }
 
 const defaultForm = (): SolicitudForm => ({
@@ -248,8 +250,10 @@ export const SolicitudCupos = () => {
     ficha: File | null;
     foto: File | null;
     partida: File | null;
+    partida_trabajador: File | null;
+    partida_nexo: File | null;
     cedula: File | null;
-  }>({ ficha: null, foto: null, partida: null, cedula: null });
+  }>({ ficha: null, foto: null, partida: null, partida_trabajador: null, partida_nexo: null, cedula: null });
 
   // GPS state
   const [loadingGPS, setLoadingGPS] = useState(false);
@@ -518,6 +522,20 @@ export const SolicitudCupos = () => {
       return;
     }
 
+    const isSobrino = form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina');
+    const isNieto = form.parentesco?.toLowerCase().includes('nieto') || form.parentesco?.toLowerCase().includes('nieta');
+    const isHermano = form.parentesco?.toLowerCase().includes('hermano') || form.parentesco?.toLowerCase().includes('hermana');
+
+    if ((isSobrino || isHermano) && !documentos.partida_trabajador) {
+      if (Swal) Swal.fire('Atención', 'Falta la Partida de Nacimiento del Trabajador', 'warning');
+      return;
+    }
+
+    if ((isSobrino || isNieto) && !documentos.partida_nexo) {
+      if (Swal) Swal.fire('Atención', 'Falta la Partida de Nacimiento de la Madre o Padre (Nexo)', 'warning');
+      return;
+    }
+
     try {
       setSubiendoDocs(true);
       
@@ -544,6 +562,8 @@ export const SolicitudCupos = () => {
       const urlFicha = await subirArchivo(documentos.ficha, 'ficha');
       const urlFoto = await subirArchivo(documentos.foto, 'foto');
       const urlPartida = await subirArchivo(documentos.partida, 'partida');
+      const urlPartidaTrabajador = await subirArchivo(documentos.partida_trabajador, 'partida_trabajador');
+      const urlPartidaNexo = await subirArchivo(documentos.partida_nexo, 'partida_nexo');
       const urlCedula = await subirArchivo(documentos.cedula, 'cedula');
 
       const { 
@@ -563,6 +583,8 @@ export const SolicitudCupos = () => {
         doc_ficha: urlFicha,
         doc_foto_estudiante: urlFoto,
         doc_partida_nacimiento: urlPartida,
+        doc_partida_trabajador: urlPartidaTrabajador,
+        doc_partida_nexo: urlPartidaNexo,
         doc_cedula_estudiante: urlCedula,
         codigo_escuela: escCodigo,
         estado: 'Pendiente',
@@ -1400,9 +1422,21 @@ export const SolicitudCupos = () => {
         </p>
 
         <div className="row g-3">
-          {renderInput('ficha', 'Copia de la Ficha del Estudiante', true)}
+          {renderInput('ficha', 'Copia de la Ficha del Trabajador', true)}
           {renderInput('foto', 'Foto del Estudiante', true)}
-          {renderInput('partida', 'Copia de la Partida de Nacimiento', true)}
+          
+          {/* Partida de Nacimiento del Estudiante siempre es requerida */}
+          {renderInput('partida', 'Copia de la Partida de Nacimiento del Estudiante', true)}
+          
+          {/* Lógica condicional según parentesco */}
+          {(form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina') || form.parentesco?.toLowerCase().includes('hermano') || form.parentesco?.toLowerCase().includes('hermana')) && (
+            renderInput('partida_trabajador', 'Partida de Nacimiento del Trabajador', true)
+          )}
+
+          {(form.parentesco?.toLowerCase().includes('sobrino') || form.parentesco?.toLowerCase().includes('sobrina') || form.parentesco?.toLowerCase().includes('nieto') || form.parentesco?.toLowerCase().includes('nieta')) && (
+            renderInput('partida_nexo', 'Partida de Nacimiento de la Madre o Padre (Nexo con el Trabajador)', true)
+          )}
+
           {renderInput('cedula', 'Foto de la Cédula del Estudiante (Si aplica)', false)}
         </div>
 
