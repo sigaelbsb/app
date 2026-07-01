@@ -262,6 +262,8 @@ export const SolicitudCupos = () => {
 
   // GPS state
   const [loadingGPS, setLoadingGPS] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
 
   const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
@@ -294,14 +296,14 @@ export const SolicitudCupos = () => {
 
   // Autosave: Guardar borrador al cambiar form
   useEffect(() => {
-    if (activeTab === 'nueva_solicitud') {
-      // Don't save if it's completely empty (just opened)
-      if (form.estudiante_nombres !== '' || form.estudiante_cedula !== '') {
-        localStorage.setItem(`sigae_borrador_cupo_${escCodigo}`, JSON.stringify(form));
-      }
+    if (activeTab === 'nueva_solicitud' && !editingId) {
+      setIsSaving(true);
+      localStorage.setItem(`sigae_borrador_cupo_${escCodigo}`, JSON.stringify(form));
+      setLastSaved(new Date());
+      setTimeout(() => setIsSaving(false), 500);
       localStorage.setItem(`sigae_borrador_step_${escCodigo}`, step.toString());
     }
-  }, [form, step, activeTab, escCodigo]);
+  }, [form, step, activeTab, escCodigo, editingId]);
 
   useEffect(() => {
     if (!permLoading && user) {
@@ -313,18 +315,18 @@ export const SolicitudCupos = () => {
 
   // Autofill representative info
   useEffect(() => {
-    if (user && activeTab === 'nueva_solicitud') {
+    if (user && activeTab === 'nueva_solicitud' && !editingId) {
       const nombresSplit = user.nombre ? user.nombre.split(' ') : [];
       setForm(prev => ({
         ...prev,
-        representante_nombres: nombresSplit.slice(0, 2).join(' ') || '',
-        representante_apellidos: nombresSplit.slice(2).join(' ') || '',
-        representante_cedula: user.cedula || '',
-        representante_email: user.email || '',
-        representante_telefono: user.telefono || '',
+        representante_nombres: prev.representante_nombres || nombresSplit.slice(0, 2).join(' ') || '',
+        representante_apellidos: prev.representante_apellidos || nombresSplit.slice(2).join(' ') || '',
+        representante_cedula: prev.representante_cedula || user.cedula || '',
+        representante_email: prev.representante_email || user.email || '',
+        representante_telefono: prev.representante_telefono || user.telefono || '',
       }));
     }
-  }, [user, activeTab]);
+  }, [user, activeTab, editingId]);
 
   const cargarCatalogos = async () => {
     try {
@@ -876,6 +878,39 @@ export const SolicitudCupos = () => {
       edadEstudiante = edad >= 0 ? `${edad} años` : '';
     }
 
+    const getExpectedAgeForGrade = (grado: string) => {
+      const ageMap: Record<string, number> = {
+        'II Grupo': 4,
+        'III Grupo': 5,
+        '1er Grado': 6,
+        '2do Grado': 7,
+        '3er Grado': 8,
+        '4to Grado': 9,
+        '5to Grado': 10,
+        '6to Grado': 11,
+        '1er Año': 12,
+        '2do Año': 13,
+        '3er Año': 14,
+        '4to Año': 15,
+        '5to Año': 16
+      };
+      return ageMap[grado] || null;
+    };
+
+    let ageWarning = '';
+    if (form.estudiante_fecha_nacimiento && form.grado_solicitado) {
+      const expectedAge = getExpectedAgeForGrade(form.grado_solicitado);
+      if (expectedAge !== null) {
+        const currentYear = new Date().getFullYear();
+        const birthYear = new Date(form.estudiante_fecha_nacimiento).getFullYear();
+        const ageInCurrentYear = currentYear - birthYear;
+        if (ageInCurrentYear !== expectedAge) {
+          ageWarning = `Atención: Para ${form.grado_solicitado}, se sugiere cumplir ${expectedAge} años en el ${currentYear} (la fecha indica ${ageInCurrentYear} años en este año).`;
+        }
+      }
+    }
+
+
     return (
     <div className="animate__animated animate__fadeIn">
       <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
@@ -965,6 +1000,12 @@ export const SolicitudCupos = () => {
             <option value="">Seleccione...</option>
             {gradosDB.map((g, i) => <option key={i} value={g}>{g}</option>)}
           </select>
+          {ageWarning && (
+            <div className="mt-1 small text-warning fw-bold border border-warning rounded p-1 bg-warning bg-opacity-10" style={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+              <i className="bi bi-exclamation-triangle-fill me-1"></i>
+              {ageWarning}
+            </div>
+          )}
         </div>
 
         {/* Parentesco desde BD */}
@@ -1627,6 +1668,7 @@ export const SolicitudCupos = () => {
       form.estudiante_nombres,
       form.estudiante_apellidos,
       form.estudiante_cedula,
+      form.estudiante_sexo,
       form.estudiante_fecha_nacimiento,
       form.grado_solicitado,
       form.estado_habitacion,
@@ -1638,8 +1680,15 @@ export const SolicitudCupos = () => {
       form.representante_cedula,
       form.representante_telefono,
       form.representante_email,
+      form.parentesco,
       form.estudiante_condicion_neuro,
+      form.requiere_transporte,
+      form.estudiante_condicion_medica,
+      form.estudiante_alergico_medicamentos
     ];
+    if (form.requiere_transporte) {
+      camposRequeridos.push(form.ruta_transporte);
+    }
     if (form.estudiante_condicion_neuro === 'Neurodivergente o Discapacidad') {
       camposRequeridos.push(form.estudiante_tipo_condicion);
     }
@@ -1908,12 +1957,23 @@ export const SolicitudCupos = () => {
         {activeTab === 'nueva_solicitud' && (
           <div>
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="fw-bold text-dark mb-0">
-                <i className="bi bi-file-earmark-person-fill text-success me-2"></i>
-                Formulario de Solicitud de Cupo
-              </h5>
+              <div className="d-flex align-items-center gap-3">
+                <h5 className="fw-bold text-dark mb-0">
+                  <i className="bi bi-file-earmark-person-fill text-success me-2"></i>
+                  {editingId ? 'Editando Solicitud de Cupo' : 'Formulario de Solicitud de Cupo'}
+                </h5>
+                {activeTab === 'nueva_solicitud' && !editingId && lastSaved && (
+                  <div className="d-flex align-items-center text-muted small bg-light px-3 py-1 rounded-pill border">
+                    {isSaving ? (
+                      <><i className="bi bi-cloud-arrow-up-fill text-primary me-2 spinner-grow spinner-grow-sm"></i> Guardando...</>
+                    ) : (
+                      <><i className="bi bi-check2-all text-success me-2"></i> Borrador guardado {lastSaved.toLocaleTimeString()}</>
+                    )}
+                  </div>
+                )}
+              </div>
               <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle">
-                Paso {step} de 5
+                Paso {step} de 7
               </span>
             </div>
             
