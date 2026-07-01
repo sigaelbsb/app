@@ -617,7 +617,7 @@ export const SolicitudCupos = () => {
       localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}`);
       localStorage.removeItem(`sigae_borrador_step_${escCodigo}`);
       setSolicitudGuardada(data as SolicitudDB);
-      setStep(6);
+      setStep(7);
     } catch (error: any) {
       console.error(error);
       if (Swal) Swal.fire('Error', 'Hubo un problema procesando tu solicitud o subiendo los documentos: ' + error.message, 'error');
