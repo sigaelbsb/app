@@ -247,17 +247,18 @@ export const SolicitudCupos = () => {
   });
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [subiendoDocs, setSubiendoDocs] = useState(false);
 
   // Documentos adjuntos a subir
   const [documentos, setDocumentos] = useState<{
-    ficha: File | null;
-    foto: File | null;
-    partida: File | null;
-    partida_trabajador: File | null;
-    partida_nexo: File | null;
-    cedula: File | null;
+    ficha: File | string | null;
+    foto: File | string | null;
+    partida: File | string | null;
+    partida_trabajador: File | string | null;
+    partida_nexo: File | string | null;
+    cedula: File | string | null;
   }>({ ficha: null, foto: null, partida: null, partida_trabajador: null, partida_nexo: null, cedula: null });
 
   // GPS state
@@ -557,8 +558,9 @@ export const SolicitudCupos = () => {
     try {
       setSubiendoDocs(true);
       
-      const subirArchivo = async (file: File | null, prefix: string): Promise<string> => {
+      const subirArchivo = async (file: File | string | null, prefix: string): Promise<string> => {
         if (!file) return '';
+        if (typeof file === 'string') return file;
         const ext = file.name.split('.').pop();
         const fileName = `${prefix}_${form.codigo_unico}_${Date.now()}.${ext}`;
         const filePath = `${escCodigo}/${fileName}`;
@@ -610,14 +612,24 @@ export const SolicitudCupos = () => {
         creado_por: user?.cedula || form.representante_cedula,
       };
 
-      const { data, error } = await supabase.from('solicitud_cupos').insert([payload]).select().single();
-      if (error) throw error;
-      await auditar('Solicitud de Cupos', 'Crear Solicitud', `Nueva solicitud ${form.codigo_unico} con documentos`);
+      let finalData;
+      if (editingId) {
+        const { data, error } = await supabase.from('solicitud_cupos').update(payload).eq('id', editingId).select().single();
+        if (error) throw error;
+        finalData = data;
+        await auditar('Solicitud de Cupos', 'Editar Solicitud', `Editada solicitud ${form.codigo_unico} con documentos`);
+        setEditingId(null);
+      } else {
+        const { data, error } = await supabase.from('solicitud_cupos').insert([payload]).select().single();
+        if (error) throw error;
+        finalData = data;
+        await auditar('Solicitud de Cupos', 'Crear Solicitud', `Nueva solicitud ${form.codigo_unico} con documentos`);
+      }
       
       // Limpiar el autoguardado tras el envío exitoso
       localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}`);
       localStorage.removeItem(`sigae_borrador_step_${escCodigo}`);
-      setSolicitudGuardada(data as SolicitudDB);
+      setSolicitudGuardada(finalData as SolicitudDB);
       setStep(7);
     } catch (error: any) {
       console.error(error);
@@ -637,6 +649,8 @@ export const SolicitudCupos = () => {
       representante_telefono: prev.representante_telefono,
     }));
     setSolicitudGuardada(null);
+    setEditingId(null);
+    setDocumentos({ ficha: null, foto: null, partida: null, cedula: null, partida_trabajador: null, partida_nexo: null });
     setStep(1);
   };
 
@@ -657,6 +671,75 @@ export const SolicitudCupos = () => {
     } catch (e: any) {
       if (Swal) Swal.fire('Error', 'No se pudo actualizar el estado: ' + e.message, 'error');
     }
+  };
+
+  const handleEditarSolicitud = (sol: SolicitudDB) => {
+    setEditingId(sol.id || null);
+    
+    // Mapear de base de datos a formulario
+    const newData: Partial<SolicitudForm> = {
+      acepta_terminos: sol.acepta_terminos,
+      estudiante_nombres: sol.estudiante_nombres,
+      estudiante_apellidos: sol.estudiante_apellidos,
+      estudiante_cedula: sol.estudiante_cedula || '',
+      estudiante_fecha_nacimiento: sol.estudiante_fecha_nacimiento,
+      estudiante_sexo: sol.estudiante_sexo,
+      estudiante_orden_nacimiento: sol.estudiante_orden_nacimiento || '',
+      estudiante_condicion_neuro: sol.estudiante_condicion_neuro || 'Neurotípico',
+      estudiante_tipo_condicion: sol.estudiante_tipo_condicion || '',
+      estudiante_informe_neuro: sol.estudiante_informe_neuro || false,
+      estudiante_certificado_conapdis: sol.estudiante_certificado_conapdis || false,
+      estudiante_condicion_medica: sol.estudiante_condicion_medica || 'Ninguna',
+      estudiante_alergico_medicamentos: sol.estudiante_alergico_medicamentos || 'Ninguna',
+      grado_solicitado: sol.grado_solicitado,
+      parentesco: sol.parentesco,
+      plantel_procedencia: sol.plantel_procedencia || '',
+      direccion_habitacion: sol.direccion_habitacion || '',
+      estado_habitacion: sol.estado_habitacion || '',
+      municipio_habitacion: sol.municipio_habitacion || '',
+      parroquia_habitacion: sol.parroquia_habitacion || '',
+      tiene_otros_inscritos: sol.tiene_otros_inscritos || false,
+      representante_nombres: sol.representante_nombres,
+      representante_apellidos: sol.representante_apellidos,
+      representante_cedula: sol.representante_cedula,
+      representante_telefono: sol.representante_telefono,
+      representante_telefono2: sol.representante_telefono2 || '',
+      representante_email: sol.representante_email,
+      representante_parentesco: sol.representante_parentesco,
+      representante_trabaja_pdvsa: sol.representante_trabaja_pdvsa,
+      pdvsa_condicion_laboral: sol.pdvsa_condicion_laboral || '',
+      pdvsa_tipo_nomina: sol.pdvsa_tipo_nomina || '',
+      pdvsa_negocio_filial: sol.pdvsa_negocio_filial || '',
+      pdvsa_gerencia: sol.pdvsa_gerencia || '',
+      pdvsa_email_empresa: sol.pdvsa_email_empresa || '',
+      pdvsa_localidad_trabajo: sol.pdvsa_localidad_trabajo || '',
+      madre_cedula: sol.madre_cedula || '',
+      madre_email: sol.madre_email || '',
+      madre_trabaja_pdvsa: sol.madre_trabaja_pdvsa || false,
+      requiere_transporte: sol.requiere_transporte || false,
+      ruta_transporte: sol.ruta_transporte || '',
+      doc_ficha: sol.doc_ficha || '',
+      doc_foto_estudiante: sol.doc_foto_estudiante || '',
+      doc_partida_nacimiento: sol.doc_partida_nacimiento || '',
+      doc_cedula_estudiante: sol.doc_cedula_estudiante || '',
+      codigo_unico: sol.codigo_unico || '',
+    };
+    
+    setForm(prev => ({ ...prev, ...newData }));
+    setDocumentos({
+      ficha: sol.doc_ficha || null,
+      foto: sol.doc_foto_estudiante || null,
+      partida: sol.doc_partida_nacimiento || null,
+      cedula: sol.doc_cedula_estudiante || null,
+      partida_trabajador: sol.doc_partida_trabajador || null,
+      partida_nexo: sol.doc_partida_nexo || null,
+    });
+    
+    setActiveTab('nueva_solicitud');
+    setStep(1);
+    
+    // Smooth scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleEliminarSolicitud = async (sol: SolicitudDB) => {
@@ -1426,7 +1509,9 @@ export const SolicitudCupos = () => {
           />
           {documentos[key] && <i className="bi bi-check-circle-fill text-success fs-4"></i>}
         </div>
-        {documentos[key] && <div className="form-text text-success">Archivo listo: {documentos[key]?.name} ({(documentos[key]?.size! / 1024).toFixed(1)} KB)</div>}
+        {documentos[key] && <div className="form-text text-success">
+          Archivo listo: {typeof documentos[key] === 'string' ? 'Ya cargado previamente' : `${(documentos[key] as File).name} (${((documentos[key] as File).size / 1024).toFixed(1)} KB)`}
+        </div>}
       </div>
     );
 
@@ -1659,7 +1744,7 @@ export const SolicitudCupos = () => {
           style={{ whiteSpace: 'nowrap', fontSize: 'clamp(0.72rem, 2.2vw, 0.95rem)', padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)' }}>
           <i className="bi bi-inbox-fill me-1"></i> Mis Solicitudes
         </button>
-        <button onClick={() => { setActiveTab('nueva_solicitud'); setStep(1); setSolicitudGuardada(null); }}
+        <button onClick={() => { setActiveTab('nueva_solicitud'); setStep(1); setSolicitudGuardada(null); setEditingId(null); setForm(defaultForm()); setDocumentos({ficha: null, foto: null, partida: null, cedula: null, partida_trabajador: null, partida_nexo: null}); }}
           className={`btn rounded-pill fw-bold hover-efecto flex-shrink-0 ${activeTab === 'nueva_solicitud' ? 'btn-success shadow' : 'btn-outline-secondary'}`}
           style={{ whiteSpace: 'nowrap', fontSize: 'clamp(0.72rem, 2.2vw, 0.95rem)', padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)' }}>
           <i className="bi bi-plus-lg me-1"></i> Nueva Solicitud
@@ -1827,6 +1912,9 @@ export const SolicitudCupos = () => {
                       </div>
                       {sol.estado === 'Pendiente' && (
                         <div className="text-end mt-2">
+                          <button onClick={() => handleEditarSolicitud(sol)} className="btn btn-sm btn-outline-primary border-0 rounded-pill me-2">
+                            <i className="bi bi-pencil-square me-1"></i> Editar Solicitud
+                          </button>
                           <button onClick={() => handleEliminarSolicitud(sol)} className="btn btn-sm btn-outline-danger border-0 rounded-pill">
                             <i className="bi bi-trash-fill me-1"></i> Cancelar Solicitud
                           </button>
