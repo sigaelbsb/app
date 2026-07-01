@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
@@ -1881,78 +1882,81 @@ export const SolicitudCupos = () => {
       </div>
 
       {/* MODAL EVALUACIÓN */}
-      <div className="modal fade" id="evalSolicitudModal" tabIndex={-1} aria-labelledby="evalSolicitudModalLabel" aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered modal-lg">
-          <div className="modal-content border-0 rounded-4 shadow-lg">
-            <div className="modal-header bg-success text-white py-3" style={{ borderRadius: '16px 16px 0 0' }}>
-              <h5 className="modal-title fw-bold" id="evalSolicitudModalLabel">
-                <i className="bi bi-file-earmark-check-fill me-2"></i>Evaluar Solicitud de Admisión
-              </h5>
-              <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="btn-close-eval-modal"></button>
-            </div>
-            <div className="modal-body p-4 bg-light">
-              {selectedSol && (
-                <div className="row g-3">
-                  <div className="col-md-6">
-                    <div className="card rounded-4 p-3 border-0 shadow-sm bg-white h-100">
-                      <div className="fw-bold border-bottom pb-2 mb-2 text-success small text-uppercase">
-                        <i className="bi bi-person-fill"></i> Datos del Estudiante
+      {createPortal(
+        <div className="modal fade" id="evalSolicitudModal" tabIndex={-1} aria-labelledby="evalSolicitudModalLabel" aria-hidden="true">
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content border-0 rounded-4 shadow-lg">
+              <div className="modal-header bg-success text-white py-3" style={{ borderRadius: '16px 16px 0 0' }}>
+                <h5 className="modal-title fw-bold" id="evalSolicitudModalLabel">
+                  <i className="bi bi-file-earmark-check-fill me-2"></i>Evaluar Solicitud de Admisión
+                </h5>
+                <button type="button" className="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="btn-close-eval-modal"></button>
+              </div>
+              <div className="modal-body p-4 bg-light">
+                {selectedSol && (
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <div className="card rounded-4 p-3 border-0 shadow-sm bg-white h-100">
+                        <div className="fw-bold border-bottom pb-2 mb-2 text-success small text-uppercase">
+                          <i className="bi bi-person-fill"></i> Datos del Estudiante
+                        </div>
+                        <div className="small">
+                          <div className="mb-1"><span className="text-muted">Código: </span><span className="fw-bold" style={{ fontFamily: 'monospace' }}>{selectedSol.codigo_unico}</span></div>
+                          <div className="mb-1"><span className="text-muted">Nombre: </span><strong>{selectedSol.estudiante_nombres} {selectedSol.estudiante_apellidos}</strong></div>
+                          <div className="mb-1"><span className="text-muted">Fecha Nac.: </span>{selectedSol.estudiante_fecha_nacimiento}</div>
+                          <div className="mb-1"><span className="text-muted">Grado: </span><span className="badge bg-success bg-opacity-10 text-success border">{selectedSol.grado_solicitado}</span></div>
+                          <div className="mb-1"><span className="text-muted">Municipio: </span>{selectedSol.municipio_habitacion} — {selectedSol.estado_habitacion}</div>
+                          <div><span className="text-muted">Dirección: </span>{selectedSol.direccion_habitacion}</div>
+                        </div>
                       </div>
-                      <div className="small">
-                        <div className="mb-1"><span className="text-muted">Código: </span><span className="fw-bold" style={{ fontFamily: 'monospace' }}>{selectedSol.codigo_unico}</span></div>
-                        <div className="mb-1"><span className="text-muted">Nombre: </span><strong>{selectedSol.estudiante_nombres} {selectedSol.estudiante_apellidos}</strong></div>
-                        <div className="mb-1"><span className="text-muted">Fecha Nac.: </span>{selectedSol.estudiante_fecha_nacimiento}</div>
-                        <div className="mb-1"><span className="text-muted">Grado: </span><span className="badge bg-success bg-opacity-10 text-success border">{selectedSol.grado_solicitado}</span></div>
-                        <div className="mb-1"><span className="text-muted">Municipio: </span>{selectedSol.municipio_habitacion} — {selectedSol.estado_habitacion}</div>
-                        <div><span className="text-muted">Dirección: </span>{selectedSol.direccion_habitacion}</div>
+                    </div>
+                    <div className="col-md-6">
+                      <div className="card rounded-4 p-3 border-0 shadow-sm bg-white h-100">
+                        <div className="fw-bold border-bottom pb-2 mb-2 text-success small text-uppercase">
+                          <i className="bi bi-people-fill"></i> Datos del Representante
+                        </div>
+                        <div className="small">
+                          <div className="mb-1"><span className="text-muted">Nombre: </span><strong>{selectedSol.representante_nombres} {selectedSol.representante_apellidos}</strong></div>
+                          <div className="mb-1"><span className="text-muted">Cédula: </span>{selectedSol.representante_cedula}</div>
+                          <div className="mb-1"><span className="text-muted">Parentesco: </span>{selectedSol.representante_parentesco}</div>
+                          <div className="mb-1"><span className="text-muted">Teléfono: </span>{selectedSol.representante_telefono}</div>
+                          <div className="mb-1"><span className="text-muted">Correo: </span><span className="text-truncate d-inline-block" style={{ maxWidth: 200 }}>{selectedSol.representante_email}</span></div>
+                          <div><span className="text-muted">Transporte: </span>{selectedSol.requiere_transporte ? `Sí – ${selectedSol.ruta_transporte || 'Por asignar'}` : 'No requiere'}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-12 mt-3 pt-3 border-top">
+                      <div className="row g-3">
+                        <div className="col-md-4">
+                          <label className="form-label fw-bold text-dark">Definir Estado del Cupo</label>
+                          <select className="form-select input-moderno" value={evalEstado} onChange={(e) => setEvalEstado(e.target.value)}>
+                            <option value="Pendiente">Pendiente (En evaluación)</option>
+                            <option value="Aprobado">Aprobado (Asignar Cupo)</option>
+                            <option value="Rechazado">Rechazado (No Asignado)</option>
+                          </select>
+                        </div>
+                        <div className="col-md-8">
+                          <label className="form-label fw-bold text-dark">Observaciones para el Representante</label>
+                          <textarea className="form-control input-moderno" rows={3}
+                            placeholder="Instrucciones visibles en tiempo real por el representante..."
+                            value={evalObs} onChange={(e) => setEvalObs(e.target.value)} />
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="col-md-6">
-                    <div className="card rounded-4 p-3 border-0 shadow-sm bg-white h-100">
-                      <div className="fw-bold border-bottom pb-2 mb-2 text-success small text-uppercase">
-                        <i className="bi bi-people-fill"></i> Datos del Representante
-                      </div>
-                      <div className="small">
-                        <div className="mb-1"><span className="text-muted">Nombre: </span><strong>{selectedSol.representante_nombres} {selectedSol.representante_apellidos}</strong></div>
-                        <div className="mb-1"><span className="text-muted">Cédula: </span>{selectedSol.representante_cedula}</div>
-                        <div className="mb-1"><span className="text-muted">Parentesco: </span>{selectedSol.representante_parentesco}</div>
-                        <div className="mb-1"><span className="text-muted">Teléfono: </span>{selectedSol.representante_telefono}</div>
-                        <div className="mb-1"><span className="text-muted">Correo: </span><span className="text-truncate d-inline-block" style={{ maxWidth: 200 }}>{selectedSol.representante_email}</span></div>
-                        <div><span className="text-muted">Transporte: </span>{selectedSol.requiere_transporte ? `Sí – ${selectedSol.ruta_transporte || 'Por asignar'}` : 'No requiere'}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-12 mt-3 pt-3 border-top">
-                    <div className="row g-3">
-                      <div className="col-md-4">
-                        <label className="form-label fw-bold text-dark">Definir Estado del Cupo</label>
-                        <select className="form-select input-moderno" value={evalEstado} onChange={(e) => setEvalEstado(e.target.value)}>
-                          <option value="Pendiente">Pendiente (En evaluación)</option>
-                          <option value="Aprobado">Aprobado (Asignar Cupo)</option>
-                          <option value="Rechazado">Rechazado (No Asignado)</option>
-                        </select>
-                      </div>
-                      <div className="col-md-8">
-                        <label className="form-label fw-bold text-dark">Observaciones para el Representante</label>
-                        <textarea className="form-control input-moderno" rows={3}
-                          placeholder="Instrucciones visibles en tiempo real por el representante..."
-                          value={evalObs} onChange={(e) => setEvalObs(e.target.value)} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="modal-footer bg-white py-3 rounded-bottom-4 border-top">
-              <button type="button" className="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Cerrar</button>
-              <button type="button" onClick={handleEvaluarSolicitud} className="btn btn-success rounded-pill px-4 fw-semibold shadow hover-efecto">
-                <i className="bi bi-save me-1"></i> Guardar Evaluación
-              </button>
+                )}
+              </div>
+              <div className="modal-footer bg-white py-3 rounded-bottom-4 border-top">
+                <button type="button" className="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" onClick={handleEvaluarSolicitud} className="btn btn-success rounded-pill px-4 fw-semibold shadow hover-efecto">
+                  <i className="bi bi-save me-1"></i> Guardar Evaluación
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
