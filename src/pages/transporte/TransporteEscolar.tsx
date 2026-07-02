@@ -11,12 +11,19 @@ export const TransporteEscolar = () => {
   const [rutas, setRutas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // Modal state
   const [showModalRuta, setShowModalRuta] = useState(false);
   const [savingRuta, setSavingRuta] = useState(false);
   const [rutaForm, setRutaForm] = useState<any>({
     id: '', nombre: '', sectores: '', chofer_nombre: '', chofer_telefono: '', unidad_placa: '', unidad_modelo: ''
   });
+
+  // Modal Paradas state
+  const [showModalParadas, setShowModalParadas] = useState(false);
+  const [rutaActivaParaParadas, setRutaActivaParaParadas] = useState<any>(null);
+  const [paradas, setParadas] = useState<any[]>([]);
+  const [loadingParadas, setLoadingParadas] = useState(false);
+  const [paradaForm, setParadaForm] = useState({ id: '', nombre: '', descripcion: '', orden: 1 });
+  const [savingParada, setSavingParada] = useState(false);
 
   const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
   const Swal = (window as any).Swal;
@@ -111,6 +118,67 @@ export const TransporteEscolar = () => {
       } catch (err: any) {
         Swal.fire('Error', err.message, 'error');
       }
+    }
+  };
+
+  const openGestionarParadas = async (ruta: any) => {
+    setRutaActivaParaParadas(ruta);
+    setParadaForm({ id: '', nombre: '', descripcion: '', orden: 1 });
+    setShowModalParadas(true);
+    fetchParadas(ruta.id);
+  };
+
+  const fetchParadas = async (rutaId: string) => {
+    setLoadingParadas(true);
+    try {
+      const { data, error } = await supabase
+        .from('transporte_paradas')
+        .select('*')
+        .eq('ruta_id', rutaId)
+        .order('orden', { ascending: true });
+      if (error) throw error;
+      setParadas(data || []);
+      setParadaForm({ id: '', nombre: '', descripcion: '', orden: (data?.length || 0) + 1 });
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoadingParadas(false);
+    }
+  };
+
+  const saveParada = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingParada(true);
+    try {
+      const payload = {
+        ruta_id: rutaActivaParaParadas.id,
+        nombre: paradaForm.nombre,
+        descripcion: paradaForm.descripcion,
+        orden: paradaForm.orden
+      };
+      
+      if (paradaForm.id) {
+        const { error } = await supabase.from('transporte_paradas').update(payload).eq('id', paradaForm.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('transporte_paradas').insert([payload]);
+        if (error) throw error;
+      }
+      fetchParadas(rutaActivaParaParadas.id);
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
+    } finally {
+      setSavingParada(false);
+    }
+  };
+
+  const deleteParada = async (id: string) => {
+    try {
+      const { error } = await supabase.from('transporte_paradas').delete().eq('id', id);
+      if (error) throw error;
+      fetchParadas(rutaActivaParaParadas.id);
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
     }
   };
 
@@ -239,7 +307,7 @@ export const TransporteEscolar = () => {
                             </button>
                             <ul className="dropdown-menu dropdown-menu-end shadow border-0">
                               <li><button className="dropdown-item" onClick={() => openEditRuta(ruta)}><i className="bi bi-pencil me-2 text-primary"></i>Editar Ruta</button></li>
-                              <li><button className="dropdown-item"><i className="bi bi-geo-alt me-2 text-success"></i>Gestionar Paradas</button></li>
+                              <li><button className="dropdown-item" onClick={() => openGestionarParadas(ruta)}><i className="bi bi-geo-alt me-2 text-success"></i>Gestionar Paradas</button></li>
                               <li><hr className="dropdown-divider" /></li>
                               <li><button className="dropdown-item text-danger" onClick={() => deleteRuta(ruta.id)}><i className="bi bi-trash me-2"></i>Eliminar</button></li>
                             </ul>
@@ -322,6 +390,100 @@ export const TransporteEscolar = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARADAS */}
+      {showModalParadas && (
+        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content border-0 shadow-lg rounded-4">
+              <div className="modal-header border-bottom bg-light rounded-top-4">
+                <h5 className="modal-title fw-bold text-dark">
+                  Paradas: {rutaActivaParaParadas?.nombre}
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setShowModalParadas(false)}></button>
+              </div>
+              <div className="modal-body p-4 bg-light">
+                <div className="row g-4">
+                  <div className="col-md-5">
+                    <div className="card border-0 shadow-sm rounded-4 h-100">
+                      <div className="card-body">
+                        <h6 className="fw-bold mb-3">{paradaForm.id ? 'Editar Parada' : 'Nueva Parada'}</h6>
+                        <form onSubmit={saveParada}>
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold small">Orden en el recorrido</label>
+                            <input type="number" className="form-control input-moderno" required min="1"
+                              value={paradaForm.orden} onChange={e => setParadaForm({ ...paradaForm, orden: parseInt(e.target.value) })} />
+                          </div>
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold small">Nombre de la parada <span className="text-danger">*</span></label>
+                            <input type="text" className="form-control input-moderno" required placeholder="Ej. Panadería El Trigal"
+                              value={paradaForm.nombre} onChange={e => setParadaForm({ ...paradaForm, nombre: e.target.value })} />
+                          </div>
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold small">Referencia / Descripción</label>
+                            <textarea className="form-control input-moderno" rows={2} placeholder="Frente a la farmacia..."
+                              value={paradaForm.descripcion} onChange={e => setParadaForm({ ...paradaForm, descripcion: e.target.value })}></textarea>
+                          </div>
+                          <button type="submit" className="btn btn-primary w-100 rounded-pill fw-semibold" disabled={savingParada}>
+                            {savingParada ? 'Guardando...' : 'Guardar Parada'}
+                          </button>
+                          {paradaForm.id && (
+                            <button type="button" className="btn btn-light w-100 rounded-pill mt-2" 
+                              onClick={() => setParadaForm({ id: '', nombre: '', descripcion: '', orden: paradas.length + 1 })}>
+                              Cancelar Edición
+                            </button>
+                          )}
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="col-md-7">
+                    <div className="card border-0 shadow-sm rounded-4 h-100">
+                      <div className="card-body">
+                        <h6 className="fw-bold mb-3">Recorrido de la Ruta</h6>
+                        {loadingParadas ? (
+                          <div className="text-center py-4"><div className="spinner-border text-primary spinner-border-sm" role="status"></div></div>
+                        ) : paradas.length === 0 ? (
+                          <div className="text-center text-muted py-4 small">
+                            <i className="bi bi-geo text-secondary fs-3 d-block mb-2"></i>
+                            No hay paradas registradas aún.
+                          </div>
+                        ) : (
+                          <ul className="list-group list-group-flush" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {paradas.map((parada, index) => (
+                              <li key={parada.id} className="list-group-item px-0 py-3 border-bottom-0 d-flex align-items-start">
+                                <div className="me-3 mt-1 d-flex flex-column align-items-center">
+                                  <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', fontSize: '0.85rem' }}>
+                                    {parada.orden}
+                                  </div>
+                                  {index < paradas.length - 1 && (
+                                    <div style={{ width: '2px', height: '100%', backgroundColor: '#dee2e6', marginTop: '4px', minHeight: '30px' }}></div>
+                                  )}
+                                </div>
+                                <div className="flex-grow-1">
+                                  <div className="d-flex justify-content-between align-items-center">
+                                    <h6 className="mb-0 fw-bold">{parada.nombre}</h6>
+                                    <div>
+                                      <button className="btn btn-sm text-primary py-0 px-1" onClick={() => setParadaForm({ ...parada })}><i className="bi bi-pencil"></i></button>
+                                      <button className="btn btn-sm text-danger py-0 px-1" onClick={() => deleteParada(parada.id)}><i className="bi bi-trash"></i></button>
+                                    </div>
+                                  </div>
+                                  {parada.descripcion && <p className="small text-muted mb-0 mt-1">{parada.descripcion}</p>}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
