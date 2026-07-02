@@ -10,10 +10,10 @@ export const TransporteEscolar = () => {
 
   const [vistaActual, setVistaActual] = useState<'dashboard' | 'Paradas' | 'Rutas' | 'Operacion' | 'Visor'>('dashboard');
 
-  const canManageRutas = tienePermiso('Gestión de Rutas');
-  const canManageParadas = tienePermiso('Gestión de Paradas');
-  const canOperateTracking = tienePermiso('Operación (Tracking)');
-  const canViewRecorrido = tienePermiso('Visor de Recorrido');
+  const canManageRutas = tienePermiso('Tarjeta: Gestión de Rutas');
+  const canManageParadas = tienePermiso('Tarjeta: Gestión de Paradas');
+  const canOperateTracking = tienePermiso('Tarjeta: Operación (Tracking)');
+  const canViewRecorrido = tienePermiso('Tarjeta: Visor de Recorrido');
   const canViewTransporte = canManageRutas || canManageParadas || canOperateTracking || canViewRecorrido || tienePermiso('Transporte Escolar');
 
   // DB States
