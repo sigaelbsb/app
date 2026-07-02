@@ -47,7 +47,6 @@ export const TransporteEscolar = () => {
   const canManageRutas = tienePermiso('Gestión de Rutas');
   const canManageParadas = tienePermiso('Gestión de Paradas');
   const canOperateTracking = tienePermiso('Operación (Tracking)');
-  const canViewRecorrido = tienePermiso('Visor de Recorrido');
 
   // Si no tiene ningún permiso específico, asumimos rol base (SuperAdmin tiene todo por defecto)
 
