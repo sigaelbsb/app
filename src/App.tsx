@@ -25,6 +25,7 @@ import { GradosSalones } from './pages/estudios/GradosSalones';
 import { MiExpediente } from './pages/docente/MiExpediente';
 import { GestorExpedientes } from './pages/docente/GestorExpedientes';
 import { SolicitudCupos } from './pages/estudiantil/SolicitudCupos';
+import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
 import './componentes.css';
 import './principal.css';
 import './auth_ui.css';
@@ -139,6 +140,7 @@ function App() {
           <Route path="categoria/Gestión Docente/Mi Expediente" element={<MiExpediente />} />
           <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<GestorExpedientes />} />
           <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<SolicitudCupos />} />
+          <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<TransporteEscolar />} />
         </Route>
       </Routes>
     </Router>
