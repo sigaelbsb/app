@@ -33,6 +33,13 @@ export const TransporteEscolar = () => {
   const [guardiaForm, setGuardiaForm] = useState({ id: '', ruta_id: '', docente_id: '', docente_nombre: '', semana_inicio: '', semana_fin: '' });
   const [docentesOptions, setDocentesOptions] = useState<any[]>([]);
 
+  // Tracking / Operaciones state
+  const [opRutaId, setOpRutaId] = useState('');
+  const [opSentido, setOpSentido] = useState('Casa - Escuela');
+  const [opActual, setOpActual] = useState<any>(null);
+  const [opParadas, setOpParadas] = useState<any[]>([]);
+  const [loadingTracking, setLoadingTracking] = useState(false);
+
   const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
   const Swal = (window as any).Swal;
 
@@ -73,7 +80,88 @@ export const TransporteEscolar = () => {
         fetchDocentes();
       }
     }
+    if (activeTab === 'operaciones') {
+      fetchRutas(); // Needed for dropdown
+    }
   }, [activeTab, escCodigo, canManageRutas, canOperateTracking]);
+
+  useEffect(() => {
+    if (activeTab === 'operaciones' && opRutaId) {
+      cargarTracking(opRutaId, opSentido);
+    }
+  }, [opRutaId, opSentido]);
+
+  const cargarTracking = async (rutaId: string, sentido: string) => {
+    setLoadingTracking(true);
+    try {
+      // Fetch Paradas
+      const { data: paradasData } = await supabase
+        .from('transporte_paradas')
+        .select('*')
+        .eq('ruta_id', rutaId)
+        .order('orden', { ascending: true });
+      
+      let orderedParadas = paradasData || [];
+      if (sentido === 'Escuela - Casa') {
+        // En reversa si es de la escuela a la casa
+        orderedParadas = [...orderedParadas].reverse();
+      }
+      setOpParadas(orderedParadas);
+
+      // Fetch Operacion actual (Today)
+      const today = new Date().toISOString().split('T')[0];
+      const { data: opData } = await supabase
+        .from('transporte_operaciones')
+        .select('*')
+        .eq('ruta_id', rutaId)
+        .eq('escuela_codigo', escCodigo)
+        .eq('fecha', today)
+        .eq('sentido', sentido)
+        .maybeSingle();
+
+      setOpActual(opData);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingTracking(false);
+    }
+  };
+
+  const iniciarRecorrido = async () => {
+    try {
+      const payload = {
+        ruta_id: opRutaId,
+        escuela_codigo: escCodigo,
+        sentido: opSentido,
+        estado: 'En Ruta',
+        ubicacion_actual: opParadas.length > 0 ? opParadas[0].id : null,
+      };
+      const { error } = await supabase.from('transporte_operaciones').insert([payload]);
+      if (error) throw error;
+      cargarTracking(opRutaId, opSentido);
+    } catch (error: any) {
+      Swal.fire('Error', error.message, 'error');
+    }
+  };
+
+  const actualizarUbicacion = async (paradaId: string, index: number) => {
+    if (!opActual) return;
+    const isEnd = index === opParadas.length - 1;
+    try {
+      const { error } = await supabase
+        .from('transporte_operaciones')
+        .update({ 
+          ubicacion_actual: paradaId, 
+          estado: isEnd ? 'Finalizada' : 'En Ruta',
+          ultima_actualizacion: new Date().toISOString()
+        })
+        .eq('id', opActual.id);
+      if (error) throw error;
+      cargarTracking(opRutaId, opSentido);
+    } catch (error: any) {
+      Swal.fire('Error', error.message, 'error');
+    }
+  };
 
   const fetchGuardias = async () => {
     setLoadingGuardias(true);
@@ -345,21 +433,134 @@ export const TransporteEscolar = () => {
 
       {/* CONTENIDO DE LAS PESTAÑAS */}
       <div className="bg-white rounded-4 shadow-sm border p-4">
+        {/* CSS para el Rutograma tipo Metro */}
+        <style>{`
+          .timeline-rutograma { border-left: 4px solid #0dcaf0; margin-left: 20px; padding-left: 25px; position: relative; margin-top: 10px; padding-bottom: 5px; }
+          .timeline-rutograma.finalizada { border-left-color: #198754; }
+          .timeline-node { position: relative; margin-bottom: 15px; }
+          .timeline-icon { position: absolute; left: -45px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 50%; background: white; border: 4px solid #0dcaf0; display: flex; align-items: center; justify-content: center; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 1.1rem; }
+          .timeline-icon.start { border-color: #f97316; color: #f97316; }
+          .timeline-icon.active { border-color: #198754; color: #198754; animation: pulse-border 1.5s infinite; background: #d1e7dd; }
+          .timeline-icon.passed { border-color: #198754; color: #198754; }
+          .timeline-icon.end { border-color: #dc3545; color: #dc3545; }
+          .timeline-content { background: #f8fafc; padding: 12px 18px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+          .timeline-content:hover { background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+          .timeline-content.active { border-color: #198754; background: #f8fff9; }
+          @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); } 100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); } }
+        `}</style>
+
         {activeTab === 'operaciones' && (
           <div>
-            <h5 className="fw-bold text-dark mb-4">Monitor de Rutas en Tiempo Real</h5>
-            {isRepresentante && (
-              <div className="alert alert-info border-info bg-info bg-opacity-10 rounded-3">
-                <i className="bi bi-info-circle-fill me-2"></i>
-                Como representante, solo podrás visualizar el estado de las rutas donde tus representados tienen asignación de transporte.
-              </div>
-            )}
-            
-            <div className="row g-4">
-              <div className="col-12 text-center py-5 text-muted">
-                <i className="bi bi-cone-striped fs-1 text-secondary mb-3 d-block"></i>
-                <h6>Módulo en construcción</h6>
-                <p className="small">Estamos integrando la base de datos de rutas y paradas.</p>
+            <div className="card shadow-sm border-0 rounded-4">
+              <div className="card-body p-4 p-md-5">
+                <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 border-bottom pb-3">
+                  <h5 className="fw-bold text-dark mb-0"><i className="bi bi-geo-alt-fill text-success me-2"></i>Seguimiento en Vivo (Rutograma)</h5>
+                  {canOperateTracking && opRutaId && !opActual && (
+                    <button className="btn btn-warning rounded-pill px-4 fw-bold shadow-sm" onClick={iniciarRecorrido}>
+                      <i className="bi bi-play-circle me-2"></i>Iniciar Recorrido
+                    </button>
+                  )}
+                </div>
+
+                <div className="row g-3 mb-4">
+                  <div className="col-md-6">
+                    <label className="small text-muted fw-bold mb-1">Ruta</label>
+                    <select className="form-select input-moderno fw-bold" value={opRutaId} onChange={e => setOpRutaId(e.target.value)}>
+                      <option value="">Seleccione una ruta...</option>
+                      {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <label className="small text-muted fw-bold mb-1">Momento</label>
+                    <select className="form-select input-moderno" value={opSentido} onChange={e => setOpSentido(e.target.value)}>
+                      <option value="Casa - Escuela">Ida (Casa - Escuela)</option>
+                      <option value="Escuela - Casa">Retorno (Escuela - Casa)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {loadingTracking ? (
+                  <div className="text-center py-5"><div className="spinner-border text-success" role="status"></div></div>
+                ) : !opRutaId ? (
+                  <div className="text-center py-5 text-muted bg-light rounded-4 border">
+                    <i className="bi bi-map fs-1 text-secondary mb-3 d-block"></i>
+                    <h6 className="fw-bold">Seleccione una ruta</h6>
+                    <p className="small mb-0">Para visualizar o iniciar el recorrido.</p>
+                  </div>
+                ) : opParadas.length === 0 ? (
+                  <div className="text-center py-5 text-muted">
+                    <i className="bi bi-geo fs-1 mb-2 d-block"></i>
+                    Esta ruta no tiene paradas registradas.
+                  </div>
+                ) : (
+                  <div>
+                    {opActual && (
+                      <div className={`alert ${opActual.estado === 'Finalizada' ? 'alert-success' : 'alert-primary'} rounded-4 border-0 shadow-sm mb-4 d-flex align-items-center`}>
+                        <div className="fs-1 me-3">
+                          {opActual.estado === 'Finalizada' ? <i className="bi bi-check-circle-fill"></i> : <i className="bi bi-bus-front-fill"></i>}
+                        </div>
+                        <div>
+                          <h6 className="fw-bold mb-1">Estado: {opActual.estado}</h6>
+                          <div className="small opacity-75">Última actualización: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`timeline-rutograma ${opActual?.estado === 'Finalizada' ? 'finalizada' : ''}`}>
+                      {opParadas.map((parada, index) => {
+                        const isStart = index === 0;
+                        const isEnd = index === opParadas.length - 1;
+                        let iconClass = isStart ? 'start' : isEnd ? 'end' : 'stop';
+                        let passed = false;
+                        let isActive = false;
+
+                        if (opActual) {
+                          const currentIdx = opParadas.findIndex(p => p.id === opActual.ubicacion_actual);
+                          if (index < currentIdx) {
+                            passed = true;
+                            iconClass = 'passed';
+                          } else if (index === currentIdx && opActual.estado !== 'Finalizada') {
+                            isActive = true;
+                            iconClass = 'active';
+                          } else if (opActual.estado === 'Finalizada') {
+                            passed = true;
+                            iconClass = 'passed';
+                          }
+                        }
+
+                        return (
+                          <div key={parada.id} className="timeline-node">
+                            <div className={`timeline-icon ${iconClass}`}>
+                              {isActive ? <i className="bi bi-bus-front"></i> : isEnd ? <i className="bi bi-flag"></i> : passed ? <i className="bi bi-check"></i> : <i className="bi bi-geo"></i>}
+                            </div>
+                            <div className={`timeline-content ${isActive ? 'active shadow-sm' : ''}`}>
+                              <div>
+                                <h6 className="fw-bold mb-1 text-dark">{parada.nombre}</h6>
+                                {parada.descripcion && <p className="small text-muted mb-0">{parada.descripcion}</p>}
+                              </div>
+                              
+                              {canOperateTracking && opActual?.estado === 'En Ruta' && !passed && !isActive && (
+                                <button 
+                                  className="btn btn-sm btn-outline-success rounded-pill fw-bold" 
+                                  onClick={() => actualizarUbicacion(parada.id, index)}
+                                >
+                                  Pasar por aquí
+                                </button>
+                              )}
+                              
+                              {isActive && (
+                                <span className="badge bg-success shadow-sm rounded-pill px-3 py-2">
+                                  <span className="spinner-grow spinner-grow-sm me-2" role="status" style={{width: '10px', height: '10px'}}></span>
+                                  Unidad aquí
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
