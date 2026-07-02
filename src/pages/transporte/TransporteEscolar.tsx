@@ -4,7 +4,7 @@ import { usePermisos } from '../../hooks/usePermisos';
 // import { useNavigate } from 'react-router-dom';
 
 export const TransporteEscolar = () => {
-  const { user, loading: permLoading, tienePermiso } = usePermisos();
+  const { loading: permLoading, tienePermiso } = usePermisos();
   // const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'operaciones' | 'rutas' | 'guardias'>('operaciones');
 
@@ -37,7 +37,6 @@ export const TransporteEscolar = () => {
   // Si no tiene ningún permiso específico, asumimos rol base (SuperAdmin tiene todo por defecto)
   const isAdmin = canManageRutas; 
   const isRepresentante = !canManageRutas && canViewRecorrido;
-  const isDocenteGuardia = !canManageRutas && canOperateTracking;
 
   const fetchRutas = async () => {
     setLoading(true);
