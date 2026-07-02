@@ -43,7 +43,6 @@ export const TransporteEscolar = () => {
   const canViewRecorrido = tienePermiso('Visor de Recorrido');
 
   // Si no tiene ningún permiso específico, asumimos rol base (SuperAdmin tiene todo por defecto)
-  const isAdmin = canManageRutas; 
   const isRepresentante = !canManageRutas && canViewRecorrido;
 
   const fetchRutas = async () => {
