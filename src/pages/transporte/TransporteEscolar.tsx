@@ -4,11 +4,11 @@ import { usePermisos } from '../../hooks/usePermisos';
 import html2canvas from 'html2canvas';
 
 export const TransporteEscolar = () => {
-  const { loading: permLoading, tienePermiso } = usePermisos();
-  const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+  const { loading: permLoading, tienePermiso, tieneAccesoEscuela } = usePermisos();
   const Swal = (window as any).Swal;
 
   const [vistaActual, setVistaActual] = useState<'dashboard' | 'Paradas' | 'Rutas' | 'Operacion' | 'Visor'>('dashboard');
+  const [escCodigo, setEscCodigo] = useState(localStorage.getItem('sigae_escuela_codigo') || 'sb');
 
   const canManageRutas = tienePermiso('Tarjeta: Gestión de Rutas');
   const canManageParadas = tienePermiso('Tarjeta: Gestión de Paradas');
