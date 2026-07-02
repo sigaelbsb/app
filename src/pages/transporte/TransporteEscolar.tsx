@@ -4,7 +4,7 @@ import { usePermisos } from '../../hooks/usePermisos';
 // import { useNavigate } from 'react-router-dom';
 
 export const TransporteEscolar = () => {
-  const { user, loading: permLoading } = usePermisos();
+  const { user, loading: permLoading, tienePermiso } = usePermisos();
   // const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'operaciones' | 'rutas' | 'guardias'>('operaciones');
 
@@ -28,11 +28,16 @@ export const TransporteEscolar = () => {
   const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
   const Swal = (window as any).Swal;
 
-  // Determine user role and permissions
-  const isAdmin = ['SuperAdmin', 'Administrador', 'Director', 'Coordinador'].includes(user?.rol || '');
-  const isDocente = user?.rol === 'Docente';
-  // If not admin and not docente, assume representant/worker viewing their child's transport status.
-  const isRepresentante = !isAdmin && !isDocente;
+  // Determine user role and permissions using precise sub-permissions
+  const canManageRutas = tienePermiso('Gestión de Rutas');
+  const canManageParadas = tienePermiso('Gestión de Paradas');
+  const canOperateTracking = tienePermiso('Operación (Tracking)');
+  const canViewRecorrido = tienePermiso('Visor de Recorrido');
+
+  // Si no tiene ningún permiso específico, asumimos rol base (SuperAdmin tiene todo por defecto)
+  const isAdmin = canManageRutas; 
+  const isRepresentante = !canManageRutas && canViewRecorrido;
+  const isDocenteGuardia = !canManageRutas && canOperateTracking;
 
   const fetchRutas = async () => {
     setLoading(true);
@@ -220,7 +225,7 @@ export const TransporteEscolar = () => {
             <i className="bi bi-broadcast-pin me-2"></i> Operaciones en Vivo
           </button>
         </li>
-        {isAdmin && (
+        {canOperateTracking && (
           <>
             <li className="nav-item">
               <button
@@ -230,6 +235,10 @@ export const TransporteEscolar = () => {
                 <i className="bi bi-shield-check me-2"></i> Docentes de Guardia
               </button>
             </li>
+          </>
+        )}
+        {canManageRutas && (
+          <>
             <li className="nav-item">
               <button
                 className={`nav-link rounded-pill fw-semibold px-4 transition-all ${activeTab === 'rutas' ? 'active bg-primary text-white shadow-sm' : 'text-muted hover-bg-light'}`}
@@ -264,7 +273,7 @@ export const TransporteEscolar = () => {
           </div>
         )}
 
-        {activeTab === 'guardias' && isAdmin && (
+        {activeTab === 'guardias' && canOperateTracking && (
           <div>
             <h5 className="fw-bold text-dark mb-4">Asignación de Guardias Semanales</h5>
             <div className="text-center py-5 text-muted">
@@ -274,7 +283,7 @@ export const TransporteEscolar = () => {
           </div>
         )}
 
-        {activeTab === 'rutas' && isAdmin && (
+        {activeTab === 'rutas' && canManageRutas && (
           <div>
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h5 className="fw-bold text-dark mb-0">Gestión de Rutas y Paradas</h5>
@@ -307,7 +316,9 @@ export const TransporteEscolar = () => {
                             </button>
                             <ul className="dropdown-menu dropdown-menu-end shadow border-0">
                               <li><button className="dropdown-item" onClick={() => openEditRuta(ruta)}><i className="bi bi-pencil me-2 text-primary"></i>Editar Ruta</button></li>
-                              <li><button className="dropdown-item" onClick={() => openGestionarParadas(ruta)}><i className="bi bi-geo-alt me-2 text-success"></i>Gestionar Paradas</button></li>
+                              {canManageParadas && (
+                                <li><button className="dropdown-item" onClick={() => openGestionarParadas(ruta)}><i className="bi bi-geo-alt me-2 text-success"></i>Gestionar Paradas</button></li>
+                              )}
                               <li><hr className="dropdown-divider" /></li>
                               <li><button className="dropdown-item text-danger" onClick={() => deleteRuta(ruta.id)}><i className="bi bi-trash me-2"></i>Eliminar</button></li>
                             </ul>
