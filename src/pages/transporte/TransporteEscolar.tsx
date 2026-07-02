@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../supabase/client';
-import usePermisos from '../../hooks/usePermisos';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../supabase/supabase';
+import { usePermisos } from '../../hooks/usePermisos';
 import html2canvas from 'html2canvas';
 
 export const TransporteEscolar = () => {
@@ -88,7 +88,7 @@ export const TransporteEscolar = () => {
       setTrackingHoy(trackingRes.data || []);
 
       const rolesExcluidos = ['Estudiante', 'Representante', 'Invitado'];
-      const docs = (usuariosRes.data || []).filter(u => !rolesExcluidos.includes(u.rol));
+      const docs = (usuariosRes.data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
       setDocentes(docs);
 
     } catch (e: any) {
