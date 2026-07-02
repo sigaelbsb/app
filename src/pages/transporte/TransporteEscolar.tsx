@@ -25,6 +25,14 @@ export const TransporteEscolar = () => {
   const [paradaForm, setParadaForm] = useState({ id: '', nombre: '', descripcion: '', orden: 1 });
   const [savingParada, setSavingParada] = useState(false);
 
+  // Guardias state
+  const [guardias, setGuardias] = useState<any[]>([]);
+  const [loadingGuardias, setLoadingGuardias] = useState(false);
+  const [showModalGuardia, setShowModalGuardia] = useState(false);
+  const [savingGuardia, setSavingGuardia] = useState(false);
+  const [guardiaForm, setGuardiaForm] = useState({ id: '', ruta_id: '', docente_id: '', docente_nombre: '', semana_inicio: '', semana_fin: '' });
+  const [docentesOptions, setDocentesOptions] = useState<any[]>([]);
+
   const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
   const Swal = (window as any).Swal;
 
@@ -56,10 +64,96 @@ export const TransporteEscolar = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'rutas' && isAdmin) {
+    if (activeTab === 'rutas' && canManageRutas) {
       fetchRutas();
     }
-  }, [activeTab, escCodigo, isAdmin]);
+    if (activeTab === 'guardias' && canOperateTracking) {
+      fetchGuardias();
+      if (canManageRutas) {
+        fetchRutas();
+        fetchDocentes();
+      }
+    }
+  }, [activeTab, escCodigo, canManageRutas, canOperateTracking]);
+
+  const fetchGuardias = async () => {
+    setLoadingGuardias(true);
+    try {
+      const { data, error } = await supabase
+        .from('transporte_guardias')
+        .select('*, ruta:transporte_rutas!inner(nombre, escuela_codigo)')
+        .eq('ruta.escuela_codigo', escCodigo)
+        .order('semana_inicio', { ascending: false });
+      if (error) throw error;
+      setGuardias(data || []);
+    } catch (err: any) {
+      console.error('Error fetching guardias:', err);
+    } finally {
+      setLoadingGuardias(false);
+    }
+  };
+
+  const fetchDocentes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nombres, apellidos, id_escuela')
+        .eq('rol', 'Docente');
+      if (error) throw error;
+      // As teachers can be in multiple schools via JSON, this basic filter handles direct association, 
+      // but ideally you list all and let the coordinator pick.
+      setDocentesOptions(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const saveGuardia = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingGuardia(true);
+    try {
+      const payload = {
+        ruta_id: guardiaForm.ruta_id,
+        docente_id: guardiaForm.docente_id,
+        docente_nombre: guardiaForm.docente_nombre,
+        semana_inicio: guardiaForm.semana_inicio,
+        semana_fin: guardiaForm.semana_fin
+      };
+      if (guardiaForm.id) {
+        const { error } = await supabase.from('transporte_guardias').update(payload).eq('id', guardiaForm.id);
+        if (error) throw error;
+        Swal.fire('Actualizado', 'Guardia actualizada', 'success');
+      } else {
+        const { error } = await supabase.from('transporte_guardias').insert([payload]);
+        if (error) throw error;
+        Swal.fire('Creado', 'Guardia asignada', 'success');
+      }
+      setShowModalGuardia(false);
+      fetchGuardias();
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
+    } finally {
+      setSavingGuardia(false);
+    }
+  };
+
+  const deleteGuardia = async (id: string) => {
+    const confirm = await Swal.fire({
+      title: '¿Eliminar guardia?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+    });
+    if (confirm.isConfirmed) {
+      try {
+        const { error } = await supabase.from('transporte_guardias').delete().eq('id', id);
+        if (error) throw error;
+        fetchGuardias();
+      } catch (err: any) {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+  };
 
   const openNewRuta = () => {
     setRutaForm({ id: '', nombre: '', sectores: '', chofer_nombre: '', chofer_telefono: '', unidad_placa: '', unidad_modelo: '' });
@@ -274,11 +368,75 @@ export const TransporteEscolar = () => {
 
         {activeTab === 'guardias' && canOperateTracking && (
           <div>
-            <h5 className="fw-bold text-dark mb-4">Asignación de Guardias Semanales</h5>
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-shield-lock fs-1 text-secondary mb-3 d-block"></i>
-              <h6>Módulo en construcción</h6>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h5 className="fw-bold text-dark mb-0">Asignación de Guardias Semanales</h5>
+              {canManageRutas && (
+                <button className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" onClick={() => {
+                  setGuardiaForm({ id: '', ruta_id: '', docente_id: '', docente_nombre: '', semana_inicio: '', semana_fin: '' });
+                  setShowModalGuardia(true);
+                }}>
+                  <i className="bi bi-shield-plus me-1"></i> Nueva Asignación
+                </button>
+              )}
             </div>
+            
+            {loadingGuardias ? (
+              <div className="text-center py-5"><div className="spinner-border text-primary" role="status"></div></div>
+            ) : guardias.length === 0 ? (
+              <div className="text-center py-5 text-muted bg-light rounded-4 border">
+                <i className="bi bi-shield-x fs-1 text-secondary mb-3 d-block"></i>
+                <h6 className="fw-bold">No hay guardias asignadas</h6>
+                <p className="small mb-0">Asigna docentes a las rutas para que realicen el tracking.</p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-hover align-middle">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Docente de Guardia</th>
+                      <th>Ruta Asignada</th>
+                      <th>Semana</th>
+                      <th>Estado</th>
+                      {canManageRutas && <th className="text-end">Acciones</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guardias.map(guardia => {
+                      const today = new Date().toISOString().split('T')[0];
+                      const isPast = today > guardia.semana_fin;
+                      const isCurrent = today >= guardia.semana_inicio && today <= guardia.semana_fin;
+                      
+                      return (
+                        <tr key={guardia.id}>
+                          <td>
+                            <div className="fw-bold text-dark"><i className="bi bi-person-badge text-primary me-2"></i>{guardia.docente_nombre}</div>
+                          </td>
+                          <td><span className="badge bg-secondary bg-opacity-10 text-secondary border">{guardia.ruta?.nombre}</span></td>
+                          <td>
+                            <div className="small text-muted">Del {guardia.semana_inicio}</div>
+                            <div className="small text-muted">Al {guardia.semana_fin}</div>
+                          </td>
+                          <td>
+                            {isCurrent ? <span className="badge bg-success">Activa</span> : 
+                             isPast ? <span className="badge bg-secondary">Finalizada</span> : 
+                             <span className="badge bg-warning text-dark">Programada</span>}
+                          </td>
+                          {canManageRutas && (
+                            <td className="text-end">
+                              <button className="btn btn-sm text-primary" onClick={() => {
+                                setGuardiaForm(guardia);
+                                setShowModalGuardia(true);
+                              }}><i className="bi bi-pencil"></i></button>
+                              <button className="btn btn-sm text-danger" onClick={() => deleteGuardia(guardia.id)}><i className="bi bi-trash"></i></button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -494,6 +652,66 @@ export const TransporteEscolar = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL GUARDIAS */}
+      {showModalGuardia && (
+        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow-lg rounded-4">
+              <div className="modal-header border-bottom bg-light rounded-top-4">
+                <h5 className="modal-title fw-bold text-dark">
+                  {guardiaForm.id ? 'Editar Guardia' : 'Asignar Guardia Semanal'}
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setShowModalGuardia(false)}></button>
+              </div>
+              <form onSubmit={saveGuardia}>
+                <div className="modal-body p-4">
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold">Ruta de Transporte <span className="text-danger">*</span></label>
+                    <select className="form-select input-moderno" required value={guardiaForm.ruta_id} onChange={e => setGuardiaForm({ ...guardiaForm, ruta_id: e.target.value })}>
+                      <option value="">Seleccione una ruta...</option>
+                      {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold">Docente de Guardia <span className="text-danger">*</span></label>
+                    <select className="form-select input-moderno" required value={guardiaForm.docente_id} onChange={e => {
+                      const selected = docentesOptions.find(d => d.id === e.target.value);
+                      setGuardiaForm({ 
+                        ...guardiaForm, 
+                        docente_id: e.target.value, 
+                        docente_nombre: selected ? `${selected.nombres} ${selected.apellidos}` : '' 
+                      });
+                    }}>
+                      <option value="">Seleccione un docente...</option>
+                      {docentesOptions.map(d => <option key={d.id} value={d.id}>{d.nombres} {d.apellidos}</option>)}
+                    </select>
+                  </div>
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Fecha Inicio <span className="text-danger">*</span></label>
+                      <input type="date" className="form-control input-moderno" required
+                        value={guardiaForm.semana_inicio} onChange={e => setGuardiaForm({ ...guardiaForm, semana_inicio: e.target.value })} />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Fecha Fin <span className="text-danger">*</span></label>
+                      <input type="date" className="form-control input-moderno" required
+                        value={guardiaForm.semana_fin} onChange={e => setGuardiaForm({ ...guardiaForm, semana_fin: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer border-top bg-light rounded-bottom-4">
+                  <button type="button" className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setShowModalGuardia(false)}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary rounded-pill px-4" disabled={savingGuardia}>
+                    {savingGuardia ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-save me-2"></i>}
+                    Asignar Guardia
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
