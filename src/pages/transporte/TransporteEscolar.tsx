@@ -74,7 +74,7 @@ export const TransporteEscolar = () => {
       const [paradasRes, rutasRes, usuariosRes, trackingRes] = await Promise.all([
         supabase.from('transporte_paradas').select('*').eq('escuela_codigo', escCodigo).order('nombre_parada', { ascending: true }),
         supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }),
-        supabase.from('profiles').select('id, cedula, nombre, apellidos, rol, cargo, telefono').eq('escuela_codigo', escCodigo),
+        supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, rol, cargo, telefono').eq('id_escuela', escCodigo),
         supabase.from('transporte_operaciones').select('*').eq('escuela_codigo', escCodigo).eq('fecha', hoyStr)
       ]);
 
@@ -244,8 +244,8 @@ export const TransporteEscolar = () => {
       if (Array.isArray(ruta.paradas_json)) ids = ruta.paradas_json;
       else if (typeof ruta.paradas_json === 'string') { try { ids = JSON.parse(ruta.paradas_json); } catch (e) {} }
 
-      const doc = docentes.find(d => d.id === ruta.docente_id);
-      const nombreDoc = doc ? `${doc.nombre} ${doc.apellidos || ''}` : 'Sin asignar';
+      const doc = docentes.find(d => d.id_usuario === ruta.docente_id);
+      const nombreDoc = doc ? doc.nombre_completo : 'Sin asignar';
       const telDoc = doc ? (doc.telefono || '') : '';
       const fechaHoy = new Date().toLocaleString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -527,7 +527,7 @@ export const TransporteEscolar = () => {
                   {rutas.length === 0 ? (
                     <tr><td colSpan={4} className="text-center py-4 text-muted">No hay rutas.</td></tr>
                   ) : rutas.map((r) => {
-                    const doc = docentes.find(d => d.id === r.docente_id);
+                    const doc = docentes.find(d => d.id_usuario === r.docente_id);
                     let len = 0;
                     if (Array.isArray(r.paradas_json)) len = r.paradas_json.length;
                     else if (typeof r.paradas_json === 'string') { try { len = JSON.parse(r.paradas_json).length; } catch(e){} }
@@ -537,7 +537,7 @@ export const TransporteEscolar = () => {
                         <td className="fw-bold text-primary">{r.nombre}</td>
                         <td className="small">
                           <div className="text-muted"><i className="bi bi-person-vcard me-1"></i>Chofer: <span className="fw-bold text-dark">{r.chofer_nombre}</span></div>
-                          <div><i className="bi bi-person-video3 me-1"></i>Guía: <span className="fw-bold text-dark">{doc ? `${doc.nombre} ${doc.apellidos || ''}` : 'N/A'}</span></div>
+                          <div><i className="bi bi-person-video3 me-1"></i>Guía: <span className="fw-bold text-dark">{doc ? doc.nombre_completo : 'N/A'}</span></div>
                         </td>
                         <td className="text-center"><span className="badge bg-success rounded-pill px-2 py-1">{len}</span></td>
                         <td className="text-end text-nowrap">
@@ -745,7 +745,7 @@ export const TransporteEscolar = () => {
                   <label className="form-label fw-semibold small">Docente Guía (Opcional)</label>
                   <select className="form-select input-moderno" value={rutaForm.docente_id} onChange={e => setRutaForm({...rutaForm, docente_id: e.target.value})}>
                     <option value="">-- Sin Asignar --</option>
-                    {docentes.map(d => <option key={d.id} value={d.id}>{d.nombre} {d.apellidos || ''}</option>)}
+                    {docentes.map(d => <option key={d.id_usuario} value={d.id_usuario}>{d.nombre_completo}</option>)}
                   </select>
                 </div>
                 <div className="col-md-4">
