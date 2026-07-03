@@ -1000,7 +1000,6 @@ export const TransporteEscolar = () => {
                       <div className="route-stepper">
                         {orderedParadas.map((parada: any, index: number) => {
                           const isStart = index === 0;
-                          const isEnd   = index === orderedParadas.length - 1;
                           const isSchool = parada.id === 'escuela_virtual';
 
                           let passed   = false;
