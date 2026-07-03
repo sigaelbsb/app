@@ -422,11 +422,22 @@ export const TransporteEscolar = () => {
             historial_paradas: nuevoHistorial
           }).eq('id', opActual.id);
           
-          if (error) throw error;
+          if (error) {
+            // Handle missing column gracefully to guide the user
+            if (error.message && error.message.includes('column "historial_paradas"')) {
+              throw new Error('La base de datos requiere una actualización. Debes ejecutar el comando SQL provisto para agregar la columna "historial_paradas".');
+            }
+            throw error;
+          }
           cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Paso registrado', showConfirmButton: false, timer: 1500 });
         } catch (err: any) {
-          Swal.fire('Error', err.message, 'error');
+          Swal.fire({
+            icon: 'error',
+            title: 'No se pudo registrar',
+            text: err.message,
+            footer: 'Asegúrate de haber ejecutado el ALTER TABLE en Supabase.'
+          });
         }
       }
     });
@@ -537,50 +548,50 @@ export const TransporteEscolar = () => {
           padding: 30px 10px; position: relative; width: 100%; overflow: hidden;
         }
         .road-row {
-          display: flex; width: 100%; max-width: 800px; justify-content: space-around; 
-          position: relative; padding: 40px 0;
+          display: flex; width: 100%; max-width: 900px; justify-content: space-around; 
+          position: relative; padding: 20px 0 130px 0; align-items: flex-start;
         }
         .road-row.reverse { flex-direction: row-reverse; }
         
         /* The Asphalt */
         .road-row::before {
-          content: ''; position: absolute; top: 50%; left: 10%; right: 10%; height: 24px; 
+          content: ''; position: absolute; top: 45px; left: 10%; right: 10%; height: 26px; 
           background: #334155; transform: translateY(-50%); z-index: 1;
           box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         /* The Dashed Line */
         .road-row::after {
-          content: ''; position: absolute; top: 50%; left: 10%; right: 10%; height: 2px; 
-          background: repeating-linear-gradient(90deg, transparent, transparent 10px, #f8fafc 10px, #f8fafc 20px); 
-          transform: translateY(-50%); z-index: 1;
+          content: ''; position: absolute; top: 45px; left: 10%; right: 10%; height: 2px; 
+          background: repeating-linear-gradient(90deg, transparent, transparent 15px, #f8fafc 15px, #f8fafc 30px); 
+          transform: translateY(-50%); z-index: 2;
         }
 
         /* Connectors between rows */
         .road-row:not(:last-child)::before {
-          border-radius: 0 24px 24px 0;
+          border-radius: 0 30px 30px 0;
         }
         .road-row:nth-child(odd):not(:last-child)::before {
           right: 0; left: 10%; width: 90%;
         }
         .road-row:nth-child(even):not(:last-child)::before {
-          left: 0; right: 10%; width: 90%; border-radius: 24px 0 0 24px;
+          left: 0; right: 10%; width: 90%; border-radius: 30px 0 0 30px;
         }
 
         /* Connecting vertical asphalt curves */
         .road-curve {
-          position: absolute; width: 60px; height: 100%; top: 50%; 
-          border: 24px solid #334155; z-index: 0;
+          position: absolute; width: 70px; top: 45px; height: 100%; 
+          border: 26px solid #334155; z-index: 0;
         }
-        .road-curve.right { right: 0; border-left: none; border-radius: 0 40px 40px 0; }
-        .road-curve.left { left: 0; border-right: none; border-radius: 40px 0 0 40px; }
+        .road-curve.right { right: 0; border-left: none; border-radius: 0 60px 60px 0; }
+        .road-curve.left { left: 0; border-right: none; border-radius: 60px 0 0 60px; }
 
-        .timeline-node { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; width: 120px; }
+        .timeline-node { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; width: 140px; height: 50px; }
         .timeline-icon { 
           width: 50px; height: 50px; border-radius: 50%; background: white; 
           border: 4px solid #cbd5e1; display: flex; align-items: center; justify-content: center; 
           box-shadow: 0 8px 15px rgba(0,0,0,0.2); font-size: 1.5rem;
           transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          position: relative;
+          position: absolute; top: 20px; z-index: 20;
         }
         
         /* Map Pin effect */
@@ -590,10 +601,10 @@ export const TransporteEscolar = () => {
           border-bottom-color: transparent !important; border-left-color: transparent !important; border-right-color: transparent !important;
         }
         
-        .timeline-icon:hover { transform: translateY(-10px) scale(1.1); cursor: pointer; }
+        .timeline-icon:hover { transform: translateY(-5px) scale(1.1); cursor: pointer; }
         
         .timeline-icon.start { border-color: #f59e0b; color: #f59e0b; }
-        .timeline-icon.active { border-color: #10b981; color: #10b981; background: #ecfdf5; transform: translateY(-10px) scale(1.2); z-index: 20; }
+        .timeline-icon.active { border-color: #10b981; color: #10b981; background: #ecfdf5; transform: scale(1.2); z-index: 25; }
         .timeline-icon.active::after { border-top-color: #10b981 !important; }
         
         .timeline-icon.passed { border-color: #3b82f6; color: white; background: #3b82f6; }
@@ -602,12 +613,14 @@ export const TransporteEscolar = () => {
         .timeline-icon.end { border-color: #ef4444; color: #ef4444; }
 
         .timeline-content { 
-          background: rgba(255,255,255,0.9); padding: 8px; border-radius: 12px; 
-          border: 1px solid #f1f5f9; text-align: center; margin-top: 15px;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.05); font-size: 0.85rem; line-height: 1.2; width: 140px;
+          position: absolute; top: 85px; z-index: 15;
+          background: rgba(255,255,255,0.95); padding: 12px; border-radius: 12px; 
+          border: 1px solid #e2e8f0; text-align: center;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.08); font-size: 0.85rem; line-height: 1.3; width: 150px;
+          display: flex; flex-direction: column; align-items: center;
         }
-        .timeline-content.active { border-color: #10b981; border-width: 2px; font-weight: bold; }
-        .timeline-content.passed { opacity: 0.8; }
+        .timeline-content.active { border-color: #10b981; border-width: 2px; font-weight: bold; transform: scale(1.05); }
+        .timeline-content.passed { opacity: 0.85; background: #f8fafc; }
         
         .pulse-animation { animation: pulse-pin 1.5s infinite; }
         @keyframes pulse-pin {
