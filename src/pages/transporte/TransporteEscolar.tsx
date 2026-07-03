@@ -539,45 +539,90 @@ export const TransporteEscolar = () => {
         .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.6; cursor: not-allowed; }
         .tarjeta-sub.bloqueado:hover { transform: none; box-shadow: none !important; }
 
-        /* Rutograma Metro Style */
-        .timeline-rutograma { 
-          border-left: 6px solid #e2e8f0; 
-          margin-left: 24px; padding-left: 35px; position: relative; 
-          margin-top: 20px; padding-bottom: 10px; 
-          transition: border-color 0.5s ease;
+        /* Winding Road Style */
+        .winding-road-container {
+          display: flex; flex-direction: column; align-items: center; 
+          padding: 30px 10px; position: relative; width: 100%; overflow: hidden;
         }
-        .timeline-rutograma.finalizada { border-left-color: #10b981; }
+        .road-row {
+          display: flex; width: 100%; max-width: 800px; justify-content: space-around; 
+          position: relative; padding: 40px 0;
+        }
+        .road-row.reverse { flex-direction: row-reverse; }
         
-        .pulse-animation {
-          animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        /* The Asphalt */
+        .road-row::before {
+          content: ''; position: absolute; top: 50%; left: 10%; right: 10%; height: 24px; 
+          background: #334155; transform: translateY(-50%); z-index: 1;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        @keyframes pulse-ring {
-          0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-          70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        /* The Dashed Line */
+        .road-row::after {
+          content: ''; position: absolute; top: 50%; left: 10%; right: 10%; height: 2px; 
+          background: repeating-linear-gradient(90deg, transparent, transparent 10px, #f8fafc 10px, #f8fafc 20px); 
+          transform: translateY(-50%); z-index: 1;
         }
 
-        .timeline-node { position: relative; margin-bottom: 25px; perspective: 1000px; }
+        /* Connectors between rows */
+        .road-row:not(:last-child)::before {
+          border-radius: 0 24px 24px 0;
+        }
+        .road-row:nth-child(odd):not(:last-child)::before {
+          right: 0; left: 10%; width: 90%;
+        }
+        .road-row:nth-child(even):not(:last-child)::before {
+          left: 0; right: 10%; width: 90%; border-radius: 24px 0 0 24px;
+        }
+
+        /* Connecting vertical asphalt curves */
+        .road-curve {
+          position: absolute; width: 60px; height: 100%; top: 50%; 
+          border: 24px solid #334155; z-index: 0;
+        }
+        .road-curve.right { right: 0; border-left: none; border-radius: 0 40px 40px 0; }
+        .road-curve.left { left: 0; border-right: none; border-radius: 40px 0 0 40px; }
+
+        .timeline-node { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; width: 120px; }
         .timeline-icon { 
-          position: absolute; left: -61px; top: 50%; transform: translateY(-50%); 
-          width: 46px; height: 46px; border-radius: 50%; background: white; 
-          border: 5px solid #cbd5e1; display: flex; align-items: center; justify-content: center; 
-          z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.1); font-size: 1.3rem;
-          transition: all 0.4s ease;
+          width: 50px; height: 50px; border-radius: 50%; background: white; 
+          border: 4px solid #cbd5e1; display: flex; align-items: center; justify-content: center; 
+          box-shadow: 0 8px 15px rgba(0,0,0,0.2); font-size: 1.5rem;
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          position: relative;
         }
-        .timeline-icon.start { border-color: #f59e0b; color: #f59e0b; }
-        .timeline-icon.active { border-color: #10b981; color: #10b981; background: #ecfdf5; transform: translateY(-50%) scale(1.1); }
-        .timeline-icon.passed { border-color: #3b82f6; color: white; background: #3b82f6; }
-        .timeline-icon.end { border-color: #ef4444; color: #ef4444; }
         
-        .timeline-content { 
-          background: #ffffff; padding: 16px 20px; border-radius: 16px; 
-          border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; 
-          transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        /* Map Pin effect */
+        .timeline-icon::after {
+          content: ''; position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
+          border-width: 12px 10px 0; border-style: solid; border-color: inherit;
+          border-bottom-color: transparent !important; border-left-color: transparent !important; border-right-color: transparent !important;
         }
-        .timeline-content:hover { transform: translateX(8px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #cbd5e1; }
-        .timeline-content.active { border-color: #10b981; background: #f0fdf4; border-width: 2px; }
+        
+        .timeline-icon:hover { transform: translateY(-10px) scale(1.1); cursor: pointer; }
+        
+        .timeline-icon.start { border-color: #f59e0b; color: #f59e0b; }
+        .timeline-icon.active { border-color: #10b981; color: #10b981; background: #ecfdf5; transform: translateY(-10px) scale(1.2); z-index: 20; }
+        .timeline-icon.active::after { border-top-color: #10b981 !important; }
+        
+        .timeline-icon.passed { border-color: #3b82f6; color: white; background: #3b82f6; }
+        .timeline-icon.passed::after { border-top-color: #3b82f6 !important; }
+        
+        .timeline-icon.end { border-color: #ef4444; color: #ef4444; }
+
+        .timeline-content { 
+          background: rgba(255,255,255,0.9); padding: 8px; border-radius: 12px; 
+          border: 1px solid #f1f5f9; text-align: center; margin-top: 15px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.05); font-size: 0.85rem; line-height: 1.2; width: 140px;
+        }
+        .timeline-content.active { border-color: #10b981; border-width: 2px; font-weight: bold; }
         .timeline-content.passed { opacity: 0.8; }
+        
+        .pulse-animation { animation: pulse-pin 1.5s infinite; }
+        @keyframes pulse-pin {
+          0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6), 0 8px 15px rgba(0,0,0,0.2); }
+          70% { box-shadow: 0 0 0 20px rgba(16, 185, 129, 0), 0 8px 15px rgba(0,0,0,0.2); }
+          100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 8px 15px rgba(0,0,0,0.2); }
+        }
 
         /* Map Grid Background */
         .map-bg {
@@ -881,61 +926,76 @@ export const TransporteEscolar = () => {
                         </div>
                       )}
 
-                      <div className={`timeline-rutograma ${opActual?.estado === 'Finalizada' ? 'finalizada' : ''}`}>
-                        {orderedParadas.map((parada: any, index: number) => {
-                          const isStart = index === 0;
-                          const isEnd = index === orderedParadas.length - 1;
-                          let iconClass = isStart ? 'start' : isEnd ? 'end' : 'stop';
-                          let passed = false;
-                          let isActive = false;
-
-                          if (opActual) {
-                            const currentIdx = pids.findIndex((id: string) => id === opActual.ubicacion_actual);
-                            if (index < currentIdx) {
-                              passed = true;
-                              iconClass = 'passed';
-                            } else if (index === currentIdx && opActual.estado !== 'Finalizada') {
-                              isActive = true;
-                              iconClass = 'active';
-                            } else if (opActual.estado === 'Finalizada') {
-                              passed = true;
-                              iconClass = 'passed';
-                            }
+                      <div className={`winding-road-container ${opActual?.estado === 'Finalizada' ? 'finalizada' : ''}`}>
+                        {(() => {
+                          const itemsPerRow = 4;
+                          const chunks = [];
+                          for (let i = 0; i < orderedParadas.length; i += itemsPerRow) {
+                            chunks.push(orderedParadas.slice(i, i + itemsPerRow));
                           }
+                          
+                          return chunks.map((chunk, rowIdx) => {
+                            const isReverse = rowIdx % 2 !== 0;
+                            return (
+                              <div key={`row-${rowIdx}`} className={`road-row ${isReverse ? 'reverse' : ''}`}>
+                                {rowIdx > 0 && (
+                                  <div className={`road-curve ${isReverse ? 'right' : 'left'}`}></div>
+                                )}
+                                {chunk.map((parada: any, colIdx: number) => {
+                                  const index = rowIdx * itemsPerRow + colIdx;
+                                  const isStart = index === 0;
+                                  const isEnd = index === orderedParadas.length - 1;
+                                  let iconClass = isStart ? 'start' : isEnd ? 'end' : 'stop';
+                                  let passed = false;
+                                  let isActive = false;
 
-                          return (
-                            <div key={`${parada.id}-${index}`} className="timeline-node">
-                              <div className={`timeline-icon ${iconClass} ${isActive ? 'pulse-animation' : ''}`}>
-                                {isActive ? <i className="bi bi-bus-front"></i> : isEnd ? <i className="bi bi-flag"></i> : passed ? <i className="bi bi-check"></i> : <i className="bi bi-geo"></i>}
+                                  if (opActual) {
+                                    const currentIdx = pids.findIndex((id: string) => id === opActual.ubicacion_actual);
+                                    if (index < currentIdx) {
+                                      passed = true;
+                                      iconClass = 'passed';
+                                    } else if (index === currentIdx && opActual.estado !== 'Finalizada') {
+                                      isActive = true;
+                                      iconClass = 'active pulse-animation';
+                                    } else if (opActual.estado === 'Finalizada') {
+                                      passed = true;
+                                      iconClass = 'passed';
+                                    }
+                                  }
+
+                                  return (
+                                    <div key={`${parada.id}-${index}`} className="timeline-node">
+                                      <div className={`timeline-icon ${iconClass}`} title={parada.nombre_parada}>
+                                        {isActive ? <i className="bi bi-bus-front"></i> : isEnd ? <i className="bi bi-flag"></i> : passed ? <i className="bi bi-check"></i> : <i className="bi bi-geo"></i>}
+                                      </div>
+                                      <div className={`timeline-content ${isActive ? 'active' : passed ? 'passed' : ''}`}>
+                                        <div className="fw-bold text-dark">{parada.nombre_parada}</div>
+                                        
+                                        {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && (
+                                          <button 
+                                            className="btn btn-sm btn-success rounded-pill fw-bold mt-2 py-1 px-3 shadow-sm w-100" 
+                                            onClick={() => marcarParada(parada.id, index, pids)}
+                                            style={{fontSize: '0.75rem'}}
+                                          >
+                                            ¡Pasamos!
+                                          </button>
+                                        )}
+                                        
+                                        {isActive && (
+                                          <div className="badge bg-success shadow-sm rounded-pill mt-2 w-100">
+                                            <span className="spinner-grow spinner-grow-sm me-1" style={{width: '8px', height: '8px'}}></span>
+                                            El bus está aquí
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <div className={`timeline-content ${isActive ? 'active shadow-sm border-success' : ''}`} style={{ transition: 'all 0.3s ease' }}>
-                                <div>
-                                  <h6 className="fw-bold mb-1 text-dark">{parada.nombre_parada}</h6>
-                                  {parada.descripcion && <p className="small text-muted mb-0">{parada.descripcion}</p>}
-                                </div>
-                                
-                                {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && (
-                                  <button 
-                                    className="btn btn-sm btn-outline-success rounded-pill fw-bold" 
-                                    onClick={() => marcarParada(parada.id, index, pids)}
-                                  >
-                                    Pasar por aquí
-                                  </button>
-                                )}
-                                
-                                {isActive && (
-                                  <span className="badge bg-success shadow-sm rounded-pill px-3 py-2">
-                                    <span className="spinner-grow spinner-grow-sm me-2" role="status" style={{width: '10px', height: '10px'}}></span>
-                                    Unidad aquí
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          });
+                        })()}
                       </div>
-                    </div>
-                  );
                 })()}
               </div>
             )}
@@ -1017,35 +1077,59 @@ export const TransporteEscolar = () => {
                       <div className="text-center text-muted small p-4 bg-white rounded-4 shadow-sm border border-dashed">
                         Haz clic en las paradas arriba para ensamblar tu ruta.
                       </div>
+                    {paradasTemporales.length === 0 ? (
+                      <div className="text-center text-muted small p-4 bg-white rounded-4 shadow-sm border border-dashed">
+                        Haz clic en las paradas arriba para ensamblar tu ruta.
+                      </div>
                     ) : (
-                      <div className="timeline-rutograma bg-white p-4 rounded-4 shadow-sm border">
-                        <div className="timeline-node">
-                          <div className="timeline-icon start"><i className="bi bi-bus-front-fill"></i></div>
-                          <div className="timeline-content border-warning border-2"><span className="fw-bold text-dark mb-0">Inicio de Ruta</span></div>
-                        </div>
-                        {paradasTemporales.map((p, idx) => (
-                          <div key={p.id} className="timeline-node">
-                            <div className="timeline-icon stop"><i className="bi bi-geo-fill"></i></div>
-                            <div className="timeline-content py-2 px-3">
-                              <div className="d-flex align-items-center">
-                                <div className="d-flex flex-column me-3">
-                                  <button className="btn btn-sm text-secondary p-0 shadow-none" style={{lineHeight: 0.5}} disabled={idx === 0} onClick={() => moveParadaTemp(idx, -1)}><i className="bi bi-chevron-up fs-5 hover-text-primary"></i></button>
-                                  <button className="btn btn-sm text-secondary p-0 mt-2 shadow-none" style={{lineHeight: 0.5}} disabled={idx === paradasTemporales.length - 1} onClick={() => moveParadaTemp(idx, 1)}><i className="bi bi-chevron-down fs-5 hover-text-primary"></i></button>
-                                </div>
-                                <div>
-                                  <span className="badge bg-primary rounded-pill me-2 shadow-sm">{idx + 1}</span>
-                                  <span className="fw-bold text-dark">{p.nombre_parada}</span>
-                                </div>
+                      <div className="winding-road-container bg-white rounded-4 shadow-sm border p-3">
+                        {(() => {
+                          const itemsPerRow = 3; // Modal is narrower, 3 items per row
+                          const chunks = [];
+                          for (let i = 0; i < paradasTemporales.length; i += itemsPerRow) {
+                            chunks.push(paradasTemporales.slice(i, i + itemsPerRow));
+                          }
+                          
+                          return chunks.map((chunk, rowIdx) => {
+                            const isReverse = rowIdx % 2 !== 0;
+                            return (
+                              <div key={`modal-row-${rowIdx}`} className={`road-row ${isReverse ? 'reverse' : ''}`} style={{padding: '20px 0'}}>
+                                {rowIdx > 0 && (
+                                  <div className={`road-curve ${isReverse ? 'right' : 'left'}`}></div>
+                                )}
+                                {chunk.map((p, colIdx) => {
+                                  const idx = rowIdx * itemsPerRow + colIdx;
+                                  return (
+                                    <div key={p.id} className="timeline-node" style={{width: '90px'}}>
+                                      <div className="timeline-icon stop" style={{width: '40px', height: '40px', fontSize: '1.2rem'}} title={p.nombre_parada}>
+                                        <i className="bi bi-geo-fill"></i>
+                                      </div>
+                                      <div className="timeline-content py-2 px-2" style={{width: '120px', marginTop: '10px'}}>
+                                        <div className="d-flex align-items-center mb-2">
+                                          <div className="d-flex flex-column me-2">
+                                            <button className="btn btn-sm text-secondary p-0 shadow-none" style={{lineHeight: 0.5}} disabled={idx === 0} onClick={() => moveParadaTemp(idx, -1)}><i className="bi bi-chevron-up fs-6 hover-text-primary"></i></button>
+                                            <button className="btn btn-sm text-secondary p-0 mt-2 shadow-none" style={{lineHeight: 0.5}} disabled={idx === paradasTemporales.length - 1} onClick={() => moveParadaTemp(idx, 1)}><i className="bi bi-chevron-down fs-6 hover-text-primary"></i></button>
+                                          </div>
+                                          <div className="text-start">
+                                            <span className="badge bg-primary rounded-pill shadow-sm mb-1">{idx + 1}</span>
+                                            <div className="fw-bold text-dark" style={{fontSize: '0.75rem', lineHeight: '1'}}>{p.nombre_parada}</div>
+                                          </div>
+                                        </div>
+                                        <button className="btn btn-sm btn-light border text-danger rounded-circle p-1 shadow-sm" onClick={() => removeParadaTemp(idx)} title="Quitar parada">
+                                          <i className="bi bi-trash-fill"></i>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <button className="btn btn-sm btn-light border text-danger rounded-circle p-2 shadow-sm" onClick={() => removeParadaTemp(idx)} title="Quitar parada">
-                                <i className="bi bi-trash-fill"></i>
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        <div className="timeline-node">
-                          <div className="timeline-icon end"><i className="bi bi-building-fill"></i></div>
-                          <div className="timeline-content border-success border-2"><span className="fw-bold text-success mb-0">Escuela (Destino)</span></div>
+                            );
+                          });
+                        })()}
+                        <div className="mt-3 text-center w-100 border-top pt-3">
+                          <span className="badge bg-success shadow-sm rounded-pill px-3 py-2">
+                            <i className="bi bi-building-fill me-1"></i> Escuela (Destino Final)
+                          </span>
                         </div>
                       </div>
                     )}
