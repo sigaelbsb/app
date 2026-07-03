@@ -216,7 +216,7 @@ body.auth-body {
 }
 
 .vista-app-estilo {
-    display: none;
+    display: block;
     background: #F8FAFC;
 }
 
