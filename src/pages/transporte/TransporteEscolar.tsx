@@ -941,10 +941,17 @@ export const TransporteEscolar = () => {
                           
                           return chunks.map((chunk, rowIdx) => {
                             const isReverse = rowIdx % 2 !== 0;
+                            const hasNextRow = rowIdx < chunks.length - 1;
+                            const hasPrevRow = rowIdx > 0;
+                            
+                            let rowClasses = `road-row ${isReverse ? 'reverse' : ''}`;
+                            if (hasNextRow) rowClasses += (!isReverse) ? ' curve-down-right' : ' curve-down-left';
+                            if (hasPrevRow) rowClasses += (!isReverse) ? ' curve-up-left' : ' curve-up-right';
+
                             return (
-                              <div key={`row-${rowIdx}`} className={`road-row ${isReverse ? 'reverse' : ''}`}>
-                                {rowIdx > 0 && (
-                                  <div className={`road-curve ${isReverse ? 'right' : 'left'}`}></div>
+                              <div key={`row-${rowIdx}`} className={rowClasses}>
+                                {hasNextRow && (
+                                  <div className={`road-curve ${!isReverse ? 'right' : 'left'}`}></div>
                                 )}
                                 {chunk.map((parada: any, colIdx: number) => {
                                   const index = rowIdx * itemsPerRow + colIdx;
@@ -1095,10 +1102,17 @@ export const TransporteEscolar = () => {
                           
                           return chunks.map((chunk, rowIdx) => {
                             const isReverse = rowIdx % 2 !== 0;
+                            const hasNextRow = rowIdx < chunks.length - 1;
+                            const hasPrevRow = rowIdx > 0;
+                            
+                            let rowClasses = `road-row ${isReverse ? 'reverse' : ''}`;
+                            if (hasNextRow) rowClasses += (!isReverse) ? ' curve-down-right' : ' curve-down-left';
+                            if (hasPrevRow) rowClasses += (!isReverse) ? ' curve-up-left' : ' curve-up-right';
+
                             return (
-                              <div key={`modal-row-${rowIdx}`} className={`road-row ${isReverse ? 'reverse' : ''}`} style={{padding: '20px 0'}}>
-                                {rowIdx > 0 && (
-                                  <div className={`road-curve ${isReverse ? 'right' : 'left'}`}></div>
+                              <div key={`modal-row-${rowIdx}`} className={rowClasses} style={{padding: '20px 0'}}>
+                                {hasNextRow && (
+                                  <div className={`road-curve ${!isReverse ? 'right' : 'left'}`}></div>
                                 )}
                                 {chunk.map((p, colIdx) => {
                                   const idx = rowIdx * itemsPerRow + colIdx;
