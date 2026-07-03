@@ -102,7 +102,7 @@ body {
 .glass-header { position: sticky; top: 0; left: 0; height: 80px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255,255,255,0.5); z-index: 900; }
 
 /* Configuración Flexbox para el Footer Global */
-#contenido-principal { margin-left: 280px; width: calc(100% - 280px); display: flex; flex-direction: column; min-height: 100vh; transition: var(--transicion-fluida); flex-grow: 1; min-width: 0; }
+#contenido-principal { margin-left: 280px; display: flex; flex-direction: column; min-height: 100vh; transition: var(--transicion-fluida); flex-grow: 1; min-width: 0; }
 #area-dinamica { flex-grow: 1; }
 
 .menu-categoria { width: 100%; background: transparent; border: none; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #a0aec0; transition: var(--transicion-rapida); }

@@ -287,7 +287,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       : '';
 
   return (
-    <div id="vista-app" className="vista-app-estilo" style={{ display: 'flex' }}>
+    <div id="vista-app" className="vista-app-estilo">
       <aside id="menu-lateral" className="glass-sidebar shadow-lg">
         <div className="sidebar-header d-flex align-items-center justify-content-between">
           <div id="btn-logo-nav" onClick={() => navigate('/')} className="d-flex align-items-center cursor-pointer">
