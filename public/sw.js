@@ -13,7 +13,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-  (event as any).waitUntil(
+  event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Caché abierto');
