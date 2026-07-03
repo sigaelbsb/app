@@ -266,14 +266,6 @@ export const TransporteEscolar = () => {
   };
 
   // Rutograma Constructor
-  const addParadaTemporal = () => {
-    if (!paradaSelectId) return;
-    const p = paradas.find(x => x.id === paradaSelectId);
-    if (p) {
-      setParadasTemporales([...paradasTemporales, p]);
-      setParadaSelectId('');
-    }
-  };
   const moveParadaTemp = (idx: number, dir: number) => {
     const newIdx = idx + dir;
     if (newIdx < 0 || newIdx >= paradasTemporales.length) return;
@@ -996,6 +988,8 @@ export const TransporteEscolar = () => {
                           });
                         })()}
                       </div>
+                    </div>
+                  );
                 })()}
               </div>
             )}
@@ -1073,10 +1067,6 @@ export const TransporteEscolar = () => {
                   
                   <label className="form-label fw-bold text-dark mb-3"><i className="bi bi-geo-alt-fill text-primary me-2"></i>Recorrido Ensamblado</label>
                   <div>
-                    {paradasTemporales.length === 0 ? (
-                      <div className="text-center text-muted small p-4 bg-white rounded-4 shadow-sm border border-dashed">
-                        Haz clic en las paradas arriba para ensamblar tu ruta.
-                      </div>
                     {paradasTemporales.length === 0 ? (
                       <div className="text-center text-muted small p-4 bg-white rounded-4 shadow-sm border border-dashed">
                         Haz clic en las paradas arriba para ensamblar tu ruta.
