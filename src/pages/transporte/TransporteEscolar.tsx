@@ -34,7 +34,7 @@ export const TransporteEscolar = () => {
     id: '', nombre: '', chofer: '', docente_id: '', validez_desde: '', validez_hasta: ''
   });
   const [paradasTemporales, setParadasTemporales] = useState<any[]>([]);
-  const [paradaSelectId, setParadaSelectId] = useState('');
+
   
   // Asignacion State
   const [showModalAsignacion, setShowModalAsignacion] = useState(false);
