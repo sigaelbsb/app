@@ -585,7 +585,7 @@ export const TransporteEscolar = () => {
 
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div className="d-flex flex-column flex-md-row align-items-md-center gap-3 mb-0">
           <h4 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
             <i className="bi bi-bus-front text-primary"></i> Transporte Escolar
@@ -608,7 +608,7 @@ export const TransporteEscolar = () => {
           )}
         </div>
         {vistaActual !== 'dashboard' && (
-          <button className="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold" onClick={() => setVistaActual('dashboard')}>
+          <button className="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold mt-2 mt-sm-0" onClick={() => setVistaActual('dashboard')}>
             <i className="bi bi-arrow-left me-1"></i> Volver al Dashboard
           </button>
         )}
@@ -663,7 +663,7 @@ export const TransporteEscolar = () => {
           border-radius: 3px; z-index: 0;
         }
         .stepper-stop {
-          position: relative; display: flex; align-items: center;
+          position: relative; display: flex; align-items: stretch;
           gap: 12px; padding: 5px 0; margin-bottom: 2px;
           animation: fadeInLeft 0.35s ease both;
         }
@@ -694,7 +694,7 @@ export const TransporteEscolar = () => {
           border: 1.5px solid #f1f5f9;
           box-shadow: 0 1px 4px rgba(0,0,0,0.05);
           transition: all 0.2s ease;
-          display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
         }
         .stepper-card-info { flex: 1; min-width: 0; }
         .stepper-stop:hover .stepper-card { box-shadow: 0 4px 14px rgba(0,0,0,0.09); border-color: #e2e8f0; }
@@ -708,11 +708,9 @@ export const TransporteEscolar = () => {
         }
         .stepper-name {
           font-size: 0.88rem; font-weight: 700; color: #1e293b; line-height: 1.2;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .stepper-desc {
-          font-size: 0.72rem; color: #94a3b8; margin-top: 1px;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          font-size: 0.72rem; color: #94a3b8; margin-top: 2px; line-height: 1.2;
         }
         .stepper-hora {
           display: inline-flex; align-items: center; gap: 3px;
@@ -979,7 +977,7 @@ export const TransporteEscolar = () => {
                 {vistaActual === 'Operacion' ? 'Operación de Ruta' : 'Visor de Recorrido'}
               </h5>
               {vistaActual === 'Operacion' && canOperateTracking && (
-                <div className="d-flex gap-2">
+                <div className="d-flex flex-wrap gap-2">
                   {opActual && (
                     <button className="btn btn-outline-warning rounded-pill px-3 shadow-sm" onClick={resetRutaActual}>
                       <i className="bi bi-arrow-counterclockwise me-1"></i>Reset Ruta
@@ -1053,6 +1051,7 @@ export const TransporteEscolar = () => {
                         {orderedParadas.map((parada: any, index: number) => {
                           const isStart = index === 0;
                           const isSchool = parada.id === 'escuela_virtual';
+                          const isDestino = index === orderedParadas.length - 1;
 
                           let passed   = false;
                           let isActive = false;
@@ -1105,9 +1104,14 @@ export const TransporteEscolar = () => {
                                   </div>
                                 )}
 
-                                {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && !isSchool && (
-                                  <button className="btn-pasamos" onClick={() => marcarParada(parada.id, index, pids)}>
-                                    <i className="bi bi-check2-circle me-1"></i>Pasamos
+                                {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && (
+                                  <button 
+                                    className={`btn-pasamos ${isDestino ? 'btn-llegamos' : ''}`} 
+                                    onClick={() => marcarParada(parada.id, index, pids)}
+                                    style={isDestino ? { background: 'linear-gradient(135deg, #3b82f6, #2563eb)' } : {}}
+                                  >
+                                    <i className={`bi ${isDestino ? 'bi-flag-fill' : 'bi-check2-circle'} me-1`}></i>
+                                    {isDestino ? 'Llegamos' : 'Pasamos'}
                                   </button>
                                 )}
                               </div>
