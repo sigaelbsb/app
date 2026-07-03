@@ -459,36 +459,101 @@ export const TransporteEscolar = () => {
       </div>
 
       <style>{`
-        .tarjeta-sub { background: #ffffff; border-radius: 20px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; overflow: hidden; position: relative; display: flex; flex-direction: column; text-align: left; }
-        .tarjeta-sub:hover { transform: translateY(-8px); box-shadow: 0 15px 35px rgba(0,0,0,0.1) !important; }
-        .tarjeta-sub .bg-icono-gigante { position: absolute; right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.03; transition: transform 0.5s ease; pointer-events: none; }
-        .tarjeta-sub:hover .bg-icono-gigante { transform: scale(1.2) rotate(-10deg); }
-        .tarjeta-sub .icono-sub { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 1.2rem; transition: transform 0.3s ease; }
-        .tarjeta-sub:hover .icono-sub { transform: scale(1.1); }
-        .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.7; cursor: not-allowed; }
-        .timeline-rutograma { border-left: 4px solid #0dcaf0; margin-left: 20px; padding-left: 25px; position: relative; margin-top: 10px; padding-bottom: 5px; }
-        .timeline-rutograma.finalizada .timeline-content { border-color: #28a745 !important; }
+        /* Dashboard Cards Premium */
+        .tarjeta-sub { 
+          background: #ffffff; 
+          border-radius: 24px; 
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+          cursor: pointer; 
+          overflow: hidden; 
+          position: relative; 
+          display: flex; 
+          flex-direction: column; 
+          text-align: left;
+          border: 1px solid rgba(255,255,255,0.4);
+        }
+        .tarjeta-sub::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+          background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%);
+          z-index: 1; pointer-events: none; border-radius: 24px;
+        }
+        .tarjeta-sub:hover { 
+          transform: translateY(-10px) scale(1.02); 
+          box-shadow: 0 20px 40px rgba(0,0,0,0.12) !important; 
+        }
+        .tarjeta-sub .bg-icono-gigante { 
+          position: absolute; right: -20px; bottom: -20px; font-size: 9rem; 
+          opacity: 0.04; transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+          pointer-events: none; z-index: 0;
+        }
+        .tarjeta-sub:hover .bg-icono-gigante { transform: scale(1.3) rotate(-15deg); opacity: 0.08; }
+        .tarjeta-sub .icono-sub { 
+          width: 65px; height: 65px; border-radius: 20px; display: flex; align-items: center; 
+          justify-content: center; font-size: 2.2rem; margin-bottom: 1.5rem; 
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2;
+        }
+        .tarjeta-sub:hover .icono-sub { transform: scale(1.15) rotate(5deg); }
+        .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.6; cursor: not-allowed; }
+        .tarjeta-sub.bloqueado:hover { transform: none; box-shadow: none !important; }
+
+        /* Rutograma Metro Style */
+        .timeline-rutograma { 
+          border-left: 6px solid #e2e8f0; 
+          margin-left: 24px; padding-left: 35px; position: relative; 
+          margin-top: 20px; padding-bottom: 10px; 
+          transition: border-color 0.5s ease;
+        }
+        .timeline-rutograma.finalizada { border-left-color: #10b981; }
         
         .pulse-animation {
           animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
         }
         @keyframes pulse-ring {
-          0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.5); }
-          70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+          0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+          70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
-        /* Modal Styles */
-        .timeline-node { position: relative; margin-bottom: 15px; }
-        .timeline-icon { position: absolute; left: -45px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 50%; background: white; border: 4px solid #0dcaf0; display: flex; align-items: center; justify-content: center; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 1.1rem; }
-        .timeline-icon.start { border-color: #f97316; color: #f97316; }
-        .timeline-icon.active { border-color: #198754; color: #198754; animation: pulse-border 1.5s infinite; background: #d1e7dd; }
-        .timeline-icon.passed { border-color: #198754; color: #198754; }
-        .timeline-icon.end { border-color: #dc3545; color: #dc3545; }
-        .timeline-content { background: #f8fafc; padding: 12px 18px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
-        .timeline-content:hover { background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .timeline-content.active { border-color: #198754; background: #f8fff9; }
-        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); } 100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); } }
+        .timeline-node { position: relative; margin-bottom: 25px; perspective: 1000px; }
+        .timeline-icon { 
+          position: absolute; left: -61px; top: 50%; transform: translateY(-50%); 
+          width: 46px; height: 46px; border-radius: 50%; background: white; 
+          border: 5px solid #cbd5e1; display: flex; align-items: center; justify-content: center; 
+          z-index: 2; box-shadow: 0 4px 10px rgba(0,0,0,0.1); font-size: 1.3rem;
+          transition: all 0.4s ease;
+        }
+        .timeline-icon.start { border-color: #f59e0b; color: #f59e0b; }
+        .timeline-icon.active { border-color: #10b981; color: #10b981; background: #ecfdf5; transform: translateY(-50%) scale(1.1); }
+        .timeline-icon.passed { border-color: #3b82f6; color: white; background: #3b82f6; }
+        .timeline-icon.end { border-color: #ef4444; color: #ef4444; }
+        
+        .timeline-content { 
+          background: #ffffff; padding: 16px 20px; border-radius: 16px; 
+          border: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; 
+          transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .timeline-content:hover { transform: translateX(8px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #cbd5e1; }
+        .timeline-content.active { border-color: #10b981; background: #f0fdf4; border-width: 2px; }
+        .timeline-content.passed { opacity: 0.8; }
+
+        /* Map Grid Background */
+        .map-bg {
+          background-color: #f8fafc;
+          background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+          background-size: 20px 20px;
+          border-radius: 24px;
+          padding: 20px;
+          border: 1px solid #e2e8f0;
+          box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        /* Modern Tables */
+        .table-moderna { border-collapse: separate; border-spacing: 0 8px; }
+        .table-moderna tbody tr { background: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s; border-radius: 12px; }
+        .table-moderna tbody tr:hover { transform: scale(1.01); box-shadow: 0 5px 15px rgba(0,0,0,0.08); z-index: 10; position: relative; }
+        .table-moderna td { border: none; padding: 16px; }
+        .table-moderna td:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
+        .table-moderna td:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
       `}</style>
 
       {/* DASHBOARD PRINCIPAL */}
@@ -571,13 +636,13 @@ export const TransporteEscolar = () => {
                   </button>
                 </div>
                 
-                <div className="table-responsive bg-white rounded-3 shadow-sm border">
-                  <table className="table table-hover align-middle mb-0">
-                    <thead className="table-light">
+                <div className="table-responsive px-2">
+                  <table className="table table-moderna w-100">
+                    <thead className="text-muted small text-uppercase">
                       <tr>
-                        <th>Nombre de Parada</th>
-                        <th>Referencia</th>
-                        <th className="text-end">Acciones</th>
+                        <th className="border-0 pb-3">Nombre de Parada</th>
+                        <th className="border-0 pb-3">Referencia</th>
+                        <th className="text-end border-0 pb-3">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -609,13 +674,13 @@ export const TransporteEscolar = () => {
                   </button>
                 </div>
 
-                <div className="table-responsive bg-white rounded-3 shadow-sm border">
-                  <table className="table table-hover align-middle mb-0">
-                    <thead className="table-light">
+                <div className="table-responsive px-2">
+                  <table className="table table-moderna w-100">
+                    <thead className="text-muted small text-uppercase">
                       <tr>
-                        <th>Ruta</th>
-                        <th className="text-center">Paradas</th>
-                        <th className="text-end">Acciones</th>
+                        <th className="border-0 pb-3">Ruta</th>
+                        <th className="text-center border-0 pb-3">Paradas</th>
+                        <th className="text-end border-0 pb-3">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -651,14 +716,14 @@ export const TransporteEscolar = () => {
                   <h5 className="fw-bold text-dark mb-0">Personal Asignado a Rutas</h5>
                 </div>
 
-                <div className="table-responsive bg-white rounded-3 shadow-sm border">
-                  <table className="table table-hover align-middle mb-0">
-                    <thead className="table-light">
+                <div className="table-responsive px-2">
+                  <table className="table table-moderna w-100">
+                    <thead className="text-muted small text-uppercase">
                       <tr>
-                        <th>Ruta</th>
-                        <th>Chofer Asignado</th>
-                        <th>Docente Guía</th>
-                        <th className="text-end">Acción</th>
+                        <th className="border-0 pb-3">Ruta</th>
+                        <th className="border-0 pb-3">Chofer Asignado</th>
+                        <th className="border-0 pb-3">Docente Guía</th>
+                        <th className="text-end border-0 pb-3">Acción</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -740,7 +805,7 @@ export const TransporteEscolar = () => {
                 <p className="small mb-0">Para visualizar o iniciar el recorrido.</p>
               </div>
             ) : (
-              <div>
+              <div className="map-bg">
                 {/* Renderizar Rutograma */}
                 {(() => {
                   const rutaObj = rutas.find(r => r.id === opRutaId);
