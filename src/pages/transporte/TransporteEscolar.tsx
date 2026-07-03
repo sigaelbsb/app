@@ -196,8 +196,8 @@ export const TransporteEscolar = () => {
   };
 
   const saveRuta = async () => {
-    if (!rutaForm.nombre || !rutaForm.validez_desde || !rutaForm.validez_hasta) {
-      return Swal.fire('Atención', 'Complete todos los campos de la ruta', 'warning');
+    if (!rutaForm.nombre) {
+      return Swal.fire('Atención', 'Escriba un nombre para la ruta', 'warning');
     }
     if (paradasTemporales.length === 0) {
       return Swal.fire('Atención', 'Añada al menos una parada al recorrido.', 'warning');
@@ -207,8 +207,6 @@ export const TransporteEscolar = () => {
       const payload = {
         escuela_codigo: escCodigo,
         nombre: rutaForm.nombre,
-        validez_desde: rutaForm.validez_desde,
-        validez_hasta: rutaForm.validez_hasta,
         paradas_json: paradasTemporales.map(p => p.id)
       };
 
@@ -231,9 +229,15 @@ export const TransporteEscolar = () => {
   const saveAsignacion = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!rutaForm.validez_desde || !rutaForm.validez_hasta) {
+        return Swal.fire('Atención', 'Especifique la fecha de validez', 'warning');
+      }
+
       const payload = {
         chofer_nombre: rutaForm.chofer,
         docente_id: rutaForm.docente_id || null,
+        validez_desde: rutaForm.validez_desde,
+        validez_hasta: rutaForm.validez_hasta
       };
 
       const { error } = await supabase.from('transporte_rutas').update(payload).eq('id', rutaForm.id);
@@ -386,15 +390,54 @@ export const TransporteEscolar = () => {
 
   const marcarParada = async (paradaId: string, index: number, orderedIds: string[]) => {
     const isEnd = index === orderedIds.length - 1;
-    try {
-      const { error } = await supabase.from('transporte_operaciones').update({
-        ubicacion_actual: paradaId, estado: isEnd ? 'Finalizada' : 'En Ruta', ultima_actualizacion: new Date().toISOString()
-      }).eq('id', opActual.id);
-      if (error) throw error;
-      cargarTrackingSolo();
-    } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
-    }
+    
+    // Obtener la hora actual en formato HH:MM
+    const now = new Date();
+    const currentHours = String(now.getHours()).padStart(2, '0');
+    const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+    const defaultTime = `${currentHours}:${currentMinutes}`;
+
+    Swal.fire({
+      title: 'Registrar Paso',
+      html: `
+        <p class="text-muted small">Confirma la hora exacta en la que la unidad pasó por esta parada.</p>
+        <input type="time" id="swal-input-time" class="form-control form-control-lg text-center fw-bold" value="${defaultTime}">
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Registrar Hora',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#10b981',
+      preConfirm: () => {
+        const timeInput = (document.getElementById('swal-input-time') as HTMLInputElement).value;
+        if (!timeInput) {
+          Swal.showValidationMessage('Debe ingresar una hora');
+        }
+        return timeInput;
+      }
+    }).then(async (result: any) => {
+      if (result.isConfirmed) {
+        try {
+          const selectedTime = result.value;
+          
+          // Clonamos el historial actual o creamos uno nuevo
+          const historialAnterior = opActual.historial_paradas || {};
+          const nuevoHistorial = { ...historialAnterior, [paradaId]: selectedTime };
+
+          const { error } = await supabase.from('transporte_operaciones').update({
+            ubicacion_actual: paradaId, 
+            estado: isEnd ? 'Finalizada' : 'En Ruta', 
+            ultima_actualizacion: new Date().toISOString(),
+            historial_paradas: nuevoHistorial
+          }).eq('id', opActual.id);
+          
+          if (error) throw error;
+          cargarTrackingSolo();
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Paso registrado', showConfirmButton: false, timer: 1500 });
+        } catch (err: any) {
+          Swal.fire('Error', err.message, 'error');
+        }
+      }
+    });
   };
 
   const resetMasivo = () => {
@@ -941,54 +984,68 @@ export const TransporteEscolar = () => {
                   <label className="form-label fw-semibold small">Nombre de Ruta</label>
                   <input type="text" className="form-control input-moderno fw-bold" value={rutaForm.nombre} onChange={e => setRutaForm({...rutaForm, nombre: e.target.value})} placeholder="Ej: Ruta 1 - Centro" />
                 </div>
-                <div className="col-md-6">
-                  <label className="form-label fw-semibold small">Válida Desde</label>
-                  <input type="date" className="form-control input-moderno" value={rutaForm.validez_desde} onChange={e => setRutaForm({...rutaForm, validez_desde: e.target.value})} />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label fw-semibold small">Válida Hasta</label>
-                  <input type="date" className="form-control input-moderno" value={rutaForm.validez_hasta} onChange={e => setRutaForm({...rutaForm, validez_hasta: e.target.value})} />
-                </div>
               </div>
 
-              <div className="card border rounded-4 bg-light mb-4">
-                <div className="card-body">
-                  <label className="form-label fw-semibold text-primary"><i className="bi bi-geo-alt-fill me-1"></i>Añadir Paradas al Recorrido</label>
-                  <div className="input-group">
-                    <select className="form-select border-primary" value={paradaSelectId} onChange={e => setParadaSelectId(e.target.value)}>
-                      <option value="">-- Seleccione parada del catálogo --</option>
-                      {paradas.filter(p => !paradasTemporales.find(pt => pt.id === p.id)).map(p => <option key={p.id} value={p.id}>{p.nombre_parada}</option>)}
-                    </select>
-                    <button className="btn btn-primary fw-bold" onClick={addParadaTemporal}>Agregar</button>
+              <div className="card border rounded-4 bg-light mb-4 shadow-sm border-0">
+                <div className="card-body p-4">
+                  <label className="form-label fw-bold text-primary mb-3"><i className="bi bi-grid-3x3-gap-fill me-2"></i>Paradas Disponibles (Clic para añadir)</label>
+                  <div className="d-flex flex-wrap gap-2 mb-4">
+                    {paradas.filter(p => !paradasTemporales.find(pt => pt.id === p.id)).map(p => (
+                      <button 
+                        key={p.id} 
+                        className="btn btn-sm btn-outline-secondary rounded-pill border shadow-sm px-3 fw-semibold bg-white"
+                        style={{ transition: 'all 0.2s', transform: 'scale(1)' }}
+                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        onClick={() => {
+                          setParadasTemporales([...paradasTemporales, p]);
+                        }}
+                      >
+                        <i className="bi bi-plus-circle-fill text-success me-1"></i> {p.nombre_parada}
+                      </button>
+                    ))}
+                    {paradas.filter(p => !paradasTemporales.find(pt => pt.id === p.id)).length === 0 && (
+                      <span className="text-muted small w-100 text-center d-block py-2">No hay más paradas disponibles.</span>
+                    )}
                   </div>
 
-                  <div className="mt-4">
+                  <hr className="text-secondary opacity-25 my-4" />
+                  
+                  <label className="form-label fw-bold text-dark mb-3"><i className="bi bi-geo-alt-fill text-primary me-2"></i>Recorrido Ensamblado</label>
+                  <div>
                     {paradasTemporales.length === 0 ? (
-                      <div className="text-center text-muted small p-3 bg-white rounded shadow-sm">Añada paradas en la parte superior.</div>
+                      <div className="text-center text-muted small p-4 bg-white rounded-4 shadow-sm border border-dashed">
+                        Haz clic en las paradas arriba para ensamblar tu ruta.
+                      </div>
                     ) : (
-                      <div className="timeline-rutograma bg-white p-3 rounded shadow-sm mt-3 border">
+                      <div className="timeline-rutograma bg-white p-4 rounded-4 shadow-sm border">
                         <div className="timeline-node">
                           <div className="timeline-icon start"><i className="bi bi-bus-front-fill"></i></div>
-                          <div className="timeline-content border-warning border-2"><span className="fw-bold text-dark mb-0">Inicio</span></div>
+                          <div className="timeline-content border-warning border-2"><span className="fw-bold text-dark mb-0">Inicio de Ruta</span></div>
                         </div>
                         {paradasTemporales.map((p, idx) => (
                           <div key={p.id} className="timeline-node">
-                            <div className="timeline-icon stop"><i className="bi bi-signpost-fill"></i></div>
-                            <div className="timeline-content">
+                            <div className="timeline-icon stop"><i className="bi bi-geo-fill"></i></div>
+                            <div className="timeline-content py-2 px-3">
                               <div className="d-flex align-items-center">
-                                <div className="d-flex flex-column me-2">
-                                  <button className="btn btn-sm text-secondary p-0" style={{lineHeight: 0.5}} disabled={idx === 0} onClick={() => moveParadaTemp(idx, -1)}><i className="bi bi-caret-up-fill fs-5"></i></button>
-                                  <button className="btn btn-sm text-secondary p-0 mt-1" style={{lineHeight: 0.5}} disabled={idx === paradasTemporales.length - 1} onClick={() => moveParadaTemp(idx, 1)}><i className="bi bi-caret-down-fill fs-5"></i></button>
+                                <div className="d-flex flex-column me-3">
+                                  <button className="btn btn-sm text-secondary p-0 shadow-none" style={{lineHeight: 0.5}} disabled={idx === 0} onClick={() => moveParadaTemp(idx, -1)}><i className="bi bi-chevron-up fs-5 hover-text-primary"></i></button>
+                                  <button className="btn btn-sm text-secondary p-0 mt-2 shadow-none" style={{lineHeight: 0.5}} disabled={idx === paradasTemporales.length - 1} onClick={() => moveParadaTemp(idx, 1)}><i className="bi bi-chevron-down fs-5 hover-text-primary"></i></button>
                                 </div>
-                                <div><span className="badge bg-primary text-white me-2">{idx + 1}</span><span className="fw-bold">{p.nombre_parada}</span></div>
+                                <div>
+                                  <span className="badge bg-primary rounded-pill me-2 shadow-sm">{idx + 1}</span>
+                                  <span className="fw-bold text-dark">{p.nombre_parada}</span>
+                                </div>
                               </div>
-                              <button className="btn btn-sm text-danger p-0 ms-2" onClick={() => removeParadaTemp(idx)}><i className="bi bi-x-circle-fill fs-5"></i></button>
+                              <button className="btn btn-sm btn-light border text-danger rounded-circle p-2 shadow-sm" onClick={() => removeParadaTemp(idx)} title="Quitar parada">
+                                <i className="bi bi-trash-fill"></i>
+                              </button>
                             </div>
                           </div>
                         ))}
                         <div className="timeline-node">
                           <div className="timeline-icon end"><i className="bi bi-building-fill"></i></div>
-                          <div className="timeline-content border-success border-2"><span className="fw-bold text-success mb-0">Escuela</span></div>
+                          <div className="timeline-content border-success border-2"><span className="fw-bold text-success mb-0">Escuela (Destino)</span></div>
                         </div>
                       </div>
                     )}
@@ -1037,6 +1094,16 @@ export const TransporteEscolar = () => {
                     <option value="">-- Seleccione Docente --</option>
                     {docentes.map(d => <option key={d.id_usuario} value={d.id_usuario}>{d.nombre_completo}</option>)}
                   </select>
+                </div>
+                <div className="row mb-4">
+                  <div className="col-6">
+                    <label className="form-label fw-semibold small text-muted">Válida Desde</label>
+                    <input type="date" className="form-control input-moderno" value={rutaForm.validez_desde || ''} onChange={e => setRutaForm({...rutaForm, validez_desde: e.target.value})} />
+                  </div>
+                  <div className="col-6">
+                    <label className="form-label fw-semibold small text-muted">Válida Hasta</label>
+                    <input type="date" className="form-control input-moderno" value={rutaForm.validez_hasta || ''} onChange={e => setRutaForm({...rutaForm, validez_hasta: e.target.value})} />
+                  </div>
                 </div>
                 <div className="d-grid">
                   <button type="submit" className="btn btn-primary rounded-pill fw-bold shadow-sm py-2">Guardar Asignación</button>
