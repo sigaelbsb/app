@@ -53,10 +53,24 @@ export const TransporteEscolar = () => {
   useEffect(() => {
     if ((vistaActual === 'Operacion' || vistaActual === 'Visor') && opRutaId) {
       const hoyStr = new Date().toISOString().split('T')[0];
-      const found = trackingHoy.find(t => t.ruta_id === opRutaId && t.sentido === opSentido && t.fecha === hoyStr);
+      const found = trackingHoy.find((t: any) => t.ruta_id === opRutaId && t.sentido === opSentido && t.fecha === hoyStr);
       setOpActual(found || null);
     }
   }, [vistaActual, opRutaId, opSentido, trackingHoy]);
+
+  // ─── AUTO-RESET DIARIO ──────────────────────────────────────────
+  // Al cargar la app, verifica si ya se hizo el reset del día.
+  // Guarda en localStorage la fecha del último reset para no repetirlo.
+  useEffect(() => {
+    if (!canViewTransporte) return;
+    const hoyStr = new Date().toISOString().split('T')[0];
+    const lastReset = localStorage.getItem('sigae_transporte_last_reset');
+    if (lastReset !== hoyStr) {
+      // Es un día nuevo: ejecutar reset silencioso de ayer y guardar fecha
+      ejecutarResetDiario(true);
+      localStorage.setItem('sigae_transporte_last_reset', hoyStr);
+    }
+  }, [canViewTransporte]);
 
   // Realtime updates para tracking
   useEffect(() => {
@@ -366,93 +380,142 @@ export const TransporteEscolar = () => {
     if (!ruta) return;
     
     const pids = getIdsWithEscuela(ruta, opSentido as any);
+    if (pids.length === 0) return Swal.fire('Atención', 'La ruta no tiene paradas configuradas.', 'warning');
     
+    const hoyStr = new Date().toISOString().split('T')[0];
+    // Verificar que no exista ya un recorrido activo para esta ruta+sentido+día
+    const existing = trackingHoy.find((t: any) => t.ruta_id === opRutaId && t.sentido === opSentido && t.fecha === hoyStr);
+    if (existing && existing.estado !== 'Finalizada') {
+      return Swal.fire('Atención', 'Ya existe un recorrido activo para esta ruta y sentido hoy.', 'info');
+    }
+
     try {
       const payload = {
-        ruta_id: opRutaId, escuela_codigo: escCodigo, sentido: opSentido,
-        estado: 'En Ruta', ubicacion_actual: pids.length > 0 ? pids[0] : null
+        ruta_id: opRutaId,
+        escuela_codigo: escCodigo,
+        sentido: opSentido,
+        estado: 'En Ruta',
+        ubicacion_actual: pids[0],
+        historial_paradas: {},
+        ultima_actualizacion: new Date().toISOString()
       };
       const { error } = await supabase.from('transporte_operaciones').insert([payload]);
       if (error) throw error;
-      cargarTrackingSolo();
+      await cargarTrackingSolo();
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Recorrido iniciado', showConfirmButton: false, timer: 2000 });
     } catch (err: any) {
       Swal.fire('Error', err.message, 'error');
     }
   };
 
   const marcarParada = async (paradaId: string, index: number, orderedIds: string[]) => {
-    const isEnd = index === orderedIds.length - 1;
-    
-    // Obtener la hora actual en formato HH:MM
-    const now = new Date();
-    const currentHours = String(now.getHours()).padStart(2, '0');
-    const currentMinutes = String(now.getMinutes()).padStart(2, '0');
-    const defaultTime = `${currentHours}:${currentMinutes}`;
+    if (!opActual) {
+      return Swal.fire('Sin recorrido activo', 'Primero inicia el recorrido con el botón "Iniciar Recorrido".', 'warning');
+    }
+    if (opActual.estado === 'Finalizada') {
+      return Swal.fire('Recorrido finalizado', 'Este recorrido ya fue completado. Inicia uno nuevo si necesitas continuar.', 'info');
+    }
 
-    Swal.fire({
-      title: 'Registrar Paso',
+    const isEnd = index === orderedIds.length - 1;
+    const now = new Date();
+    const defaultTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    const result = await Swal.fire({
+      title: isEnd ? '🏁 Finalizar Recorrido' : '📍 Registrar Paso',
       html: `
-        <p class="text-muted small">Confirma la hora exacta en la que la unidad pasó por esta parada.</p>
+        <p class="text-muted small mb-3">${isEnd ? 'Confirma la llegada a la escuela.' : `Parada: <strong>${orderedIds[index]}</strong>`}</p>
+        <label class="fw-semibold small d-block mb-1">Hora de paso:</label>
         <input type="time" id="swal-input-time" class="form-control form-control-lg text-center fw-bold" value="${defaultTime}">
       `,
       showCancelButton: true,
-      confirmButtonText: 'Registrar Hora',
+      confirmButtonText: isEnd ? '✅ Finalizar' : '✅ Registrar',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#10b981',
+      confirmButtonColor: isEnd ? '#6d28d9' : '#10b981',
       preConfirm: () => {
-        const timeInput = (document.getElementById('swal-input-time') as HTMLInputElement).value;
-        if (!timeInput) {
-          Swal.showValidationMessage('Debe ingresar una hora');
-        }
+        const timeInput = (document.getElementById('swal-input-time') as HTMLInputElement)?.value;
+        if (!timeInput) { Swal.showValidationMessage('Debe ingresar una hora'); }
         return timeInput;
       }
-    }).then(async (result: any) => {
-      if (result.isConfirmed) {
-        try {
-          const selectedTime = result.value;
-          
-          // Clonamos el historial actual o creamos uno nuevo
-          const historialAnterior = opActual.historial_paradas || {};
-          const nuevoHistorial = { ...historialAnterior, [paradaId]: selectedTime };
+    });
 
-          const { error } = await supabase.from('transporte_operaciones').update({
-            ubicacion_actual: paradaId, 
-            estado: isEnd ? 'Finalizada' : 'En Ruta', 
-            ultima_actualizacion: new Date().toISOString(),
-            historial_paradas: nuevoHistorial
+    if (!result.isConfirmed) return;
+
+    try {
+      const selectedTime = result.value;
+      const historialAnterior = opActual.historial_paradas || {};
+      const nuevoHistorial = { ...historialAnterior, [paradaId]: selectedTime };
+
+      const { error } = await supabase.from('transporte_operaciones').update({
+        ubicacion_actual: paradaId,
+        estado: isEnd ? 'Finalizada' : 'En Ruta',
+        ultima_actualizacion: new Date().toISOString(),
+        historial_paradas: nuevoHistorial
+      }).eq('id', opActual.id);
+
+      if (error) {
+        if (error.message?.includes('historial_paradas')) {
+          // Column missing – update without historial
+          const { error: err2 } = await supabase.from('transporte_operaciones').update({
+            ubicacion_actual: paradaId,
+            estado: isEnd ? 'Finalizada' : 'En Ruta',
+            ultima_actualizacion: new Date().toISOString()
           }).eq('id', opActual.id);
-          
-          if (error) {
-            // Handle missing column gracefully to guide the user
-            if (error.message && error.message.includes('column "historial_paradas"')) {
-              throw new Error('La base de datos requiere una actualización. Debes ejecutar el comando SQL provisto para agregar la columna "historial_paradas".');
-            }
-            throw error;
-          }
-          cargarTrackingSolo();
-          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Paso registrado', showConfirmButton: false, timer: 1500 });
-        } catch (err: any) {
-          Swal.fire({
-            icon: 'error',
-            title: 'No se pudo registrar',
-            text: err.message,
-            footer: 'Asegúrate de haber ejecutado el ALTER TABLE en Supabase.'
-          });
+          if (err2) throw err2;
+        } else {
+          throw error;
         }
       }
-    });
+
+      await cargarTrackingSolo();
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success',
+        title: isEnd ? '🏁 Ruta finalizada' : '✅ Paso registrado',
+        showConfirmButton: false, timer: 1800 });
+    } catch (err: any) {
+      Swal.fire({ icon: 'error', title: 'No se pudo registrar', text: err.message });
+    }
+  };
+
+  // Reset manual (llamado desde botón y desde auto-reset diario)
+  const ejecutarResetDiario = async (silencioso = false) => {
+    try {
+      const ayerStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      // Marcar como 'No Completado' los recorridos que quedaron incompletos ayer
+      await supabase.from('transporte_operaciones')
+        .update({ estado: 'No Completado' })
+        .eq('escuela_codigo', escCodigo)
+        .eq('fecha', ayerStr)
+        .neq('estado', 'Finalizada');
+      if (!silencioso) {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Sistema reiniciado para el día de hoy', showConfirmButton: false, timer: 2500 });
+      }
+    } catch (e: any) {
+      console.error('Auto-reset error:', e);
+    }
   };
 
   const resetMasivo = () => {
-    Swal.fire({ title: '¿Resetear TODAS las rutas?', text: `Se borrarán todas las horas marcadas para el día de hoy.`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Sí, resetear todo'
+    Swal.fire({
+      title: '¿Resetear recorridos de hoy?',
+      html: `<p class="text-muted small">Se eliminarán <strong>todos los registros de hoy</strong> para esta escuela.<br>Los recorridos de días anteriores no se verán afectados.</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      confirmButtonText: 'Sí, resetear hoy'
     }).then(async (res: any) => {
       if (res.isConfirmed) {
         try {
           const hoyStr = new Date().toISOString().split('T')[0];
-          await supabase.from('transporte_operaciones').delete().eq('fecha', hoyStr).eq('escuela_codigo', escCodigo);
-          Swal.fire('Listo', 'Reset masivo completado.', 'success');
-          cargarTrackingSolo();
-        } catch(e:any) { Swal.fire('Error', e.message, 'error'); }
+          const { error } = await supabase.from('transporte_operaciones')
+            .delete()
+            .eq('fecha', hoyStr)
+            .eq('escuela_codigo', escCodigo);
+          if (error) throw error;
+          setOpActual(null);
+          await cargarTrackingSolo();
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Reset completado', showConfirmButton: false, timer: 2000 });
+        } catch(e: any) {
+          Swal.fire('Error', e.message, 'error');
+        }
       }
     });
   };
