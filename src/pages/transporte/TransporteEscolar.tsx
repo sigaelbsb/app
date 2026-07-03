@@ -150,6 +150,34 @@ export const TransporteEscolar = () => {
   };
 
   // ---- RUTAS ----
+  // Helper para inyectar la escuela en las rutas
+  const getIdsWithEscuela = (ruta: any, sentido: 'Casa - Escuela' | 'Escuela - Casa') => {
+    let baseIds = [];
+    if (Array.isArray(ruta.paradas_json)) baseIds = ruta.paradas_json;
+    else if (typeof ruta.paradas_json === 'string') { try { baseIds = JSON.parse(ruta.paradas_json); } catch (e) {} }
+    
+    // Clonamos para no mutar el original
+    let pids = [...baseIds];
+    
+    if (sentido === 'Escuela - Casa') {
+      pids.reverse();
+      pids.unshift('escuela_virtual');
+    } else {
+      pids.push('escuela_virtual');
+    }
+    return pids;
+  };
+
+  const getParadasWithEscuela = (pids: string[]) => {
+    const nombreEscuela = escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const paradaEscuela = { id: 'escuela_virtual', nombre_parada: `🏫 ${nombreEscuela}`, descripcion: 'Sede Educativa Institucional' };
+    
+    return pids.map(pid => {
+      if (pid === 'escuela_virtual') return paradaEscuela;
+      return paradas.find(p => p.id === pid);
+    }).filter(Boolean);
+  };
+
   const editRuta = (r: any) => {
     setRutaForm({
       id: r.id, nombre: r.nombre, chofer: r.chofer_nombre, docente_id: r.docente_id || '',
@@ -261,9 +289,8 @@ export const TransporteEscolar = () => {
   const compartirRuta = async (ruta: any) => {
     Swal.fire({ title: 'Preparando Mensaje...', text: 'Generando imagen membretada de la ruta...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
     try {
-      let ids = [];
-      if (Array.isArray(ruta.paradas_json)) ids = ruta.paradas_json;
-      else if (typeof ruta.paradas_json === 'string') { try { ids = JSON.parse(ruta.paradas_json); } catch (e) {} }
+      const pids = getIdsWithEscuela(ruta, 'Casa - Escuela'); // Para compartir asumimos Ida como base visual
+      const orderedParadas = getParadasWithEscuela(pids);
 
       const doc = docentes.find(d => d.id_usuario === ruta.docente_id);
       const nombreDoc = doc ? doc.nombre_completo : 'Sin asignar';
@@ -294,12 +321,9 @@ export const TransporteEscolar = () => {
       `;
       let textoMensaje = `🚍 *RUTA DE TRANSPORTE ESCOLAR*\n🏫 *U.E. Libertador Bolívar*\n\n📍 *${ruta.nombre}*\n👨✈️ Chofer: ${ruta.chofer_nombre}\n👩🏫 Guía: ${nombreDoc} ${telDoc ? '('+telDoc+')' : ''}\n\n*Paradas:*\n`;
 
-      ids.forEach((pid: string, idx: number) => {
-        const p = paradas.find(x => x.id === pid);
-        if(p) {
-          htmlImagen += `<li style="margin-bottom:8px;"><b>${idx+1}.</b> ${p.nombre_parada} <span style="color:#64748b; font-size:13px;">(${p.descripcion||'Sin referencia'})</span></li>`;
-          textoMensaje += `  ${idx+1}. ${p.nombre_parada}\n`;
-        }
+      orderedParadas.forEach((p, idx) => {
+        htmlImagen += `<li style="margin-bottom:8px;"><b>${idx+1}.</b> ${p.nombre_parada} <span style="color:#64748b; font-size:13px;">(${p.descripcion||'Sin referencia'})</span></li>`;
+        textoMensaje += `  ${idx+1}. ${p.nombre_parada}\n`;
       });
       htmlImagen += `</ul></div>`;
       htmlImagen += `
@@ -343,16 +367,14 @@ export const TransporteEscolar = () => {
   // ---- OPERACIONES EN VIVO ----
   const iniciarRecorrido = async () => {
     const ruta = rutas.find(r => r.id === opRutaId);
-    let ids = [];
-    if (Array.isArray(ruta.paradas_json)) ids = ruta.paradas_json;
-    else if (typeof ruta.paradas_json === 'string') { try { ids = JSON.parse(ruta.paradas_json); } catch (e) {} }
+    if (!ruta) return;
     
-    if (opSentido === 'Escuela - Casa') ids.reverse();
+    const pids = getIdsWithEscuela(ruta, opSentido as any);
     
     try {
       const payload = {
         ruta_id: opRutaId, escuela_codigo: escCodigo, sentido: opSentido,
-        estado: 'En Ruta', ubicacion_actual: ids.length > 0 ? ids[0] : null
+        estado: 'En Ruta', ubicacion_actual: pids.length > 0 ? pids[0] : null
       };
       const { error } = await supabase.from('transporte_operaciones').insert([payload]);
       if (error) throw error;
@@ -445,7 +467,18 @@ export const TransporteEscolar = () => {
         .tarjeta-sub:hover .icono-sub { transform: scale(1.1); }
         .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.7; cursor: not-allowed; }
         .timeline-rutograma { border-left: 4px solid #0dcaf0; margin-left: 20px; padding-left: 25px; position: relative; margin-top: 10px; padding-bottom: 5px; }
-        .timeline-rutograma.finalizada { border-left-color: #198754; }
+        .timeline-rutograma.finalizada .timeline-content { border-color: #28a745 !important; }
+        
+        .pulse-animation {
+          animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+          0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.5); }
+          70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+
+        /* Modal Styles */
         .timeline-node { position: relative; margin-bottom: 15px; }
         .timeline-icon { position: absolute; left: -45px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 50%; background: white; border: 4px solid #0dcaf0; display: flex; align-items: center; justify-content: center; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 1.1rem; }
         .timeline-icon.start { border-color: #f97316; color: #f97316; }
@@ -712,13 +745,9 @@ export const TransporteEscolar = () => {
                 {(() => {
                   const rutaObj = rutas.find(r => r.id === opRutaId);
                   if (!rutaObj) return null;
-                  let pids = [];
-                  if (Array.isArray(rutaObj.paradas_json)) pids = rutaObj.paradas_json;
-                  else if (typeof rutaObj.paradas_json === 'string') { try { pids = JSON.parse(rutaObj.paradas_json); } catch(e){} }
                   
-                  if (opSentido === 'Escuela - Casa') pids.reverse();
-                  
-                  const orderedParadas = pids.map((pid: string) => paradas.find(p => p.id === pid)).filter(Boolean);
+                  const pids = getIdsWithEscuela(rutaObj, opSentido as any);
+                  const orderedParadas = getParadasWithEscuela(pids);
 
                   if (orderedParadas.length === 0) return <div className="text-center py-4">Esta ruta no tiene paradas.</div>;
 
@@ -768,10 +797,10 @@ export const TransporteEscolar = () => {
 
                           return (
                             <div key={`${parada.id}-${index}`} className="timeline-node">
-                              <div className={`timeline-icon ${iconClass}`}>
+                              <div className={`timeline-icon ${iconClass} ${isActive ? 'pulse-animation' : ''}`}>
                                 {isActive ? <i className="bi bi-bus-front"></i> : isEnd ? <i className="bi bi-flag"></i> : passed ? <i className="bi bi-check"></i> : <i className="bi bi-geo"></i>}
                               </div>
-                              <div className={`timeline-content ${isActive ? 'active shadow-sm' : ''}`}>
+                              <div className={`timeline-content ${isActive ? 'active shadow-sm border-success' : ''}`} style={{ transition: 'all 0.3s ease' }}>
                                 <div>
                                   <h6 className="fw-bold mb-1 text-dark">{parada.nombre_parada}</h6>
                                   {parada.descripcion && <p className="small text-muted mb-0">{parada.descripcion}</p>}
