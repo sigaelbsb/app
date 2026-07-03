@@ -7,7 +7,9 @@ export const TransporteEscolar = () => {
   const { loading: permLoading, tienePermiso, tieneAccesoEscuela } = usePermisos();
   const Swal = (window as any).Swal;
 
-  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor'>('dashboard');
+  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor'>(
+    (localStorage.getItem('sigae_transporte_vista') as any) || 'dashboard'
+  );
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState(localStorage.getItem('sigae_escuela_codigo') || 'sb');
 
@@ -40,9 +42,13 @@ export const TransporteEscolar = () => {
   const [showModalAsignacion, setShowModalAsignacion] = useState(false);
 
   // Operacion / Visor State
-  const [opRutaId, setOpRutaId] = useState('');
-  const [opSentido, setOpSentido] = useState('Casa - Escuela');
+  const [opRutaId, setOpRutaId] = useState(localStorage.getItem('sigae_transporte_ruta') || '');
+  const [opSentido, setOpSentido] = useState(localStorage.getItem('sigae_transporte_sentido') || 'Casa - Escuela');
   const [opActual, setOpActual] = useState<any>(null);
+
+  useEffect(() => { localStorage.setItem('sigae_transporte_vista', vistaActual); }, [vistaActual]);
+  useEffect(() => { localStorage.setItem('sigae_transporte_ruta', opRutaId); }, [opRutaId]);
+  useEffect(() => { localStorage.setItem('sigae_transporte_sentido', opSentido); }, [opSentido]);
 
   useEffect(() => {
     if (canViewTransporte) {
@@ -520,6 +526,36 @@ export const TransporteEscolar = () => {
     });
   };
 
+  const resetRutaActual = () => {
+    if (!opRutaId) return;
+    Swal.fire({
+      title: '¿Resetear esta ruta?',
+      html: `<p class="text-muted small">Se eliminará el recorrido actual de hoy para esta ruta y sentido.</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ffc107',
+      confirmButtonText: 'Sí, resetear'
+    }).then(async (res: any) => {
+      if (res.isConfirmed) {
+        try {
+          const hoyStr = new Date().toISOString().split('T')[0];
+          const { error } = await supabase.from('transporte_operaciones')
+            .delete()
+            .eq('fecha', hoyStr)
+            .eq('escuela_codigo', escCodigo)
+            .eq('ruta_id', opRutaId)
+            .eq('sentido', opSentido);
+          if (error) throw error;
+          setOpActual(null);
+          await cargarTrackingSolo();
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta reseteada', showConfirmButton: false, timer: 2000 });
+        } catch(e: any) {
+          Swal.fire('Error', e.message, 'error');
+        }
+      }
+    });
+  };
+
   if (permLoading || loadingData) {
     return <div className="text-center py-5"><div className="spinner-border text-success" role="status"></div></div>;
   }
@@ -933,6 +969,11 @@ export const TransporteEscolar = () => {
               </h5>
               {vistaActual === 'Operacion' && canOperateTracking && (
                 <div className="d-flex gap-2">
+                  {opActual && (
+                    <button className="btn btn-outline-warning rounded-pill px-3 shadow-sm" onClick={resetRutaActual}>
+                      <i className="bi bi-arrow-counterclockwise me-1"></i>Reset Ruta
+                    </button>
+                  )}
                   <button className="btn btn-outline-danger rounded-pill px-3 shadow-sm" onClick={resetMasivo}>
                     <i className="bi bi-exclamation-triangle-fill me-1"></i>Reset Masivo
                   </button>
