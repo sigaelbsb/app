@@ -7,7 +7,8 @@ export const TransporteEscolar = () => {
   const { loading: permLoading, tienePermiso, tieneAccesoEscuela } = usePermisos();
   const Swal = (window as any).Swal;
 
-  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Paradas' | 'Rutas' | 'Operacion' | 'Visor'>('dashboard');
+  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor'>('dashboard');
+  const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState(localStorage.getItem('sigae_escuela_codigo') || 'sb');
 
   const canManageRutas = tienePermiso('Tarjeta: Gestión de Rutas');
@@ -34,6 +35,9 @@ export const TransporteEscolar = () => {
   });
   const [paradasTemporales, setParadasTemporales] = useState<any[]>([]);
   const [paradaSelectId, setParadaSelectId] = useState('');
+  
+  // Asignacion State
+  const [showModalAsignacion, setShowModalAsignacion] = useState(false);
 
   // Operacion / Visor State
   const [opRutaId, setOpRutaId] = useState('');
@@ -164,7 +168,7 @@ export const TransporteEscolar = () => {
   };
 
   const saveRuta = async () => {
-    if (!rutaForm.nombre || !rutaForm.chofer || !rutaForm.validez_desde || !rutaForm.validez_hasta) {
+    if (!rutaForm.nombre || !rutaForm.validez_desde || !rutaForm.validez_hasta) {
       return Swal.fire('Atención', 'Complete todos los campos de la ruta', 'warning');
     }
     if (paradasTemporales.length === 0) {
@@ -175,8 +179,6 @@ export const TransporteEscolar = () => {
       const payload = {
         escuela_codigo: escCodigo,
         nombre: rutaForm.nombre,
-        chofer_nombre: rutaForm.chofer,
-        docente_id: rutaForm.docente_id || null,
         validez_desde: rutaForm.validez_desde,
         validez_hasta: rutaForm.validez_hasta,
         paradas_json: paradasTemporales.map(p => p.id)
@@ -192,6 +194,25 @@ export const TransporteEscolar = () => {
       
       setShowModalRuta(false);
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta Guardada', showConfirmButton: false, timer: 2000 });
+      cargarTodo(true);
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
+    }
+  };
+
+  const saveAsignacion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        chofer_nombre: rutaForm.chofer,
+        docente_id: rutaForm.docente_id || null,
+      };
+
+      const { error } = await supabase.from('transporte_rutas').update(payload).eq('id', rutaForm.id);
+      if (error) throw error;
+      
+      setShowModalAsignacion(false);
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Personal Asignado', showConfirmButton: false, timer: 2000 });
       cargarTodo(true);
     } catch (err: any) {
       Swal.fire('Error', err.message, 'error');
@@ -387,9 +408,27 @@ export const TransporteEscolar = () => {
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-          <i className="bi bi-bus-front text-primary"></i> Transporte Escolar
-        </h4>
+        <div className="d-flex flex-column flex-md-row align-items-md-center gap-3 mb-0">
+          <h4 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+            <i className="bi bi-bus-front text-primary"></i> Transporte Escolar
+          </h4>
+          {tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb') && (
+            <div className="btn-group bg-light rounded-pill p-1 shadow-sm border">
+              <button 
+                onClick={() => setEscCodigo('sb')} 
+                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+              >
+                Santa Bárbara
+              </button>
+              <button 
+                onClick={() => setEscCodigo('lb')} 
+                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+              >
+                Libertador Bolívar
+              </button>
+            </div>
+          )}
+        </div>
         {vistaActual !== 'dashboard' && (
           <button className="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold" onClick={() => setVistaActual('dashboard')}>
             <i className="bi bi-arrow-left me-1"></i> Volver al Dashboard
@@ -422,23 +461,21 @@ export const TransporteEscolar = () => {
       {/* DASHBOARD PRINCIPAL */}
       {vistaActual === 'dashboard' && (
         <div className="row g-4">
-          <div className="col-md-6 col-xl-3 animate__animated animate__fadeInUp">
-            <div className={`tarjeta-sub p-4 h-100 shadow-sm ${!canManageParadas ? 'bloqueado' : ''}`} style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fff5f2 100%)', border: '1px solid #ffdac2' }} onClick={() => canManageParadas && setVistaActual('Paradas')}>
-              <i className="bi bi-geo-alt-fill text-dark bg-icono-gigante"></i>
-              <div className="icono-sub shadow-sm" style={{ color: '#f97316', background: 'white', border: '1px solid #ffdac2' }}><i className="bi bi-geo-alt-fill"></i></div>
-              <h5 className="fw-bold text-dark mb-2" style={{ zIndex: 2 }}>Paradas de Control</h5>
-              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Crear puntos de recogida (Catálogo).</p>
+          {(canManageParadas || canManageRutas) && (
+            <div className="col-md-6 animate__animated animate__fadeInUp">
+              <div className={`tarjeta-sub p-4 h-100 shadow-sm`} style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fff5f2 100%)', border: '1px solid #ffdac2' }} 
+                onClick={() => {
+                  setConfigTab(canManageParadas ? 'Paradas' : 'Rutas');
+                  setVistaActual('Configuracion');
+                }}
+              >
+                <i className="bi bi-gear-fill text-dark bg-icono-gigante"></i>
+                <div className="icono-sub shadow-sm" style={{ color: '#f97316', background: 'white', border: '1px solid #ffdac2' }}><i className="bi bi-gear-fill"></i></div>
+                <h5 className="fw-bold text-dark mb-2" style={{ zIndex: 2 }}>Configuración de Transporte</h5>
+                <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Gestionar paradas, rutas y asignar personal (Chofer / Guía).</p>
+              </div>
             </div>
-          </div>
-          
-          <div className="col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.1s' }}>
-            <div className={`tarjeta-sub p-4 h-100 shadow-sm ${!canManageRutas ? 'bloqueado' : ''}`} style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fffbeb 100%)', border: '1px solid #fde68a' }} onClick={() => canManageRutas && setVistaActual('Rutas')}>
-              <i className="bi bi-sign-turn-right-fill text-dark bg-icono-gigante"></i>
-              <div className="icono-sub shadow-sm" style={{ color: '#d97706', background: 'white', border: '1px solid #fde68a' }}><i className="bi bi-sign-turn-right-fill"></i></div>
-              <h5 className="fw-bold text-dark mb-2" style={{ zIndex: 2 }}>Diseño de Rutas</h5>
-              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Armar secuencias y choferes.</p>
-            </div>
-          </div>
+          )}
           
           <div className="col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
             <div className={`tarjeta-sub p-4 h-100 shadow-sm ${!canOperateTracking ? 'bloqueado' : ''}`} style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)', border: '1px solid #ddd6fe' }} onClick={() => canOperateTracking && setVistaActual('Operacion')}>
@@ -460,97 +497,170 @@ export const TransporteEscolar = () => {
         </div>
       )}
 
-      {/* VISTA: PARADAS */}
-      {vistaActual === 'Paradas' && (
+      {/* VISTA: CONFIGURACION */}
+      {vistaActual === 'Configuracion' && (
         <div className="card shadow-sm border-0 rounded-4 animate__animated animate__fadeInRight">
-          <div className="card-body p-4 p-md-5">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="fw-bold text-dark mb-0">Catálogo Global de Paradas</h5>
-              <button className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" onClick={() => { setParadaForm({ id: '', nombre: '', descripcion: '' }); setShowModalParada(true); }}>
-                <i className="bi bi-plus-lg me-1"></i> Nueva Parada
-              </button>
-            </div>
-            
-            <div className="table-responsive">
-              <table className="table table-hover align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th>Nombre de Parada</th>
-                    <th>Referencia</th>
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paradas.length === 0 ? (
-                    <tr><td colSpan={3} className="text-center py-4 text-muted">No hay paradas registradas en el catálogo.</td></tr>
-                  ) : paradas.map((p) => (
-                    <tr key={p.id}>
-                      <td className="fw-bold text-dark"><i className="bi bi-geo-alt-fill text-info me-2"></i>{p.nombre_parada}</td>
-                      <td className="text-muted small">{p.descripcion || 'Sin referencia'}</td>
-                      <td className="text-end text-nowrap">
-                        <button className="btn btn-sm btn-light border text-primary me-1 shadow-sm" onClick={() => { setParadaForm({ id: p.id, nombre: p.nombre_parada, descripcion: p.descripcion || '' }); setShowModalParada(true); }}><i className="bi bi-pencil-fill"></i></button>
-                        <button className="btn btn-sm btn-light border text-danger shadow-sm" onClick={() => deleteParada(p.id)}><i className="bi bi-trash-fill"></i></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="card-header bg-white pt-4 pb-0 border-bottom-0">
+            <ul className="nav nav-tabs border-bottom-0">
+              {canManageParadas && (
+                <li className="nav-item">
+                  <button className={`nav-link fw-bold ${configTab === 'Paradas' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Paradas')}>
+                    <i className="bi bi-geo-alt-fill me-2"></i>Catálogo de Paradas
+                  </button>
+                </li>
+              )}
+              {canManageRutas && (
+                <li className="nav-item">
+                  <button className={`nav-link fw-bold ${configTab === 'Rutas' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Rutas')}>
+                    <i className="bi bi-signpost-split-fill me-2"></i>Secuencia de Rutas
+                  </button>
+                </li>
+              )}
+              {canManageRutas && (
+                <li className="nav-item">
+                  <button className={`nav-link fw-bold ${configTab === 'Asignacion' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Asignacion')}>
+                    <i className="bi bi-person-badge-fill me-2"></i>Asignación de Personal
+                  </button>
+                </li>
+              )}
+            </ul>
           </div>
-        </div>
-      )}
-
-      {/* VISTA: RUTAS */}
-      {vistaActual === 'Rutas' && (
-        <div className="card shadow-sm border-0 rounded-4 animate__animated animate__fadeInRight">
-          <div className="card-body p-4 p-md-5">
-            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-              <h5 className="fw-bold text-dark mb-0"><i className="bi bi-signpost-split-fill text-success me-2"></i>Rutas Activas</h5>
-              <div className="d-flex flex-wrap gap-2">
-                <button className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onClick={() => { setRutaForm({ id: '', nombre: '', chofer: '', docente_id: '', validez_desde: '', validez_hasta: '' }); setParadasTemporales([]); setShowModalRuta(true); }}>
-                  <i className="bi bi-plus-circle me-1"></i> Nueva Ruta
-                </button>
-              </div>
-            </div>
-
-            <div className="table-responsive">
-              <table className="table table-hover align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th>Ruta</th>
-                    <th>Personal Asignado</th>
-                    <th className="text-center">Paradas</th>
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rutas.length === 0 ? (
-                    <tr><td colSpan={4} className="text-center py-4 text-muted">No hay rutas.</td></tr>
-                  ) : rutas.map((r) => {
-                    const doc = docentes.find(d => d.id_usuario === r.docente_id);
-                    let len = 0;
-                    if (Array.isArray(r.paradas_json)) len = r.paradas_json.length;
-                    else if (typeof r.paradas_json === 'string') { try { len = JSON.parse(r.paradas_json).length; } catch(e){} }
-                    
-                    return (
-                      <tr key={r.id}>
-                        <td className="fw-bold text-primary">{r.nombre}</td>
-                        <td className="small">
-                          <div className="text-muted"><i className="bi bi-person-vcard me-1"></i>Chofer: <span className="fw-bold text-dark">{r.chofer_nombre}</span></div>
-                          <div><i className="bi bi-person-video3 me-1"></i>Guía: <span className="fw-bold text-dark">{doc ? doc.nombre_completo : 'N/A'}</span></div>
-                        </td>
-                        <td className="text-center"><span className="badge bg-success rounded-pill px-2 py-1">{len}</span></td>
-                        <td className="text-end text-nowrap">
-                          <button className="btn btn-sm btn-light border text-success shadow-sm me-1" title="Compartir WhatsApp" onClick={() => compartirRuta(r)}><i className="bi bi-whatsapp"></i></button>
-                          <button className="btn btn-sm btn-light border text-primary shadow-sm me-1" onClick={() => editRuta(r)}><i className="bi bi-pencil-fill"></i></button>
-                          <button className="btn btn-sm btn-light border text-danger shadow-sm" onClick={() => deleteRuta(r.id)}><i className="bi bi-trash-fill"></i></button>
-                        </td>
+          
+          <div className="card-body p-4 p-md-5 bg-light rounded-bottom-4">
+            
+            {/* TAB: PARADAS */}
+            {configTab === 'Paradas' && canManageParadas && (
+              <div className="animate__animated animate__fadeIn">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h5 className="fw-bold text-dark mb-0">Listado de Paradas</h5>
+                  <button className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" onClick={() => { setParadaForm({ id: '', nombre: '', descripcion: '' }); setShowModalParada(true); }}>
+                    <i className="bi bi-plus-lg me-1"></i> Nueva Parada
+                  </button>
+                </div>
+                
+                <div className="table-responsive bg-white rounded-3 shadow-sm border">
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Nombre de Parada</th>
+                        <th>Referencia</th>
+                        <th className="text-end">Acciones</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {paradas.length === 0 ? (
+                        <tr><td colSpan={3} className="text-center py-4 text-muted">No hay paradas registradas en el catálogo.</td></tr>
+                      ) : paradas.map((p) => (
+                        <tr key={p.id}>
+                          <td className="fw-bold text-dark px-3"><i className="bi bi-geo-alt-fill text-info me-2"></i>{p.nombre_parada}</td>
+                          <td className="text-muted small">{p.descripcion || 'Sin referencia'}</td>
+                          <td className="text-end text-nowrap px-3">
+                            <button className="btn btn-sm btn-light border text-primary me-1 shadow-sm" onClick={() => { setParadaForm({ id: p.id, nombre: p.nombre_parada, descripcion: p.descripcion || '' }); setShowModalParada(true); }}><i className="bi bi-pencil-fill"></i></button>
+                            <button className="btn btn-sm btn-light border text-danger shadow-sm" onClick={() => deleteParada(p.id)}><i className="bi bi-trash-fill"></i></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: RUTAS */}
+            {configTab === 'Rutas' && canManageRutas && (
+              <div className="animate__animated animate__fadeIn">
+                <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                  <h5 className="fw-bold text-dark mb-0">Diseño y Secuencia</h5>
+                  <button className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onClick={() => { setRutaForm({ id: '', nombre: '', chofer: '', docente_id: '', validez_desde: '', validez_hasta: '' }); setParadasTemporales([]); setShowModalRuta(true); }}>
+                    <i className="bi bi-plus-circle me-1"></i> Nueva Ruta
+                  </button>
+                </div>
+
+                <div className="table-responsive bg-white rounded-3 shadow-sm border">
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Ruta</th>
+                        <th className="text-center">Paradas</th>
+                        <th className="text-end">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rutas.length === 0 ? (
+                        <tr><td colSpan={3} className="text-center py-4 text-muted">No hay rutas diseñadas.</td></tr>
+                      ) : rutas.map((r) => {
+                        let len = 0;
+                        if (Array.isArray(r.paradas_json)) len = r.paradas_json.length;
+                        else if (typeof r.paradas_json === 'string') { try { len = JSON.parse(r.paradas_json).length; } catch(e){} }
+                        
+                        return (
+                          <tr key={r.id}>
+                            <td className="fw-bold text-primary px-3">{r.nombre}</td>
+                            <td className="text-center"><span className="badge bg-success rounded-pill px-2 py-1">{len} paradas</span></td>
+                            <td className="text-end text-nowrap px-3">
+                              <button className="btn btn-sm btn-light border text-success shadow-sm me-1" title="Compartir WhatsApp" onClick={() => compartirRuta(r)}><i className="bi bi-whatsapp"></i></button>
+                              <button className="btn btn-sm btn-light border text-primary shadow-sm me-1" onClick={() => editRuta(r)}><i className="bi bi-pencil-fill"></i></button>
+                              <button className="btn btn-sm btn-light border text-danger shadow-sm" onClick={() => deleteRuta(r.id)}><i className="bi bi-trash-fill"></i></button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: ASIGNACION */}
+            {configTab === 'Asignacion' && canManageRutas && (
+              <div className="animate__animated animate__fadeIn">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h5 className="fw-bold text-dark mb-0">Personal Asignado a Rutas</h5>
+                </div>
+
+                <div className="table-responsive bg-white rounded-3 shadow-sm border">
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Ruta</th>
+                        <th>Chofer Asignado</th>
+                        <th>Docente Guía</th>
+                        <th className="text-end">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rutas.length === 0 ? (
+                        <tr><td colSpan={4} className="text-center py-4 text-muted">Debe diseñar una ruta primero.</td></tr>
+                      ) : rutas.map((r) => {
+                        const doc = docentes.find(d => d.id_usuario === r.docente_id);
+                        return (
+                          <tr key={r.id}>
+                            <td className="fw-bold text-dark px-3">{r.nombre}</td>
+                            <td>
+                              <div className="text-muted small"><i className="bi bi-person-vcard me-1"></i>Nombre</div>
+                              <div className="fw-bold">{r.chofer_nombre || <span className="text-danger">Sin asignar</span>}</div>
+                            </td>
+                            <td>
+                              <div className="text-muted small"><i className="bi bi-person-video3 me-1"></i>Guía</div>
+                              <div className="fw-bold">{doc ? doc.nombre_completo : <span className="text-danger">Sin asignar</span>}</div>
+                            </td>
+                            <td className="text-end px-3">
+                              <button className="btn btn-sm btn-outline-primary rounded-pill fw-bold" onClick={() => {
+                                setRutaForm(r);
+                                setShowModalAsignacion(true);
+                              }}>
+                                <i className="bi bi-person-lines-fill me-1"></i>Asignar
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
@@ -733,26 +843,15 @@ export const TransporteEscolar = () => {
             </div>
             <div className="modal-body">
               <div className="row g-3 mb-4">
-                <div className="col-md-6">
+                <div className="col-12">
                   <label className="form-label fw-semibold small">Nombre de Ruta</label>
                   <input type="text" className="form-control input-moderno fw-bold" value={rutaForm.nombre} onChange={e => setRutaForm({...rutaForm, nombre: e.target.value})} placeholder="Ej: Ruta 1 - Centro" />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-semibold small">Chofer de Unidad</label>
-                  <input type="text" className="form-control input-moderno" value={rutaForm.chofer} onChange={e => setRutaForm({...rutaForm, chofer: e.target.value})} placeholder="Nombre del chofer" />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label fw-semibold small">Docente Guía (Opcional)</label>
-                  <select className="form-select input-moderno" value={rutaForm.docente_id} onChange={e => setRutaForm({...rutaForm, docente_id: e.target.value})}>
-                    <option value="">-- Sin Asignar --</option>
-                    {docentes.map(d => <option key={d.id_usuario} value={d.id_usuario}>{d.nombre_completo}</option>)}
-                  </select>
-                </div>
-                <div className="col-md-4">
                   <label className="form-label fw-semibold small">Válida Desde</label>
                   <input type="date" className="form-control input-moderno" value={rutaForm.validez_desde} onChange={e => setRutaForm({...rutaForm, validez_desde: e.target.value})} />
                 </div>
-                <div className="col-md-4">
+                <div className="col-md-6">
                   <label className="form-label fw-semibold small">Válida Hasta</label>
                   <input type="date" className="form-control input-moderno" value={rutaForm.validez_hasta} onChange={e => setRutaForm({...rutaForm, validez_hasta: e.target.value})} />
                 </div>
@@ -823,6 +922,36 @@ export const TransporteEscolar = () => {
         @keyframes fadeIn { to { opacity: 1; } }
         @keyframes zoomIn { to { transform: scale(1); } }
       `}</style>
+
+      {/* MODAL ASIGNACION PERSONAL */}
+      {showModalAsignacion && (
+        <div className="modal-backdrop-custom show">
+          <div className="modal-custom shadow-lg">
+            <div className="modal-header border-bottom-0 pb-0">
+              <h5 className="modal-title fw-bold text-dark">Asignar Personal a {rutaForm.nombre}</h5>
+              <button type="button" className="btn-close" onClick={() => setShowModalAsignacion(false)}></button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={saveAsignacion}>
+                <div className="mb-3">
+                  <label className="form-label fw-semibold small">Chofer de Unidad</label>
+                  <input type="text" className="form-control input-moderno" value={rutaForm.chofer || ''} onChange={e => setRutaForm({...rutaForm, chofer: e.target.value})} placeholder="Nombre completo del chofer" />
+                </div>
+                <div className="mb-4">
+                  <label className="form-label fw-semibold small">Docente Guía (Opcional)</label>
+                  <select className="form-select input-moderno" value={rutaForm.docente_id || ''} onChange={e => setRutaForm({...rutaForm, docente_id: e.target.value})}>
+                    <option value="">-- Seleccione Docente --</option>
+                    {docentes.map(d => <option key={d.id_usuario} value={d.id_usuario}>{d.nombre_completo}</option>)}
+                  </select>
+                </div>
+                <div className="d-grid">
+                  <button type="submit" className="btn btn-primary rounded-pill fw-bold shadow-sm py-2">Guardar Asignación</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
