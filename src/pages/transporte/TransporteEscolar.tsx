@@ -451,25 +451,28 @@ export const TransporteEscolar = () => {
       const historialAnterior = opActual.historial_paradas || {};
       const nuevoHistorial = { ...historialAnterior, [paradaId]: selectedTime };
 
-      const { error } = await supabase.from('transporte_operaciones').update({
+      const { data: updData, error } = await supabase.from('transporte_operaciones').update({
         ubicacion_actual: paradaId,
         estado: isEnd ? 'Finalizada' : 'En Ruta',
         ultima_actualizacion: new Date().toISOString(),
         historial_paradas: nuevoHistorial
-      }).eq('id', opActual.id);
+      }).eq('id', opActual.id).select();
 
       if (error) {
         if (error.message?.includes('historial_paradas')) {
           // Column missing – update without historial
-          const { error: err2 } = await supabase.from('transporte_operaciones').update({
+          const { data: updData2, error: err2 } = await supabase.from('transporte_operaciones').update({
             ubicacion_actual: paradaId,
             estado: isEnd ? 'Finalizada' : 'En Ruta',
             ultima_actualizacion: new Date().toISOString()
-          }).eq('id', opActual.id);
+          }).eq('id', opActual.id).select();
           if (err2) throw err2;
+          if (!updData2 || updData2.length === 0) throw new Error("Acción bloqueada por permisos RLS en Supabase (Update devolvió 0 filas).");
         } else {
           throw error;
         }
+      } else if (!updData || updData.length === 0) {
+        throw new Error("Acción bloqueada por permisos RLS en Supabase (Actualización silenciosa fallida).");
       }
 
       await cargarTrackingSolo();
@@ -511,11 +514,15 @@ export const TransporteEscolar = () => {
       if (res.isConfirmed) {
         try {
           const hoyStr = new Date().toISOString().split('T')[0];
-          const { error } = await supabase.from('transporte_operaciones')
+          const { data: delData, error } = await supabase.from('transporte_operaciones')
             .delete()
             .eq('fecha', hoyStr)
-            .eq('escuela_codigo', escCodigo);
+            .eq('escuela_codigo', escCodigo)
+            .select();
           if (error) throw error;
+          if (!delData || delData.length === 0) {
+            throw new Error("Ningún recorrido pudo ser borrado, bloqueado por RLS o no hay datos para borrar.");
+          }
           setOpActual(null);
           await cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Reset completado', showConfirmButton: false, timer: 2000 });
@@ -539,13 +546,17 @@ export const TransporteEscolar = () => {
       if (res.isConfirmed) {
         try {
           const hoyStr = new Date().toISOString().split('T')[0];
-          const { error } = await supabase.from('transporte_operaciones')
+          const { data: delData, error } = await supabase.from('transporte_operaciones')
             .delete()
             .eq('fecha', hoyStr)
             .eq('escuela_codigo', escCodigo)
             .eq('ruta_id', opRutaId)
-            .eq('sentido', opSentido);
+            .eq('sentido', opSentido)
+            .select();
           if (error) throw error;
+          if (!delData || delData.length === 0) {
+            throw new Error("La ruta no pudo ser reseteada. Bloqueado por RLS en Supabase.");
+          }
           setOpActual(null);
           await cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta reseteada', showConfirmButton: false, timer: 2000 });
