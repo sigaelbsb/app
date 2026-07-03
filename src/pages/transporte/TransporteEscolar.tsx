@@ -544,89 +544,92 @@ export const TransporteEscolar = () => {
 
         /* ─── VERTICAL STEPPER TIMELINE ─────────────────────────────── */
         .route-stepper {
-          position: relative; padding: 8px 0;
+          position: relative; padding: 4px 0;
         }
         .route-stepper::before {
-          content: ''; position: absolute; left: 28px; top: 20px;
-          bottom: 20px; width: 4px;
+          content: ''; position: absolute; left: 19px; top: 20px;
+          bottom: 20px; width: 3px;
           background: linear-gradient(180deg, #f59e0b 0%, #3b82f6 50%, #10b981 100%);
-          border-radius: 4px; z-index: 0;
+          border-radius: 3px; z-index: 0;
         }
         .stepper-stop {
-          position: relative; display: flex; align-items: flex-start;
-          gap: 16px; padding: 8px 0; margin-bottom: 4px;
-          animation: fadeInLeft 0.4s ease both;
+          position: relative; display: flex; align-items: center;
+          gap: 12px; padding: 5px 0; margin-bottom: 2px;
+          animation: fadeInLeft 0.35s ease both;
         }
         @keyframes fadeInLeft {
-          from { opacity: 0; transform: translateX(-16px); }
+          from { opacity: 0; transform: translateX(-12px); }
           to   { opacity: 1; transform: translateX(0); }
         }
         .stepper-pin {
-          flex-shrink: 0; width: 56px; height: 56px;
+          flex-shrink: 0; width: 40px; height: 40px;
           border-radius: 50%; display: flex; align-items: center; justify-content: center;
-          font-size: 1.4rem; z-index: 2; position: relative;
-          border: 4px solid white;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+          font-size: 1.05rem; z-index: 2; position: relative;
+          border: 3px solid white;
+          box-shadow: 0 3px 10px rgba(0,0,0,0.15);
           transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
         }
-        .stepper-stop:hover .stepper-pin { transform: scale(1.15); }
-        .stepper-pin.pending  { background: #f8fafc; border-color: #cbd5e1; color: #94a3b8; }
-        .stepper-pin.active   { background: #ecfdf5; border-color: #10b981; color: #10b981; }
+        .stepper-stop:hover .stepper-pin { transform: scale(1.12); }
+        .stepper-pin.pending  { background: #f1f5f9; border-color: #e2e8f0; color: #94a3b8; font-size: 0.5rem; }
+        .stepper-pin.active   { background: #ecfdf5; border-color: #10b981; color: #10b981; animation: pulse-stepper 2s infinite; }
         .stepper-pin.passed   { background: #3b82f6; border-color: #2563eb; color: white; }
         .stepper-pin.origin   { background: #fff7ed; border-color: #f59e0b; color: #f59e0b; }
-        .stepper-pin.school   { background: #fdf2f8; border-color: #a855f7; color: #a855f7; }
-        .stepper-pin.active   { animation: pulse-stepper 2s infinite; }
+        .stepper-pin.school   { background: #fdf4ff; border-color: #a855f7; color: #a855f7; }
         @keyframes pulse-stepper {
-          0%,100% { box-shadow: 0 4px 14px rgba(0,0,0,0.18), 0 0 0 0 rgba(16,185,129,0.5); }
-          50%      { box-shadow: 0 4px 14px rgba(0,0,0,0.18), 0 0 0 14px rgba(16,185,129,0); }
+          0%,100% { box-shadow: 0 3px 10px rgba(0,0,0,0.15), 0 0 0 0 rgba(16,185,129,0.45); }
+          50%      { box-shadow: 0 3px 10px rgba(0,0,0,0.15), 0 0 0 10px rgba(16,185,129,0); }
         }
         .stepper-card {
-          flex: 1; background: white; border-radius: 16px; padding: 14px 16px;
-          border: 2px solid #f1f5f9;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-          transition: all 0.25s ease;
+          flex: 1; background: white; border-radius: 12px; padding: 10px 14px;
+          border: 1.5px solid #f1f5f9;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+          transition: all 0.2s ease;
+          display: flex; align-items: center; justify-content: space-between; gap: 10px;
         }
-        .stepper-stop:hover .stepper-card { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-2px); }
-        .stepper-card.active  { border-color: #10b981; background: linear-gradient(135deg,#ecfdf5,#f0fdf4); }
-        .stepper-card.passed  { border-color: #bfdbfe; background: #f8fafc; opacity: 0.9; }
-        .stepper-card.origin  { border-color: #fed7aa; background: #fff7ed; }
+        .stepper-card-info { flex: 1; min-width: 0; }
+        .stepper-stop:hover .stepper-card { box-shadow: 0 4px 14px rgba(0,0,0,0.09); border-color: #e2e8f0; }
+        .stepper-card.active  { border-color: #10b981; background: linear-gradient(135deg,#f0fdf4,#ecfdf5); }
+        .stepper-card.passed  { border-color: #dbeafe; background: #f8fafc; opacity: 0.88; }
+        .stepper-card.origin  { border-color: #fed7aa; background: #fffbf7; }
         .stepper-card.school  { border-color: #e9d5ff; background: #fdf4ff; }
         .stepper-step-num {
-          font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
-          text-transform: uppercase; opacity: 0.6; margin-bottom: 2px;
+          font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
+          text-transform: uppercase; margin-bottom: 1px;
         }
         .stepper-name {
-          font-size: 0.95rem; font-weight: 700; color: #1e293b; line-height: 1.2;
+          font-size: 0.88rem; font-weight: 700; color: #1e293b; line-height: 1.2;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .stepper-desc {
-          font-size: 0.78rem; color: #94a3b8; margin-top: 2px;
+          font-size: 0.72rem; color: #94a3b8; margin-top: 1px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .stepper-hora {
-          display: inline-flex; align-items: center; gap: 4px;
-          font-size: 0.75rem; font-weight: 600; color: #3b82f6;
-          background: #eff6ff; padding: 2px 8px; border-radius: 20px; margin-top: 4px;
+          display: inline-flex; align-items: center; gap: 3px;
+          font-size: 0.7rem; font-weight: 600; color: #3b82f6;
+          background: #eff6ff; padding: 1px 7px; border-radius: 20px; margin-top: 3px;
         }
         .btn-pasamos {
-          margin-top: 10px; width: 100%; border: none;
+          flex-shrink: 0; border: none;
           background: linear-gradient(135deg, #10b981, #059669);
-          color: white; font-weight: 700; font-size: 0.82rem;
-          padding: 8px 16px; border-radius: 24px;
-          box-shadow: 0 4px 12px rgba(16,185,129,0.35);
-          transition: all 0.25s ease; cursor: pointer; letter-spacing: 0.03em;
+          color: white; font-weight: 700; font-size: 0.75rem;
+          padding: 6px 14px; border-radius: 20px; white-space: nowrap;
+          box-shadow: 0 3px 8px rgba(16,185,129,0.3);
+          transition: all 0.2s ease; cursor: pointer;
         }
-        .btn-pasamos:hover { transform: scale(1.03); box-shadow: 0 6px 18px rgba(16,185,129,0.45); }
-        .btn-pasamos:active { transform: scale(0.97); }
+        .btn-pasamos:hover { transform: scale(1.05); box-shadow: 0 5px 14px rgba(16,185,129,0.42); background: linear-gradient(135deg,#059669,#047857); }
+        .btn-pasamos:active { transform: scale(0.96); }
         .bus-here-badge {
-          display: inline-flex; align-items: center; gap: 6px;
-          margin-top: 8px; padding: 4px 12px; border-radius: 20px;
-          background: #10b981; color: white; font-size: 0.75rem; font-weight: 700;
+          flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+          padding: 4px 10px; border-radius: 20px;
+          background: #10b981; color: white; font-size: 0.7rem; font-weight: 700;
         }
         .live-dot {
-          width: 8px; height: 8px; border-radius: 50%; background: white;
+          width: 6px; height: 6px; border-radius: 50%; background: white;
           animation: blink 1s infinite;
         }
         @keyframes blink {
-          0%,100% { opacity:1; } 50% { opacity:0.3; }
+          0%,100% { opacity:1; } 50% { opacity:0.2; }
         }
 
         /* Map Grid Background */
@@ -964,32 +967,33 @@ export const TransporteEscolar = () => {
                                   : passed ? <i className="bi bi-check-lg"></i>
                                   : isSchool ? <i className="bi bi-building-fill"></i>
                                   : isStart  ? <i className="bi bi-geo-alt-fill"></i>
-                                  : <i className="bi bi-circle-fill" style={{fontSize:'0.6rem'}}></i>}
+                                  : <i className="bi bi-circle-fill" style={{fontSize:'0.45rem'}}></i>}
                               </div>
                               <div className={`stepper-card ${cardClass}`}>
-                                <div className="stepper-step-num" style={{color: isActive?'#10b981':passed?'#3b82f6':isSchool?'#a855f7':'#94a3b8'}}>
-                                  {isStart ? 'Origen' : isSchool ? 'Destino Final' : `Parada ${index}`}
-                                </div>
-                                <div className="stepper-name">{parada.nombre_parada}</div>
-                                {parada.descripcion && <div className="stepper-desc">{parada.descripcion}</div>}
-
-                                {horaRegistrada && (
-                                  <div className="stepper-hora">
-                                    <i className="bi bi-clock-fill"></i>
-                                    {horaRegistrada}
+                                <div className="stepper-card-info">
+                                  <div className="stepper-step-num" style={{color: isActive?'#10b981':passed?'#3b82f6':isSchool?'#a855f7':'#94a3b8'}}>
+                                    {isStart ? 'Origen' : isSchool ? 'Destino Final' : `Parada ${index}`}
                                   </div>
-                                )}
+                                  <div className="stepper-name">{parada.nombre_parada}</div>
+                                  {parada.descripcion && <div className="stepper-desc">{parada.descripcion}</div>}
+                                  {horaRegistrada && (
+                                    <div className="stepper-hora">
+                                      <i className="bi bi-clock-fill"></i>
+                                      {horaRegistrada}
+                                    </div>
+                                  )}
+                                </div>
 
                                 {isActive && (
                                   <div className="bus-here-badge">
                                     <span className="live-dot"></span>
-                                    El bus está aquí ahora
+                                    Aquí
                                   </div>
                                 )}
 
-                                {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && (
+                                {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && !isSchool && (
                                   <button className="btn-pasamos" onClick={() => marcarParada(parada.id, index, pids)}>
-                                    <i className="bi bi-check2-circle me-1"></i> Marcar paso
+                                    <i className="bi bi-check2-circle me-1"></i>Pasamos
                                   </button>
                                 )}
                               </div>
