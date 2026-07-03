@@ -542,91 +542,91 @@ export const TransporteEscolar = () => {
         .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.6; cursor: not-allowed; }
         .tarjeta-sub.bloqueado:hover { transform: none; box-shadow: none !important; }
 
-        /* Winding Road Style */
-        .winding-road-container {
-          display: flex; flex-direction: column; align-items: center; 
-          padding: 30px 10px; position: relative; width: 100%; overflow: hidden;
+        /* ─── VERTICAL STEPPER TIMELINE ─────────────────────────────── */
+        .route-stepper {
+          position: relative; padding: 8px 0;
         }
-        .road-row {
-          display: flex; width: 100%; max-width: 900px; justify-content: space-around; 
-          position: relative; padding: 20px 0 130px 0; align-items: flex-start;
+        .route-stepper::before {
+          content: ''; position: absolute; left: 28px; top: 20px;
+          bottom: 20px; width: 4px;
+          background: linear-gradient(180deg, #f59e0b 0%, #3b82f6 50%, #10b981 100%);
+          border-radius: 4px; z-index: 0;
         }
-        .road-row.reverse { flex-direction: row-reverse; }
-        
-        /* The Asphalt */
-        .road-row::before {
-          content: ''; position: absolute; top: 45px; left: 10%; right: 10%; height: 26px; 
-          background: #334155; transform: translateY(-50%); z-index: 1;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        .stepper-stop {
+          position: relative; display: flex; align-items: flex-start;
+          gap: 16px; padding: 8px 0; margin-bottom: 4px;
+          animation: fadeInLeft 0.4s ease both;
         }
-        /* The Dashed Line */
-        .road-row::after {
-          content: ''; position: absolute; top: 45px; left: 10%; right: 10%; height: 2px; 
-          background: repeating-linear-gradient(90deg, transparent, transparent 15px, #f8fafc 15px, #f8fafc 30px); 
-          transform: translateY(-50%); z-index: 2;
+        @keyframes fadeInLeft {
+          from { opacity: 0; transform: translateX(-16px); }
+          to   { opacity: 1; transform: translateX(0); }
         }
-
-        /* Connectors between rows */
-        .road-row:not(:last-child)::before {
-          border-radius: 0 30px 30px 0;
+        .stepper-pin {
+          flex-shrink: 0; width: 56px; height: 56px;
+          border-radius: 50%; display: flex; align-items: center; justify-content: center;
+          font-size: 1.4rem; z-index: 2; position: relative;
+          border: 4px solid white;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+          transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
         }
-        .road-row:nth-child(odd):not(:last-child)::before {
-          right: 0; left: 10%; width: 90%;
+        .stepper-stop:hover .stepper-pin { transform: scale(1.15); }
+        .stepper-pin.pending  { background: #f8fafc; border-color: #cbd5e1; color: #94a3b8; }
+        .stepper-pin.active   { background: #ecfdf5; border-color: #10b981; color: #10b981; }
+        .stepper-pin.passed   { background: #3b82f6; border-color: #2563eb; color: white; }
+        .stepper-pin.origin   { background: #fff7ed; border-color: #f59e0b; color: #f59e0b; }
+        .stepper-pin.school   { background: #fdf2f8; border-color: #a855f7; color: #a855f7; }
+        .stepper-pin.active   { animation: pulse-stepper 2s infinite; }
+        @keyframes pulse-stepper {
+          0%,100% { box-shadow: 0 4px 14px rgba(0,0,0,0.18), 0 0 0 0 rgba(16,185,129,0.5); }
+          50%      { box-shadow: 0 4px 14px rgba(0,0,0,0.18), 0 0 0 14px rgba(16,185,129,0); }
         }
-        .road-row:nth-child(even):not(:last-child)::before {
-          left: 0; right: 10%; width: 90%; border-radius: 30px 0 0 30px;
+        .stepper-card {
+          flex: 1; background: white; border-radius: 16px; padding: 14px 16px;
+          border: 2px solid #f1f5f9;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          transition: all 0.25s ease;
         }
-
-        /* Connecting vertical asphalt curves */
-        .road-curve {
-          position: absolute; width: 70px; top: 45px; height: 100%; 
-          border: 26px solid #334155; z-index: 0;
+        .stepper-stop:hover .stepper-card { box-shadow: 0 6px 20px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .stepper-card.active  { border-color: #10b981; background: linear-gradient(135deg,#ecfdf5,#f0fdf4); }
+        .stepper-card.passed  { border-color: #bfdbfe; background: #f8fafc; opacity: 0.9; }
+        .stepper-card.origin  { border-color: #fed7aa; background: #fff7ed; }
+        .stepper-card.school  { border-color: #e9d5ff; background: #fdf4ff; }
+        .stepper-step-num {
+          font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+          text-transform: uppercase; opacity: 0.6; margin-bottom: 2px;
         }
-        .road-curve.right { right: 0; border-left: none; border-radius: 0 60px 60px 0; }
-        .road-curve.left { left: 0; border-right: none; border-radius: 60px 0 0 60px; }
-
-        .timeline-node { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; width: 140px; height: 50px; }
-        .timeline-icon { 
-          width: 50px; height: 50px; border-radius: 50%; background: white; 
-          border: 4px solid #cbd5e1; display: flex; align-items: center; justify-content: center; 
-          box-shadow: 0 8px 15px rgba(0,0,0,0.2); font-size: 1.5rem;
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          position: absolute; top: 20px; z-index: 20;
+        .stepper-name {
+          font-size: 0.95rem; font-weight: 700; color: #1e293b; line-height: 1.2;
         }
-        
-        /* Map Pin effect */
-        .timeline-icon::after {
-          content: ''; position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
-          border-width: 12px 10px 0; border-style: solid; border-color: inherit;
-          border-bottom-color: transparent !important; border-left-color: transparent !important; border-right-color: transparent !important;
+        .stepper-desc {
+          font-size: 0.78rem; color: #94a3b8; margin-top: 2px;
         }
-        
-        .timeline-icon:hover { transform: translateY(-5px) scale(1.1); cursor: pointer; }
-        
-        .timeline-icon.start { border-color: #f59e0b; color: #f59e0b; }
-        .timeline-icon.active { border-color: #10b981; color: #10b981; background: #ecfdf5; transform: scale(1.2); z-index: 25; }
-        .timeline-icon.active::after { border-top-color: #10b981 !important; }
-        
-        .timeline-icon.passed { border-color: #3b82f6; color: white; background: #3b82f6; }
-        .timeline-icon.passed::after { border-top-color: #3b82f6 !important; }
-        
-        .timeline-icon.end { border-color: #ef4444; color: #ef4444; }
-
-        .timeline-content { 
-          position: absolute; top: 85px; z-index: 15;
-          background: rgba(255,255,255,0.95); padding: 12px; border-radius: 12px; 
-          border: 1px solid #e2e8f0; text-align: center;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.08); font-size: 0.85rem; line-height: 1.3; width: 150px;
-          display: flex; flex-direction: column; align-items: center;
+        .stepper-hora {
+          display: inline-flex; align-items: center; gap: 4px;
+          font-size: 0.75rem; font-weight: 600; color: #3b82f6;
+          background: #eff6ff; padding: 2px 8px; border-radius: 20px; margin-top: 4px;
         }
-        .timeline-content.active { border-color: #10b981; border-width: 2px; font-weight: bold; transform: scale(1.05); }
-        .timeline-content.passed { opacity: 0.85; background: #f8fafc; }
-        
-        .pulse-animation { animation: pulse-pin 1.5s infinite; }
-        @keyframes pulse-pin {
-          0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6), 0 8px 15px rgba(0,0,0,0.2); }
-          70% { box-shadow: 0 0 0 20px rgba(16, 185, 129, 0), 0 8px 15px rgba(0,0,0,0.2); }
-          100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 8px 15px rgba(0,0,0,0.2); }
+        .btn-pasamos {
+          margin-top: 10px; width: 100%; border: none;
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white; font-weight: 700; font-size: 0.82rem;
+          padding: 8px 16px; border-radius: 24px;
+          box-shadow: 0 4px 12px rgba(16,185,129,0.35);
+          transition: all 0.25s ease; cursor: pointer; letter-spacing: 0.03em;
+        }
+        .btn-pasamos:hover { transform: scale(1.03); box-shadow: 0 6px 18px rgba(16,185,129,0.45); }
+        .btn-pasamos:active { transform: scale(0.97); }
+        .bus-here-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          margin-top: 8px; padding: 4px 12px; border-radius: 20px;
+          background: #10b981; color: white; font-size: 0.75rem; font-weight: 700;
+        }
+        .live-dot {
+          width: 8px; height: 8px; border-radius: 50%; background: white;
+          animation: blink 1s infinite;
+        }
+        @keyframes blink {
+          0%,100% { opacity:1; } 50% { opacity:0.3; }
         }
 
         /* Map Grid Background */
@@ -931,82 +931,71 @@ export const TransporteEscolar = () => {
                         </div>
                       )}
 
-                      <div className={`winding-road-container ${opActual?.estado === 'Finalizada' ? 'finalizada' : ''}`}>
-                        {(() => {
-                          const itemsPerRow = 4;
-                          const chunks = [];
-                          for (let i = 0; i < orderedParadas.length; i += itemsPerRow) {
-                            chunks.push(orderedParadas.slice(i, i + itemsPerRow));
+                      <div className="route-stepper">
+                        {orderedParadas.map((parada: any, index: number) => {
+                          const isStart = index === 0;
+                          const isEnd   = index === orderedParadas.length - 1;
+                          const isSchool = parada.id === 'escuela_virtual';
+
+                          let passed   = false;
+                          let isActive = false;
+
+                          if (opActual) {
+                            const currentIdx = pids.findIndex((id: string) => id === opActual.ubicacion_actual);
+                            if (opActual.estado === 'Finalizada') {
+                              passed = true;
+                            } else if (index < currentIdx) {
+                              passed = true;
+                            } else if (index === currentIdx) {
+                              isActive = true;
+                            }
                           }
-                          
-                          return chunks.map((chunk, rowIdx) => {
-                            const isReverse = rowIdx % 2 !== 0;
-                            const hasNextRow = rowIdx < chunks.length - 1;
-                            const hasPrevRow = rowIdx > 0;
-                            
-                            let rowClasses = `road-row ${isReverse ? 'reverse' : ''}`;
-                            if (hasNextRow) rowClasses += (!isReverse) ? ' curve-down-right' : ' curve-down-left';
-                            if (hasPrevRow) rowClasses += (!isReverse) ? ' curve-up-left' : ' curve-up-right';
 
-                            return (
-                              <div key={`row-${rowIdx}`} className={rowClasses}>
-                                {hasNextRow && (
-                                  <div className={`road-curve ${!isReverse ? 'right' : 'left'}`}></div>
-                                )}
-                                {chunk.map((parada: any, colIdx: number) => {
-                                  const index = rowIdx * itemsPerRow + colIdx;
-                                  const isStart = index === 0;
-                                  const isEnd = index === orderedParadas.length - 1;
-                                  let iconClass = isStart ? 'start' : isEnd ? 'end' : 'stop';
-                                  let passed = false;
-                                  let isActive = false;
+                          const pinClass = isActive ? 'active' : passed ? 'passed' : isSchool ? 'school' : isStart ? 'origin' : 'pending';
+                          const cardClass = isActive ? 'active' : passed ? 'passed' : isSchool ? 'school' : isStart ? 'origin' : '';
 
-                                  if (opActual) {
-                                    const currentIdx = pids.findIndex((id: string) => id === opActual.ubicacion_actual);
-                                    if (index < currentIdx) {
-                                      passed = true;
-                                      iconClass = 'passed';
-                                    } else if (index === currentIdx && opActual.estado !== 'Finalizada') {
-                                      isActive = true;
-                                      iconClass = 'active pulse-animation';
-                                    } else if (opActual.estado === 'Finalizada') {
-                                      passed = true;
-                                      iconClass = 'passed';
-                                    }
-                                  }
+                          // Get registered time from historial
+                          const horaRegistrada = opActual?.historial_paradas?.[parada.id];
 
-                                  return (
-                                    <div key={`${parada.id}-${index}`} className="timeline-node">
-                                      <div className={`timeline-icon ${iconClass}`} title={parada.nombre_parada}>
-                                        {isActive ? <i className="bi bi-bus-front"></i> : isEnd ? <i className="bi bi-flag"></i> : passed ? <i className="bi bi-check"></i> : <i className="bi bi-geo"></i>}
-                                      </div>
-                                      <div className={`timeline-content ${isActive ? 'active' : passed ? 'passed' : ''}`}>
-                                        <div className="fw-bold text-dark">{parada.nombre_parada}</div>
-                                        
-                                        {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && (
-                                          <button 
-                                            className="btn btn-sm btn-success rounded-pill fw-bold mt-2 py-1 px-3 shadow-sm w-100" 
-                                            onClick={() => marcarParada(parada.id, index, pids)}
-                                            style={{fontSize: '0.75rem'}}
-                                          >
-                                            ¡Pasamos!
-                                          </button>
-                                        )}
-                                        
-                                        {isActive && (
-                                          <div className="badge bg-success shadow-sm rounded-pill mt-2 w-100">
-                                            <span className="spinner-grow spinner-grow-sm me-1" style={{width: '8px', height: '8px'}}></span>
-                                            El bus está aquí
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                          return (
+                            <div key={`stop-${index}`} className="stepper-stop" style={{ animationDelay: `${index * 0.05}s` }}>
+                              <div className={`stepper-pin ${pinClass}`}>
+                                {isActive ? <i className="bi bi-bus-front-fill"></i>
+                                  : passed ? <i className="bi bi-check-lg"></i>
+                                  : isSchool ? <i className="bi bi-building-fill"></i>
+                                  : isStart  ? <i className="bi bi-geo-alt-fill"></i>
+                                  : <i className="bi bi-circle-fill" style={{fontSize:'0.6rem'}}></i>}
                               </div>
-                            );
-                          });
-                        })()}
+                              <div className={`stepper-card ${cardClass}`}>
+                                <div className="stepper-step-num" style={{color: isActive?'#10b981':passed?'#3b82f6':isSchool?'#a855f7':'#94a3b8'}}>
+                                  {isStart ? 'Origen' : isSchool ? 'Destino Final' : `Parada ${index}`}
+                                </div>
+                                <div className="stepper-name">{parada.nombre_parada}</div>
+                                {parada.descripcion && <div className="stepper-desc">{parada.descripcion}</div>}
+
+                                {horaRegistrada && (
+                                  <div className="stepper-hora">
+                                    <i className="bi bi-clock-fill"></i>
+                                    {horaRegistrada}
+                                  </div>
+                                )}
+
+                                {isActive && (
+                                  <div className="bus-here-badge">
+                                    <span className="live-dot"></span>
+                                    El bus está aquí ahora
+                                  </div>
+                                )}
+
+                                {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && (
+                                  <button className="btn-pasamos" onClick={() => marcarParada(parada.id, index, pids)}>
+                                    <i className="bi bi-check2-circle me-1"></i> Marcar paso
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
