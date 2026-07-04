@@ -720,6 +720,10 @@ export const TransporteEscolar = () => {
       // Pedir permisos de notificación al iniciar (sin bloquear)
       requestNotifPermission();
 
+      // ── Sonido y Notificación Local (para este dispositivo) ──
+      playBusChime('parada');
+      sendBusNotification(pids[0] === 'escuela_virtual' ? 'Escuela' : pids[0], 1, 1, false);
+
       // Dispatch local notification
       window.dispatchEvent(new CustomEvent('sigae-notification', {
         detail: {
@@ -732,6 +736,7 @@ export const TransporteEscolar = () => {
       }));
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Recorrido iniciado', showConfirmButton: false, timer: 2000 });
+
     } catch (err: any) {
       Swal.fire('Error', err.message, 'error');
     }
@@ -799,6 +804,24 @@ export const TransporteEscolar = () => {
       }
 
       await cargarTrackingSolo();
+
+      // ── Sonido y Notificación Local (para este dispositivo) ──
+      playBusChime(isEnd ? 'llegada' : 'parada');
+      const paradaNombreDisplay = paradas.find((p: any) => p.id === paradaId)?.nombre_parada
+        || (paradaId === 'escuela_virtual' ? 'Escuela' : paradaId);
+      sendBusNotification(paradaNombreDisplay, index + 1, orderedIds.length, isEnd);
+
+      window.dispatchEvent(new CustomEvent('sigae-notification', {
+        detail: {
+          id: String(Date.now()),
+          titulo: isEnd ? '🏁 Destino Alcanzado' : '📍 Paso por Parada',
+          cuerpo: isEnd 
+            ? `El recorrido de la ruta finalizó con éxito en la escuela.`
+            : `El bus pasó por la parada: ${paradaNombreDisplay} (${index + 1} de ${orderedIds.length}).`,
+          fecha: new Date().toISOString(),
+          tipo: 'transporte'
+        }
+      }));
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success',
         title: isEnd ? '🏁 Ruta finalizada' : '✅ Paso registrado',
