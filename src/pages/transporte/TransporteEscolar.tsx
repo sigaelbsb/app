@@ -514,20 +514,17 @@ export const TransporteEscolar = () => {
       if (res.isConfirmed) {
         try {
           const hoyStr = new Date().toISOString().split('T')[0];
-          const { data: delData, error } = await supabase.from('transporte_operaciones')
+          const { error } = await supabase.from('transporte_operaciones')
             .delete()
             .eq('fecha', hoyStr)
-            .eq('escuela_codigo', escCodigo)
-            .select();
+            .eq('escuela_codigo', escCodigo);
           if (error) throw error;
-          if (!delData || delData.length === 0) {
-            throw new Error("Ningún recorrido pudo ser borrado, bloqueado por RLS o no hay datos para borrar.");
-          }
           setOpActual(null);
+          localStorage.removeItem('sigae_transporte_opActual');
           await cargarTrackingSolo();
-          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Reset completado', showConfirmButton: false, timer: 2000 });
+          Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Reset completado. No hay recorridos activos para hoy.', showConfirmButton: false, timer: 3000 });
         } catch(e: any) {
-          Swal.fire('Error', e.message, 'error');
+          Swal.fire('Error', 'No se pudo borrar. Verifica los permisos en Supabase (política RLS DELETE).', 'error');
         }
       }
     });
@@ -546,22 +543,19 @@ export const TransporteEscolar = () => {
       if (res.isConfirmed) {
         try {
           const hoyStr = new Date().toISOString().split('T')[0];
-          const { data: delData, error } = await supabase.from('transporte_operaciones')
+          const { error } = await supabase.from('transporte_operaciones')
             .delete()
             .eq('fecha', hoyStr)
             .eq('escuela_codigo', escCodigo)
             .eq('ruta_id', opRutaId)
-            .eq('sentido', opSentido)
-            .select();
+            .eq('sentido', opSentido);
           if (error) throw error;
-          if (!delData || delData.length === 0) {
-            throw new Error("La ruta no pudo ser reseteada. Bloqueado por RLS en Supabase.");
-          }
           setOpActual(null);
+          localStorage.removeItem('sigae_transporte_opActual');
           await cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta reseteada', showConfirmButton: false, timer: 2000 });
         } catch(e: any) {
-          Swal.fire('Error', e.message, 'error');
+          Swal.fire('Error', 'No se pudo resetear la ruta. Verifica los permisos en Supabase (política RLS DELETE).', 'error');
         }
       }
     });
