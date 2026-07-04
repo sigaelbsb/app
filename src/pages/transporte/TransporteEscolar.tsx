@@ -159,12 +159,14 @@ export const TransporteEscolar = () => {
   const opRutaIdRef = React.useRef(opRutaId);
   const opSentidoRef = React.useRef(opSentido);
   const opActualRef = React.useRef(opActual);
+  const trackingHoyRef = React.useRef(trackingHoy);
 
   useEffect(() => { rutasRef.current = rutas; }, [rutas]);
   useEffect(() => { paradasRef.current = paradas; }, [paradas]);
   useEffect(() => { opRutaIdRef.current = opRutaId; }, [opRutaId]);
   useEffect(() => { opSentidoRef.current = opSentido; }, [opSentido]);
   useEffect(() => { opActualRef.current = opActual; }, [opActual]);
+  useEffect(() => { trackingHoyRef.current = trackingHoy; }, [trackingHoy]);
 
   useEffect(() => {
     if (canViewTransporte) {
@@ -204,25 +206,23 @@ export const TransporteEscolar = () => {
         // Recargar información en la UI
         cargarTrackingSolo();
 
-        if (vistaActual !== 'Operacion' && vistaActual !== 'Visor') return;
-
-        const currentRutaId = opRutaIdRef.current;
-        const currentSentido = opSentidoRef.current;
         const row = payload.new;
         if (!row) return;
 
-        // Comprobar que pertenezca a la misma ruta y sentido de la vista actual
-        if (row.escuela_codigo !== escCodigo || row.ruta_id !== currentRutaId || row.sentido !== currentSentido) {
+        // Comprobar que pertenezca a la misma escuela
+        if (row.escuela_codigo !== escCodigo) {
           return;
         }
 
         const isUpdate = payload.eventType === 'UPDATE';
         const isInsert = payload.eventType === 'INSERT';
-        const prevOp = opActualRef.current;
+        
+        // Buscar el estado previo en nuestro tracking local (para cualquier ruta de la escuela)
+        const prevOp = trackingHoyRef.current.find((t: any) => t.id === row.id);
 
         // A. Detección de Inicio de Recorrido
         if ((isInsert && row.estado === 'En Ruta') || (isUpdate && row.estado === 'En Ruta' && !prevOp)) {
-          const nameRuta = rutasRef.current.find((r: any) => r.id === currentRutaId)?.nombre || 'Ruta';
+          const nameRuta = rutasRef.current.find((r: any) => r.id === row.ruta_id)?.nombre || 'Ruta';
           playBusChime('parada');
           sendBusNotification(row.ubicacion_actual === 'escuela_virtual' ? 'Escuela' : row.ubicacion_actual, 1, 1, false);
 
@@ -230,7 +230,7 @@ export const TransporteEscolar = () => {
             detail: {
               id: String(Date.now()),
               titulo: 'Ruta Iniciada 🚌',
-              cuerpo: `Se ha iniciado el recorrido para la ruta "${nameRuta}" (${currentSentido}).`,
+              cuerpo: `Se ha iniciado el recorrido para la ruta "${nameRuta}" (${row.sentido}).`,
               fecha: new Date().toISOString(),
               tipo: 'transporte'
             }
@@ -253,8 +253,8 @@ export const TransporteEscolar = () => {
               || (row.ubicacion_actual === 'escuela_virtual' ? 'Escuela' : row.ubicacion_actual);
 
             // Calcular índices y totales
-            const activeRuta = rutasRef.current.find((r: any) => r.id === currentRutaId);
-            const orderedIds = activeRuta ? getIdsWithEscuela(activeRuta, currentSentido as any) : [];
+            const activeRuta = rutasRef.current.find((r: any) => r.id === row.ruta_id);
+            const orderedIds = activeRuta ? getIdsWithEscuela(activeRuta, row.sentido as any) : [];
             const idx = orderedIds.indexOf(row.ubicacion_actual);
 
             // Notificación nativa (sonido, vibración PWA)
@@ -266,7 +266,7 @@ export const TransporteEscolar = () => {
                 id: String(Date.now()),
                 titulo: isEnd ? '🏁 Destino Alcanzado' : '📍 Paso por Parada',
                 cuerpo: isEnd 
-                  ? `El recorrido de la ruta finalizó con éxito en la escuela.`
+                  ? `El recorrido finalizó con éxito en la escuela.`
                   : `El bus pasó por la parada: ${paradaNombreDisplay} (${idx >= 0 ? idx + 1 : 1} de ${orderedIds.length}).`,
                 fecha: new Date().toISOString(),
                 tipo: 'transporte'
@@ -277,7 +277,7 @@ export const TransporteEscolar = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [vistaActual, escCodigo]);
+  }, [escCodigo]);
 
   const cargarTodo = async (silencioso = false) => {
     if (!silencioso) setLoadingData(true);
