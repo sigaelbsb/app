@@ -5,7 +5,7 @@ import html2canvas from 'html2canvas';
 
 // ─── SVG Animated Bus — Transporte Escolar Venezuela ──────────────────────────────
 // ‘size’ = altura del bus en px. El ancho se calcula con la relación 80:56.
-const AnimatedBusSVG = ({ size = 48, color = '#f59e0b', className = '' }: { size?: number; color?: string; className?: string }) => {
+const AnimatedBusSVG = ({ size = 48, className = '' }: { size?: number; color?: string; className?: string }) => {
   const busW = Math.round(size * (80 / 56));
   const busH = size;
   return (
@@ -543,7 +543,7 @@ export const TransporteEscolar = () => {
       ? `El bus ha llegado a ${paradaNombre}. Recorrido completado.`
       : `El bus pasó por: ${paradaNombre}`;
       
-    const opciones: NotificationOptions = {
+    const opciones: any = {
       body: cuerpo,
       icon: '/assets/img/pdvsa.svg',
       badge: '/assets/img/pdvsa.svg', // Icono pequeño en barra superior de Android
