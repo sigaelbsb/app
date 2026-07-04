@@ -3,20 +3,120 @@ import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import html2canvas from 'html2canvas';
 
+// ─── SVG Animated Bus — Transporte Escolar Venezuela ──────────────────────────────
+// ‘size’ = altura del bus en px. El ancho se calcula con la relación 80:56.
+const AnimatedBusSVG = ({ size = 48, color = '#f59e0b', className = '' }: { size?: number; color?: string; className?: string }) => {
+  const busW = Math.round(size * (80 / 56));
+  const busH = size;
+  return (
+    <svg width={busW} height={busH} viewBox="0 0 80 56" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      {/* ── Main body — amarillo escolar ── */}
+      <rect x="3" y="10" width="70" height="30" rx="5" fill="#f7c900" />
+      {/* Front rounded nose */}
+      <rect x="63" y="10" width="10" height="30" rx="4" fill="#f7c900" />
+      {/* Black trim line top */}
+      <rect x="3" y="10" width="70" height="3" rx="2" fill="#1c1c1c" />
+      {/* Black trim line bottom */}
+      <rect x="3" y="35" width="70" height="3" fill="#1c1c1c" />
+
+      {/* ── Windows — tinted dark blue ── */}
+      <rect x="6"  y="14" width="10" height="9" rx="2" fill="#1e3a5f" opacity="0.85" />
+      <rect x="18" y="14" width="10" height="9" rx="2" fill="#1e3a5f" opacity="0.85" />
+      <rect x="30" y="14" width="10" height="9" rx="2" fill="#1e3a5f" opacity="0.85" />
+      <rect x="42" y="14" width="10" height="9" rx="2" fill="#1e3a5f" opacity="0.85" />
+      {/* Front windshield */}
+      <rect x="55" y="13" width="12" height="13" rx="3" fill="#1e3a5f" opacity="0.75" />
+
+      {/* ── TRANSPORTE ESCOLAR text ── */}
+      <text x="35" y="32" textAnchor="middle" fill="#1c1c1c" fontSize="4.2" fontWeight="bold" fontFamily="Arial" letterSpacing="0.3">TRANSPORTE ESCOLAR</text>
+
+      {/* ── PDVSA logo on side ── */}
+      <image href="/assets/img/pdvsa.svg" x="6" y="25" width="10" height="10" />
+
+      {/* Front headlights */}
+      <rect x="68" y="16" width="4" height="3" rx="1" fill="#fef08a" />
+      <rect x="68" y="28" width="4" height="3" rx="1" fill="#fbbf24" opacity="0.7" />
+      {/* Front bumper */}
+      <rect x="70" y="24" width="6" height="6" rx="1" fill="#374151" />
+      {/* Door line */}
+      <line x1="52" y1="12" x2="52" y2="38" stroke="#1c1c1c" strokeWidth="0.8"/>
+
+      {/* ── Wheels ── */}
+      <circle cx="18" cy="42" r="6.5" fill="#1e293b" />
+      <circle cx="18" cy="42" r="4"   fill="#6b7280" />
+      <circle cx="18" cy="42" r="1.8" fill="#d1d5db" />
+      <circle cx="56" cy="42" r="6.5" fill="#1e293b" />
+      <circle cx="56" cy="42" r="4"   fill="#6b7280" />
+      <circle cx="56" cy="42" r="1.8" fill="#d1d5db" />
+
+      {/* Chassis bar */}
+      <rect x="8" y="37" width="58" height="3" rx="1" fill="#374151" />
+      {/* Shine gloss */}
+      <rect x="5" y="11" width="65" height="2.5" rx="1" fill="white" opacity="0.3" />
+    </svg>
+  );
+};
+
+// ─── Bus Stop Icon ─────────────────────────────────────────────────────────────
+const BusStopIcon = ({ size = 36, active = false }: { size?: number; active?: boolean }) => (
+  <svg width={size} height={size} viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Pole */}
+    <rect x="21" y="16" width="6" height="48" rx="3" fill={active ? '#10b981' : '#64748b'} />
+    {/* Sign */}
+    <rect x="4" y="4" width="40" height="18" rx="5" fill={active ? '#10b981' : '#3b82f6'} />
+    <text x="24" y="17" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold" fontFamily="Arial">BUS</text>
+    {/* Base */}
+    <rect x="14" y="58" width="20" height="5" rx="2.5" fill={active ? '#10b981' : '#64748b'} />
+  </svg>
+);
+
+// ─── Animated Route Progress Bar ──────────────────────────────────────────────
+const BusProgressBar = ({ total, current, finalizada }: { total: number; current: number; finalizada: boolean }) => {
+  const pct = total <= 1 ? 100 : Math.round((current / (total - 1)) * 100);
+  // Bus height in the progress bar
+  const bH = 30;
+  const bW = Math.round(bH * (80 / 56)); // ~43px wide
+  return (
+    <div style={{ position: 'relative', margin: '12px 0 20px' }}>
+      <div style={{ height: 10, background: '#e2e8f0', borderRadius: 10, overflow: 'visible', position: 'relative' }}>
+        <div style={{
+          height: '100%', width: `${pct}%`, borderRadius: 10,
+          background: finalizada
+            ? 'linear-gradient(90deg, #10b981, #059669)'
+            : 'linear-gradient(90deg, #3b82f6, #6366f1)',
+          transition: 'width 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+          position: 'relative'
+        }}>
+          <div style={{
+            position: 'absolute', right: -(bW / 2 + 2), top: '50%',
+            transform: 'translateY(-50%)',
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
+          }}>
+            <AnimatedBusSVG size={bH} color={finalizada ? '#10b981' : '#2563eb'} />
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>INICIO</span>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>{pct}% completado</span>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>🏫 ESCUELA</span>
+      </div>
+    </div>
+  );
+};
+
 export const TransporteEscolar = () => {
   const { loading: permLoading, tienePermiso, tieneAccesoEscuela } = usePermisos();
   const Swal = (window as any).Swal;
 
-  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor'>(
-    (localStorage.getItem('sigae_transporte_vista') as any) || 'dashboard'
-  );
+  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor'>('dashboard');
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState(localStorage.getItem('sigae_escuela_codigo') || 'sb');
 
-  const canManageRutas = tienePermiso('Tarjeta: Gestión de Rutas');
-  const canManageParadas = tienePermiso('Tarjeta: Gestión de Paradas');
-  const canOperateTracking = tienePermiso('Tarjeta: Operación (Tracking)');
-  const canViewRecorrido = tienePermiso('Tarjeta: Visor de Recorrido');
+  const canManageRutas    = tienePermiso('Tarjeta: Gestión de Rutas')    || tienePermiso('Gestión de Rutas');
+  const canManageParadas  = tienePermiso('Tarjeta: Gestión de Paradas')  || tienePermiso('Gestión de Paradas');
+  const canOperateTracking= tienePermiso('Tarjeta: Operación (Tracking)')|| tienePermiso('Operación (Tracking)');
+  const canViewRecorrido  = tienePermiso('Tarjeta: Visor de Recorrido')  || tienePermiso('Visor de Recorrido');
   const canViewTransporte = canManageRutas || canManageParadas || canOperateTracking || canViewRecorrido || tienePermiso('Transporte Escolar');
 
   // DB States
@@ -45,8 +145,11 @@ export const TransporteEscolar = () => {
   const [opRutaId, setOpRutaId] = useState(localStorage.getItem('sigae_transporte_ruta') || '');
   const [opSentido, setOpSentido] = useState(localStorage.getItem('sigae_transporte_sentido') || 'Casa - Escuela');
   const [opActual, setOpActual] = useState<any>(null);
+  // Orden personalizado de paradas (null = orden original de la ruta)
+  const [customPids, setCustomPids] = useState<string[] | null>(null);
+  // Drag & drop: índice que se está arrastrando
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  useEffect(() => { localStorage.setItem('sigae_transporte_vista', vistaActual); }, [vistaActual]);
   useEffect(() => { localStorage.setItem('sigae_transporte_ruta', opRutaId); }, [opRutaId]);
   useEffect(() => { localStorage.setItem('sigae_transporte_sentido', opSentido); }, [opSentido]);
 
@@ -380,6 +483,91 @@ export const TransporteEscolar = () => {
     }
   };
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // SONIDO Y NOTIFICACIONES DE PARADAS
+  // ────────────────────────────────────────────────────────────────────────────
+
+  /** Solicita permiso de notificaciones al navegador (solo si aún no fue concedido) */
+  const requestNotifPermission = async () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+  };
+
+  /** Reproduce un chime via Web Audio API — sin archivos externos */
+  const playBusChime = (tipo: 'parada' | 'llegada' = 'parada') => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const now = ctx.currentTime;
+
+      if (tipo === 'llegada') {
+        // Fanfarria corta: 3 notas ascendentes
+        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.18);
+          gain.gain.setValueAtTime(0, now + i * 0.18);
+          gain.gain.linearRampToValueAtTime(0.28, now + i * 0.18 + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.18 + 0.35);
+          osc.start(now + i * 0.18);
+          osc.stop(now + i * 0.18 + 0.36);
+        });
+      } else {
+        // Doble "ding" suave para paradas intermedias
+        [880, 1100].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.22);
+          gain.gain.setValueAtTime(0, now + i * 0.22);
+          gain.gain.linearRampToValueAtTime(0.22, now + i * 0.22 + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.3);
+          osc.start(now + i * 0.22);
+          osc.stop(now + i * 0.22 + 0.31);
+        });
+      }
+    } catch (e) {
+      console.warn('Web Audio no disponible:', e);
+    }
+  };
+
+  /** Envía notificación del sistema operativo */
+  const sendBusNotification = (paradaNombre: string, numParada: number, total: number, esEscuela = false) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const titulo = esEscuela ? '🏫 ¡Llegamos a la Escuela!' : `🚌 Parada ${numParada} de ${total}`;
+    const cuerpo  = esEscuela
+      ? `El bus ha llegado a ${paradaNombre}. Recorrido completado.`
+      : `El bus pasó por: ${paradaNombre}`;
+      
+    const opciones: NotificationOptions = {
+      body: cuerpo,
+      icon: '/assets/img/pdvsa.svg',
+      badge: '/assets/img/pdvsa.svg', // Icono pequeño en barra superior de Android
+      tag: 'bus-parada',              // Evita acumulación de notificaciones
+      renotify: true,                 // Hace sonar/vibrar al actualizar la misma tarjeta
+      vibrate: [200, 100, 200],       // Patrón de vibración tipo mensaje
+      silent: false,                  // Permite que el móvil reproduzca el sonido de alerta del sistema
+    };
+
+    try {
+      // Si la PWA tiene el Service Worker activo, registrar la notificación a nivel de S.O.
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification(titulo, opciones);
+        });
+      } else {
+        // Fallback para computadoras u otros entornos sin SW
+        new Notification(titulo, opciones);
+      }
+    } catch (e) {
+      console.warn('Notification API error:', e);
+    }
+  };
+
   // ---- OPERACIONES EN VIVO ----
   const iniciarRecorrido = async () => {
     const ruta = rutas.find(r => r.id === opRutaId);
@@ -408,6 +596,20 @@ export const TransporteEscolar = () => {
       const { error } = await supabase.from('transporte_operaciones').insert([payload]);
       if (error) throw error;
       await cargarTrackingSolo();
+      // Pedir permisos de notificación al iniciar (sin bloquear)
+      requestNotifPermission();
+
+      // Dispatch local notification
+      window.dispatchEvent(new CustomEvent('sigae-notification', {
+        detail: {
+          id: String(Date.now()),
+          titulo: 'Ruta Iniciada 🚌',
+          cuerpo: `Se ha iniciado el recorrido para la ruta "${ruta.nombre}" (${opSentido}).`,
+          fecha: new Date().toISOString(),
+          tipo: 'transporte'
+        }
+      }));
+
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Recorrido iniciado', showConfirmButton: false, timer: 2000 });
     } catch (err: any) {
       Swal.fire('Error', err.message, 'error');
@@ -476,6 +678,26 @@ export const TransporteEscolar = () => {
       }
 
       await cargarTrackingSolo();
+
+      // ── Sonido y notificación de avance ──
+      playBusChime(isEnd ? 'llegada' : 'parada');
+      const paradaNombreDisplay = paradas.find((p: any) => p.id === paradaId)?.nombre_parada
+        || (paradaId === 'escuela_virtual' ? 'Escuela' : paradaId);
+      sendBusNotification(paradaNombreDisplay, index + 1, orderedIds.length, isEnd);
+
+      // Dispatch local notification to header bell center
+      window.dispatchEvent(new CustomEvent('sigae-notification', {
+        detail: {
+          id: String(Date.now()),
+          titulo: isEnd ? '🏁 Destino Alcanzado' : '📍 Paso por Parada',
+          cuerpo: isEnd 
+            ? `El recorrido de la ruta finalizó con éxito en la escuela.`
+            : `El bus pasó por la parada: ${paradaNombreDisplay} (${index + 1} de ${orderedIds.length}).`,
+          fecha: new Date().toISOString(),
+          tipo: 'transporte'
+        }
+      }));
+
       Swal.fire({ toast: true, position: 'top-end', icon: 'success',
         title: isEnd ? '🏁 Ruta finalizada' : '✅ Paso registrado',
         showConfirmButton: false, timer: 1800 });
@@ -520,6 +742,7 @@ export const TransporteEscolar = () => {
             .eq('escuela_codigo', escCodigo);
           if (error) throw error;
           setOpActual(null);
+          setCustomPids(null);
           localStorage.removeItem('sigae_transporte_opActual');
           await cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Reset completado. No hay recorridos activos para hoy.', showConfirmButton: false, timer: 3000 });
@@ -551,6 +774,7 @@ export const TransporteEscolar = () => {
             .eq('sentido', opSentido);
           if (error) throw error;
           setOpActual(null);
+          setCustomPids(null);
           localStorage.removeItem('sigae_transporte_opActual');
           await cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta reseteada', showConfirmButton: false, timer: 2000 });
@@ -582,7 +806,8 @@ export const TransporteEscolar = () => {
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div className="d-flex flex-column flex-md-row align-items-md-center gap-3 mb-0">
           <h4 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-            <i className="bi bi-bus-front text-primary"></i> Transporte Escolar
+            <span className="bus-header-icon"><AnimatedBusSVG size={38} color="#2563eb" className="bus-bounce" /></span>
+            Transporte Escolar
           </h4>
           {tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb') && (
             <div className="btn-group bg-light rounded-pill p-1 shadow-sm border">
@@ -609,6 +834,28 @@ export const TransporteEscolar = () => {
       </div>
 
       <style>{`
+        /* ─── Animated Bus Header ──────────────────────── */
+        .bus-header-icon { display: inline-flex; align-items: center; }
+        @keyframes busBounce {
+          0%,100% { transform: translateY(0) rotate(0deg); }
+          25%      { transform: translateY(-3px) rotate(-2deg); }
+          75%      { transform: translateY(2px) rotate(2deg); }
+        }
+        .bus-bounce { animation: busBounce 2.4s ease-in-out infinite; }
+
+        /* ─── Road-style track behind stepper ───────────── */
+        .road-track {
+          position: absolute; left: 15px; top: 0; bottom: 0; width: 10px;
+          background: repeating-linear-gradient(180deg, #94a3b8 0px, #94a3b8 10px, transparent 10px, transparent 20px);
+          border-radius: 5px; z-index: 0; opacity: 0.25;
+        }
+        .road-track-fill {
+          position: absolute; left: 15px; top: 0; width: 10px;
+          background: linear-gradient(180deg, #f59e0b, #3b82f6, #10b981);
+          border-radius: 5px; z-index: 1; opacity: 0.9;
+          transition: height 0.8s cubic-bezier(0.34,1.56,0.64,1);
+        }
+
         /* Dashboard Cards Premium */
         .tarjeta-sub { 
           background: #ffffff; 
@@ -646,15 +893,30 @@ export const TransporteEscolar = () => {
         .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.6; cursor: not-allowed; }
         .tarjeta-sub.bloqueado:hover { transform: none; box-shadow: none !important; }
 
+        /* ─── Bus driving across dashboard card ─────────── */
+        @keyframes driveBus {
+          0%   { transform: translateX(-60px); opacity: 0; }
+          10%  { opacity: 1; }
+          90%  { opacity: 1; }
+          100% { transform: translateX(360px); opacity: 0; }
+        }
+        .bus-drive {
+          position: absolute; bottom: 12px; left: 0; z-index: 3; pointer-events: none;
+          animation: driveBus 4s linear infinite;
+        }
+        .tarjeta-sub:hover .bus-drive { animation-play-state: running; }
+
+        /* ─── Parada card for config table ──────────────── */
+        .parada-row-badge {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: linear-gradient(135deg, #eff6ff, #dbeafe);
+          border: 1px solid #bfdbfe; border-radius: 20px;
+          padding: 4px 12px; font-weight: 700; color: #1d4ed8; font-size: 0.82rem;
+        }
+
         /* ─── VERTICAL STEPPER TIMELINE ─────────────────────────────── */
         .route-stepper {
-          position: relative; padding: 4px 0;
-        }
-        .route-stepper::before {
-          content: ''; position: absolute; left: 19px; top: 20px;
-          bottom: 20px; width: 3px;
-          background: linear-gradient(180deg, #f59e0b 0%, #3b82f6 50%, #10b981 100%);
-          border-radius: 3px; z-index: 0;
+          position: relative; padding: 4px 0 4px 0;
         }
         .stepper-stop {
           position: relative; display: flex; align-items: stretch;
@@ -683,6 +945,13 @@ export const TransporteEscolar = () => {
           0%,100% { box-shadow: 0 3px 10px rgba(0,0,0,0.15), 0 0 0 0 rgba(16,185,129,0.45); }
           50%      { box-shadow: 0 3px 10px rgba(0,0,0,0.15), 0 0 0 10px rgba(16,185,129,0); }
         }
+        /* Active bus pin wiggle */
+        @keyframes busWiggle {
+          0%,100% { transform: rotate(0deg) scale(1.05); }
+          30% { transform: rotate(-8deg) scale(1.1); }
+          60% { transform: rotate(8deg) scale(1.1); }
+        }
+        .stepper-pin.active { animation: pulse-stepper 2s infinite, busWiggle 1.5s ease-in-out infinite; }
         .stepper-card {
           flex: 1; background: white; border-radius: 12px; padding: 10px 14px;
           border: 1.5px solid #f1f5f9;
@@ -734,6 +1003,25 @@ export const TransporteEscolar = () => {
           0%,100% { opacity:1; } 50% { opacity:0.2; }
         }
 
+        /* ─── Animated road marquee banner ──────────────── */
+        .road-marquee {
+          background: repeating-linear-gradient(90deg, #1e293b 0px, #1e293b 40px, #f59e0b 40px, #f59e0b 50px);
+          height: 8px; border-radius: 4px; animation: marqueeRoad 1.5s linear infinite;
+        }
+        @keyframes marqueeRoad {
+          0%   { background-position: 0 0; }
+          100% { background-position: 50px 0; }
+        }
+        .status-bus-banner {
+          position: relative; overflow: hidden;
+          border-radius: 16px; padding: 16px 20px;
+        }
+        @keyframes busSlideIn {
+          from { transform: translateX(-80px) scaleX(-1); opacity: 0; }
+          to   { transform: translateX(0) scaleX(-1); opacity: 1; }
+        }
+        .bus-slide-in { animation: busSlideIn 0.7s cubic-bezier(0.34,1.56,0.64,1) both; }
+
         /* Map Grid Background */
         .map-bg {
           background-color: #f8fafc;
@@ -757,39 +1045,88 @@ export const TransporteEscolar = () => {
       {/* DASHBOARD PRINCIPAL */}
       {vistaActual === 'dashboard' && (
         <div className="row g-4">
+
+          {/* ── Tarjeta: Configuración (Paradas + Rutas unificadas) ── */}
           {(canManageParadas || canManageRutas) && (
-            <div className="col-md-6 animate__animated animate__fadeInUp">
-              <div className={`tarjeta-sub p-4 h-100 shadow-sm`} style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fff5f2 100%)', border: '1px solid #ffdac2' }} 
-                onClick={() => {
-                  setConfigTab(canManageParadas ? 'Paradas' : 'Rutas');
-                  setVistaActual('Configuracion');
-                }}
+            <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0s' }}>
+              <div
+                className="tarjeta-sub p-4 h-100 shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 100%)', border: '1px solid #fed7aa' }}
+                onClick={() => { setConfigTab(canManageParadas ? 'Paradas' : 'Rutas'); setVistaActual('Configuracion'); }}
               >
-                <i className="bi bi-gear-fill text-dark bg-icono-gigante"></i>
-                <div className="icono-sub shadow-sm" style={{ color: '#f97316', background: 'white', border: '1px solid #ffdac2' }}><i className="bi bi-gear-fill"></i></div>
-                <h5 className="fw-bold text-dark mb-2" style={{ zIndex: 2 }}>Configuración de Transporte</h5>
-                <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Gestionar paradas, rutas y asignar personal (Chofer / Guía).</p>
+                <i className="bi bi-signpost-split-fill bg-icono-gigante" style={{ color: '#ea580c' }}></i>
+                <div className="icono-sub shadow-sm" style={{ color: '#ea580c', background: 'white', border: '1px solid #fed7aa', display: 'flex', gap: 6 }}>
+                  <BusStopIcon size={30} />
+                  <AnimatedBusSVG size={30} color="#ea580c" className="bus-bounce" />
+                </div>
+                <h5 className="fw-bold text-dark mb-1" style={{ zIndex: 2 }}>Paradas y Rutas</h5>
+                <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Gestionar catálogo de paradas, diseño de rutas y asignación de personal.</p>
+                {/* Mini pill badges */}
+                <div className="d-flex gap-2 mt-2" style={{ zIndex: 2, flexWrap: 'wrap' }}>
+                  {canManageParadas && <span className="badge rounded-pill" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.65rem' }}><i className="bi bi-geo-alt-fill me-1"></i>Paradas</span>}
+                  {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#fed7aa', color: '#9a3412', fontSize: '0.65rem' }}><i className="bi bi-signpost-2-fill me-1"></i>Rutas</span>}
+                  {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#e9d5ff', color: '#6b21a8', fontSize: '0.65rem' }}><i className="bi bi-person-badge-fill me-1"></i>Personal</span>}
+                </div>
+                <div className="bus-drive" style={{ zIndex: 3 }}>
+                  <AnimatedBusSVG size={24} color="#ea580c" />
+                </div>
               </div>
             </div>
           )}
-          
-          <div className="col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
-            <div className={`tarjeta-sub p-4 h-100 shadow-sm ${!canOperateTracking ? 'bloqueado' : ''}`} style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)', border: '1px solid #ddd6fe' }} onClick={() => canOperateTracking && setVistaActual('Operacion')}>
-              <i className="bi bi-broadcast text-dark bg-icono-gigante"></i>
-              <div className="icono-sub shadow-sm" style={{ color: '#6d28d9', background: 'white', border: '1px solid #ddd6fe' }}><i className="bi bi-broadcast"></i></div>
-              <h5 className="fw-bold text-dark mb-2" style={{ zIndex: 2 }}>Operación de Ruta</h5>
-              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Marcar avance en tiempo real.</p>
+
+
+          {/* ── Tarjeta: Gestor de Recorrido (Operación) ── */}
+          <div className="col-12 col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
+            <div
+              className={`tarjeta-sub p-4 h-100 shadow-sm ${!canOperateTracking ? 'bloqueado' : ''}`}
+              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)', border: '1px solid #ddd6fe' }}
+              onClick={() => canOperateTracking && setVistaActual('Operacion')}
+            >
+              <i className="bi bi-broadcast bg-icono-gigante" style={{ color: '#6d28d9' }}></i>
+              <div className="icono-sub shadow-sm" style={{ color: '#6d28d9', background: 'white', border: '1px solid #ddd6fe' }}>
+                <AnimatedBusSVG size={38} color="#6d28d9" className="bus-bounce" />
+              </div>
+              <h5 className="fw-bold text-dark mb-1" style={{ zIndex: 2 }}>Gestor de Recorrido</h5>
+              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Iniciar ruta y marcar avance en tiempo real.</p>
+              {!canOperateTracking && (
+                <div className="mt-2" style={{ zIndex: 2 }}>
+                  <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
+                    <i className="bi bi-lock-fill me-1"></i>Sin permiso
+                  </span>
+                </div>
+              )}
+              <div className="bus-drive" style={{ zIndex: 3 }}>
+                <AnimatedBusSVG size={26} color="#6d28d9" />
+              </div>
             </div>
           </div>
-          
-          <div className="col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.3s' }}>
-            <div className={`tarjeta-sub p-4 h-100 shadow-sm ${!canViewRecorrido ? 'bloqueado' : ''}`} style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', border: '1px solid #bbf7d0' }} onClick={() => canViewRecorrido && setVistaActual('Visor')}>
-              <i className="bi bi-eye-fill text-dark bg-icono-gigante"></i>
-              <div className="icono-sub shadow-sm" style={{ color: '#198754', background: 'white', border: '1px solid #bbf7d0' }}><i className="bi bi-eye-fill"></i></div>
-              <h5 className="fw-bold text-dark mb-2" style={{ zIndex: 2 }}>Visor de Recorrido</h5>
-              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Seguimiento para representantes.</p>
+
+          {/* ── Tarjeta: Visor de Recorrido ── */}
+          <div className="col-12 col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.3s' }}>
+            <div
+              className={`tarjeta-sub p-4 h-100 shadow-sm ${!canViewRecorrido ? 'bloqueado' : ''}`}
+              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', border: '1px solid #bbf7d0' }}
+              onClick={() => canViewRecorrido && setVistaActual('Visor')}
+            >
+              <i className="bi bi-eye-fill bg-icono-gigante" style={{ color: '#198754' }}></i>
+              <div className="icono-sub shadow-sm" style={{ color: '#198754', background: 'white', border: '1px solid #bbf7d0' }}>
+                <AnimatedBusSVG size={38} color="#198754" className="bus-bounce" />
+              </div>
+              <h5 className="fw-bold text-dark mb-1" style={{ zIndex: 2 }}>Visor de Recorrido</h5>
+              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Seguimiento en vivo para representantes y docentes.</p>
+              {!canViewRecorrido && (
+                <div className="mt-2" style={{ zIndex: 2 }}>
+                  <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
+                    <i className="bi bi-lock-fill me-1"></i>Sin permiso
+                  </span>
+                </div>
+              )}
+              <div className="bus-drive" style={{ zIndex: 3 }}>
+                <AnimatedBusSVG size={26} color="#198754" />
+              </div>
             </div>
           </div>
+
         </div>
       )}
 
@@ -845,10 +1182,20 @@ export const TransporteEscolar = () => {
                     </thead>
                     <tbody>
                       {paradas.length === 0 ? (
-                        <tr><td colSpan={3} className="text-center py-4 text-muted">No hay paradas registradas en el catálogo.</td></tr>
+                        <tr><td colSpan={3}>
+                          <div className="text-center py-5">
+                            <BusStopIcon size={56} />
+                            <div className="text-muted mt-2">No hay paradas registradas en el catálogo.</div>
+                          </div>
+                        </td></tr>
                       ) : paradas.map((p) => (
                         <tr key={p.id}>
-                          <td className="fw-bold text-dark px-3"><i className="bi bi-geo-alt-fill text-info me-2"></i>{p.nombre_parada}</td>
+                          <td className="px-3">
+                            <div className="d-flex align-items-center gap-2">
+                              <BusStopIcon size={28} />
+                              <span className="fw-bold text-dark">{p.nombre_parada}</span>
+                            </div>
+                          </td>
                           <td className="text-muted small">{p.descripcion || 'Sin referencia'}</td>
                           <td className="text-end text-nowrap px-3">
                             <button className="btn btn-sm btn-light border text-primary me-1 shadow-sm" onClick={() => { setParadaForm({ id: p.id, nombre: p.nombre_parada, descripcion: p.descripcion || '' }); setShowModalParada(true); }}><i className="bi bi-pencil-fill"></i></button>
@@ -883,7 +1230,12 @@ export const TransporteEscolar = () => {
                     </thead>
                     <tbody>
                       {rutas.length === 0 ? (
-                        <tr><td colSpan={3} className="text-center py-4 text-muted">No hay rutas diseñadas.</td></tr>
+                        <tr><td colSpan={3}>
+                          <div className="text-center py-5">
+                            <AnimatedBusSVG size={64} color="#cbd5e1" />
+                            <div className="text-muted mt-2">No hay rutas diseñadas. ¡Crea tu primera ruta!</div>
+                          </div>
+                        </td></tr>
                       ) : rutas.map((r) => {
                         let len = 0;
                         if (Array.isArray(r.paradas_json)) len = r.paradas_json.length;
@@ -891,8 +1243,17 @@ export const TransporteEscolar = () => {
                         
                         return (
                           <tr key={r.id}>
-                            <td className="fw-bold text-primary px-3">{r.nombre}</td>
-                            <td className="text-center"><span className="badge bg-success rounded-pill px-2 py-1">{len} paradas</span></td>
+                            <td className="px-3">
+                              <div className="d-flex align-items-center gap-2">
+                                <AnimatedBusSVG size={32} color="#2563eb" />
+                                <span className="fw-bold text-primary">{r.nombre}</span>
+                              </div>
+                            </td>
+                            <td className="text-center">
+                              <span className="badge bg-success rounded-pill px-2 py-1">
+                                <i className="bi bi-signpost-2-fill me-1"></i>{len} paradas
+                              </span>
+                            </td>
                             <td className="text-end text-nowrap px-3">
                               <button className="btn btn-sm btn-light border text-success shadow-sm me-1" title="Compartir WhatsApp" onClick={() => compartirRuta(r)}><i className="bi bi-whatsapp"></i></button>
                               <button className="btn btn-sm btn-light border text-primary shadow-sm me-1" onClick={() => editRuta(r)}><i className="bi bi-pencil-fill"></i></button>
@@ -1014,34 +1375,109 @@ export const TransporteEscolar = () => {
                   const rutaObj = rutas.find(r => r.id === opRutaId);
                   if (!rutaObj) return null;
                   
-                  const pids = getIdsWithEscuela(rutaObj, opSentido as any);
+                  const originalPids = getIdsWithEscuela(rutaObj, opSentido as any);
+                  // Usar orden personalizado si existe, si no el original
+                  const pids = customPids ?? originalPids;
                   const orderedParadas = getParadasWithEscuela(pids);
+
+                  // Helpers para reordenar paradas (excluye escuela_virtual que va fija)
+                  const moverParada = (idx: number, dir: number) => {
+                    const base = customPids ?? originalPids;
+                    // No mover escuela_virtual
+                    if (base[idx] === 'escuela_virtual' || base[idx + dir] === 'escuela_virtual') return;
+                    const arr = [...base];
+                    const tmp = arr[idx]; arr[idx] = arr[idx + dir]; arr[idx + dir] = tmp;
+                    setCustomPids(arr);
+                  };
+
+                  // Drag & drop swap
+                  const handleDragStart = (idx: number) => setDragIdx(idx);
+                  const handleDragEnd   = () => setDragIdx(null);
+                  const handleDragOver  = (e: React.DragEvent, idx: number) => {
+                    e.preventDefault();
+                    if (dragIdx === null || dragIdx === idx) return;
+                    const base = customPids ?? originalPids;
+                    // No soltar sobre escuela_virtual
+                    if (base[idx] === 'escuela_virtual' || base[dragIdx] === 'escuela_virtual') return;
+                    const arr = [...base];
+                    const moved = arr.splice(dragIdx, 1)[0];
+                    arr.splice(idx, 0, moved);
+                    setCustomPids(arr);
+                    setDragIdx(idx);
+                  };
 
                   if (orderedParadas.length === 0) return <div className="text-center py-4">Esta ruta no tiene paradas.</div>;
 
                   return (
                     <div>
-                      <div className="d-flex justify-content-between mb-3">
+                      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         {vistaActual === 'Operacion' && !opActual && (
                           <button className="btn btn-warning rounded-pill px-4 fw-bold shadow-sm" onClick={iniciarRecorrido}>
                             <i className="bi bi-play-circle me-2"></i>Iniciar Recorrido
                           </button>
                         )}
+                        {vistaActual === 'Operacion' && !opActual && customPids && (
+                          <button
+                            className="btn btn-outline-secondary rounded-pill px-3 shadow-sm"
+                            onClick={() => setCustomPids(null)}
+                            title="Restaurar orden original de la ruta"
+                          >
+                            <i className="bi bi-arrow-counterclockwise me-1"></i>Restablecer orden
+                          </button>
+                        )}
+                        {vistaActual === 'Operacion' && !opActual && (
+                          <span className="badge bg-light text-muted border rounded-pill px-3 py-2 small">
+                            <i className="bi bi-arrows-expand-vertical me-1"></i>
+                            Arrastra o usa ↑↓ para reordenar antes de iniciar
+                          </span>
+                        )}
                       </div>
 
-                      {opActual && (
-                        <div className={`alert ${opActual.estado === 'Finalizada' ? 'alert-success' : 'alert-primary'} rounded-4 border-0 shadow-sm mb-4 d-flex align-items-center`}>
-                          <div className="fs-1 me-3">
-                            {opActual.estado === 'Finalizada' ? <i className="bi bi-check-circle-fill"></i> : <i className="bi bi-bus-front-fill"></i>}
+                      {opActual && (() => {
+                        const rutaObj2 = rutas.find(r => r.id === opRutaId);
+                        const pids2 = rutaObj2 ? getIdsWithEscuela(rutaObj2, opSentido as any) : [];
+                        const currentIdx2 = pids2.findIndex((id: string) => id === opActual.ubicacion_actual);
+                        const progressIdx = opActual.estado === 'Finalizada' ? pids2.length - 1 : currentIdx2;
+                        return (
+                          <div className={`status-bus-banner shadow-sm mb-4 ${opActual.estado === 'Finalizada' ? '' : ''}`}
+                            style={{ background: opActual.estado === 'Finalizada'
+                              ? 'linear-gradient(135deg, #d1fae5, #a7f3d0)'
+                              : 'linear-gradient(135deg, #dbeafe, #eff6ff)',
+                              border: opActual.estado === 'Finalizada' ? '1.5px solid #6ee7b7' : '1.5px solid #93c5fd' }}
+                          >
+                            <div className="d-flex align-items-center gap-3 mb-2">
+                              <div>
+                                <h6 className="fw-bold mb-0" style={{ color: opActual.estado === 'Finalizada' ? '#065f46' : '#1e40af' }}>
+                                  {opActual.estado === 'Finalizada' ? '🏁 Ruta Finalizada con Éxito' : '🚍 En Ruta — Recorrido Activo'}
+                                </h6>
+                                <div className="small" style={{ color: opActual.estado === 'Finalizada' ? '#047857' : '#1d4ed8' }}>
+                                  Última actualización: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </div>
+                              </div>
+                              {opActual.estado !== 'Finalizada' && (
+                                <div className="ms-auto">
+                                  <span className="bus-here-badge">
+                                    <span className="live-dot"></span>
+                                    EN VIVO
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {/* Progress bar with moving bus */}
+                            {pids2.length > 0 && (
+                              <BusProgressBar
+                                total={pids2.length}
+                                current={progressIdx >= 0 ? progressIdx : 0}
+                                finalizada={opActual.estado === 'Finalizada'}
+                              />
+                            )}
+                            {/* Animated road strip */}
+                            <div className="road-marquee"></div>
                           </div>
-                          <div>
-                            <h6 className="fw-bold mb-1">Estado: {opActual.estado}</h6>
-                            <div className="small opacity-75">Última actualización: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
-                      <div className="route-stepper">
+                      <div className="route-stepper" style={{ paddingLeft: 4 }}>
                         {orderedParadas.map((parada: any, index: number) => {
                           const isStart = index === 0;
                           const isSchool = parada.id === 'escuela_virtual';
@@ -1068,13 +1504,49 @@ export const TransporteEscolar = () => {
                           const horaRegistrada = opActual?.historial_paradas?.[parada.id];
 
                           return (
-                            <div key={`stop-${index}`} className="stepper-stop" style={{ animationDelay: `${index * 0.05}s` }}>
-                              <div className={`stepper-pin ${pinClass}`}>
-                                {isActive ? <i className="bi bi-bus-front-fill"></i>
-                                  : passed ? <i className="bi bi-check-lg"></i>
-                                  : isSchool ? <i className="bi bi-building-fill"></i>
-                                  : isStart  ? <i className="bi bi-geo-alt-fill"></i>
-                                  : <i className="bi bi-circle-fill" style={{fontSize:'0.45rem'}}></i>}
+                            <div
+                              key={`stop-${parada.id}`}
+                              className="stepper-stop"
+                              style={{
+                                animationDelay: `${index * 0.05}s`,
+                                // Visual feedback durante drag
+                                opacity: (vistaActual === 'Operacion' && !isSchool && dragIdx === index) ? 0.45 : 1,
+                                outline: (vistaActual === 'Operacion' && dragIdx !== null && dragIdx !== index && !isSchool)
+                                  ? '2px dashed #6366f1' : 'none',
+                                outlineOffset: 3,
+                                borderRadius: 12,
+                                transition: 'opacity 0.15s, outline 0.15s',
+                                cursor: (vistaActual === 'Operacion' && !isSchool) ? 'grab' : 'default',
+                              }}
+                              // ── Drag & drop handlers ──
+                              draggable={vistaActual === 'Operacion' && !isSchool}
+                              onDragStart={() => handleDragStart(index)}
+                              onDragOver={(e) => handleDragOver(e, index)}
+                              onDragEnd={handleDragEnd}
+                            >
+                              <div className={`stepper-pin ${pinClass}`} style={{ overflow: 'hidden' }}>
+                                {isActive
+                                  ? <AnimatedBusSVG size={26} color="#10b981" />
+                                  : passed
+                                    ? <i className="bi bi-check-lg"></i>
+                                    : isSchool
+                                      ? (
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a855f7' }}>
+                                          {/* Main pediment / triangle roof */}
+                                          <path d="m2 10 10-6 10 6" />
+                                          {/* Building outline */}
+                                          <path d="M4 10v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10" />
+                                          {/* Central portal / door */}
+                                          <path d="M9 22V12h6v10" />
+                                          {/* Clock tower / dome on top */}
+                                          <path d="M12 4v2" />
+                                          <circle cx="12" cy="7.5" r="1.5" fill="currentColor" />
+                                        </svg>
+                                      )
+                                      : isStart
+                                        ? <BusStopIcon size={22} active={false} />
+                                        : <i className="bi bi-circle-fill" style={{fontSize:'0.45rem'}}></i>
+                                }
                               </div>
                               <div className={`stepper-card ${cardClass}`}>
                                 <div className="stepper-card-info">
@@ -1091,10 +1563,38 @@ export const TransporteEscolar = () => {
                                   )}
                                 </div>
 
+                                {/* ── Botones de reordenamiento (Operacion, no sobre escuela_virtual) ── */}
+                                {vistaActual === 'Operacion' && !isSchool && (
+                                  <div className="d-flex flex-column gap-1" style={{ flexShrink: 0 }}>
+                                    <button
+                                      className="btn btn-sm btn-light border rounded-circle p-0 shadow-sm"
+                                      style={{ width: 28, height: 28, lineHeight: 1 }}
+                                      disabled={index === 0}
+                                      onClick={() => moverParada(index, -1)}
+                                      title="Subir parada"
+                                    >
+                                      <i className="bi bi-chevron-up" style={{ fontSize: '0.7rem' }}></i>
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-light border rounded-circle p-0 shadow-sm"
+                                      style={{ width: 28, height: 28, lineHeight: 1 }}
+                                      disabled={index >= orderedParadas.length - 1 || orderedParadas[index + 1]?.id === 'escuela_virtual'}
+                                      onClick={() => moverParada(index, 1)}
+                                      title="Bajar parada"
+                                    >
+                                      <i className="bi bi-chevron-down" style={{ fontSize: '0.7rem' }}></i>
+                                    </button>
+                                  </div>
+                                )}
                                 {isActive && (
-                                  <div className="bus-here-badge">
-                                    <span className="live-dot"></span>
-                                    Aquí
+                                  <div className="d-flex flex-column align-items-center gap-1">
+                                    <div className="bus-here-badge">
+                                      <span className="live-dot"></span>
+                                      🚍 Aquí
+                                    </div>
+                                    <div style={{ opacity: 0.7 }}>
+                                      <BusStopIcon size={22} active={true} />
+                                    </div>
                                   </div>
                                 )}
 

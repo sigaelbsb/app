@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="pdvsaCircle">
+      <circle cx="50" cy="50" r="46"/>
+    </clipPath>
+  </defs>
+
+  <!-- Red base circle -->
+  <circle cx="50" cy="50" r="47" fill="#dc2626"/>
+
+  <!-- White geometric pattern clipped to circle -->
+  <g clip-path="url(#pdvsaCircle)" fill="white">
+
+    <!-- ── Diagonal bands forming the X ── -->
+    <polygon points="14,20 20,14 86,80 80,86"/>
+    <polygon points="80,14 86,20 20,86 14,80"/>
+
+    <!-- ── Horizontal band ── -->
+    <rect x="3" y="46" width="94" height="8"/>
+
+    <!-- ── Vertical band ── -->
+    <rect x="46" y="3" width="8" height="94"/>
+
+    <!-- ── White gap between TOP double chevrons (pointing up) ── -->
+    <polygon points="43,35 50,15 57,35"/>
+
+    <!-- ── White gap between BOTTOM double chevrons (pointing down) ── -->
+    <polygon points="43,65 50,85 57,65"/>
+
+    <!-- ── White gap between LEFT double chevrons (pointing left) ── -->
+    <polygon points="35,43 15,50 35,57"/>
+
+    <!-- ── White gap between RIGHT double chevrons (pointing right) ── -->
+    <polygon points="65,43 85,50 65,57"/>
+
+  </g>
+</svg>

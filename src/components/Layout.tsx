@@ -12,6 +12,21 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
+  
+  // Lógica de Notificaciones
+  const [notificaciones, setNotificaciones] = useState<any[]>(() => {
+    try {
+      const items = localStorage.getItem('sigae_notificaciones');
+      return items ? JSON.parse(items) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [mostrarNotifDropdown, setMostrarNotifDropdown] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('sigae_notificaciones', JSON.stringify(notificaciones));
+  }, [notificaciones]);
 
   const cargarConfigGlobal = async () => {
     try {
@@ -140,6 +155,65 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       window.removeEventListener('sigae-maintenance-changed', handleMaintenanceChange);
     };
   }, [location.pathname]);
+
+  // Efecto persistente de notificaciones (solo al montar/desmontar la app)
+  useEffect(() => {
+    const playChime = () => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const now = ctx.currentTime;
+        [880, 1100].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.15);
+          gain.gain.setValueAtTime(0, now + i * 0.15);
+          gain.gain.linearRampToValueAtTime(0.25, now + i * 0.15 + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.35);
+          osc.start(now + i * 0.15);
+          osc.stop(now + i * 0.15 + 0.36);
+        });
+      } catch (e) {}
+    };
+
+    const handleNotification = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      
+      setNotificaciones(prev => {
+        const updated = [
+          {
+            id: detail.id || String(Date.now()),
+            titulo: detail.titulo || 'Notificación',
+            cuerpo: detail.cuerpo || '',
+            leido: false,
+            fecha: detail.fecha || new Date().toISOString(),
+            tipo: detail.tipo || 'info'
+          },
+          ...prev
+        ];
+        return updated.slice(0, 30);
+      });
+
+      playChime();
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('#campana-notificaciones')) {
+        setMostrarNotifDropdown(false);
+      }
+    };
+
+    window.addEventListener('sigae-notification', handleNotification);
+    document.addEventListener('click', handleClickOutside);
+
+    return () => {
+      window.removeEventListener('sigae-notification', handleNotification);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   const handleBloquearSesion = () => {
     localStorage.setItem('sesion_sigae', 'bloqueada');
@@ -389,8 +463,123 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               <i className="bi bi-moon-stars-fill fs-4 text-secondary hover-efecto" id="icono-tema"></i>
             </div>
 
-            <div className="position-relative me-3 me-md-4 cursor-pointer" id="campana-notificaciones">
-              <i className="bi bi-bell-fill fs-4 text-secondary hover-efecto" id="icono-campana"></i>
+            <div 
+              className="position-relative me-3 me-md-4" 
+              id="campana-notificaciones"
+              style={{ display: 'inline-block' }}
+            >
+              <div 
+                onClick={() => setMostrarNotifDropdown(!mostrarNotifDropdown)} 
+                className="cursor-pointer position-relative d-flex align-items-center"
+              >
+                <i className="bi bi-bell-fill fs-4 text-secondary hover-efecto" id="icono-campana"></i>
+                {notificaciones.filter(n => !n.leido).length > 0 && (
+                  <span 
+                    className="position-absolute translate-middle badge rounded-pill bg-danger" 
+                    style={{
+                      top: '4px',
+                      right: '-8px',
+                      fontSize: '0.65rem',
+                      padding: '4px 6px',
+                      boxShadow: '0 0 0 2px white',
+                      animation: 'pulse-badge 1.5s infinite'
+                    }}
+                  >
+                    {notificaciones.filter(n => !n.leido).length}
+                  </span>
+                )}
+              </div>
+
+              {mostrarNotifDropdown && (
+                <div 
+                  className="dropdown-menu show dropdown-menu-end shadow-lg border-0 rounded-3 p-0"
+                  style={{
+                    position: 'absolute',
+                    top: '38px',
+                    right: 0,
+                    width: '320px',
+                    maxHeight: '400px',
+                    zIndex: 1050,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    animation: 'fadeInUp 0.2s ease-out'
+                  }}
+                >
+                  <div className="d-flex justify-content-between align-items-center p-3 border-bottom bg-light rounded-top">
+                    <span className="fw-bold text-dark mb-0 small">Notificaciones</span>
+                    {notificaciones.length > 0 && (
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-link btn-sm p-0 text-primary fw-semibold small text-decoration-none"
+                          onClick={() => {
+                            setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
+                          }}
+                        >
+                          Leer todo
+                        </button>
+                        <span className="text-muted">|</span>
+                        <button 
+                          className="btn btn-link btn-sm p-0 text-danger fw-semibold small text-decoration-none"
+                          onClick={() => setNotificaciones([])}
+                        >
+                          Limpiar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="overflow-auto" style={{ maxHeight: '320px', flexGrow: 1 }}>
+                    {notificaciones.length === 0 ? (
+                      <div className="text-center py-4 text-muted small">
+                        <i className="bi bi-bell-slash fs-3 d-block mb-2 text-secondary"></i>
+                        No tienes notificaciones
+                      </div>
+                    ) : (
+                      notificaciones.map((notif) => (
+                        <div 
+                          key={notif.id}
+                          onClick={() => {
+                            setNotificaciones(prev => prev.map(n => n.id === notif.id ? { ...n, leido: true } : n));
+                          }}
+                          className={`d-flex p-3 border-bottom cursor-pointer hover-bg-light transition-all ${!notif.leido ? 'bg-aliceblue' : ''}`}
+                          style={{
+                            backgroundColor: !notif.leido ? '#f0f7ff' : '#ffffff',
+                            transition: 'background-color 0.2s'
+                          }}
+                        >
+                          <div className="me-3">
+                            <span 
+                              className={`d-flex align-items-center justify-content-center rounded-circle`}
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                background: notif.tipo === 'transporte' ? '#fffbeb' : '#eff6ff',
+                                color: notif.tipo === 'transporte' ? '#d97706' : '#2563eb',
+                                border: notif.tipo === 'transporte' ? '1px solid #fde68a' : '1px solid #bfdbfe'
+                              }}
+                            >
+                              <i className={`bi ${notif.tipo === 'transporte' ? 'bi-bus-front' : 'bi-info-circle-fill'} small`}></i>
+                            </span>
+                          </div>
+                          <div style={{ flexGrow: 1, minWidth: 0 }}>
+                            <div className="d-flex justify-content-between align-items-start mb-1">
+                              <span className="fw-bold text-dark text-truncate small" style={{ maxWidth: '160px' }}>
+                                {notif.titulo}
+                              </span>
+                              <span className="text-muted style-date" style={{ fontSize: '0.65rem' }}>
+                                {new Date(notif.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="text-muted mb-0 small text-wrap-break" style={{ fontSize: '0.75rem', lineHeight: '1.25' }}>
+                              {notif.cuerpo}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="usuario-info me-3 text-end d-none d-md-block">
