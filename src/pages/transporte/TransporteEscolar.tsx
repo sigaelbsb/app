@@ -587,16 +587,21 @@ export const TransporteEscolar = () => {
     };
 
     try {
-      // Si la PWA tiene el Service Worker activo, registrar la notificación a nivel de S.O.
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then((registration) => {
           registration.showNotification(titulo, opciones);
+        }).catch(() => {
+          try {
+            new Notification(titulo, opciones);
+          } catch (err) {
+            console.warn('Constructor Notification falló en móvil:', err);
+          }
         });
       } else {
-        // Fallback para computadoras u otros entornos sin SW
         new Notification(titulo, opciones);
       }
     } catch (e) {
+
       console.warn('Notification API error:', e);
     }
   };
