@@ -165,6 +165,9 @@ export const TransporteEscolar = () => {
       const found = trackingHoy.find((t: any) => t.ruta_id === opRutaId && t.sentido === opSentido && t.fecha === hoyStr);
       setOpActual(found || null);
     }
+    if (vistaActual === 'Operacion') {
+      requestNotifPermission();
+    }
   }, [vistaActual, opRutaId, opSentido, trackingHoy]);
 
   // ─── AUTO-RESET DIARIO ──────────────────────────────────────────
@@ -487,10 +490,40 @@ export const TransporteEscolar = () => {
   // SONIDO Y NOTIFICACIONES DE PARADAS
   // ────────────────────────────────────────────────────────────────────────────
 
-  /** Solicita permiso de notificaciones al navegador (solo si aún no fue concedido) */
+  /** Solicita permiso de notificaciones al navegador (con guía si está bloqueado) */
   const requestNotifPermission = async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission();
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'default') {
+      const res = await Notification.requestPermission();
+      if (res === 'granted') {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: '¡Notificaciones habilitadas! 🔔',
+          showConfirmButton: false,
+          timer: 2000
+        });
+      }
+    } else if (Notification.permission === 'denied') {
+      Swal.fire({
+        title: 'Notificaciones Bloqueadas 🔔',
+        html: `
+          <p class="text-muted small mb-2">El navegador o el teléfono tienen las notificaciones desactivadas para esta aplicación.</p>
+          <div class="text-start bg-light p-3 rounded-3 border">
+            <span class="d-block fw-bold text-danger mb-1" style={{fontSize: '0.8rem'}}>Para habilitar y recibir las alertas del bus:</span>
+            <ol class="small text-muted mb-0 ps-3">
+              <li>Pulsa el icono de <strong>ajustes / candado / info</strong> a la izquierda de la dirección de la web.</li>
+              <li>Activa o permite las <strong>Notificaciones</strong>.</li>
+              <li>Si estás en PWA instalada, ve a Ajustes de tu móvil → Aplicaciones → SIGAE → Notificaciones → Permitir.</li>
+            </ol>
+          </div>
+        `,
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#3085d6'
+      });
     }
   };
 
