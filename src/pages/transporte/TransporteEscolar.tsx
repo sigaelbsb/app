@@ -904,7 +904,7 @@ export const TransporteEscolar = () => {
           transition: all 0.2s ease;
           display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
         }
-        .stepper-card-info { flex: 1; min-width: 0; }
+        .stepper-card-info { flex: 1 1 150px; min-width: 150px; }
         .stepper-stop:hover .stepper-card { box-shadow: 0 4px 14px rgba(0,0,0,0.09); border-color: #e2e8f0; }
         .stepper-card.active  { border-color: #10b981; background: linear-gradient(135deg,#f0fdf4,#ecfdf5); }
         .stepper-card.passed  { border-color: #dbeafe; background: #f8fafc; opacity: 0.88; }
@@ -916,6 +916,7 @@ export const TransporteEscolar = () => {
         }
         .stepper-name {
           font-size: 0.88rem; font-weight: 700; color: #1e293b; line-height: 1.2;
+          word-break: normal; overflow-wrap: anywhere;
         }
         .stepper-desc {
           font-size: 0.72rem; color: #94a3b8; margin-top: 2px; line-height: 1.2;
