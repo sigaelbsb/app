@@ -73,6 +73,12 @@ self.addEventListener('push', function(event) {
         url: data.url || '/'
       }
     };
+    
+    // Activar el punto rojo (App Badge) en el icono de la app
+    if (navigator.setAppBadge) {
+      navigator.setAppBadge(1).catch(console.error);
+    }
+
     event.waitUntil(
       self.registration.showNotification(data.title, options)
     );
@@ -81,6 +87,11 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+
+  if (navigator.clearAppBadge) {
+    navigator.clearAppBadge().catch(console.error);
+  }
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
@@ -96,3 +107,5 @@ self.addEventListener('notificationclick', function(event) {
     })
   );
 });
+
+

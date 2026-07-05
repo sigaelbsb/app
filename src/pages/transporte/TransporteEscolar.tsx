@@ -214,6 +214,22 @@ export const TransporteEscolar = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Sincronización cuando la app vuelve del segundo plano (teléfonos)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if ('clearAppBadge' in navigator) {
+          navigator.clearAppBadge().catch(() => {});
+        }
+        if (canViewTransporte) {
+          cargarTrackingSolo();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [canViewTransporte]);
+
   const cargarTodo = async (silencioso = false) => {
     if (!silencioso) setLoadingData(true);
     try {
@@ -1777,3 +1793,5 @@ export const TransporteEscolar = () => {
     </div>
   );
 };
+
+
