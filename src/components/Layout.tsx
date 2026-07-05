@@ -15,9 +15,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
   
   // Lógica de Notificaciones
-  const [notificaciones, setNotificaciones] = useState<any[]>(() => {
+  const [notificaciones, setNotificaciones] = useState<any[]>([]);
+  const [leidasIds, setLeidasIds] = useState<string[]>(() => {
     try {
-      const items = localStorage.getItem('sigae_notificaciones');
+      const items = localStorage.getItem('sigae_notif_leidas');
       return items ? JSON.parse(items) : [];
     } catch (e) {
       return [];
@@ -26,8 +27,16 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const [mostrarNotifDropdown, setMostrarNotifDropdown] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('sigae_notificaciones', JSON.stringify(notificaciones));
-  }, [notificaciones]);
+    localStorage.setItem('sigae_notif_leidas', JSON.stringify(leidasIds));
+    const unreadCount = notificaciones.filter(n => !n.leido).length;
+    if ('setAppBadge' in navigator) {
+      if (unreadCount > 0) {
+        navigator.setAppBadge(unreadCount).catch(() => {});
+      } else {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  }, [leidasIds, notificaciones]);
 
   const cargarConfigGlobal = async () => {
     try {
@@ -162,6 +171,43 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     // Auto-suscribir a Web Push si ya tiene permisos concedidos
     subscribeToWebPush();
 
+    const usrStr = localStorage.getItem('usuario_sigae');
+    if (usrStr) {
+      try {
+        const usr = JSON.parse(usrStr);
+        const esc = usr.id_escuela || 'sb';
+        
+        const cargarHistorial = async () => {
+          try {
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            
+            const { data, error } = await supabase
+              .from('notificaciones_globales')
+              .select('*')
+              .eq('escuela_codigo', esc)
+              .gte('creado_en', hoy.toISOString())
+              .order('creado_en', { ascending: false });
+
+            if (error) throw error;
+            if (data) {
+              setNotificaciones(data.map((d: any) => ({
+                id: String(d.id),
+                titulo: d.titulo,
+                cuerpo: d.cuerpo,
+                fecha: d.creado_en,
+                tipo: d.tipo || 'transporte',
+                leido: leidasIds.includes(String(d.id))
+              })));
+            }
+          } catch (err) {
+            console.error("Error al cargar historial de notificaciones:", err);
+          }
+        };
+        cargarHistorial();
+      } catch (e) {}
+    }
+
     const playChime = () => {
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -186,9 +232,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       if (!detail) return;
       
       setNotificaciones(prev => {
+        if (prev.some(n => n.id === String(detail.id))) return prev;
         const updated = [
           {
-            id: detail.id || String(Date.now()),
+            id: String(detail.id) || String(Date.now()),
             titulo: detail.titulo || 'Notificación',
             cuerpo: detail.cuerpo || '',
             leido: false,
@@ -653,7 +700,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                         <button 
                           className="btn btn-link btn-sm p-0 text-primary fw-semibold small text-decoration-none"
                           onClick={() => {
-                            setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
+                            setNotificaciones(prev => {
+                              const updated = prev.map(n => ({ ...n, leido: true }));
+                              setLeidasIds(updated.map(n => String(n.id)));
+                              return updated;
+                            });
                           }}
                         >
                           Leer todo
@@ -661,7 +712,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                         <span className="text-muted">|</span>
                         <button 
                           className="btn btn-link btn-sm p-0 text-danger fw-semibold small text-decoration-none"
-                          onClick={() => setNotificaciones([])}
+                          onClick={() => {
+                            setNotificaciones([]);
+                            setLeidasIds([]);
+                          }}
                         >
                           Limpiar
                         </button>
@@ -681,6 +735,13 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                           key={notif.id}
                           onClick={() => {
                             setNotificaciones(prev => prev.map(n => n.id === notif.id ? { ...n, leido: true } : n));
+                            setLeidasIds(prevLeidas => {
+                              const stringId = String(notif.id);
+                              if (!prevLeidas.includes(stringId)) {
+                                return [...prevLeidas, stringId];
+                              }
+                              return prevLeidas;
+                            });
                           }}
                           className={`d-flex p-3 border-bottom cursor-pointer hover-bg-light transition-all ${!notif.leido ? 'bg-aliceblue' : ''}`}
                           style={{
