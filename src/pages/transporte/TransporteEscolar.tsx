@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { subscribeToWebPush } from '../../lib/webPush';
@@ -1014,28 +1014,29 @@ export const TransporteEscolar = () => {
         <div className="row g-4">
 
           {/* ── Tarjeta: Configuración (Paradas + Rutas unificadas) ── */}
+          {/* ── Tarjeta: Configuración (Paradas + Rutas unificadas) ── */}
           {(canManageParadas || canManageRutas) && (
             <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0s' }}>
               <div
-                className="tarjeta-sub p-4 h-100 shadow-sm"
-                style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 100%)', border: '1px solid #fed7aa' }}
+                className="tarjeta-modulo-nueva shadow-sm w-100"
+                style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fffbeb 100%)', border: '2px solid #fde68a' }}
                 onClick={() => { setConfigTab(canManageParadas ? 'Paradas' : 'Rutas'); setVistaActual('Configuracion'); }}
               >
-                <i className="bi bi-signpost-split-fill bg-icono-gigante" style={{ color: '#ea580c' }}></i>
-                <div className="icono-sub shadow-sm" style={{ color: '#ea580c', background: 'white', border: '1px solid #fed7aa', display: 'flex', gap: 6 }}>
-                  <BusStopIcon size={30} />
-                  <AnimatedBusSVG size={30} color="#ea580c" className="bus-bounce" />
-                </div>
-                <h5 className="fw-bold text-dark mb-1" style={{ zIndex: 2 }}>Paradas y Rutas</h5>
-                <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Gestionar catálogo de paradas, diseño de rutas y asignación de personal.</p>
-                {/* Mini pill badges */}
-                <div className="d-flex gap-2 mt-2" style={{ zIndex: 2, flexWrap: 'wrap' }}>
-                  {canManageParadas && <span className="badge rounded-pill" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.65rem' }}><i className="bi bi-geo-alt-fill me-1"></i>Paradas</span>}
-                  {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#fed7aa', color: '#9a3412', fontSize: '0.65rem' }}><i className="bi bi-signpost-2-fill me-1"></i>Rutas</span>}
-                  {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#e9d5ff', color: '#6b21a8', fontSize: '0.65rem' }}><i className="bi bi-person-badge-fill me-1"></i>Personal</span>}
-                </div>
-                <div className="bus-drive" style={{ zIndex: 3 }}>
-                  <AnimatedBusSVG size={24} color="#ea580c" />
+                <i className="bi bi-signpost-split-fill bg-icono-gigante" style={{ color: '#d97706' }}></i>
+                <div className="contenido-t">
+                  <div className="icono-caja shadow-sm" style={{ color: '#d97706', border: '1px solid #fde68a', background: 'white' }}>
+                    <i className="bi bi-signpost-split-fill"></i>
+                  </div>
+                  <h4 className="titulo-t" style={{ fontSize: '1.25rem', marginTop: '1.5rem', marginBottom: '0.4rem', fontWeight: 800 }}>Paradas y Rutas</h4>
+                  <p className="small text-muted mb-3">Gestionar catálogo de paradas, diseño de rutas y asignación de personal.</p>
+                  
+                  {/* Mini pill badges */}
+                  <div className="d-flex gap-2 mt-auto" style={{ flexWrap: 'wrap' }}>
+                    {canManageParadas && <span className="badge rounded-pill" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.65rem' }}><i className="bi bi-geo-alt-fill me-1"></i>Paradas</span>}
+                    {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#fed7aa', color: '#9a3412', fontSize: '0.65rem' }}><i className="bi bi-signpost-2-fill me-1"></i>Rutas</span>}
+                    {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#e9d5ff', color: '#6b21a8', fontSize: '0.65rem' }}><i className="bi bi-person-badge-fill me-1"></i>Personal</span>}
+                  </div>
+                  <span className="link-t mt-3" style={{ color: '#d97706' }}>Entrar al submódulo <i className="bi bi-arrow-right"></i></span>
                 </div>
               </div>
             </div>
@@ -1043,53 +1044,57 @@ export const TransporteEscolar = () => {
 
 
           {/* ── Tarjeta: Gestor de Recorrido (Operación) ── */}
-          <div className="col-12 col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
+          <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
             <div
-              className={`tarjeta-sub p-4 h-100 shadow-sm ${!canOperateTracking ? 'bloqueado' : ''}`}
-              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)', border: '1px solid #ddd6fe' }}
+              className={`tarjeta-modulo-nueva shadow-sm w-100 ${!canOperateTracking ? 'bloqueado' : ''}`}
+              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)', border: '2px solid #ddd6fe' }}
               onClick={() => canOperateTracking && setVistaActual('Operacion')}
             >
               <i className="bi bi-broadcast bg-icono-gigante" style={{ color: '#6d28d9' }}></i>
-              <div className="icono-sub shadow-sm" style={{ color: '#6d28d9', background: 'white', border: '1px solid #ddd6fe' }}>
-                <AnimatedBusSVG size={38} color="#6d28d9" className="bus-bounce" />
-              </div>
-              <h5 className="fw-bold text-dark mb-1" style={{ zIndex: 2 }}>Gestor de Recorrido</h5>
-              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Iniciar ruta y marcar avance en tiempo real.</p>
-              {!canOperateTracking && (
-                <div className="mt-2" style={{ zIndex: 2 }}>
-                  <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
-                    <i className="bi bi-lock-fill me-1"></i>Sin permiso
-                  </span>
+              <div className="contenido-t">
+                <div className="icono-caja shadow-sm" style={{ color: '#6d28d9', border: '1px solid #ddd6fe', background: 'white' }}>
+                  <i className="bi bi-broadcast"></i>
                 </div>
-              )}
-              <div className="bus-drive" style={{ zIndex: 3 }}>
-                <AnimatedBusSVG size={26} color="#6d28d9" />
+                <h4 className="titulo-t" style={{ fontSize: '1.25rem', marginTop: '1.5rem', marginBottom: '0.4rem', fontWeight: 800 }}>Gestor de Recorrido</h4>
+                <p className="small text-muted mb-3">Iniciar ruta y marcar avance en tiempo real.</p>
+                
+                <div className="mt-auto">
+                  {!canOperateTracking ? (
+                    <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
+                      <i className="bi bi-lock-fill me-1"></i>Sin permiso
+                    </span>
+                  ) : (
+                    <span className="link-t" style={{ color: '#6d28d9' }}>Entrar al submódulo <i className="bi bi-arrow-right"></i></span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* ── Tarjeta: Visor de Recorrido ── */}
-          <div className="col-12 col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.3s' }}>
+          <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.3s' }}>
             <div
-              className={`tarjeta-sub p-4 h-100 shadow-sm ${!canViewRecorrido ? 'bloqueado' : ''}`}
-              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', border: '1px solid #bbf7d0' }}
+              className={`tarjeta-modulo-nueva shadow-sm w-100 ${!canViewRecorrido ? 'bloqueado' : ''}`}
+              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', border: '2px solid #bbf7d0' }}
               onClick={() => canViewRecorrido && setVistaActual('Visor')}
             >
               <i className="bi bi-eye-fill bg-icono-gigante" style={{ color: '#198754' }}></i>
-              <div className="icono-sub shadow-sm" style={{ color: '#198754', background: 'white', border: '1px solid #bbf7d0' }}>
-                <AnimatedBusSVG size={38} color="#198754" className="bus-bounce" />
-              </div>
-              <h5 className="fw-bold text-dark mb-1" style={{ zIndex: 2 }}>Visor de Recorrido</h5>
-              <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Seguimiento en vivo para representantes y docentes.</p>
-              {!canViewRecorrido && (
-                <div className="mt-2" style={{ zIndex: 2 }}>
-                  <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
-                    <i className="bi bi-lock-fill me-1"></i>Sin permiso
-                  </span>
+              <div className="contenido-t">
+                <div className="icono-caja shadow-sm" style={{ color: '#198754', border: '1px solid #bbf7d0', background: 'white' }}>
+                  <i className="bi bi-eye-fill"></i>
                 </div>
-              )}
-              <div className="bus-drive" style={{ zIndex: 3 }}>
-                <AnimatedBusSVG size={26} color="#198754" />
+                <h4 className="titulo-t" style={{ fontSize: '1.25rem', marginTop: '1.5rem', marginBottom: '0.4rem', fontWeight: 800 }}>Visor de Recorrido</h4>
+                <p className="small text-muted mb-3">Seguimiento en vivo para representantes y docentes.</p>
+                
+                <div className="mt-auto">
+                  {!canViewRecorrido ? (
+                    <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
+                      <i className="bi bi-lock-fill me-1"></i>Sin permiso
+                    </span>
+                  ) : (
+                    <span className="link-t" style={{ color: '#198754' }}>Entrar al submódulo <i className="bi bi-arrow-right"></i></span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
