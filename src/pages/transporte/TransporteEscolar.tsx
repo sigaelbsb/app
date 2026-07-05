@@ -154,6 +154,24 @@ export const TransporteEscolar = () => {
   useEffect(() => { localStorage.setItem('sigae_transporte_ruta', opRutaId); }, [opRutaId]);
   useEffect(() => { localStorage.setItem('sigae_transporte_sentido', opSentido); }, [opSentido]);
 
+  useEffect(() => {
+    if (permLoading) return;
+    const hasSB = tieneAccesoEscuela('sb');
+    const hasLB = tieneAccesoEscuela('lb');
+
+    if (hasSB && !hasLB && escCodigo !== 'sb') {
+      setEscCodigo('sb');
+      localStorage.setItem('sigae_escuela_codigo', 'sb');
+    } else if (hasLB && !hasSB && escCodigo !== 'lb') {
+      setEscCodigo('lb');
+      localStorage.setItem('sigae_escuela_codigo', 'lb');
+    }
+  }, [permLoading, tieneAccesoEscuela]);
+
+  useEffect(() => {
+    localStorage.setItem('sigae_escuela_codigo', escCodigo);
+  }, [escCodigo]);
+
   // Referencias mutables para evitar stale closures en el listener en tiempo real de Supabase
   const rutasRef = React.useRef(rutas);
   const paradasRef = React.useRef(paradas);
