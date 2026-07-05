@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
+import { subscribeToWebPush } from '../../lib/webPush';
 import html2canvas from 'html2canvas';
 
 // ─── SVG Animated Bus — Transporte Escolar Venezuela ──────────────────────────────
@@ -511,6 +515,7 @@ export const TransporteEscolar = () => {
     if (Notification.permission === 'default') {
       const res = await Notification.requestPermission();
       if (res === 'granted') {
+        subscribeToWebPush();
         Swal.fire({
           toast: true,
           position: 'top-end',
@@ -520,6 +525,9 @@ export const TransporteEscolar = () => {
           timer: 2000
         });
       }
+    } else if (Notification.permission === 'granted') {
+      subscribeToWebPush();
+      Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Notificaciones ya están activas', showConfirmButton: false, timer: 2000 });
     } else if (Notification.permission === 'denied') {
       Swal.fire({
         title: 'Notificaciones Bloqueadas 🔔',

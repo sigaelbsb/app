@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
 import { supabase } from '../lib/supabase';
+import { subscribeToWebPush } from '../lib/webPush';
 import { ChatbotSigma } from './ChatbotSigma';
 
 export const Layout = ({ onLogout }: { onLogout: () => void }) => {
@@ -158,6 +159,9 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   // Efecto persistente de notificaciones (solo al montar/desmontar la app)
   useEffect(() => {
+    // Auto-suscribir a Web Push si ya tiene permisos concedidos
+    subscribeToWebPush();
+
     const playChime = () => {
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
