@@ -590,6 +590,17 @@ export const TransporteEscolar = () => {
       };
       const { error } = await supabase.from('transporte_operaciones').insert([payload]);
       if (error) throw error;
+
+      // Registrar notificación global en base de datos
+      const rutaDisplay = ruta ? ruta.nombre : 'Ruta';
+      await supabase.from('notificaciones_globales').insert([{
+        escuela_codigo: escCodigo,
+        ruta_id: opRutaId,
+        titulo: 'Ruta Iniciada 🚌',
+        cuerpo: `Se ha iniciado el recorrido para la ruta "${rutaDisplay}" (${opSentido}).`,
+        tipo: 'transporte'
+      }]);
+
       await cargarTrackingSolo();
       // Pedir permisos de notificación al iniciar (sin bloquear)
       requestNotifPermission();
@@ -662,6 +673,30 @@ export const TransporteEscolar = () => {
         throw new Error("Acción bloqueada por permisos RLS en Supabase (Actualización silenciosa fallida).");
       }
 
+      // Registrar en base de datos la notificación
+      let paradaDisplay = paradaId;
+      if (paradaId === 'escuela_virtual') {
+        paradaDisplay = 'Escuela';
+      } else {
+        const pData = paradas.find(p => p.id === paradaId);
+        if (pData) paradaDisplay = pData.nombre_parada;
+      }
+      const ruta = rutas.find(r => r.id === opRutaId);
+      const rutaDisplay = ruta ? ruta.nombre : 'Ruta';
+
+      const titulo = isEnd ? '🏁 Destino Alcanzado' : '📍 Paso por Parada';
+      const cuerpo = isEnd 
+        ? `El recorrido de "${rutaDisplay}" finalizó con éxito en la escuela.`
+        : `El bus de "${rutaDisplay}" pasó por la parada: ${paradaDisplay}.`;
+
+      await supabase.from('notificaciones_globales').insert([{
+        escuela_codigo: escCodigo,
+        ruta_id: opRutaId,
+        titulo,
+        cuerpo,
+        tipo: 'transporte'
+      }]);
+
       await cargarTrackingSolo();
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success',
@@ -682,6 +717,15 @@ export const TransporteEscolar = () => {
         .eq('escuela_codigo', escCodigo)
         .eq('fecha', ayerStr)
         .neq('estado', 'Finalizada');
+
+      // Podar notificaciones antiguas para optimizar rendimiento de base de datos
+      const hoyStart = new Date();
+      hoyStart.setHours(0, 0, 0, 0);
+      await supabase.from('notificaciones_globales')
+        .delete()
+        .eq('escuela_codigo', escCodigo)
+        .lt('creado_en', hoyStart.toISOString());
+
       if (!silencioso) {
         Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Sistema reiniciado para el día de hoy', showConfirmButton: false, timer: 2500 });
       }
@@ -707,6 +751,15 @@ export const TransporteEscolar = () => {
             .eq('fecha', hoyStr)
             .eq('escuela_codigo', escCodigo);
           if (error) throw error;
+
+          // Borrar notificaciones globales de hoy para la escuela
+          const hoyStart = new Date();
+          hoyStart.setHours(0, 0, 0, 0);
+          await supabase.from('notificaciones_globales')
+            .delete()
+            .eq('escuela_codigo', escCodigo)
+            .gte('creado_en', hoyStart.toISOString());
+
           setOpActual(null);
           setCustomPids(null);
           localStorage.removeItem('sigae_transporte_opActual');
@@ -739,6 +792,16 @@ export const TransporteEscolar = () => {
             .eq('ruta_id', opRutaId)
             .eq('sentido', opSentido);
           if (error) throw error;
+
+          // Borrar notificaciones globales de hoy para la ruta y escuela
+          const hoyStart = new Date();
+          hoyStart.setHours(0, 0, 0, 0);
+          await supabase.from('notificaciones_globales')
+            .delete()
+            .eq('escuela_codigo', escCodigo)
+            .eq('ruta_id', opRutaId)
+            .gte('creado_en', hoyStart.toISOString());
+
           setOpActual(null);
           setCustomPids(null);
           localStorage.removeItem('sigae_transporte_opActual');

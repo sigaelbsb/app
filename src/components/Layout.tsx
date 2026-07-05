@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
@@ -208,53 +208,6 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       } catch (e) {}
     }
 
-    const playChime = () => {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const now = ctx.currentTime;
-        [880, 1100].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + i * 0.15);
-          gain.gain.setValueAtTime(0, now + i * 0.15);
-          gain.gain.linearRampToValueAtTime(0.25, now + i * 0.15 + 0.03);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.35);
-          osc.start(now + i * 0.15);
-          osc.stop(now + i * 0.15 + 0.36);
-        });
-      } catch (e) {}
-    };
-
-    const handleNotification = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      console.log("SIGAE Debug: handleNotification received event:", detail);
-      if (!detail) return;
-      
-      setNotificaciones(prev => {
-        console.log("SIGAE Debug: current notifications state in setter:", prev);
-        const stringId = detail.id ? String(detail.id) : String(Date.now());
-        if (prev.some(n => n.id === stringId)) {
-          console.log("SIGAE Debug: Duplicate notification ignored:", stringId);
-          return prev;
-        }
-        const newNotif = {
-          id: stringId,
-          titulo: detail.titulo || 'Notificación',
-          cuerpo: detail.cuerpo || '',
-          leido: false,
-          fecha: detail.fecha || new Date().toISOString(),
-          tipo: detail.tipo || 'info'
-        };
-        const updated = [newNotif, ...prev];
-        console.log("SIGAE Debug: updated notifications state:", updated);
-        return updated.slice(0, 30);
-      });
-
-      playChime();
-    };
-
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('#campana-notificaciones')) {
@@ -262,18 +215,13 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       }
     };
 
-    window.addEventListener('sigae-notification', handleNotification);
     document.addEventListener('click', handleClickOutside);
 
     return () => {
-      window.removeEventListener('sigae-notification', handleNotification);
       document.removeEventListener('click', handleClickOutside);
     };
   }, []);
 
-  // ─── GLOBAL TRACKING LISTENER PARA TRANSPORTE ESCOLAR ───
-  const transTrackingRef = useRef<Record<string, { ubicacion_actual: string, estado: string }>>({});
-  
   useEffect(() => {
     const usrStr = localStorage.getItem('usuario_sigae');
     if (!usrStr) return;
@@ -339,82 +287,38 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       } catch (e) {}
     };
 
-    const channel = supabase.channel('global_tracking_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transporte_operaciones' }, async (payload: any) => {
-        const row = payload.new;
-        if (!row || row.escuela_codigo !== escCodigo) return;
+    const channel = supabase.channel('global_notifications_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notificaciones_globales' }, async (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          const row = payload.new;
+          if (!row || row.escuela_codigo !== escCodigo) return;
 
-        const isUpdate = payload.eventType === 'UPDATE';
-        const isInsert = payload.eventType === 'INSERT';
-        const prevState = transTrackingRef.current[row.id];
-
-        transTrackingRef.current[row.id] = { ubicacion_actual: row.ubicacion_actual, estado: row.estado };
-
-        let triggerNotif = false;
-        let isEnd = false;
-
-        if (isInsert && row.estado === 'En Ruta') {
-          triggerNotif = true;
-        } else if (isUpdate && prevState) {
-          const cambioParada = row.ubicacion_actual !== prevState.ubicacion_actual;
-          const finalizadaRecien = row.estado === 'Finalizada' && prevState.estado !== 'Finalizada';
-          if (cambioParada || finalizadaRecien) {
-            triggerNotif = true;
-            isEnd = row.estado === 'Finalizada' || row.ubicacion_actual === 'escuela_virtual';
-          }
-        } else if (isUpdate && !prevState && row.estado !== 'Finalizada') {
-          triggerNotif = true;
-          isEnd = row.ubicacion_actual === 'escuela_virtual';
-        }
-
-        if (triggerNotif) {
-          let paradaDisplay = row.ubicacion_actual;
-          if (row.ubicacion_actual === 'escuela_virtual') {
-            paradaDisplay = 'Escuela';
-          } else {
-            try {
-              const { data: pData } = await supabase.from('transporte_paradas').select('nombre_parada').eq('id', row.ubicacion_actual).maybeSingle();
-              if (pData) paradaDisplay = pData.nombre_parada;
-            } catch(e) {}
-          }
-          let rutaDisplay = 'Ruta';
-          try {
-            const { data: rData } = await supabase.from('transporte_rutas').select('nombre').eq('id', row.ruta_id).maybeSingle();
-            if (rData) rutaDisplay = rData.nombre;
-          } catch(e) {}
-
-          const titulo = isEnd ? '🏁 Destino Alcanzado' : (isInsert ? 'Ruta Iniciada 🚌' : '📍 Paso por Parada');
-          const cuerpo = isEnd 
-            ? `El recorrido de "${rutaDisplay}" finalizó con éxito en la escuela.`
-            : (isInsert ? `Se ha iniciado el recorrido para la ruta "${rutaDisplay}" (${row.sentido}).` 
-                        : `El bus de "${rutaDisplay}" pasó por la parada: ${paradaDisplay}.`);
-
+          const isEnd = row.titulo.toLowerCase().includes('finalizada') || row.titulo.toLowerCase().includes('destino') || row.titulo.toLowerCase().includes('alcanzado');
           playBusChime(isEnd ? 'llegada' : 'parada');
-          sendBusNotification(titulo, cuerpo);
+          sendBusNotification(row.titulo, row.cuerpo);
 
-          console.log("SIGAE Debug: Dispatching sigae-notification event with detail:", {
-            id: String(Date.now()),
-            titulo,
-            cuerpo,
-            fecha: new Date().toISOString(),
-            tipo: 'transporte'
+          setNotificaciones(prev => {
+            if (prev.some(n => n.id === String(row.id))) return prev;
+            const newNotif = {
+              id: String(row.id),
+              titulo: row.titulo,
+              cuerpo: row.cuerpo,
+              leido: leidasIds.includes(String(row.id)),
+              fecha: row.creado_en || new Date().toISOString(),
+              tipo: row.tipo || 'transporte'
+            };
+            return [newNotif, ...prev].slice(0, 30);
           });
-
-          window.dispatchEvent(new CustomEvent('sigae-notification', {
-            detail: {
-              id: String(Date.now()),
-              titulo,
-              cuerpo,
-              fecha: new Date().toISOString(),
-              tipo: 'transporte'
-            }
-          }));
+        } else if (payload.eventType === 'DELETE') {
+          const row = payload.old;
+          if (!row) return;
+          setNotificaciones(prev => prev.filter(n => n.id !== String(row.id)));
         }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [leidasIds]);
 
   const handleBloquearSesion = () => {
     localStorage.setItem('sesion_sigae', 'bloqueada');
