@@ -201,83 +201,14 @@ export const TransporteEscolar = () => {
 
   // Realtime updates para tracking en tiempo real (Sincronización Multi-Dispositivo)
   useEffect(() => {
-    const channel = supabase.channel('tracking_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transporte_operaciones' }, (payload: any) => {
+    const channel = supabase.channel('tracking_realtime_ui')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transporte_operaciones' }, () => {
         // Recargar información en la UI
         cargarTrackingSolo();
-
-        const row = payload.new;
-        if (!row) return;
-
-        // Comprobar que pertenezca a la misma escuela
-        if (row.escuela_codigo !== escCodigo) {
-          return;
-        }
-
-        const isUpdate = payload.eventType === 'UPDATE';
-        const isInsert = payload.eventType === 'INSERT';
-        
-        // Buscar el estado previo en nuestro tracking local (para cualquier ruta de la escuela)
-        const prevOp = trackingHoyRef.current.find((t: any) => t.id === row.id);
-
-        // A. Detección de Inicio de Recorrido
-        if ((isInsert && row.estado === 'En Ruta') || (isUpdate && row.estado === 'En Ruta' && !prevOp)) {
-          const nameRuta = rutasRef.current.find((r: any) => r.id === row.ruta_id)?.nombre || 'Ruta';
-          playBusChime('parada');
-          sendBusNotification(row.ubicacion_actual === 'escuela_virtual' ? 'Escuela' : row.ubicacion_actual, 1, 1, false);
-
-          window.dispatchEvent(new CustomEvent('sigae-notification', {
-            detail: {
-              id: String(Date.now()),
-              titulo: 'Ruta Iniciada 🚌',
-              cuerpo: `Se ha iniciado el recorrido para la ruta "${nameRuta}" (${row.sentido}).`,
-              fecha: new Date().toISOString(),
-              tipo: 'transporte'
-            }
-          }));
-        }
-
-        // B. Detección de avance o finalización del bus
-        if (isUpdate && prevOp) {
-          const cambioDeParada = row.ubicacion_actual !== prevOp.ubicacion_actual;
-          const finalizadaRecien = row.estado === 'Finalizada' && prevOp.estado !== 'Finalizada';
-
-          if (cambioDeParada || finalizadaRecien) {
-            const isEnd = row.estado === 'Finalizada' || row.ubicacion_actual === 'escuela_virtual';
-            
-            // Sonido
-            playBusChime(isEnd ? 'llegada' : 'parada');
-
-            // Nombre de parada
-            const paradaNombreDisplay = paradasRef.current.find((p: any) => p.id === row.ubicacion_actual)?.nombre_parada
-              || (row.ubicacion_actual === 'escuela_virtual' ? 'Escuela' : row.ubicacion_actual);
-
-            // Calcular índices y totales
-            const activeRuta = rutasRef.current.find((r: any) => r.id === row.ruta_id);
-            const orderedIds = activeRuta ? getIdsWithEscuela(activeRuta, row.sentido as any) : [];
-            const idx = orderedIds.indexOf(row.ubicacion_actual);
-
-            // Notificación nativa (sonido, vibración PWA)
-            sendBusNotification(paradaNombreDisplay, idx >= 0 ? idx + 1 : 1, orderedIds.length || 1, isEnd);
-
-            // Alerta en la campana de navegación (para PCs y Móviles)
-            window.dispatchEvent(new CustomEvent('sigae-notification', {
-              detail: {
-                id: String(Date.now()),
-                titulo: isEnd ? '🏁 Destino Alcanzado' : '📍 Paso por Parada',
-                cuerpo: isEnd 
-                  ? `El recorrido finalizó con éxito en la escuela.`
-                  : `El bus pasó por la parada: ${paradaNombreDisplay} (${idx >= 0 ? idx + 1 : 1} de ${orderedIds.length}).`,
-                fecha: new Date().toISOString(),
-                tipo: 'transporte'
-              }
-            }));
-          }
-        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [escCodigo]);
+  }, []);
 
   const cargarTodo = async (silencioso = false) => {
     if (!silencioso) setLoadingData(true);
@@ -610,84 +541,6 @@ export const TransporteEscolar = () => {
     }
   };
 
-  /** Reproduce un chime via Web Audio API — sin archivos externos */
-  const playBusChime = (tipo: 'parada' | 'llegada' = 'parada') => {
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const now = ctx.currentTime;
-
-      if (tipo === 'llegada') {
-        // Fanfarria corta: 3 notas ascendentes
-        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-        notes.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(freq, now + i * 0.18);
-          gain.gain.setValueAtTime(0, now + i * 0.18);
-          gain.gain.linearRampToValueAtTime(0.28, now + i * 0.18 + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.18 + 0.35);
-          osc.start(now + i * 0.18);
-          osc.stop(now + i * 0.18 + 0.36);
-        });
-      } else {
-        // Doble "ding" suave para paradas intermedias
-        [880, 1100].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + i * 0.22);
-          gain.gain.setValueAtTime(0, now + i * 0.22);
-          gain.gain.linearRampToValueAtTime(0.22, now + i * 0.22 + 0.03);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.3);
-          osc.start(now + i * 0.22);
-          osc.stop(now + i * 0.22 + 0.31);
-        });
-      }
-    } catch (e) {
-      console.warn('Web Audio no disponible:', e);
-    }
-  };
-
-  /** Envía notificación del sistema operativo */
-  const sendBusNotification = (paradaNombre: string, numParada: number, total: number, esEscuela = false) => {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const titulo = esEscuela ? '🏫 ¡Llegamos a la Escuela!' : `🚌 Parada ${numParada} de ${total}`;
-    const cuerpo  = esEscuela
-      ? `El bus ha llegado a ${paradaNombre}. Recorrido completado.`
-      : `El bus pasó por: ${paradaNombre}`;
-      
-    const opciones: any = {
-      body: cuerpo,
-      icon: '/assets/img/pdvsa.svg',
-      badge: '/assets/img/pdvsa.svg', // Icono pequeño en barra superior de Android
-      tag: 'bus-parada',              // Evita acumulación de notificaciones
-      renotify: true,                 // Hace sonar/vibrar al actualizar la misma tarjeta
-      vibrate: [200, 100, 200],       // Patrón de vibración tipo mensaje
-      silent: false,                  // Permite que el móvil reproduzca el sonido de alerta del sistema
-    };
-
-    try {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.showNotification(titulo, opciones);
-        }).catch(() => {
-          try {
-            new Notification(titulo, opciones);
-          } catch (err) {
-            console.warn('Constructor Notification falló en móvil:', err);
-          }
-        });
-      } else {
-        new Notification(titulo, opciones);
-      }
-    } catch (e) {
-
-      console.warn('Notification API error:', e);
-    }
-  };
 
   // ---- OPERACIONES EN VIVO ----
   const iniciarRecorrido = async () => {
@@ -719,21 +572,6 @@ export const TransporteEscolar = () => {
       await cargarTrackingSolo();
       // Pedir permisos de notificación al iniciar (sin bloquear)
       requestNotifPermission();
-
-      // ── Sonido y Notificación Local (para este dispositivo) ──
-      playBusChime('parada');
-      sendBusNotification(pids[0] === 'escuela_virtual' ? 'Escuela' : pids[0], 1, 1, false);
-
-      // Dispatch local notification
-      window.dispatchEvent(new CustomEvent('sigae-notification', {
-        detail: {
-          id: String(Date.now()),
-          titulo: 'Ruta Iniciada 🚌',
-          cuerpo: `Se ha iniciado el recorrido para la ruta "${ruta.nombre}" (${opSentido}).`,
-          fecha: new Date().toISOString(),
-          tipo: 'transporte'
-        }
-      }));
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Recorrido iniciado', showConfirmButton: false, timer: 2000 });
 
@@ -804,24 +642,6 @@ export const TransporteEscolar = () => {
       }
 
       await cargarTrackingSolo();
-
-      // ── Sonido y Notificación Local (para este dispositivo) ──
-      playBusChime(isEnd ? 'llegada' : 'parada');
-      const paradaNombreDisplay = paradas.find((p: any) => p.id === paradaId)?.nombre_parada
-        || (paradaId === 'escuela_virtual' ? 'Escuela' : paradaId);
-      sendBusNotification(paradaNombreDisplay, index + 1, orderedIds.length, isEnd);
-
-      window.dispatchEvent(new CustomEvent('sigae-notification', {
-        detail: {
-          id: String(Date.now()),
-          titulo: isEnd ? '🏁 Destino Alcanzado' : '📍 Paso por Parada',
-          cuerpo: isEnd 
-            ? `El recorrido de la ruta finalizó con éxito en la escuela.`
-            : `El bus pasó por la parada: ${paradaNombreDisplay} (${index + 1} de ${orderedIds.length}).`,
-          fecha: new Date().toISOString(),
-          tipo: 'transporte'
-        }
-      }));
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success',
         title: isEnd ? '🏁 Ruta finalizada' : '✅ Paso registrado',

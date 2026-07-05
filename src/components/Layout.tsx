@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
@@ -213,6 +213,143 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       window.removeEventListener('sigae-notification', handleNotification);
       document.removeEventListener('click', handleClickOutside);
     };
+  }, []);
+
+  // ─── GLOBAL TRACKING LISTENER PARA TRANSPORTE ESCOLAR ───
+  const transTrackingRef = useRef<Record<string, { ubicacion_actual: string, estado: string }>>({});
+  
+  useEffect(() => {
+    const usrStr = localStorage.getItem('usuario_sigae');
+    if (!usrStr) return;
+    let escCodigo = 'sb';
+    try {
+      escCodigo = JSON.parse(usrStr).id_escuela || 'sb';
+    } catch(e) {}
+
+    const playBusChime = (tipo: 'parada' | 'llegada') => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const now = ctx.currentTime;
+        if (tipo === 'llegada') {
+          const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+          notes.forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + i * 0.18);
+            gain.gain.setValueAtTime(0, now + i * 0.18);
+            gain.gain.linearRampToValueAtTime(0.28, now + i * 0.18 + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.18 + 0.35);
+            osc.start(now + i * 0.18);
+            osc.stop(now + i * 0.18 + 0.36);
+          });
+        } else {
+          [880, 1100].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.22);
+            gain.gain.setValueAtTime(0, now + i * 0.22);
+            gain.gain.linearRampToValueAtTime(0.22, now + i * 0.22 + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.3);
+            osc.start(now + i * 0.22);
+            osc.stop(now + i * 0.22 + 0.31);
+          });
+        }
+      } catch (e) {}
+    };
+
+    const sendBusNotification = (titulo: string, cuerpo: string) => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      const opciones: any = {
+        body: cuerpo,
+        icon: '/assets/img/pdvsa.svg',
+        badge: '/assets/img/pdvsa.svg',
+        tag: 'bus-parada',
+        renotify: true,
+        vibrate: [200, 100, 200],
+        silent: false,
+      };
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((reg) => reg.showNotification(titulo, opciones)).catch(() => {
+            try { new Notification(titulo, opciones); } catch(err) {}
+          });
+        } else {
+          new Notification(titulo, opciones);
+        }
+      } catch (e) {}
+    };
+
+    const channel = supabase.channel('global_tracking_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transporte_operaciones' }, async (payload: any) => {
+        const row = payload.new;
+        if (!row || row.escuela_codigo !== escCodigo) return;
+
+        const isUpdate = payload.eventType === 'UPDATE';
+        const isInsert = payload.eventType === 'INSERT';
+        const prevState = transTrackingRef.current[row.id];
+
+        transTrackingRef.current[row.id] = { ubicacion_actual: row.ubicacion_actual, estado: row.estado };
+
+        let triggerNotif = false;
+        let isEnd = false;
+
+        if (isInsert && row.estado === 'En Ruta') {
+          triggerNotif = true;
+        } else if (isUpdate && prevState) {
+          const cambioParada = row.ubicacion_actual !== prevState.ubicacion_actual;
+          const finalizadaRecien = row.estado === 'Finalizada' && prevState.estado !== 'Finalizada';
+          if (cambioParada || finalizadaRecien) {
+            triggerNotif = true;
+            isEnd = row.estado === 'Finalizada' || row.ubicacion_actual === 'escuela_virtual';
+          }
+        } else if (isUpdate && !prevState && row.estado !== 'Finalizada') {
+          triggerNotif = true;
+          isEnd = row.ubicacion_actual === 'escuela_virtual';
+        }
+
+        if (triggerNotif) {
+          let paradaDisplay = row.ubicacion_actual;
+          if (row.ubicacion_actual === 'escuela_virtual') {
+            paradaDisplay = 'Escuela';
+          } else {
+            try {
+              const { data: pData } = await supabase.from('transporte_paradas').select('nombre_parada').eq('id', row.ubicacion_actual).maybeSingle();
+              if (pData) paradaDisplay = pData.nombre_parada;
+            } catch(e) {}
+          }
+          let rutaDisplay = 'Ruta';
+          try {
+            const { data: rData } = await supabase.from('transporte_rutas').select('nombre').eq('id', row.ruta_id).maybeSingle();
+            if (rData) rutaDisplay = rData.nombre;
+          } catch(e) {}
+
+          const titulo = isEnd ? '🏁 Destino Alcanzado' : (isInsert ? 'Ruta Iniciada 🚌' : '📍 Paso por Parada');
+          const cuerpo = isEnd 
+            ? `El recorrido de "${rutaDisplay}" finalizó con éxito en la escuela.`
+            : (isInsert ? `Se ha iniciado el recorrido para la ruta "${rutaDisplay}" (${row.sentido}).` 
+                        : `El bus de "${rutaDisplay}" pasó por la parada: ${paradaDisplay}.`);
+
+          playBusChime(isEnd ? 'llegada' : 'parada');
+          sendBusNotification(titulo, cuerpo);
+
+          window.dispatchEvent(new CustomEvent('sigae-notification', {
+            detail: {
+              id: String(Date.now()),
+              titulo,
+              cuerpo,
+              fecha: new Date().toISOString(),
+              tipo: 'transporte'
+            }
+          }));
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleBloquearSesion = () => {
