@@ -4,14 +4,14 @@ import { usePermisos } from '../../hooks/usePermisos';
 import { subscribeToWebPush } from '../../lib/webPush';
 import html2canvas from 'html2canvas';
 
-// â”€â”€â”€ SVG Animated Bus â€” Transporte Escolar Venezuela â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â€˜sizeâ€™ = altura del bus en px. El ancho se calcula con la relaciÃ³n 80:56.
+// ─── SVG Animated Bus — Transporte Escolar Venezuela ──────────────────────────────
+// ‘size’ = altura del bus en px. El ancho se calcula con la relación 80:56.
 const AnimatedBusSVG = ({ size = 48, className = '' }: { size?: number; color?: string; className?: string }) => {
   const busW = Math.round(size * (80 / 56));
   const busH = size;
   return (
     <svg width={busW} height={busH} viewBox="0 0 80 56" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      {/* â”€â”€ Main body â€” amarillo escolar â”€â”€ */}
+      {/* ── Main body — amarillo escolar ── */}
       <rect x="3" y="10" width="70" height="30" rx="5" fill="#f7c900" />
       {/* Front rounded nose */}
       <rect x="63" y="10" width="10" height="30" rx="4" fill="#f7c900" />
@@ -20,7 +20,7 @@ const AnimatedBusSVG = ({ size = 48, className = '' }: { size?: number; color?: 
       {/* Black trim line bottom */}
       <rect x="3" y="35" width="70" height="3" fill="#1c1c1c" />
 
-      {/* â”€â”€ Windows â€” tinted dark blue â”€â”€ */}
+      {/* ── Windows — tinted dark blue ── */}
       <rect x="6"  y="14" width="10" height="9" rx="2" fill="#1e3a5f" opacity="0.85" />
       <rect x="18" y="14" width="10" height="9" rx="2" fill="#1e3a5f" opacity="0.85" />
       <rect x="30" y="14" width="10" height="9" rx="2" fill="#1e3a5f" opacity="0.85" />
@@ -28,10 +28,10 @@ const AnimatedBusSVG = ({ size = 48, className = '' }: { size?: number; color?: 
       {/* Front windshield */}
       <rect x="55" y="13" width="12" height="13" rx="3" fill="#1e3a5f" opacity="0.75" />
 
-      {/* â”€â”€ TRANSPORTE ESCOLAR text â”€â”€ */}
+      {/* ── TRANSPORTE ESCOLAR text ── */}
       <text x="35" y="32" textAnchor="middle" fill="#1c1c1c" fontSize="4.2" fontWeight="bold" fontFamily="Arial" letterSpacing="0.3">TRANSPORTE ESCOLAR</text>
 
-      {/* â”€â”€ PDVSA logo on side â”€â”€ */}
+      {/* ── PDVSA logo on side ── */}
       <image href="/assets/img/pdvsa.svg" x="6" y="25" width="10" height="10" />
 
       {/* Front headlights */}
@@ -42,7 +42,7 @@ const AnimatedBusSVG = ({ size = 48, className = '' }: { size?: number; color?: 
       {/* Door line */}
       <line x1="52" y1="12" x2="52" y2="38" stroke="#1c1c1c" strokeWidth="0.8"/>
 
-      {/* â”€â”€ Wheels â”€â”€ */}
+      {/* ── Wheels ── */}
       <circle cx="18" cy="42" r="6.5" fill="#1e293b" />
       <circle cx="18" cy="42" r="4"   fill="#6b7280" />
       <circle cx="18" cy="42" r="1.8" fill="#d1d5db" />
@@ -58,7 +58,7 @@ const AnimatedBusSVG = ({ size = 48, className = '' }: { size?: number; color?: 
   );
 };
 
-// â”€â”€â”€ Bus Stop Icon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Bus Stop Icon ─────────────────────────────────────────────────────────────
 const BusStopIcon = ({ size = 36, active = false }: { size?: number; active?: boolean }) => (
   <svg width={size} height={size} viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg">
     {/* Pole */}
@@ -71,7 +71,7 @@ const BusStopIcon = ({ size = 36, active = false }: { size?: number; active?: bo
   </svg>
 );
 
-// â”€â”€â”€ Animated Route Progress Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Animated Route Progress Bar ──────────────────────────────────────────────
 const BusProgressBar = ({ total, current, finalizada }: { total: number; current: number; finalizada: boolean }) => {
   const pct = total <= 1 ? 100 : Math.round((current / (total - 1)) * 100);
   // Bus height in the progress bar
@@ -100,7 +100,7 @@ const BusProgressBar = ({ total, current, finalizada }: { total: number; current
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>INICIO</span>
         <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>{pct}% completado</span>
-        <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>ðŸ« ESCUELA</span>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 700 }}>🏫 ESCUELA</span>
       </div>
     </div>
   );
@@ -114,9 +114,9 @@ export const TransporteEscolar = () => {
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState(localStorage.getItem('sigae_escuela_codigo') || 'sb');
 
-  const canManageRutas    = tienePermiso('Tarjeta: GestiÃ³n de Rutas')    || tienePermiso('GestiÃ³n de Rutas');
-  const canManageParadas  = tienePermiso('Tarjeta: GestiÃ³n de Paradas')  || tienePermiso('GestiÃ³n de Paradas');
-  const canOperateTracking= tienePermiso('Tarjeta: OperaciÃ³n (Tracking)')|| tienePermiso('OperaciÃ³n (Tracking)');
+  const canManageRutas    = tienePermiso('Tarjeta: Gestión de Rutas')    || tienePermiso('Gestión de Rutas');
+  const canManageParadas  = tienePermiso('Tarjeta: Gestión de Paradas')  || tienePermiso('Gestión de Paradas');
+  const canOperateTracking= tienePermiso('Tarjeta: Operación (Tracking)')|| tienePermiso('Operación (Tracking)');
   const canViewRecorrido  = tienePermiso('Tarjeta: Visor de Recorrido')  || tienePermiso('Visor de Recorrido');
   const canViewTransporte = canManageRutas || canManageParadas || canOperateTracking || canViewRecorrido || tienePermiso('Transporte Escolar');
 
@@ -148,7 +148,7 @@ export const TransporteEscolar = () => {
   const [opActual, setOpActual] = useState<any>(null);
   // Orden personalizado de paradas (null = orden original de la ruta)
   const [customPids, setCustomPids] = useState<string[] | null>(null);
-  // Drag & drop: Ã­ndice que se estÃ¡ arrastrando
+  // Drag & drop: índice que se está arrastrando
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   useEffect(() => { localStorage.setItem('sigae_transporte_ruta', opRutaId); }, [opRutaId]);
@@ -186,32 +186,32 @@ export const TransporteEscolar = () => {
     }
   }, [vistaActual, opRutaId, opSentido, trackingHoy]);
 
-  // â”€â”€â”€ AUTO-RESET DIARIO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Al cargar la app, verifica si ya se hizo el reset del dÃ­a.
-  // Guarda en localStorage la fecha del Ãºltimo reset para no repetirlo.
+  // ─── AUTO-RESET DIARIO ──────────────────────────────────────────
+  // Al cargar la app, verifica si ya se hizo el reset del día.
+  // Guarda en localStorage la fecha del último reset para no repetirlo.
   useEffect(() => {
     if (!canViewTransporte) return;
     const hoyStr = new Date().toISOString().split('T')[0];
     const lastReset = localStorage.getItem('sigae_transporte_last_reset');
     if (lastReset !== hoyStr) {
-      // Es un dÃ­a nuevo: ejecutar reset silencioso de ayer y guardar fecha
+      // Es un día nuevo: ejecutar reset silencioso de ayer y guardar fecha
       ejecutarResetDiario(true);
       localStorage.setItem('sigae_transporte_last_reset', hoyStr);
     }
   }, [canViewTransporte]);
 
-  // Realtime updates para tracking en tiempo real (SincronizaciÃ³n Multi-Dispositivo)
+  // Realtime updates para tracking en tiempo real (Sincronización Multi-Dispositivo)
   useEffect(() => {
     const channel = supabase.channel('tracking_realtime_ui')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transporte_operaciones' }, () => {
-        // Recargar informaciÃ³n en la UI
+        // Recargar información en la UI
         cargarTrackingSolo();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Sincronización cuando la app vuelve del segundo plano (teléfonos)
+  // Sincronizaci�n cuando la app vuelve del segundo plano (tel�fonos)
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -293,7 +293,7 @@ export const TransporteEscolar = () => {
   };
 
   const deleteParada = async (id: string) => {
-    Swal.fire({ title: 'Â¿Borrar parada?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'SÃ­, borrar' }).then(async (r: any) => {
+    Swal.fire({ title: '¿Borrar parada?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Sí, borrar' }).then(async (r: any) => {
       if (r.isConfirmed) {
         try {
           const { error } = await supabase.from('transporte_paradas').delete().eq('id', id);
@@ -326,8 +326,8 @@ export const TransporteEscolar = () => {
   };
 
   const getParadasWithEscuela = (pids: string[]) => {
-    const nombreEscuela = escCodigo === 'sb' ? 'U.E. Santa BÃ¡rbara' : 'U.E. Libertador BolÃ­var';
-    const paradaEscuela = { id: 'escuela_virtual', nombre_parada: `ðŸ« ${nombreEscuela}`, descripcion: 'Sede Educativa Institucional' };
+    const nombreEscuela = escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const paradaEscuela = { id: 'escuela_virtual', nombre_parada: `🏫 ${nombreEscuela}`, descripcion: 'Sede Educativa Institucional' };
     
     return pids.map(pid => {
       if (pid === 'escuela_virtual') return paradaEscuela;
@@ -354,10 +354,10 @@ export const TransporteEscolar = () => {
 
   const saveRuta = async () => {
     if (!rutaForm.nombre) {
-      return Swal.fire('AtenciÃ³n', 'Escriba un nombre para la ruta', 'warning');
+      return Swal.fire('Atención', 'Escriba un nombre para la ruta', 'warning');
     }
     if (paradasTemporales.length === 0) {
-      return Swal.fire('AtenciÃ³n', 'AÃ±ada al menos una parada al recorrido.', 'warning');
+      return Swal.fire('Atención', 'Añada al menos una parada al recorrido.', 'warning');
     }
 
     try {
@@ -387,7 +387,7 @@ export const TransporteEscolar = () => {
     e.preventDefault();
     try {
       if (!rutaForm.validez_desde || !rutaForm.validez_hasta) {
-        return Swal.fire('AtenciÃ³n', 'Especifique la fecha de validez', 'warning');
+        return Swal.fire('Atención', 'Especifique la fecha de validez', 'warning');
       }
 
       const payload = {
@@ -409,7 +409,7 @@ export const TransporteEscolar = () => {
   };
 
   const deleteRuta = async (id: string) => {
-    Swal.fire({ title: 'Â¿Borrar ruta?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'SÃ­, borrar' }).then(async (r: any) => {
+    Swal.fire({ title: '¿Borrar ruta?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Sí, borrar' }).then(async (r: any) => {
       if (r.isConfirmed) {
         try {
           const { error } = await supabase.from('transporte_rutas').delete().eq('id', id);
@@ -458,9 +458,9 @@ export const TransporteEscolar = () => {
       let htmlImagen = `
         <div style="display: flex; align-items: center; border-bottom: 2px solid #0066FF; padding-bottom: 15px; margin-bottom: 25px;">
             <div>
-                <div style="font-size: 12px; color: #334155;">RepÃºblica Bolivariana de Venezuela</div>
-                <div style="font-size: 12px; color: #334155;">Ministerio del Poder Popular para la EducaciÃ³n</div>
-                <div style="font-size: 14px; font-weight: bold; color: #0f172a;">Unidad Educativa Libertador BolÃ­var</div>
+                <div style="font-size: 12px; color: #334155;">República Bolivariana de Venezuela</div>
+                <div style="font-size: 12px; color: #334155;">Ministerio del Poder Popular para la Educación</div>
+                <div style="font-size: 14px; font-weight: bold; color: #0f172a;">Unidad Educativa Libertador Bolívar</div>
             </div>
         </div>
         <div style="text-align:center; margin-bottom:25px;">
@@ -468,11 +468,11 @@ export const TransporteEscolar = () => {
         </div>
         <div style="margin-bottom:20px; border:2px solid #e2e8f0; border-radius:10px; padding:20px; background: #f8fafc;">
             <h3 style="color:#f97316; margin-top:0; border-bottom:1px solid #cbd5e1; padding-bottom:10px;">${ruta.nombre}</h3>
-            <div style="font-size:16px; margin-bottom:15px; color: #1e293b;"><b>Chofer:</b> ${ruta.chofer_nombre} &nbsp;|&nbsp; <b>GuÃ­a:</b> ${nombreDoc} ${telDoc}</div>
+            <div style="font-size:16px; margin-bottom:15px; color: #1e293b;"><b>Chofer:</b> ${ruta.chofer_nombre} &nbsp;|&nbsp; <b>Guía:</b> ${nombreDoc} ${telDoc}</div>
             <div style="font-size:15px; font-weight:bold; margin-bottom:10px; color: #0f172a;">Secuencia de Recorrido:</div>
             <ul style="list-style-type:none; padding-left:0; font-size:15px; margin:0; color: #334155;">
       `;
-      let textoMensaje = `ðŸš *RUTA DE TRANSPORTE ESCOLAR*\nðŸ« *U.E. Libertador BolÃ­var*\n\nðŸ“ *${ruta.nombre}*\nðŸ‘¨âœˆï¸ Chofer: ${ruta.chofer_nombre}\nðŸ‘©ðŸ« GuÃ­a: ${nombreDoc} ${telDoc ? '('+telDoc+')' : ''}\n\n*Paradas:*\n`;
+      let textoMensaje = `🚍 *RUTA DE TRANSPORTE ESCOLAR*\n🏫 *U.E. Libertador Bolívar*\n\n📍 *${ruta.nombre}*\n👨✈️ Chofer: ${ruta.chofer_nombre}\n👩🏫 Guía: ${nombreDoc} ${telDoc ? '('+telDoc+')' : ''}\n\n*Paradas:*\n`;
 
       orderedParadas.forEach((p, idx) => {
         htmlImagen += `<li style="margin-bottom:8px;"><b>${idx+1}.</b> ${p.nombre_parada} <span style="color:#64748b; font-size:13px;">(${p.descripcion||'Sin referencia'})</span></li>`;
@@ -502,10 +502,10 @@ export const TransporteEscolar = () => {
           const a = document.createElement('a'); a.href = urlImagen; a.download = `Ruta_${ruta.nombre.replace(/\s/g, '_')}.png`; a.click();
           navigator.clipboard.writeText(textoMensaje).then(() => {
             Swal.fire({
-              title: 'Â¡Ruta Preparada!', html: '<b>1.</b> La imagen PNG se descargÃ³.<br><b>2.</b> El texto fue copiado al portapapeles.<br><br>Â¿DÃ³nde deseas enviarlo?', icon: 'info', showCancelButton: true,
+              title: '¡Ruta Preparada!', html: '<b>1.</b> La imagen PNG se descargó.<br><b>2.</b> El texto fue copiado al portapapeles.<br><br>¿Dónde deseas enviarlo?', icon: 'info', showCancelButton: true,
               confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> WhatsApp', cancelButtonText: '<i class="bi bi-telegram me-1"></i> Telegram', confirmButtonColor: '#25D366', cancelButtonColor: '#0088cc'
             }).then((res2: any) => {
-              if (res2.isConfirmed) { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent('InformaciÃ³n de la ruta escolar. Â¡Adjunta la imagen descargada!\n\n' + textoMensaje)}`, '_blank'); } 
+              if (res2.isConfirmed) { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent('Información de la ruta escolar. ¡Adjunta la imagen descargada!\n\n' + textoMensaje)}`, '_blank'); } 
               else if (res2.dismiss === Swal.DismissReason.cancel) { window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(textoMensaje)}`, '_blank'); }
             });
           });
@@ -517,11 +517,11 @@ export const TransporteEscolar = () => {
     }
   };
 
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ────────────────────────────────────────────────────────────────────────────
   // SONIDO Y NOTIFICACIONES DE PARADAS
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ────────────────────────────────────────────────────────────────────────────
 
-  /** Solicita permiso de notificaciones al navegador (con guÃ­a si estÃ¡ bloqueado) */
+  /** Solicita permiso de notificaciones al navegador (con guía si está bloqueado) */
   const requestNotifPermission = async () => {
     if (!('Notification' in window)) return;
 
@@ -533,25 +533,25 @@ export const TransporteEscolar = () => {
           toast: true,
           position: 'top-end',
           icon: 'success',
-          title: 'Â¡Notificaciones habilitadas! ðŸ””',
+          title: '¡Notificaciones habilitadas! 🔔',
           showConfirmButton: false,
           timer: 2000
         });
       }
     } else if (Notification.permission === 'granted') {
       subscribeToWebPush();
-      Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Notificaciones ya estÃ¡n activas', showConfirmButton: false, timer: 2000 });
+      Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Notificaciones ya están activas', showConfirmButton: false, timer: 2000 });
     } else if (Notification.permission === 'denied') {
       Swal.fire({
-        title: 'Notificaciones Bloqueadas ðŸ””',
+        title: 'Notificaciones Bloqueadas 🔔',
         html: `
-          <p class="text-muted small mb-2">El navegador o el telÃ©fono tienen las notificaciones desactivadas para esta aplicaciÃ³n.</p>
+          <p class="text-muted small mb-2">El navegador o el teléfono tienen las notificaciones desactivadas para esta aplicación.</p>
           <div class="text-start bg-light p-3 rounded-3 border">
             <span class="d-block fw-bold text-danger mb-1" style={{fontSize: '0.8rem'}}>Para habilitar y recibir las alertas del bus:</span>
             <ol class="small text-muted mb-0 ps-3">
-              <li>Pulsa el icono de <strong>ajustes / candado / info</strong> a la izquierda de la direcciÃ³n de la web.</li>
+              <li>Pulsa el icono de <strong>ajustes / candado / info</strong> a la izquierda de la dirección de la web.</li>
               <li>Activa o permite las <strong>Notificaciones</strong>.</li>
-              <li>Si estÃ¡s en PWA instalada, ve a Ajustes de tu mÃ³vil â†’ Aplicaciones â†’ SIGAE â†’ Notificaciones â†’ Permitir.</li>
+              <li>Si estás en PWA instalada, ve a Ajustes de tu móvil → Aplicaciones → SIGAE → Notificaciones → Permitir.</li>
             </ol>
           </div>
         `,
@@ -569,13 +569,13 @@ export const TransporteEscolar = () => {
     if (!ruta) return;
     
     const pids = getIdsWithEscuela(ruta, opSentido as any);
-    if (pids.length === 0) return Swal.fire('AtenciÃ³n', 'La ruta no tiene paradas configuradas.', 'warning');
+    if (pids.length === 0) return Swal.fire('Atención', 'La ruta no tiene paradas configuradas.', 'warning');
     
     const hoyStr = new Date().toISOString().split('T')[0];
-    // Verificar que no exista ya un recorrido activo para esta ruta+sentido+dÃ­a
+    // Verificar que no exista ya un recorrido activo para esta ruta+sentido+día
     const existing = trackingHoy.find((t: any) => t.ruta_id === opRutaId && t.sentido === opSentido && t.fecha === hoyStr);
     if (existing && existing.estado !== 'Finalizada') {
-      return Swal.fire('AtenciÃ³n', 'Ya existe un recorrido activo para esta ruta y sentido hoy.', 'info');
+      return Swal.fire('Atención', 'Ya existe un recorrido activo para esta ruta y sentido hoy.', 'info');
     }
 
     try {
@@ -591,7 +591,7 @@ export const TransporteEscolar = () => {
       const { error } = await supabase.from('transporte_operaciones').insert([payload]);
       if (error) throw error;
       await cargarTrackingSolo();
-      // Pedir permisos de notificaciÃ³n al iniciar (sin bloquear)
+      // Pedir permisos de notificación al iniciar (sin bloquear)
       requestNotifPermission();
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Recorrido iniciado', showConfirmButton: false, timer: 2000 });
@@ -603,7 +603,7 @@ export const TransporteEscolar = () => {
 
   const marcarParada = async (paradaId: string, index: number, orderedIds: string[]) => {
     if (!opActual) {
-      return Swal.fire('Sin recorrido activo', 'Primero inicia el recorrido con el botÃ³n "Iniciar Recorrido".', 'warning');
+      return Swal.fire('Sin recorrido activo', 'Primero inicia el recorrido con el botón "Iniciar Recorrido".', 'warning');
     }
     if (opActual.estado === 'Finalizada') {
       return Swal.fire('Recorrido finalizado', 'Este recorrido ya fue completado. Inicia uno nuevo si necesitas continuar.', 'info');
@@ -614,14 +614,14 @@ export const TransporteEscolar = () => {
     const defaultTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
     const result = await Swal.fire({
-      title: isEnd ? 'ðŸ Finalizar Recorrido' : 'ðŸ“ Registrar Paso',
+      title: isEnd ? '🏁 Finalizar Recorrido' : '📍 Registrar Paso',
       html: `
         <p class="text-muted small mb-3">${isEnd ? 'Confirma la llegada a la escuela.' : `Parada: <strong>${orderedIds[index]}</strong>`}</p>
         <label class="fw-semibold small d-block mb-1">Hora de paso:</label>
         <input type="time" id="swal-input-time" class="form-control form-control-lg text-center fw-bold" value="${defaultTime}">
       `,
       showCancelButton: true,
-      confirmButtonText: isEnd ? 'âœ… Finalizar' : 'âœ… Registrar',
+      confirmButtonText: isEnd ? '✅ Finalizar' : '✅ Registrar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: isEnd ? '#6d28d9' : '#10b981',
       preConfirm: () => {
@@ -647,32 +647,32 @@ export const TransporteEscolar = () => {
 
       if (error) {
         if (error.message?.includes('historial_paradas')) {
-          // Column missing â€“ update without historial
+          // Column missing – update without historial
           const { data: updData2, error: err2 } = await supabase.from('transporte_operaciones').update({
             ubicacion_actual: paradaId,
             estado: isEnd ? 'Finalizada' : 'En Ruta',
             ultima_actualizacion: new Date().toISOString()
           }).eq('id', opActual.id).select();
           if (err2) throw err2;
-          if (!updData2 || updData2.length === 0) throw new Error("AcciÃ³n bloqueada por permisos RLS en Supabase (Update devolviÃ³ 0 filas).");
+          if (!updData2 || updData2.length === 0) throw new Error("Acción bloqueada por permisos RLS en Supabase (Update devolvió 0 filas).");
         } else {
           throw error;
         }
       } else if (!updData || updData.length === 0) {
-        throw new Error("AcciÃ³n bloqueada por permisos RLS en Supabase (ActualizaciÃ³n silenciosa fallida).");
+        throw new Error("Acción bloqueada por permisos RLS en Supabase (Actualización silenciosa fallida).");
       }
 
       await cargarTrackingSolo();
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success',
-        title: isEnd ? 'ðŸ Ruta finalizada' : 'âœ… Paso registrado',
+        title: isEnd ? '🏁 Ruta finalizada' : '✅ Paso registrado',
         showConfirmButton: false, timer: 1800 });
     } catch (err: any) {
       Swal.fire({ icon: 'error', title: 'No se pudo registrar', text: err.message });
     }
   };
 
-  // Reset manual (llamado desde botÃ³n y desde auto-reset diario)
+  // Reset manual (llamado desde botón y desde auto-reset diario)
   const ejecutarResetDiario = async (silencioso = false) => {
     try {
       const ayerStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -683,7 +683,7 @@ export const TransporteEscolar = () => {
         .eq('fecha', ayerStr)
         .neq('estado', 'Finalizada');
       if (!silencioso) {
-        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Sistema reiniciado para el dÃ­a de hoy', showConfirmButton: false, timer: 2500 });
+        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Sistema reiniciado para el día de hoy', showConfirmButton: false, timer: 2500 });
       }
     } catch (e: any) {
       console.error('Auto-reset error:', e);
@@ -692,12 +692,12 @@ export const TransporteEscolar = () => {
 
   const resetMasivo = () => {
     Swal.fire({
-      title: 'Â¿Resetear recorridos de hoy?',
-      html: `<p class="text-muted small">Se eliminarÃ¡n <strong>todos los registros de hoy</strong> para esta escuela.<br>Los recorridos de dÃ­as anteriores no se verÃ¡n afectados.</p>`,
+      title: '¿Resetear recorridos de hoy?',
+      html: `<p class="text-muted small">Se eliminarán <strong>todos los registros de hoy</strong> para esta escuela.<br>Los recorridos de días anteriores no se verán afectados.</p>`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc3545',
-      confirmButtonText: 'SÃ­, resetear hoy'
+      confirmButtonText: 'Sí, resetear hoy'
     }).then(async (res: any) => {
       if (res.isConfirmed) {
         try {
@@ -713,7 +713,7 @@ export const TransporteEscolar = () => {
           await cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Reset completado. No hay recorridos activos para hoy.', showConfirmButton: false, timer: 3000 });
         } catch(e: any) {
-          Swal.fire('Error', 'No se pudo borrar. Verifica los permisos en Supabase (polÃ­tica RLS DELETE).', 'error');
+          Swal.fire('Error', 'No se pudo borrar. Verifica los permisos en Supabase (política RLS DELETE).', 'error');
         }
       }
     });
@@ -722,12 +722,12 @@ export const TransporteEscolar = () => {
   const resetRutaActual = () => {
     if (!opRutaId) return;
     Swal.fire({
-      title: 'Â¿Resetear esta ruta?',
-      html: `<p class="text-muted small">Se eliminarÃ¡ el recorrido actual de hoy para esta ruta y sentido.</p>`,
+      title: '¿Resetear esta ruta?',
+      html: `<p class="text-muted small">Se eliminará el recorrido actual de hoy para esta ruta y sentido.</p>`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ffc107',
-      confirmButtonText: 'SÃ­, resetear'
+      confirmButtonText: 'Sí, resetear'
     }).then(async (res: any) => {
       if (res.isConfirmed) {
         try {
@@ -745,7 +745,7 @@ export const TransporteEscolar = () => {
           await cargarTrackingSolo();
           Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta reseteada', showConfirmButton: false, timer: 2000 });
         } catch(e: any) {
-          Swal.fire('Error', 'No se pudo resetear la ruta. Verifica los permisos en Supabase (polÃ­tica RLS DELETE).', 'error');
+          Swal.fire('Error', 'No se pudo resetear la ruta. Verifica los permisos en Supabase (política RLS DELETE).', 'error');
         }
       }
     });
@@ -761,7 +761,7 @@ export const TransporteEscolar = () => {
         <div className="bg-light d-inline-flex justify-content-center align-items-center rounded-circle mb-3 shadow-sm border" style={{ width: '100px', height: '100px' }}>
             <i className="bi bi-shield-lock-fill text-muted" style={{ fontSize: '3.5rem' }}></i>
         </div>
-        <h4 className="text-dark fw-bold mb-2">Ãrea Restringida</h4>
+        <h4 className="text-dark fw-bold mb-2">Área Restringida</h4>
         <p className="text-muted mb-0">No tienes permisos asignados para visualizar el Transporte Escolar.</p>
       </div>
     );
@@ -781,13 +781,13 @@ export const TransporteEscolar = () => {
                 onClick={() => setEscCodigo('sb')} 
                 className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
               >
-                Santa BÃ¡rbara
+                Santa Bárbara
               </button>
               <button 
                 onClick={() => setEscCodigo('lb')} 
                 className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
               >
-                Libertador BolÃ­var
+                Libertador Bolívar
               </button>
             </div>
           )}
@@ -800,7 +800,7 @@ export const TransporteEscolar = () => {
       </div>
 
       <style>{`
-        /* â”€â”€â”€ Animated Bus Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* ─── Animated Bus Header ──────────────────────── */
         .bus-header-icon { display: inline-flex; align-items: center; }
         @keyframes busBounce {
           0%,100% { transform: translateY(0) rotate(0deg); }
@@ -809,7 +809,7 @@ export const TransporteEscolar = () => {
         }
         .bus-bounce { animation: busBounce 2.4s ease-in-out infinite; }
 
-        /* â”€â”€â”€ Road-style track behind stepper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* ─── Road-style track behind stepper ───────────── */
         .road-track {
           position: absolute; left: 15px; top: 0; bottom: 0; width: 10px;
           background: repeating-linear-gradient(180deg, #94a3b8 0px, #94a3b8 10px, transparent 10px, transparent 20px);
@@ -859,7 +859,7 @@ export const TransporteEscolar = () => {
         .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.6; cursor: not-allowed; }
         .tarjeta-sub.bloqueado:hover { transform: none; box-shadow: none !important; }
 
-        /* â”€â”€â”€ Bus driving across dashboard card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* ─── Bus driving across dashboard card ─────────── */
         @keyframes driveBus {
           0%   { transform: translateX(-60px); opacity: 0; }
           10%  { opacity: 1; }
@@ -872,7 +872,7 @@ export const TransporteEscolar = () => {
         }
         .tarjeta-sub:hover .bus-drive { animation-play-state: running; }
 
-        /* â”€â”€â”€ Parada card for config table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* ─── Parada card for config table ──────────────── */
         .parada-row-badge {
           display: inline-flex; align-items: center; gap: 6px;
           background: linear-gradient(135deg, #eff6ff, #dbeafe);
@@ -880,7 +880,7 @@ export const TransporteEscolar = () => {
           padding: 4px 12px; font-weight: 700; color: #1d4ed8; font-size: 0.82rem;
         }
 
-        /* â”€â”€â”€ VERTICAL STEPPER TIMELINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* ─── VERTICAL STEPPER TIMELINE ─────────────────────────────── */
         .route-stepper {
           position: relative; padding: 4px 0 4px 0;
         }
@@ -970,7 +970,7 @@ export const TransporteEscolar = () => {
           0%,100% { opacity:1; } 50% { opacity:0.2; }
         }
 
-        /* â”€â”€â”€ Animated road marquee banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* ─── Animated road marquee banner ──────────────── */
         .road-marquee {
           background: repeating-linear-gradient(90deg, #1e293b 0px, #1e293b 40px, #f59e0b 40px, #f59e0b 50px);
           height: 8px; border-radius: 4px; animation: marqueeRoad 1.5s linear infinite;
@@ -1013,7 +1013,7 @@ export const TransporteEscolar = () => {
       {vistaActual === 'dashboard' && (
         <div className="row g-4">
 
-          {/* â”€â”€ Tarjeta: ConfiguraciÃ³n (Paradas + Rutas unificadas) â”€â”€ */}
+          {/* ── Tarjeta: Configuración (Paradas + Rutas unificadas) ── */}
           {(canManageParadas || canManageRutas) && (
             <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0s' }}>
               <div
@@ -1027,7 +1027,7 @@ export const TransporteEscolar = () => {
                   <AnimatedBusSVG size={30} color="#ea580c" className="bus-bounce" />
                 </div>
                 <h5 className="fw-bold text-dark mb-1" style={{ zIndex: 2 }}>Paradas y Rutas</h5>
-                <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Gestionar catÃ¡logo de paradas, diseÃ±o de rutas y asignaciÃ³n de personal.</p>
+                <p className="small text-muted mb-0" style={{ zIndex: 2 }}>Gestionar catálogo de paradas, diseño de rutas y asignación de personal.</p>
                 {/* Mini pill badges */}
                 <div className="d-flex gap-2 mt-2" style={{ zIndex: 2, flexWrap: 'wrap' }}>
                   {canManageParadas && <span className="badge rounded-pill" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.65rem' }}><i className="bi bi-geo-alt-fill me-1"></i>Paradas</span>}
@@ -1042,7 +1042,7 @@ export const TransporteEscolar = () => {
           )}
 
 
-          {/* â”€â”€ Tarjeta: Gestor de Recorrido (OperaciÃ³n) â”€â”€ */}
+          {/* ── Tarjeta: Gestor de Recorrido (Operación) ── */}
           <div className="col-12 col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
             <div
               className={`tarjeta-sub p-4 h-100 shadow-sm ${!canOperateTracking ? 'bloqueado' : ''}`}
@@ -1068,7 +1068,7 @@ export const TransporteEscolar = () => {
             </div>
           </div>
 
-          {/* â”€â”€ Tarjeta: Visor de Recorrido â”€â”€ */}
+          {/* ── Tarjeta: Visor de Recorrido ── */}
           <div className="col-12 col-md-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.3s' }}>
             <div
               className={`tarjeta-sub p-4 h-100 shadow-sm ${!canViewRecorrido ? 'bloqueado' : ''}`}
@@ -1105,7 +1105,7 @@ export const TransporteEscolar = () => {
               {canManageParadas && (
                 <li className="nav-item">
                   <button className={`nav-link fw-bold ${configTab === 'Paradas' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Paradas')}>
-                    <i className="bi bi-geo-alt-fill me-2"></i>CatÃ¡logo de Paradas
+                    <i className="bi bi-geo-alt-fill me-2"></i>Catálogo de Paradas
                   </button>
                 </li>
               )}
@@ -1119,7 +1119,7 @@ export const TransporteEscolar = () => {
               {canManageRutas && (
                 <li className="nav-item">
                   <button className={`nav-link fw-bold ${configTab === 'Asignacion' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Asignacion')}>
-                    <i className="bi bi-person-badge-fill me-2"></i>AsignaciÃ³n de Personal
+                    <i className="bi bi-person-badge-fill me-2"></i>Asignación de Personal
                   </button>
                 </li>
               )}
@@ -1152,7 +1152,7 @@ export const TransporteEscolar = () => {
                         <tr><td colSpan={3}>
                           <div className="text-center py-5">
                             <BusStopIcon size={56} />
-                            <div className="text-muted mt-2">No hay paradas registradas en el catÃ¡logo.</div>
+                            <div className="text-muted mt-2">No hay paradas registradas en el catálogo.</div>
                           </div>
                         </td></tr>
                       ) : paradas.map((p) => (
@@ -1180,7 +1180,7 @@ export const TransporteEscolar = () => {
             {configTab === 'Rutas' && canManageRutas && (
               <div className="animate__animated animate__fadeIn">
                 <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                  <h5 className="fw-bold text-dark mb-0">DiseÃ±o y Secuencia</h5>
+                  <h5 className="fw-bold text-dark mb-0">Diseño y Secuencia</h5>
                   <button className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onClick={() => { setRutaForm({ id: '', nombre: '', chofer: '', docente_id: '', validez_desde: '', validez_hasta: '' }); setParadasTemporales([]); setShowModalRuta(true); }}>
                     <i className="bi bi-plus-circle me-1"></i> Nueva Ruta
                   </button>
@@ -1200,7 +1200,7 @@ export const TransporteEscolar = () => {
                         <tr><td colSpan={3}>
                           <div className="text-center py-5">
                             <AnimatedBusSVG size={64} color="#cbd5e1" />
-                            <div className="text-muted mt-2">No hay rutas diseÃ±adas. Â¡Crea tu primera ruta!</div>
+                            <div className="text-muted mt-2">No hay rutas diseñadas. ¡Crea tu primera ruta!</div>
                           </div>
                         </td></tr>
                       ) : rutas.map((r) => {
@@ -1248,13 +1248,13 @@ export const TransporteEscolar = () => {
                       <tr>
                         <th className="border-0 pb-3">Ruta</th>
                         <th className="border-0 pb-3">Chofer Asignado</th>
-                        <th className="border-0 pb-3">Docente GuÃ­a</th>
-                        <th className="text-end border-0 pb-3">AcciÃ³n</th>
+                        <th className="border-0 pb-3">Docente Guía</th>
+                        <th className="text-end border-0 pb-3">Acción</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rutas.length === 0 ? (
-                        <tr><td colSpan={4} className="text-center py-4 text-muted">Debe diseÃ±ar una ruta primero.</td></tr>
+                        <tr><td colSpan={4} className="text-center py-4 text-muted">Debe diseñar una ruta primero.</td></tr>
                       ) : rutas.map((r) => {
                         const doc = docentes.find(d => d.id_usuario === r.docente_id);
                         return (
@@ -1265,7 +1265,7 @@ export const TransporteEscolar = () => {
                               <div className="fw-bold">{r.chofer_nombre || <span className="text-danger">Sin asignar</span>}</div>
                             </td>
                             <td>
-                              <div className="text-muted small"><i className="bi bi-person-video3 me-1"></i>GuÃ­a</div>
+                              <div className="text-muted small"><i className="bi bi-person-video3 me-1"></i>Guía</div>
                               <div className="fw-bold">{doc ? doc.nombre_completo : <span className="text-danger">Sin asignar</span>}</div>
                             </td>
                             <td className="text-end px-3">
@@ -1296,7 +1296,7 @@ export const TransporteEscolar = () => {
             <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 border-bottom pb-3">
               <h5 className="fw-bold text-dark mb-0">
                 <i className="bi bi-geo-alt-fill text-success me-2"></i>
-                {vistaActual === 'Operacion' ? 'OperaciÃ³n de Ruta' : 'Visor de Recorrido'}
+                {vistaActual === 'Operacion' ? 'Operación de Ruta' : 'Visor de Recorrido'}
               </h5>
               {vistaActual === 'Operacion' && canOperateTracking && (
                 <div className="d-flex flex-wrap gap-2">
@@ -1395,7 +1395,7 @@ export const TransporteEscolar = () => {
                         {vistaActual === 'Operacion' && !opActual && (
                           <span className="badge bg-light text-muted border rounded-pill px-3 py-2 small">
                             <i className="bi bi-arrows-expand-vertical me-1"></i>
-                            Arrastra o usa â†‘â†“ para reordenar antes de iniciar
+                            Arrastra o usa ↑↓ para reordenar antes de iniciar
                           </span>
                         )}
                       </div>
@@ -1415,10 +1415,10 @@ export const TransporteEscolar = () => {
                             <div className="d-flex align-items-center gap-3 mb-2">
                               <div>
                                 <h6 className="fw-bold mb-0" style={{ color: opActual.estado === 'Finalizada' ? '#065f46' : '#1e40af' }}>
-                                  {opActual.estado === 'Finalizada' ? 'ðŸ Ruta Finalizada con Ã‰xito' : 'ðŸš En Ruta â€” Recorrido Activo'}
+                                  {opActual.estado === 'Finalizada' ? '🏁 Ruta Finalizada con Éxito' : '🚍 En Ruta — Recorrido Activo'}
                                 </h6>
                                 <div className="small" style={{ color: opActual.estado === 'Finalizada' ? '#047857' : '#1d4ed8' }}>
-                                  Ãšltima actualizaciÃ³n: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  Última actualización: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                 </div>
                               </div>
                               {opActual.estado !== 'Finalizada' && (
@@ -1485,7 +1485,7 @@ export const TransporteEscolar = () => {
                                 transition: 'opacity 0.15s, outline 0.15s',
                                 cursor: (vistaActual === 'Operacion' && !isSchool) ? 'grab' : 'default',
                               }}
-                              // â”€â”€ Drag & drop handlers â”€â”€
+                              // ── Drag & drop handlers ──
                               draggable={vistaActual === 'Operacion' && !isSchool}
                               onDragStart={() => handleDragStart(index)}
                               onDragOver={(e) => handleDragOver(e, index)}
@@ -1530,7 +1530,7 @@ export const TransporteEscolar = () => {
                                   )}
                                 </div>
 
-                                {/* â”€â”€ Botones de reordenamiento (Operacion, no sobre escuela_virtual) â”€â”€ */}
+                                {/* ── Botones de reordenamiento (Operacion, no sobre escuela_virtual) ── */}
                                 {vistaActual === 'Operacion' && !isSchool && (
                                   <div className="d-flex flex-column gap-1" style={{ flexShrink: 0 }}>
                                     <button
@@ -1557,7 +1557,7 @@ export const TransporteEscolar = () => {
                                   <div className="d-flex flex-column align-items-center gap-1">
                                     <div className="bus-here-badge">
                                       <span className="live-dot"></span>
-                                      ðŸš AquÃ­
+                                      🚍 Aquí
                                     </div>
                                     <div style={{ opacity: 0.7 }}>
                                       <BusStopIcon size={22} active={true} />
@@ -1601,11 +1601,11 @@ export const TransporteEscolar = () => {
               <form onSubmit={saveParada}>
                 <div className="mb-3">
                   <label className="form-label fw-semibold small">Nombre de Parada</label>
-                  <input type="text" className="form-control input-moderno" required value={paradaForm.nombre} onChange={e => setParadaForm({...paradaForm, nombre: e.target.value})} placeholder="Ej: Plaza BolÃ­var" />
+                  <input type="text" className="form-control input-moderno" required value={paradaForm.nombre} onChange={e => setParadaForm({...paradaForm, nombre: e.target.value})} placeholder="Ej: Plaza Bolívar" />
                 </div>
                 <div className="mb-4">
-                  <label className="form-label fw-semibold small">Referencia / DescripciÃ³n</label>
-                  <input type="text" className="form-control input-moderno" value={paradaForm.descripcion} onChange={e => setParadaForm({...paradaForm, descripcion: e.target.value})} placeholder="Ej: Frente a la panaderÃ­a" />
+                  <label className="form-label fw-semibold small">Referencia / Descripción</label>
+                  <input type="text" className="form-control input-moderno" value={paradaForm.descripcion} onChange={e => setParadaForm({...paradaForm, descripcion: e.target.value})} placeholder="Ej: Frente a la panadería" />
                 </div>
                 <div className="d-grid">
                   <button type="submit" className="btn btn-primary rounded-pill fw-bold shadow-sm py-2">Guardar Parada</button>
@@ -1621,7 +1621,7 @@ export const TransporteEscolar = () => {
         <div className="modal-backdrop-custom show">
           <div className="modal-custom shadow-lg" style={{ maxWidth: '800px', width: '90%' }}>
             <div className="modal-header border-bottom-0 pb-0">
-              <h5 className="modal-title fw-bold text-dark">{rutaForm.id ? 'Editar Ruta' : 'DiseÃ±o de Ruta'}</h5>
+              <h5 className="modal-title fw-bold text-dark">{rutaForm.id ? 'Editar Ruta' : 'Diseño de Ruta'}</h5>
               <button type="button" className="btn-close" onClick={() => setShowModalRuta(false)}></button>
             </div>
             <div className="modal-body">
@@ -1634,7 +1634,7 @@ export const TransporteEscolar = () => {
 
               <div className="card border rounded-4 bg-light mb-4 shadow-sm border-0">
                 <div className="card-body p-4">
-                  <label className="form-label fw-bold text-primary mb-3"><i className="bi bi-grid-3x3-gap-fill me-2"></i>Paradas Disponibles (Clic para aÃ±adir)</label>
+                  <label className="form-label fw-bold text-primary mb-3"><i className="bi bi-grid-3x3-gap-fill me-2"></i>Paradas Disponibles (Clic para añadir)</label>
                   <div className="d-flex flex-wrap gap-2 mb-4">
                     {paradas.filter(p => !paradasTemporales.find(pt => pt.id === p.id)).map(p => (
                       <button 
@@ -1651,7 +1651,7 @@ export const TransporteEscolar = () => {
                       </button>
                     ))}
                     {paradas.filter(p => !paradasTemporales.find(pt => pt.id === p.id)).length === 0 && (
-                      <span className="text-muted small w-100 text-center d-block py-2">No hay mÃ¡s paradas disponibles.</span>
+                      <span className="text-muted small w-100 text-center d-block py-2">No hay más paradas disponibles.</span>
                     )}
                   </div>
 
@@ -1762,7 +1762,7 @@ export const TransporteEscolar = () => {
                   <input type="text" className="form-control input-moderno" value={rutaForm.chofer || ''} onChange={e => setRutaForm({...rutaForm, chofer: e.target.value})} placeholder="Nombre completo del chofer" />
                 </div>
                 <div className="mb-4">
-                  <label className="form-label fw-semibold small">Docente GuÃ­a (Opcional)</label>
+                  <label className="form-label fw-semibold small">Docente Guía (Opcional)</label>
                   <select className="form-select input-moderno" value={rutaForm.docente_id || ''} onChange={e => setRutaForm({...rutaForm, docente_id: e.target.value})}>
                     <option value="">-- Seleccione Docente --</option>
                     {docentes.map(d => <option key={d.id_usuario} value={d.id_usuario}>{d.nombre_completo}</option>)}
@@ -1770,16 +1770,16 @@ export const TransporteEscolar = () => {
                 </div>
                 <div className="row mb-4">
                   <div className="col-6">
-                    <label className="form-label fw-semibold small text-muted">VÃ¡lida Desde</label>
+                    <label className="form-label fw-semibold small text-muted">Válida Desde</label>
                     <input type="date" className="form-control input-moderno" value={rutaForm.validez_desde || ''} onChange={e => setRutaForm({...rutaForm, validez_desde: e.target.value})} />
                   </div>
                   <div className="col-6">
-                    <label className="form-label fw-semibold small text-muted">VÃ¡lida Hasta</label>
+                    <label className="form-label fw-semibold small text-muted">Válida Hasta</label>
                     <input type="date" className="form-control input-moderno" value={rutaForm.validez_hasta || ''} onChange={e => setRutaForm({...rutaForm, validez_hasta: e.target.value})} />
                   </div>
                 </div>
                 <div className="d-grid">
-                  <button type="submit" className="btn btn-primary rounded-pill fw-bold shadow-sm py-2">Guardar AsignaciÃ³n</button>
+                  <button type="submit" className="btn btn-primary rounded-pill fw-bold shadow-sm py-2">Guardar Asignación</button>
                 </div>
               </form>
             </div>
@@ -1790,6 +1790,5 @@ export const TransporteEscolar = () => {
     </div>
   );
 };
-
 
 

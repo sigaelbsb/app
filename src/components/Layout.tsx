@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
@@ -14,7 +14,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
   
-  // LÃ³gica de Notificaciones
+  // Lógica de Notificaciones
   const [notificaciones, setNotificaciones] = useState<any[]>(() => {
     try {
       const items = localStorage.getItem('sigae_notificaciones');
@@ -56,7 +56,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       setAnioEscolar(activeAnio);
       setLapsoEscolar(activeLapso);
     } catch (err) {
-      console.error("Error cargando configuraciÃ³n global en barra superior:", err);
+      console.error("Error cargando configuración global en barra superior:", err);
       setAnioEscolar('Error');
       setLapsoEscolar('Error');
     }
@@ -112,7 +112,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           if (Swal) {
             Swal.fire({
               title: 'Sistema en Mantenimiento',
-              text: 'El sistema ha entrado en mantenimiento global (acceso restringido solo a administradores y personal autorizado). Tu sesiÃ³n ha sido finalizada.',
+              text: 'El sistema ha entrado en mantenimiento global (acceso restringido solo a administradores y personal autorizado). Tu sesión ha sido finalizada.',
               icon: 'warning',
               confirmButtonColor: '#FF8D00',
               confirmButtonText: 'Entendido',
@@ -122,7 +122,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               disconnectUser();
             });
           } else {
-            alert('El sistema ha entrado en mantenimiento global. Tu sesiÃ³n ha sido finalizada.');
+            alert('El sistema ha entrado en mantenimiento global. Tu sesión ha sido finalizada.');
             disconnectUser();
           }
         }
@@ -189,7 +189,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         const updated = [
           {
             id: detail.id || String(Date.now()),
-            titulo: detail.titulo || 'NotificaciÃ³n',
+            titulo: detail.titulo || 'Notificación',
             cuerpo: detail.cuerpo || '',
             leido: false,
             fecha: detail.fecha || new Date().toISOString(),
@@ -219,7 +219,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     };
   }, []);
 
-  // â”€â”€â”€ GLOBAL TRACKING LISTENER PARA TRANSPORTE ESCOLAR â”€â”€â”€
+  // ─── GLOBAL TRACKING LISTENER PARA TRANSPORTE ESCOLAR ───
   const transTrackingRef = useRef<Record<string, { ubicacion_actual: string, estado: string }>>({});
   
   useEffect(() => {
@@ -331,11 +331,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             if (rData) rutaDisplay = rData.nombre;
           } catch(e) {}
 
-          const titulo = isEnd ? 'ðŸ Destino Alcanzado' : (isInsert ? 'Ruta Iniciada ðŸšŒ' : 'ðŸ“ Paso por Parada');
+          const titulo = isEnd ? '🏁 Destino Alcanzado' : (isInsert ? 'Ruta Iniciada 🚌' : '📍 Paso por Parada');
           const cuerpo = isEnd 
-            ? `El recorrido de "${rutaDisplay}" finalizÃ³ con Ã©xito en la escuela.`
+            ? `El recorrido de "${rutaDisplay}" finalizó con éxito en la escuela.`
             : (isInsert ? `Se ha iniciado el recorrido para la ruta "${rutaDisplay}" (${row.sentido}).` 
-                        : `El bus de "${rutaDisplay}" pasÃ³ por la parada: ${paradaDisplay}.`);
+                        : `El bus de "${rutaDisplay}" pasó por la parada: ${paradaDisplay}.`);
 
           playBusChime(isEnd ? 'llegada' : 'parada');
           sendBusNotification(titulo, cuerpo);
@@ -366,23 +366,23 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     const Swal = (window as any).Swal;
     if (Swal) {
       Swal.fire({
-        title: 'Cierre de SesiÃ³n',
-        text: 'Â¿CÃ³mo deseas salir del sistema?',
+        title: 'Cierre de Sesión',
+        text: '¿Cómo deseas salir del sistema?',
         icon: 'question',
         showDenyButton: true,
         showCancelButton: true,
         confirmButtonText: '<i class="bi bi-moon-stars-fill me-1"></i> Hibernar (Huella / PIN)',
-        denyButtonText: '<i class="bi bi-power me-1"></i> Cerrar SesiÃ³n',
+        denyButtonText: '<i class="bi bi-power me-1"></i> Cerrar Sesión',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#0066FF',
         denyButtonColor: '#dc3545',
         cancelButtonColor: '#6c757d'
       }).then((result: any) => {
         if (result.isConfirmed) {
-          // Hibernar: mantener usuario en localstorage para reingreso rÃ¡pido
+          // Hibernar: mantener usuario en localstorage para reingreso rápido
           handleBloquearSesion();
         } else if (result.isDenied) {
-          // Cerrar sesiÃ³n por completo: limpiar todo
+          // Cerrar sesión por completo: limpiar todo
           localStorage.removeItem('sesion_sigae');
           localStorage.removeItem('usuario_sigae');
           onLogout();
@@ -390,7 +390,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         }
       });
     } else {
-      const hibernar = window.confirm("Â¿Deseas hibernar la sesiÃ³n para reingresar con huella/PIN? (Cancelar cierra la sesiÃ³n por completo)");
+      const hibernar = window.confirm("¿Deseas hibernar la sesión para reingresar con huella/PIN? (Cancelar cierra la sesión por completo)");
       if (hibernar) {
         handleBloquearSesion();
       } else {
@@ -422,11 +422,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
       if (Swal) {
         Swal.fire({
-          title: 'Â¿Sigues ahÃ­?',
-          html: 'Tu sesiÃ³n se bloquearÃ¡ por inactividad en <b>30</b> segundos.',
+          title: '¿Sigues ahí?',
+          html: 'Tu sesión se bloqueará por inactividad en <b>30</b> segundos.',
           icon: 'warning',
           showCancelButton: true,
-          confirmButtonText: 'SÃ­, mantener activa',
+          confirmButtonText: 'Sí, mantener activa',
           cancelButtonText: 'Bloquear ahora',
           confirmButtonColor: '#0066FF',
           cancelButtonColor: '#dc3545',
@@ -454,7 +454,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           }
         });
       } else {
-        const mantener = window.confirm("Tu sesiÃ³n estÃ¡ inactiva. Â¿Deseas mantenerte activo?");
+        const mantener = window.confirm("Tu sesión está inactiva. ¿Deseas mantenerte activo?");
         if (mantener) {
           resetTimer();
         } else {
@@ -477,7 +477,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   const usuarioStr = localStorage.getItem('usuario_sigae');
   const usuario = usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
-  const escuelaNombre = localStorage.getItem('sigae_escuela_activa') || 'UE Santa BÃ¡rbara';
+  const escuelaNombre = localStorage.getItem('sigae_escuela_activa') || 'UE Santa Bárbara';
   const escuelaCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
   
   const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
@@ -545,11 +545,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           {/* CATEGORIAS DINAMICAS */}
           <div className="px-3">
             <div className="small text-muted fw-bold mb-2 px-3 texto-menu-ocultable" style={{ fontSize: '0.75rem', letterSpacing: '1px' }}>
-              MÃ“DULOS DEL SISTEMA
+              MÓDULOS DEL SISTEMA
             </div>
             
             {Object.entries(ModulosSistema).map(([nombreCategoria, datosModulo]) => {
-              // Mientras cargan permisos, no mostrar nada (evita flash de mÃ³dulos sin filtrar)
+              // Mientras cargan permisos, no mostrar nada (evita flash de módulos sin filtrar)
               if (permLoading) return null;
               if (!datosModulo.items.some((item: any) => tienePermiso(item.vista, 'ver'))) {
                 return null;
@@ -593,7 +593,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           <div className="ms-auto d-flex align-items-center">
             <div className="d-none d-lg-flex flex-column align-items-end me-4 pe-4 border-end">
               <span className="fw-bold text-primary text-anio" id="global-anio-escolar">
-                <i className="bi bi-calendar3 me-1"></i> AÃ±o Escolar: <span className="fw-bold">{anioEscolar}</span>
+                <i className="bi bi-calendar3 me-1"></i> Año Escolar: <span className="fw-bold">{anioEscolar}</span>
               </span>
               <span className="text-muted fw-bold text-lapso" id="global-lapso-escolar">
                 <i className="bi bi-clock-history me-1"></i> Fase Actual: <span className={lapsoEscolar.includes('Fuera') || lapsoEscolar === 'Error' ? 'text-danger fw-bold' : (lapsoEscolar === 'Cargando...' ? 'text-muted' : 'text-success fw-bold')}>{lapsoEscolar}</span>
@@ -744,7 +744,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             <img src="/assets/img/logo_carga.png" alt="SIGAE" className="footer-logo-sigae" height="55" />
           </div>
           <div className="fw-bold text-center mb-2 footer-anio">
-            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary">VersiÃ³n 1.0</span>
+            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary">Versión 1.0</span>
           </div>
         </footer>
       </main>

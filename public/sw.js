@@ -1,6 +1,6 @@
-﻿/**
+/**
  * SIGAE - SERVICE WORKER (PWA)
- * Gestiona la instalaciÃ³n de la app y el cachÃ© bÃ¡sico.
+ * Gestiona la instalación de la app y el caché básico.
  */
 
 const CACHE_NAME = 'sigae-cache-v5';
@@ -18,7 +18,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('CachÃ© abierto');
+        console.log('Caché abierto');
         return cache.addAll(urlsToCache);
       })
   );

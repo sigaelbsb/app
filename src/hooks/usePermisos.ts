@@ -143,6 +143,16 @@ export const usePermisos = () => {
       return rolesAdministrativos.includes(user?.rol);
     }
 
+    if (["Transporte Escolar", "Tarjeta: Gestión de Rutas", "Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Operación (Tracking)"].includes(modulo)) {
+      const rolesAdministrativos = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
+      return rolesAdministrativos.includes(user?.rol);
+    }
+
+    if (["Tarjeta: Visor de Recorrido", "Visor de Recorrido"].includes(modulo)) {
+      const rolesGenerales = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
+      return rolesGenerales.includes(user?.rol);
+    }
+
     if (modulo === "Solicitud de Cupos") {
       const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
       return rolesPermitidos.includes(user?.rol);
