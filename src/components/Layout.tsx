@@ -229,21 +229,26 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
     const handleNotification = (e: Event) => {
       const detail = (e as CustomEvent).detail;
+      console.log("SIGAE Debug: handleNotification received event:", detail);
       if (!detail) return;
       
       setNotificaciones(prev => {
-        if (prev.some(n => n.id === String(detail.id))) return prev;
-        const updated = [
-          {
-            id: String(detail.id) || String(Date.now()),
-            titulo: detail.titulo || 'Notificación',
-            cuerpo: detail.cuerpo || '',
-            leido: false,
-            fecha: detail.fecha || new Date().toISOString(),
-            tipo: detail.tipo || 'info'
-          },
-          ...prev
-        ];
+        console.log("SIGAE Debug: current notifications state in setter:", prev);
+        const stringId = detail.id ? String(detail.id) : String(Date.now());
+        if (prev.some(n => n.id === stringId)) {
+          console.log("SIGAE Debug: Duplicate notification ignored:", stringId);
+          return prev;
+        }
+        const newNotif = {
+          id: stringId,
+          titulo: detail.titulo || 'Notificación',
+          cuerpo: detail.cuerpo || '',
+          leido: false,
+          fecha: detail.fecha || new Date().toISOString(),
+          tipo: detail.tipo || 'info'
+        };
+        const updated = [newNotif, ...prev];
+        console.log("SIGAE Debug: updated notifications state:", updated);
         return updated.slice(0, 30);
       });
 
@@ -386,6 +391,14 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
           playBusChime(isEnd ? 'llegada' : 'parada');
           sendBusNotification(titulo, cuerpo);
+
+          console.log("SIGAE Debug: Dispatching sigae-notification event with detail:", {
+            id: String(Date.now()),
+            titulo,
+            cuerpo,
+            fecha: new Date().toISOString(),
+            tipo: 'transporte'
+          });
 
           window.dispatchEvent(new CustomEvent('sigae-notification', {
             detail: {
