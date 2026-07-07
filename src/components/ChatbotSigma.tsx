@@ -231,7 +231,7 @@ export const ChatbotSigma = () => {
 
     if (currentModule && !minimizado) {
       const schoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-      const schoolName = localStorage.getItem('sigae_escuela_activa') || (schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+      const schoolName = schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
       
       setMensaje(`Has ingresado al módulo de <b>${currentModule}</b> para la institución <b>${schoolName}</b>. Si no sabes cómo utilizar esta sección, consúltame y te explicaré paso a paso.`);
       setAcciones([]);
@@ -502,7 +502,7 @@ export const ChatbotSigma = () => {
       setTimeout(() => {
         setPensando(false);
         const schoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-        const schoolName = localStorage.getItem('sigae_escuela_activa') || (schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+        const schoolName = schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
         
         let userRole = 'Invitado';
         let userName = 'visitante';

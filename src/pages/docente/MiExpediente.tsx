@@ -13,6 +13,8 @@ interface Familiar {
   vive_con_trabajador: string;
   condicion_neuro: string;
   conapdis: string;
+  escolaridad?: string;
+  grado_nivel?: string;
 }
 
 interface Curso {
@@ -343,6 +345,8 @@ export const MiExpediente = () => {
   const [famVive, setFamVive] = useState('Sí');
   const [famCondicionNeuro, setFamCondicionNeuro] = useState('');
   const [famConapdis, setFamConapdis] = useState('No');
+  const [famEscolaridad, setFamEscolaridad] = useState('No Escolarizado');
+  const [famGradoNivel, setFamGradoNivel] = useState('1er Grado');
 
   // Dynamic Add inputs: Curso
   const [curTitulo, setCurTitulo] = useState('');
@@ -1086,6 +1090,8 @@ export const MiExpediente = () => {
     setFamVive(f.vive_con_trabajador);
     setFamCondicionNeuro(f.condicion_neuro || '');
     setFamConapdis(f.conapdis || 'No');
+    setFamEscolaridad(f.escolaridad || 'No Escolarizado');
+    setFamGradoNivel(f.grado_nivel || '1er Grado');
     setEditingFamiliarIndex(index);
   };
 
@@ -1097,6 +1103,8 @@ export const MiExpediente = () => {
     setFamVive('Sí');
     setFamCondicionNeuro('');
     setFamConapdis('No');
+    setFamEscolaridad('No Escolarizado');
+    setFamGradoNivel('1er Grado');
     setEditingFamiliarIndex(null);
   };
 
@@ -1105,6 +1113,7 @@ export const MiExpediente = () => {
       if (Swal) Swal.fire("Atención", "El nombre del familiar es requerido.", "warning");
       return;
     }
+    const isEscuela = ['Escuela Pública', 'Escuela Privada', 'Escuela PDVSA'].includes(famEscolaridad);
     const nuevo: Familiar = {
       nombres: formatTitleCase(famNombre.trim()),
       parentesco: famParentesco,
@@ -1112,7 +1121,9 @@ export const MiExpediente = () => {
       fecha_nacimiento: famFechaNac,
       vive_con_trabajador: famVive,
       condicion_neuro: formatTitleCase(famCondicionNeuro.trim()) || 'Neurotípico',
-      conapdis: famConapdis
+      conapdis: famConapdis,
+      escolaridad: famParentesco === 'Hijo(a)' ? famEscolaridad : undefined,
+      grado_nivel: (famParentesco === 'Hijo(a)' && isEscuela) ? famGradoNivel : undefined
     };
 
     if (editingFamiliarIndex !== null) {
@@ -1139,6 +1150,8 @@ export const MiExpediente = () => {
     setFamVive('Sí');
     setFamCondicionNeuro('');
     setFamConapdis('No');
+    setFamEscolaridad('No Escolarizado');
+    setFamGradoNivel('1er Grado');
   };
 
   const eliminarFamiliar = (index: number) => {
@@ -2698,22 +2711,56 @@ export const MiExpediente = () => {
                   </div>
                 </div>
                 <div className="row g-3 mt-1 align-items-end">
-                  <div className="col-md-3">
+                  <div className={famParentesco === 'Hijo(a)' ? "col-md-2" : "col-md-3"}>
                     <label className="small fw-bold text-muted mb-1">Fecha Nac.</label>
                     <input type="date" className="form-control input-moderno" value={famFechaNac} onChange={(e) => setFamFechaNac(e.target.value)} />
                   </div>
-                  <div className="col-md-3">
-                    <label className="small fw-bold text-muted mb-1">¿Posee carnet CONAPDIS?</label>
+                  {famParentesco === 'Hijo(a)' && (
+                    <div className={['Escuela Pública', 'Escuela Privada', 'Escuela PDVSA'].includes(famEscolaridad) ? "col-md-2" : "col-md-3"}>
+                      <label className="small fw-bold text-muted mb-1">Escolaridad</label>
+                      <select className="form-select input-moderno" value={famEscolaridad} onChange={(e) => setFamEscolaridad(e.target.value)}>
+                        <option value="No Escolarizado">No Escolarizado</option>
+                        <option value="Escuela Pública">Escuela Pública</option>
+                        <option value="Escuela Privada">Escuela Privada</option>
+                        <option value="Escuela PDVSA">Escuela PDVSA</option>
+                        <option value="Estudiante Universitario">Estudiante Universitario</option>
+                      </select>
+                    </div>
+                  )}
+                  {famParentesco === 'Hijo(a)' && ['Escuela Pública', 'Escuela Privada', 'Escuela PDVSA'].includes(famEscolaridad) && (
+                    <div className="col-md-2">
+                      <label className="small fw-bold text-muted mb-1">Grado/Nivel</label>
+                      <select className="form-select input-moderno" value={famGradoNivel} onChange={(e) => setFamGradoNivel(e.target.value)}>
+                        <option value="I Grupo">I Grupo</option>
+                        <option value="II Grupo">II Grupo</option>
+                        <option value="III Grupo">III Grupo</option>
+                        <option value="1er Grado">1er Grado</option>
+                        <option value="2do Grado">2do Grado</option>
+                        <option value="3er Grado">3er Grado</option>
+                        <option value="4to Grado">4to Grado</option>
+                        <option value="5to Grado">5to Grado</option>
+                        <option value="6to Grado">6to Grado</option>
+                        <option value="1er Año">1er Año</option>
+                        <option value="2do Año">2do Año</option>
+                        <option value="3er Año">3er Año</option>
+                        <option value="4to Año">4to Año</option>
+                        <option value="5to Año">5to Año</option>
+                        <option value="6to Año">6to Año</option>
+                      </select>
+                    </div>
+                  )}
+                  <div className={famParentesco === 'Hijo(a)' ? "col-md-2" : "col-md-3"}>
+                    <label className="small fw-bold text-muted mb-1">CONAPDIS</label>
                     <select className="form-select input-moderno" value={famConapdis} onChange={(e) => setFamConapdis(e.target.value)}>
                       <option value="No">No</option>
                       <option value="Sí">Sí</option>
                     </select>
                   </div>
-                  <div className="col-md-3">
+                  <div className={famParentesco === 'Hijo(a)' ? (['Escuela Pública', 'Escuela Privada', 'Escuela PDVSA'].includes(famEscolaridad) ? "col-md-2" : "col-md-3") : "col-md-3"}>
                     <label className="small fw-bold text-muted mb-1">Condición Neuro.</label>
                     <input type="text" className="form-control input-moderno" placeholder="Ej. TDAH, Autismo, Ninguna..." value={famCondicionNeuro} onChange={(e) => setFamCondicionNeuro(e.target.value)} onBlur={(e) => setFamCondicionNeuro(formatTitleCase(e.target.value))} />
                   </div>
-                  <div className="col-md-3 d-flex gap-2">
+                  <div className={famParentesco === 'Hijo(a)' ? "col-md-2 d-flex gap-2" : "col-md-3 d-flex gap-2"}>
                     {editingFamiliarIndex !== null ? (
                       <>
                         <button type="button" onClick={agregarFamiliar} className="btn btn-success flex-grow-1 rounded-pill fw-bold hover-efecto">
@@ -2757,7 +2804,21 @@ export const MiExpediente = () => {
                       formData.carga_familiar.map((f, idx) => (
                         <tr key={idx} className={editingFamiliarIndex === idx ? 'table-warning' : ''}>
                           <td className="fw-bold">{f.nombres}</td>
-                          <td><span className="badge bg-light text-dark border">{f.parentesco}</span></td>
+                          <td>
+                            <span className="badge bg-light text-dark border">{f.parentesco}</span>
+                            {f.parentesco === 'Hijo(a)' && f.escolaridad && (
+                              <div className="mt-1 d-flex flex-wrap gap-1">
+                                <span className="badge bg-info text-dark rounded-pill px-2 py-1 small fw-normal" style={{ fontSize: '0.75rem' }}>
+                                  <i className="bi bi-book-fill me-1"></i> {f.escolaridad}
+                                </span>
+                                {f.grado_nivel && (
+                                  <span className="badge bg-light text-dark border rounded-pill px-2 py-1 small fw-normal" style={{ fontSize: '0.75rem' }}>
+                                    {f.grado_nivel}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td>{f.cedula || 'Sin Cédula'}</td>
                           <td>{f.fecha_nacimiento || 'No registrada'}</td>
                           <td>{f.vive_con_trabajador}</td>

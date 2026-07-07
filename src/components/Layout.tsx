@@ -441,8 +441,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   const usuarioStr = localStorage.getItem('usuario_sigae');
   const usuario = usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
-  const escuelaNombre = localStorage.getItem('sigae_escuela_activa') || 'UE Santa Bárbara';
   const escuelaCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+  const escuelaNombre = escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
   
   const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
 

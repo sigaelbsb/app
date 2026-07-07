@@ -4,6 +4,13 @@ import { usePermisos } from '../../hooks/usePermisos';
 import { subscribeToWebPush } from '../../lib/webPush';
 import html2canvas from 'html2canvas';
 
+import { DashboardView } from './components/DashboardView';
+import { ConfiguracionView } from './components/ConfiguracionView';
+import { OperacionView } from './components/OperacionView';
+import { VisorView } from './components/VisorView';
+import { CargaMasivaView } from './components/CargaMasivaView';
+import { ModalParada, ModalRuta, ModalAsignacion } from './components/Modals';
+
 // ─── SVG Animated Bus — Transporte Escolar Venezuela ──────────────────────────────
 // ‘size’ = altura del bus en px. El ancho se calcula con la relación 80:56.
 const AnimatedBusSVG = ({ size = 48, className = '' }: { size?: number; color?: string; className?: string }) => {
@@ -107,10 +114,159 @@ const BusProgressBar = ({ total, current, finalizada }: { total: number; current
 };
 
 export const TransporteEscolar = () => {
-  const { loading: permLoading, tienePermiso, tieneAccesoEscuela } = usePermisos();
+  const { loading: permLoading, tienePermiso, tienePermisoEnEscuela, user } = usePermisos();
   const Swal = (window as any).Swal;
 
-  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor'>('dashboard');
+  const tieneAccesoEscuelaTransporte = (esc: string) => {
+    if (user?.rol === 'SuperAdmin') return true;
+    return tienePermisoEnEscuela(esc, 'Transporte Escolar', 'ver');
+  };
+
+  const formatTo12Hour = (time24: string) => {
+    if (!time24) return '';
+    const [hourStr, minStr] = time24.split(':');
+    let hour = parseInt(hourStr, 10);
+    const min = minStr;
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    hour = hour % 12;
+    hour = hour ? hour : 12;
+    const hourFormatted = String(hour).padStart(2, '0');
+    return `${hourFormatted}:${min} ${ampm}`;
+  };
+
+  const getCurrentTime12Hour = () => {
+    const now = new Date();
+    const time24 = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    return formatTo12Hour(time24);
+  };
+
+  const [offlineMode, setOfflineMode] = useState(!navigator.onLine);
+  const [, setSyncingOffline] = useState(false);
+
+  const isNetworkError = (error: any): boolean => {
+    if (!error) return false;
+    const msg = (error.message || '').toLowerCase();
+    return (
+      !navigator.onLine ||
+      msg.includes('fetch') ||
+      msg.includes('network') ||
+      msg.includes('typeerror') ||
+      msg.includes('failed to fetch') ||
+      msg.includes('load failed') ||
+      msg.includes('cors')
+    );
+  };
+
+  const getOfflineOperations = () => {
+    try {
+      return JSON.parse(localStorage.getItem('sigae_offline_operaciones') || '{}');
+    } catch (e) {
+      return {};
+    }
+  };
+
+  const saveOfflineOp = (op: any) => {
+    const ops = getOfflineOperations();
+    const key = `${op.ruta_id}_${op.sentido}_${op.fecha}`;
+    ops[key] = op;
+    localStorage.setItem('sigae_offline_operaciones', JSON.stringify(ops));
+  };
+
+  const mergeOfflineTracking = (onlineData: any[]) => {
+    const ops = getOfflineOperations();
+    const merged = [...onlineData];
+    Object.values(ops).forEach((offOp: any) => {
+      const idx = merged.findIndex(o => o.ruta_id === offOp.ruta_id && o.sentido === offOp.sentido && o.fecha === offOp.fecha);
+      if (idx >= 0) {
+        if (new Date(offOp.ultima_actualizacion) > new Date(merged[idx].ultima_actualizacion)) {
+          merged[idx] = offOp;
+        }
+      } else {
+        merged.push(offOp);
+      }
+    });
+    return merged;
+  };
+
+  const getOfflineQueue = (): any[] => {
+    try {
+      return JSON.parse(localStorage.getItem('sigae_offline_queue') || '[]');
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const queueOfflineAction = (action: any) => {
+    const queue = getOfflineQueue();
+    if (action.type === 'update') {
+      const idx = queue.findIndex(q => q.type === 'update' && q.table === action.table && q.eq?.value === action.eq?.value);
+      if (idx >= 0) {
+        queue[idx].payload = { ...queue[idx].payload, ...action.payload };
+        localStorage.setItem('sigae_offline_queue', JSON.stringify(queue));
+        return;
+      }
+    }
+    queue.push(action);
+    localStorage.setItem('sigae_offline_queue', JSON.stringify(queue));
+  };
+
+  const syncOfflineQueue = async () => {
+    const queue = getOfflineQueue();
+    if (queue.length === 0) return;
+    
+    setSyncingOffline(true);
+    let successCount = 0;
+    
+    try {
+      for (const action of queue) {
+        if (action.type === 'insert') {
+          if (action.table === 'transporte_operaciones') {
+            const { data } = await (supabase.from('transporte_operaciones') as any).select('id').eq('id', action.payload.id);
+            if (data && data.length > 0) {
+              successCount++;
+              continue;
+            }
+          }
+          const { error } = await (supabase.from(action.table) as any).insert([action.payload]);
+          if (error) throw error;
+        } else if (action.type === 'update') {
+          const { error } = await (supabase.from(action.table) as any).update(action.payload).eq(action.eq.key, action.eq.value);
+          if (error) throw error;
+        }
+        successCount++;
+      }
+      
+      localStorage.removeItem('sigae_offline_queue');
+      localStorage.removeItem('sigae_offline_operaciones');
+      
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: `Sincronizados ${successCount} registros guardados offline 🎉`,
+        showConfirmButton: false,
+        timer: 4000
+      });
+      cargarTodo(true);
+    } catch (err: any) {
+      console.error("Error syncing offline queue:", err);
+      const remaining = getOfflineQueue().slice(successCount);
+      localStorage.setItem('sigae_offline_queue', JSON.stringify(remaining));
+      
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'error',
+        title: 'Error al sincronizar datos offline',
+        showConfirmButton: false,
+        timer: 3000
+      });
+    } finally {
+      setSyncingOffline(false);
+    }
+  };
+
+  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva'>('dashboard');
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState(localStorage.getItem('sigae_escuela_codigo') || 'sb');
 
@@ -119,6 +275,7 @@ export const TransporteEscolar = () => {
   const canOperateTracking= tienePermiso('Tarjeta: Operación (Tracking)')|| tienePermiso('Operación (Tracking)');
   const canViewRecorrido  = tienePermiso('Tarjeta: Visor de Recorrido')  || tienePermiso('Visor de Recorrido');
   const canViewTransporte = canManageRutas || canManageParadas || canOperateTracking || canViewRecorrido || tienePermiso('Transporte Escolar');
+  const canControlCoordinacion = tienePermisoEnEscuela(escCodigo, 'Función: Control Coordinación', 'ver');
 
   // DB States
   const [paradas, setParadas] = useState<any[]>([]);
@@ -151,13 +308,40 @@ export const TransporteEscolar = () => {
   // Drag & drop: índice que se está arrastrando
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  useEffect(() => { localStorage.setItem('sigae_transporte_ruta', opRutaId); }, [opRutaId]);
-  useEffect(() => { localStorage.setItem('sigae_transporte_sentido', opSentido); }, [opSentido]);
+  useEffect(() => {
+    localStorage.setItem('sigae_transporte_ruta', opRutaId);
+    setCustomPids(null);
+  }, [opRutaId]);
 
   useEffect(() => {
+    localStorage.setItem('sigae_transporte_sentido', opSentido);
+    setCustomPids(null);
+  }, [opSentido]);
+  useEffect(() => {
+    const goOnline = () => {
+      setOfflineMode(false);
+      syncOfflineQueue();
+    };
+    const goOffline = () => {
+      setOfflineMode(true);
+    };
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    
+    // Initial check and sync on mount
+    if (navigator.onLine) {
+      syncOfflineQueue();
+    }
+
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+  useEffect(() => {
     if (permLoading) return;
-    const hasSB = tieneAccesoEscuela('sb');
-    const hasLB = tieneAccesoEscuela('lb');
+    const hasSB = tieneAccesoEscuelaTransporte('sb');
+    const hasLB = tieneAccesoEscuelaTransporte('lb');
 
     if (hasSB && !hasLB && escCodigo !== 'sb') {
       setEscCodigo('sb');
@@ -166,7 +350,7 @@ export const TransporteEscolar = () => {
       setEscCodigo('lb');
       localStorage.setItem('sigae_escuela_codigo', 'lb');
     }
-  }, [permLoading, tieneAccesoEscuela]);
+  }, [permLoading, escCodigo, tienePermisoEnEscuela, user]);
 
   useEffect(() => {
     localStorage.setItem('sigae_escuela_codigo', escCodigo);
@@ -244,71 +428,81 @@ export const TransporteEscolar = () => {
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [canViewTransporte]);
+  // Cache to localstorage
+  useEffect(() => {
+    if (paradas.length > 0) localStorage.setItem(`sigae_cache_paradas_${escCodigo}`, JSON.stringify(paradas));
+  }, [paradas, escCodigo]);
+  
+  useEffect(() => {
+    if (rutas.length > 0) localStorage.setItem(`sigae_cache_rutas_${escCodigo}`, JSON.stringify(rutas));
+  }, [rutas, escCodigo]);
+
+  useEffect(() => {
+    if (docentes.length > 0) localStorage.setItem(`sigae_cache_docentes_${escCodigo}`, JSON.stringify(docentes));
+  }, [docentes, escCodigo]);
 
   const cargarTodo = async (silencioso = false) => {
     if (!silencioso) setLoadingData(true);
     try {
       const hoyStr = new Date().toISOString().split('T')[0];
       
-      const [paradasRes, rutasRes, usuariosRes, trackingRes] = await Promise.all([
-        supabase.from('transporte_paradas').select('*').eq('escuela_codigo', escCodigo).order('nombre_parada', { ascending: true }),
-        supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }),
-        supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, rol, cargo, telefono').eq('id_escuela', escCodigo),
-        supabase.from('transporte_operaciones').select('*').eq('escuela_codigo', escCodigo).eq('fecha', hoyStr)
-      ]);
+      const p1 = Promise.resolve(supabase.from('transporte_paradas').select('*').eq('escuela_codigo', escCodigo).order('nombre_parada', { ascending: true }))
+        .then(res => { if (res.error) throw res.error; setParadas(res.data || []); })
+        .catch((err: any) => { console.error("Error al cargar paradas:", err); throw err; });
 
-      if (paradasRes.error) throw paradasRes.error;
-      if (rutasRes.error) throw rutasRes.error;
-      if (usuariosRes.error) throw usuariosRes.error;
-      if (trackingRes.error) throw trackingRes.error;
+      const p2 = Promise.resolve(supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }))
+        .then(res => { if (res.error) throw res.error; setRutas(res.data || []); })
+        .catch((err: any) => { console.error("Error al cargar rutas:", err); throw err; });
 
-      setParadas(paradasRes.data || []);
-      setRutas(rutasRes.data || []);
-      setTrackingHoy(trackingRes.data || []);
+      const p3 = Promise.resolve(supabase.from('transporte_operaciones').select('*').eq('escuela_codigo', escCodigo).eq('fecha', hoyStr))
+        .then(res => { if (res.error) throw res.error; setTrackingHoy(mergeOfflineTracking(res.data || [])); })
+        .catch((err: any) => { console.error("Error al cargar tracking:", err); throw err; });
 
-      const rolesExcluidos = ['Estudiante', 'Representante', 'Invitado'];
-      const docs = (usuariosRes.data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
-      setDocentes(docs);
+      const p4 = Promise.resolve(supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, rol, cargo, telefono').eq('id_escuela', escCodigo))
+        .then(res => {
+          if (res.error) throw res.error;
+          const rolesExcluidos = ['Estudiante', 'Representante', 'Invitado'];
+          const docs = (res.data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
+          setDocentes(docs);
+        })
+        .catch((err: any) => { console.error("Error al cargar docentes:", err); throw err; });
+
+      await Promise.all([p1, p2, p3, p4]);
 
     } catch (e: any) {
       console.error(e);
-      if (!silencioso) Swal.fire('Error', 'Falla al conectar con base de datos.', 'error');
+      // Fallback a caché
+      try {
+        const cachedParadas = JSON.parse(localStorage.getItem(`sigae_cache_paradas_${escCodigo}`) || '[]');
+        const cachedRutas = JSON.parse(localStorage.getItem(`sigae_cache_rutas_${escCodigo}`) || '[]');
+        const cachedDocentes = JSON.parse(localStorage.getItem(`sigae_cache_docentes_${escCodigo}`) || '[]');
+        if (cachedParadas.length > 0) setParadas(cachedParadas);
+        if (cachedRutas.length > 0) setRutas(cachedRutas);
+        if (cachedDocentes.length > 0) setDocentes(cachedDocentes);
+        setTrackingHoy(mergeOfflineTracking([]));
+      } catch (errCache) {
+        console.error("Error al cargar desde cache local:", errCache);
+      }
+      if (!silencioso && !isNetworkError(e)) {
+        Swal.fire('Error', 'Falla al conectar con base de datos.', 'error');
+      }
     } finally {
       setLoadingData(false);
     }
   };
 
   const cargarTrackingSolo = async () => {
-    const hoyStr = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from('transporte_operaciones').select('*').eq('escuela_codigo', escCodigo).eq('fecha', hoyStr);
-    if (data) setTrackingHoy(data);
-  };
-
-  // ---- PARADAS ----
-  const saveParada = async (e: React.FormEvent) => {
-    e.preventDefault();
     try {
-      const payload = {
-        escuela_codigo: escCodigo,
-        nombre_parada: paradaForm.nombre,
-        descripcion: paradaForm.descripcion
-      };
-      
-      if (paradaForm.id) {
-        const { error } = await supabase.from('transporte_paradas').update(payload).eq('id', paradaForm.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('transporte_paradas').insert([payload]);
-        if (error) throw error;
-      }
-      
-      setShowModalParada(false);
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Guardado', showConfirmButton: false, timer: 2000 });
-      cargarTodo(true);
+      const hoyStr = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase.from('transporte_operaciones').select('*').eq('escuela_codigo', escCodigo).eq('fecha', hoyStr);
+      if (error) throw error;
+      if (data) setTrackingHoy(mergeOfflineTracking(data));
     } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
+      console.error("Error al cargar tracking:", err);
+      setTrackingHoy(mergeOfflineTracking([]));
     }
   };
+  // ---- PARADAS ----
 
   const deleteParada = async (id: string) => {
     Swal.fire({ title: '¿Borrar parada?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Sí, borrar' }).then(async (r: any) => {
@@ -370,62 +564,6 @@ export const TransporteEscolar = () => {
     setShowModalRuta(true);
   };
 
-  const saveRuta = async () => {
-    if (!rutaForm.nombre) {
-      return Swal.fire('Atención', 'Escriba un nombre para la ruta', 'warning');
-    }
-    if (paradasTemporales.length === 0) {
-      return Swal.fire('Atención', 'Añada al menos una parada al recorrido.', 'warning');
-    }
-
-    try {
-      const payload = {
-        escuela_codigo: escCodigo,
-        nombre: rutaForm.nombre,
-        paradas_json: paradasTemporales.map(p => p.id)
-      };
-
-      if (rutaForm.id) {
-        const { error } = await supabase.from('transporte_rutas').update(payload).eq('id', rutaForm.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('transporte_rutas').insert([payload]);
-        if (error) throw error;
-      }
-      
-      setShowModalRuta(false);
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta Guardada', showConfirmButton: false, timer: 2000 });
-      cargarTodo(true);
-    } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
-    }
-  };
-
-  const saveAsignacion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!rutaForm.validez_desde || !rutaForm.validez_hasta) {
-        return Swal.fire('Atención', 'Especifique la fecha de validez', 'warning');
-      }
-
-      const payload = {
-        chofer_nombre: rutaForm.chofer,
-        docente_id: rutaForm.docente_id || null,
-        validez_desde: rutaForm.validez_desde,
-        validez_hasta: rutaForm.validez_hasta
-      };
-
-      const { error } = await supabase.from('transporte_rutas').update(payload).eq('id', rutaForm.id);
-      if (error) throw error;
-      
-      setShowModalAsignacion(false);
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Personal Asignado', showConfirmButton: false, timer: 2000 });
-      cargarTodo(true);
-    } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
-    }
-  };
-
   const deleteRuta = async (id: string) => {
     Swal.fire({ title: '¿Borrar ruta?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545', confirmButtonText: 'Sí, borrar' }).then(async (r: any) => {
       if (r.isConfirmed) {
@@ -440,67 +578,242 @@ export const TransporteEscolar = () => {
     });
   };
 
-  // Rutograma Constructor
-  const moveParadaTemp = (idx: number, dir: number) => {
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= paradasTemporales.length) return;
-    const items = [...paradasTemporales];
-    const temp = items[idx];
-    items[idx] = items[newIdx];
-    items[newIdx] = temp;
-    setParadasTemporales(items);
+  const deleteParadasMasivo = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    Swal.fire({
+      title: `¿Borrar ${ids.length} paradas?`,
+      text: 'Se eliminarán de forma definitiva todas las paradas seleccionadas.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      confirmButtonText: 'Sí, borrar seleccionadas'
+    }).then(async (r: any) => {
+      if (r.isConfirmed) {
+        try {
+          const { error } = await supabase.from('transporte_paradas').delete().in('id', ids);
+          if (error) throw error;
+          cargarTodo(true);
+          Swal.fire('Eliminadas', 'Las paradas seleccionadas han sido eliminadas.', 'success');
+        } catch (err: any) {
+          Swal.fire('Error', 'No se pudieron eliminar las paradas.', 'error');
+        }
+      }
+    });
   };
-  const removeParadaTemp = (idx: number) => {
-    const items = [...paradasTemporales];
-    items.splice(idx, 1);
-    setParadasTemporales(items);
+
+  const deleteRutasMasivo = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    Swal.fire({
+      title: `¿Borrar ${ids.length} rutas?`,
+      text: 'Se eliminarán de forma definitiva todas las rutas seleccionadas.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      confirmButtonText: 'Sí, borrar seleccionadas'
+    }).then(async (r: any) => {
+      if (r.isConfirmed) {
+        try {
+          const { error } = await supabase.from('transporte_rutas').delete().in('id', ids);
+          if (error) throw error;
+          cargarTodo(true);
+          Swal.fire('Eliminadas', 'Las rutas seleccionadas han sido eliminadas.', 'success');
+        } catch (err: any) {
+          Swal.fire('Error', 'No se pudieron eliminar las rutas.', 'error');
+        }
+      }
+    });
+  };
+
+  const limpiarAsignacionesMasivo = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    Swal.fire({
+      title: `¿Limpiar ${ids.length} asignaciones?`,
+      text: 'Se removerá todo el personal (chofer, guardia y periodo) de las rutas seleccionadas.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      confirmButtonText: 'Sí, limpiar seleccionadas'
+    }).then(async (r: any) => {
+      if (r.isConfirmed) {
+        try {
+          const { error } = await supabase
+            .from('transporte_rutas')
+            .update({
+              chofer_nombre: null,
+              chofer_telefono: null,
+              docente_id: null,
+              validez_desde: null,
+              validez_hasta: null
+            })
+            .in('id', ids);
+          if (error) throw error;
+          cargarTodo(true);
+          Swal.fire('Limpiadas', 'El personal de las rutas seleccionadas ha sido limpiado.', 'success');
+        } catch (err: any) {
+          Swal.fire('Error', 'No se pudieron limpiar las asignaciones.', 'error');
+        }
+      }
+    });
   };
 
   // ---- COMPARTIR / EXPORTAR ----
   const compartirRuta = async (ruta: any) => {
-    Swal.fire({ title: 'Preparando Mensaje...', text: 'Generando imagen membretada de la ruta...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+    let chosenModo: 'both' | 'text' | 'image' | null = null;
+    const modo = await new Promise<'both' | 'text' | 'image' | null>((resolve) => {
+      Swal.fire({
+        title: 'Opciones de Compartir',
+        html: `
+          <p class="small text-muted mb-3">Selecciona el formato que deseas generar para esta ruta:</p>
+          <div class="d-flex flex-column gap-2 text-start">
+            <button id="opt-both" class="btn btn-outline-success text-start p-3 w-100 mb-2 rounded-3 border-2">
+              <div class="fw-bold"><i class="bi bi-file-earmark-zip-fill me-2 fs-5"></i> Imagen y Texto (Recomendado)</div>
+              <div class="small text-muted mt-1">Descarga el rutograma oficial en PNG y copia el detalle de paradas al portapapeles.</div>
+            </button>
+            <button id="opt-text" class="btn btn-outline-primary text-start p-3 w-100 mb-2 rounded-3 border-2">
+              <div class="fw-bold"><i class="bi bi-card-text me-2 fs-5"></i> Solo Texto</div>
+              <div class="small text-muted mt-1">Copia la lista de paradas y docentes al portapapeles sin descargar imágenes.</div>
+            </button>
+            <button id="opt-image" class="btn btn-outline-secondary text-start p-3 w-100 rounded-3 border-2">
+              <div class="fw-bold"><i class="bi bi-image me-2 fs-5"></i> Solo Imagen</div>
+              <div class="small text-muted mt-1">Descarga únicamente el rutograma oficial PNG.</div>
+            </button>
+          </div>
+        `,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar',
+        didOpen: () => {
+          const container = Swal.getHtmlContainer();
+          if (container) {
+            const ob = container.querySelector('#opt-both');
+            const ot = container.querySelector('#opt-text');
+            const oi = container.querySelector('#opt-image');
+            if (ob) (ob as HTMLElement).onclick = () => { chosenModo = 'both'; Swal.close(); };
+            if (ot) (ot as HTMLElement).onclick = () => { chosenModo = 'text'; Swal.close(); };
+            if (oi) (oi as HTMLElement).onclick = () => { chosenModo = 'image'; Swal.close(); };
+          }
+        },
+        willClose: () => {
+          resolve(chosenModo);
+        }
+      });
+    });
+
+    if (!modo) return;
+
+    const pids = getIdsWithEscuela(ruta, 'Casa - Escuela');
+    const orderedParadas = getParadasWithEscuela(pids);
+    const estatusRuta = ruta.activo !== false ? 'Activa 🟢' : 'Inactiva 🔴';
+    const doc = docentes.find(d => d.id_usuario === ruta.docente_id);
+    const nombreDoc = doc ? doc.nombre_completo : 'Sin asignar';
+    const telDoc = doc ? (doc.telefono || '') : '';
+    const fechaHoy = new Date().toLocaleString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const nombreEscuela = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
+
+    const textoMensaje = `🚍 *RUTA DE TRANSPORTE ESCOLAR*\n🏫 *${nombreEscuela}*\n\n📍 *${ruta.nombre}*\n🟢 Estatus: *${estatusRuta}*\n👨‍✈️ Chofer: ${ruta.chofer_nombre || 'Sin Asignar'}\n👩‍🏫 Docentes de Guardia: ${nombreDoc} ${telDoc ? '('+telDoc+')' : ''}\n📅 Vigencia: Desde ${ruta.validez_desde || 'No establecida'} Hasta ${ruta.validez_hasta || 'No establecida'}\n\n*Recorrido de Paradas:*\n` +
+      orderedParadas.map((p: any, idx: number) => `  ${idx+1}. ${p.nombre_parada} ${p.descripcion ? `(${p.descripcion})` : ''}`).join('\n');
+
+    if (modo === 'text') {
+      try {
+        await navigator.clipboard.writeText(textoMensaje);
+        Swal.fire({
+          title: '¡Texto Copiado!',
+          html: `
+            <p class="small text-muted mb-2">El detalle de la ruta se copió al portapapeles.</p>
+            <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; color: #166534; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left;">
+              Selecciona tu chat, presiona <strong>Ctrl + V</strong> y envía la información.
+            </div>
+          `,
+          icon: 'success',
+          showCancelButton: true,
+          confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
+          cancelButtonText: '<i class="bi bi-telegram me-1"></i> Telegram',
+          confirmButtonColor: '#25D366',
+          cancelButtonColor: '#0088cc'
+        }).then((res2: any) => {
+          if (res2.isConfirmed) { window.open('whatsapp://', '_self'); }
+          else if (res2.dismiss === Swal.DismissReason.cancel) { window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(textoMensaje)}`, '_blank'); }
+        });
+      } catch (err: any) {
+        Swal.fire('Error', 'No se pudo copiar el texto al portapapeles.', 'error');
+      }
+      return;
+    }
+
+    Swal.fire({ title: 'Preparando Imagen...', text: 'Generando imagen membretada de la ruta...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
     try {
-      const pids = getIdsWithEscuela(ruta, 'Casa - Escuela'); // Para compartir asumimos Ida como base visual
-      const orderedParadas = getParadasWithEscuela(pids);
-
-      const doc = docentes.find(d => d.id_usuario === ruta.docente_id);
-      const nombreDoc = doc ? doc.nombre_completo : 'Sin asignar';
-      const telDoc = doc ? (doc.telefono || '') : '';
-      const fechaHoy = new Date().toLocaleString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
       const clon = document.createElement('div');
       clon.style.width = "800px"; clon.style.padding = "40px"; clon.style.background = "#ffffff"; 
       clon.style.position = "absolute"; clon.style.top = "-9999px"; clon.style.left = "-9999px"; 
       clon.style.fontFamily = "Arial, Helvetica, sans-serif";
 
+      let stopsHtml = '';
+      orderedParadas.forEach((p, idx) => {
+        const isStart = idx === 0;
+        const isEnd = idx === orderedParadas.length - 1;
+        const nodeColor = isEnd ? '#a855f7' : isStart ? '#f59e0b' : '#3b82f6';
+        stopsHtml += `
+          <div style="position: relative; display: flex; align-items: flex-start; gap: 15px; margin-bottom: 25px; padding-left: 55px;">
+            <div style="position: absolute; left: 10px; top: 0; width: 32px; height: 32px; border-radius: 50%; background: ${nodeColor}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border: 3px solid #ffffff; box-shadow: 0 2px 5px rgba(0,0,0,0.15); z-index: 2;">
+              ${idx + 1}
+            </div>
+            <div style="flex: 1; padding: 8px 14px; background: #ffffff; border: 1.5px solid #f1f5f9; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: left;">
+              <div style="font-size: 15px; font-weight: bold; color: #1e293b;">${p.nombre_parada}</div>
+              ${p.descripcion ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">${p.descripcion}</div>` : ''}
+            </div>
+          </div>
+        `;
+      });
+
       let htmlImagen = `
-        <div style="display: flex; align-items: center; border-bottom: 2px solid #0066FF; padding-bottom: 15px; margin-bottom: 25px;">
-            <div>
-                <div style="font-size: 12px; color: #334155;">República Bolivariana de Venezuela</div>
-                <div style="font-size: 12px; color: #334155;">Ministerio del Poder Popular para la Educación</div>
-                <div style="font-size: 14px; font-weight: bold; color: #0f172a;">Unidad Educativa Libertador Bolívar</div>
+        <div style="display: flex; align-items: center; gap: 20px; border-bottom: 2.5px solid #FF3D00; padding-bottom: 20px; margin-bottom: 25px;">
+            <img src="/assets/img/logo_${escCodigo}.png" style="height: 75px; width: auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.08));" onError="this.style.display='none'" />
+            <div style="text-align: left;">
+                <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">República Bolivariana de Venezuela</div>
+                <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-top: 1px;">M.P.P. para la Educación</div>
+                <div style="font-size: 16px; font-weight: 800; color: #1e293b; margin-top: 4px;">${nombreEscuela}</div>
             </div>
         </div>
-        <div style="text-align:center; margin-bottom:25px;">
-            <h2 style="color:#0066FF; margin:0; text-transform: uppercase;">Rutograma de Transporte Escolar</h2>
-        </div>
-        <div style="margin-bottom:20px; border:2px solid #e2e8f0; border-radius:10px; padding:20px; background: #f8fafc;">
-            <h3 style="color:#f97316; margin-top:0; border-bottom:1px solid #cbd5e1; padding-bottom:10px;">${ruta.nombre}</h3>
-            <div style="font-size:16px; margin-bottom:15px; color: #1e293b;"><b>Chofer:</b> ${ruta.chofer_nombre} &nbsp;|&nbsp; <b>Guía:</b> ${nombreDoc} ${telDoc}</div>
-            <div style="font-size:15px; font-weight:bold; margin-bottom:10px; color: #0f172a;">Secuencia de Recorrido:</div>
-            <ul style="list-style-type:none; padding-left:0; font-size:15px; margin:0; color: #334155;">
-      `;
-      let textoMensaje = `🚍 *RUTA DE TRANSPORTE ESCOLAR*\n🏫 *U.E. Libertador Bolívar*\n\n📍 *${ruta.nombre}*\n👨✈️ Chofer: ${ruta.chofer_nombre}\n👩🏫 Guía: ${nombreDoc} ${telDoc ? '('+telDoc+')' : ''}\n\n*Paradas:*\n`;
 
-      orderedParadas.forEach((p, idx) => {
-        htmlImagen += `<li style="margin-bottom:8px;"><b>${idx+1}.</b> ${p.nombre_parada} <span style="color:#64748b; font-size:13px;">(${p.descripcion||'Sin referencia'})</span></li>`;
-        textoMensaje += `  ${idx+1}. ${p.nombre_parada}\n`;
-      });
-      htmlImagen += `</ul></div>`;
-      htmlImagen += `
-          <div style="margin-top: 40px; border-top: 2px solid #dc3545; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-              <div style="text-align: right; font-size: 12px; color: #64748b;">Generado: ${fechaHoy}<br>Sistema SIGAE v1.0</div>
-          </div>`;
+        <div style="text-align:center; margin-bottom:30px;">
+            <h2 style="color:#FF3D00; margin:0; text-transform: uppercase; letter-spacing: 1px; font-size: 22px; font-weight: 800;">Rutograma Oficial de Transporte</h2>
+            <div style="height: 3px; width: 60px; background: #FF3D00; margin: 8px auto 0; border-radius: 2px;"></div>
+        </div>
+
+        <div style="margin-bottom:30px; border:1px solid #e2e8f0; border-radius:16px; padding:20px; background: linear-gradient(135deg, #ffffff 0%, #fffaf7 100%); box-shadow: 0 4px 15px rgba(0,0,0,0.02); text-align: left;">
+            <h3 style="color:#1e293b; font-size: 18px; margin-top:0; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px; font-weight: 800; display: flex; justify-content: space-between; align-items: center;">
+              <span>🚍 ${ruta.nombre}</span>
+              <span style="font-size: 12px; padding: 4px 10px; border-radius: 20px; background: ${ruta.activo !== false ? '#dcfce7' : '#fee2e2'}; color: ${ruta.activo !== false ? '#166534' : '#991b1b'}; border: 1px solid ${ruta.activo !== false ? '#bbf7d0' : '#fecaca'}; font-weight: 700;">
+                ${ruta.activo !== false ? 'Activa' : 'Inactiva'}
+              </span>
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; font-size:14px; color: #475569;">
+              <div><b>Conductor Asignado:</b><br><span style="color:#0f172a; font-size: 15px; font-weight: bold;">${ruta.chofer_nombre || 'Sin Asignar'}</span></div>
+              <div><b>Docentes de Guardia:</b><br><span style="color:#0f172a; font-size: 15px; font-weight: bold;">${nombreDoc} ${telDoc ? `(${telDoc})` : ''}</span></div>
+              <div style="grid-column: span 2; margin-top: 5px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+                <b>Vigencia del Recorrido:</b> Desde <span style="color:#0f172a; font-weight: bold;">${ruta.validez_desde || 'No establecida'}</span> Hasta <span style="color:#0f172a; font-weight: bold;">${ruta.validez_hasta || 'No establecida'}</span>
+              </div>
+            </div>
+        </div>
+
+        <div style="position: relative; margin-bottom: 35px;">
+            <div style="position: absolute; left: 25px; top: 15px; bottom: 15px; width: 3px; background: repeating-linear-gradient(180deg, #cbd5e1, #cbd5e1 6px, transparent 6px, transparent 12px); z-index: 1;"></div>
+            ${stopsHtml}
+        </div>
+
+        <div style="margin-top: 40px; border-top: 1.5px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="/assets/img/logoMPPE.png" style="height: 32px; width: auto;" />
+                <img src="/assets/img/logo_carga.png" style="height: 40px; width: auto;" />
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #94a3b8; font-weight: 600;">
+                Generado: ${fechaHoy}<br>
+                Sistema Integral de Gestión y Administración Escolar (SIGAE)
+            </div>
+        </div>
+        
+        <div style="height: 6px; background: linear-gradient(90deg, #facc15 0%, #facc15 33.3%, #2563eb 33.3%, #2563eb 66.6%, #dc2626 66.6%, #dc2626 100%); margin-top: 15px; border-radius: 3px;"></div>
+      `;
 
       clon.innerHTML = htmlImagen;
       document.body.appendChild(clon);
@@ -511,28 +824,473 @@ export const TransporteEscolar = () => {
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         const file = new File([blob], `Ruta_${ruta.nombre.replace(/\s/g, '_')}.png`, { type: "image/png" });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          Swal.close();
-          try { await navigator.share({ title: ruta.nombre, text: textoMensaje, files: [file] }); } catch (err) {}
-        } else {
-          Swal.close();
-          const urlImagen = canvas.toDataURL("image/png");
-          const a = document.createElement('a'); a.href = urlImagen; a.download = `Ruta_${ruta.nombre.replace(/\s/g, '_')}.png`; a.click();
-          navigator.clipboard.writeText(textoMensaje).then(() => {
+        
+        if (modo === 'both') {
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try { await navigator.clipboard.writeText(textoMensaje); } catch (e) {}
+            Swal.close();
             Swal.fire({
-              title: '¡Ruta Preparada!', html: '<b>1.</b> La imagen PNG se descargó.<br><b>2.</b> El texto fue copiado al portapapeles.<br><br>¿Dónde deseas enviarlo?', icon: 'info', showCancelButton: true,
-              confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> WhatsApp', cancelButtonText: '<i class="bi bi-telegram me-1"></i> Telegram', confirmButtonColor: '#25D366', cancelButtonColor: '#0088cc'
-            }).then((res2: any) => {
-              if (res2.isConfirmed) { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent('Información de la ruta escolar. ¡Adjunta la imagen descargada!\n\n' + textoMensaje)}`, '_blank'); } 
-              else if (res2.dismiss === Swal.DismissReason.cancel) { window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(textoMensaje)}`, '_blank'); }
+              title: '¡Rutograma Listo!',
+              html: `
+                <p class="small text-muted mb-3">La información detallada ha sido copiada a tu portapapeles.</p>
+                <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; color: #0369a1; padding: 12px; border-radius: 8px; font-size: 13px; text-align: left; line-height: 1.4;">
+                  <strong>Instrucción:</strong> Al abrirse la pantalla para compartir, pega el texto como comentario y envía.
+                </div>
+              `,
+              icon: 'info',
+              confirmButtonText: 'Compartir Imagen y Texto',
+              confirmButtonColor: '#25D366'
+            }).then(async () => {
+              try { await navigator.share({ files: [file], text: textoMensaje }); } catch (err) {}
             });
-          });
+          } else {
+            Swal.close();
+            Swal.fire({
+              title: '¡Ruta Preparada!',
+              html: `
+                <p class="small text-muted mb-2">La imagen de la ruta se copiará automáticamente al portapapeles al presionar "Abrir WhatsApp".</p>
+                <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; color: #166534; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left;">
+                  <strong>Para enviar en la app:</strong> Selecciona el chat, presiona <strong>Ctrl + V</strong> para pegar la imagen (el texto se cargará automáticamente).
+                </div>
+              `,
+              icon: 'success',
+              showCancelButton: true,
+              confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
+              cancelButtonText: '<i class="bi bi-telegram me-1"></i> Telegram',
+              confirmButtonColor: '#25D366',
+              cancelButtonColor: '#0088cc'
+            }).then(async (res2: any) => {
+              if (res2.isConfirmed) {
+                let copiedImage = false;
+                if (navigator.clipboard && navigator.clipboard.write) {
+                  try {
+                    const item = new ClipboardItem({ "image/png": blob });
+                    await navigator.clipboard.write([item]);
+                    copiedImage = true;
+                  } catch (e) {
+                    console.error("ClipboardItem failed inside confirm callback:", e);
+                  }
+                }
+
+                if (!copiedImage) {
+                  const urlImagen = canvas.toDataURL("image/png");
+                  const a = document.createElement('a'); a.href = urlImagen; a.download = `Ruta_${ruta.nombre.replace(/\s/g, '_')}.png`; a.click();
+                  try { await navigator.clipboard.writeText(textoMensaje); } catch (e) {}
+                }
+
+                window.open(`whatsapp://send?text=${encodeURIComponent(textoMensaje)}`, '_self');
+              } else if (res2.dismiss === Swal.DismissReason.cancel) {
+                try { await navigator.clipboard.writeText(textoMensaje); } catch (e) {}
+                window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(textoMensaje)}`, '_blank');
+              }
+            });
+          }
+        } else {
+          // Solo Imagen
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            Swal.close();
+            Swal.fire({
+              title: '¡Rutograma Listo!',
+              text: 'La imagen de la ruta ha sido generada correctamente.',
+              icon: 'info',
+              confirmButtonText: 'Compartir Imagen',
+              confirmButtonColor: '#25D366'
+            }).then(async () => {
+              try { await navigator.share({ files: [file] }); } catch (err) {}
+            });
+          } else {
+            Swal.close();
+            Swal.fire({
+              title: '¡Imagen Lista!',
+              text: 'Al presionar "Abrir WhatsApp", la imagen se copiará a tu portapapeles.',
+              icon: 'success',
+              confirmButtonText: 'Abrir WhatsApp',
+              confirmButtonColor: '#25D366',
+              showCancelButton: true,
+              cancelButtonText: 'Cerrar'
+            }).then(async (res2: any) => {
+              if (res2.isConfirmed) {
+                let copiedImage = false;
+                if (navigator.clipboard && navigator.clipboard.write) {
+                  try {
+                    const item = new ClipboardItem({ "image/png": blob });
+                    await navigator.clipboard.write([item]);
+                    copiedImage = true;
+                  } catch (e) {
+                    console.error("ClipboardItem failed:", e);
+                  }
+                }
+
+                if (!copiedImage) {
+                  const urlImagen = canvas.toDataURL("image/png");
+                  const a = document.createElement('a'); a.href = urlImagen; a.download = `Ruta_${ruta.nombre.replace(/\s/g, '_')}.png`; a.click();
+                }
+
+                window.open('whatsapp://', '_self');
+              }
+            });
+          }
         }
       }, "image/png");
     } catch(e:any) {
       console.error(e);
       Swal.fire('Error', 'No se pudo generar la imagen.', 'error');
     }
+  };
+
+  const compartirRutasMasivo = async (ids: string[]) => {
+    if (ids.length === 0) return;
+
+    let chosenModo: 'both' | 'text' | 'image' | null = null;
+    const modo = await new Promise<'both' | 'text' | 'image' | null>((resolve) => {
+      Swal.fire({
+        title: 'Opciones de Compartir Masivo',
+        html: `
+          <p class="small text-muted mb-3">Selecciona cómo deseas procesar las ${ids.length} rutas seleccionadas:</p>
+          <div class="d-flex flex-column gap-2 text-start">
+            <button id="opt-both" class="btn btn-outline-success text-start p-3 w-100 mb-2 rounded-3 border-2">
+              <div class="fw-bold"><i class="bi bi-whatsapp me-2 fs-5"></i> Enviar una a una (Asistente Paso a Paso)</div>
+              <div class="small text-muted mt-1">Recomendado. Abre WhatsApp una a una copiando su imagen al portapapeles y pre-cargando su texto.</div>
+            </button>
+            <button id="opt-text" class="btn btn-outline-primary text-start p-3 w-100 mb-2 rounded-3 border-2">
+              <div class="fw-bold"><i class="bi bi-card-text me-2 fs-5"></i> Solo Texto Consolidado</div>
+              <div class="small text-muted mt-1">Copia la información de todas las rutas en un solo bloque de texto.</div>
+            </button>
+            <button id="opt-image" class="btn btn-outline-secondary text-start p-3 w-100 rounded-3 border-2">
+              <div class="fw-bold"><i class="bi bi-download me-2 fs-5"></i> Solo Descargar Imágenes</div>
+              <div class="small text-muted mt-1">Descarga todas las imágenes de rutogramas PNG juntas en tu equipo.</div>
+            </button>
+          </div>
+        `,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar',
+        didOpen: () => {
+          const container = Swal.getHtmlContainer();
+          if (container) {
+            const ob = container.querySelector('#opt-both');
+            const ot = container.querySelector('#opt-text');
+            const oi = container.querySelector('#opt-image');
+            if (ob) (ob as HTMLElement).onclick = () => { chosenModo = 'both'; Swal.close(); };
+            if (ot) (ot as HTMLElement).onclick = () => { chosenModo = 'text'; Swal.close(); };
+            if (oi) (oi as HTMLElement).onclick = () => { chosenModo = 'image'; Swal.close(); };
+          }
+        },
+        willClose: () => {
+          resolve(chosenModo);
+        }
+      });
+    });
+
+    if (!modo) return;
+
+    const obtenerNumeroRuta = (nombre: string): number => {
+      const match = nombre.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 9999;
+    };
+    const rutasSeleccionadas = rutas
+      .filter(r => ids.includes(r.id))
+      .sort((a, b) => obtenerNumeroRuta(a.nombre) - obtenerNumeroRuta(b.nombre));
+
+    if (modo === 'text') {
+      try {
+        const MAX_CHAR = 3000;
+        const mensajes: string[] = [];
+        
+        let cabecera = `🚍 *RECORRIDOS DE TRANSPORTE ESCOLAR CONSOLIDADOS*\n`;
+        cabecera += `🏫 *${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}*\n`;
+        cabecera += `📅 Fecha: ${new Date().toLocaleDateString('es-VE')}\n\n`;
+        
+        let mensajeActual = cabecera;
+        
+        for (const ruta of rutasSeleccionadas) {
+          const pids = getIdsWithEscuela(ruta, 'Casa - Escuela');
+          const orderedParadas = getParadasWithEscuela(pids);
+          const doc = docentes.find(d => d.id_usuario === ruta.docente_id);
+          const nombreDoc = doc ? doc.nombre_completo : 'Sin asignar';
+          const telDoc = doc ? (doc.telefono || '') : '';
+          const estatusRuta = ruta.activo !== false ? 'Activa 🟢' : 'Inactiva 🔴';
+          
+          let bloqueRuta = `-----------------------------------------\n`;
+          bloqueRuta += `🚍 *${ruta.nombre}*\n`;
+          bloqueRuta += `🟢 Estatus: *${estatusRuta}*\n`;
+          bloqueRuta += `👨‍✈️ Chofer: ${ruta.chofer_nombre || 'Sin Asignar'}\n`;
+          bloqueRuta += `👩‍🏫 Guardia: ${nombreDoc} ${telDoc ? `(${telDoc})` : ''}\n`;
+          bloqueRuta += `📅 Vigencia: Desde ${ruta.validez_desde || 'No establecida'} Hasta ${ruta.validez_hasta || 'No establecida'}\n`;
+          bloqueRuta += `📍 Paradas:\n`;
+          
+          orderedParadas.forEach((p, idx) => {
+            bloqueRuta += `   ${idx + 1}. ${p.nombre_parada}\n`;
+          });
+          bloqueRuta += `\n`;
+          
+          if (mensajeActual.length + bloqueRuta.length > MAX_CHAR && mensajeActual !== cabecera) {
+            mensajes.push(mensajeActual);
+            mensajeActual = `🚍 *RECORRIDOS CONSOLIDADOS (Continuación)*\n🏫 *${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}*\n\n` + bloqueRuta;
+          } else {
+            mensajeActual += bloqueRuta;
+          }
+        }
+        
+        if (mensajeActual !== cabecera) {
+          mensajes.push(mensajeActual);
+        }
+
+        const enviarMensaje = async (index: number) => {
+          if (index >= mensajes.length) {
+            Swal.fire({
+              title: '¡Envío Finalizado!',
+              text: 'Se han copiado y enviado todos los mensajes consolidados.',
+              icon: 'success',
+              confirmButtonColor: '#198754'
+            });
+            return;
+          }
+          
+          await navigator.clipboard.writeText(mensajes[index]);
+          
+          Swal.fire({
+            title: `Mensaje Consolidado (${index + 1} de ${mensajes.length})`,
+            html: `
+              <p class="small text-muted mb-2">El texto del bloque de rutas se copió al portapapeles.</p>
+              <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; color: #166534; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left; margin-bottom: 12px;">
+                <strong>Instrucciones:</strong> Presiona "Enviar", pega el texto en el chat con <strong>Ctrl + V</strong> y envíalo. Luego regresa aquí para el siguiente bloque.
+              </div>
+            `,
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Copiar y Enviar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#25D366'
+          }).then((res2: any) => {
+            if (res2.isConfirmed) {
+              window.open(`whatsapp://send?text=${encodeURIComponent(mensajes[index])}`, '_self');
+              setTimeout(() => {
+                Swal.fire({
+                  title: '¿Pasar al siguiente bloque?',
+                  text: `¿Has enviado el bloque ${index + 1} en WhatsApp?`,
+                  icon: 'question',
+                  showCancelButton: true,
+                  confirmButtonText: 'Sí, Siguiente Bloque',
+                  cancelButtonText: 'No, Detener',
+                  confirmButtonColor: '#198754'
+                }).then((res3: any) => {
+                  if (res3.isConfirmed) {
+                    enviarMensaje(index + 1);
+                  }
+                });
+              }, 1500);
+            }
+          });
+        };
+
+        if (mensajes.length === 1) {
+          await navigator.clipboard.writeText(mensajes[0]);
+          Swal.fire({
+            title: '¡Texto Consolidado Copiado!',
+            html: `
+              <p class="small text-muted mb-2">El texto descriptivo de las rutas se copió al portapapeles.</p>
+              <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; color: #166534; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left;">
+                Selecciona tu chat, presiona <strong>Ctrl + V</strong> y envía la información.
+              </div>
+            `,
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
+            cancelButtonText: 'Cerrar',
+            confirmButtonColor: '#25D366'
+          }).then((res2: any) => {
+            if (res2.isConfirmed) { window.open(`whatsapp://send?text=${encodeURIComponent(mensajes[0])}`, '_self'); }
+          });
+        } else {
+          enviarMensaje(0);
+        }
+      } catch (err: any) {
+        Swal.fire('Error', 'No se pudo copiar el texto consolidado.', 'error');
+      }
+      return;
+    }
+
+    if (modo === 'image') {
+      Swal.fire({ 
+        title: 'Generando Imágenes...', 
+        text: `Descargando imágenes para ${ids.length} rutas...`, 
+        allowOutsideClick: false, 
+        didOpen: () => { Swal.showLoading(); }
+      });
+      try {
+        for (const ruta of rutasSeleccionadas) {
+          const pids = getIdsWithEscuela(ruta, 'Casa - Escuela');
+          const orderedParadas = getParadasWithEscuela(pids);
+          const doc = docentes.find(d => d.id_usuario === ruta.docente_id);
+          const nombreDoc = doc ? doc.nombre_completo : 'Sin asignar';
+          const telDoc = doc ? (doc.telefono || '') : '';
+
+          const nombreEscuela = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
+          const fechaHoy = new Date().toLocaleString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          const clon = document.createElement('div');
+          clon.style.width = "800px"; clon.style.padding = "40px"; clon.style.background = "#ffffff"; 
+          clon.style.position = "absolute"; clon.style.top = "-9999px"; clon.style.left = "-9999px"; 
+          clon.style.fontFamily = "Arial, Helvetica, sans-serif";
+
+          let stopsHtml = '';
+          orderedParadas.forEach((p, idx) => {
+            const isStart = idx === 0;
+            const isEnd = idx === orderedParadas.length - 1;
+            const nodeColor = isEnd ? '#a855f7' : isStart ? '#f59e0b' : '#3b82f6';
+            stopsHtml += `
+              <div style="position: relative; display: flex; align-items: flex-start; gap: 15px; margin-bottom: 25px; padding-left: 55px;">
+                <div style="position: absolute; left: 10px; top: 0; width: 32px; height: 32px; border-radius: 50%; background: ${nodeColor}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border: 3px solid #ffffff; box-shadow: 0 2px 5px rgba(0,0,0,0.15); z-index: 2;">
+                  ${idx + 1}
+                </div>
+                <div style="flex: 1; padding: 8px 14px; background: #ffffff; border: 1.5px solid #f1f5f9; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: left;">
+                  <div style="font-size: 15px; font-weight: bold; color: #1e293b;">${p.nombre_parada}</div>
+                  ${p.descripcion ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px;">${p.descripcion}</div>` : ''}
+                </div>
+              </div>
+            `;
+          });
+
+          let htmlImagen = `
+            <div style="display: flex; align-items: center; gap: 20px; border-bottom: 2.5px solid #FF3D00; padding-bottom: 20px; margin-bottom: 25px;">
+                <img src="/assets/img/logo_${escCodigo}.png" style="height: 75px; width: auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.08));" onError="this.style.display='none'" />
+                <div style="text-align: left;">
+                    <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px;">República Bolivariana de Venezuela</div>
+                    <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; letter-spacing: 0.5px; margin-top: 1px;">M.P.P. para la Educación</div>
+                    <div style="font-size: 16px; font-weight: 800; color: #1e293b; margin-top: 4px;">${nombreEscuela}</div>
+                </div>
+            </div>
+            <div style="text-align:center; margin-bottom:30px;">
+                <h2 style="color:#FF3D00; margin:0; text-transform: uppercase; letter-spacing: 1px; font-size: 22px; font-weight: 800;">Rutograma Oficial de Transporte</h2>
+                <div style="height: 3px; width: 60px; background: #FF3D00; margin: 8px auto 0; border-radius: 2px;"></div>
+            </div>
+            <div style="margin-bottom:30px; border:1px solid #e2e8f0; border-radius:16px; padding:20px; background: linear-gradient(135deg, #ffffff 0%, #fffaf7 100%); box-shadow: 0 4px 15px rgba(0,0,0,0.02); text-align: left;">
+                <h3 style="color:#1e293b; font-size: 18px; margin-top:0; border-bottom:1.5px solid #e2e8f0; padding-bottom:12px; font-weight: 800; display: flex; justify-content: space-between; align-items: center;">
+                  <span>🚍 ${ruta.nombre}</span>
+                  <span style="font-size: 12px; padding: 4px 10px; border-radius: 20px; background: ${ruta.activo !== false ? '#dcfce7' : '#fee2e2'}; color: ${ruta.activo !== false ? '#166534' : '#991b1b'}; border: 1px solid ${ruta.activo !== false ? '#bbf7d0' : '#fecaca'}; font-weight: 700;">
+                    ${ruta.activo !== false ? 'Activa' : 'Inactiva'}
+                  </span>
+                </h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; font-size:14px; color: #475569;">
+                  <div><b>Conductor Asignado:</b><br><span style="color:#0f172a; font-size: 15px; font-weight: bold;">${ruta.chofer_nombre || 'Sin Asignar'}</span></div>
+                  <div><b>Docentes de Guardia:</b><br><span style="color:#0f172a; font-size: 15px; font-weight: bold;">${nombreDoc} ${telDoc ? `(${telDoc})` : ''}</span></div>
+                  <div style="grid-column: span 2; margin-top: 5px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+                    <b>Vigencia del Recorrido:</b> Desde <span style="color:#0f172a; font-weight: bold;">${ruta.validez_desde || 'No establecida'}</span> Hasta <span style="color:#0f172a; font-weight: bold;">${ruta.validez_hasta || 'No establecida'}</span>
+                  </div>
+                </div>
+            </div>
+            <div style="position: relative; margin-bottom: 35px;">
+                <div style="position: absolute; left: 25px; top: 15px; bottom: 15px; width: 3px; background: repeating-linear-gradient(180deg, #cbd5e1, #cbd5e1 6px, transparent 6px, transparent 12px); z-index: 1;"></div>
+                ${stopsHtml}
+            </div>
+            <div style="margin-top: 40px; border-top: 1.5px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <img src="/assets/img/logoMPPE.png" style="height: 32px; width: auto;" />
+                    <img src="/assets/img/logo_carga.png" style="height: 40px; width: auto;" />
+                </div>
+                <div style="text-align: right; font-size: 11px; color: #94a3b8; font-weight: 600;">
+                    Generado: ${fechaHoy}<br>
+                    Sistema Integral de Gestión y Administración Escolar (SIGAE)
+                </div>
+            </div>
+            <div style="height: 6px; background: linear-gradient(90deg, #facc15 0%, #facc15 33.3%, #2563eb 33.3%, #2563eb 66.6%, #dc2626 66.6%, #dc2626 100%); margin-top: 15px; border-radius: 3px;"></div>
+          `;
+
+          clon.innerHTML = htmlImagen;
+          document.body.appendChild(clon);
+          await new Promise(res => setTimeout(res, 300));
+          const canvas = await html2canvas(clon, { scale: 1.5, backgroundColor: '#ffffff', logging: false });
+          document.body.removeChild(clon);
+
+          const urlImagen = canvas.toDataURL("image/png");
+          const a = document.createElement('a');
+          a.href = urlImagen;
+          a.download = `Rutograma_${ruta.nombre.replace(/\s/g, '_')}.png`;
+          a.click();
+        }
+        Swal.close();
+        Swal.fire({
+          title: 'Completado',
+          text: 'Las imágenes se descargaron en tu equipo.',
+          icon: 'success',
+          confirmButtonText: 'Abrir WhatsApp',
+          confirmButtonColor: '#25D366',
+          showCancelButton: true,
+          cancelButtonText: 'Cerrar'
+        }).then((res2: any) => {
+          if (res2.isConfirmed) {
+            window.open('whatsapp://', '_self');
+          }
+        });
+      } catch (err: any) {
+        Swal.close();
+        Swal.fire('Error', err.message, 'error');
+      }
+      return;
+    }
+
+    // Paso a paso wizard for 'both' (imagen y texto)
+    for (let i = 0; i < rutasSeleccionadas.length; i++) {
+      const ruta = rutasSeleccionadas[i];
+      const isLast = i === rutasSeleccionadas.length - 1;
+
+      const action = await new Promise<'share' | 'skip' | 'cancel'>((resolve) => {
+        Swal.fire({
+          title: `Asistente de Envío (${i + 1} de ${rutasSeleccionadas.length})`,
+          html: `
+            <div class="text-center p-1">
+              <p class="small text-muted mb-3">Estás por enviar la ruta:</p>
+              <div class="fs-4 fw-bold text-success mb-3">🚍 ${ruta.nombre}</div>
+              <div class="progress mb-3 shadow-sm rounded" style="height: 12px;">
+                <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" style="width: ${((i + 1) / rutasSeleccionadas.length) * 100}%"></div>
+              </div>
+              <p class="small text-muted">Haz clic en <b>Preparar y Enviar</b>. Copiaremos su imagen al portapapeles y abriremos WhatsApp con el texto pre-cargado. Al terminar de enviar, regresa a esta pestaña para la siguiente ruta.</p>
+            </div>
+          `,
+          confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Preparar y Enviar',
+          confirmButtonColor: '#25D366',
+          showDenyButton: true,
+          denyButtonText: 'Omitir Ruta',
+          denyButtonColor: '#6c757d',
+          showCancelButton: true,
+          cancelButtonText: 'Finalizar',
+          allowOutsideClick: false
+        }).then((res: any) => {
+          if (res.isConfirmed) resolve('share');
+          else if (res.isDenied) resolve('skip');
+          else resolve('cancel');
+        });
+      });
+
+      if (action === 'cancel') break;
+      if (action === 'skip') continue;
+
+      if (action === 'share') {
+        await compartirRuta(ruta);
+        await new Promise<void>(resolve => setTimeout(resolve, 1500));
+
+        if (!isLast) {
+          const next = await Swal.fire({
+            title: '¿Continuar con la siguiente?',
+            text: `Ruta "${ruta.nombre}" enviada. ¿Deseas pasar a la siguiente ruta?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, Siguiente',
+            cancelButtonText: 'No, Detener',
+            confirmButtonColor: '#25D366',
+            allowOutsideClick: false
+          });
+          if (!next.isConfirmed) break;
+        }
+      }
+    }
+
+    Swal.fire({
+      title: '¡Asistente Finalizado!',
+      text: 'Has procesado la lista de rutas seleccionadas.',
+      icon: 'success',
+      confirmButtonColor: '#198754'
+    });
   };
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -585,8 +1343,9 @@ export const TransporteEscolar = () => {
   const iniciarRecorrido = async () => {
     const ruta = rutas.find(r => r.id === opRutaId);
     if (!ruta) return;
-    
-    const pids = getIdsWithEscuela(ruta, opSentido as any);
+
+    const originalPids = getIdsWithEscuela(ruta, opSentido as any);
+    const pids = customPids ?? originalPids;
     if (pids.length === 0) return Swal.fire('Atención', 'La ruta no tiene paradas configuradas.', 'warning');
     
     const hoyStr = new Date().toISOString().split('T')[0];
@@ -596,38 +1355,334 @@ export const TransporteEscolar = () => {
       return Swal.fire('Atención', 'Ya existe un recorrido activo para esta ruta y sentido hoy.', 'info');
     }
 
+    const defaultTime = getCurrentTime12Hour();
+    const historial: any = { [pids[0]]: defaultTime };
+    if (customPids) {
+      historial._custom_order = customPids;
+    }
+
+    const tempId = crypto.randomUUID();
+    const payload = {
+      id: tempId,
+      ruta_id: opRutaId,
+      escuela_codigo: escCodigo,
+      sentido: opSentido,
+      estado: 'En Ruta',
+      ubicacion_actual: pids[0],
+      historial_paradas: historial,
+      ultima_actualizacion: new Date().toISOString(),
+      fecha: hoyStr
+    };
+
+    const rutaDisplay = ruta ? ruta.nombre : 'Ruta';
+    const notifPayload = {
+      escuela_codigo: escCodigo,
+      ruta_id: opRutaId,
+      titulo: 'Ruta Iniciada 🚌',
+      cuerpo: `Se ha iniciado el recorrido para la ruta "${rutaDisplay}" (${opSentido}).`,
+      tipo: 'transporte'
+    };
+
+    if (!navigator.onLine || offlineMode) {
+      saveOfflineOp(payload);
+      queueOfflineAction({ type: 'insert', table: 'transporte_operaciones', payload });
+      queueOfflineAction({ type: 'insert', table: 'notificaciones_globales', payload: notifPayload });
+      
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'warning',
+        title: 'Recorrido iniciado offline 📶',
+        showConfirmButton: false,
+        timer: 3000
+      });
+      cargarTrackingSolo();
+      requestNotifPermission();
+      return;
+    }
+
     try {
-      const payload = {
-        ruta_id: opRutaId,
-        escuela_codigo: escCodigo,
-        sentido: opSentido,
-        estado: 'En Ruta',
-        ubicacion_actual: pids[0],
-        historial_paradas: {},
-        ultima_actualizacion: new Date().toISOString()
-      };
       const { error } = await supabase.from('transporte_operaciones').insert([payload]);
       if (error) throw error;
 
-      // Registrar notificación global en base de datos
-      const rutaDisplay = ruta ? ruta.nombre : 'Ruta';
-      await supabase.from('notificaciones_globales').insert([{
-        escuela_codigo: escCodigo,
-        ruta_id: opRutaId,
-        titulo: 'Ruta Iniciada 🚌',
-        cuerpo: `Se ha iniciado el recorrido para la ruta "${rutaDisplay}" (${opSentido}).`,
-        tipo: 'transporte'
-      }]);
-
+      await supabase.from('notificaciones_globales').insert([notifPayload]);
       await cargarTrackingSolo();
-      // Pedir permisos de notificación al iniciar (sin bloquear)
       requestNotifPermission();
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Recorrido iniciado', showConfirmButton: false, timer: 2000 });
 
     } catch (err: any) {
+      if (isNetworkError(err)) {
+        setOfflineMode(true);
+        saveOfflineOp(payload);
+        queueOfflineAction({ type: 'insert', table: 'transporte_operaciones', payload });
+        queueOfflineAction({ type: 'insert', table: 'notificaciones_globales', payload: notifPayload });
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'warning',
+          title: 'Registrado offline (sin conexión) 📶',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        cargarTrackingSolo();
+        requestNotifPermission();
+      } else {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+  };
+
+  const salidaMasiva = async () => {
+    if (opSentido !== 'Escuela - Casa') {
+      return Swal.fire('Acción no permitida', 'La salida masiva solo está disponible para el retorno (Escuela - Casa).', 'warning');
+    }
+
+    const { isConfirmed } = await Swal.fire({
+      title: '¿Iniciar Salida Masiva?',
+      html: `<p class="text-muted small">Se iniciará el recorrido de retorno simultáneamente para todas las rutas diseñadas de la institución.</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, iniciar todo',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#10b981'
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const hoyStr = new Date().toISOString().split('T')[0];
+      const rutasEscuela = rutas;
+      if (rutasEscuela.length === 0) {
+        return Swal.fire('Sin rutas', 'No hay rutas configuradas para esta institución.', 'warning');
+      }
+
+      let countIniciadas = 0;
+
+      for (const r of rutasEscuela) {
+        const pids = getIdsWithEscuela(r, 'Escuela - Casa');
+        if (pids.length === 0) continue;
+
+        const existing = trackingHoy.find((t: any) => t.ruta_id === r.id && t.sentido === 'Escuela - Casa' && t.fecha === hoyStr);
+        if (existing) continue;
+
+        const defaultTime = getCurrentTime12Hour();
+
+        const payload = {
+          ruta_id: r.id,
+          escuela_codigo: escCodigo,
+          sentido: 'Escuela - Casa',
+          estado: 'En Ruta',
+          ubicacion_actual: pids[0],
+          historial_paradas: { [pids[0]]: defaultTime },
+          ultima_actualizacion: new Date().toISOString()
+        };
+
+        const { error } = await supabase.from('transporte_operaciones').insert([payload]);
+        if (error) throw error;
+
+        await supabase.from('notificaciones_globales').insert([{
+          escuela_codigo: escCodigo,
+          ruta_id: r.id,
+          titulo: 'Ruta Iniciada (Retorno) 🚌',
+          cuerpo: `Salida masiva: Se inició el recorrido de retorno para la ruta "${r.nombre}".`,
+          tipo: 'transporte'
+        }]);
+
+        countIniciadas++;
+      }
+
+      await cargarTrackingSolo();
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Salida Masiva Iniciada',
+        text: `Se iniciaron con éxito ${countIniciadas} rutas de retorno.`,
+        timer: 3000,
+        showConfirmButton: false
+      });
+
+    } catch (err: any) {
       Swal.fire('Error', err.message, 'error');
     }
+  };
+
+  const procesarCargaMasiva = async (rows: any[]): Promise<{ exitosos: number; rechazados: number; detalles: any[] }> => {
+    const report: any[] = [];
+    let exitosos = 0;
+    let rechazados = 0;
+
+    try {
+      const { data: existingParadas, error: epErr } = await supabase.from('transporte_paradas').select('*');
+      if (epErr) throw epErr;
+
+      const { data: existingRutas, error: erErr } = await supabase.from('transporte_rutas').select('*');
+      if (erErr) throw erErr;
+
+      const currentParadas = [...(existingParadas || [])];
+      const currentRutas = [...(existingRutas || [])];
+      const paradaMap: { [key: string]: string } = {};
+
+      const validRows: any[] = [];
+      let index = 0;
+
+      for (const row of rows) {
+        index++;
+        const rowString = `${row.escuela_codigo || ''}, ${row.ruta_nombre || ''}, ${row.parada_nombre || ''}`;
+        
+        if (!row.escuela_codigo || (row.escuela_codigo.toLowerCase() !== 'sb' && row.escuela_codigo.toLowerCase() !== 'lb')) {
+          report.push({
+            fila: index + 1,
+            datos: rowString,
+            estado: 'Rechazado',
+            motivo: 'Código de escuela inválido (debe ser sb o lb)'
+          });
+          rechazados++;
+          continue;
+        }
+
+        if (!row.ruta_nombre || !row.ruta_nombre.trim()) {
+          report.push({
+            fila: index + 1,
+            datos: rowString,
+            estado: 'Rechazado',
+            motivo: 'El nombre de la ruta es obligatorio'
+          });
+          rechazados++;
+          continue;
+        }
+
+        if (!row.parada_nombre || !row.parada_nombre.trim()) {
+          report.push({
+            fila: index + 1,
+            datos: rowString,
+            estado: 'Rechazado',
+            motivo: 'El nombre de la parada es obligatorio'
+          });
+          rechazados++;
+          continue;
+        }
+
+        validRows.push(row);
+      }
+
+      for (const row of validRows) {
+        const key = `${row.escuela_codigo}:${row.parada_nombre.toLowerCase()}`;
+        if (paradaMap[key]) continue;
+
+        const found = currentParadas.find(p => p.escuela_codigo === row.escuela_codigo && p.nombre_parada.toLowerCase() === row.parada_nombre.toLowerCase());
+        if (found) {
+          paradaMap[key] = found.id;
+        } else {
+          try {
+            const { data: inserted, error: insErr } = await supabase.from('transporte_paradas').insert([{
+              escuela_codigo: row.escuela_codigo,
+              nombre_parada: row.parada_nombre,
+              descripcion: row.parada_descripcion
+            }]).select();
+
+            if (insErr) throw insErr;
+            if (inserted && inserted.length > 0) {
+              paradaMap[key] = inserted[0].id;
+              currentParadas.push(inserted[0]);
+            }
+          } catch (err: any) {
+            report.push({
+              fila: rows.indexOf(row) + 2,
+              datos: `${row.escuela_codigo}, ${row.ruta_nombre}, ${row.parada_nombre}`,
+              estado: 'Rechazado',
+              motivo: `Error DB al insertar parada: ${err.message}`
+            });
+            rechazados++;
+            const vIdx = validRows.indexOf(row);
+            if (vIdx > -1) validRows.splice(vIdx, 1);
+          }
+        }
+      }
+
+      const routesGroup: { [key: string]: { escuela_codigo: string; nombre: string; paradas: { id: string; orden: number }[]; rows: any[] } } = {};
+
+      for (const row of validRows) {
+        const routeKey = `${row.escuela_codigo}:${row.ruta_nombre.toLowerCase()}`;
+        const paradaId = paradaMap[`${row.escuela_codigo}:${row.parada_nombre.toLowerCase()}`];
+        if (!paradaId) continue;
+
+        if (!routesGroup[routeKey]) {
+          routesGroup[routeKey] = {
+            escuela_codigo: row.escuela_codigo,
+            nombre: row.ruta_nombre,
+            paradas: [],
+            rows: []
+          };
+        }
+
+        routesGroup[routeKey].rows.push(row);
+        if (!routesGroup[routeKey].paradas.some(p => p.id === paradaId)) {
+          routesGroup[routeKey].paradas.push({ id: paradaId, orden: row.orden });
+        }
+      }
+
+      for (const rKey of Object.keys(routesGroup)) {
+        const group = routesGroup[rKey];
+        group.paradas.sort((a, b) => a.orden - b.orden);
+        const orderedIds = group.paradas.map(p => p.id);
+
+        try {
+          const foundRuta = currentRutas.find(r => r.escuela_codigo === group.escuela_codigo && r.nombre.toLowerCase() === group.nombre.toLowerCase());
+
+          if (foundRuta) {
+            const { error: updErr } = await supabase.from('transporte_rutas').update({
+              paradas_json: orderedIds
+            }).eq('id', foundRuta.id);
+
+            if (updErr) throw updErr;
+          } else {
+            const { error: insErr } = await supabase.from('transporte_rutas').insert([{
+              escuela_codigo: group.escuela_codigo,
+              nombre: group.nombre,
+              paradas_json: orderedIds
+            }]);
+
+            if (insErr) throw insErr;
+          }
+
+          for (const row of group.rows) {
+            report.push({
+              fila: rows.indexOf(row) + 2,
+              datos: `${row.escuela_codigo}, ${row.ruta_nombre}, ${row.parada_nombre}`,
+              estado: 'Exitoso',
+              motivo: foundRuta ? 'Ruta y parada actualizadas con éxito' : 'Ruta y parada creadas con éxito'
+            });
+            exitosos++;
+          }
+
+        } catch (err: any) {
+          for (const row of group.rows) {
+            report.push({
+              fila: rows.indexOf(row) + 2,
+              datos: `${row.escuela_codigo}, ${row.ruta_nombre}, ${row.parada_nombre}`,
+              estado: 'Rechazado',
+              motivo: `Error DB al guardar ruta: ${err.message}`
+            });
+            rechazados++;
+          }
+        }
+      }
+
+      report.sort((a, b) => a.fila - b.fila);
+      cargarTodo(true);
+
+    } catch (err: any) {
+      report.push({
+        fila: 1,
+        datos: 'Error general',
+        estado: 'Rechazado',
+        motivo: err.message
+      });
+      rechazados = rows.length;
+    }
+
+    return { exitosos, rechazados, detalles: report };
   };
 
   const marcarParada = async (paradaId: string, index: number, orderedIds: string[]) => {
@@ -664,34 +1719,17 @@ export const TransporteEscolar = () => {
 
     try {
       const selectedTime = result.value;
+      const formattedTime = formatTo12Hour(selectedTime);
       const historialAnterior = opActual.historial_paradas || {};
-      const nuevoHistorial = { ...historialAnterior, [paradaId]: selectedTime };
+      const nuevoHistorial = { ...historialAnterior, [paradaId]: formattedTime };
 
-      const { data: updData, error } = await supabase.from('transporte_operaciones').update({
+      const payload = {
         ubicacion_actual: paradaId,
         estado: isEnd ? 'Finalizada' : 'En Ruta',
         ultima_actualizacion: new Date().toISOString(),
         historial_paradas: nuevoHistorial
-      }).eq('id', opActual.id).select();
+      };
 
-      if (error) {
-        if (error.message?.includes('historial_paradas')) {
-          // Column missing – update without historial
-          const { data: updData2, error: err2 } = await supabase.from('transporte_operaciones').update({
-            ubicacion_actual: paradaId,
-            estado: isEnd ? 'Finalizada' : 'En Ruta',
-            ultima_actualizacion: new Date().toISOString()
-          }).eq('id', opActual.id).select();
-          if (err2) throw err2;
-          if (!updData2 || updData2.length === 0) throw new Error("Acción bloqueada por permisos RLS en Supabase (Update devolvió 0 filas).");
-        } else {
-          throw error;
-        }
-      } else if (!updData || updData.length === 0) {
-        throw new Error("Acción bloqueada por permisos RLS en Supabase (Actualización silenciosa fallida).");
-      }
-
-      // Registrar en base de datos la notificación
       let paradaDisplay = paradaId;
       if (paradaId === 'escuela_virtual') {
         paradaDisplay = 'Escuela';
@@ -707,21 +1745,120 @@ export const TransporteEscolar = () => {
         ? `El recorrido de "${rutaDisplay}" finalizó con éxito en la escuela.`
         : `El bus de "${rutaDisplay}" pasó por la parada: ${paradaDisplay}.`;
 
-      await supabase.from('notificaciones_globales').insert([{
+      const notifPayload = {
         escuela_codigo: escCodigo,
         ruta_id: opRutaId,
         titulo,
         cuerpo,
         tipo: 'transporte'
-      }]);
+      };
 
+      if (!navigator.onLine || offlineMode) {
+        const updatedOp = { ...opActual, ...payload };
+        saveOfflineOp(updatedOp);
+        setOpActual(updatedOp);
+        queueOfflineAction({
+          type: 'update',
+          table: 'transporte_operaciones',
+          payload,
+          eq: { key: 'id', value: opActual.id }
+        });
+        queueOfflineAction({ type: 'insert', table: 'notificaciones_globales', payload: notifPayload });
+        
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'warning',
+          title: 'Registrado offline 📶',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        cargarTrackingSolo();
+        return;
+      }
+
+      const { error } = await supabase.from('transporte_operaciones').update(payload).eq('id', opActual.id);
+
+      if (error) {
+        if (error.message?.includes('historial_paradas')) {
+          const { error: err2 } = await supabase.from('transporte_operaciones').update({
+            ubicacion_actual: paradaId,
+            estado: isEnd ? 'Finalizada' : 'En Ruta',
+            ultima_actualizacion: new Date().toISOString()
+          }).eq('id', opActual.id);
+          if (err2) throw err2;
+        } else {
+          throw error;
+        }
+      }
+
+      await supabase.from('notificaciones_globales').insert([notifPayload]);
       await cargarTrackingSolo();
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success',
         title: isEnd ? '🏁 Ruta finalizada' : '✅ Paso registrado',
         showConfirmButton: false, timer: 1800 });
     } catch (err: any) {
-      Swal.fire({ icon: 'error', title: 'No se pudo registrar', text: err.message });
+      if (isNetworkError(err)) {
+        const selectedTime = result.value;
+        const formattedTime = formatTo12Hour(selectedTime);
+        const historialAnterior = opActual.historial_paradas || {};
+        const nuevoHistorial = { ...historialAnterior, [paradaId]: formattedTime };
+
+        const payload = {
+          ubicacion_actual: paradaId,
+          estado: isEnd ? 'Finalizada' : 'En Ruta',
+          ultima_actualizacion: new Date().toISOString(),
+          historial_paradas: nuevoHistorial
+        };
+
+        let paradaDisplay = paradaId;
+        if (paradaId === 'escuela_virtual') {
+          paradaDisplay = 'Escuela';
+        } else {
+          const pData = paradas.find(p => p.id === paradaId);
+          if (pData) paradaDisplay = pData.nombre_parada;
+        }
+        const ruta = rutas.find(r => r.id === opRutaId);
+        const rutaDisplay = ruta ? ruta.nombre : 'Ruta';
+
+        const titulo = isEnd ? '🏁 Destino Alcanzado' : '📍 Paso por Parada';
+        const cuerpo = isEnd 
+          ? `El recorrido de "${rutaDisplay}" finalizó con éxito en la escuela.`
+          : `El bus de "${rutaDisplay}" pasó por la parada: ${paradaDisplay}.`;
+
+        const notifPayload = {
+          escuela_codigo: escCodigo,
+          ruta_id: opRutaId,
+          titulo,
+          cuerpo,
+          tipo: 'transporte'
+        };
+
+        setOfflineMode(true);
+        const updatedOp = { ...opActual, ...payload };
+        saveOfflineOp(updatedOp);
+        setOpActual(updatedOp);
+        queueOfflineAction({
+          type: 'update',
+          table: 'transporte_operaciones',
+          payload,
+          eq: { key: 'id', value: opActual.id }
+        });
+        queueOfflineAction({ type: 'insert', table: 'notificaciones_globales', payload: notifPayload });
+        
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'warning',
+          title: 'Registrado offline (sin conexión) 📶',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        cargarTrackingSolo();
+      } else {
+        Swal.fire({ icon: 'error', title: 'No se pudo registrar', text: err.message });
+      }
     }
   };
 
@@ -850,38 +1987,63 @@ export const TransporteEscolar = () => {
 
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div className="d-flex flex-column flex-md-row align-items-md-center gap-3 mb-0">
-          <h4 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-            <span className="bus-header-icon"><AnimatedBusSVG size={38} color="#2563eb" className="bus-bounce" /></span>
-            Transporte Escolar
-          </h4>
-          {tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb') && (
-            <div className="btn-group bg-light rounded-pill p-1 shadow-sm border">
-              <button 
-                onClick={() => setEscCodigo('sb')} 
-                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
-              >
-                Santa Bárbara
-              </button>
-              <button 
-                onClick={() => setEscCodigo('lb')} 
-                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
-              >
-                Libertador Bolívar
-              </button>
+      {/* Banner de Categoría Unificado */}
+      <div className="row mb-5 animate__animated animate__fadeInDown">
+        <div className="col-12">
+          <div className="banner-modulo p-4 p-md-5 text-white" style={{ background: 'linear-gradient(135deg, #FF3D00 0%, rgba(0,0,0,0.4) 150%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}>
+            <div className="burbuja-3d burbuja-1" style={{ position: 'absolute', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', top: '-20px', left: '-20px' }}></div>
+            <div className="burbuja-3d burbuja-2" style={{ position: 'absolute', width: '250px', height: '250px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', bottom: '-50px', right: '10%' }}></div>
+            <div className="burbuja-3d burbuja-3" style={{ position: 'absolute', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', top: '30%', left: '40%' }}></div>
+            <div className="row align-items-center position-relative z-1">
+              <div className="col-md-9 text-center text-md-start mb-3 mb-md-0">
+                <span className="badge bg-white shadow-sm mb-3 px-3 py-2 fw-bold" style={{ color: '#FF3D00', letterSpacing: '1px', fontSize: '0.85rem' }}>
+                  <i className="bi bi-bus-front me-1"></i> SERVICIOS Y BIENESTAR
+                </span>
+                <h1 className="fw-bolder mb-2 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-3" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                  <span className="bus-header-icon"><AnimatedBusSVG size={48} className="bus-bounce" /></span>
+                  Transporte Escolar
+                </h1>
+                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>Monitoreo de rutas, paradas y recorridos de las unidades en tiempo real.</p>
+              </div>
+              <div className="col-md-3 text-center text-md-end d-none d-md-block">
+                <img 
+                  src={`/assets/img/logo_${escCodigo}.png`} 
+                  alt="Logo Escuela" 
+                  style={{ maxHeight: '130px', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }} 
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
+              </div>
             </div>
-          )}
+          </div>
         </div>
+      </div>
+
+      {/* Barra de control para escuelas y volver */}
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        {tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') && (
+          <div className="btn-group bg-light rounded-pill p-1 shadow-sm border">
+            <button 
+              onClick={() => setEscCodigo('sb')} 
+              className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+            >
+              Santa Bárbara
+            </button>
+            <button 
+              onClick={() => setEscCodigo('lb')} 
+              className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+            >
+              Libertador Bolívar
+            </button>
+          </div>
+        )}
         {vistaActual !== 'dashboard' && (
-          <button className="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold mt-2 mt-sm-0" onClick={() => setVistaActual('dashboard')}>
+          <button className="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold ms-auto" onClick={() => setVistaActual('dashboard')}>
             <i className="bi bi-arrow-left me-1"></i> Volver al Dashboard
           </button>
         )}
       </div>
 
       <style>{`
-        /* ─── Animated Bus Header ──────────────────────── */
         .bus-header-icon { display: inline-flex; align-items: center; }
         @keyframes busBounce {
           0%,100% { transform: translateY(0) rotate(0deg); }
@@ -889,8 +2051,6 @@ export const TransporteEscolar = () => {
           75%      { transform: translateY(2px) rotate(2deg); }
         }
         .bus-bounce { animation: busBounce 2.4s ease-in-out infinite; }
-
-        /* ─── Road-style track behind stepper ───────────── */
         .road-track {
           position: absolute; left: 15px; top: 0; bottom: 0; width: 10px;
           background: repeating-linear-gradient(180deg, #94a3b8 0px, #94a3b8 10px, transparent 10px, transparent 20px);
@@ -902,66 +2062,12 @@ export const TransporteEscolar = () => {
           border-radius: 5px; z-index: 1; opacity: 0.9;
           transition: height 0.8s cubic-bezier(0.34,1.56,0.64,1);
         }
-
-        /* Dashboard Cards Premium */
-        .tarjeta-sub { 
-          background: #ffffff; 
-          border-radius: 24px; 
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-          cursor: pointer; 
-          overflow: hidden; 
-          position: relative; 
-          display: flex; 
-          flex-direction: column; 
-          text-align: left;
-          border: 1px solid rgba(255,255,255,0.4);
-        }
-        .tarjeta-sub::before {
-          content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-          background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%);
-          z-index: 1; pointer-events: none; border-radius: 24px;
-        }
-        .tarjeta-sub:hover { 
-          transform: translateY(-10px) scale(1.02); 
-          box-shadow: 0 20px 40px rgba(0,0,0,0.12) !important; 
-        }
-        .tarjeta-sub .bg-icono-gigante { 
-          position: absolute; right: -20px; bottom: -20px; font-size: 9rem; 
-          opacity: 0.04; transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-          pointer-events: none; z-index: 0;
-        }
-        .tarjeta-sub:hover .bg-icono-gigante { transform: scale(1.3) rotate(-15deg); opacity: 0.08; }
-        .tarjeta-sub .icono-sub { 
-          width: 65px; height: 65px; border-radius: 20px; display: flex; align-items: center; 
-          justify-content: center; font-size: 2.2rem; margin-bottom: 1.5rem; 
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2;
-        }
-        .tarjeta-sub:hover .icono-sub { transform: scale(1.15) rotate(5deg); }
-        .tarjeta-sub.bloqueado { filter: grayscale(100%); opacity: 0.6; cursor: not-allowed; }
-        .tarjeta-sub.bloqueado:hover { transform: none; box-shadow: none !important; }
-
-        /* ─── Bus driving across dashboard card ─────────── */
-        @keyframes driveBus {
-          0%   { transform: translateX(-60px); opacity: 0; }
-          10%  { opacity: 1; }
-          90%  { opacity: 1; }
-          100% { transform: translateX(360px); opacity: 0; }
-        }
-        .bus-drive {
-          position: absolute; bottom: 12px; left: 0; z-index: 3; pointer-events: none;
-          animation: driveBus 4s linear infinite;
-        }
-        .tarjeta-sub:hover .bus-drive { animation-play-state: running; }
-
-        /* ─── Parada card for config table ──────────────── */
         .parada-row-badge {
           display: inline-flex; align-items: center; gap: 6px;
           background: linear-gradient(135deg, #eff6ff, #dbeafe);
           border: 1px solid #bfdbfe; border-radius: 20px;
           padding: 4px 12px; font-weight: 700; color: #1d4ed8; font-size: 0.82rem;
         }
-
-        /* ─── VERTICAL STEPPER TIMELINE ─────────────────────────────── */
         .route-stepper {
           position: relative; padding: 4px 0 4px 0;
         }
@@ -1092,786 +2198,198 @@ export const TransporteEscolar = () => {
 
       {/* DASHBOARD PRINCIPAL */}
       {vistaActual === 'dashboard' && (
-        <div className="row g-4">
-
-          {/* ── Tarjeta: Configuración (Paradas + Rutas unificadas) ── */}
-          {/* ── Tarjeta: Configuración (Paradas + Rutas unificadas) ── */}
-          {(canManageParadas || canManageRutas) && (
-            <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0s' }}>
-              <div
-                className="tarjeta-modulo-nueva shadow-sm w-100"
-                style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fffbeb 100%)', border: '2px solid #fde68a' }}
-                onClick={() => { setConfigTab(canManageParadas ? 'Paradas' : 'Rutas'); setVistaActual('Configuracion'); }}
-              >
-                <i className="bi bi-signpost-split-fill bg-icono-gigante" style={{ color: '#d97706' }}></i>
-                <div className="contenido-t">
-                  <div className="icono-caja shadow-sm" style={{ color: '#d97706', border: '1px solid #fde68a', background: 'white' }}>
-                    <i className="bi bi-signpost-split-fill"></i>
-                  </div>
-                  <h4 className="titulo-t" style={{ fontSize: '1.25rem', marginTop: '1.5rem', marginBottom: '0.4rem', fontWeight: 800 }}>Paradas y Rutas</h4>
-                  <p className="small text-muted mb-3">Gestionar catálogo de paradas, diseño de rutas y asignación de personal.</p>
-                  
-                  {/* Mini pill badges */}
-                  <div className="d-flex gap-2 mt-auto" style={{ flexWrap: 'wrap' }}>
-                    {canManageParadas && <span className="badge rounded-pill" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.65rem' }}><i className="bi bi-geo-alt-fill me-1"></i>Paradas</span>}
-                    {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#fed7aa', color: '#9a3412', fontSize: '0.65rem' }}><i className="bi bi-signpost-2-fill me-1"></i>Rutas</span>}
-                    {canManageRutas   && <span className="badge rounded-pill" style={{ background: '#e9d5ff', color: '#6b21a8', fontSize: '0.65rem' }}><i className="bi bi-person-badge-fill me-1"></i>Personal</span>}
-                  </div>
-                  <span className="link-t mt-3" style={{ color: '#d97706' }}>Entrar al submódulo <i className="bi bi-arrow-right"></i></span>
-                </div>
-              </div>
-            </div>
-          )}
-
-
-          {/* ── Tarjeta: Gestor de Recorrido (Operación) ── */}
-          <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
-            <div
-              className={`tarjeta-modulo-nueva shadow-sm w-100 ${!canOperateTracking ? 'bloqueado' : ''}`}
-              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)', border: '2px solid #ddd6fe' }}
-              onClick={() => canOperateTracking && setVistaActual('Operacion')}
-            >
-              <i className="bi bi-broadcast bg-icono-gigante" style={{ color: '#6d28d9' }}></i>
-              <div className="contenido-t">
-                <div className="icono-caja shadow-sm" style={{ color: '#6d28d9', border: '1px solid #ddd6fe', background: 'white' }}>
-                  <i className="bi bi-broadcast"></i>
-                </div>
-                <h4 className="titulo-t" style={{ fontSize: '1.25rem', marginTop: '1.5rem', marginBottom: '0.4rem', fontWeight: 800 }}>Gestor de Recorrido</h4>
-                <p className="small text-muted mb-3">Iniciar ruta y marcar avance en tiempo real.</p>
-                
-                <div className="mt-auto">
-                  {!canOperateTracking ? (
-                    <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
-                      <i className="bi bi-lock-fill me-1"></i>Sin permiso
-                    </span>
-                  ) : (
-                    <span className="link-t" style={{ color: '#6d28d9' }}>Entrar al submódulo <i className="bi bi-arrow-right"></i></span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Tarjeta: Visor de Recorrido ── */}
-          <div className="col-12 col-md-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.3s' }}>
-            <div
-              className={`tarjeta-modulo-nueva shadow-sm w-100 ${!canViewRecorrido ? 'bloqueado' : ''}`}
-              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)', border: '2px solid #bbf7d0' }}
-              onClick={() => canViewRecorrido && setVistaActual('Visor')}
-            >
-              <i className="bi bi-eye-fill bg-icono-gigante" style={{ color: '#198754' }}></i>
-              <div className="contenido-t">
-                <div className="icono-caja shadow-sm" style={{ color: '#198754', border: '1px solid #bbf7d0', background: 'white' }}>
-                  <i className="bi bi-eye-fill"></i>
-                </div>
-                <h4 className="titulo-t" style={{ fontSize: '1.25rem', marginTop: '1.5rem', marginBottom: '0.4rem', fontWeight: 800 }}>Visor de Recorrido</h4>
-                <p className="small text-muted mb-3">Seguimiento en vivo para representantes y docentes.</p>
-                
-                <div className="mt-auto">
-                  {!canViewRecorrido ? (
-                    <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>
-                      <i className="bi bi-lock-fill me-1"></i>Sin permiso
-                    </span>
-                  ) : (
-                    <span className="link-t" style={{ color: '#198754' }}>Entrar al submódulo <i className="bi bi-arrow-right"></i></span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        <DashboardView
+          canManageParadas={canManageParadas}
+          canManageRutas={canManageRutas}
+          canOperateTracking={canOperateTracking}
+          canViewRecorrido={canViewRecorrido}
+          setVistaActual={setVistaActual}
+          setConfigTab={setConfigTab}
+          AnimatedBusSVG={AnimatedBusSVG}
+          rutas={rutas}
+          user={user}
+          compartirRuta={compartirRuta}
+        />
       )}
 
       {/* VISTA: CONFIGURACION */}
       {vistaActual === 'Configuracion' && (
-        <div className="card shadow-sm border-0 rounded-4 animate__animated animate__fadeInRight">
-          <div className="card-header bg-white pt-4 pb-0 border-bottom-0">
-            <ul className="nav nav-tabs border-bottom-0">
-              {canManageParadas && (
-                <li className="nav-item">
-                  <button className={`nav-link fw-bold ${configTab === 'Paradas' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Paradas')}>
-                    <i className="bi bi-geo-alt-fill me-2"></i>Catálogo de Paradas
-                  </button>
-                </li>
-              )}
-              {canManageRutas && (
-                <li className="nav-item">
-                  <button className={`nav-link fw-bold ${configTab === 'Rutas' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Rutas')}>
-                    <i className="bi bi-signpost-split-fill me-2"></i>Secuencia de Rutas
-                  </button>
-                </li>
-              )}
-              {canManageRutas && (
-                <li className="nav-item">
-                  <button className={`nav-link fw-bold ${configTab === 'Asignacion' ? 'active border-bottom-0 bg-light text-primary' : 'text-muted'}`} onClick={() => setConfigTab('Asignacion')}>
-                    <i className="bi bi-person-badge-fill me-2"></i>Asignación de Personal
-                  </button>
-                </li>
-              )}
-            </ul>
-          </div>
-          
-          <div className="card-body p-4 p-md-5 bg-light rounded-bottom-4">
-            
-            {/* TAB: PARADAS */}
-            {configTab === 'Paradas' && canManageParadas && (
-              <div className="animate__animated animate__fadeIn">
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <h5 className="fw-bold text-dark mb-0">Listado de Paradas</h5>
-                  <button className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" onClick={() => { setParadaForm({ id: '', nombre: '', descripcion: '' }); setShowModalParada(true); }}>
-                    <i className="bi bi-plus-lg me-1"></i> Nueva Parada
-                  </button>
-                </div>
-                
-                <div className="table-responsive px-2">
-                  <table className="table table-moderna w-100">
-                    <thead className="text-muted small text-uppercase">
-                      <tr>
-                        <th className="border-0 pb-3">Nombre de Parada</th>
-                        <th className="border-0 pb-3">Referencia</th>
-                        <th className="text-end border-0 pb-3">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paradas.length === 0 ? (
-                        <tr><td colSpan={3}>
-                          <div className="text-center py-5">
-                            <BusStopIcon size={56} />
-                            <div className="text-muted mt-2">No hay paradas registradas en el catálogo.</div>
-                          </div>
-                        </td></tr>
-                      ) : paradas.map((p) => (
-                        <tr key={p.id}>
-                          <td className="px-3">
-                            <div className="d-flex align-items-center gap-2">
-                              <BusStopIcon size={28} />
-                              <span className="fw-bold text-dark">{p.nombre_parada}</span>
-                            </div>
-                          </td>
-                          <td className="text-muted small">{p.descripcion || 'Sin referencia'}</td>
-                          <td className="text-end text-nowrap px-3">
-                            <button className="btn btn-sm btn-light border text-primary me-1 shadow-sm" onClick={() => { setParadaForm({ id: p.id, nombre: p.nombre_parada, descripcion: p.descripcion || '' }); setShowModalParada(true); }}><i className="bi bi-pencil-fill"></i></button>
-                            <button className="btn btn-sm btn-light border text-danger shadow-sm" onClick={() => deleteParada(p.id)}><i className="bi bi-trash-fill"></i></button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: RUTAS */}
-            {configTab === 'Rutas' && canManageRutas && (
-              <div className="animate__animated animate__fadeIn">
-                <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                  <h5 className="fw-bold text-dark mb-0">Diseño y Secuencia</h5>
-                  <button className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onClick={() => { setRutaForm({ id: '', nombre: '', chofer: '', docente_id: '', validez_desde: '', validez_hasta: '' }); setParadasTemporales([]); setShowModalRuta(true); }}>
-                    <i className="bi bi-plus-circle me-1"></i> Nueva Ruta
-                  </button>
-                </div>
-
-                <div className="table-responsive px-2">
-                  <table className="table table-moderna w-100">
-                    <thead className="text-muted small text-uppercase">
-                      <tr>
-                        <th className="border-0 pb-3">Ruta</th>
-                        <th className="text-center border-0 pb-3">Paradas</th>
-                        <th className="text-end border-0 pb-3">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rutas.length === 0 ? (
-                        <tr><td colSpan={3}>
-                          <div className="text-center py-5">
-                            <AnimatedBusSVG size={64} color="#cbd5e1" />
-                            <div className="text-muted mt-2">No hay rutas diseñadas. ¡Crea tu primera ruta!</div>
-                          </div>
-                        </td></tr>
-                      ) : rutas.map((r) => {
-                        let len = 0;
-                        if (Array.isArray(r.paradas_json)) len = r.paradas_json.length;
-                        else if (typeof r.paradas_json === 'string') { try { len = JSON.parse(r.paradas_json).length; } catch(e){} }
-                        
-                        return (
-                          <tr key={r.id}>
-                            <td className="px-3">
-                              <div className="d-flex align-items-center gap-2">
-                                <AnimatedBusSVG size={32} color="#2563eb" />
-                                <span className="fw-bold text-primary">{r.nombre}</span>
-                              </div>
-                            </td>
-                            <td className="text-center">
-                              <span className="badge bg-success rounded-pill px-2 py-1">
-                                <i className="bi bi-signpost-2-fill me-1"></i>{len} paradas
-                              </span>
-                            </td>
-                            <td className="text-end text-nowrap px-3">
-                              <button className="btn btn-sm btn-light border text-success shadow-sm me-1" title="Compartir WhatsApp" onClick={() => compartirRuta(r)}><i className="bi bi-whatsapp"></i></button>
-                              <button className="btn btn-sm btn-light border text-primary shadow-sm me-1" onClick={() => editRuta(r)}><i className="bi bi-pencil-fill"></i></button>
-                              <button className="btn btn-sm btn-light border text-danger shadow-sm" onClick={() => deleteRuta(r.id)}><i className="bi bi-trash-fill"></i></button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* TAB: ASIGNACION */}
-            {configTab === 'Asignacion' && canManageRutas && (
-              <div className="animate__animated animate__fadeIn">
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <h5 className="fw-bold text-dark mb-0">Personal Asignado a Rutas</h5>
-                </div>
-
-                <div className="table-responsive px-2">
-                  <table className="table table-moderna w-100">
-                    <thead className="text-muted small text-uppercase">
-                      <tr>
-                        <th className="border-0 pb-3">Ruta</th>
-                        <th className="border-0 pb-3">Chofer Asignado</th>
-                        <th className="border-0 pb-3">Docente Guía</th>
-                        <th className="text-end border-0 pb-3">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rutas.length === 0 ? (
-                        <tr><td colSpan={4} className="text-center py-4 text-muted">Debe diseñar una ruta primero.</td></tr>
-                      ) : rutas.map((r) => {
-                        const doc = docentes.find(d => d.id_usuario === r.docente_id);
-                        return (
-                          <tr key={r.id}>
-                            <td className="fw-bold text-dark px-3">{r.nombre}</td>
-                            <td>
-                              <div className="text-muted small"><i className="bi bi-person-vcard me-1"></i>Nombre</div>
-                              <div className="fw-bold">{r.chofer_nombre || <span className="text-danger">Sin asignar</span>}</div>
-                            </td>
-                            <td>
-                              <div className="text-muted small"><i className="bi bi-person-video3 me-1"></i>Guía</div>
-                              <div className="fw-bold">{doc ? doc.nombre_completo : <span className="text-danger">Sin asignar</span>}</div>
-                            </td>
-                            <td className="text-end px-3">
-                              <button className="btn btn-sm btn-outline-primary rounded-pill fw-bold" onClick={() => {
-                                setRutaForm(r);
-                                setShowModalAsignacion(true);
-                              }}>
-                                <i className="bi bi-person-lines-fill me-1"></i>Asignar
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-          </div>
-        </div>
+        <ConfiguracionView
+          configTab={configTab}
+          setConfigTab={setConfigTab}
+          canManageParadas={canManageParadas}
+          canManageRutas={canManageRutas}
+          paradas={paradas}
+          rutas={rutas}
+          docentes={docentes}
+          setParadaForm={setParadaForm}
+          setShowModalParada={setShowModalParada}
+          setRutaForm={setRutaForm}
+          setParadasTemporales={setParadasTemporales}
+          setShowModalRuta={setShowModalRuta}
+          setShowModalAsignacion={setShowModalAsignacion}
+          setShowModalCargaMasiva={(val) => { if (val) setVistaActual('CargaMasiva'); }}
+          deleteParada={deleteParada}
+          deleteParadasMasivo={deleteParadasMasivo}
+          deleteRuta={deleteRuta}
+          deleteRutasMasivo={deleteRutasMasivo}
+          compartirRuta={compartirRuta}
+          compartirRutasMasivo={compartirRutasMasivo}
+          limpiarAsignacionesMasivo={limpiarAsignacionesMasivo}
+          editRuta={editRuta}
+          BusStopIcon={BusStopIcon}
+          AnimatedBusSVG={AnimatedBusSVG}
+        />
       )}
 
-      {/* VISTA: OPERACION Y VISOR EN VIVO */}
-      {(vistaActual === 'Operacion' || vistaActual === 'Visor') && (
-        <div className="card shadow-sm border-0 rounded-4 animate__animated animate__fadeInRight">
-          <div className="card-body p-4 p-md-5">
-            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 border-bottom pb-3">
-              <h5 className="fw-bold text-dark mb-0">
-                <i className="bi bi-geo-alt-fill text-success me-2"></i>
-                {vistaActual === 'Operacion' ? 'Operación de Ruta' : 'Visor de Recorrido'}
-              </h5>
-              {vistaActual === 'Operacion' && canOperateTracking && (
-                <div className="d-flex flex-wrap gap-2">
-                  {opActual && (
-                    <button className="btn btn-outline-warning rounded-pill px-3 shadow-sm" onClick={resetRutaActual}>
-                      <i className="bi bi-arrow-counterclockwise me-1"></i>Reset Ruta
-                    </button>
-                  )}
-                  <button className="btn btn-outline-danger rounded-pill px-3 shadow-sm" onClick={resetMasivo}>
-                    <i className="bi bi-exclamation-triangle-fill me-1"></i>Reset Masivo
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="row g-3 mb-4">
-              <div className="col-md-6">
-                <label className="small text-muted fw-bold mb-1">Seleccione la Ruta</label>
-                <select className="form-select input-moderno fw-bold" value={opRutaId} onChange={e => setOpRutaId(e.target.value)}>
-                  <option value="">Seleccione una ruta...</option>
-                  {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                </select>
-              </div>
-              <div className="col-md-6">
-                <label className="small text-muted fw-bold mb-1">Momento</label>
-                <select className="form-select input-moderno" value={opSentido} onChange={e => setOpSentido(e.target.value)}>
-                  <option value="Casa - Escuela">Ida (Casa - Escuela)</option>
-                  <option value="Escuela - Casa">Retorno (Escuela - Casa)</option>
-                </select>
-              </div>
-            </div>
-
-            {!opRutaId ? (
-              <div className="text-center py-5 text-muted bg-light rounded-4 border">
-                <i className="bi bi-map fs-1 text-secondary mb-3 d-block"></i>
-                <h6 className="fw-bold">Seleccione una ruta</h6>
-                <p className="small mb-0">Para visualizar o iniciar el recorrido.</p>
-              </div>
-            ) : (
-              <div className="map-bg">
-                {/* Renderizar Rutograma */}
-                {(() => {
-                  const rutaObj = rutas.find(r => r.id === opRutaId);
-                  if (!rutaObj) return null;
-                  
-                  const originalPids = getIdsWithEscuela(rutaObj, opSentido as any);
-                  // Usar orden personalizado si existe, si no el original
-                  const pids = customPids ?? originalPids;
-                  const orderedParadas = getParadasWithEscuela(pids);
-
-                  // Helpers para reordenar paradas (excluye escuela_virtual que va fija)
-                  const moverParada = (idx: number, dir: number) => {
-                    const base = customPids ?? originalPids;
-                    // No mover escuela_virtual
-                    if (base[idx] === 'escuela_virtual' || base[idx + dir] === 'escuela_virtual') return;
-                    const arr = [...base];
-                    const tmp = arr[idx]; arr[idx] = arr[idx + dir]; arr[idx + dir] = tmp;
-                    setCustomPids(arr);
-                  };
-
-                  // Drag & drop swap
-                  const handleDragStart = (idx: number) => setDragIdx(idx);
-                  const handleDragEnd   = () => setDragIdx(null);
-                  const handleDragOver  = (e: React.DragEvent, idx: number) => {
-                    e.preventDefault();
-                    if (dragIdx === null || dragIdx === idx) return;
-                    const base = customPids ?? originalPids;
-                    // No soltar sobre escuela_virtual
-                    if (base[idx] === 'escuela_virtual' || base[dragIdx] === 'escuela_virtual') return;
-                    const arr = [...base];
-                    const moved = arr.splice(dragIdx, 1)[0];
-                    arr.splice(idx, 0, moved);
-                    setCustomPids(arr);
-                    setDragIdx(idx);
-                  };
-
-                  if (orderedParadas.length === 0) return <div className="text-center py-4">Esta ruta no tiene paradas.</div>;
-
-                  return (
-                    <div>
-                      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        {vistaActual === 'Operacion' && !opActual && (
-                          <button className="btn btn-warning rounded-pill px-4 fw-bold shadow-sm" onClick={iniciarRecorrido}>
-                            <i className="bi bi-play-circle me-2"></i>Iniciar Recorrido
-                          </button>
-                        )}
-                        {vistaActual === 'Operacion' && !opActual && customPids && (
-                          <button
-                            className="btn btn-outline-secondary rounded-pill px-3 shadow-sm"
-                            onClick={() => setCustomPids(null)}
-                            title="Restaurar orden original de la ruta"
-                          >
-                            <i className="bi bi-arrow-counterclockwise me-1"></i>Restablecer orden
-                          </button>
-                        )}
-                        {vistaActual === 'Operacion' && !opActual && (
-                          <span className="badge bg-light text-muted border rounded-pill px-3 py-2 small">
-                            <i className="bi bi-arrows-expand-vertical me-1"></i>
-                            Arrastra o usa ↑↓ para reordenar antes de iniciar
-                          </span>
-                        )}
-                      </div>
-
-                      {opActual && (() => {
-                        const rutaObj2 = rutas.find(r => r.id === opRutaId);
-                        const pids2 = rutaObj2 ? getIdsWithEscuela(rutaObj2, opSentido as any) : [];
-                        const currentIdx2 = pids2.findIndex((id: string) => id === opActual.ubicacion_actual);
-                        const progressIdx = opActual.estado === 'Finalizada' ? pids2.length - 1 : currentIdx2;
-                        return (
-                          <div className={`status-bus-banner shadow-sm mb-4 ${opActual.estado === 'Finalizada' ? '' : ''}`}
-                            style={{ background: opActual.estado === 'Finalizada'
-                              ? 'linear-gradient(135deg, #d1fae5, #a7f3d0)'
-                              : 'linear-gradient(135deg, #dbeafe, #eff6ff)',
-                              border: opActual.estado === 'Finalizada' ? '1.5px solid #6ee7b7' : '1.5px solid #93c5fd' }}
-                          >
-                            <div className="d-flex align-items-center gap-3 mb-2">
-                              <div>
-                                <h6 className="fw-bold mb-0" style={{ color: opActual.estado === 'Finalizada' ? '#065f46' : '#1e40af' }}>
-                                  {opActual.estado === 'Finalizada' ? '🏁 Ruta Finalizada con Éxito' : '🚍 En Ruta — Recorrido Activo'}
-                                </h6>
-                                <div className="small" style={{ color: opActual.estado === 'Finalizada' ? '#047857' : '#1d4ed8' }}>
-                                  Última actualización: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                </div>
-                              </div>
-                              {opActual.estado !== 'Finalizada' && (
-                                <div className="ms-auto">
-                                  <span className="bus-here-badge">
-                                    <span className="live-dot"></span>
-                                    EN VIVO
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            {/* Progress bar with moving bus */}
-                            {pids2.length > 0 && (
-                              <BusProgressBar
-                                total={pids2.length}
-                                current={progressIdx >= 0 ? progressIdx : 0}
-                                finalizada={opActual.estado === 'Finalizada'}
-                              />
-                            )}
-                            {/* Animated road strip */}
-                            <div className="road-marquee"></div>
-                          </div>
-                        );
-                      })()}
-
-                      <div className="route-stepper" style={{ paddingLeft: 4 }}>
-                        {orderedParadas.map((parada: any, index: number) => {
-                          const isStart = index === 0;
-                          const isSchool = parada.id === 'escuela_virtual';
-                          const isDestino = index === orderedParadas.length - 1;
-
-                          let passed   = false;
-                          let isActive = false;
-
-                          if (opActual) {
-                            const currentIdx = pids.findIndex((id: string) => id === opActual.ubicacion_actual);
-                            if (opActual.estado === 'Finalizada') {
-                              passed = true;
-                            } else if (index < currentIdx) {
-                              passed = true;
-                            } else if (index === currentIdx) {
-                              isActive = true;
-                            }
-                          }
-
-                          const pinClass = isActive ? 'active' : passed ? 'passed' : isSchool ? 'school' : isStart ? 'origin' : 'pending';
-                          const cardClass = isActive ? 'active' : passed ? 'passed' : isSchool ? 'school' : isStart ? 'origin' : '';
-
-                          // Get registered time from historial
-                          const horaRegistrada = opActual?.historial_paradas?.[parada.id];
-
-                          return (
-                            <div
-                              key={`stop-${parada.id}`}
-                              className="stepper-stop"
-                              style={{
-                                animationDelay: `${index * 0.05}s`,
-                                // Visual feedback durante drag
-                                opacity: (vistaActual === 'Operacion' && !isSchool && dragIdx === index) ? 0.45 : 1,
-                                outline: (vistaActual === 'Operacion' && dragIdx !== null && dragIdx !== index && !isSchool)
-                                  ? '2px dashed #6366f1' : 'none',
-                                outlineOffset: 3,
-                                borderRadius: 12,
-                                transition: 'opacity 0.15s, outline 0.15s',
-                                cursor: (vistaActual === 'Operacion' && !isSchool) ? 'grab' : 'default',
-                              }}
-                              // ── Drag & drop handlers ──
-                              draggable={vistaActual === 'Operacion' && !isSchool}
-                              onDragStart={() => handleDragStart(index)}
-                              onDragOver={(e) => handleDragOver(e, index)}
-                              onDragEnd={handleDragEnd}
-                            >
-                              <div className={`stepper-pin ${pinClass}`} style={{ overflow: 'hidden' }}>
-                                {isActive
-                                  ? <AnimatedBusSVG size={26} color="#10b981" />
-                                  : passed
-                                    ? <i className="bi bi-check-lg"></i>
-                                    : isSchool
-                                      ? (
-                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a855f7' }}>
-                                          {/* Main pediment / triangle roof */}
-                                          <path d="m2 10 10-6 10 6" />
-                                          {/* Building outline */}
-                                          <path d="M4 10v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10" />
-                                          {/* Central portal / door */}
-                                          <path d="M9 22V12h6v10" />
-                                          {/* Clock tower / dome on top */}
-                                          <path d="M12 4v2" />
-                                          <circle cx="12" cy="7.5" r="1.5" fill="currentColor" />
-                                        </svg>
-                                      )
-                                      : isStart
-                                        ? <BusStopIcon size={22} active={false} />
-                                        : <i className="bi bi-circle-fill" style={{fontSize:'0.45rem'}}></i>
-                                }
-                              </div>
-                              <div className={`stepper-card ${cardClass}`}>
-                                <div className="stepper-card-info">
-                                  <div className="stepper-step-num" style={{color: isActive?'#10b981':passed?'#3b82f6':isSchool?'#a855f7':'#94a3b8'}}>
-                                    {isStart ? 'Origen' : isSchool ? 'Destino Final' : `Parada ${index}`}
-                                  </div>
-                                  <div className="stepper-name">{parada.nombre_parada}</div>
-                                  {parada.descripcion && <div className="stepper-desc">{parada.descripcion}</div>}
-                                  {horaRegistrada && (
-                                    <div className="stepper-hora">
-                                      <i className="bi bi-clock-fill"></i>
-                                      {horaRegistrada}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* ── Botones de reordenamiento (Operacion, no sobre escuela_virtual) ── */}
-                                {vistaActual === 'Operacion' && !isSchool && (
-                                  <div className="d-flex flex-column gap-1" style={{ flexShrink: 0 }}>
-                                    <button
-                                      className="btn btn-sm btn-light border rounded-circle p-0 shadow-sm"
-                                      style={{ width: 28, height: 28, lineHeight: 1 }}
-                                      disabled={index === 0}
-                                      onClick={() => moverParada(index, -1)}
-                                      title="Subir parada"
-                                    >
-                                      <i className="bi bi-chevron-up" style={{ fontSize: '0.7rem' }}></i>
-                                    </button>
-                                    <button
-                                      className="btn btn-sm btn-light border rounded-circle p-0 shadow-sm"
-                                      style={{ width: 28, height: 28, lineHeight: 1 }}
-                                      disabled={index >= orderedParadas.length - 1 || orderedParadas[index + 1]?.id === 'escuela_virtual'}
-                                      onClick={() => moverParada(index, 1)}
-                                      title="Bajar parada"
-                                    >
-                                      <i className="bi bi-chevron-down" style={{ fontSize: '0.7rem' }}></i>
-                                    </button>
-                                  </div>
-                                )}
-                                {isActive && (
-                                  <div className="d-flex flex-column align-items-center gap-1">
-                                    <div className="bus-here-badge">
-                                      <span className="live-dot"></span>
-                                      🚍 Aquí
-                                    </div>
-                                    <div style={{ opacity: 0.7 }}>
-                                      <BusStopIcon size={22} active={true} />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {vistaActual === 'Operacion' && opActual?.estado === 'En Ruta' && !passed && !isActive && (
-                                  <button 
-                                    className={`btn-pasamos ${isDestino ? 'btn-llegamos' : ''}`} 
-                                    onClick={() => marcarParada(parada.id, index, pids)}
-                                    style={isDestino ? { background: 'linear-gradient(135deg, #3b82f6, #2563eb)' } : {}}
-                                  >
-                                    <i className={`bi ${isDestino ? 'bi-flag-fill' : 'bi-check2-circle'} me-1`}></i>
-                                    {isDestino ? 'Llegamos' : 'Pasamos'}
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* VISTA: CARGA MASIVA */}
+      {vistaActual === 'CargaMasiva' && (
+        <CargaMasivaView
+          onBack={() => setVistaActual('Configuracion')}
+          onSave={procesarCargaMasiva}
+        />
       )}
 
-      {/* MODAL PARADA */}
+      {/* VISTA: OPERACION */}
+      {vistaActual === 'Operacion' && (
+        <OperacionView
+          opRutaId={opRutaId}
+          setOpRutaId={setOpRutaId}
+          opSentido={opSentido}
+          setOpSentido={setOpSentido}
+          rutas={rutas}
+          opActual={opActual}
+          customPids={customPids}
+          setCustomPids={setCustomPids}
+          dragIdx={dragIdx}
+          setDragIdx={setDragIdx}
+          iniciarRecorrido={iniciarRecorrido}
+          marcarParada={marcarParada}
+          resetRutaActual={resetRutaActual}
+          resetMasivo={resetMasivo}
+          getIdsWithEscuela={getIdsWithEscuela}
+          getParadasWithEscuela={getParadasWithEscuela}
+          BusProgressBar={BusProgressBar}
+          AnimatedBusSVG={AnimatedBusSVG}
+          BusStopIcon={BusStopIcon}
+          canControlCoordinacion={canControlCoordinacion}
+          salidaMasiva={salidaMasiva}
+          offlineMode={offlineMode}
+        />
+      )}
+
+      {/* VISTA: VISOR */}
+      {vistaActual === 'Visor' && (
+        <VisorView
+          opRutaId={opRutaId}
+          setOpRutaId={setOpRutaId}
+          opSentido={opSentido}
+          setOpSentido={setOpSentido}
+          rutas={rutas}
+          opActual={opActual}
+          getIdsWithEscuela={getIdsWithEscuela}
+          getParadasWithEscuela={getParadasWithEscuela}
+          BusProgressBar={BusProgressBar}
+          AnimatedBusSVG={AnimatedBusSVG}
+          BusStopIcon={BusStopIcon}
+        />
+      )}
+
+      {/* MODALES EXTERNALIZADOS */}
       {showModalParada && (
-        <div className="modal-backdrop-custom show">
-          <div className="modal-custom shadow-lg">
-            <div className="modal-header border-bottom-0 pb-0">
-              <h5 className="modal-title fw-bold text-dark">{paradaForm.id ? 'Editar Parada' : 'Nueva Parada'}</h5>
-              <button type="button" className="btn-close" onClick={() => setShowModalParada(false)}></button>
-            </div>
-            <div className="modal-body">
-              <form onSubmit={saveParada}>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold small">Nombre de Parada</label>
-                  <input type="text" className="form-control input-moderno" required value={paradaForm.nombre} onChange={e => setParadaForm({...paradaForm, nombre: e.target.value})} placeholder="Ej: Plaza Bolívar" />
-                </div>
-                <div className="mb-4">
-                  <label className="form-label fw-semibold small">Referencia / Descripción</label>
-                  <input type="text" className="form-control input-moderno" value={paradaForm.descripcion} onChange={e => setParadaForm({...paradaForm, descripcion: e.target.value})} placeholder="Ej: Frente a la panadería" />
-                </div>
-                <div className="d-grid">
-                  <button type="submit" className="btn btn-primary rounded-pill fw-bold shadow-sm py-2">Guardar Parada</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        <ModalParada
+          paradaForm={paradaForm}
+          onClose={() => setShowModalParada(false)}
+          onSave={async (formData) => {
+            try {
+              const payload = {
+                escuela_codigo: escCodigo,
+                nombre_parada: formData.nombre,
+                descripcion: formData.descripcion
+              };
+              if (formData.id) {
+                const { error } = await supabase.from('transporte_paradas').update(payload).eq('id', formData.id);
+                if (error) throw error;
+              } else {
+                const { error } = await supabase.from('transporte_paradas').insert([payload]);
+                if (error) throw error;
+              }
+              setShowModalParada(false);
+              Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Guardado', showConfirmButton: false, timer: 2000 });
+              cargarTodo(true);
+            } catch (err: any) {
+              Swal.fire('Error', err.message, 'error');
+            }
+          }}
+        />
       )}
 
-      {/* MODAL RUTA */}
       {showModalRuta && (
-        <div className="modal-backdrop-custom show">
-          <div className="modal-custom shadow-lg" style={{ maxWidth: '800px', width: '90%' }}>
-            <div className="modal-header border-bottom-0 pb-0">
-              <h5 className="modal-title fw-bold text-dark">{rutaForm.id ? 'Editar Ruta' : 'Diseño de Ruta'}</h5>
-              <button type="button" className="btn-close" onClick={() => setShowModalRuta(false)}></button>
-            </div>
-            <div className="modal-body">
-              <div className="row g-3 mb-4">
-                <div className="col-12">
-                  <label className="form-label fw-semibold small">Nombre de Ruta</label>
-                  <input type="text" className="form-control input-moderno fw-bold" value={rutaForm.nombre} onChange={e => setRutaForm({...rutaForm, nombre: e.target.value})} placeholder="Ej: Ruta 1 - Centro" />
-                </div>
-              </div>
-
-              <div className="card border rounded-4 bg-light mb-4 shadow-sm border-0">
-                <div className="card-body p-4">
-                  <label className="form-label fw-bold text-primary mb-3"><i className="bi bi-grid-3x3-gap-fill me-2"></i>Paradas Disponibles (Clic para añadir)</label>
-                  <div className="d-flex flex-wrap gap-2 mb-4">
-                    {paradas.filter(p => !paradasTemporales.find(pt => pt.id === p.id)).map(p => (
-                      <button 
-                        key={p.id} 
-                        className="btn btn-sm btn-outline-secondary rounded-pill border shadow-sm px-3 fw-semibold bg-white"
-                        style={{ transition: 'all 0.2s', transform: 'scale(1)' }}
-                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                        onClick={() => {
-                          setParadasTemporales([...paradasTemporales, p]);
-                        }}
-                      >
-                        <i className="bi bi-plus-circle-fill text-success me-1"></i> {p.nombre_parada}
-                      </button>
-                    ))}
-                    {paradas.filter(p => !paradasTemporales.find(pt => pt.id === p.id)).length === 0 && (
-                      <span className="text-muted small w-100 text-center d-block py-2">No hay más paradas disponibles.</span>
-                    )}
-                  </div>
-
-                  <hr className="text-secondary opacity-25 my-4" />
-                  
-                  <label className="form-label fw-bold text-dark mb-3"><i className="bi bi-geo-alt-fill text-primary me-2"></i>Recorrido Ensamblado</label>
-                  <div>
-                    {paradasTemporales.length === 0 ? (
-                      <div className="text-center text-muted small p-4 bg-white rounded-4 shadow-sm border border-dashed">
-                        Haz clic en las paradas arriba para ensamblar tu ruta.
-                      </div>
-                    ) : (
-                      <div className="winding-road-container bg-white rounded-4 shadow-sm border p-3">
-                        {(() => {
-                          const itemsPerRow = 3; // Modal is narrower, 3 items per row
-                          const chunks = [];
-                          for (let i = 0; i < paradasTemporales.length; i += itemsPerRow) {
-                            chunks.push(paradasTemporales.slice(i, i + itemsPerRow));
-                          }
-                          
-                          return chunks.map((chunk, rowIdx) => {
-                            const isReverse = rowIdx % 2 !== 0;
-                            const hasNextRow = rowIdx < chunks.length - 1;
-                            const hasPrevRow = rowIdx > 0;
-                            
-                            let rowClasses = `road-row ${isReverse ? 'reverse' : ''}`;
-                            if (hasNextRow) rowClasses += (!isReverse) ? ' curve-down-right' : ' curve-down-left';
-                            if (hasPrevRow) rowClasses += (!isReverse) ? ' curve-up-left' : ' curve-up-right';
-
-                            return (
-                              <div key={`modal-row-${rowIdx}`} className={rowClasses} style={{padding: '20px 0'}}>
-                                {hasNextRow && (
-                                  <div className={`road-curve ${!isReverse ? 'right' : 'left'}`}></div>
-                                )}
-                                {chunk.map((p, colIdx) => {
-                                  const idx = rowIdx * itemsPerRow + colIdx;
-                                  return (
-                                    <div key={p.id} className="timeline-node" style={{width: '90px'}}>
-                                      <div className="timeline-icon stop" style={{width: '40px', height: '40px', fontSize: '1.2rem'}} title={p.nombre_parada}>
-                                        <i className="bi bi-geo-fill"></i>
-                                      </div>
-                                      <div className="timeline-content py-2 px-2" style={{width: '120px', marginTop: '10px'}}>
-                                        <div className="d-flex align-items-center mb-2">
-                                          <div className="d-flex flex-column me-2">
-                                            <button className="btn btn-sm text-secondary p-0 shadow-none" style={{lineHeight: 0.5}} disabled={idx === 0} onClick={() => moveParadaTemp(idx, -1)}><i className="bi bi-chevron-up fs-6 hover-text-primary"></i></button>
-                                            <button className="btn btn-sm text-secondary p-0 mt-2 shadow-none" style={{lineHeight: 0.5}} disabled={idx === paradasTemporales.length - 1} onClick={() => moveParadaTemp(idx, 1)}><i className="bi bi-chevron-down fs-6 hover-text-primary"></i></button>
-                                          </div>
-                                          <div className="text-start">
-                                            <span className="badge bg-primary rounded-pill shadow-sm mb-1">{idx + 1}</span>
-                                            <div className="fw-bold text-dark" style={{fontSize: '0.75rem', lineHeight: '1'}}>{p.nombre_parada}</div>
-                                          </div>
-                                        </div>
-                                        <button className="btn btn-sm btn-light border text-danger rounded-circle p-1 shadow-sm" onClick={() => removeParadaTemp(idx)} title="Quitar parada">
-                                          <i className="bi bi-trash-fill"></i>
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          });
-                        })()}
-                        <div className="mt-3 text-center w-100 border-top pt-3">
-                          <span className="badge bg-success shadow-sm rounded-pill px-3 py-2">
-                            <i className="bi bi-building-fill me-1"></i> Escuela (Destino Final)
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="d-flex justify-content-end gap-2">
-                <button className="btn btn-light rounded-pill px-4 fw-bold" onClick={() => setShowModalRuta(false)}>Cancelar</button>
-                <button className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" onClick={saveRuta}>Guardar Ruta</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ModalRuta
+          rutaForm={rutaForm}
+          paradas={paradas}
+          rutas={rutas}
+          initialParadasTemporales={paradasTemporales}
+          onClose={() => setShowModalRuta(false)}
+          onSave={async (formData, tempParadas) => {
+            if (!formData.nombre) {
+              return Swal.fire('Atención', 'Escriba un nombre para la ruta', 'warning');
+            }
+            if (tempParadas.length === 0) {
+              return Swal.fire('Atención', 'Añada al menos una parada al recorrido.', 'warning');
+            }
+            try {
+              const payload = {
+                escuela_codigo: escCodigo,
+                nombre: formData.nombre,
+                paradas_json: tempParadas.map(p => p.id)
+              };
+              if (formData.id) {
+                const { error } = await supabase.from('transporte_rutas').update(payload).eq('id', formData.id);
+                if (error) throw error;
+              } else {
+                const { error } = await supabase.from('transporte_rutas').insert([payload]);
+                if (error) throw error;
+              }
+              setShowModalRuta(false);
+              Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Ruta Guardada', showConfirmButton: false, timer: 2000 });
+              cargarTodo(true);
+            } catch (err: any) {
+              Swal.fire('Error', err.message, 'error');
+            }
+          }}
+        />
       )}
 
-      {/* Modal CSS */}
-      <style>{`
-        .modal-backdrop-custom { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1050; opacity: 0; animation: fadeIn 0.3s forwards; }
-        .modal-custom { background: #ffffff; border-radius: 24px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; padding: 10px; transform: scale(0.95); animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-        .modal-custom::-webkit-scrollbar { width: 6px; }
-        .modal-custom::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .input-moderno { border-radius: 12px; border: 1px solid #cbd5e1; padding: 10px 15px; font-size: 0.95rem; transition: all 0.2s; }
-        .input-moderno:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
-        @keyframes fadeIn { to { opacity: 1; } }
-        @keyframes zoomIn { to { transform: scale(1); } }
-      `}</style>
-
-      {/* MODAL ASIGNACION PERSONAL */}
       {showModalAsignacion && (
-        <div className="modal-backdrop-custom show">
-          <div className="modal-custom shadow-lg">
-            <div className="modal-header border-bottom-0 pb-0">
-              <h5 className="modal-title fw-bold text-dark">Asignar Personal a {rutaForm.nombre}</h5>
-              <button type="button" className="btn-close" onClick={() => setShowModalAsignacion(false)}></button>
-            </div>
-            <div className="modal-body">
-              <form onSubmit={saveAsignacion}>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold small">Chofer de Unidad</label>
-                  <input type="text" className="form-control input-moderno" value={rutaForm.chofer || ''} onChange={e => setRutaForm({...rutaForm, chofer: e.target.value})} placeholder="Nombre completo del chofer" />
-                </div>
-                <div className="mb-4">
-                  <label className="form-label fw-semibold small">Docente Guía (Opcional)</label>
-                  <select className="form-select input-moderno" value={rutaForm.docente_id || ''} onChange={e => setRutaForm({...rutaForm, docente_id: e.target.value})}>
-                    <option value="">-- Seleccione Docente --</option>
-                    {docentes.map(d => <option key={d.id_usuario} value={d.id_usuario}>{d.nombre_completo}</option>)}
-                  </select>
-                </div>
-                <div className="row mb-4">
-                  <div className="col-6">
-                    <label className="form-label fw-semibold small text-muted">Válida Desde</label>
-                    <input type="date" className="form-control input-moderno" value={rutaForm.validez_desde || ''} onChange={e => setRutaForm({...rutaForm, validez_desde: e.target.value})} />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label fw-semibold small text-muted">Válida Hasta</label>
-                    <input type="date" className="form-control input-moderno" value={rutaForm.validez_hasta || ''} onChange={e => setRutaForm({...rutaForm, validez_hasta: e.target.value})} />
-                  </div>
-                </div>
-                <div className="d-grid">
-                  <button type="submit" className="btn btn-primary rounded-pill fw-bold shadow-sm py-2">Guardar Asignación</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+        <ModalAsignacion
+          rutaForm={rutaForm}
+          docentes={docentes}
+          onClose={() => setShowModalAsignacion(false)}
+          onSave={async (formData) => {
+            if (!formData.validez_desde || !formData.validez_hasta) {
+              return Swal.fire('Atención', 'Especifique la fecha de validez', 'warning');
+            }
+            try {
+              const payload = {
+                chofer_nombre: formData.chofer_nombre,
+                docente_id: formData.docente_id || null,
+                validez_desde: formData.validez_desde,
+                validez_hasta: formData.validez_hasta,
+                activo: formData.activo !== false
+              };
+              const { error } = await supabase.from('transporte_rutas').update(payload).eq('id', formData.id);
+              if (error) throw error;
+              setShowModalAsignacion(false);
+              Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Personal Asignado', showConfirmButton: false, timer: 2000 });
+              cargarTodo(true);
+            } catch (err: any) {
+              Swal.fire('Error', err.message, 'error');
+            }
+          }}
+        />
       )}
+
 
     </div>
   );

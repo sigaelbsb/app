@@ -119,7 +119,7 @@ export const usePermisos = () => {
       let tieneEnSB = fullPermisos?.sb?.[modulo]?.[accion] === true;
       let tieneEnLB = fullPermisos?.lb?.[modulo]?.[accion] === true;
       
-      if (user?.rol === 'Invitado') {
+      if (user?.rol === 'Invitado' || user?.rol === 'Docente') {
         const activeSchool = localStorage.getItem('sigae_escuela_codigo') || 'sb';
         if (activeSchool === 'sb') tieneEnLB = false;
         if (activeSchool === 'lb') tieneEnSB = false;
@@ -163,7 +163,7 @@ export const usePermisos = () => {
 
   const tieneAccesoEscuela = (escuelaCodigo: string) => {
     if (user?.rol === 'SuperAdmin') return true;
-    if (user?.rol === 'Invitado' && localStorage.getItem('sigae_escuela_codigo') !== escuelaCodigo) return false;
+    if ((user?.rol === 'Invitado' || user?.rol === 'Docente') && localStorage.getItem('sigae_escuela_codigo') !== escuelaCodigo) return false;
     
     if (!fullPermisos) return false;
     const privsEscuela = fullPermisos[escuelaCodigo];

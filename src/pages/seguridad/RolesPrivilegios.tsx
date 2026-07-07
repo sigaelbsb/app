@@ -45,7 +45,7 @@ const ESTRUCTURA_ACCESOS = {
     "Creador de Certificados": []
   },
   "Servicios y Bienestar": {
-    "Transporte Escolar": ["Tarjeta: Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Tarjeta: Visor de Recorrido"]
+    "Transporte Escolar": ["Tarjeta: Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Tarjeta: Visor de Recorrido", "Función: Control Coordinación"]
   },
   "Seguridad y Accesos": {
     "Mi Perfil": [], 

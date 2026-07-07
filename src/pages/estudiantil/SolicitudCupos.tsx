@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { compressImage } from '../../utils/imageCompression';
+import html2canvas from 'html2canvas';
 
 // ─── HELPER: MODO TÍTULO ────────────────────────────────────────────────────────
 // Convierte cada palabra a Title Case sin forzar mayúscula/minúscula sostenida,
@@ -247,6 +248,13 @@ export const SolicitudCupos = () => {
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Estados para rutas y paradas en la solicitud
+  const [rutasTransporteDB, setRutasTransporteDB] = useState<any[]>([]);
+  const [paradasTransporteDB, setParadasTransporteDB] = useState<any[]>([]);
+  const [selectedRutaObj, setSelectedRutaObj] = useState<any | null>(null);
+  const [selectedParadaObj, setSelectedParadaObj] = useState<any | null>(null);
+  const [savingStatus, setSavingStatus] = useState<'saved' | 'saving' | 'error'>('saved');
 
   const [subiendoDocs, setSubiendoDocs] = useState(false);
 
@@ -262,8 +270,6 @@ export const SolicitudCupos = () => {
 
   // GPS state
   const [loadingGPS, setLoadingGPS] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
 
   const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
@@ -280,7 +286,7 @@ export const SolicitudCupos = () => {
 
   // Autosave: Cargar borrador al iniciar
   useEffect(() => {
-    if (activeTab === 'nueva_solicitud') {
+    if (activeTab === 'nueva_solicitud' && !editingId) {
       const borrador = localStorage.getItem(`sigae_borrador_cupo_${escCodigo}`);
       if (borrador) {
         try {
@@ -292,16 +298,16 @@ export const SolicitudCupos = () => {
         } catch (e) {}
       }
     }
-  }, [activeTab, escCodigo]);
+  }, [activeTab, escCodigo, editingId]);
 
   // Autosave: Guardar borrador al cambiar form
   useEffect(() => {
     if (activeTab === 'nueva_solicitud' && !editingId) {
-      setIsSaving(true);
+      setSavingStatus('saving');
       localStorage.setItem(`sigae_borrador_cupo_${escCodigo}`, JSON.stringify(form));
-      setLastSaved(new Date());
-      setTimeout(() => setIsSaving(false), 500);
       localStorage.setItem(`sigae_borrador_step_${escCodigo}`, step.toString());
+      const timer = setTimeout(() => setSavingStatus('saved'), 500);
+      return () => clearTimeout(timer);
     }
   }, [form, step, activeTab, escCodigo, editingId]);
 
@@ -327,6 +333,67 @@ export const SolicitudCupos = () => {
       }));
     }
   }, [user, activeTab, editingId]);
+
+  // Auto-guardado silencioso en base de datos al estar editando (Debounce 1.5s)
+  useEffect(() => {
+    if (!editingId) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const { 
+          pdvsa_localidad_trabajo_otra, 
+          estudiante_tipo_condicion_otro, 
+          estudiante_condicion_medica_otro, 
+          estudiante_alergico_medicamentos_otro, 
+          ...formToSubmit 
+        } = form;
+
+        const payload = {
+          ...formToSubmit,
+          pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otra' || form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otro' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
+          estudiante_tipo_condicion: form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otro' || form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otra' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
+          estudiante_condicion_medica: form.estudiante_condicion_medica?.trim().toLowerCase() === 'otro' || form.estudiante_condicion_medica?.trim().toLowerCase() === 'otra' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
+          estudiante_alergico_medicamentos: form.estudiante_alergico_medicamentos?.trim().toLowerCase() === 'otro' || form.estudiante_alergico_medicamentos?.trim().toLowerCase() === 'otra' ? estudiante_alergico_medicamentos_otro || '' : form.estudiante_alergico_medicamentos,
+          doc_ficha: documentos.ficha && typeof documentos.ficha === 'string' ? documentos.ficha : form.doc_ficha,
+          doc_foto_estudiante: documentos.foto && typeof documentos.foto === 'string' ? documentos.foto : form.doc_foto_estudiante,
+          doc_partida_nacimiento: documentos.partida && typeof documentos.partida === 'string' ? documentos.partida : form.doc_partida_nacimiento,
+          doc_cedula_estudiante: documentos.cedula && typeof documentos.cedula === 'string' ? documentos.cedula : form.doc_cedula_estudiante,
+          doc_partida_trabajador: documentos.partida_trabajador && typeof documentos.partida_trabajador === 'string' ? documentos.partida_trabajador : undefined,
+          doc_partida_nexo: documentos.partida_nexo && typeof documentos.partida_nexo === 'string' ? documentos.partida_nexo : undefined,
+        };
+
+        await supabase.from('solicitud_cupos').update(payload).eq('id', editingId);
+        // Actualizar listado en segundo plano silenciosamente
+        let query = supabase.from('solicitud_cupos').select('*').eq('codigo_escuela', escCodigo);
+        if (!isUserAdmin && user) query = query.eq('creado_por', user.cedula);
+        const { data } = await query.order('created_at', { ascending: false });
+        if (data) setSolicitudes(data as SolicitudDB[]);
+      } catch (err) {
+        console.error('Error auto-guardado segundo plano:', err);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [form, documentos, editingId, escCodigo, isUserAdmin, user]);
+
+  const cargarRutasYParadas = async () => {
+    try {
+      const [rutasTransRes, paradasTransRes] = await Promise.all([
+        supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }),
+        supabase.from('transporte_paradas').select('*').eq('escuela_codigo', escCodigo).order('nombre_parada', { ascending: true })
+      ]);
+      if (rutasTransRes.data) setRutasTransporteDB(rutasTransRes.data);
+      if (paradasTransRes.data) setParadasTransporteDB(paradasTransRes.data);
+    } catch (e) {
+      console.error('Error cargando rutas y paradas:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'nueva_solicitud') {
+      cargarRutasYParadas();
+    }
+  }, [activeTab, escCodigo]);
 
   const cargarCatalogos = async () => {
     try {
@@ -429,6 +496,9 @@ export const SolicitudCupos = () => {
         const uniqueEstados = Array.from(new Set(allGeoData.map((d: any) => d.estado)));
         setEstadosDB(uniqueEstados as string[]);
       }
+
+      // Cargar Rutas y Paradas de Transporte Escolar
+      await cargarRutasYParadas();
     } catch (e) {
       console.error('Error cargando catálogos:', e);
       setGradosDB(['II Grupo (Inicial)', 'III Grupo (Inicial)', '1° Grado', '2° Grado', '3° Grado', '4° Grado', '5° Grado', '6° Grado', '1° Año', '2° Año', '3° Año', '4° Año', '5° Año']);
@@ -520,8 +590,10 @@ export const SolicitudCupos = () => {
       if (Swal) Swal.fire('Atención', 'Debes aceptar los términos y condiciones para continuar.', 'warning');
       return;
     }
-    const codigo = generarCodigoUnico(escCodigo);
-    setForm(prev => ({ ...prev, codigo_unico: codigo }));
+    if (!editingId) {
+      const codigo = generarCodigoUnico(escCodigo);
+      setForm(prev => ({ ...prev, codigo_unico: codigo }));
+    }
     setStep(2);
   };
 
@@ -623,6 +695,9 @@ export const SolicitudCupos = () => {
         await auditar('Solicitud de Cupos', 'Crear Solicitud', `Nueva solicitud ${form.codigo_unico} con documentos`);
       }
       
+      // Refrescar el listado local de solicitudes con la información actualizada
+      await cargarDatos();
+
       // Limpiar el autoguardado tras el envío exitoso
       localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}`);
       localStorage.removeItem(`sigae_borrador_step_${escCodigo}`);
@@ -647,6 +722,8 @@ export const SolicitudCupos = () => {
     }));
     setSolicitudGuardada(null);
     setEditingId(null);
+    setSelectedRutaObj(null);
+    setSelectedParadaObj(null);
     setDocumentos({ ficha: null, foto: null, partida: null, cedula: null, partida_trabajador: null, partida_nexo: null });
     setStep(1);
   };
@@ -713,12 +790,283 @@ export const SolicitudCupos = () => {
       partida_trabajador: sol.doc_partida_trabajador || null,
       partida_nexo: sol.doc_partida_nexo || null,
     });
+
+    if (sol.requiere_transporte && sol.ruta_transporte) {
+      const matchingRuta = rutasTransporteDB.find(r => sol.ruta_transporte.startsWith(r.nombre));
+      if (matchingRuta) {
+        setSelectedRutaObj(matchingRuta);
+        const parts = sol.ruta_transporte.split(' - Parada: ');
+        const paradaName = parts[1];
+        if (paradaName) {
+          const matchingParada = paradasTransporteDB.find(p => p.nombre_parada === paradaName);
+          if (matchingParada) {
+            setSelectedParadaObj(matchingParada);
+          }
+        }
+      }
+    } else {
+      setSelectedRutaObj(null);
+      setSelectedParadaObj(null);
+    }
     
     setActiveTab('nueva_solicitud');
     setStep(1);
     
-    // Smooth scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const obtenerImagenBase64 = (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          try {
+            resolve(canvas.toDataURL('image/png'));
+            return;
+          } catch (e) {
+            console.error('Base64 conversion failed:', e);
+          }
+        }
+        resolve(url);
+      };
+      img.onerror = () => {
+        resolve(url);
+      };
+      img.src = url;
+    });
+  };
+
+  const handleDescargarSoporte = async (modo: 'descargar' | 'whatsapp') => {
+    if (!solicitudGuardada) return;
+    const sol = solicitudGuardada;
+    
+    if (Swal) {
+      Swal.fire({
+        title: modo === 'descargar' ? 'Generando Soporte...' : 'Preparando Mensaje...',
+        html: '<div class="spinner-border text-success" role="status"></div><p class="mt-2 small text-muted">Construyendo documento e imagen de verificación...</p>',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+      });
+    }
+
+    try {
+      // Pre-cargar y convertir imágenes críticas a base64 para evitar problemas de CORS y carga a destiempo
+      const qrRawUrl = getQrUrl(sol.codigo_unico || '');
+      const [base64Qr, base64LogoEscuela, base64Mppe] = await Promise.all([
+        obtenerImagenBase64(qrRawUrl),
+        obtenerImagenBase64(`/assets/img/logo_${escCodigo}.png`),
+        obtenerImagenBase64('/assets/img/logoMPPE.png')
+      ]);
+
+      const clon = document.createElement('div');
+      clon.style.width = '600px';
+      clon.style.position = 'fixed';
+      clon.style.left = '-9999px';
+      clon.style.top = '0';
+      clon.style.fontFamily = "'Inter', 'Segoe UI', Roboto, sans-serif";
+      clon.style.padding = '25px';
+      clon.style.background = '#ffffff';
+
+      const fechaHoy = new Date().toLocaleDateString('es-VE', {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+
+      const htmlImagen = `
+        <div style="border: 2px solid #e2e8f0; border-radius: 20px; padding: 25px; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);">
+          <div style="margin-bottom: 20px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="height: 6px; background-color: #facc15;"></div>
+            <div style="height: 8px; background-color: #2563eb; display: flex; justify-content: center; align-items: center; gap: 3px; color: #ffffff; font-size: 7px; line-height: 1; font-family: Arial, sans-serif;">
+              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+            </div>
+            <div style="height: 6px; background-color: #dc2626;"></div>
+          </div>
+          
+          <div style="display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
+            <img src="${base64LogoEscuela}" style="height: 60px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));" />
+            <div style="flex: 1;">
+              <h4 style="margin: 0; color: #16a34a; font-weight: 800; font-size: 20px; text-transform: uppercase;">Comprobante de Registro</h4>
+              <p style="margin: 2px 0 0 0; font-size: 11px; color: #64748b;">Sistema Integral de Gestión y Administración Escolar</p>
+              <p style="margin: 2px 0 0 0; font-size: 13px; font-weight: 700; color: #1e3a8a;">${escNombre}</p>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div style="flex: 0 0 170px; text-align: center; border: 1.5px dashed #86efac; border-radius: 16px; padding: 10px; background: #ffffff;">
+              <img src="${base64Qr}" alt="QR" style="width: 150px; height: 150px; border-radius: 8px;" />
+              <div style="margin-top: 8px; font-family: monospace; font-size: 12px; font-weight: bold; color: #1e293b; letter-spacing: 1px;">
+                ${sol.codigo_unico}
+              </div>
+            </div>
+
+            <div style="flex: 1; font-size: 13px; color: #475569;">
+              <h5 style="margin: 0 0 8px 0; color: #0f172a; font-size: 14px; font-weight: 700; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;">
+                👦 Datos del Estudiante
+              </h5>
+              <div style="margin-bottom: 10px;">
+                <b>Nombre Completo:</b><br/>
+                <span style="color: #0f172a; font-weight: 600; font-size: 14px;">${sol.estudiante_nombres} ${sol.estudiante_apellidos}</span>
+              </div>
+              <div style="margin-bottom: 10px;">
+                <b>Cédula / Identificación:</b><br/>
+                <span style="color: #0f172a; font-weight: 600;">${sol.estudiante_cedula || 'No posee'}</span>
+              </div>
+              <div style="display: flex; gap: 15px;">
+                <div>
+                  <b>Grado Solicitado:</b><br/>
+                  <span style="color: #166534; font-weight: 700; background: #dcfce7; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${sol.grado_solicitado}</span>
+                </div>
+                <div>
+                  <b>F. Nacimiento:</b><br/>
+                  <span style="color: #0f172a; font-weight: 600;">${sol.estudiante_fecha_nacimiento}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1.5px solid #f1f5f9; border-radius: 14px; padding: 15px; margin-bottom: 20px; font-size: 13px; color: #475569;">
+            <h5 style="margin: 0 0 10px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;">
+              👤 Datos del Representante y Centro
+            </h5>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <b>Representante:</b><br/>
+                <span style="color: #0f172a; font-weight: 600;">${sol.representante_nombres} ${sol.representante_apellidos}</span>
+              </div>
+              <div>
+                <b>Cédula Representante:</b><br/>
+                <span style="color: #0f172a; font-weight: 600;">${sol.representante_cedula}</span>
+              </div>
+              <div>
+                <b>Teléfono de Contacto:</b><br/>
+                <span style="color: #0f172a; font-weight: 600;">${sol.representante_telefono}</span>
+              </div>
+              <div>
+                <b>Plantel Solicitado:</b><br/>
+                <span style="color: #0f172a; font-weight: 600;">${escNombre}</span>
+              </div>
+              ${sol.requiere_transporte ? `
+                <div style="grid-column: span 2; margin-top: 5px;">
+                  <b>Transporte Escolar:</b><br/>
+                  <span style="color: #1e3a8a; font-weight: 700; background: #dbeafe; padding: 2px 8px; border-radius: 6px; font-size: 11px;">🚍 ${sol.ruta_transporte}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1.5px solid #e2e8f0; padding-top: 12px; margin-top: 15px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <img src="${base64Mppe}" style="height: 22px; width: auto;" />
+            </div>
+            <div style="text-align: right; font-size: 9px; color: #94a3b8; font-weight: 600; line-height: 1.2;">
+              Generado: ${fechaHoy}<br/>
+              SIGAE - Control de Solicitudes
+            </div>
+          </div>
+        </div>
+      `;
+
+      clon.innerHTML = htmlImagen;
+      document.body.appendChild(clon);
+      
+      await new Promise(res => setTimeout(res, 500));
+
+      const canvas = await html2canvas(clon, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true });
+      document.body.removeChild(clon);
+
+      const textoMensaje = `*SIGAE - Comprobante de Solicitud de Cupo*\n\n` +
+        `Estimado(a) *${sol.representante_nombres} ${sol.representante_apellidos}*,\n` +
+        `Su solicitud de cupo para el estudiante *${sol.estudiante_nombres} ${sol.estudiante_apellidos}* ha sido registrada con éxito.\n\n` +
+        `• *Código Único:* ${sol.codigo_unico}\n` +
+        `• *Grado/Año Solicitado:* ${sol.grado_solicitado}\n` +
+        `• *Plantel:* ${escNombre}\n` +
+        `• *Estado:* Pendiente\n` +
+        `${sol.requiere_transporte ? `• *Transporte Escolar:* ${sol.ruta_transporte}\n` : ''}\n` +
+        `Puede realizar el seguimiento de su trámite ingresando a la sección "Mis Solicitudes" en el sistema SIGAE.`;
+
+      if (modo === 'descargar') {
+        const urlImagen = canvas.toDataURL("image/png");
+        const a = document.createElement('a');
+        a.href = urlImagen;
+        a.download = `Comprobante_Cupo_${sol.codigo_unico}.png`;
+        a.click();
+        if (Swal) {
+          Swal.fire({
+            title: '¡Soporte Descargado!',
+            text: 'El comprobante en imagen ha sido descargado en tu dispositivo.',
+            icon: 'success',
+            confirmButtonColor: '#16a34a'
+          });
+        }
+      } else {
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+          const file = new File([blob], `Comprobante_${sol.codigo_unico}.png`, { type: "image/png" });
+
+          // Si es en móvil, intentamos usar el Share API nativo para enviar la imagen y texto directo a WhatsApp
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: 'Comprobante de Registro',
+                text: textoMensaje
+              });
+              if (Swal) Swal.close();
+              return;
+            } catch (shareErr) {
+              console.log('Web Share failed, fall-backing to clipboard...', shareErr);
+            }
+          }
+          
+          if (navigator.clipboard && navigator.clipboard.write) {
+            try {
+              const item = new ClipboardItem({ "image/png": blob });
+              await navigator.clipboard.write([item]);
+            } catch (e) {
+              console.error("Clipboard write error:", e);
+            }
+          }
+
+          if (Swal) {
+            Swal.close();
+            Swal.fire({
+              title: '¡Soporte Preparado!',
+              html: `
+                <p class="small text-muted mb-2">La imagen del comprobante se copiará automáticamente al portapapeles al presionar "Abrir WhatsApp".</p>
+                <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; color: #166534; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left;">
+                  <strong>Para enviar en WhatsApp:</strong> Selecciona el chat, presiona <strong>Ctrl + V</strong> para pegar la imagen (el texto se cargará automáticamente).
+                </div>
+              `,
+              icon: 'success',
+              showCancelButton: true,
+              confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
+              cancelButtonText: 'Cancelar',
+              confirmButtonColor: '#25D366',
+            }).then((res2: any) => {
+              if (res2.isConfirmed) {
+                window.open(`whatsapp://send?text=${encodeURIComponent(textoMensaje)}`, '_self');
+              }
+            });
+          }
+        }, 'image/png');
+      }
+    } catch (error) {
+      console.error('Error generating image support:', error);
+      if (Swal) Swal.fire('Error', 'No se pudo generar la imagen del soporte.', 'error');
+    }
+  };
+
+  const handleAccionSoporteCard = async (sol: SolicitudDB, modo: 'descargar' | 'whatsapp') => {
+    setSolicitudGuardada(sol);
+    setTimeout(() => {
+      handleDescargarSoporte(modo);
+    }, 100);
   };
 
   const handleEliminarSolicitud = async (sol: SolicitudDB) => {
@@ -1479,12 +1827,74 @@ export const SolicitudCupos = () => {
             </div>
           </div>
           {form.requiere_transporte && (
-            <div className="col-md-8">
-              <label className="form-label fw-semibold">Ruta o Sector Preferido</label>
-              <input type="text" className="form-control input-moderno"
-                placeholder="Indica tu sector o ruta (Ej. Ruta 3 - Guaritos, Ruta 7 - El Tigre Centro)"
-                value={form.ruta_transporte} onChange={(e) => updateForm('ruta_transporte', e.target.value)} />
-              <div className="form-text">La asignación final de ruta queda sujeta a la disponibilidad del plantel.</div>
+            <div className="col-12 mt-2 animate__animated animate__fadeIn">
+              <div className="row g-3">
+                {rutasTransporteDB.length > 0 ? (
+                  <>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Ruta de Transporte <span className="text-danger">*</span></label>
+                      <select
+                        className="form-select input-moderno"
+                        value={selectedRutaObj?.id || ''}
+                        onChange={(e) => {
+                          const routeId = e.target.value;
+                          const rObj = rutasTransporteDB.find(r => r.id === routeId);
+                          setSelectedRutaObj(rObj || null);
+                          setSelectedParadaObj(null);
+                          updateForm('ruta_transporte', rObj ? rObj.nombre : '');
+                        }}
+                      >
+                        <option value="">-- Seleccionar Ruta --</option>
+                        {rutasTransporteDB.map(r => (
+                          <option key={r.id} value={r.id}>{r.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Parada de Transporte <span className="text-danger">*</span></label>
+                      <select
+                        className="form-select input-moderno"
+                        value={selectedParadaObj?.id || ''}
+                        disabled={!selectedRutaObj}
+                        onChange={(e) => {
+                          const stopId = e.target.value;
+                          const pObj = paradasTransporteDB.find(p => p.id === stopId);
+                          setSelectedParadaObj(pObj || null);
+                          if (selectedRutaObj && pObj) {
+                            updateForm('ruta_transporte', `${selectedRutaObj.nombre} - Parada: ${pObj.nombre_parada}`);
+                          }
+                        }}
+                      >
+                        <option value="">-- Seleccionar Parada --</option>
+                        {selectedRutaObj && paradasTransporteDB
+                          .filter(p => {
+                            let pids: string[] = [];
+                            if (Array.isArray(selectedRutaObj.paradas_json)) pids = selectedRutaObj.paradas_json;
+                            else if (typeof selectedRutaObj.paradas_json === 'string') {
+                              try { pids = JSON.parse(selectedRutaObj.paradas_json); } catch (err) {}
+                            }
+                            return pids.includes(p.id);
+                          })
+                          .map(p => (
+                            <option key={p.id} value={p.id}>{p.nombre_parada} ({p.descripcion || 'Sin descripción'})</option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  </>
+                ) : (
+                  <div className="col-md-8">
+                    <label className="form-label fw-semibold">Ruta o Sector Preferido <span className="text-danger">*</span></label>
+                    <input type="text" className="form-control input-moderno"
+                      placeholder="Indica tu sector o ruta (Ej. Ruta 3 - Guaritos, Ruta 7 - El Tigre Centro)"
+                      value={form.ruta_transporte} onChange={(e) => updateForm('ruta_transporte', e.target.value)} />
+                    <div className="form-text text-warning">
+                      <i className="bi bi-exclamation-triangle-fill me-1"></i> No se encontraron rutas registradas en esta escuela. Por favor, escribe la ruta de preferencia.
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1646,6 +2056,18 @@ export const SolicitudCupos = () => {
               <strong className="text-dark">Próximos pasos:</strong> La Dirección evaluará tu solicitud. Puedes hacer seguimiento en la sección <strong>"Mis Solicitudes"</strong> usando el código de verificación.
             </div>
           </div>
+        </div>
+
+        <div className="d-flex flex-wrap gap-3 justify-content-center mb-4">
+          <button className="btn btn-outline-primary rounded-pill px-4 fw-semibold shadow-sm"
+            onClick={() => handleDescargarSoporte('descargar')}>
+            <i className="bi bi-download me-1"></i> Descargar Comprobante
+          </button>
+          <button className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm"
+            style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
+            onClick={() => handleDescargarSoporte('whatsapp')}>
+            <i className="bi bi-whatsapp me-1"></i> Compartir por WhatsApp
+          </button>
         </div>
 
         <div className="d-flex gap-3 justify-content-center">
@@ -1935,16 +2357,26 @@ export const SolicitudCupos = () => {
                         <div className="fw-bold mb-1"><i className="bi bi-chat-left-text-fill me-1"></i>Comentarios de Dirección:</div>
                         <div>{sol.observaciones || <em>Tu solicitud está en proceso de evaluación.</em>}</div>
                       </div>
-                      {sol.estado === 'Pendiente' && (
-                        <div className="text-end mt-2">
-                          <button onClick={() => handleEditarSolicitud(sol)} className="btn btn-sm btn-outline-primary border-0 rounded-pill me-2">
-                            <i className="bi bi-pencil-square me-1"></i> Editar Solicitud
+                      <div className="mt-3 pt-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div className="d-flex gap-2">
+                          <button onClick={() => handleAccionSoporteCard(sol, 'descargar')} className="btn btn-sm btn-outline-secondary rounded-pill fw-semibold">
+                            <i className="bi bi-download me-1"></i> Soporte
                           </button>
-                          <button onClick={() => handleEliminarSolicitud(sol)} className="btn btn-sm btn-outline-danger border-0 rounded-pill">
-                            <i className="bi bi-trash-fill me-1"></i> Cancelar Solicitud
+                          <button onClick={() => handleAccionSoporteCard(sol, 'whatsapp')} className="btn btn-sm btn-outline-success rounded-pill fw-semibold" style={{ color: '#25D366', borderColor: '#25D366' }}>
+                            <i className="bi bi-whatsapp me-1"></i> WhatsApp
                           </button>
                         </div>
-                      )}
+                        {sol.estado === 'Pendiente' && (
+                          <div>
+                            <button onClick={() => handleEditarSolicitud(sol)} className="btn btn-sm btn-outline-primary border-0 rounded-pill me-2">
+                              <i className="bi bi-pencil-square me-1"></i> Editar
+                            </button>
+                            <button onClick={() => handleEliminarSolicitud(sol)} className="btn btn-sm btn-outline-danger border-0 rounded-pill">
+                              <i className="bi bi-trash-fill me-1"></i> Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1962,14 +2394,23 @@ export const SolicitudCupos = () => {
                   <i className="bi bi-file-earmark-person-fill text-success me-2"></i>
                   {editingId ? 'Editando Solicitud de Cupo' : 'Formulario de Solicitud de Cupo'}
                 </h5>
-                {activeTab === 'nueva_solicitud' && !editingId && lastSaved && (
-                  <div className="d-flex align-items-center text-muted small bg-light px-3 py-1 rounded-pill border">
-                    {isSaving ? (
-                      <><i className="bi bi-cloud-arrow-up-fill text-primary me-2 spinner-grow spinner-grow-sm"></i> Guardando...</>
-                    ) : (
-                      <><i className="bi bi-check2-all text-success me-2"></i> Borrador guardado {lastSaved.toLocaleTimeString()}</>
-                    )}
-                  </div>
+                {savingStatus === 'saving' && (
+                  <span className="badge bg-warning bg-opacity-10 text-warning border border-warning rounded-pill px-3 py-2 animate__animated animate__pulse animate__infinite">
+                    <span className="spinner-border spinner-border-sm me-2" role="status" style={{ width: '0.85rem', height: '0.85rem' }}></span>
+                    Guardando borrador...
+                  </span>
+                )}
+                {savingStatus === 'saved' && (
+                  <span className="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3 py-2 animate__animated animate__fadeIn">
+                    <i className="bi bi-cloud-check-fill me-2"></i>
+                    Cambios guardados
+                  </span>
+                )}
+                {savingStatus === 'error' && (
+                  <span className="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-3 py-2 animate__animated animate__shakeX">
+                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                    Error al guardar borrador
+                  </span>
                 )}
               </div>
               <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle">
