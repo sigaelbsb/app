@@ -617,7 +617,7 @@ export const GestionRegistros = () => {
                   <i className="bi bi-database-fill-gear me-3"></i>Gestión de Registros
                 </h1>
                 <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Control de visitantes, generación de credenciales y bitácora de operaciones para {escuelaSeleccionada === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}.
+                  Control de visitantes, generación de credenciales y bitácora de operaciones para {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
                 </p>
               </div>
             </div>
@@ -1049,7 +1049,7 @@ export const GestionRegistros = () => {
                   <div className="ticket-card" style={{ width: '100%', border: '2px dashed #475569', padding: '20px', background: '#fff', borderRadius: '12px', textAlign: 'center' }}>
                     <div className="ticket-header" style={{ borderBottom: '2px dashed #94a3b8', paddingBottom: '12px', marginBottom: '15px' }}>
                       <div className="school-title" style={{ fontSize: '1rem', fontWeight: '800', textTransform: 'uppercase', color: '#1e293b' }}>
-                        {escuelaSeleccionada === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                        {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
                       </div>
                       <div className="small text-muted" style={{ fontSize: '0.75rem' }}>Sistema de Registro Escolar</div>
                       <div className="ticket-title" style={{ fontSize: '1.1rem', fontWeight: '800', letterSpacing: '2px', background: '#1e293b', color: '#fff', padding: '4px 0', marginTop: '8px', borderRadius: '4px' }}>

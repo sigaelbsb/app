@@ -546,11 +546,11 @@ export const GradosSalones = () => {
 
         let escuelaTitulo = '';
         if (escuela === 'ambas') {
-          escuelaTitulo = 'U.E. Santa Bárbara & U.E. Libertador Bolívar';
+          escuelaTitulo = 'UE Santa Bárbara & UE Libertador Bolívar';
         } else if (escuela === 'sb') {
-          escuelaTitulo = 'U.E. Santa Bárbara';
+          escuelaTitulo = 'UE Santa Bárbara';
         } else if (escuela === 'lb') {
-          escuelaTitulo = 'U.E. Libertador Bolívar';
+          escuelaTitulo = 'UE Libertador Bolívar';
         }
 
         let cintilloHtml = '';

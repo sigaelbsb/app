@@ -383,14 +383,14 @@ export const PanelControl = () => {
                         disabled={saving || !canDelete} 
                         className="btn btn-outline-danger btn-sm fw-bold w-100 rounded-pill text-start px-3"
                       >
-                        <i className="bi bi-trash3-fill me-2"></i> Vaciar U.E. Santa Bárbara (SB)
+                        <i className="bi bi-trash3-fill me-2"></i> Vaciar UE Santa Bárbara (SB)
                       </button>
                       <button 
                         onClick={() => vaciarTabla('salones', 'lb')} 
                         disabled={saving || !canDelete} 
                         className="btn btn-outline-danger btn-sm fw-bold w-100 rounded-pill text-start px-3"
                       >
-                        <i className="bi bi-trash3-fill me-2"></i> Vaciar U.E. Libertador Bolívar (LB)
+                        <i className="bi bi-trash3-fill me-2"></i> Vaciar UE Libertador Bolívar (LB)
                       </button>
                     </div>
                   </div>
@@ -408,14 +408,14 @@ export const PanelControl = () => {
                         disabled={saving || !canDelete} 
                         className="btn btn-outline-danger btn-sm fw-bold w-100 rounded-pill text-start px-3"
                       >
-                        <i className="bi bi-trash3-fill me-2"></i> Vaciar U.E. Santa Bárbara (SB)
+                        <i className="bi bi-trash3-fill me-2"></i> Vaciar UE Santa Bárbara (SB)
                       </button>
                       <button 
                         onClick={() => vaciarTabla('colectivos', 'lb')} 
                         disabled={saving || !canDelete} 
                         className="btn btn-outline-danger btn-sm fw-bold w-100 rounded-pill text-start px-3"
                       >
-                        <i className="bi bi-trash3-fill me-2"></i> Vaciar U.E. Libertador Bolívar (LB)
+                        <i className="bi bi-trash3-fill me-2"></i> Vaciar UE Libertador Bolívar (LB)
                       </button>
                     </div>
                   </div>

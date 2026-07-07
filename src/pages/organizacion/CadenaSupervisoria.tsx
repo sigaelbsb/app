@@ -497,13 +497,13 @@ export const CadenaSupervisoria = () => {
       
       doc.setFont('helvetica', 'bold');
       if (escuelaFiltroMapa === 'consolidado') {
-        doc.text('U.E. Santa Bárbara', textX, margin + 12);
-        doc.text('U.E. Libertador Bolívar', textX, margin + 15.5);
+        doc.text('UE Santa Bárbara', textX, margin + 12);
+        doc.text('UE Libertador Bolívar', textX, margin + 15.5);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
         doc.text('Escuelas DEP Oriente', textX, margin + 19);
       } else {
-        const escuelaNombre = escuelaFiltroMapa === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+        const escuelaNombre = escuelaFiltroMapa === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
         doc.text(escuelaNombre, textX, margin + 12);
       }
 
@@ -748,8 +748,8 @@ export const CadenaSupervisoria = () => {
                       onChange={(e) => setFiltroEscuelaConstructor(e.target.value as any)}
                     >
                       {isDualAccessConstructor && <option value="todos">Todos los Cargos</option>}
-                      {(canEstructurarSB || isDualAccessConstructor) && <option value="sb">U.E. Santa Bárbara</option>}
-                      {(canEstructurarLB || isDualAccessConstructor) && <option value="lb">U.E. Libertador Bolívar</option>}
+                      {(canEstructurarSB || isDualAccessConstructor) && <option value="sb">UE Santa Bárbara</option>}
+                      {(canEstructurarLB || isDualAccessConstructor) && <option value="lb">UE Libertador Bolívar</option>}
                       {isDualAccessConstructor && <option value="global">Globales</option>}
                     </select>
                   </div>
@@ -918,7 +918,7 @@ export const CadenaSupervisoria = () => {
                           className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'sb' ? 'btn-primary' : 'btn-light text-muted'}`}
                           style={{ border: 'none' }}
                         >
-                          U.E. Santa Bárbara
+                          UE Santa Bárbara
                         </button>
                         <button 
                           type="button" 
@@ -926,7 +926,7 @@ export const CadenaSupervisoria = () => {
                           className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'lb' ? 'btn-primary' : 'btn-light text-muted'}`}
                           style={{ border: 'none' }}
                         >
-                          U.E. Libertador Bolívar
+                          UE Libertador Bolívar
                         </button>
                         <button 
                           type="button" 
@@ -942,7 +942,7 @@ export const CadenaSupervisoria = () => {
                     <div>
                       <label className="form-label small fw-bold text-muted mb-1 d-block">Estructura Escolar</label>
                       <span className="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 fw-bold" style={{ fontSize: '0.85rem' }}>
-                        <i className="bi bi-building me-1"></i> {escuelaFiltroMapa === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                        <i className="bi bi-building me-1"></i> {escuelaFiltroMapa === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
                       </span>
                     </div>
                   )}

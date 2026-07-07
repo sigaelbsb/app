@@ -351,7 +351,7 @@ export const EspaciosEscolares = () => {
             <div className="card p-3 border-0 shadow-sm rounded-4 text-dark bg-white border-start border-4 border-info h-100">
               <div className="d-flex justify-content-between align-items-center h-100">
                 <div>
-                  <span className="small fw-bold text-muted">U.E. Santa Bárbara</span>
+                  <span className="small fw-bold text-muted">UE Santa Bárbara</span>
                   <h3 className="fw-bold m-0 mt-1 text-info">{capTotalSB}</h3>
                 </div>
                 <i className="bi bi-mortarboard-fill fs-1 text-info opacity-25"></i>
@@ -364,7 +364,7 @@ export const EspaciosEscolares = () => {
             <div className="card p-3 border-0 shadow-sm rounded-4 text-dark bg-white border-start border-4 border-primary h-100">
               <div className="d-flex justify-content-between align-items-center h-100">
                 <div>
-                  <span className="small fw-bold text-muted">U.E. Libertador Bolívar</span>
+                  <span className="small fw-bold text-muted">UE Libertador Bolívar</span>
                   <h3 className="fw-bold m-0 mt-1 text-primary">{capTotalLB}</h3>
                 </div>
                 <i className="bi bi-book-fill fs-1 text-primary opacity-25"></i>
@@ -429,8 +429,8 @@ export const EspaciosEscolares = () => {
                       onChange={(e) => setIdEscuelaForm(e.target.value)}
                     >
                       <option value="">Seleccione...</option>
-                      {escuelasConCrear.includes('sb') && <option value="sb">U.E. Santa Bárbara</option>}
-                      {escuelasConCrear.includes('lb') && <option value="lb">U.E. Libertador Bolívar</option>}
+                      {escuelasConCrear.includes('sb') && <option value="sb">UE Santa Bárbara</option>}
+                      {escuelasConCrear.includes('lb') && <option value="lb">UE Libertador Bolívar</option>}
                     </select>
                   </div>
                 )}

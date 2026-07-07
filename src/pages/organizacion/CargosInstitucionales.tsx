@@ -552,8 +552,8 @@ export const CargosInstitucionales = () => {
                         onChange={(e) => setFormEscuela(e.target.value)}
                       >
                         <option value="">Global / Ambas Escuelas</option>
-                        <option value="sb">U.E. Santa Bárbara</option>
-                        <option value="lb">U.E. Libertador Bolívar</option>
+                        <option value="sb">UE Santa Bárbara</option>
+                        <option value="lb">UE Libertador Bolívar</option>
                       </select>
                     </div>
                     <div className="mb-4">
@@ -825,7 +825,7 @@ export const CargosInstitucionales = () => {
                                     {u.rol}
                                   </span>
                                   <span className={`badge ${u.id_escuela === 'sb' ? 'bg-primary' : 'bg-info'} bg-opacity-10 ${u.id_escuela === 'sb' ? 'text-primary' : 'text-info'} border px-2 py-0.5`} style={{ fontSize: '0.75rem' }}>
-                                    {u.id_escuela === 'sb' ? 'U.E. Santa Bárbara' : u.id_escuela === 'lb' ? 'U.E. Libertador Bolívar' : 'Global/Soporte'}
+                                    {u.id_escuela === 'sb' ? 'UE Santa Bárbara' : u.id_escuela === 'lb' ? 'UE Libertador Bolívar' : 'Global/Soporte'}
                                   </span>
                                 </div>
                               </td>

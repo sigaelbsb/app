@@ -1005,7 +1005,7 @@ export const GestionColectivos = () => {
                   <i className="bi bi-people-fill me-3"></i>Gestión de Colectivos
                 </h1>
                 <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Agrupaciones pedagógicas de docentes, estudiantes y representantes para {escuelaSeleccionada === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}.
+                  Agrupaciones pedagógicas de docentes, estudiantes y representantes para {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
                 </p>
               </div>
             </div>

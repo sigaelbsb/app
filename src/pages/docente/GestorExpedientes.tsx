@@ -298,7 +298,7 @@ export const GestorExpedientes = () => {
         d.vacaciones_hasta ? formatExcelDate(d.vacaciones_hasta) : '',
         d.dias_continuos || 0,
         d.periodo_vacacional || '2025-2026',
-        segundoNombre || (d.escuela === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR'),
+        segundoNombre || (d.escuela === 'sb' ? 'UE SANTA BÁRBARA' : 'UE LIBERTADOR BOLÍVAR'),
         d.indicador || '',
         d.supervisor_nombre || '',
         d.supervisor_cedula || '',
@@ -483,8 +483,8 @@ export const GestorExpedientes = () => {
               onChange={(e) => setFiltroEscuela(e.target.value)}
             >
               <option value="todas">Todas las Escuelas</option>
-              <option value="sb">U.E. Santa Bárbara</option>
-              <option value="lb">U.E. Libertador Bolívar</option>
+              <option value="sb">UE Santa Bárbara</option>
+              <option value="lb">UE Libertador Bolívar</option>
             </select>
           </div>
 

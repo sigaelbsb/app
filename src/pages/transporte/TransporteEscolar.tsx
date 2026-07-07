@@ -538,7 +538,7 @@ export const TransporteEscolar = () => {
   };
 
   const getParadasWithEscuela = (pids: string[]) => {
-    const nombreEscuela = escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const nombreEscuela = escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
     const paradaEscuela = { id: 'escuela_virtual', nombre_parada: `🏫 ${nombreEscuela}`, descripcion: 'Sede Educativa Institucional' };
     
     return pids.map(pid => {
@@ -998,7 +998,7 @@ export const TransporteEscolar = () => {
         const mensajes: string[] = [];
         
         let cabecera = `🚍 *RECORRIDOS DE TRANSPORTE ESCOLAR CONSOLIDADOS*\n`;
-        cabecera += `🏫 *${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}*\n`;
+        cabecera += `🏫 *${escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}*\n`;
         cabecera += `📅 Fecha: ${new Date().toLocaleDateString('es-VE')}\n\n`;
         
         let mensajeActual = cabecera;
@@ -1026,7 +1026,7 @@ export const TransporteEscolar = () => {
           
           if (mensajeActual.length + bloqueRuta.length > MAX_CHAR && mensajeActual !== cabecera) {
             mensajes.push(mensajeActual);
-            mensajeActual = `🚍 *RECORRIDOS CONSOLIDADOS (Continuación)*\n🏫 *${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}*\n\n` + bloqueRuta;
+            mensajeActual = `🚍 *RECORRIDOS CONSOLIDADOS (Continuación)*\n🏫 *${escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}*\n\n` + bloqueRuta;
           } else {
             mensajeActual += bloqueRuta;
           }

@@ -385,7 +385,7 @@ export const AuditoriaSistema = () => {
                 <i className="bi bi-clock-history me-3"></i>Auditoría del Sistema
               </h1>
               <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Historial detallado de movimientos y acciones de los usuarios para {filtroEscuela === 'TODAS' ? 'Ambas Instituciones' : (filtroEscuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar')}.
+                Historial detallado de movimientos y acciones de los usuarios para {filtroEscuela === 'TODAS' ? 'Ambas Instituciones' : (filtroEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar')}.
               </p>
             </div>
           </div>
