@@ -334,6 +334,9 @@ export const SolicitudCupos = () => {
           doc_partida_nexo: documentos.partida_nexo && typeof documentos.partida_nexo === 'string' ? documentos.partida_nexo : undefined,
         };
 
+        if (payload.estudiante_fecha_nacimiento === '') payload.estudiante_fecha_nacimiento = null;
+        if (payload.estudiante_orden_nacimiento === '') payload.estudiante_orden_nacimiento = null;
+
         if (editingId) {
           await supabase.from('solicitud_cupos').update(payload).eq('id', editingId);
           setSavingStatus('saved');
@@ -343,12 +346,14 @@ export const SolicitudCupos = () => {
             ...payload,
             codigo_escuela: escCodigo,
             estado: 'Borrador',
-            creado_por: user.cedula
+            creado_por: user.cedula,
+            codigo_unico: payload.codigo_unico || generarCodigoUnico(escCodigo)
           };
           const { data, error } = await supabase.from('solicitud_cupos').insert(insertPayload).select().single();
           if (error) throw error;
           if (data && data.id) {
             setEditingId(data.id);
+            setForm(prev => ({ ...prev, codigo_unico: insertPayload.codigo_unico }));
             setSavingStatus('saved');
           }
         }
