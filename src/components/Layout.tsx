@@ -349,6 +349,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           // Cerrar sesión por completo: limpiar todo
           localStorage.removeItem('sesion_sigae');
           localStorage.removeItem('usuario_sigae');
+          localStorage.removeItem('sigae_escuela_codigo');
+          localStorage.removeItem('sigae_escuela_activa');
           onLogout();
           navigate('/login');
         }
@@ -360,6 +362,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       } else {
         localStorage.removeItem('sesion_sigae');
         localStorage.removeItem('usuario_sigae');
+        localStorage.removeItem('sigae_escuela_codigo');
+        localStorage.removeItem('sigae_escuela_activa');
         onLogout();
         navigate('/login');
       }
