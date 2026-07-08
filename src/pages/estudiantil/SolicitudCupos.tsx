@@ -334,7 +334,7 @@ export const SolicitudCupos = () => {
           doc_partida_nexo: documentos.partida_nexo && typeof documentos.partida_nexo === 'string' ? documentos.partida_nexo : undefined,
         };
 
-        if (payload.estudiante_fecha_nacimiento === '') payload.estudiante_fecha_nacimiento = null;
+        if (!payload.estudiante_fecha_nacimiento) payload.estudiante_fecha_nacimiento = '1900-01-01';
         if (payload.estudiante_orden_nacimiento === '') payload.estudiante_orden_nacimiento = null;
 
         if (editingId) {
@@ -736,7 +736,7 @@ export const SolicitudCupos = () => {
       estudiante_nombres: sol.estudiante_nombres,
       estudiante_apellidos: sol.estudiante_apellidos,
       estudiante_cedula: sol.estudiante_cedula || '',
-      estudiante_fecha_nacimiento: sol.estudiante_fecha_nacimiento,
+      estudiante_fecha_nacimiento: sol.estudiante_fecha_nacimiento === '1900-01-01' ? '' : sol.estudiante_fecha_nacimiento,
       estudiante_sexo: sol.estudiante_sexo,
       estudiante_orden_nacimiento: sol.estudiante_orden_nacimiento || '',
       estudiante_condicion_neuro: sol.estudiante_condicion_neuro || 'Neurotípico',
