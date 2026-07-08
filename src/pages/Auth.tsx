@@ -770,11 +770,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
       const guestData = {
         id: 'guest-' + Date.now(),
-        nombre: invNombres,
-        apellido: invApellidos,
+        nombre: `${invNombres} ${invApellidos}`.trim(),
+        nombres: invNombres,
+        apellidos: invApellidos,
         cedula: cedula,
         rol: 'Invitado',
-        email: invCorreo
+        email: invCorreo,
+        telefono: invTelefono
       };
       localStorage.setItem('sesion_sigae', 'activa');
       localStorage.setItem('usuario_sigae', JSON.stringify(guestData));

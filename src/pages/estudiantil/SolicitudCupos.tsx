@@ -296,8 +296,8 @@ export const SolicitudCupos = () => {
       const nombresSplit = user.nombre ? user.nombre.split(' ') : [];
       setForm(prev => ({
         ...prev,
-        representante_nombres: prev.representante_nombres || nombresSplit.slice(0, 2).join(' ') || '',
-        representante_apellidos: prev.representante_apellidos || nombresSplit.slice(2).join(' ') || '',
+        representante_nombres: prev.representante_nombres || user.nombres || nombresSplit.slice(0, 2).join(' ') || '',
+        representante_apellidos: prev.representante_apellidos || user.apellidos || nombresSplit.slice(2).join(' ') || '',
         representante_cedula: prev.representante_cedula || user.cedula || '',
         representante_email: prev.representante_email || user.email || '',
         representante_telefono: prev.representante_telefono || user.telefono || '',
