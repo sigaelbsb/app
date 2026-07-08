@@ -240,11 +240,7 @@ export const SolicitudCupos = () => {
   const [estadosDB, setEstadosDB] = useState<string[]>([]);
 
   // Wizard state
-  const [step, setStep] = useState(() => {
-    const escCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-    const savedStep = localStorage.getItem(`sigae_borrador_step_${escCode}`);
-    return savedStep ? parseInt(savedStep, 10) : 1;
-  });
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -284,32 +280,7 @@ export const SolicitudCupos = () => {
     ? Array.from(new Set(geoData.filter(d => d.estado === form.estado_habitacion && d.municipio === form.municipio_habitacion).map(d => d.parroquia))).sort()
     : [];
 
-  // Autosave: Cargar borrador al iniciar
-  useEffect(() => {
-    if (activeTab === 'nueva_solicitud' && !editingId) {
-      const borrador = localStorage.getItem(`sigae_borrador_cupo_${escCodigo}`);
-      if (borrador) {
-        try {
-          const parsed = JSON.parse(borrador);
-          if (parsed && Object.keys(parsed).length > 0) {
-            // Merge with default form to ensure all fields exist
-            setForm(prev => ({ ...prev, ...parsed }));
-          }
-        } catch (e) {}
-      }
-    }
-  }, [activeTab, escCodigo, editingId]);
-
-  // Autosave: Guardar borrador al cambiar form
-  useEffect(() => {
-    if (activeTab === 'nueva_solicitud' && !editingId) {
-      setSavingStatus('saving');
-      localStorage.setItem(`sigae_borrador_cupo_${escCodigo}`, JSON.stringify(form));
-      localStorage.setItem(`sigae_borrador_step_${escCodigo}`, step.toString());
-      const timer = setTimeout(() => setSavingStatus('saved'), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [form, step, activeTab, escCodigo, editingId]);
+  // El autoguardado ahora se realiza directamente en Supabase
 
   useEffect(() => {
     if (!permLoading && user) {
@@ -334,12 +305,13 @@ export const SolicitudCupos = () => {
     }
   }, [user, activeTab, editingId]);
 
-  // Auto-guardado silencioso en base de datos al estar editando (Debounce 1.5s)
+  // Auto-guardado silencioso en base de datos al estar editando o creando (Debounce 1.5s)
   useEffect(() => {
-    if (!editingId) return;
+    if (activeTab !== 'nueva_solicitud') return;
 
     const timer = setTimeout(async () => {
       try {
+        setSavingStatus('saving');
         const { 
           pdvsa_localidad_trabajo_otra, 
           estudiante_tipo_condicion_otro, 
@@ -362,19 +334,38 @@ export const SolicitudCupos = () => {
           doc_partida_nexo: documentos.partida_nexo && typeof documentos.partida_nexo === 'string' ? documentos.partida_nexo : undefined,
         };
 
-        await supabase.from('solicitud_cupos').update(payload).eq('id', editingId);
+        if (editingId) {
+          await supabase.from('solicitud_cupos').update(payload).eq('id', editingId);
+          setSavingStatus('saved');
+        } else {
+          // INSERTAR NUEVO BORRADOR
+          const insertPayload = {
+            ...payload,
+            codigo_escuela: escCodigo,
+            estado: 'Borrador',
+            creado_por: user.cedula
+          };
+          const { data, error } = await supabase.from('solicitud_cupos').insert(insertPayload).select().single();
+          if (error) throw error;
+          if (data && data.id) {
+            setEditingId(data.id);
+            setSavingStatus('saved');
+          }
+        }
+        
         // Actualizar listado en segundo plano silenciosamente
         let query = supabase.from('solicitud_cupos').select('*').eq('codigo_escuela', escCodigo);
         if (!isUserAdmin && user) query = query.eq('creado_por', user.cedula);
-        const { data } = await query.order('created_at', { ascending: false });
-        if (data) setSolicitudes(data as SolicitudDB[]);
+        const { data: listData } = await query.order('created_at', { ascending: false });
+        if (listData) setSolicitudes(listData as SolicitudDB[]);
       } catch (err) {
-        console.error('Error auto-guardado segundo plano:', err);
+        console.error('Error auto-guardando DB:', err);
+        setSavingStatus('error');
       }
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [form, documentos, editingId, escCodigo, isUserAdmin, user]);
+  }, [form, documentos, editingId, escCodigo, isUserAdmin, user, activeTab]);
 
   const cargarRutasYParadas = async () => {
     try {
@@ -699,8 +690,10 @@ export const SolicitudCupos = () => {
       await cargarDatos();
 
       // Limpiar el autoguardado tras el envío exitoso
-      localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}`);
-      localStorage.removeItem(`sigae_borrador_step_${escCodigo}`);
+      if (user) {
+        localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}_${user.cedula}`);
+        localStorage.removeItem(`sigae_borrador_step_${escCodigo}_${user.cedula}`);
+      }
       setSolicitudGuardada(finalData as SolicitudDB);
       setStep(7);
     } catch (error: any) {
@@ -2366,7 +2359,7 @@ export const SolicitudCupos = () => {
                             <i className="bi bi-whatsapp me-1"></i> WhatsApp
                           </button>
                         </div>
-                        {sol.estado === 'Pendiente' && (
+                        {(sol.estado === 'Pendiente' || sol.estado === 'Borrador') && (
                           <div>
                             <button onClick={() => handleEditarSolicitud(sol)} className="btn btn-sm btn-outline-primary border-0 rounded-pill me-2">
                               <i className="bi bi-pencil-square me-1"></i> Editar
@@ -2412,6 +2405,7 @@ export const SolicitudCupos = () => {
                     Error al guardar borrador
                   </span>
                 )}
+
               </div>
               <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle">
                 Paso {step} de 7

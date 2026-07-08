@@ -370,17 +370,29 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
-  // Inactivity tracking (30 minutes)
+  // Inactivity tracking (20 minutes)
   useEffect(() => {
-    const TIEMPO_INACTIVIDAD = 30 * 60 * 1000; // 30 minutos
+    const TIEMPO_INACTIVIDAD = 20 * 60 * 1000; // 20 minutos
     const TIEMPO_ADVERTENCIA = 30 * 1000; // 30 segundos
-    let timerInactividad: any;
-    let timerAdvertencia: any;
+    
+    let lastActivityTime = Date.now();
+    let isWarningActive = false;
+    let checkInterval: any;
 
-    const resetTimer = () => {
-      clearTimeout(timerInactividad);
-      clearTimeout(timerAdvertencia);
-      timerInactividad = setTimeout(mostrarAdvertencia, TIEMPO_INACTIVIDAD - TIEMPO_ADVERTENCIA);
+    const actualizarActividad = () => {
+      if (!isWarningActive) {
+        lastActivityTime = Date.now();
+      }
+    };
+
+    const checkInactividad = () => {
+      if (isWarningActive) return;
+      const timeSinceLastActivity = Date.now() - lastActivityTime;
+      
+      if (timeSinceLastActivity >= TIEMPO_INACTIVIDAD - TIEMPO_ADVERTENCIA) {
+        isWarningActive = true;
+        mostrarAdvertencia();
+      }
     };
 
     const mostrarAdvertencia = () => {
@@ -416,7 +428,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           }
         }).then((result: any) => {
           if (result.isConfirmed) {
-            resetTimer();
+            isWarningActive = false;
+            lastActivityTime = Date.now();
           } else {
             handleBloquearSesion();
           }
@@ -424,7 +437,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       } else {
         const mantener = window.confirm("Tu sesión está inactiva. ¿Deseas mantenerte activo?");
         if (mantener) {
-          resetTimer();
+          isWarningActive = false;
+          lastActivityTime = Date.now();
         } else {
           handleBloquearSesion();
         }
@@ -432,14 +446,14 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     };
 
     const eventos = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    eventos.forEach(evt => window.addEventListener(evt, resetTimer));
+    eventos.forEach(evt => window.addEventListener(evt, actualizarActividad));
 
-    resetTimer();
+    // Check inactividad cada 10 segundos
+    checkInterval = setInterval(checkInactividad, 10000);
 
     return () => {
-      clearTimeout(timerInactividad);
-      clearTimeout(timerAdvertencia);
-      eventos.forEach(evt => window.removeEventListener(evt, resetTimer));
+      clearInterval(checkInterval);
+      eventos.forEach(evt => window.removeEventListener(evt, actualizarActividad));
     };
   }, [navigate, onLogout]);
 
