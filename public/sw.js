@@ -3,7 +3,7 @@
  * Gestiona la instalación de la app y el caché básico.
  */
 
-const CACHE_NAME = 'sigae-cache-v8-20260708-1';
+const CACHE_NAME = 'sigae-cache-v9-20260708';
 
 const urlsToCache = [
   '/',
