@@ -1055,7 +1055,7 @@ export const GestionRegistros = () => {
                     </div>
                   ) : (
                     <div className="accordion accordion-flush" id="accordion-invitados">
-                      {filteredCedulas.map((ced, idx) => {
+                      {filteredCedulas.map((ced) => {
                         const visitas = grouped[ced];
                         const ultimo = visitas[0];
                         const isExpanded = expandedCedula === ced;
