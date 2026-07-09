@@ -45,7 +45,9 @@ export const GestionRegistros = () => {
   );
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'visitantes' | 'historial'>('visitantes');
+  const [activeTab, setActiveTab] = useState<'visitantes' | 'historial' | 'invitados_historial'>('visitantes');
+  const [historialSearch, setHistorialSearch] = useState('');
+  const [expandedCedula, setExpandedCedula] = useState<string | null>(null);
 
   // Visitor state
   const [visitantes, setVisitantes] = useState<Visitante[]>([]);
@@ -68,6 +70,15 @@ export const GestionRegistros = () => {
   // Print Pass state
   const [selectedVisitante, setSelectedVisitante] = useState<Visitante | null>(null);
 
+  // Edit Visitante state
+  const [editVisitante, setEditVisitante] = useState<Visitante | null>(null);
+  const [editando, setEditando] = useState(false);
+  const [editNombres, setEditNombres] = useState('');
+  const [editApellidos, setEditApellidos] = useState('');
+  const [editCorreo, setEditCorreo] = useState('');
+  const [editTelefono, setEditTelefono] = useState('');
+  const [editRazon, setEditRazon] = useState('');
+
   // Logs state
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
@@ -85,6 +96,7 @@ export const GestionRegistros = () => {
   const hasModuloAcceso = tienePermiso('Gestión de Registros', 'ver');
   const hasCrearVisita = tienePermiso('Gestión de Registros', 'crear');
   const hasEliminarVisita = tienePermiso('Gestión de Registros', 'eliminar');
+  const hasEditarVisita = tienePermiso('Gestión de Registros', 'editar') || hasEliminarVisita;
 
   useEffect(() => {
     if (!permLoading && isDualAccess) {
@@ -323,6 +335,48 @@ export const GestionRegistros = () => {
       if (Swal) Swal.fire("Error al guardar", `Detalle: ${msg}`, "error");
     }
     setRegistrando(false);
+  };
+
+  const handleOpenEdit = (v: Visitante) => {
+    setEditVisitante(v);
+    setEditNombres(v.nombres);
+    setEditApellidos(v.apellidos);
+    setEditCorreo(v.correo || '');
+    setEditTelefono(v.telefono || '');
+    setEditRazon(v.razon_visita);
+  };
+
+  const handleSaveEditVisitante = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editVisitante) return;
+    const nombres = editNombres.trim();
+    const apellidos = editApellidos.trim();
+    const razon_visita = editRazon.trim();
+    if (!nombres || !apellidos || !razon_visita) {
+      if (Swal) Swal.fire('Atención', 'Nombres, apellidos y motivo son obligatorios.', 'warning');
+      return;
+    }
+    setEditando(true);
+    try {
+      const { error } = await supabase
+        .from('invitados')
+        .update({
+          nombres,
+          apellidos,
+          correo: editCorreo.trim() || null,
+          telefono: editTelefono.trim() || null,
+          razon_visita
+        })
+        .eq('id_invitado', editVisitante.id_invitado);
+      if (error) throw error;
+      auditar('Gestión de Registros', 'Editar Registro', `Editó registro de invitado: ${nombres} ${apellidos} (C.I: ${editVisitante.cedula})`);
+      await cargarVisitantes();
+      setEditVisitante(null);
+      if (Swal) Swal.fire('¡Actualizado!', 'El registro del invitado fue actualizado correctamente.', 'success');
+    } catch (err: any) {
+      if (Swal) Swal.fire('Error', err?.message || 'No se pudo actualizar el registro.', 'error');
+    }
+    setEditando(false);
   };
 
   const handleDeleteVisitante = async (id: string, name: string) => {
@@ -636,7 +690,13 @@ export const GestionRegistros = () => {
               <i className="bi bi-people-fill me-2"></i> Control de Visitantes
             </button>
             <button 
-              onClick={() => setActiveTab('historial')} 
+              onClick={() => { setActiveTab('invitados_historial'); }}
+              className={`btn rounded-pill px-4 fw-bold hover-efecto ${activeTab === 'invitados_historial' ? 'btn-dark text-white' : 'btn-light text-muted'}`}
+            >
+              <i className="bi bi-person-lines-fill me-2"></i> Histórico de Invitados
+            </button>
+            <button 
+              onClick={() => { setActiveTab('historial'); cargarHistorial(); }} 
               className={`btn rounded-pill px-4 fw-bold hover-efecto ${activeTab === 'historial' ? 'btn-dark text-white' : 'btn-light text-muted'}`}
             >
               <i className="bi bi-clock-history me-2"></i> Bitácora de Escuela
@@ -898,22 +958,33 @@ export const GestionRegistros = () => {
                               </div>
                             </td>
                             <td className="text-center pe-4">
-                              <button 
-                                className="btn btn-sm btn-light text-success border rounded-circle shadow-sm hover-efecto me-1"
-                                onClick={() => setSelectedVisitante(v)}
-                                title="Generar Pase de Visitante"
-                              >
-                                <i className="bi bi-card-heading"></i>
-                              </button>
-                              {hasEliminarVisita && (
+                              <div className="d-flex gap-1 justify-content-center">
                                 <button 
-                                  className="btn btn-sm btn-light text-danger border rounded-circle shadow-sm hover-efecto"
-                                  onClick={() => handleDeleteVisitante(v.id_invitado, `${v.nombres} ${v.apellidos}`)}
-                                  title="Eliminar Registro"
+                                  className="btn btn-sm btn-light text-success border rounded-circle shadow-sm hover-efecto"
+                                  onClick={() => setSelectedVisitante(v)}
+                                  title="Generar Pase de Visitante"
                                 >
-                                  <i className="bi bi-trash3-fill"></i>
+                                  <i className="bi bi-card-heading"></i>
                                 </button>
-                              )}
+                                {hasEditarVisita && (
+                                  <button 
+                                    className="btn btn-sm btn-light text-primary border rounded-circle shadow-sm hover-efecto"
+                                    onClick={() => handleOpenEdit(v)}
+                                    title="Editar Registro"
+                                  >
+                                    <i className="bi bi-pencil-fill"></i>
+                                  </button>
+                                )}
+                                {hasEliminarVisita && (
+                                  <button 
+                                    className="btn btn-sm btn-light text-danger border rounded-circle shadow-sm hover-efecto"
+                                    onClick={() => handleDeleteVisitante(v.id_invitado, `${v.nombres} ${v.apellidos}`)}
+                                    title="Eliminar Registro"
+                                  >
+                                    <i className="bi bi-trash3-fill"></i>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -926,6 +997,168 @@ export const GestionRegistros = () => {
           </div>
         </div>
       )}
+
+      {/* TAB 3: HISTORIAL DE INVITADOS */}
+      {activeTab === 'invitados_historial' && (() => {
+        // Agrupar visitantes por cédula
+        const grouped: Record<string, Visitante[]> = {};
+        visitantes.forEach(v => {
+          if (!grouped[v.cedula]) grouped[v.cedula] = [];
+          grouped[v.cedula].push(v);
+        });
+        const cedulasOrdenadas = Object.keys(grouped).sort((a, b) => {
+          // Ordenar por fecha de última visita desc
+          const lastA = grouped[a][0].created_at;
+          const lastB = grouped[b][0].created_at;
+          return new Date(lastB).getTime() - new Date(lastA).getTime();
+        });
+        const query = historialSearch.trim().toLowerCase();
+        const filteredCedulas = cedulasOrdenadas.filter(ced => {
+          const v0 = grouped[ced][0];
+          return (
+            ced.includes(query) ||
+            v0.nombres.toLowerCase().includes(query) ||
+            v0.apellidos.toLowerCase().includes(query) ||
+            grouped[ced].some(v => v.razon_visita.toLowerCase().includes(query))
+          );
+        });
+        return (
+          <div className="row animate__animated animate__fadeIn">
+            <div className="col-12">
+              <div className="card border-0 shadow-sm rounded-4">
+                <div className="card-header bg-white border-bottom p-4">
+                  <div className="row g-3 align-items-center">
+                    <div className="col-md-6">
+                      <h5 className="mb-0 fw-bold text-dark">
+                        <i className="bi bi-person-lines-fill text-primary me-2"></i>
+                        Histórico de Invitados
+                      </h5>
+                      <small className="text-muted">{filteredCedulas.length} invitado(s) registrado(s) &nbsp;·&nbsp; {visitantes.length} visita(s) en total</small>
+                    </div>
+                    <div className="col-md-6 d-flex justify-content-md-end">
+                      <div className="input-group input-group-sm" style={{ width: '280px' }}>
+                        <span className="input-group-text bg-white border-end-0 border-secondary border-opacity-50"><i className="bi bi-search text-muted"></i></span>
+                        <input type="text" className="form-control border-start-0 border-secondary border-opacity-50"
+                          placeholder="Buscar por cédula, nombre o motivo..."
+                          value={historialSearch} onChange={e => setHistorialSearch(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="card-body p-0">
+                  {loadingVisitantes ? (
+                    <div className="text-center py-5"><div className="spinner-border text-primary" role="status"></div></div>
+                  ) : filteredCedulas.length === 0 ? (
+                    <div className="text-center py-5 text-muted">
+                      <i className="bi bi-person-x fs-1 d-block mb-2"></i>
+                      No se encontraron invitados con ese criterio.
+                    </div>
+                  ) : (
+                    <div className="accordion accordion-flush" id="accordion-invitados">
+                      {filteredCedulas.map((ced, idx) => {
+                        const visitas = grouped[ced];
+                        const ultimo = visitas[0];
+                        const isExpanded = expandedCedula === ced;
+                        return (
+                          <div key={ced} className="accordion-item border-bottom">
+                            <div
+                              className="d-flex align-items-center gap-3 px-4 py-3"
+                              style={{ cursor: 'pointer', background: isExpanded ? '#f0f9ff' : '#fff', transition: 'background 0.2s' }}
+                              onClick={() => setExpandedCedula(isExpanded ? null : ced)}
+                            >
+                              <div
+                                className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold text-white"
+                                style={{ width: 42, height: 42, background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)', fontSize: '1rem' }}
+                              >
+                                {ultimo.nombres.charAt(0)}{ultimo.apellidos.charAt(0)}
+                              </div>
+                              <div className="flex-grow-1">
+                                <div className="fw-bold text-dark">{ultimo.nombres} {ultimo.apellidos}</div>
+                                <div className="small text-muted">C.I: {ced} &nbsp;·&nbsp; {ultimo.correo || 'Sin correo'} &nbsp;·&nbsp; {ultimo.telefono || 'Sin teléfono'}</div>
+                              </div>
+                              <div className="text-end flex-shrink-0">
+                                <span className="badge rounded-pill px-3 py-2" style={{ background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>
+                                  {visitas.length} visita{visitas.length !== 1 ? 's' : ''}
+                                </span>
+                                <div className="small text-muted mt-1">Última: {new Date(ultimo.created_at).toLocaleDateString('es-VE')}</div>
+                              </div>
+                              <div className="ms-2 text-muted">
+                                <i className={`bi bi-chevron-${isExpanded ? 'up' : 'down'}`}></i>
+                              </div>
+                            </div>
+                            {isExpanded && (
+                              <div className="px-4 pb-3 pt-1" style={{ background: '#f8fafc' }}>
+                                <div className="d-flex justify-content-end gap-2 mb-3">
+                                  {hasEditarVisita && (
+                                    <button className="btn btn-sm btn-outline-primary rounded-pill fw-semibold"
+                                      onClick={e => { e.stopPropagation(); handleOpenEdit(ultimo); }}>
+                                      <i className="bi bi-pencil-fill me-1"></i> Editar
+                                    </button>
+                                  )}
+                                  {hasEliminarVisita && (
+                                    <button className="btn btn-sm btn-outline-danger rounded-pill fw-semibold"
+                                      onClick={e => { e.stopPropagation(); handleDeleteVisitante(ultimo.id_invitado, `${ultimo.nombres} ${ultimo.apellidos}`); }}>
+                                      <i className="bi bi-trash3-fill me-1"></i> Eliminar última visita
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="table-responsive">
+                                  <table className="table table-sm table-hover align-middle rounded-4 overflow-hidden mb-0" style={{ fontSize: '0.85rem' }}>
+                                    <thead className="bg-light text-muted text-uppercase" style={{ fontSize: '0.72rem' }}>
+                                      <tr>
+                                        <th className="ps-3">#</th>
+                                        <th>Fecha y Hora</th>
+                                        <th>Motivo de Visita</th>
+                                        <th className="text-center">Acciones</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {visitas.map((v, i) => (
+                                        <tr key={v.id_invitado}>
+                                          <td className="ps-3 fw-bold text-muted">{visitas.length - i}</td>
+                                          <td className="fw-semibold text-dark">{new Date(v.created_at).toLocaleString('es-VE')}</td>
+                                          <td className="text-muted" style={{ maxWidth: 240 }}>{v.razon_visita}</td>
+                                          <td className="text-center">
+                                            <div className="d-flex gap-1 justify-content-center">
+                                              <button className="btn btn-sm btn-light text-success border rounded-circle shadow-sm"
+                                                onClick={e => { e.stopPropagation(); setSelectedVisitante(v); }}
+                                                title="Pase de Visitante">
+                                                <i className="bi bi-card-heading"></i>
+                                              </button>
+                                              {hasEditarVisita && (
+                                                <button className="btn btn-sm btn-light text-primary border rounded-circle shadow-sm"
+                                                  onClick={e => { e.stopPropagation(); handleOpenEdit(v); }}
+                                                  title="Editar">
+                                                  <i className="bi bi-pencil-fill"></i>
+                                                </button>
+                                              )}
+                                              {hasEliminarVisita && (
+                                                <button className="btn btn-sm btn-light text-danger border rounded-circle shadow-sm"
+                                                  onClick={e => { e.stopPropagation(); handleDeleteVisitante(v.id_invitado, `${v.nombres} ${v.apellidos}`); }}
+                                                  title="Eliminar">
+                                                  <i className="bi bi-trash3-fill"></i>
+                                                </button>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* TAB 2: AUDITORÍA */}
       {activeTab === 'historial' && (
@@ -1029,6 +1262,68 @@ export const GestionRegistros = () => {
                   </nav>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDITAR INVITADO */}
+      {editVisitante && (
+        <div className="modal show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(15,23,42,0.5)', zIndex: 1060 }}>
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '520px' }}>
+            <div className="modal-content rounded-4 border-0 shadow">
+              <div className="modal-header border-bottom-0 pb-0 px-4 pt-4">
+                <div>
+                  <h5 className="modal-title fw-bold text-dark mb-0">
+                    <i className="bi bi-pencil-square text-primary me-2"></i>Editar Registro de Invitado
+                  </h5>
+                  <small className="text-muted">C.I: {editVisitante.cedula} &nbsp;·&nbsp; Registrado: {new Date(editVisitante.created_at).toLocaleDateString('es-VE')}</small>
+                </div>
+                <button type="button" className="btn-close" onClick={() => setEditVisitante(null)}></button>
+              </div>
+              <div className="modal-body px-4 pb-4">
+                <form onSubmit={handleSaveEditVisitante} className="row g-3 mt-1">
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold text-muted">Nombres <span className="text-danger">*</span></label>
+                    <input type="text" className="form-control input-moderno" value={editNombres}
+                      onChange={e => setEditNombres(e.target.value)} required />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold text-muted">Apellidos <span className="text-danger">*</span></label>
+                    <input type="text" className="form-control input-moderno" value={editApellidos}
+                      onChange={e => setEditApellidos(e.target.value)} required />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold text-muted">Correo Electrónico</label>
+                    <input type="email" className="form-control input-moderno" value={editCorreo}
+                      onChange={e => setEditCorreo(e.target.value)} placeholder="opcional" />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold text-muted">Teléfono</label>
+                    <input type="text" className="form-control input-moderno" value={editTelefono}
+                      onChange={e => setEditTelefono(formatPhoneNumber(e.target.value))} placeholder="opcional" />
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label small fw-bold text-muted">Motivo de la Visita <span className="text-danger">*</span></label>
+                    <textarea className="form-control input-moderno" rows={3} value={editRazon}
+                      onChange={e => setEditRazon(e.target.value)} required />
+                  </div>
+                  <div className="col-12 d-flex gap-2 pt-2">
+                    <button type="button" className="btn btn-light rounded-pill fw-bold flex-fill"
+                      onClick={() => setEditVisitante(null)} disabled={editando}>
+                      Cancelar
+                    </button>
+                    <button type="submit" className="btn btn-primary rounded-pill fw-bold flex-fill hover-efecto"
+                      disabled={editando}>
+                      {editando ? (
+                        <><span className="spinner-border spinner-border-sm me-2" role="status"></span>Guardando...</>
+                      ) : (
+                        <><i className="bi bi-floppy-fill me-2"></i>Guardar Cambios</>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>

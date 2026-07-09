@@ -48,10 +48,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isStandalone, setIsStandalone] = useState(false);
   
 
-
   useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    setIsStandalone(standalone);
+
     const estadoSesion = localStorage.getItem('sesion_sigae');
     const uStr = localStorage.getItem('usuario_sigae');
     const escCodigo = localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb' | null;
@@ -162,9 +165,12 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
       const Swal = (window as any).Swal;
       if (Swal) {
-        Swal.fire('¡Éxito!', 'Cuenta configurada correctamente. Inicie sesión con su nueva contraseña.', 'success').then(() => {
-          setLoginStep('clave');
+        Swal.fire('¡Cuenta Configurada!', 'Su cuenta ha sido configurada exitosamente. Para ingresar, seleccione su institución e inicie sesión con sus credenciales.', 'success').then(() => {
+          // Volver al selector de escuelas limpiamente para no confundir sesiones
+          setLoginStep('cedula');
+          setCedula('');
           setClave('');
+          setNombreUsuario('');
           // Clear first login fields
           setPiClave1('');
           setPiClave2('');
@@ -174,11 +180,15 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           setPiResp1('');
           setPiPreg2('');
           setPiResp2('');
+          setView('selector');
         });
       } else {
-        alert('Cuenta configurada correctamente. Inicie sesión con su nueva contraseña.');
-        setLoginStep('clave');
+        alert('Cuenta configurada correctamente. Seleccione su institución e inicie sesión.');
+        setLoginStep('cedula');
+        setCedula('');
         setClave('');
+        setNombreUsuario('');
+        setView('selector');
       }
     } catch (err: any) {
       console.error(err);
@@ -1019,6 +1029,20 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                 </div>
               </div>
             </div>
+
+            {!isStandalone && (
+              <div className="mt-4 pt-2 text-center">
+                <button 
+                  type="button" 
+                  onClick={() => window.dispatchEvent(new Event('show-pwa-modal'))}
+                  className="btn btn-outline-light rounded-pill px-4 py-2 fw-semibold shadow d-inline-flex align-items-center gap-2 hover-efecto"
+                  style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)' }}
+                >
+                  <i className="bi bi-download fs-5 text-warning"></i>
+                  <span>¿Deseas instalar SIGAE como App en tu dispositivo?</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

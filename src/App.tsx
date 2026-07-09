@@ -26,6 +26,7 @@ import { MiExpediente } from './pages/docente/MiExpediente';
 import { GestorExpedientes } from './pages/docente/GestorExpedientes';
 import { SolicitudCupos } from './pages/estudiantil/SolicitudCupos';
 import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
+import { InstallPwaModal } from './components/InstallPwaModal';
 import './componentes.css';
 import './principal.css';
 import './auth_ui.css';
@@ -74,14 +75,18 @@ function App() {
     // Revisar sesión de forma manual (igual que aplicacion.js)
     const authSession = localStorage.getItem('sesion_sigae');
     const userStr = localStorage.getItem('usuario_sigae');
+    const escCodigo = localStorage.getItem('sigae_escuela_codigo');
     
-    if (authSession === 'activa' && userStr) {
+    if (authSession === 'activa' && userStr && escCodigo) {
       try {
         setUsuario(JSON.parse(userStr));
       } catch (e) {
         setUsuario(null);
       }
     } else {
+      // Si no hay escuela seleccionada o la sesión no es válida, limpiar y forzar el selector
+      localStorage.removeItem('sesion_sigae');
+      localStorage.removeItem('usuario_sigae');
       setUsuario(null);
     }
     setLoading(false);
@@ -100,50 +105,53 @@ function App() {
   if (loading) {
     return (
       <div id="pantalla-carga" className="pantalla-carga-ligera" style={{ display: 'flex', opacity: 1 }}>
-        <div className="lr-wrapper">
+        <div className="lr-wrapper-full">
           <div className="lr-pulso lr-pulso-1"></div>
           <div className="lr-pulso lr-pulso-2"></div>
           <div className="lr-pulso lr-pulso-3"></div>
-          <img src="/assets/img/logo_carga.png" alt="SIGAE" className="lr-logo" />
+          <img src="/assets/img/sigae.png" alt="Sistema Integral de Gestión y Administración Escolar" className="lr-logo-full" />
         </div>
-        <div className="fw-bold text-muted small loader-text">CARGANDO SIGAE...</div>
+        <div className="fw-bold text-muted small loader-text mt-3">CARGANDO SISTEMA INTEGRAL DE GESTIÓN Y ADMINISTRACIÓN ESCOLAR...</div>
       </div>
     );
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={!usuario ? <Auth onLogin={handleLogin} /> : <Navigate to="/" replace />} />
-        
-        <Route path="/" element={usuario ? <Layout onLogout={() => setUsuario(null)} /> : <Navigate to="/login" replace />}>
-          <Route index element={<Dashboard />} />
-          <Route path="categoria/:categoryName" element={<CategoryDashboard />} />
-          <Route path="categoria/Seguridad y Accesos/Mi Perfil" element={<MiPerfil />} />
-          <Route path="categoria/Seguridad y Accesos/Métodos de Acceso" element={<MetodosAcceso />} />
-          <Route path="categoria/Seguridad y Accesos/Gestión de Usuarios" element={<GestionUsuarios />} />
-          <Route path="categoria/Seguridad y Accesos/Roles y Privilegios" element={<RolesPrivilegios />} />
-          <Route path="categoria/Seguridad y Accesos/Preguntas de Seguridad" element={<PreguntasSeguridad />} />
-          <Route path="categoria/Seguridad y Accesos/Auditoría del Sistema" element={<AuditoriaSistema />} />
-          <Route path="categoria/Dirección y Sistema/Perfil de la Escuela" element={<PerfilEscuela />} />
-          <Route path="categoria/Dirección y Sistema/Espacios Escolares" element={<EspaciosEscolares />} />
-          <Route path="categoria/Dirección y Sistema/Configuración del Sistema" element={<ConfiguracionSistema />} />
-          <Route path="categoria/Dirección y Sistema/División Territorial" element={<DivisionTerritorial />} />
-          <Route path="categoria/Dirección y Sistema/Cerebro de Sigma" element={<CerebroSigma />} />
-          <Route path="categoria/Dirección y Sistema/Gestión de Registros" element={<GestionRegistros />} />
-          <Route path="categoria/Dirección y Sistema/Panel de Control" element={<PanelControl />} />
-          <Route path="categoria/Organización Escolar/Estructura Empresa" element={<EstructuraEmpresa />} />
-          <Route path="categoria/Organización Escolar/Cargos Institucionales" element={<CargosInstitucionales />} />
-          <Route path="categoria/Organización Escolar/Cadena Supervisoria" element={<CadenaSupervisoria />} />
-          <Route path="categoria/Organización Escolar/Gestión de Colectivos" element={<GestionColectivos />} />
-          <Route path="categoria/Control de Estudios/Grados y Salones" element={<GradosSalones />} />
-          <Route path="categoria/Gestión Docente/Mi Expediente" element={<MiExpediente />} />
-          <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<GestorExpedientes />} />
-          <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<SolicitudCupos />} />
-          <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<TransporteEscolar />} />
-        </Route>
-      </Routes>
-    </Router>
+    <>
+      <InstallPwaModal />
+      <Router>
+        <Routes>
+          <Route path="/login" element={!usuario ? <Auth onLogin={handleLogin} /> : <Navigate to="/" replace />} />
+          
+          <Route path="/" element={usuario ? <Layout onLogout={() => setUsuario(null)} /> : <Navigate to="/login" replace />}>
+            <Route index element={<Dashboard />} />
+            <Route path="categoria/:categoryName" element={<CategoryDashboard />} />
+            <Route path="categoria/Seguridad y Accesos/Mi Perfil" element={<MiPerfil />} />
+            <Route path="categoria/Seguridad y Accesos/Métodos de Acceso" element={<MetodosAcceso />} />
+            <Route path="categoria/Seguridad y Accesos/Gestión de Usuarios" element={<GestionUsuarios />} />
+            <Route path="categoria/Seguridad y Accesos/Roles y Privilegios" element={<RolesPrivilegios />} />
+            <Route path="categoria/Seguridad y Accesos/Preguntas de Seguridad" element={<PreguntasSeguridad />} />
+            <Route path="categoria/Seguridad y Accesos/Auditoría del Sistema" element={<AuditoriaSistema />} />
+            <Route path="categoria/Dirección y Sistema/Perfil de la Escuela" element={<PerfilEscuela />} />
+            <Route path="categoria/Dirección y Sistema/Espacios Escolares" element={<EspaciosEscolares />} />
+            <Route path="categoria/Dirección y Sistema/Configuración del Sistema" element={<ConfiguracionSistema />} />
+            <Route path="categoria/Dirección y Sistema/División Territorial" element={<DivisionTerritorial />} />
+            <Route path="categoria/Dirección y Sistema/Cerebro de Sigma" element={<CerebroSigma />} />
+            <Route path="categoria/Dirección y Sistema/Gestión de Registros" element={<GestionRegistros />} />
+            <Route path="categoria/Dirección y Sistema/Panel de Control" element={<PanelControl />} />
+            <Route path="categoria/Organización Escolar/Estructura Empresa" element={<EstructuraEmpresa />} />
+            <Route path="categoria/Organización Escolar/Cargos Institucionales" element={<CargosInstitucionales />} />
+            <Route path="categoria/Organización Escolar/Cadena Supervisoria" element={<CadenaSupervisoria />} />
+            <Route path="categoria/Organización Escolar/Gestión de Colectivos" element={<GestionColectivos />} />
+            <Route path="categoria/Control de Estudios/Grados y Salones" element={<GradosSalones />} />
+            <Route path="categoria/Gestión Docente/Mi Expediente" element={<MiExpediente />} />
+            <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<GestorExpedientes />} />
+            <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<SolicitudCupos />} />
+            <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<TransporteEscolar />} />
+          </Route>
+        </Routes>
+      </Router>
+    </>
   );
 }
 

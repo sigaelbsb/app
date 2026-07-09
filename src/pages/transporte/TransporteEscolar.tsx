@@ -804,7 +804,7 @@ export const TransporteEscolar = () => {
         <div style="margin-top: 40px; border-top: 1.5px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <img src="/assets/img/logoMPPE.png" style="height: 32px; width: auto;" />
-                <img src="/assets/img/logo_carga.png" style="height: 40px; width: auto;" />
+                <img src="/assets/img/sigae.png" style="height: 38px; width: auto;" />
             </div>
             <div style="text-align: right; font-size: 11px; color: #94a3b8; font-weight: 600;">
                 Generado: ${fechaHoy}<br>
@@ -1186,7 +1186,7 @@ export const TransporteEscolar = () => {
             <div style="margin-top: 40px; border-top: 1.5px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <img src="/assets/img/logoMPPE.png" style="height: 32px; width: auto;" />
-                    <img src="/assets/img/logo_carga.png" style="height: 40px; width: auto;" />
+                    <img src="/assets/img/sigae.png" style="height: 38px; width: auto;" />
                 </div>
                 <div style="text-align: right; font-size: 11px; color: #94a3b8; font-weight: 600;">
                     Generado: ${fechaHoy}<br>

@@ -13,6 +13,12 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
+  const [isStandalone, setIsStandalone] = useState(false);
+  
+  useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    setIsStandalone(standalone);
+  }, []);
   
   // Lógica de Notificaciones
   const [notificaciones, setNotificaciones] = useState<any[]>([]);
@@ -582,6 +588,18 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               </span>
             </div>
 
+            {!isStandalone && (
+              <button 
+                type="button" 
+                onClick={() => window.dispatchEvent(new Event('show-pwa-modal'))}
+                className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold me-3 d-none d-sm-inline-flex align-items-center gap-1 shadow-sm hover-efecto"
+                title="Instalar Aplicación en tu dispositivo"
+              >
+                <i className="bi bi-download"></i>
+                <span>Instalar App</span>
+              </button>
+            )}
+
             <div className="position-relative me-3 cursor-pointer" id="btn-dark-mode">
               <i className="bi bi-moon-stars-fill fs-4 text-secondary hover-efecto" id="icono-tema"></i>
             </div>
@@ -737,7 +755,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         <footer className="w-100 d-flex flex-column align-items-center py-4 mt-auto border-top bg-light bg-opacity-50">
           <div className="d-flex justify-content-center align-items-center gap-4 mb-3">
             <img src="/assets/img/logoMPPE.png" alt="MPPE" className="footer-logo-mppe" height="40" />
-            <img src="/assets/img/logo_carga.png" alt="SIGAE" className="footer-logo-sigae" height="55" />
+            <img src="/assets/img/sigae.png" alt="Sistema Integral de Gestión y Administración Escolar" className="footer-logo-sigae" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
           </div>
           <div className="fw-bold text-center mb-2 footer-anio">
             Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary">Versión 1.0</span>

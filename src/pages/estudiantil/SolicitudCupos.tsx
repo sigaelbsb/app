@@ -308,6 +308,8 @@ export const SolicitudCupos = () => {
   // Auto-guardado silencioso en base de datos al estar editando o creando (Debounce 1.5s)
   useEffect(() => {
     if (activeTab !== 'nueva_solicitud') return;
+    // Solo insertar borrador nuevo si el usuario ya aceptó los términos y avanzó al paso 2+
+    if (!editingId && (!form.acepta_terminos || step < 2)) return;
 
     const timer = setTimeout(async () => {
       try {
@@ -332,13 +334,14 @@ export const SolicitudCupos = () => {
           doc_cedula_estudiante: documentos.cedula && typeof documentos.cedula === 'string' ? documentos.cedula : form.doc_cedula_estudiante,
           doc_partida_trabajador: documentos.partida_trabajador && typeof documentos.partida_trabajador === 'string' ? documentos.partida_trabajador : undefined,
           doc_partida_nexo: documentos.partida_nexo && typeof documentos.partida_nexo === 'string' ? documentos.partida_nexo : undefined,
-        };
-
-        if (!payload.estudiante_fecha_nacimiento) payload.estudiante_fecha_nacimiento = '1900-01-01';
-        if (payload.estudiante_orden_nacimiento === '') payload.estudiante_orden_nacimiento = null;
+          // Campos con valores especiales para la BD
+          estudiante_fecha_nacimiento: formToSubmit.estudiante_fecha_nacimiento || '1900-01-01',
+          estudiante_orden_nacimiento: formToSubmit.estudiante_orden_nacimiento === '' ? null : formToSubmit.estudiante_orden_nacimiento,
+        } as any;
 
         if (editingId) {
-          await supabase.from('solicitud_cupos').update(payload).eq('id', editingId);
+          const { error: updateError } = await supabase.from('solicitud_cupos').update(payload).eq('id', editingId);
+          if (updateError) throw updateError;
           setSavingStatus('saved');
         } else {
           // INSERTAR NUEVO BORRADOR
@@ -370,7 +373,7 @@ export const SolicitudCupos = () => {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [form, documentos, editingId, escCodigo, isUserAdmin, user, activeTab]);
+  }, [form, documentos, editingId, escCodigo, isUserAdmin, user, activeTab, step]);
 
   const cargarRutasYParadas = async () => {
     try {
@@ -1061,6 +1064,18 @@ export const SolicitudCupos = () => {
   };
 
   const handleAccionSoporteCard = async (sol: SolicitudDB, modo: 'descargar' | 'whatsapp') => {
+    if (sol.estado === 'Borrador') {
+      if (Swal) {
+        Swal.fire({
+          title: 'Solicitud Incompleta',
+          html: `<p>Esta solicitud aún está en estado <strong>Borrador</strong> y no ha sido enviada al plantel.</p><p class="text-muted small">Completa todos los pasos del formulario y presiona <strong>"Finalizar y Enviar"</strong> para poder descargar el soporte físico con código QR.</p>`,
+          icon: 'warning',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#f59e0b',
+        });
+      }
+      return;
+    }
     setSolicitudGuardada(sol);
     setTimeout(() => {
       handleDescargarSoporte(modo);
@@ -2357,12 +2372,24 @@ export const SolicitudCupos = () => {
                       </div>
                       <div className="mt-3 pt-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div className="d-flex gap-2">
-                          <button onClick={() => handleAccionSoporteCard(sol, 'descargar')} className="btn btn-sm btn-outline-secondary rounded-pill fw-semibold">
-                            <i className="bi bi-download me-1"></i> Soporte
-                          </button>
-                          <button onClick={() => handleAccionSoporteCard(sol, 'whatsapp')} className="btn btn-sm btn-outline-success rounded-pill fw-semibold" style={{ color: '#25D366', borderColor: '#25D366' }}>
-                            <i className="bi bi-whatsapp me-1"></i> WhatsApp
-                          </button>
+                          {sol.estado === 'Borrador' ? (
+                            <span
+                              className="btn btn-sm btn-outline-secondary rounded-pill fw-semibold disabled"
+                              title="Completa y envía la solicitud para poder descargar el soporte"
+                              style={{ opacity: 0.5, cursor: 'not-allowed', pointerEvents: 'none' }}
+                            >
+                              <i className="bi bi-lock-fill me-1"></i> Soporte (Incompleto)
+                            </span>
+                          ) : (
+                            <>
+                              <button onClick={() => handleAccionSoporteCard(sol, 'descargar')} className="btn btn-sm btn-outline-secondary rounded-pill fw-semibold">
+                                <i className="bi bi-download me-1"></i> Soporte
+                              </button>
+                              <button onClick={() => handleAccionSoporteCard(sol, 'whatsapp')} className="btn btn-sm btn-outline-success rounded-pill fw-semibold" style={{ color: '#25D366', borderColor: '#25D366' }}>
+                                <i className="bi bi-whatsapp me-1"></i> WhatsApp
+                              </button>
+                            </>
+                          )}
                         </div>
                         {(sol.estado === 'Pendiente' || sol.estado === 'Borrador') && (
                           <div>

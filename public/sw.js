@@ -3,7 +3,7 @@
  * Gestiona la instalación de la app y el caché básico.
  */
 
-const CACHE_NAME = 'sigae-cache-v5';
+const CACHE_NAME = 'sigae-cache-v6';
 
 const urlsToCache = [
   '/',
@@ -12,44 +12,45 @@ const urlsToCache = [
   '/assets/img/logoMPPE.png'
 ];
 
-self.addEventListener('install', event => {
+self.addEventListener('install', function(event) {
   // Fuerza a que el nuevo service worker se active inmediatamente
-  (self as any).skipWaiting();
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => {
+      .then(function(cache) {
         console.log('Caché abierto');
         return cache.addAll(urlsToCache);
       })
   );
 });
 
-self.addEventListener('fetch', event => {
-  const reqEvent = event as FetchEvent;
-  if (reqEvent.request.url.includes('supabase.co')) {
+self.addEventListener('fetch', function(event) {
+  if (event.request.url.includes('supabase.co')) {
     return;
   }
 
-  reqEvent.respondWith(
-    fetch(reqEvent.request)
-      .then(response => {
+  event.respondWith(
+    fetch(event.request)
+      .then(function(response) {
         return response;
       })
-      .catch(() => {
-        return caches.match(reqEvent.request).then(res => res || new Response("Offline"));
+      .catch(function() {
+        return caches.match(event.request).then(function(res) {
+          return res || new Response("Offline");
+        });
       })
   );
 });
 
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  (event as any).waitUntil(
+self.addEventListener('activate', function(event) {
+  var cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
     Promise.all([
       // Reclamar control de los clientes de inmediato
-      (self as any).clients.claim(),
-      caches.keys().then(cacheNames => {
+      self.clients.claim(),
+      caches.keys().then(function(cacheNames) {
         return Promise.all(
-          cacheNames.map(cacheName => {
+          cacheNames.map(function(cacheName) {
             if (cacheWhitelist.indexOf(cacheName) === -1) {
               return caches.delete(cacheName);
             }
@@ -63,8 +64,8 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('push', function(event) {
   if (event.data) {
-    const data = event.data.json();
-    const options = {
+    var data = event.data.json();
+    var options = {
       body: data.body,
       icon: data.icon || '/assets/img/sigae.png',
       badge: '/assets/img/sigae.png',
@@ -94,9 +95,9 @@ self.addEventListener('notificationclick', function(event) {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
-      for (let i = 0; i < clientList.length; i++) {
-        const client = clientList[i];
+      var urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
+      for (var i = 0; i < clientList.length; i++) {
+        var client = clientList[i];
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
@@ -107,5 +108,3 @@ self.addEventListener('notificationclick', function(event) {
     })
   );
 });
-
-

@@ -29,6 +29,9 @@ body.auth-body {
 }
 .lr-wrapper { position: relative; width: 180px; height: 180px; display: flex; justify-content: center; align-items: center; margin-bottom: 100px; }
 .lr-logo { width: 180px; z-index: 10; animation: pulse-logo-soft 2s infinite ease-in-out;}
+.lr-wrapper-full { position: relative; width: 360px; height: 160px; display: flex; justify-content: center; align-items: center; margin-bottom: 40px; }
+.lr-logo-full { width: 340px; max-height: 140px; object-fit: contain; z-index: 10; animation: pulse-logo-soft 2s infinite ease-in-out; filter: drop-shadow(0 6px 16px rgba(0, 102, 255, 0.25)); }
+.lr-wrapper-full .lr-pulso { border-radius: 90px; }
 .lr-pulso { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; animation: lr-anim 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; border: 4px solid transparent; }
 .lr-pulso-1 { border-color: #0066FF; animation-delay: 0s; }
 .lr-pulso-2 { border-color: #00C3FF; animation-delay: 0.5s; }
