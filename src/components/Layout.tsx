@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { subscribeToWebPush } from '../lib/webPush';
 import { ChatbotSigma } from './ChatbotSigma';
 import { TourOrientacion } from './TourOrientacion';
+import { NavigationLoader } from './NavigationLoader';
 
 export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const navigate = useNavigate();
@@ -844,6 +845,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         </footer>
       </main>
+      <NavigationLoader />
       <ChatbotSigma />
       <TourOrientacion />
     </div>
