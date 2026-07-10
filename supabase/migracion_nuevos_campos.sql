@@ -12,8 +12,11 @@ ADD COLUMN IF NOT EXISTS madre_vive TEXT DEFAULT 'Sí',
 ADD COLUMN IF NOT EXISTS madre_es_representante BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS madre_nombres TEXT,
 ADD COLUMN IF NOT EXISTS madre_apellidos TEXT,
+ADD COLUMN IF NOT EXISTS madre_cedula TEXT,
 ADD COLUMN IF NOT EXISTS madre_fecha_nacimiento TEXT,
-ADD COLUMN IF NOT EXISTS madre_telefono TEXT;
+ADD COLUMN IF NOT EXISTS madre_telefono TEXT,
+ADD COLUMN IF NOT EXISTS madre_email TEXT,
+ADD COLUMN IF NOT EXISTS madre_trabaja_pdvsa BOOLEAN DEFAULT false;
 
 -- 3. Campos para la información biológica y personal del Padre (Paso 4)
 ALTER TABLE solicitud_cupos 

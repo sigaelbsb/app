@@ -1254,13 +1254,25 @@ export const SolicitudCupos = () => {
                 <span style="color: #0f172a; font-weight: 600;">${sol.representante_cedula}</span>
               </div>
               <div>
-                <b>Teléfono de Contacto:</b><br/>
-                <span style="color: #0f172a; font-weight: 600;">${sol.representante_telefono}</span>
+                <b>Teléfono / Correo Rep.:</b><br/>
+                <span style="color: #0f172a; font-weight: 600;">${sol.representante_telefono} ${sol.representante_email ? `(${sol.representante_email})` : ''}</span>
               </div>
               <div>
                 <b>Plantel Solicitado:</b><br/>
                 <span style="color: #0f172a; font-weight: 600;">${escNombre}</span>
               </div>
+              ${sol.madre_vive !== 'No' && (sol.madre_telefono || sol.madre_email) ? `
+                <div style="grid-column: span 2; margin-top: 3px; border-top: 1px dashed #e2e8f0; pt-1;">
+                  <b>Madre (${sol.madre_nombres || ''} ${sol.madre_apellidos || ''}):</b><br/>
+                  <span style="color: #334155; font-weight: 600; font-size: 11px;">📞 ${sol.madre_telefono || 'Sin tel.'} | ✉️ ${sol.madre_email || 'Sin correo'}</span>
+                </div>
+              ` : ''}
+              ${sol.estudiante_reconocido_por_padre !== 'No' && sol.padre_vive !== 'No' && (sol.padre_telefono || sol.padre_email) ? `
+                <div style="grid-column: span 2; margin-top: 3px; border-top: 1px dashed #e2e8f0; pt-1;">
+                  <b>Padre (${sol.padre_nombres || ''} ${sol.padre_apellidos || ''}):</b><br/>
+                  <span style="color: #334155; font-weight: 600; font-size: 11px;">📞 ${sol.padre_telefono || 'Sin tel.'} | ✉️ ${sol.padre_email || 'Sin correo'}</span>
+                </div>
+              ` : ''}
               ${sol.requiere_transporte ? `
                 <div style="grid-column: span 2; margin-top: 5px;">
                   <b>Transporte Escolar:</b><br/>
@@ -2732,10 +2744,24 @@ export const SolicitudCupos = () => {
                 <div className="col-7 fw-semibold">{sol.representante_nombres} {sol.representante_apellidos}</div>
                 <div className="col-5 text-muted">C.I. Representante:</div>
                 <div className="col-7 fw-semibold">{sol.representante_cedula}</div>
-                <div className="col-5 text-muted">Teléfono:</div>
-                <div className="col-7 fw-semibold">{sol.representante_telefono}</div>
-                <div className="col-5 text-muted">Correo:</div>
-                <div className="col-7 fw-semibold text-truncate">{sol.representante_email}</div>
+                <div className="col-5 text-muted">Tel. / Correo Rep.:</div>
+                <div className="col-7 fw-semibold text-truncate">{sol.representante_telefono} | {sol.representante_email}</div>
+                {sol.madre_vive !== 'No' && (
+                  <>
+                    <div className="col-5 text-muted">Madre:</div>
+                    <div className="col-7 fw-semibold">{sol.madre_nombres} {sol.madre_apellidos} {sol.madre_cedula ? `(C.I: ${sol.madre_cedula})` : ''}</div>
+                    <div className="col-5 text-muted">Tel. / Correo Madre:</div>
+                    <div className="col-7 fw-semibold text-truncate">{[sol.madre_telefono, sol.madre_email].filter(Boolean).join(' | ') || '—'}</div>
+                  </>
+                )}
+                {sol.estudiante_reconocido_por_padre !== 'No' && sol.padre_vive !== 'No' && (
+                  <>
+                    <div className="col-5 text-muted">Padre:</div>
+                    <div className="col-7 fw-semibold">{sol.padre_nombres} {sol.padre_apellidos} {sol.padre_cedula ? `(C.I: ${sol.padre_cedula})` : ''}</div>
+                    <div className="col-5 text-muted">Tel. / Correo Padre:</div>
+                    <div className="col-7 fw-semibold text-truncate">{[sol.padre_telefono, sol.padre_email].filter(Boolean).join(' | ') || '—'}</div>
+                  </>
+                )}
                 <div className="col-5 text-muted">Dirección:</div>
                 <div className="col-7 fw-semibold">{[sol.parroquia_habitacion, sol.municipio_habitacion, sol.estado_habitacion].filter(Boolean).join(', ')}</div>
                 <div className="col-5 text-muted">Plantel:</div>
@@ -3074,8 +3100,22 @@ export const SolicitudCupos = () => {
                           <span className="text-muted small">C.I: {sol.representante_cedula}</span>
                         </td>
                         <td>
-                          <div className="small"><i className="bi bi-telephone-fill text-muted me-1"></i>{sol.representante_telefono}</div>
-                          <div className="small text-muted"><i className="bi bi-envelope-fill text-muted me-1"></i>{sol.representante_email}</div>
+                          <div className="small fw-semibold text-dark mb-1" title="Contacto Representante">
+                            <i className="bi bi-person-badge text-primary me-1"></i>{sol.representante_telefono}
+                            <div className="text-muted fw-normal" style={{ fontSize: '0.75rem' }}><i className="bi bi-envelope-fill me-1"></i>{sol.representante_email}</div>
+                          </div>
+                          {sol.madre_vive !== 'No' && (sol.madre_telefono || sol.madre_email) && (
+                            <div className="small text-muted border-top pt-1 mt-1" style={{ fontSize: '0.75rem' }} title="Contacto Madre">
+                              <span className="fw-semibold text-dark"><i className="bi bi-gender-female text-danger me-1"></i>Mamá:</span> {sol.madre_telefono || 'Sin tel.'}
+                              {sol.madre_email && <div className="text-truncate" style={{ maxWidth: '170px' }}><i className="bi bi-envelope me-1"></i>{sol.madre_email}</div>}
+                            </div>
+                          )}
+                          {sol.estudiante_reconocido_por_padre !== 'No' && sol.padre_vive !== 'No' && (sol.padre_telefono || sol.padre_email) && (
+                            <div className="small text-muted border-top pt-1 mt-1" style={{ fontSize: '0.75rem' }} title="Contacto Padre">
+                              <span className="fw-semibold text-dark"><i className="bi bi-gender-male text-primary me-1"></i>Papá:</span> {sol.padre_telefono || 'Sin tel.'}
+                              {sol.padre_email && <div className="text-truncate" style={{ maxWidth: '170px' }}><i className="bi bi-envelope me-1"></i>{sol.padre_email}</div>}
+                            </div>
+                          )}
                         </td>
                         <td>{getStatusBadge(sol.estado)}</td>
                         <td className="text-end pe-3">
