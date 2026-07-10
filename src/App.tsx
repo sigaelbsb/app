@@ -93,6 +93,8 @@ function App() {
   }, []);
 
   const handleLogin = (userData: any) => {
+    sessionStorage.removeItem('sigma_presentado');
+    sessionStorage.removeItem('sigma_presentando_ahora');
     if (typeof (window as any).ejecutarTransicionDigital === 'function') {
       (window as any).ejecutarTransicionDigital(() => {
         setUsuario(userData);

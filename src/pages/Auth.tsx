@@ -429,6 +429,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       }
 
       const tieneAcceso = (cod: string) => {
+        if (['SuperAdmin', 'Administrador', 'Director', 'Coordinador'].includes(userData.rol)) return true;
         const privs = rolePerms[cod];
         if (!privs) return false;
         if (privs.hasOwnProperty('__acceso_plantel__')) {

@@ -110,6 +110,9 @@ interface SolicitudForm {
   estudiante_alergico_medicamentos_otro: string;
   grado_solicitado: string;
   parentesco: string;
+  estudiante_con_quien_vive: string[] | string;
+  estudiante_con_quien_vive_otro?: string;
+  estudiante_reconocido_por_padre?: string;
   // Dirección
   estado_habitacion: string;
   municipio_habitacion: string;
@@ -135,9 +138,26 @@ interface SolicitudForm {
   pdvsa_email_empresa: string;
   pdvsa_localidad_trabajo: string;
   pdvsa_localidad_trabajo_otra?: string;
+  // Datos de la Madre
+  madre_vive?: string;
+  madre_es_representante?: boolean;
+  madre_nombres?: string;
+  madre_apellidos?: string;
   madre_cedula: string;
+  madre_fecha_nacimiento?: string;
   madre_email: string;
-  madre_trabaja_pdvsa: boolean;
+  madre_telefono?: string;
+  madre_trabaja_pdvsa: boolean | string;
+  // Datos del Padre
+  padre_vive?: string;
+  padre_es_representante?: boolean;
+  padre_nombres?: string;
+  padre_apellidos?: string;
+  padre_cedula?: string;
+  padre_fecha_nacimiento?: string;
+  padre_email?: string;
+  padre_telefono?: string;
+  padre_trabaja_pdvsa?: boolean | string;
   requiere_transporte: boolean;
   ruta_transporte: string;
   // Documentos
@@ -148,7 +168,7 @@ interface SolicitudForm {
 }
 
 interface SolicitudDB extends SolicitudForm {
-  id?: string;
+  id?: string | number;
   codigo_escuela: string;
   estado: string;
   observaciones: string;
@@ -179,6 +199,9 @@ const defaultForm = (): SolicitudForm => ({
   estudiante_alergico_medicamentos_otro: '',
   grado_solicitado: '',
   parentesco: '',
+  estudiante_con_quien_vive: [],
+  estudiante_con_quien_vive_otro: '',
+  estudiante_reconocido_por_padre: 'Sí',
   estado_habitacion: '',
   municipio_habitacion: '',
   parroquia_habitacion: '',
@@ -200,9 +223,24 @@ const defaultForm = (): SolicitudForm => ({
   pdvsa_email_empresa: '',
   pdvsa_localidad_trabajo: '',
   pdvsa_localidad_trabajo_otra: '',
+  madre_vive: 'Sí',
+  madre_es_representante: false,
+  madre_nombres: '',
+  madre_apellidos: '',
   madre_cedula: '',
+  madre_fecha_nacimiento: '',
   madre_email: '',
+  madre_telefono: '',
   madre_trabaja_pdvsa: false,
+  padre_vive: 'Sí',
+  padre_es_representante: false,
+  padre_nombres: '',
+  padre_apellidos: '',
+  padre_cedula: '',
+  padre_fecha_nacimiento: '',
+  padre_email: '',
+  padre_telefono: '',
+  padre_trabaja_pdvsa: false,
   requiere_transporte: false,
   ruta_transporte: '',
   doc_ficha: '',
@@ -243,7 +281,7 @@ export const SolicitudCupos = () => {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
   
   // Estados para rutas y paradas en la solicitud
   const [rutasTransporteDB, setRutasTransporteDB] = useState<any[]>([]);
@@ -271,6 +309,64 @@ export const SolicitudCupos = () => {
   const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
   const escNombre = escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
   const isUserAdmin = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(user?.rol);
+  const [filtroEscuela, setFiltroEscuela] = useState<string>(() => isUserAdmin ? 'todos' : escCodigo);
+  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
+  const [fechaInicioProceso, setFechaInicioProceso] = useState<string>('');
+  const [fechaFinProceso, setFechaFinProceso] = useState<string>('');
+
+  const checkProcesoAbierto = () => {
+    if (!fechaInicioProceso && !fechaFinProceso) return { abierto: true, motivo: '' };
+    
+    const ahoraMs = new Date().getTime();
+    
+    if (fechaInicioProceso) {
+      const inicioStr = fechaInicioProceso.includes('T') ? fechaInicioProceso : `${fechaInicioProceso}T00:00:00`;
+      const inicioMs = new Date(inicioStr).getTime();
+      if (ahoraMs < inicioMs) {
+        const fechaFmt = new Date(inicioStr).toLocaleString('es-VE', { 
+          day: '2-digit', 
+          month: 'long', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true 
+        });
+        return { 
+          abierto: false, 
+          motivo: `El período de solicitudes de cupo aún no ha iniciado. Estará habilitado a partir del ${fechaFmt}.` 
+        };
+      }
+    }
+    
+    if (fechaFinProceso) {
+      const finStr = fechaFinProceso.includes('T') ? fechaFinProceso : `${fechaFinProceso}T23:59:59`;
+      const finMs = new Date(finStr).getTime();
+      if (ahoraMs > finMs) {
+        const fechaFmt = new Date(finStr).toLocaleString('es-VE', { 
+          day: '2-digit', 
+          month: 'long', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true 
+        });
+        return { 
+          abierto: false, 
+          motivo: `El período para la solicitud de cupos ha finalizado. La fecha y hora límite de recepción fue el ${fechaFmt}.` 
+        };
+      }
+    }
+    
+    return { abierto: true, motivo: '' };
+  };
+
+  const estadoProceso = checkProcesoAbierto();
+
+  useEffect(() => {
+    if (isUserAdmin && filtroEscuela !== 'todos' && filtroEscuela !== 'sb' && filtroEscuela !== 'lb') {
+      setFiltroEscuela('todos');
+    }
+  }, [isUserAdmin]);
 
   // Geodatos calculados
   const municipiosDisponibles = form.estado_habitacion 
@@ -288,7 +384,7 @@ export const SolicitudCupos = () => {
       cargarDatos();
       cargarCatalogos();
     }
-  }, [permLoading, user, escCodigo]);
+  }, [permLoading, user, escCodigo, filtroEscuela]);
 
   // Autofill representative info
   useEffect(() => {
@@ -307,7 +403,7 @@ export const SolicitudCupos = () => {
 
   // Auto-guardado silencioso en base de datos al estar editando o creando (Debounce 1.5s)
   useEffect(() => {
-    if (activeTab !== 'nueva_solicitud') return;
+    if (activeTab !== 'nueva_solicitud' || !estadoProceso.abierto) return;
     // Solo insertar borrador nuevo si el usuario ya aceptó los términos y avanzó al paso 2+
     if (!editingId && (!form.acepta_terminos || step < 2)) return;
 
@@ -319,11 +415,15 @@ export const SolicitudCupos = () => {
           estudiante_tipo_condicion_otro, 
           estudiante_condicion_medica_otro, 
           estudiante_alergico_medicamentos_otro, 
+          estudiante_con_quien_vive_otro,
           ...formToSubmit 
         } = form;
 
         const payload = {
           ...formToSubmit,
+          estudiante_con_quien_vive: Array.isArray(form.estudiante_con_quien_vive)
+            ? form.estudiante_con_quien_vive.map(item => item === 'Otros' && estudiante_con_quien_vive_otro ? `Otros (${estudiante_con_quien_vive_otro})` : item).join(', ')
+            : form.estudiante_con_quien_vive,
           pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otra' || form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otro' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
           estudiante_tipo_condicion: form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otro' || form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otra' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
           estudiante_condicion_medica: form.estudiante_condicion_medica?.trim().toLowerCase() === 'otro' || form.estudiante_condicion_medica?.trim().toLowerCase() === 'otra' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
@@ -344,7 +444,7 @@ export const SolicitudCupos = () => {
           if (updateError) throw updateError;
           setSavingStatus('saved');
         } else {
-          // INSERTAR NUEVO BORRADOR
+          // INSERTAR O ACTUALIZAR BORRADOR (previene error duplicate key por race conditions del timer)
           const insertPayload = {
             ...payload,
             codigo_escuela: escCodigo,
@@ -352,7 +452,7 @@ export const SolicitudCupos = () => {
             creado_por: user.cedula,
             codigo_unico: payload.codigo_unico || generarCodigoUnico(escCodigo)
           };
-          const { data, error } = await supabase.from('solicitud_cupos').insert(insertPayload).select().single();
+          const { data, error } = await supabase.from('solicitud_cupos').upsert(insertPayload, { onConflict: 'codigo_unico' }).select().single();
           if (error) throw error;
           if (data && data.id) {
             setEditingId(data.id);
@@ -362,7 +462,8 @@ export const SolicitudCupos = () => {
         }
         
         // Actualizar listado en segundo plano silenciosamente
-        let query = supabase.from('solicitud_cupos').select('*').eq('codigo_escuela', escCodigo);
+        let query = supabase.from('solicitud_cupos').select('*');
+        if (filtroEscuela !== 'todos') query = query.eq('codigo_escuela', filtroEscuela);
         if (!isUserAdmin && user) query = query.eq('creado_por', user.cedula);
         const { data: listData } = await query.order('created_at', { ascending: false });
         if (listData) setSolicitudes(listData as SolicitudDB[]);
@@ -373,7 +474,7 @@ export const SolicitudCupos = () => {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [form, documentos, editingId, escCodigo, isUserAdmin, user, activeTab, step]);
+  }, [form, documentos, editingId, escCodigo, isUserAdmin, user, activeTab, step, filtroEscuela]);
 
   const cargarRutasYParadas = async () => {
     try {
@@ -381,8 +482,18 @@ export const SolicitudCupos = () => {
         supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }),
         supabase.from('transporte_paradas').select('*').eq('escuela_codigo', escCodigo).order('nombre_parada', { ascending: true })
       ]);
-      if (rutasTransRes.data) setRutasTransporteDB(rutasTransRes.data);
-      if (paradasTransRes.data) setParadasTransporteDB(paradasTransRes.data);
+      if (rutasTransRes.data) {
+        const sortedRutas = [...rutasTransRes.data].sort((a, b) =>
+          String(a.nombre || '').localeCompare(String(b.nombre || ''), undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setRutasTransporteDB(sortedRutas);
+      }
+      if (paradasTransRes.data) {
+        const sortedParadas = [...paradasTransRes.data].sort((a, b) =>
+          String(a.nombre_parada || '').localeCompare(String(b.nombre_parada || ''), undefined, { numeric: true, sensitivity: 'base' })
+        );
+        setParadasTransporteDB(sortedParadas);
+      }
     } catch (e) {
       console.error('Error cargando rutas y paradas:', e);
     }
@@ -508,7 +619,18 @@ export const SolicitudCupos = () => {
   const cargarDatos = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase.from('solicitud_cupos').select('*').eq('codigo_escuela', escCodigo);
+      // 1. Cargar fechas parametrizadas
+      const { data: ajustesData } = await supabase.from('ajustes_globales').select('*').in('clave', ['fecha_inicio_cupos', 'fecha_fin_cupos']);
+      if (ajustesData) {
+        const inicio = ajustesData.find(a => a.clave === 'fecha_inicio_cupos')?.valor || '';
+        const fin = ajustesData.find(a => a.clave === 'fecha_fin_cupos')?.valor || '';
+        setFechaInicioProceso(inicio);
+        setFechaFinProceso(fin);
+      }
+
+      // 2. Cargar listado de solicitudes
+      let query = supabase.from('solicitud_cupos').select('*');
+      if (filtroEscuela !== 'todos') query = query.eq('codigo_escuela', filtroEscuela);
       if (!isUserAdmin && user) query = query.eq('creado_por', user.cedula);
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
@@ -518,7 +640,7 @@ export const SolicitudCupos = () => {
     } finally {
       setLoading(false);
     }
-  }, [escCodigo, isUserAdmin, user]);
+  }, [escCodigo, isUserAdmin, user, filtroEscuela]);
 
   const updateForm = (field: keyof SolicitudForm, value: any) => {
     let finalValue = value;
@@ -584,11 +706,187 @@ export const SolicitudCupos = () => {
     );
   };
 
-  const handleIniciarSolicitud = () => {
-    if (!form.acepta_terminos) {
-      if (Swal) Swal.fire('Atención', 'Debes aceptar los términos y condiciones para continuar.', 'warning');
+  const validarPaso = (pasoNum: number): boolean => {
+    if (pasoNum === 1) {
+      if (!form.acepta_terminos) {
+        if (Swal) Swal.fire('Atención', 'Debes aceptar los términos y condiciones para continuar.', 'warning');
+        return false;
+      }
+      return true;
+    }
+
+    if (pasoNum === 2) {
+      if (
+        !form.representante_nombres?.trim() ||
+        !form.representante_apellidos?.trim() ||
+        !form.representante_cedula?.trim() ||
+        !form.representante_telefono?.trim() ||
+        !form.representante_email?.trim() ||
+        !form.representante_trabaja_pdvsa
+      ) {
+        if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios del Representante (*)', 'warning');
+        return false;
+      }
+      if (!form.representante_parentesco) {
+        updateForm('representante_parentesco', form.parentesco || 'Representante');
+      }
+      if (form.representante_trabaja_pdvsa === 'Sí') {
+        if (
+          !form.pdvsa_condicion_laboral?.trim() ||
+          !form.pdvsa_tipo_nomina?.trim() ||
+          !form.pdvsa_negocio_filial?.trim() ||
+          !form.pdvsa_gerencia?.trim() ||
+          !form.pdvsa_localidad_trabajo?.trim() ||
+          (form.pdvsa_localidad_trabajo === 'Otra' && !form.pdvsa_localidad_trabajo_otra?.trim())
+        ) {
+          if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios de la Información Laboral (*)', 'warning');
+          return false;
+        }
+      }
+      return true;
+    }
+
+    if (pasoNum === 3) {
+      // Verificar que la cédula escolar (estudiante_cedula) NO sea obligatoria
+      if (
+        !form.estudiante_nombres?.trim() ||
+        !form.estudiante_apellidos?.trim() ||
+        !form.estudiante_fecha_nacimiento?.trim() ||
+        !form.estudiante_sexo?.trim() ||
+        !form.grado_solicitado?.trim() ||
+        !form.parentesco?.trim() ||
+        !form.estado_habitacion?.trim() ||
+        !form.municipio_habitacion?.trim() ||
+        !form.direccion_habitacion?.trim()
+      ) {
+        if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios del Estudiante y Dirección (*)', 'warning');
+        return false;
+      }
+      const arrConQuienVive = Array.isArray(form.estudiante_con_quien_vive)
+        ? form.estudiante_con_quien_vive
+        : typeof form.estudiante_con_quien_vive === 'string' && form.estudiante_con_quien_vive
+        ? form.estudiante_con_quien_vive.split(',').map(s => s.trim())
+        : [];
+      if (arrConQuienVive.length === 0) {
+        if (Swal) Swal.fire('Atención', 'Debes seleccionar al menos una opción en "¿Con quién vive el estudiante?" (*)', 'warning');
+        return false;
+      }
+      if (arrConQuienVive.includes('Otros') && !form.estudiante_con_quien_vive_otro?.trim()) {
+        if (Swal) Swal.fire('Atención', 'Has seleccionado "Otros" en con quién vive el estudiante. Por favor especifique (*)', 'warning');
+        return false;
+      }
+      return true;
+    }
+
+    if (pasoNum === 4) {
+      if (!form.madre_nombres?.trim() || !form.madre_apellidos?.trim() || !form.madre_cedula?.trim()) {
+        if (Swal) Swal.fire('Atención', 'Por favor completa los campos obligatorios (Nombres, Apellidos y Cédula) de la Madre tal como aparecen en la partida de nacimiento (*)', 'warning');
+        return false;
+      }
+      if (form.estudiante_reconocido_por_padre !== 'No') {
+        if (!form.padre_nombres?.trim() || !form.padre_apellidos?.trim() || !form.padre_cedula?.trim()) {
+          if (Swal) Swal.fire('Atención', 'Por favor completa los campos obligatorios (Nombres, Apellidos y Cédula) del Padre tal como aparecen en la partida de nacimiento (*)', 'warning');
+          return false;
+        }
+      }
+      return true;
+    }
+
+    if (pasoNum === 5) {
+      if (!form.estudiante_condicion_neuro?.trim() || !form.estudiante_condicion_medica?.trim() || !form.estudiante_alergico_medicamentos?.trim()) {
+        if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios de Salud (*)', 'warning');
+        return false;
+      }
+      if (form.estudiante_condicion_neuro === 'Neurodivergente o Discapacidad') {
+        if (!form.estudiante_tipo_condicion?.trim()) {
+          if (Swal) Swal.fire('Atención', 'Por favor selecciona el Tipo de Condición / Discapacidad (*)', 'warning');
+          return false;
+        }
+        const esOtraCond = form.estudiante_tipo_condicion.trim().toLowerCase() === 'otro' || form.estudiante_tipo_condicion.trim().toLowerCase() === 'otra';
+        if (esOtraCond && !form.estudiante_tipo_condicion_otro?.trim()) {
+          if (Swal) Swal.fire('Atención', 'Por favor especifique la Condición / Discapacidad (*)', 'warning');
+          return false;
+        }
+      }
+      const esOtraMed = form.estudiante_condicion_medica.trim().toLowerCase() === 'otro' || form.estudiante_condicion_medica.trim().toLowerCase() === 'otra';
+      if (esOtraMed && !form.estudiante_condicion_medica_otro?.trim()) {
+        if (Swal) Swal.fire('Atención', 'Por favor especifique la Condición Médica (*)', 'warning');
+        return false;
+      }
+      const esOtraAlerg = form.estudiante_alergico_medicamentos.trim().toLowerCase() === 'otro' || form.estudiante_alergico_medicamentos.trim().toLowerCase() === 'otra';
+      if (esOtraAlerg && !form.estudiante_alergico_medicamentos_otro?.trim()) {
+        if (Swal) Swal.fire('Atención', 'Por favor especifique la Alergia a Medicamentos (*)', 'warning');
+        return false;
+      }
+      return true;
+    }
+
+    if (pasoNum === 6) {
+      if (form.requiere_transporte === undefined || form.requiere_transporte === null) {
+        if (Swal) Swal.fire('Atención', 'Por favor indica si el estudiante requiere transporte escolar (*)', 'warning');
+        return false;
+      }
+      if (form.requiere_transporte === true) {
+        if (rutasTransporteDB.length > 0) {
+          if (!selectedRutaObj || !selectedParadaObj || !form.ruta_transporte?.trim()) {
+            if (Swal) Swal.fire('Atención', 'Por favor selecciona la Ruta y la Parada de Transporte Escolar (*)', 'warning');
+            return false;
+          }
+        } else {
+          if (!form.ruta_transporte?.trim()) {
+            if (Swal) Swal.fire('Atención', 'Por favor indica la ruta o sector preferido (*)', 'warning');
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    if (pasoNum === 7) {
+      if (!documentos.partida) {
+        if (Swal) Swal.fire('Atención', 'Falta subir la Copia de la Partida de Nacimiento del Estudiante (*)', 'warning');
+        return false;
+      }
+      const p1 = form.parentesco?.toLowerCase() || '';
+      const p2 = form.representante_parentesco?.toLowerCase() || '';
+      const isSobrino = p1.includes('sobrino') || p1.includes('sobrina') || p2.includes('sobrino') || p2.includes('sobrina');
+      const isNieto = p1.includes('nieto') || p1.includes('nieta') || p2.includes('nieto') || p2.includes('nieta');
+      const isHermano = p1.includes('hermano') || p1.includes('hermana') || p2.includes('hermano') || p2.includes('hermana');
+
+      if ((isSobrino || isHermano) && !documentos.partida_trabajador) {
+        if (Swal) Swal.fire('Atención', 'Falta la Partida de Nacimiento del Trabajador (*)', 'warning');
+        return false;
+      }
+      if ((isSobrino || isNieto) && !documentos.partida_nexo) {
+        if (Swal) Swal.fire('Atención', 'Falta la Partida de Nacimiento de la Madre o Padre (Nexo) (*)', 'warning');
+        return false;
+      }
+      return true;
+    }
+
+    return true;
+  };
+
+  const handleStepChange = (targetStep: number) => {
+    if (targetStep <= step) {
+      setStep(targetStep);
       return;
     }
+    for (let i = step; i < targetStep; i++) {
+      if (!validarPaso(i)) {
+        if (i !== step) setStep(i);
+        return;
+      }
+    }
+    setStep(targetStep);
+  };
+
+  const handleIniciarSolicitud = () => {
+    if (!estadoProceso.abierto) {
+      if (Swal) Swal.fire('Período Restringido', estadoProceso.motivo, 'warning');
+      return;
+    }
+    if (!validarPaso(1)) return;
     if (!editingId) {
       const codigo = generarCodigoUnico(escCodigo);
       setForm(prev => ({ ...prev, codigo_unico: codigo }));
@@ -597,30 +895,15 @@ export const SolicitudCupos = () => {
   };
 
   const handleSubmitFinal = async () => {
-    if (!form.representante_cedula || !form.representante_telefono || !form.representante_email) {
-      if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios del formulario', 'warning');
+    if (!estadoProceso.abierto) {
+      if (Swal) Swal.fire('Período Restringido', estadoProceso.motivo, 'warning');
       return;
     }
-    if (!documentos.partida) {
-      if (Swal) Swal.fire('Atención', 'Falta subir la Copia de la Partida de Nacimiento del Estudiante', 'warning');
-      return;
-    }
-
-    const p1 = form.parentesco?.toLowerCase() || '';
-    const p2 = form.representante_parentesco?.toLowerCase() || '';
-    
-    const isSobrino = p1.includes('sobrino') || p1.includes('sobrina') || p2.includes('sobrino') || p2.includes('sobrina');
-    const isNieto = p1.includes('nieto') || p1.includes('nieta') || p2.includes('nieto') || p2.includes('nieta');
-    const isHermano = p1.includes('hermano') || p1.includes('hermana') || p2.includes('hermano') || p2.includes('hermana');
-
-    if ((isSobrino || isHermano) && !documentos.partida_trabajador) {
-      if (Swal) Swal.fire('Atención', 'Falta la Partida de Nacimiento del Trabajador', 'warning');
-      return;
-    }
-
-    if ((isSobrino || isNieto) && !documentos.partida_nexo) {
-      if (Swal) Swal.fire('Atención', 'Falta la Partida de Nacimiento de la Madre o Padre (Nexo)', 'warning');
-      return;
+    for (let i = 1; i <= 7; i++) {
+      if (!validarPaso(i)) {
+        if (i !== step) setStep(i);
+        return;
+      }
     }
 
     try {
@@ -659,11 +942,16 @@ export const SolicitudCupos = () => {
         estudiante_tipo_condicion_otro, 
         estudiante_condicion_medica_otro, 
         estudiante_alergico_medicamentos_otro, 
+        estudiante_con_quien_vive_otro,
         ...formToSubmit 
       } = form;
 
-      const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at' | 'estudiante_tipo_condicion_otro' | 'estudiante_condicion_medica_otro' | 'estudiante_alergico_medicamentos_otro'> = {
+      const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at' | 'estudiante_tipo_condicion_otro' | 'estudiante_condicion_medica_otro' | 'estudiante_alergico_medicamentos_otro' | 'estudiante_con_quien_vive_otro'> = {
         ...formToSubmit,
+        estudiante_con_quien_vive: Array.isArray(form.estudiante_con_quien_vive)
+          ? form.estudiante_con_quien_vive.map(item => item === 'Otros' && estudiante_con_quien_vive_otro ? `Otros (${estudiante_con_quien_vive_otro})` : item).join(', ')
+          : form.estudiante_con_quien_vive,
+        representante_parentesco: form.representante_parentesco || form.parentesco || 'Representante Legal',
         pdvsa_localidad_trabajo: form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otra' || form.pdvsa_localidad_trabajo?.trim().toLowerCase() === 'otro' ? pdvsa_localidad_trabajo_otra || '' : form.pdvsa_localidad_trabajo,
         estudiante_tipo_condicion: form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otro' || form.estudiante_tipo_condicion?.trim().toLowerCase() === 'otra' ? estudiante_tipo_condicion_otro || '' : form.estudiante_tipo_condicion,
         estudiante_condicion_medica: form.estudiante_condicion_medica?.trim().toLowerCase() === 'otro' || form.estudiante_condicion_medica?.trim().toLowerCase() === 'otra' ? estudiante_condicion_medica_otro || '' : form.estudiante_condicion_medica,
@@ -688,7 +976,7 @@ export const SolicitudCupos = () => {
         await auditar('Solicitud de Cupos', 'Editar Solicitud', `Editada solicitud ${form.codigo_unico} con documentos`);
         setEditingId(null);
       } else {
-        const { data, error } = await supabase.from('solicitud_cupos').insert([payload]).select().single();
+        const { data, error } = await supabase.from('solicitud_cupos').upsert([payload], { onConflict: 'codigo_unico' }).select().single();
         if (error) throw error;
         finalData = data;
         await auditar('Solicitud de Cupos', 'Crear Solicitud', `Nueva solicitud ${form.codigo_unico} con documentos`);
@@ -703,7 +991,7 @@ export const SolicitudCupos = () => {
         localStorage.removeItem(`sigae_borrador_step_${escCodigo}_${user.cedula}`);
       }
       setSolicitudGuardada(finalData as SolicitudDB);
-      setStep(7);
+      setStep(8);
     } catch (error: any) {
       console.error(error);
       if (Swal) Swal.fire('Error', 'Hubo un problema procesando tu solicitud o subiendo los documentos: ' + error.message, 'error');
@@ -750,6 +1038,12 @@ export const SolicitudCupos = () => {
       estudiante_alergico_medicamentos: sol.estudiante_alergico_medicamentos || 'Ninguna',
       grado_solicitado: sol.grado_solicitado,
       parentesco: sol.parentesco,
+      estudiante_con_quien_vive: Array.isArray((sol as any).estudiante_con_quien_vive)
+        ? (sol as any).estudiante_con_quien_vive
+        : typeof (sol as any).estudiante_con_quien_vive === 'string'
+        ? (sol as any).estudiante_con_quien_vive.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [],
+      estudiante_con_quien_vive_otro: (sol as any).estudiante_con_quien_vive_otro || '',
       plantel_procedencia: sol.plantel_procedencia || '',
       direccion_habitacion: sol.direccion_habitacion || '',
       estado_habitacion: sol.estado_habitacion || '',
@@ -770,9 +1064,24 @@ export const SolicitudCupos = () => {
       pdvsa_gerencia: sol.pdvsa_gerencia || '',
       pdvsa_email_empresa: sol.pdvsa_email_empresa || '',
       pdvsa_localidad_trabajo: sol.pdvsa_localidad_trabajo || '',
+      madre_vive: sol.madre_vive || 'Sí',
+      madre_es_representante: sol.madre_es_representante || false,
+      madre_nombres: sol.madre_nombres || '',
+      madre_apellidos: sol.madre_apellidos || '',
       madre_cedula: sol.madre_cedula || '',
+      madre_fecha_nacimiento: sol.madre_fecha_nacimiento || '',
       madre_email: sol.madre_email || '',
+      madre_telefono: sol.madre_telefono || '',
       madre_trabaja_pdvsa: sol.madre_trabaja_pdvsa || false,
+      padre_vive: sol.padre_vive || 'Sí',
+      padre_es_representante: sol.padre_es_representante || false,
+      padre_nombres: sol.padre_nombres || '',
+      padre_apellidos: sol.padre_apellidos || '',
+      padre_cedula: sol.padre_cedula || '',
+      padre_fecha_nacimiento: sol.padre_fecha_nacimiento || '',
+      padre_email: sol.padre_email || '',
+      padre_telefono: sol.padre_telefono || '',
+      padre_trabaja_pdvsa: sol.padre_trabaja_pdvsa || false,
       requiere_transporte: sol.requiere_transporte || false,
       ruta_transporte: sol.ruta_transporte || '',
       doc_ficha: sol.doc_ficha || '',
@@ -892,7 +1201,7 @@ export const SolicitudCupos = () => {
           <div style="display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
             <img src="${base64LogoEscuela}" style="height: 60px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));" />
             <div style="flex: 1;">
-              <h4 style="margin: 0; color: #16a34a; font-weight: 800; font-size: 20px; text-transform: uppercase;">Comprobante de Registro</h4>
+              <h4 style="margin: 0; color: #16a34a; font-weight: 800; font-size: 14.5px; text-transform: uppercase; white-space: nowrap; letter-spacing: -0.2px;">Solicitud de Cupos — Año Escolar ${new Date().getFullYear()} - ${new Date().getFullYear() + 1}</h4>
               <p style="margin: 2px 0 0 0; font-size: 11px; color: #64748b;">Sistema Integral de Gestión y Administración Escolar</p>
               <p style="margin: 2px 0 0 0; font-size: 13px; font-weight: 700; color: #1e3a8a;">${escNombre}</p>
             </div>
@@ -961,6 +1270,10 @@ export const SolicitudCupos = () => {
             </div>
           </div>
 
+          <div style="background: #fef9c3; border: 1.5px solid #fde047; border-radius: 12px; padding: 12px; margin-bottom: 15px; font-size: 11px; color: #713f12; line-height: 1.4;">
+            <b>Nota Institucional:</b> La recepción de esta solicitud de cupo está sujeta a revisión y no garantiza la asignación inmediata. <b>Los cupos se otorgarán o asignarán según la disponibilidad del grado y los niveles de prioridad establecidos en la convención colectiva</b>.
+          </div>
+
           <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1.5px solid #e2e8f0; padding-top: 12px; margin-top: 15px;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <img src="${base64Mppe}" style="height: 22px; width: auto;" />
@@ -981,26 +1294,31 @@ export const SolicitudCupos = () => {
       const canvas = await html2canvas(clon, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true });
       document.body.removeChild(clon);
 
-      const textoMensaje = `*SIGAE - Comprobante de Solicitud de Cupo*\n\n` +
-        `Estimado(a) *${sol.representante_nombres} ${sol.representante_apellidos}*,\n` +
+      const anoActual = new Date().getFullYear();
+      const anoProximo = anoActual + 1;
+      const nombreArchivo = `Solicitud_de_Cupos_Año_Escolar_${anoActual}-${anoProximo}_${sol.codigo_unico}.png`;
+
+      const textoMensaje = `*SIGAE - Solicitud de Cupos Año Escolar ${anoActual} - ${anoProximo}*\n\n` +
+        `Estimad@ *${sol.representante_nombres} ${sol.representante_apellidos}*,\n` +
         `Su solicitud de cupo para el estudiante *${sol.estudiante_nombres} ${sol.estudiante_apellidos}* ha sido registrada con éxito.\n\n` +
         `• *Código Único:* ${sol.codigo_unico}\n` +
         `• *Grado/Año Solicitado:* ${sol.grado_solicitado}\n` +
         `• *Plantel:* ${escNombre}\n` +
         `• *Estado:* Pendiente\n` +
         `${sol.requiere_transporte ? `• *Transporte Escolar:* ${sol.ruta_transporte}\n` : ''}\n` +
+        `_Nota: Los cupos se otorgarán o asignarán según la disponibilidad del grado y los niveles de prioridad establecidos en la convención colectiva._\n\n` +
         `Puede realizar el seguimiento de su trámite ingresando a la sección "Mis Solicitudes" en el sistema SIGAE.`;
 
       if (modo === 'descargar') {
         const urlImagen = canvas.toDataURL("image/png");
         const a = document.createElement('a');
         a.href = urlImagen;
-        a.download = `Comprobante_Cupo_${sol.codigo_unico}.png`;
+        a.download = nombreArchivo;
         a.click();
         if (Swal) {
           Swal.fire({
-            title: '¡Soporte Descargado!',
-            text: 'El comprobante en imagen ha sido descargado en tu dispositivo.',
+            title: '¡Comprobante Descargado!',
+            text: `El soporte "${nombreArchivo}" ha sido guardado en tu dispositivo.`,
             icon: 'success',
             confirmButtonColor: '#16a34a'
           });
@@ -1008,14 +1326,14 @@ export const SolicitudCupos = () => {
       } else {
         canvas.toBlob(async (blob) => {
           if (!blob) return;
-          const file = new File([blob], `Comprobante_${sol.codigo_unico}.png`, { type: "image/png" });
+          const file = new File([blob], nombreArchivo, { type: "image/png" });
 
           // Si es en móvil, intentamos usar el Share API nativo para enviar la imagen y texto directo a WhatsApp
           if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
               await navigator.share({
                 files: [file],
-                title: 'Comprobante de Registro',
+                title: `Solicitud de Cupos Año Escolar ${anoActual} - ${anoProximo}`,
                 text: textoMensaje
               });
               if (Swal) Swal.close();
@@ -1108,11 +1426,54 @@ export const SolicitudCupos = () => {
     });
   };
 
+  const handleEliminarMasivo = async () => {
+    if (selectedIds.length === 0 || !Swal) return;
+    Swal.fire({
+      title: '¿Eliminar solicitudes seleccionadas?',
+      text: `Estás a punto de eliminar de forma definitiva ${selectedIds.length} solicitud(es) de cupo. Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: `<i class="bi bi-trash3-fill me-1"></i> Sí, eliminar (${selectedIds.length})`,
+      cancelButtonText: 'Cancelar',
+    }).then(async (result: any) => {
+      if (result.isConfirmed) {
+        setLoading(true);
+        try {
+          const { error } = await supabase.from('solicitud_cupos').delete().in('id', selectedIds);
+          if (error) throw error;
+          await auditar('Solicitud de Cupos', 'Eliminar Masivo', `Se eliminaron ${selectedIds.length} solicitudes de cupo en bloque.`);
+          Swal.fire('¡Eliminadas!', `Se han eliminado ${selectedIds.length} solicitud(es) correctamente.`, 'success');
+          setSelectedIds([]);
+          cargarDatos();
+        } catch (e: any) {
+          Swal.fire('Error', 'No se pudieron eliminar las solicitudes: ' + e.message, 'error');
+          setLoading(false);
+        }
+      }
+    });
+  };
+
   const filteredSolicitudes = solicitudes.filter(sol => {
     const matchesEstado = filterEstado === 'TODOS' || sol.estado === filterEstado;
     const s = `${sol.estudiante_nombres} ${sol.estudiante_apellidos} ${sol.representante_nombres} ${sol.representante_apellidos} ${sol.representante_cedula} ${sol.codigo_unico || ''}`.toLowerCase();
     return matchesEstado && s.includes(searchQuery.toLowerCase());
   });
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allIds = filteredSolicitudes.map(s => s.id).filter((id): id is string | number => id !== undefined);
+      setSelectedIds(allIds);
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id?: string | number) => {
+    if (id === undefined) return;
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  };
 
   const getStatusBadge = (estado: string) => {
     switch (estado) {
@@ -1140,10 +1501,11 @@ export const SolicitudCupos = () => {
     { num: 1, label: 'Términos', icon: 'bi-file-text' },
     { num: 2, label: 'Representante', icon: 'bi-person-lines-fill' },
     { num: 3, label: 'Estudiante', icon: 'bi-mortarboard' },
-    { num: 4, label: 'Salud', icon: 'bi-heart-pulse-fill' },
-    { num: 5, label: 'Transporte Escolar', icon: 'bi-bus-front' },
-    { num: 6, label: 'Documentos', icon: 'bi-file-earmark-arrow-up' },
-    { num: 7, label: 'Confirmación', icon: 'bi-patch-check' },
+    { num: 4, label: 'Madre y Padre', icon: 'bi-people-fill' },
+    { num: 5, label: 'Salud', icon: 'bi-heart-pulse-fill' },
+    { num: 6, label: 'Transporte Escolar', icon: 'bi-bus-front' },
+    { num: 7, label: 'Documentos', icon: 'bi-file-earmark-arrow-up' },
+    { num: 8, label: 'Confirmación', icon: 'bi-patch-check' },
   ];
 
   const renderStepper = () => (
@@ -1154,7 +1516,7 @@ export const SolicitudCupos = () => {
             <div
               className={`rounded-circle d-flex align-items-center justify-content-center fw-bold mb-1 ${step === s.num ? 'bg-success text-white shadow' : step > s.num ? 'bg-success bg-opacity-25 text-success' : 'bg-light text-muted border'}`}
               style={{ width: 44, height: 44, fontSize: 18, transition: 'all 0.3s', cursor: 'pointer' }}
-              onClick={() => setStep(s.num)}
+              onClick={() => handleStepChange(s.num)}
             >
               {step > s.num ? <i className="bi bi-check-lg"></i> : <i className={`bi ${s.icon}`}></i>}
             </div>
@@ -1177,25 +1539,43 @@ export const SolicitudCupos = () => {
   const renderStep1 = () => (
     <div className="animate__animated animate__fadeIn">
       <div className="text-center mb-4">
-        <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+        <div className="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-sm"
           style={{ width: 72, height: 72, border: '2px solid rgba(22,163,74,0.2)' }}>
-          <i className="bi bi-shield-check text-success" style={{ fontSize: 32 }}></i>
+          <i className="bi bi-bank2 text-success" style={{ fontSize: 32 }}></i>
         </div>
-        <h5 className="fw-bold text-dark mb-1">Términos y Condiciones</h5>
-        <p className="text-muted small">Bienvenido/a al módulo de Solicitud de Cupos para el año escolar {new Date().getFullYear()} – {new Date().getFullYear() + 1}.</p>
+        <h4 className="fw-bold text-dark mb-1">Proceso de Admisión y Solicitud de Cupos</h4>
+        <p className="text-muted small mb-0"><strong>{escNombre}</strong> — Año Escolar {new Date().getFullYear()} – {new Date().getFullYear() + 1}</p>
       </div>
 
-      <div className="bg-light rounded-4 p-4 border mb-4" style={{ maxHeight: 260, overflowY: 'auto', fontSize: '0.88rem', lineHeight: 1.7 }}>
-        <p><strong>Estimado/a representante:</strong></p>
-        <p>A continuación se presenta el formulario oficial de solicitud de cupos para el <strong>{escNombre}</strong>. Lea detenidamente cada sección y proceda a dar respuesta a cada pregunta de forma veraz y actualizada.</p>
-        <ul>
-          <li>La información suministrada será utilizada exclusivamente con fines académicos e institucionales.</li>
-          <li>Toda información falsa o inexacta puede resultar en la anulación de la solicitud.</li>
-          <li>Una vez enviada, recibirá un <strong>código único de seguimiento</strong> con código QR para verificar el estado de su solicitud.</li>
-          <li>La institución se reserva el derecho de aprobar o rechazar las solicitudes según disponibilidad de cupos y criterios internos.</li>
-          <li>La solicitud de cupo <strong>no garantiza</strong> la inscripción definitiva del estudiante.</li>
+      <div className="bg-light rounded-4 p-4 border mb-4 shadow-sm" style={{ maxHeight: 380, overflowY: 'auto', fontSize: '0.9rem', lineHeight: 1.7 }}>
+        <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-3 flex-wrap gap-2">
+          <div>
+            <h6 className="fw-bold text-success mb-0"><i className="bi bi-mortarboard-fill me-2"></i>{escNombre}</h6>
+            <small className="text-muted">Solicitud en Línea de Cupo Escolar</small>
+          </div>
+          <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2">
+            Período Escolar {new Date().getFullYear()} - {new Date().getFullYear() + 1}
+          </span>
+        </div>
+
+        <p className="mb-2"><strong>Estimad@ Padre, Madre o Representante Legal:</strong></p>
+        <p className="mb-3">¡Le damos una cordial <strong>Bienvenid@</strong> al portal digital de admisiones de <strong>{escNombre}</strong>! A través de este módulo podrá solicitar el cupo escolar para su hij@ o representad@ de forma sencilla, rápida y segura.</p>
+        
+        <div className="alert alert-info border border-info-subtle rounded-3 p-3 mb-4 d-flex gap-2 align-items-start bg-white shadow-sm">
+          <i className="bi bi-info-circle-fill text-info fs-5 flex-shrink-0 mt-1"></i>
+          <div className="small">
+            <strong>¿Qué necesita antes de empezar?</strong> Asegúrese de tener a mano los datos personales del estudiante y los padres, información laboral y médica, así como los documentos en digital listos para subir (Cédula, Partida de Nacimiento, Foto Escolar y Constancia o Ficha Laboral si aplica).
+          </div>
+        </div>
+
+        <p className="fw-bold mb-2 text-dark"><i className="bi bi-shield-lock-fill me-2 text-success"></i> Indicaciones y Normas de la Escuela:</p>
+        <ul className="mb-3 ps-3">
+          <li className="mb-2"><strong>Información Verdadera:</strong> Por favor, asegúrese de que todos los datos que ingrese sean reales y estén actualizados. Si la escuela detecta información falsa o errónea, la solicitud podrá ser anulada.</li>
+          <li className="mb-2"><strong>Protección de sus Datos:</strong> Toda la información personal, familiar y médica que comparta será cuidada con total confidencialidad y utilizada únicamente para el proceso escolar y administrativo del plantel.</li>
+          <li className="mb-2"><strong>Comprobante de Solicitud:</strong> Al terminar los 7 pasos y adjuntar los documentos en el último paso, el sistema le generará un <strong>Comprobante en PDF con un Código Único y QR</strong> para que pueda revisar en cualquier momento cómo va el trámite.</li>
+          <li className="mb-2"><strong>Asignación de Cupos:</strong> Llenar y enviar esta solicitud es el primer paso del proceso y <strong>no significa que el estudiante ya esté inscrito automáticamente</strong>. Los cupos se otorgarán o asignarán según la disponibilidad del grado y los niveles de prioridad establecidos en la convención colectiva.</li>
         </ul>
-        <p>Al aceptar, declara que la información aportada es <strong>veraz y actualizada</strong>, y autoriza al plantel a procesarla conforme a sus políticas institucionales.</p>
+        <p className="mb-0 text-muted small border-top pt-3"><i className="bi bi-check2-circle me-1 text-success fw-bold"></i> Al marcar la casilla inferior, usted confirma que ha leído y está de acuerdo con estas indicaciones de la institución.</p>
       </div>
 
       <div
@@ -1211,8 +1591,8 @@ export const SolicitudCupos = () => {
             {form.acepta_terminos && <i className="bi bi-check-lg fw-bold"></i>}
           </div>
           <div>
-            <div className={`fw-bold ${form.acepta_terminos ? 'text-success' : 'text-dark'}`}>Acepto los términos y condiciones</div>
-            <div className="text-muted small">Declaro que la información que proporcionaré es veraz y actualizada.</div>
+            <div className={`fw-bold ${form.acepta_terminos ? 'text-success' : 'text-dark'}`}>Acepto los términos e indicaciones</div>
+            <div className="text-muted small">Confirmo que los datos que voy a registrar son reales y están actualizados.</div>
           </div>
         </div>
       </div>
@@ -1402,6 +1782,81 @@ export const SolicitudCupos = () => {
           </div>
         </div>
 
+        {/* ¿Con quién vive el estudiante? (Selector múltiple) */}
+        <div className="col-12 mt-3">
+          <label className="form-label fw-semibold d-block">
+            ¿Con quién vive el estudiante? <span className="text-danger">*</span>
+            <span className="text-muted fw-normal small ms-2">(Seleccione todas las opciones que apliquen)</span>
+          </label>
+          <div className="d-flex flex-wrap gap-2 mt-1">
+            {['Papá', 'Mamá', 'Hermanos', 'Abuelos', 'Tíos', 'Otros'].map(opcion => {
+              const currentArr = Array.isArray(form.estudiante_con_quien_vive)
+                ? form.estudiante_con_quien_vive
+                : typeof form.estudiante_con_quien_vive === 'string' && form.estudiante_con_quien_vive
+                ? form.estudiante_con_quien_vive.split(',').map(s => s.trim())
+                : [];
+              const isSelected = currentArr.includes(opcion);
+              return (
+                <button
+                  key={opcion}
+                  type="button"
+                  className={`btn rounded-pill px-4 fw-semibold transition-all ${
+                    isSelected
+                      ? 'btn-success shadow-sm'
+                      : 'btn-outline-secondary bg-white text-dark'
+                  }`}
+                  onClick={() => {
+                    const newArr = isSelected
+                      ? currentArr.filter(item => item !== opcion)
+                      : [...currentArr, opcion];
+                    updateForm('estudiante_con_quien_vive', newArr);
+                  }}
+                >
+                  <i className={`bi ${isSelected ? 'bi-check-circle-fill' : 'bi-circle'} me-2`}></i>
+                  {opcion}
+                </button>
+              );
+            })}
+          </div>
+          {(Array.isArray(form.estudiante_con_quien_vive) ? form.estudiante_con_quien_vive.includes('Otros') : typeof form.estudiante_con_quien_vive === 'string' && form.estudiante_con_quien_vive.includes('Otros')) && (
+            <div className="mt-2 animate__animated animate__fadeIn col-md-6">
+              <input
+                type="text"
+                className="form-control input-moderno"
+                placeholder="Especifique con quién más vive el estudiante..."
+                value={form.estudiante_con_quien_vive_otro || ''}
+                onChange={(e) => updateForm('estudiante_con_quien_vive_otro', e.target.value)}
+                required
+              />
+            </div>
+          )}
+        </div>
+
+        {/* ¿El estudiante fue reconocido por el padre? */}
+        <div className="col-12 mt-3">
+          <label className="form-label fw-semibold d-block">
+            ¿El estudiante fue reconocido por el padre? <span className="text-danger">*</span>
+          </label>
+          <div className="d-flex flex-wrap gap-2 mt-1">
+            {['Sí', 'No'].map(opcion => (
+              <button
+                key={opcion}
+                type="button"
+                className={`btn rounded-pill px-4 fw-semibold transition-all ${
+                  form.estudiante_reconocido_por_padre === opcion
+                    ? 'btn-success shadow-sm'
+                    : 'btn-outline-secondary bg-white text-dark'
+                }`}
+                onClick={() => updateForm('estudiante_reconocido_por_padre', opcion)}
+              >
+                <i className={`bi ${form.estudiante_reconocido_por_padre === opcion ? 'bi-check-circle-fill' : 'bi-circle'} me-2`}></i>
+                {opcion === 'Sí' ? 'Sí (Está registrado en la Partida de Nacimiento)' : 'No (Reconocido únicamente por la Madre)'}
+              </button>
+            ))}
+          </div>
+          <div className="form-text">Si selecciona "No", en el Paso 4 solo se solicitarán los datos biológicos de la Madre.</div>
+        </div>
+
         {/* SECCIÓN DIRECCIÓN CON GPS */}
         <div className="col-12 mt-3">
           <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
@@ -1480,13 +1935,7 @@ export const SolicitudCupos = () => {
           <i className="bi bi-arrow-left me-1"></i> Anterior
         </button>
         <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto"
-          onClick={() => {
-            if (!form.estudiante_nombres || !form.estudiante_apellidos || !form.estudiante_fecha_nacimiento || !form.grado_solicitado || !form.estado_habitacion || !form.direccion_habitacion) {
-              if (Swal) Swal.fire('Atención', 'Por favor completa todos los campos obligatorios (*)', 'warning');
-              return;
-            }
-            setStep(4);
-          }}>
+          onClick={() => handleStepChange(4)}>
           Continuar <i className="bi bi-arrow-right ms-1"></i>
         </button>
       </div>
@@ -1524,31 +1973,13 @@ export const SolicitudCupos = () => {
           <div className="form-text">Solo el número, sin puntos ni letras</div>
         </div>
 
-        <div className="col-md-4">
-          <label className="form-label fw-semibold">Parentesco <span className="text-danger">*</span></label>
-          <select className="form-select input-moderno" value={form.representante_parentesco}
-            onChange={(e) => {
-              const val = e.target.value;
-              updateForm('representante_parentesco', val);
-              if (val === 'Comunidad' || form.parentesco === 'Comunidad') {
-                updateForm('representante_trabaja_pdvsa', 'No');
-                updateForm('madre_trabaja_pdvsa', false);
-                updateForm('pdvsa_tipo_nomina', '');
-                updateForm('pdvsa_condicion_laboral', '');
-              }
-            }}>
-            <option value="">Seleccione...</option>
-            {parentescosDB.map((p, i) => <option key={i} value={p} disabled={p === 'Comunidad'}>{p}</option>)}
-          </select>
-        </div>
-
-        <div className="col-md-4">
+        <div className="col-md-6">
           <label className="form-label fw-semibold">Teléfono Principal <span className="text-danger">*</span></label>
           <input type="text" className="form-control input-moderno" placeholder="Ej. 0291-6518384 ó 0416-6263890"
             value={form.representante_telefono} onChange={(e) => updateForm('representante_telefono', e.target.value)} required />
         </div>
 
-        <div className="col-md-4">
+        <div className="col-md-6">
           <label className="form-label fw-semibold">Teléfono Alternativo</label>
           <input type="text" className="form-control input-moderno" placeholder="Ej. 0291-6518384 ó 0416-6263890"
             value={form.representante_telefono2} onChange={(e) => updateForm('representante_telefono2', e.target.value)} />
@@ -1649,48 +2080,6 @@ export const SolicitudCupos = () => {
           </div>
         )}
 
-        {/* DATOS DE LA MADRE */}
-        <div className="col-12 mt-2 pt-3 border-top">
-          <div className="d-flex align-items-center gap-2 mb-3">
-            <i className="bi bi-person-heart text-success fs-5"></i>
-            <h6 className="fw-bold text-dark mb-0">Datos de la Madre</h6>
-            <span className="badge bg-light text-muted border ms-1" style={{ fontSize: '0.7rem' }}>Opcional</span>
-          </div>
-          <div className="row g-3">
-            <div className="col-md-4">
-              <label className="form-label fw-semibold">N° Cédula (Madre)</label>
-              <input type="text" className="form-control input-moderno" placeholder="Ej. 13567896"
-                value={form.madre_cedula} onChange={(e) => updateForm('madre_cedula', e.target.value)} />
-              <div className="form-text">Solo el número entero, sin puntos</div>
-            </div>
-            <div className="col-md-4">
-              <label className="form-label fw-semibold">Correo Electrónico (Madre)</label>
-              <input type="email" className="form-control input-moderno" placeholder="correo@ejemplo.com"
-                value={form.madre_email} onChange={(e) => updateForm('madre_email', e.target.value)} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label fw-semibold">¿La Madre Trabaja en PDVSA?</label>
-              <div className="d-flex gap-3 mt-2">
-                {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => {
-                  const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
-                  const disabled = esComunidad && opt.val === true;
-                  const isSelected = esComunidad ? opt.val === false : form.madre_trabaja_pdvsa === opt.val;
-                  return (
-                    <button key={opt.label} type="button"
-                      className={`btn rounded-pill px-4 fw-semibold ${isSelected ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                      onClick={() => {
-                        if (!disabled) updateForm('madre_trabaja_pdvsa', opt.val);
-                      }}
-                      disabled={disabled}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="d-flex justify-content-between mt-4 pt-3 border-top">
@@ -1698,21 +2087,317 @@ export const SolicitudCupos = () => {
           <i className="bi bi-arrow-left me-1"></i> Anterior
         </button>
         <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto"
-          onClick={() => {
-            if (!form.representante_cedula || !form.representante_telefono || !form.representante_email) {
-              if (Swal) Swal.fire('Atención', 'Por favor completa los campos obligatorios del representante (*)', 'warning');
-              return;
-            }
-            setStep(3);
-          }}>
+          onClick={() => handleStepChange(3)}>
           Continuar <i className="bi bi-arrow-right ms-1"></i>
         </button>
       </div>
     </div>
   );
 
-  // ─── PASO 4: SALUD Y BIENESTAR ─────────────────────────────────────────────
+  // ─── PASO 4: DATOS DE LA MADRE Y DEL PADRE ───────────────────────────────────
   const renderStep4 = () => {
+    const copiarDeRepresentanteMadre = (checked: boolean) => {
+      updateForm('madre_es_representante', checked);
+      if (checked) {
+        setForm(prev => ({
+          ...prev,
+          madre_es_representante: true,
+          madre_nombres: prev.representante_nombres || '',
+          madre_apellidos: prev.representante_apellidos || '',
+          madre_cedula: prev.representante_cedula || '',
+          madre_email: prev.representante_email || '',
+          madre_telefono: prev.representante_telefono || '',
+          madre_trabaja_pdvsa: prev.representante_trabaja_pdvsa === 'Sí',
+        }));
+        if (Swal) Swal.fire({
+          icon: 'success',
+          title: 'Datos Copiados',
+          text: 'Se autocompletaron los datos de la madre con la información de la Representante Legal.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+    };
+
+    const copiarDeRepresentantePadre = (checked: boolean) => {
+      updateForm('padre_es_representante', checked);
+      if (checked) {
+        setForm(prev => ({
+          ...prev,
+          padre_es_representante: true,
+          padre_nombres: prev.representante_nombres || '',
+          padre_apellidos: prev.representante_apellidos || '',
+          padre_cedula: prev.representante_cedula || '',
+          padre_email: prev.representante_email || '',
+          padre_telefono: prev.representante_telefono || '',
+          padre_trabaja_pdvsa: prev.representante_trabaja_pdvsa === 'Sí',
+        }));
+        if (Swal) Swal.fire({
+          icon: 'success',
+          title: 'Datos Copiados',
+          text: 'Se autocompletaron los datos del padre con la información del Representante Legal.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+    };
+
+    return (
+      <div className="animate__animated animate__fadeIn">
+        <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+          <i className="bi bi-people-fill text-success fs-4"></i>
+          <div>
+            <h6 className="fw-bold text-dark mb-0">Datos Biológicos de la Madre y el Padre</h6>
+            <span className="text-muted small">Información de los progenitores o padres del estudiante</span>
+          </div>
+        </div>
+
+        {/* ── SECCIÓN MADRE ── */}
+        <div className="card shadow-sm border-0 bg-light rounded-4 mb-4 p-3 p-md-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary-subtle gap-2">
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge bg-danger-subtle text-danger rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: 36, height: 36 }}>
+                <i className="bi bi-gender-female fs-5"></i>
+              </span>
+              <h6 className="fw-bold text-dark mb-0 fs-6">1. Información de la Madre</h6>
+            </div>
+            
+            <div className="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded-pill border shadow-sm">
+              <span className="small fw-semibold text-muted">¿Se encuentra con vida?</span>
+              <div className="btn-group btn-group-sm" role="group">
+                <button type="button"
+                  className={`btn rounded-pill px-3 fw-bold ${form.madre_vive !== 'No' ? 'btn-success' : 'btn-outline-secondary'}`}
+                  onClick={() => updateForm('madre_vive', 'Sí')}>
+                  Sí
+                </button>
+                <button type="button"
+                  className={`btn rounded-pill px-3 fw-bold ${form.madre_vive === 'No' ? 'btn-danger' : 'btn-outline-secondary'}`}
+                  onClick={() => updateForm('madre_vive', 'No')}>
+                  No
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {form.madre_vive === 'No' && (
+            <div className="alert alert-warning border-0 d-flex align-items-center gap-2 mb-3 py-2 rounded-3 small">
+              <i className="bi bi-info-circle-fill fs-5 text-warning"></i>
+              <span>Has indicado que la madre ha fallecido. Recuerda que debes ingresar sus Nombres, Apellidos y Cédula tal como aparecen en la partida de nacimiento del estudiante.</span>
+            </div>
+          )}
+
+          {form.madre_vive !== 'No' && (
+            <div className="bg-white p-3 rounded-3 border mb-3 shadow-sm d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <i className="bi bi-lightning-charge-fill text-warning fs-5"></i>
+                <span className="small fw-semibold text-dark">¿La madre es la misma Representante Legal registrada en el Paso 2?</span>
+              </div>
+              <div className="form-check form-switch m-0 fs-5">
+                <input className="form-check-input hover-efecto" type="checkbox" role="switch"
+                  id="madreEsRepSwitch"
+                  checked={!!form.madre_es_representante}
+                  onChange={(e) => copiarDeRepresentanteMadre(e.target.checked)} />
+                <label className="form-check-label fs-6 small fw-bold text-success ms-1" htmlFor="madreEsRepSwitch">
+                  {form.madre_es_representante ? 'Sí, autocompletar' : 'No'}
+                </label>
+              </div>
+            </div>
+          )}
+
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label fw-semibold small">Nombres de la Madre <span className="text-danger">*</span></label>
+              <input type="text" className="form-control input-moderno" placeholder="Ej. María Teresa"
+                value={form.madre_nombres || ''} onChange={(e) => updateForm('madre_nombres', e.target.value)}
+                disabled={!!form.madre_es_representante && form.madre_vive !== 'No'} />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label fw-semibold small">Apellidos de la Madre <span className="text-danger">*</span></label>
+              <input type="text" className="form-control input-moderno" placeholder="Ej. González Pérez"
+                value={form.madre_apellidos || ''} onChange={(e) => updateForm('madre_apellidos', e.target.value)}
+                disabled={!!form.madre_es_representante && form.madre_vive !== 'No'} />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label fw-semibold small">Cédula de Identidad <span className="text-danger">*</span></label>
+              <input type="text" className="form-control input-moderno" placeholder="Ej. 13567896"
+                value={form.madre_cedula || ''} onChange={(e) => updateForm('madre_cedula', e.target.value)}
+                disabled={!!form.madre_es_representante && form.madre_vive !== 'No'} />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label fw-semibold small">Fecha de Nacimiento</label>
+              <input type="date" className="form-control input-moderno"
+                value={form.madre_fecha_nacimiento || ''} onChange={(e) => updateForm('madre_fecha_nacimiento', e.target.value)} />
+            </div>
+
+            {form.madre_vive !== 'No' && (
+              <>
+                <div className="col-md-4">
+                  <label className="form-label fw-semibold small">Teléfono de Contacto</label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. 0414-1234567"
+                    value={form.madre_telefono || ''} onChange={(e) => updateForm('madre_telefono', e.target.value)}
+                    disabled={!!form.madre_es_representante} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold small">Correo Electrónico</label>
+                  <input type="email" className="form-control input-moderno" placeholder="correo@ejemplo.com"
+                    value={form.madre_email || ''} onChange={(e) => updateForm('madre_email', e.target.value)}
+                    disabled={!!form.madre_es_representante} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold small d-block">¿La Madre trabaja en PDVSA?</label>
+                  <div className="d-flex gap-3 mt-1">
+                    {[{ label: 'Sí trabaja en PDVSA', val: true }, { label: 'No trabaja en PDVSA', val: false }].map(opt => (
+                      <button key={opt.label} type="button"
+                        className={`btn btn-sm rounded-pill px-4 fw-semibold ${form.madre_trabaja_pdvsa === opt.val ? 'btn-success shadow-sm' : 'btn-outline-secondary bg-white'}`}
+                        onClick={() => updateForm('madre_trabaja_pdvsa', opt.val)}
+                        disabled={!!form.madre_es_representante}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ── SECCIÓN PADRE ── */}
+        <div className="card shadow-sm border-0 bg-light rounded-4 p-3 p-md-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary-subtle gap-2">
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge bg-primary-subtle text-primary rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: 36, height: 36 }}>
+                <i className="bi bi-gender-male fs-5"></i>
+              </span>
+              <h6 className="fw-bold text-dark mb-0 fs-6">2. Información del Padre</h6>
+            </div>
+            
+            {form.estudiante_reconocido_por_padre !== 'No' && (
+              <div className="d-flex align-items-center gap-2 bg-white px-3 py-1 rounded-pill border shadow-sm">
+                <span className="small fw-semibold text-muted">¿Se encuentra con vida?</span>
+                <div className="btn-group btn-group-sm" role="group">
+                  <button type="button"
+                    className={`btn rounded-pill px-3 fw-bold ${form.padre_vive !== 'No' ? 'btn-success' : 'btn-outline-secondary'}`}
+                    onClick={() => updateForm('padre_vive', 'Sí')}>
+                    Sí
+                  </button>
+                  <button type="button"
+                    className={`btn rounded-pill px-3 fw-bold ${form.padre_vive === 'No' ? 'btn-danger' : 'btn-outline-secondary'}`}
+                    onClick={() => updateForm('padre_vive', 'No')}>
+                    No
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {form.estudiante_reconocido_por_padre === 'No' ? (
+            <div className="alert alert-secondary border-0 d-flex align-items-center gap-3 mb-0 py-3 rounded-3 shadow-sm">
+              <i className="bi bi-info-circle-fill fs-3 text-secondary"></i>
+              <div>
+                <strong className="d-block text-dark">Estudiante no reconocido por el padre</strong>
+                <span className="small text-muted">Has indicado en el Paso 3 que el estudiante solo fue reconocido legalmente por la madre en la partida de nacimiento. Por consiguiente, los datos del padre no son solicitados ni requeridos.</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              {form.padre_vive === 'No' && (
+                <div className="alert alert-warning border-0 d-flex align-items-center gap-2 mb-3 py-2 rounded-3 small">
+                  <i className="bi bi-info-circle-fill fs-5 text-warning"></i>
+                  <span>Has indicado que el padre ha fallecido. Recuerda que debes ingresar sus Nombres, Apellidos y Cédula tal como aparecen en la partida de nacimiento del estudiante.</span>
+                </div>
+              )}
+
+              {form.padre_vive !== 'No' && (
+                <div className="bg-white p-3 rounded-3 border mb-3 shadow-sm d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <i className="bi bi-lightning-charge-fill text-warning fs-5"></i>
+                    <span className="small fw-semibold text-dark">¿El padre es el mismo Representante Legal registrado en el Paso 2?</span>
+                  </div>
+                  <div className="form-check form-switch m-0 fs-5">
+                    <input className="form-check-input hover-efecto" type="checkbox" role="switch"
+                      id="padreEsRepSwitch"
+                      checked={!!form.padre_es_representante}
+                      onChange={(e) => copiarDeRepresentantePadre(e.target.checked)} />
+                    <label className="form-check-label fs-6 small fw-bold text-success ms-1" htmlFor="padreEsRepSwitch">
+                      {form.padre_es_representante ? 'Sí, autocompletar' : 'No'}
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold small">Nombres del Padre <span className="text-danger">*</span></label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. Carlos Eduardo"
+                    value={form.padre_nombres || ''} onChange={(e) => updateForm('padre_nombres', e.target.value)}
+                    disabled={!!form.padre_es_representante && form.padre_vive !== 'No'} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label fw-semibold small">Apellidos del Padre <span className="text-danger">*</span></label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. Mendoza Rodríguez"
+                    value={form.padre_apellidos || ''} onChange={(e) => updateForm('padre_apellidos', e.target.value)}
+                    disabled={!!form.padre_es_representante && form.padre_vive !== 'No'} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label fw-semibold small">Cédula de Identidad <span className="text-danger">*</span></label>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. 12345678"
+                    value={form.padre_cedula || ''} onChange={(e) => updateForm('padre_cedula', e.target.value)}
+                    disabled={!!form.padre_es_representante && form.padre_vive !== 'No'} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label fw-semibold small">Fecha de Nacimiento</label>
+                  <input type="date" className="form-control input-moderno"
+                    value={form.padre_fecha_nacimiento || ''} onChange={(e) => updateForm('padre_fecha_nacimiento', e.target.value)} />
+                </div>
+
+                {form.padre_vive !== 'No' && (
+                  <>
+                    <div className="col-md-4">
+                      <label className="form-label fw-semibold small">Teléfono de Contacto</label>
+                      <input type="text" className="form-control input-moderno" placeholder="Ej. 0412-1234567"
+                        value={form.padre_telefono || ''} onChange={(e) => updateForm('padre_telefono', e.target.value)}
+                        disabled={!!form.padre_es_representante} />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold small">Correo Electrónico</label>
+                      <input type="email" className="form-control input-moderno" placeholder="correo@ejemplo.com"
+                        value={form.padre_email || ''} onChange={(e) => updateForm('padre_email', e.target.value)}
+                        disabled={!!form.padre_es_representante} />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold small d-block">¿El Padre trabaja en PDVSA?</label>
+                      <div className="d-flex gap-3 mt-1">
+                        {[{ label: 'Sí trabaja en PDVSA', val: true }, { label: 'No trabaja en PDVSA', val: false }].map(opt => (
+                          <button key={opt.label} type="button"
+                            className={`btn btn-sm rounded-pill px-4 fw-semibold ${form.padre_trabaja_pdvsa === opt.val ? 'btn-success shadow-sm' : 'btn-outline-secondary bg-white'}`}
+                            onClick={() => updateForm('padre_trabaja_pdvsa', opt.val)}
+                            disabled={!!form.padre_es_representante}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="d-flex justify-content-between mt-4 pt-3 border-top">
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(3)}>
+            <i className="bi bi-arrow-left me-1"></i> Anterior
+          </button>
+          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => handleStepChange(5)}>
+            Continuar <i className="bi bi-arrow-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── PASO 5: SALUD Y BIENESTAR ─────────────────────────────────────────────
+  const renderStep5 = () => {
     return (
       <div className="animate__animated animate__fadeIn">
         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
@@ -1807,10 +2492,10 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
-          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(3)}>
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(4)}>
             <i className="bi bi-arrow-left me-1"></i> Anterior
           </button>
-          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => setStep(5)}>
+          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => handleStepChange(6)}>
             Siguiente <i className="bi bi-arrow-right ms-1"></i>
           </button>
         </div>
@@ -1818,8 +2503,8 @@ export const SolicitudCupos = () => {
     );
   };
 
-  // ─── PASO 5: TRANSPORTE ESCOLAR ───────────────────────────────────────────────
-  const renderStep5 = () => {
+  // ─── PASO 6: TRANSPORTE ESCOLAR ───────────────────────────────────────────────
+  const renderStep6 = () => {
     return (
       <div className="animate__animated animate__fadeIn">
         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
@@ -1913,10 +2598,10 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
-          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(4)}>
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(5)}>
             <i className="bi bi-arrow-left me-1"></i> Anterior
           </button>
-          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => setStep(6)}>
+          <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={() => handleStepChange(7)}>
             Siguiente <i className="bi bi-arrow-right ms-1"></i>
           </button>
         </div>
@@ -1924,13 +2609,13 @@ export const SolicitudCupos = () => {
     );
   };
 
-  // ─── PASO 6: DOCUMENTOS ADJUNTOS ─────────────────────────────────────────────
-  const renderStep6 = () => {
+  // ─── PASO 7: DOCUMENTOS ADJUNTOS ─────────────────────────────────────────────
+  const renderStep7 = () => {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: keyof typeof documentos) => {
       const file = e.target.files?.[0];
       if (!file) return;
       try {
-        const compressed = await compressImage(file, 1280, 1280, 0.7);
+        const compressed = await compressImage(file, 1600, 1600, 0.82);
         setDocumentos(prev => ({ ...prev, [key]: compressed }));
       } catch (error) {
         console.error(error);
@@ -1984,7 +2669,7 @@ export const SolicitudCupos = () => {
         </div>
 
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
-          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(5)} disabled={subiendoDocs}>
+          <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(6)} disabled={subiendoDocs}>
             <i className="bi bi-arrow-left me-1"></i> Anterior
           </button>
           <button className="btn btn-success rounded-pill px-5 fw-bold shadow hover-efecto" onClick={handleSubmitFinal} disabled={subiendoDocs}>
@@ -1999,8 +2684,8 @@ export const SolicitudCupos = () => {
     );
   };
 
-  // ─── PASO 6: CONFIRMACIÓN + QR ────────────────────────────────────────────────
-  const renderStep7 = () => {
+  // ─── PASO 8: CONFIRMACIÓN + QR ────────────────────────────────────────────────
+  const renderStep8 = () => {
     const sol = solicitudGuardada;
     if (!sol) return null;
     const qrUrl = getQrUrl(sol.codigo_unico || '');
@@ -2066,7 +2751,10 @@ export const SolicitudCupos = () => {
           <div className="d-flex gap-2">
             <i className="bi bi-info-circle-fill text-warning fs-5 flex-shrink-0 mt-1"></i>
             <div className="small text-muted">
-              <strong className="text-dark">Próximos pasos:</strong> La Dirección evaluará tu solicitud. Puedes hacer seguimiento en la sección <strong>"Mis Solicitudes"</strong> usando el código de verificación.
+              <strong className="text-dark">Próximos pasos:</strong> La Dirección evaluará tu solicitud. Puedes hacer seguimiento en la sección <strong>"Mis Solicitudes"</strong> usando el código de verificación.<br />
+              <span className="text-dark d-block mt-1">
+                <em>* Recuerda que los cupos se otorgarán o asignarán según la disponibilidad del grado y los niveles de prioridad establecidos en la convención colectiva.</em>
+              </span>
             </div>
           </div>
         </div>
@@ -2099,12 +2787,12 @@ export const SolicitudCupos = () => {
   // Cálculo de progreso del formulario
   const calcularProgreso = () => {
     // Definimos los campos clave requeridos para completar el formulario
-    const camposRequeridos = [
+    const camposRequeridos: (string | boolean | undefined)[] = [
       form.estudiante_nombres,
       form.estudiante_apellidos,
-      form.estudiante_cedula,
       form.estudiante_sexo,
       form.estudiante_fecha_nacimiento,
+      Array.isArray(form.estudiante_con_quien_vive) && form.estudiante_con_quien_vive.length > 0 ? 'ok' : typeof form.estudiante_con_quien_vive === 'string' && form.estudiante_con_quien_vive ? 'ok' : '',
       form.grado_solicitado,
       form.estado_habitacion,
       form.municipio_habitacion,
@@ -2138,7 +2826,11 @@ export const SolicitudCupos = () => {
           camposRequeridos.push(form.pdvsa_localidad_trabajo_otra || '');
         }
       }
-    const completados = camposRequeridos.filter(c => c && c.toString().trim() !== '').length;
+    camposRequeridos.push(form.madre_nombres, form.madre_cedula);
+    if (form.estudiante_reconocido_por_padre !== 'No') {
+      camposRequeridos.push(form.padre_nombres, form.padre_cedula);
+    }
+    const completados = camposRequeridos.filter(c => (c !== undefined && c !== null && c !== '' && c !== false) || typeof c === 'boolean').length;
     return Math.round((completados / camposRequeridos.length) * 100);
   };
   const progreso = calcularProgreso();
@@ -2205,10 +2897,21 @@ export const SolicitudCupos = () => {
           style={{ whiteSpace: 'nowrap', fontSize: 'clamp(0.72rem, 2.2vw, 0.95rem)', padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)' }}>
           <i className="bi bi-inbox-fill me-1"></i> Mis Solicitudes
         </button>
-        <button onClick={() => { setActiveTab('nueva_solicitud'); setStep(1); setSolicitudGuardada(null); setEditingId(null); setForm(defaultForm()); setDocumentos({ficha: null, foto: null, partida: null, cedula: null, partida_trabajador: null, partida_nexo: null}); }}
+        <button onClick={() => { 
+            if (!estadoProceso.abierto) {
+              Swal.fire({
+                title: 'Período Restringido',
+                text: estadoProceso.motivo,
+                icon: 'warning',
+                confirmButtonColor: '#FF8D00'
+              });
+              return;
+            }
+            setActiveTab('nueva_solicitud'); setStep(1); setSolicitudGuardada(null); setEditingId(null); setForm(defaultForm()); setDocumentos({ficha: null, foto: null, partida: null, cedula: null, partida_trabajador: null, partida_nexo: null}); 
+          }}
           className={`btn rounded-pill fw-bold hover-efecto flex-shrink-0 ${activeTab === 'nueva_solicitud' ? 'btn-success shadow' : 'btn-outline-secondary'}`}
           style={{ whiteSpace: 'nowrap', fontSize: 'clamp(0.72rem, 2.2vw, 0.95rem)', padding: 'clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px)' }}>
-          <i className="bi bi-plus-lg me-1"></i> Nueva Solicitud
+          <i className="bi bi-plus-lg me-1"></i> Nueva Solicitud {!estadoProceso.abierto && <span className="badge bg-danger ms-1" style={{fontSize:'0.65rem'}}>CERRADO</span>}
         </button>
       </div>
 
@@ -2219,6 +2922,38 @@ export const SolicitudCupos = () => {
         {activeTab === 'gestion' && isUserAdmin && (
           <div>
             <h5 className="fw-bold text-dark mb-3"><i className="bi bi-card-checklist text-success me-2"></i>Control de Solicitudes de Admisión</h5>
+            
+            {/* SELECTOR DE PLANTEL / ESCUELA PARA ADMINISTRADORES */}
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 p-3 bg-light rounded-4 border shadow-sm">
+              <div className="d-flex align-items-center gap-2">
+                <i className="bi bi-buildings fs-5 text-primary"></i>
+                <span className="fw-bold text-dark small">Escuela / Planteles a visualizar:</span>
+              </div>
+              <div className="d-flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('todos')}
+                  className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'todos' ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary'}`}
+                >
+                  <i className="bi bi-globe me-1"></i> Ambas Escuelas ({solicitudes.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('sb')}
+                  className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'sb' ? 'btn-success text-white shadow-sm' : 'btn-outline-secondary'}`}
+                >
+                  UE Santa Bárbara ({solicitudes.filter(s => s.codigo_escuela === 'sb').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('lb')}
+                  className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-outline-secondary'}`}
+                >
+                  UE Libertador Bolívar ({solicitudes.filter(s => s.codigo_escuela === 'lb').length})
+                </button>
+              </div>
+            </div>
+
             <div className="row g-3 mb-4">
               <div className="col-md-4">
                 <label className="small fw-bold text-muted mb-1">Filtrar por Estado</label>
@@ -2253,29 +2988,83 @@ export const SolicitudCupos = () => {
                 <div className="fw-bold">No se encontraron solicitudes</div>
               </div>
             ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle border rounded-4 overflow-hidden">
-                  <thead className="bg-light text-muted small text-uppercase">
-                    <tr>
-                      <th className="ps-3">Código</th>
-                      <th>Estudiante</th>
-                      <th>Grado</th>
-                      <th>Representante</th>
-                      <th>Contacto</th>
-                      <th>Estado</th>
-                      <th className="text-end pe-3">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSolicitudes.map((sol, i) => (
-                      <tr key={i}>
-                        <td className="ps-3">
-                          <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle"
-                            style={{ fontFamily: 'monospace', fontSize: '0.75rem', letterSpacing: 1 }}>
-                            {sol.codigo_unico || '—'}
-                          </span>
-                        </td>
-                        <td>
+              <div>
+                {selectedIds.length > 0 && (
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 p-3 bg-danger bg-opacity-10 border border-danger border-opacity-25 rounded-4 mb-3 animate__animated animate__fadeIn">
+                    <div className="d-flex align-items-center gap-2">
+                      <i className="bi bi-check2-square text-danger fs-5"></i>
+                      <span className="fw-bold text-dark small">
+                        <span className="text-danger">{selectedIds.length}</span> solicitud(es) seleccionada(s)
+                      </span>
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds([])}
+                        className="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold"
+                      >
+                        Desmarcar todo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleEliminarMasivo}
+                        className="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1"
+                      >
+                        <i className="bi bi-trash3-fill me-1"></i> Eliminar seleccionadas ({selectedIds.length})
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="table-responsive">
+                  <table className="table table-hover align-middle border rounded-4 overflow-hidden">
+                    <thead className="bg-light text-muted small text-uppercase">
+                      <tr>
+                        <th className="ps-3" style={{ width: '40px' }}>
+                          <input
+                            type="checkbox"
+                            className="form-check-input hover-mano"
+                            checked={filteredSolicitudes.length > 0 && filteredSolicitudes.every(s => s.id !== undefined && selectedIds.includes(s.id))}
+                            onChange={handleSelectAll}
+                            title="Seleccionar todo el listado actual"
+                          />
+                        </th>
+                        <th>Código</th>
+                        <th>Estudiante</th>
+                        <th>Grado</th>
+                        <th>Representante</th>
+                        <th>Contacto</th>
+                        <th>Estado</th>
+                        <th className="text-end pe-3">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSolicitudes.map((sol, i) => (
+                        <tr key={i} className={sol.id !== undefined && selectedIds.includes(sol.id) ? 'table-danger bg-opacity-10' : ''}>
+                          <td className="ps-3" style={{ width: '40px' }}>
+                            <input
+                              type="checkbox"
+                              className="form-check-input hover-mano"
+                              checked={sol.id !== undefined && selectedIds.includes(sol.id)}
+                              onChange={() => handleSelectOne(sol.id)}
+                            />
+                          </td>
+                          <td>
+                            <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle d-block mb-1 text-center"
+                              style={{ fontFamily: 'monospace', fontSize: '0.75rem', letterSpacing: 1 }}>
+                              {sol.codigo_unico || '—'}
+                            </span>
+                            {sol.codigo_escuela === 'sb' ? (
+                              <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0.5 d-block text-center rounded-pill" style={{ fontSize: '0.65rem' }}>
+                                <i className="bi bi-building me-1"></i>Santa Bárbara
+                              </span>
+                            ) : (
+                              <span className="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle px-2 py-0.5 d-block text-center rounded-pill" style={{ fontSize: '0.65rem' }}>
+                                <i className="bi bi-building me-1"></i>Libertador
+                              </span>
+                            )}
+                          </td>
+                          <td>
                           <div className="fw-bold text-dark">{sol.estudiante_apellidos}, {sol.estudiante_nombres}</div>
                           <span className="text-muted small"><i className="bi bi-geo-alt me-1"></i>{[sol.municipio_habitacion, sol.estado_habitacion].filter(Boolean).join(', ') || '—'}</span>
                         </td>
@@ -2307,6 +3096,7 @@ export const SolicitudCupos = () => {
                   </tbody>
                 </table>
               </div>
+              </div>
             )}
           </div>
         )}
@@ -2314,11 +3104,34 @@ export const SolicitudCupos = () => {
         {/* MIS SOLICITUDES */}
         {activeTab === 'mis_solicitudes' && (
           <div>
+            {!estadoProceso.abierto && (
+              <div className="alert alert-warning border border-warning shadow-sm rounded-4 p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div className="d-flex align-items-center gap-3">
+                  <i className="bi bi-clock-history fs-2 text-warning"></i>
+                  <div>
+                    <h6 className="fw-bold text-dark mb-1">Período de Solicitudes Restringido</h6>
+                    <p className="small mb-0 text-muted">{estadoProceso.motivo}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="fw-bold text-dark mb-0"><i className="bi bi-mailbox2 text-success me-2"></i>Historial de Solicitudes</h5>
-              <button onClick={() => { setActiveTab('nueva_solicitud'); setStep(1); setSolicitudGuardada(null); }}
-                className="btn btn-success rounded-pill btn-sm fw-semibold">
-                <i className="bi bi-plus-circle me-1"></i> Solicitar Cupo
+              <button onClick={() => { 
+                  if (!estadoProceso.abierto) {
+                    Swal.fire({
+                      title: 'Período Restringido',
+                      text: estadoProceso.motivo,
+                      icon: 'warning',
+                      confirmButtonColor: '#FF8D00'
+                    });
+                    return;
+                  }
+                  setActiveTab('nueva_solicitud'); setStep(1); setSolicitudGuardada(null); 
+                }}
+                className="btn btn-success rounded-pill btn-sm fw-semibold d-flex align-items-center gap-1">
+                <i className="bi bi-plus-circle me-1"></i> Solicitar Cupo {!estadoProceso.abierto && <span className="badge bg-danger ms-1" style={{fontSize:'0.65rem'}}>CERRADO</span>}
               </button>
             </div>
 
@@ -2331,7 +3144,18 @@ export const SolicitudCupos = () => {
                 <i className="bi bi-journal-plus fs-2 text-secondary mb-2 d-block"></i>
                 <div className="fw-bold">No tienes solicitudes registradas</div>
                 <div className="small mb-3">Aún no has registrado ninguna solicitud de cupo en esta institución.</div>
-                <button onClick={() => { setActiveTab('nueva_solicitud'); setStep(1); }} className="btn btn-sm btn-success rounded-pill px-3">
+                <button onClick={() => { 
+                  if (!estadoProceso.abierto) {
+                    Swal.fire({
+                      title: 'Período Restringido',
+                      text: estadoProceso.motivo,
+                      icon: 'warning',
+                      confirmButtonColor: '#FF8D00'
+                    });
+                    return;
+                  }
+                  setActiveTab('nueva_solicitud'); setStep(1); 
+                }} className="btn btn-sm btn-success rounded-pill px-3">
                   Registrar la Primera
                 </button>
               </div>
@@ -2413,12 +3237,32 @@ export const SolicitudCupos = () => {
         {/* NUEVA SOLICITUD (WIZARD) */}
         {activeTab === 'nueva_solicitud' && (
           <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <div className="d-flex align-items-center gap-3">
-                <h5 className="fw-bold text-dark mb-0">
-                  <i className="bi bi-file-earmark-person-fill text-success me-2"></i>
-                  {editingId ? 'Editando Solicitud de Cupo' : 'Formulario de Solicitud de Cupo'}
-                </h5>
+            {!estadoProceso.abierto ? (
+              <div className="text-center py-5 bg-light rounded-4 border p-4 my-3">
+                <div className="p-3 bg-warning bg-opacity-10 text-warning rounded-circle d-inline-block mb-3">
+                  <i className="bi bi-clock-history fs-1"></i>
+                </div>
+                <h4 className="fw-bold text-dark mb-2">Período de Solicitudes No Disponible</h4>
+                <p className="text-muted max-w-md mx-auto mb-4" style={{ maxWidth: '600px' }}>
+                  {estadoProceso.motivo}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('mis_solicitudes')}
+                  className="btn btn-dark rounded-pill px-4 py-2 fw-bold shadow-sm hover-efecto"
+                >
+                  <i className="bi bi-arrow-left me-2"></i> Volver a Mis Solicitudes
+                </button>
+              </div>
+            ) : (
+              <>
+
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <div className="d-flex align-items-center gap-3">
+                    <h5 className="fw-bold text-dark mb-0">
+                      <i className="bi bi-file-earmark-person-fill text-success me-2"></i>
+                      {editingId ? 'Editando Solicitud de Cupo' : 'Formulario de Solicitud de Cupo'}
+                    </h5>
                 {savingStatus === 'saving' && (
                   <span className="badge bg-warning bg-opacity-10 text-warning border border-warning rounded-pill px-3 py-2 animate__animated animate__pulse animate__infinite">
                     <span className="spinner-border spinner-border-sm me-2" role="status" style={{ width: '0.85rem', height: '0.85rem' }}></span>
@@ -2467,7 +3311,10 @@ export const SolicitudCupos = () => {
               {step === 5 && renderStep5()}
               {step === 6 && renderStep6()}
               {step === 7 && renderStep7()}
+              {step === 8 && renderStep8()}
             </div>
+              </>
+            )}
           </div>
         )}
       </div>

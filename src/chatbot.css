@@ -587,6 +587,16 @@ body.dark-mode .sigma-btn-minimize:hover {
     animation: shake-dizzy 0.6s ease-in-out;
 }
 
+/* Animación de retiro / ocultar (cuando Sigma se despide y se oculta tras presentarse) */
+@keyframes retire-shrink {
+    0% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1); }
+    40% { transform: scale(1.15) translateY(-6px) rotate(5deg); opacity: 1; filter: brightness(1.2); }
+    100% { transform: scale(0.1) translateY(25px) rotate(-15deg); opacity: 0; filter: brightness(2); }
+}
+.sigma-avatar-wrapper.react-retire {
+    animation: retire-shrink 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+}
+
 /* Teletransporte Portal */
 @keyframes portal-pulse {
     0% { transform: scale(1); opacity: 1; filter: brightness(1); }

@@ -10,9 +10,9 @@
  */
 export const compressImage = async (
   file: File,
-  maxWidth = 1280,
-  maxHeight = 1280,
-  quality = 0.7
+  maxWidth = 1600,
+  maxHeight = 1600,
+  quality = 0.82
 ): Promise<File> => {
   return new Promise((resolve, reject) => {
     // Verificar si es una imagen
@@ -37,8 +37,8 @@ export const compressImage = async (
           const heightRatio = maxHeight / height;
           const bestRatio = Math.min(widthRatio, heightRatio);
 
-          width = width * bestRatio;
-          height = height * bestRatio;
+          width = Math.round(width * bestRatio);
+          height = Math.round(height * bestRatio);
         }
 
         const canvas = document.createElement('canvas');
@@ -50,30 +50,44 @@ export const compressImage = async (
           return reject(new Error('Fallo al obtener el contexto del canvas.'));
         }
 
+        // Activamos máxima calidad en el suavizado de escalado para que el texto y detalles no pierdan nitidez
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
         // Pintar la imagen redimensionada
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Exportar. Si la original era png y queremos reducir mucho, podríamos pasarla a jpeg.
-        // Pero para mantener soporte, usamos jpeg como predeterminado (o el mismo tipo si es webp).
-        const exportType = file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+        // Para reducir drásticamente el peso (bytes) manteniendo excelente calidad visual y nitidez de texto,
+        // utilizamos formato WebP por defecto (hasta 50% más liviano que JPEG/PNG con calidad de imagen superior).
+        const exportType = 'image/webp';
         
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              // Reconstruir el File
-              // Cambiar extensión a .jpg si cambiamos el MIME
-              const fileName = exportType === 'image/jpeg' 
-                ? file.name.replace(/\.[^/.]+$/, ".jpg") 
-                : file.name;
+              // Reconstruir el File con extensión .webp para optimizar el almacenamiento y subida
+              const fileName = file.name.replace(/\.[^/.]+$/, ".webp");
               
               const compressedFile = new File([blob], fileName, {
                 type: exportType,
                 lastModified: Date.now(),
               });
               
-              resolve(compressedFile);
+              // Si por alguna razón la compresión resultara más pesada que el archivo original, conservamos el original si ya es pequeño
+              if (compressedFile.size >= file.size && file.size < 500 * 1024) {
+                resolve(file);
+              } else {
+                resolve(compressedFile);
+              }
             } else {
-              reject(new Error('Error al comprimir la imagen.'));
+              // Fallback a JPEG en caso extremo de que el navegador antiguo no exporte a WebP
+              canvas.toBlob((blobJpeg) => {
+                if (blobJpeg) {
+                  const fileNameJpeg = file.name.replace(/\.[^/.]+$/, ".jpg");
+                  resolve(new File([blobJpeg], fileNameJpeg, { type: 'image/jpeg', lastModified: Date.now() }));
+                } else {
+                  reject(new Error('Error al comprimir la imagen.'));
+                }
+              }, 'image/jpeg', quality);
             }
           },
           exportType,

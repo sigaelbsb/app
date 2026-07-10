@@ -56,7 +56,7 @@ export const usePermisos = () => {
 
           // Verificar si el usuario tiene acceso a la escuela seleccionada
           const tieneAcceso = (cod: string) => {
-            if (usr.rol === 'SuperAdmin') return true;
+            if (usr.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(usr.rol)) return true;
             const privs = parsed[cod];
             if (!privs) return false;
             if (privs.hasOwnProperty('__acceso_plantel__')) {
@@ -153,7 +153,7 @@ export const usePermisos = () => {
       return rolesGenerales.includes(user?.rol);
     }
 
-    if (modulo === "Solicitud de Cupos") {
+    if (["Solicitud de Cupos", "Mi Perfil"].includes(modulo)) {
       const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
       return rolesPermitidos.includes(user?.rol);
     }
@@ -162,7 +162,7 @@ export const usePermisos = () => {
   };
 
   const tieneAccesoEscuela = (escuelaCodigo: string) => {
-    if (user?.rol === 'SuperAdmin') return true;
+    if (user?.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(user?.rol)) return true;
     if ((user?.rol === 'Invitado' || user?.rol === 'Docente') && localStorage.getItem('sigae_escuela_codigo') !== escuelaCodigo) return false;
     
     if (!fullPermisos) return false;
@@ -180,7 +180,7 @@ export const usePermisos = () => {
   };
 
   const tienePermisoEnEscuela = (escuelaCodigo: string, modulo: string, accion: string = 'ver') => {
-    if (user?.rol === 'SuperAdmin') return true;
+    if (user?.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(user?.rol)) return true;
     if (!fullPermisos || !fullPermisos[escuelaCodigo]) return false;
     const escPerms = fullPermisos[escuelaCodigo];
     if (!escPerms[modulo]) return false;

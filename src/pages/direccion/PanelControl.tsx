@@ -11,6 +11,8 @@ export const PanelControl = () => {
 
   const [mantenimiento, setMantenimiento] = useState<boolean>(false);
   const [bloquearInvitados, setBloquearInvitados] = useState<boolean>(false);
+  const [fechaInicioCupos, setFechaInicioCupos] = useState<string>('');
+  const [fechaFinCupos, setFechaFinCupos] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -39,6 +41,12 @@ export const PanelControl = () => {
 
         const guests = data.find(x => x.clave === 'bloquear_invitados');
         if (guests) setBloquearInvitados(guests.valor === 'true');
+
+        const inicioCupo = data.find(x => x.clave === 'fecha_inicio_cupos');
+        if (inicioCupo) setFechaInicioCupos(inicioCupo.valor || '');
+
+        const finCupo = data.find(x => x.clave === 'fecha_fin_cupos');
+        if (finCupo) setFechaFinCupos(finCupo.valor || '');
       }
     } catch (e: any) {
       console.error("Error al cargar ajustes globales:", e);
@@ -162,6 +170,90 @@ export const PanelControl = () => {
       Swal.fire('Error', 'No se pudo guardar la configuración.', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleParametrizarCupos = async () => {
+    if (!canModify) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
+      return;
+    }
+
+    if (!Swal) return;
+
+    const valInicio = fechaInicioCupos 
+      ? (fechaInicioCupos.includes('T') ? fechaInicioCupos.slice(0, 16) : `${fechaInicioCupos}T00:00`)
+      : '';
+    const valFin = fechaFinCupos 
+      ? (fechaFinCupos.includes('T') ? fechaFinCupos.slice(0, 16) : `${fechaFinCupos}T23:59`)
+      : '';
+
+    const { value: formValues } = await Swal.fire({
+      title: '<i class="bi bi-calendar-range text-primary"></i> Período de Solicitud de Cupos',
+      html: `
+        <div class="text-start mb-3">
+          <label class="form-label small fw-bold text-muted"><i class="bi bi-calendar-check text-primary me-1"></i>Fecha y Hora de Inicio del Proceso:</label>
+          <input id="swal-input-inicio" type="datetime-local" class="form-control rounded-3 py-2" value="${valInicio}" />
+        </div>
+        <div class="text-start mb-2">
+          <label class="form-label small fw-bold text-muted"><i class="bi bi-calendar-x text-danger me-1"></i>Fecha y Hora de Fin (Cierre) del Proceso:</label>
+          <input id="swal-input-fin" type="datetime-local" class="form-control rounded-3 py-2" value="${valFin}" />
+        </div>
+        <div class="alert alert-info small mt-3 mb-0 text-start">
+          <i class="bi bi-info-circle me-1"></i> Al especificar la hora, el sistema habilitará o cerrará las solicitudes exactamente en el minuto configurado. Si dejas los campos vacíos, el proceso permanecerá abierto indefinidamente.
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Guardar Fechas y Hora',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#0d6efd',
+      cancelButtonColor: '#6c757d',
+      preConfirm: () => {
+        const inicio = (document.getElementById('swal-input-inicio') as HTMLInputElement).value;
+        const fin = (document.getElementById('swal-input-fin') as HTMLInputElement).value;
+        if (inicio && fin && new Date(inicio).getTime() > new Date(fin).getTime()) {
+          Swal.showValidationMessage('La fecha y hora de inicio no puede ser posterior al cierre');
+          return false;
+        }
+        return { inicio, fin };
+      }
+    });
+
+    if (formValues !== undefined) {
+      setSaving(true);
+      try {
+        const nowIso = new Date().toISOString();
+        const payload = [
+          { clave: 'fecha_inicio_cupos', valor: formValues.inicio, descripcion: 'Fecha de inicio del proceso de solicitud de cupos', actualizado_en: nowIso },
+          { clave: 'fecha_fin_cupos', valor: formValues.fin, descripcion: 'Fecha de fin del proceso de solicitud de cupos', actualizado_en: nowIso }
+        ];
+
+        const { error } = await supabase
+          .from('ajustes_globales')
+          .upsert(payload, { onConflict: 'clave' });
+
+        if (error) throw error;
+
+        setFechaInicioCupos(formValues.inicio);
+        setFechaFinCupos(formValues.fin);
+
+        await auditar('Panel de Control', 'Parametrizar Cupos', `Estableció período de cupos del ${formValues.inicio || 'N/A'} al ${formValues.fin || 'N/A'}`);
+
+        Swal.fire({
+          icon: 'success',
+          title: '¡Período Parametrizado!',
+          text: formValues.inicio && formValues.fin 
+            ? `El proceso de solicitud de cupos estará abierto desde el ${new Date(formValues.inicio + 'T00:00:00').toLocaleDateString('es-VE')} hasta el ${new Date(formValues.fin + 'T23:59:59').toLocaleDateString('es-VE')}.`
+            : 'Se han eliminado/restablecido las fechas del proceso de cupos.',
+          confirmButtonColor: '#198754'
+        });
+      } catch (err: any) {
+        console.error('Error al guardar fechas de cupos:', err);
+        Swal.fire('Error', 'No se pudieron guardar las fechas de parametrización: ' + (err.message || 'Error de conexión'), 'error');
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -359,6 +451,66 @@ export const PanelControl = () => {
                     disabled={saving || !canModify}
                     onChange={(e) => handleToggleInvitados(e.target.checked)}
                   />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Parametrización Fechas Solicitud de Cupos */}
+          <div className="col-12">
+            <div className="card border-0 shadow-sm rounded-4 p-4 bg-white border-start border-primary border-4">
+              <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+                <div className="d-flex align-items-center">
+                  <div className="p-3 rounded-circle me-3 bg-primary bg-opacity-10 text-primary">
+                    <i className="bi bi-calendar-range-fill fs-3"></i>
+                  </div>
+                  <div>
+                    <h4 className="fw-bold mb-1 text-dark">Parametrización de Solicitud de Cupos</h4>
+                    <span className="badge rounded-pill bg-primary px-3 py-1 fw-bold">
+                      <i className="bi bi-clock-history me-1"></i> CONTROL DE FECHAS
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <button
+                    onClick={handleParametrizarCupos}
+                    disabled={saving || !canModify}
+                    className="btn btn-primary rounded-pill px-4 py-2.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2"
+                  >
+                    <i className="bi bi-calendar-check fs-5"></i>
+                    <span>Parametrizar Fechas del Proceso</span>
+                  </button>
+                </div>
+              </div>
+
+              <hr className="my-3 text-muted opacity-25" />
+
+              <p className="text-muted small mb-4">
+                Establece el rango exacto (fecha de inicio y fecha de cierre) durante el cual el proceso y formulario para <strong>Nueva Solicitud de Cupo</strong> estará disponible y habilitado para la comunidad escolar. Fuera de este intervalo de fechas, el sistema restringirá el ingreso de nuevas solicitudes automáticamente.
+              </p>
+
+              <div className="row g-3">
+                <div className="col-md-6 col-12">
+                  <div className="p-3 rounded-3 bg-light border d-flex align-items-center justify-content-between">
+                    <div>
+                      <span className="small text-muted fw-bold d-block text-uppercase">Fecha y Hora de Inicio</span>
+                      <span className="fs-6 fw-bold text-dark">
+                        {fechaInicioCupos ? new Date(fechaInicioCupos.includes('T') ? fechaInicioCupos : fechaInicioCupos + 'T00:00:00').toLocaleString('es-VE', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'No definida (Abierto por defecto)'}
+                      </span>
+                    </div>
+                    <i className="bi bi-calendar-plus text-primary fs-3 opacity-75"></i>
+                  </div>
+                </div>
+                <div className="col-md-6 col-12">
+                  <div className="p-3 rounded-3 bg-light border d-flex align-items-center justify-content-between">
+                    <div>
+                      <span className="small text-muted fw-bold d-block text-uppercase">Fecha y Hora de Cierre</span>
+                      <span className="fs-6 fw-bold text-dark">
+                        {fechaFinCupos ? new Date(fechaFinCupos.includes('T') ? fechaFinCupos : fechaFinCupos + 'T23:59:59').toLocaleString('es-VE', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'No definida (Sin fecha tope)'}
+                      </span>
+                    </div>
+                    <i className="bi bi-calendar-x text-danger fs-3 opacity-75"></i>
+                  </div>
                 </div>
               </div>
             </div>

@@ -447,11 +447,19 @@ export const TransporteEscolar = () => {
       const hoyStr = new Date().toISOString().split('T')[0];
       
       const p1 = Promise.resolve(supabase.from('transporte_paradas').select('*').eq('escuela_codigo', escCodigo).order('nombre_parada', { ascending: true }))
-        .then(res => { if (res.error) throw res.error; setParadas(res.data || []); })
+        .then(res => { 
+          if (res.error) throw res.error; 
+          const sortedParadas = (res.data || []).slice().sort((a: any, b: any) => String(a.nombre_parada || '').localeCompare(String(b.nombre_parada || ''), undefined, { numeric: true, sensitivity: 'base' }));
+          setParadas(sortedParadas); 
+        })
         .catch((err: any) => { console.error("Error al cargar paradas:", err); throw err; });
 
       const p2 = Promise.resolve(supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }))
-        .then(res => { if (res.error) throw res.error; setRutas(res.data || []); })
+        .then(res => { 
+          if (res.error) throw res.error; 
+          const sorted = (res.data || []).slice().sort((a: any, b: any) => String(a.nombre || '').localeCompare(String(b.nombre || ''), undefined, { numeric: true, sensitivity: 'base' }));
+          setRutas(sorted); 
+        })
         .catch((err: any) => { console.error("Error al cargar rutas:", err); throw err; });
 
       const p3 = Promise.resolve(supabase.from('transporte_operaciones').select('*').eq('escuela_codigo', escCodigo).eq('fecha', hoyStr))

@@ -5,11 +5,12 @@ import { usePermisos } from '../hooks/usePermisos';
 import { supabase } from '../lib/supabase';
 import { subscribeToWebPush } from '../lib/webPush';
 import { ChatbotSigma } from './ChatbotSigma';
+import { TourOrientacion } from './TourOrientacion';
 
 export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermiso, tieneAccesoEscuela, loading: permLoading } = usePermisos();
 
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
@@ -478,6 +479,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     document.body.classList.toggle('menu-abierto');
   };
 
+
+
   // Close mobile sidebar on route change
   useEffect(() => {
     document.body.classList.remove('menu-abierto');
@@ -503,9 +506,16 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             />
             <span className="fw-bold text-dark sidebar-texto">SIGAE {escuelaNombre.replace('UE ', '')}</span>
           </div>
-          <button id="btn-colapsar-menu" onClick={toggleSidebar} className="btn-colapsar d-none d-lg-block ms-auto">
-            <i className="bi bi-list"></i>
-          </button>
+          <div className="d-flex align-items-center ms-auto gap-2">
+            <button 
+              id="btn-colapsar-menu" 
+              onClick={toggleSidebar} 
+              className="btn-colapsar d-none d-lg-block position-relative" 
+              title="Contraer/Expandir Menú Lateral"
+            >
+              <i className="bi bi-list"></i>
+            </button>
+          </div>
         </div>
         
         <div id="contenedor-enlaces" className="sidebar-menu pb-5">
@@ -571,9 +581,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
       <main id="contenido-principal" className="d-flex flex-column min-vh-100">
         <header className="glass-header shadow-sm d-flex align-items-center px-4 bg-white auth-header">
-          <button id="btn-menu-movil" onClick={toggleMobileSidebar} className="btn-movil d-lg-none me-3">
-            <i className="bi bi-list fs-3"></i>
-          </button>
+          <div className="d-flex align-items-center d-lg-none me-3">
+            <button id="btn-menu-movil" onClick={toggleMobileSidebar} className="btn-movil position-relative" title="Abrir Menú de Categorías">
+              <i className="bi bi-list fs-2 text-primary"></i>
+            </button>
+          </div>
           <h5 id="titulo-pagina" className="mb-0 fw-bold text-dark d-none d-md-block">
             {activeCategory === 'Inicio' ? 'Panel Principal' : activeCategory}
           </h5>
@@ -737,6 +749,76 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               )}
             </div>
 
+            {/* SELECTOR RAPIDO DE ESCUELA PARA ADMINISTRADORES/CON ACCESO DUAL */}
+            {(['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(usuario.rol) || (tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb'))) && (
+              <div className="dropdown me-3 d-none d-sm-block">
+                <button 
+                  className="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold d-flex align-items-center gap-2 shadow-sm bg-white hover-efecto" 
+                  type="button" 
+                  data-bs-toggle="dropdown" 
+                  aria-expanded="false"
+                  title="Cambiar Plantel Activo"
+                >
+                  <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success' : 'bg-primary'} rounded-circle p-1`}></span>
+                  <span style={{ fontSize: '0.8rem' }}>{escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</span>
+                  <i className="bi bi-chevron-down small text-muted"></i>
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 p-2 mt-2" style={{ minWidth: '240px' }}>
+                  <li>
+                    <h6 className="dropdown-header small fw-bold text-muted text-uppercase d-flex align-items-center gap-2">
+                      <i className="bi bi-buildings text-primary"></i> Cambiar Escuela Activa
+                    </h6>
+                  </li>
+                  <li>
+                    <button 
+                      className={`dropdown-item rounded-3 py-2 d-flex align-items-center justify-content-between ${escuelaCodigo === 'sb' ? 'bg-success bg-opacity-10 text-success fw-bold' : ''}`}
+                      onClick={() => {
+                        if (escuelaCodigo !== 'sb') {
+                          localStorage.setItem('sigae_escuela_codigo', 'sb');
+                          localStorage.setItem('sigae_escuela_activa', 'UE Santa Bárbara');
+                          try {
+                            const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+                            u.id_escuela = 'sb';
+                            u.nombre_escuela = 'UE Santa Bárbara';
+                            localStorage.setItem('usuario_sigae', JSON.stringify(u));
+                          } catch(e) {}
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      <span className="d-flex align-items-center gap-2">
+                        <i className="bi bi-building"></i> UE Santa Bárbara
+                      </span>
+                      {escuelaCodigo === 'sb' && <i className="bi bi-check-circle-fill"></i>}
+                    </button>
+                  </li>
+                  <li>
+                    <button 
+                      className={`dropdown-item rounded-3 py-2 d-flex align-items-center justify-content-between mt-1 ${escuelaCodigo === 'lb' ? 'bg-primary bg-opacity-10 text-primary fw-bold' : ''}`}
+                      onClick={() => {
+                        if (escuelaCodigo !== 'lb') {
+                          localStorage.setItem('sigae_escuela_codigo', 'lb');
+                          localStorage.setItem('sigae_escuela_activa', 'UE Libertador Bolívar');
+                          try {
+                            const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+                            u.id_escuela = 'lb';
+                            u.nombre_escuela = 'UE Libertador Bolívar';
+                            localStorage.setItem('usuario_sigae', JSON.stringify(u));
+                          } catch(e) {}
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      <span className="d-flex align-items-center gap-2">
+                        <i className="bi bi-building"></i> UE Libertador Bolívar
+                      </span>
+                      {escuelaCodigo === 'lb' && <i className="bi bi-check-circle-fill"></i>}
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            )}
+
             <div className="usuario-info me-3 text-end d-none d-md-block">
               <div id="nombre-usuario-nav" className="fw-bold text-dark">{usuario.nombre}</div>
               <div id="rol-usuario-nav" className="small texto-gradiente fw-bold">{usuario.rol}</div>
@@ -763,6 +845,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         </footer>
       </main>
       <ChatbotSigma />
+      <TourOrientacion />
     </div>
   );
 };

@@ -20,7 +20,7 @@ export const Dashboard = () => {
   const [escuelas, setEscuelas] = useState<EscuelaPerfil[]>([]);
   const [fechaTexto, setFechaTexto] = useState('Cargando fecha...');
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
-  const { tieneAccesoEscuela, loading: permLoading } = usePermisos();
+  const { tieneAccesoEscuela, tienePermiso, loading: permLoading } = usePermisos();
 
   const activeSchoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
 
@@ -106,6 +106,101 @@ export const Dashboard = () => {
 
   const hasAccessSB = tieneAccesoEscuela('sb');
   const hasAccessLB = tieneAccesoEscuela('lb');
+
+  const accesosRapidosLista = [
+    {
+      vista: 'Solicitud de Cupos',
+      ruta: '/categoria/Gestión Estudiantil/Solicitud de Cupos',
+      icono: 'bi-person-lines-fill',
+      subtitulo: 'Admisión estudiantil',
+      badge: 'Trámite',
+      badgeColor: 'bg-success text-white',
+      iconBg: 'bg-success text-white',
+      btnBg: '#f0fdf4',
+      btnBorder: '#bbf7d0',
+      textClass: 'fw-bolder text-success'
+    },
+    {
+      vista: 'Transporte Escolar',
+      ruta: '/categoria/Servicios y Bienestar/Transporte Escolar',
+      icono: 'bi-bus-front-fill',
+      subtitulo: 'Rutas y paradas',
+      badge: 'Servicio',
+      badgeColor: 'bg-primary text-white',
+      iconBg: 'bg-primary text-white',
+      btnBg: '#eff6ff',
+      btnBorder: '#bfdbfe',
+      textClass: 'fw-bold text-dark'
+    },
+    {
+      vista: 'Grados y Salones',
+      ruta: '/categoria/Control de Estudios/Grados y Salones',
+      icono: 'bi-building-check',
+      subtitulo: 'Control académico',
+      badge: 'Aulas',
+      badgeColor: 'bg-info text-white',
+      iconBg: 'bg-info text-white',
+      btnBg: '#f0f9ff',
+      btnBorder: '#bae6fd',
+      textClass: 'fw-bold text-dark'
+    },
+    {
+      vista: 'Gestor de Expedientes',
+      ruta: '/categoria/Gestión Docente/Gestor de Expedientes',
+      icono: 'bi-folder2-open',
+      subtitulo: 'Gestión docente',
+      badge: 'Personal',
+      badgeColor: 'bg-warning text-dark',
+      iconBg: 'bg-warning text-dark',
+      btnBg: '#fefce8',
+      btnBorder: '#fde047',
+      textClass: 'fw-bold text-dark'
+    },
+    {
+      vista: 'Mi Expediente',
+      ruta: '/categoria/Gestión Docente/Mi Expediente',
+      icono: 'bi-file-earmark-person-fill',
+      subtitulo: 'Expediente propio',
+      badge: 'Docente',
+      badgeColor: 'bg-warning text-dark',
+      iconBg: 'bg-warning text-dark',
+      btnBg: '#fefce8',
+      btnBorder: '#fde047',
+      textClass: 'fw-bold text-dark'
+    },
+    {
+      vista: 'Perfil de la Escuela',
+      ruta: '/categoria/Dirección y Sistema/Perfil de la Escuela',
+      icono: 'bi-house-heart-fill',
+      subtitulo: 'Dirección y datos',
+      badge: 'Planteles',
+      badgeColor: 'bg-danger text-white',
+      iconBg: 'bg-danger text-white',
+      btnBg: '#fff1f2',
+      btnBorder: '#fecdd3',
+      textClass: 'fw-bold text-dark'
+    },
+    {
+      vista: 'Mi Perfil',
+      ruta: '/categoria/Seguridad y Accesos/Mi Perfil',
+      icono: 'bi-person-badge-fill',
+      subtitulo: 'Privilegios de usuario',
+      badge: 'Cuenta',
+      badgeColor: 'bg-secondary text-white',
+      iconBg: 'bg-secondary text-white',
+      btnBg: '#f8fafc',
+      btnBorder: '#cbd5e1',
+      textClass: 'fw-bold text-dark'
+    }
+  ];
+
+  const accesosPermitidos = accesosRapidosLista.filter(item => {
+    // Si el usuario ya ve Gestor de Expedientes, evitamos duplicar con Mi Expediente
+    if (item.vista === 'Mi Expediente' && tienePermiso('Gestor de Expedientes', 'ver')) {
+      return false;
+    }
+    return tienePermiso(item.vista, 'ver');
+  });
 
   if (permLoading) {
     return (
@@ -345,6 +440,69 @@ export const Dashboard = () => {
         </div>
       )}
       </div>
+
+      {/* BOTONERA DE ACCESOS RÁPIDOS Y GUÍA DE MENÚ */}
+      {accesosPermitidos.length > 0 && (
+        <div id="card-accesos-rapidos" className="card border-0 shadow-sm rounded-4 p-4 mb-4" style={{ background: 'white', borderTop: '4px solid #16a34a' }}>
+          <div className="d-flex flex-column flex-xl-row align-items-stretch align-items-xl-center justify-content-between mb-3 pb-3 border-bottom gap-3">
+            <div className="d-flex align-items-center gap-3">
+              <div className="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '48px', height: '48px', fontSize: '1.5rem' }}>
+                <i className="bi bi-grid-fill"></i>
+              </div>
+              <div>
+                <h5 className="fw-bold text-dark mb-1">Botonera de Accesos Rápidos</h5>
+                <p className="text-muted small mb-0">Selecciona un módulo para ingresar directamente o utiliza el menú lateral para explorar más opciones.</p>
+              </div>
+            </div>
+
+            <div className="d-flex align-items-center gap-2 flex-wrap bg-light p-2.5 rounded-4 border border-primary border-opacity-25 shadow-sm">
+              <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm" style={{ width: '38px', height: '38px', fontSize: '1.2rem' }}>
+                <i className="bi bi-list"></i>
+              </div>
+              <div className="me-2">
+                <span className="d-block fw-bold text-dark small mb-0">
+                  <i className="bi bi-compass-fill text-primary me-1"></i> ¿Buscas más módulos y funciones?
+                </span>
+                <span className="text-muted" style={{ fontSize: '0.76rem' }}>
+                  Ubica el <strong>Botón de Menú (<i className="bi bi-list"></i>)</strong> en la esquina o la barra lateral izquierda para explorar todo el sistema.
+                </span>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('sigae-iniciar-tour'));
+                }}
+                className="btn btn-sm btn-primary rounded-pill fw-bold px-3 ms-auto shadow-sm flex-shrink-0 hover-efecto d-flex align-items-center gap-1"
+              >
+                <i className="bi bi-compass-fill"></i> Ver Orientación Inicial
+              </button>
+            </div>
+          </div>
+
+          <div className="row g-3">
+            {accesosPermitidos.map((acceso) => (
+              <div key={acceso.vista} className="col-6 col-md-4 col-lg-2">
+                <button
+                  onClick={() => navigate(acceso.ruta)}
+                  className="btn btn-light w-100 p-3 rounded-4 shadow-sm border text-start d-flex flex-column justify-content-between h-100 hover-efecto position-relative overflow-hidden"
+                  style={{ transition: 'all 0.3s', backgroundColor: acceso.btnBg, borderColor: acceso.btnBorder }}
+                >
+                  <div className="d-flex justify-content-between align-items-start mb-2 w-100">
+                    <div className={`${acceso.iconBg} rounded-3 d-flex align-items-center justify-content-center shadow-sm flex-shrink-0`} style={{ width: '42px', height: '42px', fontSize: '1.3rem' }}>
+                      <i className={`bi ${acceso.icono}`}></i>
+                    </div>
+                    <span className={`badge ${acceso.badgeColor} small shadow-sm`} style={{ fontSize: '0.65rem' }}>{acceso.badge}</span>
+                  </div>
+                  <div className="mt-2">
+                    <div className={`${acceso.textClass} small mb-0`}>{acceso.vista}</div>
+                    <small className="text-muted d-block text-truncate" style={{ fontSize: '0.7rem' }}>{acceso.subtitulo}</small>
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Organigrama */}
       <div className="barra-organigrama shadow-sm mb-2 rounded-4 p-4 d-flex justify-content-between align-items-center flex-wrap gap-3" style={{ background: 'white' }}>

@@ -30,6 +30,8 @@ export const ChatbotSigma = () => {
   const dragMoved = useRef(false);
   const particleId = useRef(0);
   const lastPath = useRef(location.pathname);
+  const userInteractedRef = useRef(false);
+  const autoRetireTimerRef = useRef<any>(null);
   
   const [conocimientoCache, setConocimientoCache] = useState<any[]>([]);
   const [fuseInstance, setFuseInstance] = useState<Fuse<any> | null>(null);
@@ -164,10 +166,11 @@ export const ChatbotSigma = () => {
     window.addEventListener('sigae-sigma-refresh', refrescarCanal);
     return () => {
       window.removeEventListener('sigae-sigma-refresh', refrescarCanal);
+      if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
     };
   }, []);
 
-  // Saludo de bienvenida
+  // Saludo de bienvenida y presentación automática al ingresar
   useEffect(() => {
     let saludo = "¡Hola! Soy <b>Sigma</b>, el Asistente Virtual de SIGAE. Estoy listo para asistirte en la plataforma. Desplázame por la pantalla y pregúntame lo que necesites.";
     
@@ -198,10 +201,7 @@ export const ChatbotSigma = () => {
     setMensaje(saludo);
     setAcciones([]);
 
-    // Cargar posición y estado minimizado
-    const isMin = localStorage.getItem('sigma_minimizada') === 'true';
-    setMinimizado(isMin);
-    
+    // Cargar posición guardada
     let savedX = parseInt(localStorage.getItem('sigma_pos_x') || '');
     let savedY = parseInt(localStorage.getItem('sigma_pos_y') || '');
     const maxX = window.innerWidth - 100;
@@ -209,9 +209,53 @@ export const ChatbotSigma = () => {
     
     if (isNaN(savedX) || savedX < 0 || savedX > maxX) savedX = maxX - 20;
     if (isNaN(savedY) || savedY < 0 || savedY > maxY) savedY = maxY - 20;
-    
     setPosition({ x: savedX, y: savedY });
-    setActivo(!isMin);
+
+    // Verificar si Sigma ya se presentó en esta sesión al ingresar
+    const yaPresentado = sessionStorage.getItem('sigma_presentado') === 'true';
+    const presentandoAhora = sessionStorage.getItem('sigma_presentando_ahora') === 'true';
+
+    if (!yaPresentado || presentandoAhora) {
+      // Al ingresar al sistema: mostrar a Sigma activo y presentándose
+      setMinimizado(false);
+      setActivo(true);
+      sessionStorage.setItem('sigma_presentado', 'true');
+      sessionStorage.setItem('sigma_presentando_ahora', 'true');
+
+      if (!yaPresentado) {
+        userInteractedRef.current = false;
+        setTimeout(() => {
+          setEfectoHover('react-bounce');
+          createSparkles();
+        }, 500);
+      }
+
+      if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
+
+      // Programar el retiro/ocultamiento automático después de 8 segundos si el usuario no ha interactuado
+      autoRetireTimerRef.current = setTimeout(() => {
+        if (!userInteractedRef.current) {
+          setActivo(false);
+          setEfectoHover('react-retire');
+          
+          setTimeout(() => {
+            if (!userInteractedRef.current) {
+              sessionStorage.removeItem('sigma_presentando_ahora');
+              setMinimizado(true);
+              setEfectoHover('');
+              localStorage.setItem('sigma_minimizada', 'true');
+            }
+          }, 650);
+        } else {
+          sessionStorage.removeItem('sigma_presentando_ahora');
+        }
+      }, 8000);
+    } else {
+      // Si ya se presentó previamente en la sesión, respetar el estado guardado
+      const isMin = localStorage.getItem('sigma_minimizada') === 'true';
+      setMinimizado(isMin);
+      setActivo(!isMin);
+    }
   }, [conocimientoCache]);
 
   // Notificar cambio de sección
@@ -236,14 +280,37 @@ export const ChatbotSigma = () => {
       setMensaje(`Has ingresado al módulo de <b>${currentModule}</b> para la institución <b>${schoolName}</b>. Si no sabes cómo utilizar esta sección, consúltame y te explicaré paso a paso.`);
       setAcciones([]);
       setActivo(true);
+
+      // Si no está minimizado al cambiar de módulo, ocultar automáticamente tras 8 segundos de inactividad
+      if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
+      autoRetireTimerRef.current = setTimeout(() => {
+        if (!userInteractedRef.current) {
+          setActivo(false);
+          setEfectoHover('react-retire');
+          setTimeout(() => {
+            if (!userInteractedRef.current) {
+              setMinimizado(true);
+              setEfectoHover('');
+              localStorage.setItem('sigma_minimizada', 'true');
+            }
+          }, 650);
+        }
+      }, 8000);
     }
   }, [location.pathname, minimizado]);
+
+  const marcarInteraccionUsuario = () => {
+    userInteractedRef.current = true;
+    if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
+    sessionStorage.removeItem('sigma_presentando_ahora');
+  };
 
   // Drag logic handlers
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('.sigma-speech-bubble')) return;
     if ((e.target as HTMLElement).closest('.sigma-btn-minimize')) return;
     
+    marcarInteraccionUsuario();
     setIsDragging(true);
     dragMoved.current = false;
 
@@ -312,12 +379,14 @@ export const ChatbotSigma = () => {
 
   const minimizar = (e: React.MouseEvent) => {
     e.stopPropagation();
+    marcarInteraccionUsuario();
     setMinimizado(true);
     setActivo(false);
     localStorage.setItem('sigma_minimizada', 'true');
   };
 
   const restaurar = () => {
+    marcarInteraccionUsuario();
     setMinimizado(false);
     setActivo(true);
     localStorage.setItem('sigma_minimizada', 'false');
@@ -444,6 +513,7 @@ export const ChatbotSigma = () => {
     const query = (textoManual !== null ? textoManual : inputValue).trim();
     if (!query) return;
 
+    marcarInteraccionUsuario();
     setInputValue('');
     setPensando(true);
     setMensaje("<div class='text-center'><span class='spinner-border spinner-border-sm text-primary'></span> <i>Analizando solicitud...</i></div>");
@@ -619,6 +689,7 @@ export const ChatbotSigma = () => {
   };
 
   const ejecutarRespuesta = (items: any[]) => {
+    marcarInteraccionUsuario();
     const item = items[0];
     let htmlRespuesta = item.respuesta;
 
@@ -723,6 +794,7 @@ export const ChatbotSigma = () => {
   };
 
   const ejecutarAccion = (tipo: string, valor: string) => {
+    marcarInteraccionUsuario();
     if (tipo === 'navegar') {
       const vistaNombre = getVistaFromKeyword(valor);
       const url = mapVistaToUrl(vistaNombre);
@@ -765,11 +837,27 @@ export const ChatbotSigma = () => {
       <div className={`sigma-speech-bubble ${activo ? 'active' : ''}`} id="sigma-speech-bubble">
         <div className="sigma-bubble-header">
           <span className="sigma-bubble-title"><i className="bi bi-stars"></i> Asistente Sigma</span>
-          <button className="sigma-bubble-close" onClick={() => setActivo(false)}>&times;</button>
+          <button className="sigma-bubble-close" onClick={() => { marcarInteraccionUsuario(); setActivo(false); }}>&times;</button>
         </div>
         
         <div className="sigma-bubble-content">
           <div dangerouslySetInnerHTML={{ __html: mensaje }} />
+          
+          {location.pathname === '/' && (
+            <div className="mt-3">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm w-100 mb-2 fw-bold text-start d-flex align-items-center justify-content-between hover-efecto"
+                onClick={() => {
+                  marcarInteraccionUsuario();
+                  window.dispatchEvent(new CustomEvent('sigae-iniciar-tour'));
+                }}
+              >
+                <span><i className="bi bi-compass-fill me-1"></i> Ver Tour / Orientación Inicial</span>
+                <span className="badge bg-primary rounded-pill"><i className="bi bi-play-fill"></i></span>
+              </button>
+            </div>
+          )}
           
           {acciones.length > 0 && (
             <div className="mt-3">
@@ -871,7 +959,11 @@ export const ChatbotSigma = () => {
           <input 
             type="text" 
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onFocus={marcarInteraccionUsuario}
+            onChange={(e) => {
+              marcarInteraccionUsuario();
+              setInputValue(e.target.value);
+            }}
             onKeyDown={(e) => { if (e.key === 'Enter') procesarPreguntaUsuario(); }}
             className="sigma-input" 
             placeholder="Pregunta algo sobre SIGAE..."
