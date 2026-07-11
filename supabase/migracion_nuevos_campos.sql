@@ -1,8 +1,9 @@
 -- Migración para añadir los nuevos campos requeridos al sistema de Solicitud de Cupos
 -- Ejecuta este script en el SQL Editor de tu panel de Supabase (https://supabase.com/dashboard/project/nbsrlauuugxfcgjavfve/sql)
 
--- 1. Campos para la sección ¿Con quién vive el estudiante? y reconocimiento legal (Paso 3)
+-- 1. Campos adicionales generales y para la sección ¿Con quién vive el estudiante? y reconocimiento legal (Paso 3)
 ALTER TABLE solicitud_cupos 
+ADD COLUMN IF NOT EXISTS observaciones TEXT DEFAULT '',
 ADD COLUMN IF NOT EXISTS estudiante_con_quien_vive TEXT,
 ADD COLUMN IF NOT EXISTS estudiante_reconocido_por_padre TEXT DEFAULT 'Sí';
 

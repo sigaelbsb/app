@@ -165,6 +165,7 @@ interface SolicitudForm {
   doc_foto_estudiante: string;
   doc_partida_nacimiento: string;
   doc_cedula_estudiante: string;
+  observaciones?: string;
 }
 
 interface SolicitudDB extends SolicitudForm {
@@ -247,6 +248,7 @@ const defaultForm = (): SolicitudForm => ({
   doc_foto_estudiante: '',
   doc_partida_nacimiento: '',
   doc_cedula_estudiante: '',
+  observaciones: '',
 });
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
@@ -964,7 +966,7 @@ export const SolicitudCupos = () => {
         doc_cedula_estudiante: urlCedula,
         codigo_escuela: escCodigo,
         estado: 'Pendiente',
-        observaciones: '',
+        observaciones: form.observaciones?.trim() || '',
         creado_por: user?.cedula || form.representante_cedula,
       };
 
@@ -1089,6 +1091,7 @@ export const SolicitudCupos = () => {
       doc_partida_nacimiento: sol.doc_partida_nacimiento || '',
       doc_cedula_estudiante: sol.doc_cedula_estudiante || '',
       codigo_unico: sol.codigo_unico || '',
+      observaciones: sol.observaciones || '',
     };
     
     setForm(prev => ({ ...prev, ...newData }));
@@ -1281,6 +1284,13 @@ export const SolicitudCupos = () => {
               ` : ''}
             </div>
           </div>
+
+          ${sol.observaciones ? `
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 15px; font-size: 12px; color: #334155;">
+              <b style="color: #0f172a;">💬 Observaciones / Aclaratorias de la Solicitud:</b><br/>
+              <span style="font-style: italic; margin-top: 4px; display: inline-block;">"${sol.observaciones}"</span>
+            </div>
+          ` : ''}
 
           <div style="background: #fef9c3; border: 1.5px solid #fde047; border-radius: 12px; padding: 12px; margin-bottom: 15px; font-size: 11px; color: #713f12; line-height: 1.4;">
             <b>Nota Institucional:</b> La recepción de esta solicitud de cupo está sujeta a revisión y no garantiza la asignación inmediata. <b>Los cupos se otorgarán o asignarán según la disponibilidad del grado y los niveles de prioridad establecidos en la convención colectiva</b>.
@@ -2680,6 +2690,23 @@ export const SolicitudCupos = () => {
 
         </div>
 
+        <div className="mt-4 pt-3 border-top">
+          <label className="form-label fw-bold text-dark mb-1">
+            <i className="bi bi-chat-left-text-fill me-2 text-success"></i>
+            Observaciones o Comentarios Adicionales de la Solicitud <span className="text-muted fw-normal small">(Opcional)</span>
+          </label>
+          <textarea
+            className="form-control input-moderno"
+            rows={3}
+            placeholder="Si tienes alguna aclaratoria o comentario sobre tu solicitud, requisitos o documentos cargados, indícalo aquí..."
+            value={form.observaciones || ''}
+            onChange={(e) => updateForm('observaciones', e.target.value)}
+          />
+          <div className="form-text small text-muted">
+            Este campo es opcional y será tomado en cuenta por el equipo de Dirección durante el proceso de evaluación.
+          </div>
+        </div>
+
         <div className="d-flex justify-content-between mt-4 pt-3 border-top">
           <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(6)} disabled={subiendoDocs}>
             <i className="bi bi-arrow-left me-1"></i> Anterior
@@ -2766,6 +2793,12 @@ export const SolicitudCupos = () => {
                 <div className="col-7 fw-semibold">{[sol.parroquia_habitacion, sol.municipio_habitacion, sol.estado_habitacion].filter(Boolean).join(', ')}</div>
                 <div className="col-5 text-muted">Plantel:</div>
                 <div className="col-7 fw-semibold">{escNombre}</div>
+                {sol.observaciones && (
+                  <>
+                    <div className="col-5 text-muted">Observaciones:</div>
+                    <div className="col-7 text-dark fst-italic">{sol.observaciones}</div>
+                  </>
+                )}
                 <div className="col-5 text-muted">Estado:</div>
                 <div className="col-7">{getStatusBadge('Pendiente')}</div>
               </div>
@@ -3093,6 +3126,12 @@ export const SolicitudCupos = () => {
                           <td>
                           <div className="fw-bold text-dark">{sol.estudiante_apellidos}, {sol.estudiante_nombres}</div>
                           <span className="text-muted small"><i className="bi bi-geo-alt me-1"></i>{[sol.municipio_habitacion, sol.estado_habitacion].filter(Boolean).join(', ') || '—'}</span>
+                          {sol.observaciones && (
+                            <div className="mt-1 p-1 bg-warning bg-opacity-10 border border-warning-subtle rounded-2 text-dark small" style={{ fontSize: '0.72rem', maxWidth: '240px' }} title="Observaciones del Representante">
+                              <i className="bi bi-chat-left-text-fill text-warning me-1"></i>
+                              <span className="fw-bold">Obs:</span> {sol.observaciones}
+                            </div>
+                          )}
                         </td>
                         <td><span className="badge bg-light text-dark border px-2">{sol.grado_solicitado}</span></td>
                         <td>
