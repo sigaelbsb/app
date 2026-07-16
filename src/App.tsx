@@ -25,7 +25,10 @@ import { GradosSalones } from './pages/estudios/GradosSalones';
 import { MiExpediente } from './pages/docente/MiExpediente';
 import { GestorExpedientes } from './pages/docente/GestorExpedientes';
 import { SolicitudCupos } from './pages/estudiantil/SolicitudCupos';
+import { VincularEstudiante } from './pages/estudiantil/VincularEstudiante';
+import { ActualizacionDatos } from './pages/estudiantil/ActualizacionDatos';
 import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
+import { EstudioDiseno } from './pages/disenos/EstudioDiseno';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import './componentes.css';
 import './principal.css';
@@ -149,7 +152,17 @@ function App() {
             <Route path="categoria/Gestión Docente/Mi Expediente" element={<MiExpediente />} />
             <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<GestorExpedientes />} />
             <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<SolicitudCupos />} />
+            <Route path="categoria/Gestión Estudiantil/Vincular Estudiante" element={<VincularEstudiante />} />
+            <Route path="categoria/Gestión Estudiantil/Actualización de Datos" element={<ActualizacionDatos />} />
             <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<TransporteEscolar />} />
+            <Route path="categoria/Diseños/Galería y Plantillas" element={<EstudioDiseno herramientaInicial="galeria" />} />
+            <Route path="categoria/Diseños/Creador de Certificados" element={<EstudioDiseno herramientaInicial="certificados" />} />
+            <Route path="categoria/Diseños/Creador de Flyers" element={<EstudioDiseno herramientaInicial="flyers" />} />
+            <Route path="categoria/Diseños/Creador de Invitaciones" element={<EstudioDiseno herramientaInicial="invitaciones" />} />
+            <Route path="categoria/Diseños/Creador de Tapas" element={<EstudioDiseno herramientaInicial="tapas" />} />
+            <Route path="categoria/Diseños/Creador de Comunicados" element={<EstudioDiseno herramientaInicial="comunicados" />} />
+            <Route path="categoria/Diseños/Creador de Cumpleaños" element={<EstudioDiseno herramientaInicial="cumpleanos" />} />
+            <Route path="categoria/Formación y Capacitación/Creador de Certificados" element={<EstudioDiseno herramientaInicial="certificados" />} />
           </Route>
         </Routes>
       </Router>

@@ -111,8 +111,17 @@ export const usePermisos = () => {
       "Grados y Salones",
       "Tarjeta: Apertura de Salones",
       "Gestión de Usuarios",
+      "Vincular Estudiante",
       "Roles y Privilegios",
-      "Auditoría del Sistema"
+      "Auditoría del Sistema",
+      "Diseños",
+      "Galería y Plantillas",
+      "Creador de Certificados",
+      "Creador de Flyers",
+      "Creador de Invitaciones",
+      "Creador de Tapas",
+      "Creador de Comunicados",
+      "Creador de Cumpleaños"
     ];
 
     if (modulosDivididos.includes(modulo)) {
@@ -153,8 +162,17 @@ export const usePermisos = () => {
       return rolesGenerales.includes(user?.rol);
     }
 
-    if (["Solicitud de Cupos", "Mi Perfil"].includes(modulo)) {
+    if (["Solicitud de Cupos", "Mi Perfil", "Actualización de Datos"].includes(modulo)) {
       const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
+      return rolesPermitidos.includes(user?.rol);
+    }
+
+    if (modulo === "Vincular Estudiante") {
+      if (['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(user?.rol)) return true;
+    }
+
+    if (["Diseños", "Galería y Plantillas", "Creador de Certificados", "Creador de Flyers", "Creador de Invitaciones", "Creador de Tapas", "Creador de Comunicados", "Creador de Cumpleaños"].includes(modulo)) {
+      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
       return rolesPermitidos.includes(user?.rol);
     }
 

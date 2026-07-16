@@ -59,6 +59,18 @@ export const ModulosSistema = {
       { vista: "Creador de Certificados", icono: "bi-patch-plus" }
     ] 
   },
+  "Diseños": { 
+    icono: "bi-palette-fill", color: "#EC4899", desc: "Estudio de diseño creativo, certificados, flyers, comunicados y cumpleaños.", 
+    items: [
+      { vista: "Galería y Plantillas", icono: "bi-grid-1x2-fill" },
+      { vista: "Creador de Certificados", icono: "bi-patch-check-fill" },
+      { vista: "Creador de Flyers", icono: "bi-file-earmark-image-fill" },
+      { vista: "Creador de Invitaciones", icono: "bi-envelope-paper-heart-fill" },
+      { vista: "Creador de Tapas", icono: "bi-journal-album" },
+      { vista: "Creador de Comunicados", icono: "bi-megaphone-fill" },
+      { vista: "Creador de Cumpleaños", icono: "bi-balloon-heart-fill" }
+    ] 
+  },
   "Servicios y Bienestar": { 
     icono: "bi-heart-pulse", color: "#FF3D00", desc: "Rutas y monitoreo de transporte escolar.", 
     items: [
@@ -137,7 +149,7 @@ export const CategoryDashboard = () => {
          vista === "Gestión de Colectivos")) ||
       (decodedCategory === "Control de Estudios" && vista === "Grados y Salones") ||
       (decodedCategory === "Gestión Docente" && (vista === "Mi Expediente" || vista === "Gestor de Expedientes")) ||
-      (decodedCategory === "Gestión Estudiantil" && vista === "Solicitud de Cupos") ||
+      (decodedCategory === "Gestión Estudiantil" && (vista === "Solicitud de Cupos" || vista === "Vincular Estudiante" || vista === "Actualización de Datos")) ||
       (decodedCategory === "Servicios y Bienestar" && vista === "Transporte Escolar")
     ) {
       navigate(`/categoria/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(vista)}`);

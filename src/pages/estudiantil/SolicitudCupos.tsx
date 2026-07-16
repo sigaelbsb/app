@@ -11,10 +11,12 @@ import html2canvas from 'html2canvas';
 // respetando abreviaturas conocidas en mayúscula.
 const ABREVIATURAS = ['CEI', 'TDA', 'TDH', 'TDHA', 'ADN', 'UE', 'CE', 'EB', 'PDVSA', 'PDV'];
 
-const toTitulo = (value: string): string =>
-  value
+const toTitulo = (value?: string | null): string => {
+  if (!value) return '';
+  return String(value)
     .split(' ')
     .map(word => {
+      if (!word) return '';
       const wUpper = word.toUpperCase();
       if (ABREVIATURAS.includes(wUpper)) {
         return wUpper;
@@ -22,6 +24,7 @@ const toTitulo = (value: string): string =>
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(' ');
+};
 
 // Handler para inputs de texto que aplica modo título al escribir
 const handleTituloChange = (
@@ -262,6 +265,8 @@ export const SolicitudCupos = () => {
   const [activeTab, setActiveTab] = useState<'mis_solicitudes' | 'nueva_solicitud' | 'gestion'>('mis_solicitudes');
   const [filterEstado, setFilterEstado] = useState('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Catálogos desde BD
   const [gradosDB, setGradosDB] = useState<string[]>([]);
@@ -364,11 +369,26 @@ export const SolicitudCupos = () => {
 
   const estadoProceso = checkProcesoAbierto();
 
+  const formatearFechaCorto = (fechaStr: string) => {
+    if (!fechaStr) return 'No definida';
+    try {
+      const p = fechaStr.includes('T') ? fechaStr : `${fechaStr}T00:00:00`;
+      const d = new Date(p);
+      return d.toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch {
+      return fechaStr;
+    }
+  };
+
   useEffect(() => {
     if (isUserAdmin && filtroEscuela !== 'todos' && filtroEscuela !== 'sb' && filtroEscuela !== 'lb') {
       setFiltroEscuela('todos');
     }
   }, [isUserAdmin]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filtroEscuela, filterEstado, searchQuery]);
 
   // Geodatos calculados
   const municipiosDisponibles = form.estado_habitacion 
@@ -394,8 +414,8 @@ export const SolicitudCupos = () => {
       const nombresSplit = user.nombre ? user.nombre.split(' ') : [];
       setForm(prev => ({
         ...prev,
-        representante_nombres: prev.representante_nombres || user.nombres || nombresSplit.slice(0, 2).join(' ') || '',
-        representante_apellidos: prev.representante_apellidos || user.apellidos || nombresSplit.slice(2).join(' ') || '',
+        representante_nombres: toTitulo(prev.representante_nombres || user.nombres || nombresSplit.slice(0, 2).join(' ') || ''),
+        representante_apellidos: toTitulo(prev.representante_apellidos || user.apellidos || nombresSplit.slice(2).join(' ') || ''),
         representante_cedula: prev.representante_cedula || user.cedula || '',
         representante_email: prev.representante_email || user.email || '',
         representante_telefono: prev.representante_telefono || user.telefono || '',
@@ -423,6 +443,15 @@ export const SolicitudCupos = () => {
 
         const payload = {
           ...formToSubmit,
+          estudiante_nombres: toTitulo(formToSubmit.estudiante_nombres?.trim() || ''),
+          estudiante_apellidos: toTitulo(formToSubmit.estudiante_apellidos?.trim() || ''),
+          representante_nombres: toTitulo(formToSubmit.representante_nombres?.trim() || ''),
+          representante_apellidos: toTitulo(formToSubmit.representante_apellidos?.trim() || ''),
+          madre_nombres: toTitulo(formToSubmit.madre_nombres?.trim() || ''),
+          madre_apellidos: toTitulo(formToSubmit.madre_apellidos?.trim() || ''),
+          padre_nombres: toTitulo(formToSubmit.padre_nombres?.trim() || ''),
+          padre_apellidos: toTitulo(formToSubmit.padre_apellidos?.trim() || ''),
+          plantel_procedencia: toTitulo(formToSubmit.plantel_procedencia?.trim() || ''),
           estudiante_con_quien_vive: Array.isArray(form.estudiante_con_quien_vive)
             ? form.estudiante_con_quien_vive.map(item => item === 'Otros' && estudiante_con_quien_vive_otro ? `Otros (${estudiante_con_quien_vive_otro})` : item).join(', ')
             : form.estudiante_con_quien_vive,
@@ -463,9 +492,8 @@ export const SolicitudCupos = () => {
           }
         }
         
-        // Actualizar listado en segundo plano silenciosamente
+        // Actualizar listado en segundo plano silenciosamente (sin filtrar escuela para mantener contadores de todas las escuelas actualizados)
         let query = supabase.from('solicitud_cupos').select('*');
-        if (filtroEscuela !== 'todos') query = query.eq('codigo_escuela', filtroEscuela);
         if (!isUserAdmin && user) query = query.eq('creado_por', user.cedula);
         const { data: listData } = await query.order('created_at', { ascending: false });
         if (listData) setSolicitudes(listData as SolicitudDB[]);
@@ -630,9 +658,8 @@ export const SolicitudCupos = () => {
         setFechaFinProceso(fin);
       }
 
-      // 2. Cargar listado de solicitudes
+      // 2. Cargar listado de solicitudes (sin filtrar escuela por BD para conservar contadores por escuela en tiempo real)
       let query = supabase.from('solicitud_cupos').select('*');
-      if (filtroEscuela !== 'todos') query = query.eq('codigo_escuela', filtroEscuela);
       if (!isUserAdmin && user) query = query.eq('creado_por', user.cedula);
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
@@ -642,7 +669,7 @@ export const SolicitudCupos = () => {
     } finally {
       setLoading(false);
     }
-  }, [escCodigo, isUserAdmin, user, filtroEscuela]);
+  }, [escCodigo, isUserAdmin, user]);
 
   const updateForm = (field: keyof SolicitudForm, value: any) => {
     let finalValue = value;
@@ -950,6 +977,15 @@ export const SolicitudCupos = () => {
 
       const payload: Omit<SolicitudDB, 'id' | 'created_at' | 'updated_at' | 'estudiante_tipo_condicion_otro' | 'estudiante_condicion_medica_otro' | 'estudiante_alergico_medicamentos_otro' | 'estudiante_con_quien_vive_otro'> = {
         ...formToSubmit,
+        estudiante_nombres: toTitulo(formToSubmit.estudiante_nombres?.trim() || ''),
+        estudiante_apellidos: toTitulo(formToSubmit.estudiante_apellidos?.trim() || ''),
+        representante_nombres: toTitulo(formToSubmit.representante_nombres?.trim() || ''),
+        representante_apellidos: toTitulo(formToSubmit.representante_apellidos?.trim() || ''),
+        madre_nombres: toTitulo(formToSubmit.madre_nombres?.trim() || ''),
+        madre_apellidos: toTitulo(formToSubmit.madre_apellidos?.trim() || ''),
+        padre_nombres: toTitulo(formToSubmit.padre_nombres?.trim() || ''),
+        padre_apellidos: toTitulo(formToSubmit.padre_apellidos?.trim() || ''),
+        plantel_procedencia: toTitulo(formToSubmit.plantel_procedencia?.trim() || ''),
         estudiante_con_quien_vive: Array.isArray(form.estudiante_con_quien_vive)
           ? form.estudiante_con_quien_vive.map(item => item === 'Otros' && estudiante_con_quien_vive_otro ? `Otros (${estudiante_con_quien_vive_otro})` : item).join(', ')
           : form.estudiante_con_quien_vive,
@@ -1005,8 +1041,8 @@ export const SolicitudCupos = () => {
   const handleNuevaSolicitud = () => {
     setForm(prev => ({
       ...defaultForm(),
-      representante_nombres: prev.representante_nombres,
-      representante_apellidos: prev.representante_apellidos,
+      representante_nombres: toTitulo(prev.representante_nombres),
+      representante_apellidos: toTitulo(prev.representante_apellidos),
       representante_cedula: prev.representante_cedula,
       representante_email: prev.representante_email,
       representante_telefono: prev.representante_telefono,
@@ -1026,8 +1062,8 @@ export const SolicitudCupos = () => {
     // Mapear de base de datos a formulario
     const newData: Partial<SolicitudForm> = {
       acepta_terminos: sol.acepta_terminos,
-      estudiante_nombres: sol.estudiante_nombres,
-      estudiante_apellidos: sol.estudiante_apellidos,
+      estudiante_nombres: toTitulo(sol.estudiante_nombres),
+      estudiante_apellidos: toTitulo(sol.estudiante_apellidos),
       estudiante_cedula: sol.estudiante_cedula || '',
       estudiante_fecha_nacimiento: sol.estudiante_fecha_nacimiento === '1900-01-01' ? '' : sol.estudiante_fecha_nacimiento,
       estudiante_sexo: sol.estudiante_sexo,
@@ -1046,14 +1082,14 @@ export const SolicitudCupos = () => {
         ? (sol as any).estudiante_con_quien_vive.split(',').map((s: string) => s.trim()).filter(Boolean)
         : [],
       estudiante_con_quien_vive_otro: (sol as any).estudiante_con_quien_vive_otro || '',
-      plantel_procedencia: sol.plantel_procedencia || '',
+      plantel_procedencia: toTitulo(sol.plantel_procedencia || ''),
       direccion_habitacion: sol.direccion_habitacion || '',
       estado_habitacion: sol.estado_habitacion || '',
       municipio_habitacion: sol.municipio_habitacion || '',
       parroquia_habitacion: sol.parroquia_habitacion || '',
       tiene_otros_inscritos: sol.tiene_otros_inscritos || false,
-      representante_nombres: sol.representante_nombres,
-      representante_apellidos: sol.representante_apellidos,
+      representante_nombres: toTitulo(sol.representante_nombres),
+      representante_apellidos: toTitulo(sol.representante_apellidos),
       representante_cedula: sol.representante_cedula,
       representante_telefono: sol.representante_telefono,
       representante_telefono2: sol.representante_telefono2 || '',
@@ -1068,8 +1104,8 @@ export const SolicitudCupos = () => {
       pdvsa_localidad_trabajo: sol.pdvsa_localidad_trabajo || '',
       madre_vive: sol.madre_vive || 'Sí',
       madre_es_representante: sol.madre_es_representante || false,
-      madre_nombres: sol.madre_nombres || '',
-      madre_apellidos: sol.madre_apellidos || '',
+      madre_nombres: toTitulo(sol.madre_nombres || ''),
+      madre_apellidos: toTitulo(sol.madre_apellidos || ''),
       madre_cedula: sol.madre_cedula || '',
       madre_fecha_nacimiento: sol.madre_fecha_nacimiento || '',
       madre_email: sol.madre_email || '',
@@ -1077,8 +1113,8 @@ export const SolicitudCupos = () => {
       madre_trabaja_pdvsa: sol.madre_trabaja_pdvsa || false,
       padre_vive: sol.padre_vive || 'Sí',
       padre_es_representante: sol.padre_es_representante || false,
-      padre_nombres: sol.padre_nombres || '',
-      padre_apellidos: sol.padre_apellidos || '',
+      padre_nombres: toTitulo(sol.padre_nombres || ''),
+      padre_apellidos: toTitulo(sol.padre_apellidos || ''),
       padre_cedula: sol.padre_cedula || '',
       padre_fecha_nacimiento: sol.padre_fecha_nacimiento || '',
       padre_email: sol.padre_email || '',
@@ -1478,10 +1514,22 @@ export const SolicitudCupos = () => {
   };
 
   const filteredSolicitudes = solicitudes.filter(sol => {
+    const matchesEscuela = filtroEscuela === 'todos' || sol.codigo_escuela === filtroEscuela;
     const matchesEstado = filterEstado === 'TODOS' || sol.estado === filterEstado;
     const s = `${sol.estudiante_nombres} ${sol.estudiante_apellidos} ${sol.representante_nombres} ${sol.representante_apellidos} ${sol.representante_cedula} ${sol.codigo_unico || ''}`.toLowerCase();
-    return matchesEstado && s.includes(searchQuery.toLowerCase());
+    return matchesEscuela && matchesEstado && s.includes(searchQuery.toLowerCase());
   });
+
+  const totalPages = Math.ceil(filteredSolicitudes.length / itemsPerPage) || 1;
+  const paginatedSolicitudes = filteredSolicitudes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const misSolicitudesUsuario = solicitudes.filter(
+    sol => String(sol.creado_por || '').trim() === String(user?.cedula || '').trim() ||
+           String(sol.representante_cedula || '').trim() === String(user?.cedula || '').trim()
+  );
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -1508,11 +1556,15 @@ export const SolicitudCupos = () => {
     }
   };
 
+  const solicitudesParaStats = filtroEscuela === 'todos'
+    ? solicitudes
+    : solicitudes.filter(s => s.codigo_escuela === filtroEscuela);
+
   const stats = {
-    total: solicitudes.length,
-    pendientes: solicitudes.filter(s => s.estado === 'Pendiente').length,
-    aprobados: solicitudes.filter(s => s.estado === 'Aprobado').length,
-    rechazados: solicitudes.filter(s => s.estado === 'Rechazado').length,
+    total: solicitudesParaStats.length,
+    pendientes: solicitudesParaStats.filter(s => s.estado === 'Pendiente').length,
+    aprobados: solicitudesParaStats.filter(s => s.estado === 'Aprobado').length,
+    rechazados: solicitudesParaStats.filter(s => s.estado === 'Rechazado').length,
   };
 
   const getQrUrl = (codigo: string) =>
@@ -2124,8 +2176,8 @@ export const SolicitudCupos = () => {
         setForm(prev => ({
           ...prev,
           madre_es_representante: true,
-          madre_nombres: prev.representante_nombres || '',
-          madre_apellidos: prev.representante_apellidos || '',
+          madre_nombres: toTitulo(prev.representante_nombres || ''),
+          madre_apellidos: toTitulo(prev.representante_apellidos || ''),
           madre_cedula: prev.representante_cedula || '',
           madre_email: prev.representante_email || '',
           madre_telefono: prev.representante_telefono || '',
@@ -2147,8 +2199,8 @@ export const SolicitudCupos = () => {
         setForm(prev => ({
           ...prev,
           padre_es_representante: true,
-          padre_nombres: prev.representante_nombres || '',
-          padre_apellidos: prev.representante_apellidos || '',
+          padre_nombres: toTitulo(prev.representante_nombres || ''),
+          padre_apellidos: toTitulo(prev.representante_apellidos || ''),
           padre_cedula: prev.representante_cedula || '',
           padre_email: prev.representante_email || '',
           padre_telefono: prev.representante_telefono || '',
@@ -2230,13 +2282,13 @@ export const SolicitudCupos = () => {
             <div className="col-md-6">
               <label className="form-label fw-semibold small">Nombres de la Madre <span className="text-danger">*</span></label>
               <input type="text" className="form-control input-moderno" placeholder="Ej. María Teresa"
-                value={form.madre_nombres || ''} onChange={(e) => updateForm('madre_nombres', e.target.value)}
+                value={form.madre_nombres || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('madre_nombres', v))}
                 disabled={!!form.madre_es_representante && form.madre_vive !== 'No'} />
             </div>
             <div className="col-md-6">
               <label className="form-label fw-semibold small">Apellidos de la Madre <span className="text-danger">*</span></label>
               <input type="text" className="form-control input-moderno" placeholder="Ej. González Pérez"
-                value={form.madre_apellidos || ''} onChange={(e) => updateForm('madre_apellidos', e.target.value)}
+                value={form.madre_apellidos || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('madre_apellidos', v))}
                 disabled={!!form.madre_es_representante && form.madre_vive !== 'No'} />
             </div>
             <div className="col-md-4">
@@ -2351,13 +2403,13 @@ export const SolicitudCupos = () => {
                 <div className="col-md-6">
                   <label className="form-label fw-semibold small">Nombres del Padre <span className="text-danger">*</span></label>
                   <input type="text" className="form-control input-moderno" placeholder="Ej. Carlos Eduardo"
-                    value={form.padre_nombres || ''} onChange={(e) => updateForm('padre_nombres', e.target.value)}
+                    value={form.padre_nombres || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('padre_nombres', v))}
                     disabled={!!form.padre_es_representante && form.padre_vive !== 'No'} />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label fw-semibold small">Apellidos del Padre <span className="text-danger">*</span></label>
                   <input type="text" className="form-control input-moderno" placeholder="Ej. Mendoza Rodríguez"
-                    value={form.padre_apellidos || ''} onChange={(e) => updateForm('padre_apellidos', e.target.value)}
+                    value={form.padre_apellidos || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('padre_apellidos', v))}
                     disabled={!!form.padre_es_representante && form.padre_vive !== 'No'} />
                 </div>
                 <div className="col-md-4">
@@ -2898,22 +2950,59 @@ export const SolicitudCupos = () => {
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
       {/* HEADER */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 bg-white p-4 border rounded-4 shadow-sm">
-        <div className="d-flex align-items-center gap-3">
-          <div className="bg-success bg-opacity-10 text-success p-3 rounded-4" style={{ border: '1px solid rgba(25, 135, 84, 0.2)' }}>
-            <i className="bi bi-envelope-paper-fill fs-3"></i>
-          </div>
+      <div 
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden" 
+        style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderRadius: '24px' }}
+      >
+        <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.15)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
+        <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
+        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative z-1">
           <div>
-            <h4 className="fw-bold text-dark mb-1">Solicitud de Cupos Escolares</h4>
-            <p className="text-muted small mb-0">
-              <i className="bi bi-building-fill text-success me-1"></i> {escNombre} &nbsp;|&nbsp;
-              <span className="ms-1 badge bg-light text-secondary border">Módulo de Admisión</span>
+            <span className="badge bg-white text-success fw-bold px-3 py-2 rounded-pill mb-3 shadow-sm text-uppercase" style={{ letterSpacing: '1px', fontSize: '0.75rem' }}>
+              <i className="bi bi-mortarboard-fill me-2"></i>Módulo de Admisión DEP Oriente
+            </span>
+            <h1 className="fw-bolder mb-2 display-6 text-white">
+              <i className="bi bi-envelope-paper-fill me-3"></i>Solicitud de Cupos Escolares
+            </h1>
+            <p className="mb-0 text-white-50 fs-6" style={{ maxWidth: '750px' }}>
+              <i className="bi bi-building-fill text-white me-1"></i> {escNombre} &nbsp;|&nbsp; Año Escolar {new Date().getFullYear()} – {new Date().getFullYear() + 1}
             </p>
           </div>
+          <div className="mt-4 mt-md-0">
+            <button onClick={() => navigate(-1)} className="btn btn-outline-light rounded-pill px-4 fw-bold shadow-sm hover-efecto">
+              <i className="bi bi-arrow-left me-2"></i> Volver
+            </button>
+          </div>
         </div>
-        <button onClick={() => navigate(-1)} className="btn btn-outline-secondary rounded-pill hover-efecto mt-2 mt-md-0">
-          <i className="bi bi-arrow-left me-1"></i> Volver
-        </button>
+      </div>
+
+      {/* BANNER DE FECHAS PROGRAMADAS DEL PROCESO */}
+      <div className="card border-0 bg-light border-start border-success border-4 rounded-4 p-3 mb-4 shadow-sm">
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div className="d-flex align-items-center gap-3">
+            <div className="bg-success text-white rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '45px', height: '45px' }}>
+              <i className="bi bi-calendar-range-fill fs-5"></i>
+            </div>
+            <div>
+              <h6 className="fw-bold text-dark mb-1">Período del Proceso de Solicitud de Cupos</h6>
+              <div className="small text-secondary d-flex flex-wrap gap-3">
+                <span><i className="bi bi-calendar-check text-success me-1 fw-bold"></i><strong>Desde:</strong> {fechaInicioProceso ? formatearFechaCorto(fechaInicioProceso) : 'Apertura inmediata'}</span>
+                <span><i className="bi bi-calendar-x text-danger me-1 fw-bold"></i><strong>Hasta:</strong> {fechaFinProceso ? formatearFechaCorto(fechaFinProceso) : 'Indefinido'}</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            {estadoProceso.abierto ? (
+              <span className="badge bg-success bg-opacity-10 text-success border border-success-subtle px-3 py-2 rounded-pill fw-bold">
+                <i className="bi bi-unlock-fill me-1"></i> Proceso Activo / Habilitado
+              </span>
+            ) : (
+              <span className="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle px-3 py-2 rounded-pill fw-bold">
+                <i className="bi bi-lock-fill me-1"></i> Proceso Restringido
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* STATS (admin) */}
@@ -3098,7 +3187,7 @@ export const SolicitudCupos = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredSolicitudes.map((sol, i) => (
+                      {paginatedSolicitudes.map((sol, i) => (
                         <tr key={i} className={sol.id !== undefined && selectedIds.includes(sol.id) ? 'table-danger bg-opacity-10' : ''}>
                           <td className="ps-3" style={{ width: '40px' }}>
                             <input
@@ -3175,6 +3264,34 @@ export const SolicitudCupos = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* PAGINACIÓN */}
+              {totalPages > 1 && (
+                <nav className="d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
+                  <div className="small text-muted fw-semibold">
+                    Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredSolicitudes.length)} de {filteredSolicitudes.length} solicitudes
+                  </div>
+                  <ul className="pagination pagination-sm mb-0">
+                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                      <button className="page-link shadow-none rounded-start-pill px-3" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
+                        <i className="bi bi-chevron-left me-1"></i> Anterior
+                      </button>
+                    </li>
+                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(p => (
+                      <li key={p} className={`page-item ${currentPage === p ? 'active' : ''}`}>
+                        <button className="page-link shadow-none" onClick={() => setCurrentPage(p)}>
+                          {p}
+                        </button>
+                      </li>
+                    ))}
+                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                      <button className="page-link shadow-none rounded-end-pill px-3" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>
+                        Siguiente <i className="bi bi-chevron-right ms-1"></i>
+                      </button>
+                    </li>
+                  </ul>
+                </nav>
+              )}
               </div>
             )}
           </div>
@@ -3218,7 +3335,7 @@ export const SolicitudCupos = () => {
               <div className="text-center py-5">
                 <div className="spinner-border text-success" role="status"><span className="visually-hidden">Cargando...</span></div>
               </div>
-            ) : solicitudes.length === 0 ? (
+            ) : misSolicitudesUsuario.length === 0 ? (
               <div className="text-center py-5 text-muted bg-light rounded-4 border">
                 <i className="bi bi-journal-plus fs-2 text-secondary mb-2 d-block"></i>
                 <div className="fw-bold">No tienes solicitudes registradas</div>
@@ -3240,7 +3357,7 @@ export const SolicitudCupos = () => {
               </div>
             ) : (
               <div className="row g-3">
-                {solicitudes.map((sol, i) => (
+                {misSolicitudesUsuario.map((sol, i) => (
                   <div className="col-md-6" key={i}>
                     <div className="card border rounded-4 p-3 shadow-sm bg-white hover-card">
                       <div className="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">

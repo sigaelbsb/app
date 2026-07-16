@@ -3,6 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import * as XLSX from 'xlsx';
+
+const ABREVIATURAS = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+const toTitulo = (value: string): string =>
+  value
+    .split(' ')
+    .map(word => {
+      const wUpper = word.toUpperCase();
+      if (ABREVIATURAS.includes(wUpper)) {
+        return wUpper;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
 
 interface ConfigItem {
   id_parametro: string;
@@ -289,6 +304,46 @@ export const ConfiguracionSistema = () => {
     });
   };
 
+  const descargarPlantillaConfig = (tabla: 'conf_periodos' | 'conf_lapsos' | 'conf_niveles', formato: 'xlsx' | 'csv') => {
+    let wsData: any[][] = [];
+    let nombreArchivo = "";
+    if (tabla === 'conf_periodos') {
+      wsData = [
+        ['id_parametro', 'valor', 'fecha_inicio', 'fecha_fin'],
+        ['PERIODO_ACTUAL', 'Año Escolar 2025-2026', '2025-09-15', '2026-07-15']
+      ];
+      nombreArchivo = "Plantilla_Periodos_Escolares";
+    } else if (tabla === 'conf_lapsos') {
+      wsData = [
+        ['id_parametro', 'valor', 'fecha_inicio', 'fecha_fin'],
+        ['LAPSO_1', 'Primer Lapso Académico', '2025-09-15', '2025-12-15'],
+        ['LAPSO_2', 'Segundo Lapso Académico', '2026-01-07', '2026-03-30']
+      ];
+      nombreArchivo = "Plantilla_Lapsos_Academicos";
+    } else {
+      wsData = [
+        ['id_parametro', 'valor'],
+        ['NIVEL_INICIAL', 'Educación Inicial Y Preescolar'],
+        ['NIVEL_PRIMARIA', 'Educación Primaria']
+      ];
+      nombreArchivo = "Plantilla_Niveles_Educativos";
+    }
+
+    if (formato === 'xlsx') {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, "Configuracion");
+      XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
+    } else {
+      let csvContent = wsData.map(row => row.join(';')).join('\n') + '\n';
+      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${nombreArchivo}.csv`;
+      link.click();
+    }
+  };
+
   const abrirImportadorCSV = (tabla: 'conf_periodos' | 'conf_lapsos' | 'conf_niveles') => {
     const cardName = tabla === 'conf_periodos' ? 'Tarjeta: Períodos Escolares' : (tabla === 'conf_lapsos' ? 'Tarjeta: Lapsos Académicos' : 'Tarjeta: Niveles Educativos');
     if (!tienePermiso(cardName, 'crear')) {
@@ -299,21 +354,29 @@ export const ConfiguracionSistema = () => {
     if (!Swal) return;
 
     Swal.fire({
-      title: 'Carga Masiva CSV',
+      title: 'Carga Masiva Excel / CSV',
       html: `
         <div class="text-start">
-          <p class="small text-muted mb-2">Sube un archivo <b>CSV (separado por punto y coma o comas)</b> con el formato correcto.</p>
-          <p class="small text-muted mb-2">Columnas esperadas: <code>id_parametro</code>, <code>valor</code>, y opcionalmente <code>fecha_inicio</code>, <code>fecha_fin</code>.</p>
-          <input type="file" id="file-csv-config" class="form-control border-primary" accept=".csv">
+          <p class="small text-muted mb-2">Sube un archivo de <b>Excel (.xlsx, .xls) o Linux (.ods, .csv)</b>.</p>
+          <p class="small text-muted mb-3">Columnas esperadas: <code>id_parametro</code>, <code>valor</code>, y opcionalmente <code>fecha_inicio</code>, <code>fecha_fin</code>.</p>
+          <div class="d-flex gap-2 mb-3 justify-content-center">
+            <button type="button" id="btn-dl-xlsx" class="btn btn-sm btn-outline-success fw-bold"><i class="bi bi-file-earmark-excel-fill me-1"></i> Modelo Excel (.xlsx)</button>
+            <button type="button" id="btn-dl-csv" class="btn btn-sm btn-outline-secondary fw-bold"><i class="bi bi-filetype-csv me-1"></i> Modelo Linux (.csv)</button>
+          </div>
+          <input type="file" id="file-csv-config" class="form-control border-primary" accept=".xlsx,.xls,.ods,.csv,.txt">
         </div>`,
       showCancelButton: true,
       confirmButtonText: '<i class="bi bi-cloud-upload-fill me-1"></i> Procesar',
       confirmButtonColor: '#4F46E5',
+      didOpen: () => {
+        document.getElementById('btn-dl-xlsx')?.addEventListener('click', () => descargarPlantillaConfig(tabla, 'xlsx'));
+        document.getElementById('btn-dl-csv')?.addEventListener('click', () => descargarPlantillaConfig(tabla, 'csv'));
+      },
       preConfirm: () => {
         const fileInput = document.getElementById('file-csv-config') as HTMLInputElement;
         const file = fileInput?.files ? fileInput.files[0] : null;
         if (!file) {
-          Swal.showValidationMessage('Debes seleccionar un archivo CSV');
+          Swal.showValidationMessage('Debes seleccionar un archivo Excel o CSV');
           return false;
         }
         return file;
@@ -326,50 +389,75 @@ export const ConfiguracionSistema = () => {
   };
 
   const procesarCSV = (file: File, tabla: 'conf_periodos' | 'conf_lapsos' | 'conf_niveles') => {
-    const reader = new FileReader();
-    reader.onload = async (e: any) => {
-      const text = e.target.result;
-      const lines = text.split(/\r?\n/);
-      const validos: any[] = [];
-      const rechazados: any[] = [];
+    const isExcelOrOds = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.ods');
+    const validos: any[] = [];
+    const rechazados: any[] = [];
+
+    const procesarFilasArray = (rows: any[][]) => {
       let startIndex = 0;
-      
-      if (lines.length > 0 && (lines[0].toLowerCase().includes('id_parametro') || lines[0].toLowerCase().includes('valor'))) {
+      if (rows.length > 0 && rows[0] && (rows[0][0]?.toString().toLowerCase().includes('id_parametro') || rows[0][1]?.toString().toLowerCase().includes('valor'))) {
         startIndex = 1;
       }
 
-      for (let i = startIndex; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const row = line.split(/[;,]/);
-        
-        if (row.length < 2) {
-          rechazados.push({ linea: i + 1, datos: line, motivo: "Columnas insuficientes (se requiere id_parametro y valor)." });
+      for (let i = startIndex; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length < 2) {
+          rechazados.push({ linea: i + 1, datos: row?.join(' ') || '', motivo: "Columnas insuficientes (se requiere id_parametro y valor)." });
           continue;
         }
 
-        const id = row[0].trim();
-        const valor = row[1].trim();
-        const inicio = row.length > 2 ? row[2].trim() : null;
-        const fin = row.length > 3 ? row[3].trim() : null;
+        const id = row[0]?.toString().trim();
+        const valorRaw = row[1]?.toString().trim();
+        const inicio = row.length > 2 && row[2] ? row[2].toString().trim() : null;
+        const fin = row.length > 3 && row[3] ? row[3].toString().trim() : null;
 
-        if (!id || !valor) {
-          rechazados.push({ linea: i + 1, datos: line, motivo: "id_parametro o valor están en blanco." });
+        if (!id || !valorRaw) {
+          rechazados.push({ linea: i + 1, datos: row.join(' '), motivo: "id_parametro o valor están en blanco." });
           continue;
         }
 
-        const registro: any = { id_parametro: id, valor: valor };
+        const registro: any = { id_parametro: id, valor: toTitulo(valorRaw) };
         if (tabla !== 'conf_niveles') {
           if (inicio) registro.fecha_inicio = inicio;
           if (fin) registro.fecha_fin = fin;
         }
         validos.push(registro);
       }
+      finalizarProcesamiento(validos, rechazados, tabla);
+    };
 
-      if (validos.length === 0 && rechazados.length === 0) {
-        if (Swal) Swal.fire('Error', 'El archivo está vacío o el formato es incorrecto.', 'error');
-        return;
-      }
+    if (isExcelOrOds) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+          procesarFilasArray(rows);
+        } catch (err: any) {
+          console.error(err);
+          if (Swal) Swal.fire('Error', 'No se pudo leer el archivo de Excel/ODS.', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = async (e: any) => {
+        const text = e.target.result;
+        const lines = text.split(/\r?\n/);
+        const rows = lines.map((line: string) => line.split(/[;,]/));
+        procesarFilasArray(rows);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const finalizarProcesamiento = async (validos: any[], rechazados: any[], tabla: 'conf_periodos' | 'conf_lapsos' | 'conf_niveles') => {
+    if (validos.length === 0 && rechazados.length === 0) {
+      if (Swal) Swal.fire('Error', 'El archivo está vacío o el formato es incorrecto.', 'error');
+      return;
+    }
 
       setLoading(true);
       let insertados = 0;
@@ -448,11 +536,10 @@ export const ConfiguracionSistema = () => {
         window.dispatchEvent(new Event('sigae-config-changed'));
       } catch (errorDb: any) {
         if (Swal) Swal.fire('Error en Base de Datos', 'No se pudo procesar la carga masiva. ' + errorDb.message, 'error');
+      } finally {
         setLoading(false);
       }
     };
-    reader.readAsText(file);
-  };
 
   const descargarRechazados = (rechazados: any[], tabla: string) => {
     let csv = "Linea_Excel;Datos_Originales;Motivo_del_Rechazo\n";

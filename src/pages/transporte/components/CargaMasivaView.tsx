@@ -1,6 +1,20 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 
+const ABREVIATURAS = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+const toTitulo = (value: string): string =>
+  value
+    .split(' ')
+    .map(word => {
+      const wUpper = word.toUpperCase();
+      if (ABREVIATURAS.includes(wUpper)) {
+        return wUpper;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+
 interface CargaMasivaViewProps {
   onBack: () => void;
   onSave: (rows: any[]) => Promise<{ exitosos: number; rechazados: number; detalles: any[] }>;
@@ -23,9 +37,9 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
     setFileSize(`${sizeKB} KB`);
 
     const reader = new FileReader();
-    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const isExcelOrOds = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.ods');
 
-    if (isExcel) {
+    if (isExcelOrOds) {
       reader.onload = (event) => {
         try {
           const data = new Uint8Array(event.target?.result as ArrayBuffer);
@@ -41,7 +55,7 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
           const csvText = XLSX.utils.sheet_to_csv(worksheet);
           setInputText(csvText);
         } catch (err: any) {
-          alert("Error al leer el archivo Excel: " + err.message);
+          alert("Error al leer el archivo Excel/Linux: " + err.message);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -69,9 +83,9 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
       if (esc === 'sb' || esc === 'lb') {
         rowsParsed.push({
           escuela_codigo: esc,
-          ruta_nombre: row[1]?.toString().trim() || '',
-          parada_nombre: row[2]?.toString().trim() || '',
-          parada_descripcion: row[3]?.toString().trim() || '',
+          ruta_nombre: toTitulo(row[1]?.toString().trim() || ''),
+          parada_nombre: toTitulo(row[2]?.toString().trim() || ''),
+          parada_descripcion: toTitulo(row[3]?.toString().trim() || ''),
           orden
         });
       }
@@ -88,7 +102,7 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
       if (line.toLowerCase().includes('escuela') && line.toLowerCase().includes('ruta')) {
         continue;
       }
-      const delimiter = line.includes('\t') ? '\t' : ',';
+      const delimiter = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
       const parts = line.split(delimiter).map(p => p.trim());
       if (parts.length >= 3) {
         const esc = parts[0].toLowerCase();
@@ -96,9 +110,9 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
         if (esc === 'sb' || esc === 'lb') {
           rowsParsed.push({
             escuela_codigo: esc,
-            ruta_nombre: parts[1],
-            parada_nombre: parts[2],
-            parada_descripcion: parts[3] || '',
+            ruta_nombre: toTitulo(parts[1] || ''),
+            parada_nombre: toTitulo(parts[2] || ''),
+            parada_descripcion: toTitulo(parts[3] || ''),
             orden
           });
         }
@@ -131,12 +145,12 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
     setLoading(false);
   };
 
-  const descargarPlantilla = () => {
+  const descargarPlantillaExcel = () => {
     const headers = [["Escuela (sb/lb)", "Nombre Ruta", "Nombre Parada", "Descripcion", "Orden"]];
     const data = [
-      ["sb", "Ruta Ejemplo Santa Barbara", "Parada Ejemplo 1", "Frente a la plaza", 1],
-      ["sb", "Ruta Ejemplo Santa Barbara", "Parada Ejemplo 2", "Frente al parque", 2],
-      ["lb", "Ruta Ejemplo Libertador", "Parada Ejemplo 1", "Cerca del abasto", 1]
+      ["sb", "Ruta Ejemplo Santa Bárbara", "Parada Ejemplo 1", "Frente A La Plaza", 1],
+      ["sb", "Ruta Ejemplo Santa Bárbara", "Parada Ejemplo 2", "Frente Al Parque", 2],
+      ["lb", "Ruta Ejemplo Libertador", "Parada Ejemplo 1", "Cerca Del Abasto", 1]
     ];
     
     const wsData = [...headers, ...data];
@@ -144,7 +158,19 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     
     XLSX.utils.book_append_sheet(wb, ws, "Transporte");
-    XLSX.writeFile(wb, "plantilla_carga_masiva_transporte.xlsx");
+    XLSX.writeFile(wb, "Plantilla_Modelo_Transporte_SIGAE.xlsx");
+  };
+
+  const descargarPlantillaCSV = () => {
+    let csvContent = "Escuela (sb/lb);Nombre Ruta;Nombre Parada;Descripcion;Orden\n";
+    csvContent += "sb;Ruta Ejemplo Santa Bárbara;Parada Ejemplo 1;Frente A La Plaza;1\n";
+    csvContent += "sb;Ruta Ejemplo Santa Bárbara;Parada Ejemplo 2;Frente Al Parque;2\n";
+    csvContent += "lb;Ruta Ejemplo Libertador;Parada Ejemplo 1;Cerca Del Abasto;1\n";
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "Plantilla_Modelo_Transporte_SIGAE.csv";
+    link.click();
   };
 
   const resetAll = () => {
@@ -284,13 +310,20 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
                   </div>
                 </div>
 
-                <div className="d-grid mt-auto">
+                <div className="d-flex flex-column gap-2 mt-auto">
                   <button 
                     type="button" 
                     className="btn btn-success rounded-pill fw-bold shadow-sm py-2 d-flex align-items-center justify-content-center gap-2"
-                    onClick={descargarPlantilla}
+                    onClick={descargarPlantillaExcel}
                   >
-                    <i className="bi bi-file-earmark-excel-fill fs-5"></i> Descargar Plantilla Excel (.xlsx)
+                    <i className="bi bi-file-earmark-excel-fill fs-5"></i> Plantilla Excel (.xlsx)
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-secondary rounded-pill fw-bold shadow-sm py-2 d-flex align-items-center justify-content-center gap-2"
+                    onClick={descargarPlantillaCSV}
+                  >
+                    <i className="bi bi-filetype-csv fs-5"></i> Plantilla Linux (.csv)
                   </button>
                 </div>
               </div>
@@ -302,7 +335,7 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
                 
                 {/* Zona Drop / File Upload */}
                 <div className="mb-4">
-                  <label className="form-label fw-bold text-dark small mb-2">Paso 1: Selecciona tu archivo Excel o CSV</label>
+                  <label className="form-label fw-bold text-dark small mb-2">Paso 1: Selecciona tu archivo Excel o Linux (CSV/ODS)</label>
                   
                   {!fileName ? (
                     <div 
@@ -319,14 +352,14 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
                       <input 
                         type="file" 
                         id="bulk-file-input-view"
-                        accept=".xlsx, .xls, .csv, .txt" 
+                        accept=".xlsx, .xls, .ods, .csv, .txt" 
                         style={{ display: 'none' }}
                         onChange={handleFileChange}
                         disabled={loading}
                       />
                       <i className="bi bi-cloud-upload-fill text-success" style={{ fontSize: '3rem' }}></i>
                       <h6 className="fw-bold mt-3 text-dark mb-1">Arrastra tu plantilla aquí o haz clic para buscar</h6>
-                      <p className="text-muted small mb-0">Formatos compatibles: .xlsx, .xls, .csv, .txt</p>
+                      <p className="text-muted small mb-0">Formatos compatibles: Excel (.xlsx, .xls) o Linux (.ods, .csv)</p>
                     </div>
                   ) : (
                     <div className="d-flex align-items-center justify-content-between p-3 bg-white border border-success rounded-3 shadow-sm animate__animated animate__fadeIn">

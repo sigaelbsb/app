@@ -191,6 +191,18 @@ export const Dashboard = () => {
       btnBg: '#f8fafc',
       btnBorder: '#cbd5e1',
       textClass: 'fw-bold text-dark'
+    },
+    {
+      vista: 'Galería y Plantillas',
+      ruta: '/categoria/Diseños/Galería y Plantillas',
+      icono: 'bi-palette-fill',
+      subtitulo: 'Certificados, flyers, tapas',
+      badge: 'Diseños HD',
+      badgeColor: 'bg-dark text-warning',
+      iconBg: 'bg-dark text-warning',
+      btnBg: '#fdf2f8',
+      btnBorder: '#fbcfe8',
+      textClass: 'fw-bold text-dark'
     }
   ];
 

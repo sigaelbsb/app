@@ -768,6 +768,7 @@ export const ChatbotSigma = () => {
       'colectivos': 'Gestión de Colectivos',
       'transporte': 'Transporte Escolar',
       'solicitud': 'Solicitud de Cupos',
+      'vincular': 'Vincular Estudiante',
       'mis_solicitudes': 'Mis Solicitudes',
       'sigma': 'Cerebro de Sigma',
       'inicio': 'Inicio',
@@ -790,6 +791,9 @@ export const ChatbotSigma = () => {
     if (v === 'configuración del sistema' || v === 'configuracion del sistema') return '/categoria/Dirección y Sistema/Configuración del Sistema';
     if (v === 'división territorial' || v === 'division territorial') return '/categoria/Dirección y Sistema/División Territorial';
     if (v === 'cerebro de sigma') return '/categoria/Dirección y Sistema/Cerebro de Sigma';
+    if (v === 'vincular estudiante' || v === 'vincular') return '/categoria/Gestión Estudiantil/Vincular Estudiante';
+    if (v === 'actualización de datos' || v === 'actualizacion de datos' || v === 'actualizacion') return '/categoria/Gestión Estudiantil/Actualización de Datos';
+    if (v === 'solicitud de cupos' || v === 'solicitud') return '/categoria/Gestión Estudiantil/Solicitud de Cupos';
     return '';
   };
 

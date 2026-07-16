@@ -1,9 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { formatPhoneNumber } from '../../lib/formatters';
+
+const ABREVIATURAS = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+const toTitulo = (value: string): string =>
+  value
+    .split(' ')
+    .map(word => {
+      const wUpper = word.toUpperCase();
+      if (ABREVIATURAS.includes(wUpper)) {
+        return wUpper;
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+
+const handleTituloChange = (
+  e: React.ChangeEvent<HTMLInputElement>,
+  setter: (val: string) => void
+) => {
+  const raw = e.target.value;
+  const endsWithSpace = raw.endsWith(' ');
+  const converted = toTitulo(raw.trimEnd());
+  setter(endsWithSpace ? converted + ' ' : converted);
+};
+
 
 
 export const GestionUsuarios = () => {
@@ -419,14 +445,26 @@ export const GestionUsuarios = () => {
   };
 
   // Carga Masiva logic
-  const descargarPlantilla = () => {
+  const descargarPlantillaExcel = () => {
+    const wsData = [
+      ['Cedula', 'Nombre_Completo', 'Rol'],
+      ['V12345678', 'Juan Pérez Silva', 'Docente'],
+      ['V98765432', 'María Gómez López', 'Coordinador']
+    ];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, "Usuarios SIGAE");
+    XLSX.writeFile(wb, "Plantilla_Modelo_Usuarios_SIGAE.xlsx");
+  };
+
+  const descargarPlantillaCSV = () => {
     let csvContent = "Cedula;Nombre_Completo;Rol\n";
-    csvContent += "V12345678;Perez Juan;Docente\n";
-    csvContent += "V98765432;Gomez Maria;Coordinador\n";
+    csvContent += "V12345678;Juan Pérez Silva;Docente\n";
+    csvContent += "V98765432;María Gómez López;Coordinador\n";
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "Plantilla_Usuarios_SIGAE.csv";
+    link.download = "Plantilla_Modelo_Usuarios_SIGAE.csv";
     link.click();
   };
 
@@ -455,38 +493,39 @@ export const GestionUsuarios = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async (e: any) => {
-      let text = e.target.result;
-      let lines = text.split(/\r?\n/);
+    const procesarFilasArray = async (rows: any[][]) => {
       let validos: any[] = [];
       let rechazados: any[] = [];
       let startIndex = 0;
 
-      if (lines.length > 0 && (lines[0].toLowerCase().includes('cedula') || lines[0].toLowerCase().includes('nombre'))) {
-        startIndex = 1;
+      if (rows.length > 0) {
+        const firstRowStr = rows[0].map(c => String(c || '').toLowerCase()).join(' ');
+        if (firstRowStr.includes('cedula') || firstRowStr.includes('cédula') || firstRowStr.includes('nombre')) {
+          startIndex = 1;
+        }
       }
 
-      for (let i = startIndex; i < lines.length; i++) {
-        let line = lines[i].trim();
-        if (!line) continue;
-        let row = line.split(/[;,]/);
+      for (let i = startIndex; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0 || row.every(cell => !cell || String(cell).trim() === '')) continue;
+
         if (row.length < 3) {
-          rechazados.push({ linea: i + 1, datos: line, motivo: "Faltan columnas obligatorias (Deben ser 3: Cédula, Nombre, Rol)." });
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: "Faltan columnas obligatorias (Deben ser 3: Cédula, Nombre, Rol)." });
           continue;
         }
-        let cedula = row[0].trim();
-        let nombre = row[1].trim();
-        let rol = row[2].trim();
+        let cedula = String(row[0] || '').trim().toUpperCase();
+        let nombreRaw = String(row[1] || '').trim();
+        let nombre = toTitulo(nombreRaw);
+        let rol = String(row[2] || '').trim();
 
-        if (!cedula || !nombre || !rol) {
-          rechazados.push({ linea: i + 1, datos: line, motivo: "Cédula, Nombre o Rol están en blanco." });
+        if (!cedula || !nombreRaw || !rol) {
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: "Cédula, Nombre o Rol están en blanco." });
           continue;
         }
 
         let rolExiste = rolesDisponibles.find(r => r.toLowerCase() === rol.toLowerCase());
         if (!rolExiste) {
-          rechazados.push({ linea: i + 1, datos: line, motivo: `El rol '${rol}' no está creado en el panel de Privilegios.` });
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: `El rol '${rol}' no está creado en el panel de Privilegios.` });
           continue;
         }
 
@@ -528,59 +567,79 @@ export const GestionUsuarios = () => {
           });
 
           if (registrosIns.length > 0) {
-            const { error } = await supabase.from('usuarios').insert(registrosIns);
-            if (error) throw error;
+            const { error: insErr } = await supabase.from('usuarios').insert(registrosIns);
+            if (insErr) throw insErr;
             insertados = registrosIns.length;
           }
 
           if (registrosUpd.length > 0) {
-            const { error } = await supabase.from('usuarios').upsert(registrosUpd, { onConflict: 'cedula' });
-            if (error) throw error;
+            for (let reg of registrosUpd) {
+              await supabase.from('usuarios').update({
+                nombre_completo: reg.nombre_completo,
+                rol: reg.rol,
+                id_escuela: reg.id_escuela
+              }).eq('cedula', reg.cedula);
+            }
             actualizados = registrosUpd.length;
           }
         }
 
+        setLoading(false);
         setShowCargaModal(false);
         setCsvFile(null);
-
-        let htmlResumen = `
-          <div class="text-start">
-            <p class="mb-3 text-muted">Se leyeron <b>${validos.length + rechazados.length}</b> filas del archivo.</p>
-            <div class="bg-light p-3 border rounded-3 mb-2">
-              <p class="text-success m-0 fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Nuevos agregados: ${insertados}</p>
-              <p class="text-info m-0 mt-2 fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Actualizados: ${actualizados}</p>
-              <p class="text-danger m-0 mt-2 fw-bold"><i class="bi bi-x-circle-fill me-2"></i>Rechazados: ${rechazados.length}</p>
-            </div>
-          </div>
-        `;
-
-        if (Swal) {
-          Swal.fire({
-            title: 'Resumen de Carga',
-            html: htmlResumen,
-            icon: rechazados.length > 0 ? 'warning' : 'success',
-            showCancelButton: rechazados.length > 0,
-            confirmButtonText: 'Entendido',
-            cancelButtonText: 'Descargar Errores',
-            cancelButtonColor: '#dc3545',
-            confirmButtonColor: '#10B981',
-            reverseButtons: true
-          }).then((res: any) => {
-            if (res.dismiss === Swal.DismissReason.cancel && rechazados.length > 0) {
-              descargarRechazados(rechazados);
-            }
-          });
-        }
-
         cargarUsuarios();
-        auditar('Gestión de Usuarios', 'Carga Masiva', `Insertados: ${insertados}, Actualizados: ${actualizados}, Rechazados: ${rechazados.length}`);
+
+        if (rechazados.length > 0) {
+          if (Swal) {
+            Swal.fire({
+              title: 'Carga Parcial',
+              html: `Se procesaron <b>${insertados + actualizados}</b> usuarios exitosamente (${insertados} nuevos, ${actualizados} actualizados).<br><br><span class="text-danger">Se rechazaron ${rechazados.length} filas por errores en formato o datos faltantes.</span>`,
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonText: '<i class="bi bi-download me-1"></i> Descargar Reporte de Errores',
+              cancelButtonText: 'Cerrar'
+            }).then((res: any) => {
+              if (res.isConfirmed) descargarRechazados(rechazados);
+            });
+          }
+        } else {
+          if (Swal) Swal.fire('¡Carga Exitosa!', `Se importaron y actualizaron correctamente ${insertados + actualizados} usuarios en el sistema.`, 'success');
+        }
+        auditar('Gestión de Usuarios', 'Carga Masiva', `Carga masiva procesada: ${insertados} insertados, ${actualizados} actualizados, ${rechazados.length} rechazados.`);
       } catch (err: any) {
-        console.error(err);
-        if (Swal) Swal.fire('Error', 'Falla de base de datos durante carga masiva.', 'error');
+        console.error("Error en carga masiva:", err);
+        setLoading(false);
+        if (Swal) Swal.fire('Error', 'Ocurrió un problema guardando los datos masivos: ' + err.message, 'error');
       }
-      setLoading(false);
     };
-    reader.readAsText(csvFile);
+
+    const isExcelOrOds = csvFile.name.endsWith('.xlsx') || csvFile.name.endsWith('.xls') || csvFile.name.endsWith('.ods');
+    if (isExcelOrOds) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+          procesarFilasArray(rows);
+        } catch (err: any) {
+          console.error(err);
+          if (Swal) Swal.fire('Error', 'No se pudo leer el archivo de formato Excel/Linux (.xlsx/.ods)', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(csvFile);
+    } else {
+      const reader = new FileReader();
+      reader.onload = async (e: any) => {
+        let text = e.target.result;
+        if (!text) return;
+        let lines = text.split(/\r?\n/);
+        let rows = lines.map((l: string) => l.trim().split(/[;,]/));
+        procesarFilasArray(rows);
+      };
+      reader.readAsText(csvFile, "UTF-8");
+    }
   };
 
   return (
@@ -827,7 +886,7 @@ export const GestionUsuarios = () => {
                       className="form-control input-moderno m-0" 
                       placeholder="Ej: Juan Pérez" 
                       value={formNombre} 
-                      onChange={(e) => setFormNombre(e.target.value)}
+                      onChange={(e) => handleTituloChange(e, setFormNombre)}
                     />
                   </div>
                   <div className="row g-2 mb-3">
@@ -992,19 +1051,24 @@ export const GestionUsuarios = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content rounded-4 border-0 shadow">
               <div className="modal-header bg-dark text-white border-0 rounded-top-4 p-4">
-                <h5 className="modal-title fw-bold"><i className="bi bi-cloud-arrow-up-fill me-2"></i>Carga Masiva CSV</h5>
+                <h5 className="modal-title fw-bold"><i className="bi bi-cloud-arrow-up-fill me-2"></i>Carga Masiva (Excel o Linux CSV)</h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowCargaModal(false)}></button>
               </div>
               <div className="modal-body p-4 bg-light text-start">
-                <p className="small text-muted mb-2">1. Sube un archivo <b>CSV (separado por punto y coma o comas)</b> sin encabezado, o usa nuestra plantilla.</p>
-                <button className="btn btn-sm btn-outline-success fw-bold mb-3 w-100" onClick={descargarPlantilla}>
-                  <i className="bi bi-download me-1"></i> Descargar Plantilla Modelo (3 Columnas)
-                </button>
+                <p className="small text-muted mb-2">1. Sube un archivo <b>Excel (.xlsx)</b> o <b>Linux (.ods / .csv)</b> con las 3 columnas: Cédula, Nombre, Rol.</p>
+                <div className="d-flex gap-2 mb-3">
+                  <button className="btn btn-sm btn-outline-success fw-bold flex-fill" onClick={descargarPlantillaExcel}>
+                    <i className="bi bi-file-earmark-excel-fill me-1"></i> Plantilla Excel (.xlsx)
+                  </button>
+                  <button className="btn btn-sm btn-outline-secondary fw-bold flex-fill" onClick={descargarPlantillaCSV}>
+                    <i className="bi bi-filetype-csv me-1"></i> Plantilla Linux (.csv)
+                  </button>
+                </div>
                 <p className="small text-muted mb-2">2. Selecciona tu archivo completo:</p>
                 <input 
                   type="file" 
                   className="form-control border-success" 
-                  accept=".csv" 
+                  accept=".xlsx, .xls, .ods, .csv" 
                   onChange={(e) => setCsvFile(e.target.files ? e.target.files[0] : null)}
                 />
               </div>
