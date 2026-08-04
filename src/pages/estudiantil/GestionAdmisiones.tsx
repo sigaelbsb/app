@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
-import { usePermisos } from '../../hooks/usePermisos';
 import * as XLSX from 'xlsx';
 
 const Swal = (window as any).Swal;
@@ -62,7 +61,6 @@ const NOMBRE_ESCUELA_MAP: Record<string, string> = {
 };
 
 export const GestionAdmisiones: React.FC = () => {
-  const { user } = usePermisos();
   const [solicitudes, setSolicitudes] = useState<SolicitudAdmision[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<SolicitudAdmision | null>(null);
