@@ -1526,6 +1526,27 @@ export const SolicitudCupos = () => {
     currentPage * itemsPerPage
   );
 
+  const getPageNumbers = (current: number, total: number) => {
+    const pages: (number | string)[] = [];
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (current > 3) pages.push('...');
+      
+      const start = Math.max(2, current - 1);
+      const end = Math.min(total - 1, current + 1);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (current < total - 2) pages.push('...');
+      pages.push(total);
+    }
+    return pages;
+  };
+
   const misSolicitudesUsuario = solicitudes.filter(
     sol => String(sol.creado_por || '').trim() === String(user?.cedula || '').trim() ||
            String(sol.representante_cedula || '').trim() === String(user?.cedula || '').trim()
@@ -3267,29 +3288,35 @@ export const SolicitudCupos = () => {
 
               {/* PAGINACIÓN */}
               {totalPages > 1 && (
-                <nav className="d-flex justify-content-between align-items-center mt-3 pt-3 border-top flex-wrap gap-2">
-                  <div className="small text-muted fw-semibold">
+                <nav className="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 pt-3 border-top gap-2">
+                  <div className="small text-muted fw-semibold text-center text-md-start">
                     Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredSolicitudes.length)} de {filteredSolicitudes.length} solicitudes
                   </div>
-                  <ul className="pagination pagination-sm mb-0">
-                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                      <button className="page-link shadow-none rounded-start-pill px-3" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
-                        <i className="bi bi-chevron-left me-1"></i> Anterior
-                      </button>
-                    </li>
-                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(p => (
-                      <li key={p} className={`page-item ${currentPage === p ? 'active' : ''}`}>
-                        <button className="page-link shadow-none" onClick={() => setCurrentPage(p)}>
-                          {p}
+                  <div className="mw-100 overflow-x-auto">
+                    <ul className="pagination pagination-sm mb-0 flex-wrap justify-content-center">
+                      <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                        <button className="page-link shadow-none rounded-start-pill px-2 px-sm-3" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>
+                          <i className="bi bi-chevron-left me-1"></i> <span className="d-none d-sm-inline">Anterior</span>
                         </button>
                       </li>
-                    ))}
-                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                      <button className="page-link shadow-none rounded-end-pill px-3" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>
-                        Siguiente <i className="bi bi-chevron-right ms-1"></i>
-                      </button>
-                    </li>
-                  </ul>
+                      {getPageNumbers(currentPage, totalPages).map((p, idx) => (
+                        <li key={idx} className={`page-item ${p === currentPage ? 'active' : ''} ${p === '...' ? 'disabled' : ''}`}>
+                          {p === '...' ? (
+                            <span className="page-link shadow-none border-0 px-2 text-muted">...</span>
+                          ) : (
+                            <button className="page-link shadow-none px-2 px-sm-3" onClick={() => setCurrentPage(p as number)}>
+                              {p}
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                      <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                        <button className="page-link shadow-none rounded-end-pill px-2 px-sm-3" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}>
+                          <span className="d-none d-sm-inline">Siguiente</span> <i className="bi bi-chevron-right ms-1"></i>
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
                 </nav>
               )}
               </div>

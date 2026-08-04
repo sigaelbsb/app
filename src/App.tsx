@@ -25,6 +25,7 @@ import { GradosSalones } from './pages/estudios/GradosSalones';
 import { MiExpediente } from './pages/docente/MiExpediente';
 import { GestorExpedientes } from './pages/docente/GestorExpedientes';
 import { SolicitudCupos } from './pages/estudiantil/SolicitudCupos';
+import { GestionAdmisiones } from './pages/estudiantil/GestionAdmisiones';
 import { VincularEstudiante } from './pages/estudiantil/VincularEstudiante';
 import { ActualizacionDatos } from './pages/estudiantil/ActualizacionDatos';
 import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
@@ -152,6 +153,7 @@ function App() {
             <Route path="categoria/Gestión Docente/Mi Expediente" element={<MiExpediente />} />
             <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<GestorExpedientes />} />
             <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<SolicitudCupos />} />
+            <Route path="categoria/Gestión Estudiantil/Gestión de Admisiones" element={<GestionAdmisiones />} />
             <Route path="categoria/Gestión Estudiantil/Vincular Estudiante" element={<VincularEstudiante />} />
             <Route path="categoria/Gestión Estudiantil/Actualización de Datos" element={<ActualizacionDatos />} />
             <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<TransporteEscolar />} />

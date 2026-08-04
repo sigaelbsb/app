@@ -54,6 +54,7 @@ export const GestionUsuarios = () => {
 
   // Filtering & Pagination
   const [filtroEscuela, setFiltroEscuela] = useState('TODAS');
+  const [filtroRol, setFiltroRol] = useState('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 10;
@@ -64,9 +65,11 @@ export const GestionUsuarios = () => {
 
   const [showReseteosModal, setShowReseteosModal] = useState(false);
   const [solicitudesReseteo, setSolicitudesReseteo] = useState<any[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
   const [showCargaModal, setShowCargaModal] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [cargaProgress, setCargaProgress] = useState({ total: 0, actual: 0, procesando: false });
 
   // Form states (Add/Edit User)
   const [formCedula, setFormCedula] = useState('');
@@ -175,7 +178,13 @@ export const GestionUsuarios = () => {
     if (filtroEscuela !== 'TODAS') {
       coincideEscuela = (u.id_escuela === filtroEscuela);
     }
-    return coincideTexto && coincideEscuela;
+    
+    let coincideRol = true;
+    if (filtroRol !== 'TODOS') {
+      coincideRol = ((u.rol || '').toLowerCase() === filtroRol.toLowerCase());
+    }
+    
+    return coincideTexto && coincideEscuela && coincideRol;
   });
 
   // Pagination logic
@@ -391,6 +400,40 @@ export const GestionUsuarios = () => {
     });
   };
 
+  const eliminarUsuariosMasivo = () => {
+    if (!Swal || selectedUsers.length === 0) return;
+
+    Swal.fire({
+      title: `¿Eliminar ${selectedUsers.length} usuarios?`,
+      text: "Esta acción es masiva y definitiva. Borrará todas las cuentas seleccionadas permanentemente.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Sí, eliminar todos',
+      cancelButtonText: 'Cancelar'
+    }).then(async (result: any) => {
+      if (result.isConfirmed) {
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from('usuarios')
+            .delete()
+            .in('id_usuario', selectedUsers);
+
+          if (error) throw error;
+          Swal.fire('¡Eliminados!', `Se han eliminado ${selectedUsers.length} usuarios correctamente.`, 'success');
+          auditar('Gestión de Usuarios', 'Eliminación Masiva', `Se eliminaron ${selectedUsers.length} usuarios.`);
+          setSelectedUsers([]);
+          cargarUsuarios();
+        } catch (e) {
+          console.error(e);
+          Swal.fire('Error', 'No se pudieron eliminar algunos usuarios.', 'error');
+        }
+        setLoading(false);
+      }
+    });
+  };
+
   const aprobarReseteo = async (u: any) => {
     if (!Swal) return;
 
@@ -447,9 +490,10 @@ export const GestionUsuarios = () => {
   // Carga Masiva logic
   const descargarPlantillaExcel = () => {
     const wsData = [
-      ['Cedula', 'Nombre_Completo', 'Rol'],
-      ['V12345678', 'Juan Pérez Silva', 'Docente'],
-      ['V98765432', 'María Gómez López', 'Coordinador']
+      ['Cedula', 'Nombre_Completo', 'Rol', 'Escuela_Codigo'],
+      ['V12345678', 'Juan Pérez Silva', 'Docente', 'sb'],
+      ['V98765432', 'María Gómez López', 'Coordinador', 'lb'],
+      ['V11223344', 'Carlos Ruiz Díaz', 'Representante', 'ambas']
     ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -458,9 +502,10 @@ export const GestionUsuarios = () => {
   };
 
   const descargarPlantillaCSV = () => {
-    let csvContent = "Cedula;Nombre_Completo;Rol\n";
-    csvContent += "V12345678;Juan Pérez Silva;Docente\n";
-    csvContent += "V98765432;María Gómez López;Coordinador\n";
+    let csvContent = "Cedula;Nombre_Completo;Rol;Escuela_Codigo\n";
+    csvContent += "V12345678;Juan Pérez Silva;Docente;sb\n";
+    csvContent += "V98765432;María Gómez López;Coordinador;lb\n";
+    csvContent += "V11223344;Carlos Ruiz Díaz;Representante;ambas\n";
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -510,13 +555,14 @@ export const GestionUsuarios = () => {
         if (!row || row.length === 0 || row.every(cell => !cell || String(cell).trim() === '')) continue;
 
         if (row.length < 3) {
-          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: "Faltan columnas obligatorias (Deben ser 3: Cédula, Nombre, Rol)." });
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: "Faltan columnas obligatorias (Deben ser Cédula, Nombre, Rol)." });
           continue;
         }
         let cedula = String(row[0] || '').trim().toUpperCase();
         let nombreRaw = String(row[1] || '').trim();
         let nombre = toTitulo(nombreRaw);
         let rol = String(row[2] || '').trim();
+        let escuelaRaw = String(row[3] || '').trim().toLowerCase();
 
         if (!cedula || !nombreRaw || !rol) {
           rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: "Cédula, Nombre o Rol están en blanco." });
@@ -529,15 +575,42 @@ export const GestionUsuarios = () => {
           continue;
         }
 
+        // Validación de código de escuela
+        let codigoEscuelaFinal = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+        if (escuelaRaw) {
+          if (escuelaRaw === 'sb' || escuelaRaw === 'lb' || escuelaRaw === 'ambas') {
+            codigoEscuelaFinal = escuelaRaw;
+          } else {
+            rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: `El código de escuela '${escuelaRaw}' es inválido (Use: sb, lb, ambas).` });
+            continue;
+          }
+        }
+
+        if (codigoEscuelaFinal === 'sb' && !canCreateSB) {
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: `No tienes permisos para crear usuarios en la escuela SB.` });
+          continue;
+        }
+        if (codigoEscuelaFinal === 'lb' && !canCreateLB) {
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: `No tienes permisos para crear usuarios en la escuela LB.` });
+          continue;
+        }
+        if (codigoEscuelaFinal === 'ambas' && (!canCreateSB || !canCreateLB)) {
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: `No tienes permisos en ambas escuelas para crear usuarios compartidos.` });
+          continue;
+        }
+
         validos.push({
           cedula: cedula,
           nombre_completo: nombre,
           rol: rolExiste,
+          cargo: null,
+          email: null,
+          telefono: null,
           clave: cedula,
           primer_ingreso: true,
           estado: 'Activo',
           solicito_reseteo: false,
-          id_escuela: localStorage.getItem('sigae_escuela_codigo') || 'sb'
+          id_escuela: codigoEscuelaFinal
         });
       }
 
@@ -548,42 +621,56 @@ export const GestionUsuarios = () => {
 
       setLoading(true);
       let insertados = 0;
-      let actualizados = 0;
+      let omitidos = 0;
       try {
         if (validos.length > 0) {
+          setCargaProgress({ total: validos.length, actual: 0, procesando: true });
           const cedulasNuevas = validos.map(v => String(v.cedula));
-          const { data: existentes } = await supabase.from('usuarios').select('cedula').in('cedula', cedulasNuevas);
-          const cedulasBD = (existentes || []).map(ex => String(ex.cedula));
+          let cedulasBD: string[] = [];
+          
+          // Consultar en lotes (chunks) de 100 para evitar error "URI Too Long" con listas masivas
+          const CHUNK_SIZE = 100;
+          for (let i = 0; i < cedulasNuevas.length; i += CHUNK_SIZE) {
+            const chunk = cedulasNuevas.slice(i, i + CHUNK_SIZE);
+            const { data: existentes, error: errExistentes } = await supabase.from('usuarios').select('cedula').in('cedula', chunk);
+            if (errExistentes) {
+              console.error("Error validando cedulas existentes:", errExistentes);
+            }
+            if (existentes) {
+              cedulasBD = [...cedulasBD, ...existentes.map(ex => String(ex.cedula))];
+            }
+          }
 
           let registrosIns: any[] = [];
-          let registrosUpd: any[] = [];
 
           validos.forEach(v => {
             if (cedulasBD.includes(String(v.cedula))) {
-              registrosUpd.push(v);
+              omitidos++;
+              rechazados.push({ linea: 'N/A', datos: `${v.cedula} ; ${v.nombre_completo}`, motivo: 'El usuario ya se encuentra registrado. Fue omitido según lo solicitado.' });
             } else {
               registrosIns.push(v);
             }
           });
 
           if (registrosIns.length > 0) {
-            const { error: insErr } = await supabase.from('usuarios').insert(registrosIns);
-            if (insErr) throw insErr;
-            insertados = registrosIns.length;
-          }
-
-          if (registrosUpd.length > 0) {
-            for (let reg of registrosUpd) {
-              await supabase.from('usuarios').update({
-                nombre_completo: reg.nombre_completo,
-                rol: reg.rol,
-                id_escuela: reg.id_escuela
-              }).eq('cedula', reg.cedula);
+            for (let reg of registrosIns) {
+              const { error: insErr } = await supabase.from('usuarios').insert([reg]);
+              if (insErr) {
+                console.error("Error inserting row", reg, insErr);
+                if (insErr.code === '23505') {
+                  rechazados.push({ linea: 'N/A', datos: `${reg.cedula} ; ${reg.nombre_completo}`, motivo: 'El usuario ya se encuentra registrado en el sistema.' });
+                } else {
+                  rechazados.push({ linea: 'N/A', datos: `${reg.cedula} ; ${reg.nombre_completo}`, motivo: `Error al guardar: ${insErr.message || 'Desconocido'}` });
+                }
+              } else {
+                insertados++;
+              }
+              setCargaProgress(prev => ({ ...prev, actual: prev.actual + 1 }));
             }
-            actualizados = registrosUpd.length;
           }
         }
 
+        setCargaProgress({ total: 0, actual: 0, procesando: false });
         setLoading(false);
         setShowCargaModal(false);
         setCsvFile(null);
@@ -593,7 +680,7 @@ export const GestionUsuarios = () => {
           if (Swal) {
             Swal.fire({
               title: 'Carga Parcial',
-              html: `Se procesaron <b>${insertados + actualizados}</b> usuarios exitosamente (${insertados} nuevos, ${actualizados} actualizados).<br><br><span class="text-danger">Se rechazaron ${rechazados.length} filas por errores en formato o datos faltantes.</span>`,
+              html: `Se registraron <b>${insertados}</b> usuarios nuevos exitosamente.<br><br><span class="text-danger">Se rechazaron/omitieron ${rechazados.length} filas (incluyendo usuarios ya existentes o errores de formato).</span>`,
               icon: 'warning',
               showCancelButton: true,
               confirmButtonText: '<i class="bi bi-download me-1"></i> Descargar Reporte de Errores',
@@ -603,9 +690,9 @@ export const GestionUsuarios = () => {
             });
           }
         } else {
-          if (Swal) Swal.fire('¡Carga Exitosa!', `Se importaron y actualizaron correctamente ${insertados + actualizados} usuarios en el sistema.`, 'success');
+          if (Swal) Swal.fire('¡Carga Exitosa!', `Se importaron correctamente ${insertados} usuarios en el sistema.`, 'success');
         }
-        auditar('Gestión de Usuarios', 'Carga Masiva', `Carga masiva procesada: ${insertados} insertados, ${actualizados} actualizados, ${rechazados.length} rechazados.`);
+        auditar('Gestión de Usuarios', 'Carga Masiva', `Carga masiva procesada: ${insertados} insertados, ${omitidos} omitidos, ${rechazados.length} rechazados.`);
       } catch (err: any) {
         console.error("Error en carga masiva:", err);
         setLoading(false);
@@ -640,6 +727,28 @@ export const GestionUsuarios = () => {
       };
       reader.readAsText(csvFile, "UTF-8");
     }
+  };
+
+  const obtenerRangoPaginacion = () => {
+    const rango: (number | string)[] = [];
+    const maxVisible = 5;
+    
+    if (totalPaginas <= maxVisible) {
+      for (let i = 1; i <= totalPaginas; i++) rango.push(i);
+    } else {
+      rango.push(1);
+      let left = Math.max(2, paginaActual - 1);
+      let right = Math.min(totalPaginas - 1, paginaActual + 1);
+      
+      if (paginaActual === 1) right = 3;
+      if (paginaActual === totalPaginas) left = totalPaginas - 2;
+      
+      if (left > 2) rango.push('...');
+      for (let i = left; i <= right; i++) rango.push(i);
+      if (right < totalPaginas - 1) rango.push('...');
+      rango.push(totalPaginas);
+    }
+    return rango;
   };
 
   return (
@@ -681,29 +790,45 @@ export const GestionUsuarios = () => {
         <div className="card border-0 shadow-sm rounded-4 h-100" style={{ borderTop: '5px solid #10B981 !important' }}>
           <div className="card-header bg-white border-bottom p-4">
             <div className="row g-3 align-items-end">
-              <div className="col-md-3">
-                <label className="small fw-bold text-muted mb-1"><i className="bi bi-building me-1"></i>Filtrar Escuela</label>
+              <div className="col-md-2">
+                <label className="small fw-bold text-muted mb-1"><i className="bi bi-building me-1"></i>Escuela</label>
                 <select 
                   className="form-select input-moderno border-success fw-bold" 
                   value={filtroEscuela}
                   onChange={(e) => { setFiltroEscuela(e.target.value); setPaginaActual(1); }}
                 >
-                  {canUsersSB && canUsersLB && <option value="TODAS">Ambas Escuelas</option>}
-                  {canUsersLB && <option value="lb">UE Libertador Bolívar</option>}
-                  {canUsersSB && <option value="sb">UE Santa Bárbara</option>}
+                  {canUsersSB && canUsersLB && <option value="TODAS">Ambas</option>}
+                  {canUsersLB && <option value="lb">Libertador Bolívar</option>}
+                  {canUsersSB && <option value="sb">Simón Bolívar</option>}
+                </select>
+              </div>
+              <div className="col-md-2">
+                <label className="small fw-bold text-muted mb-1"><i className="bi bi-person-badge me-1"></i>Rol</label>
+                <select 
+                  className="form-select input-moderno border-success fw-bold" 
+                  value={filtroRol}
+                  onChange={(e) => { setFiltroRol(e.target.value); setPaginaActual(1); }}
+                >
+                  <option value="TODOS">Todos los roles</option>
+                  {rolesDisponibles.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
                 </select>
               </div>
               <div className="col-md-3">
-                <label className="small fw-bold text-muted mb-1"><i className="bi bi-search me-1"></i>Buscar Usuario</label>
+                <label className="small fw-bold text-muted mb-1"><i className="bi bi-search me-1"></i>Buscar</label>
                 <input 
                   type="text" 
                   className="input-moderno form-control w-100" 
-                  placeholder="Cédula, nombre o rol..." 
+                  placeholder="Cédula o nombre..." 
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setPaginaActual(1); }}
                 />
               </div>
-              <div className="col-md-6 text-md-end">
+              <div className="col-md-5 text-md-end">
+                <div className="text-muted small fw-bold mb-2 text-md-end text-start">
+                  Mostrando {usuariosFiltrados.length} resultados {selectedUsers.length > 0 && <span className="text-danger ms-1">({selectedUsers.length} seleccionados)</span>}
+                </div>
                 {(canDeleteSB || canDeleteLB) && (
                   <button 
                     className="btn btn-warning fw-bold shadow-sm px-3 rounded-pill hover-efecto me-1 position-relative" 
@@ -715,6 +840,14 @@ export const GestionUsuarios = () => {
                         {solicitudesReseteo.length}
                       </span>
                     )}
+                  </button>
+                )}
+                {selectedUsers.length > 0 && (
+                  <button 
+                    className="btn btn-danger fw-bold shadow-sm px-3 rounded-pill hover-efecto me-2" 
+                    onClick={eliminarUsuariosMasivo}
+                  >
+                    <i className="bi bi-trash3-fill me-1"></i>Eliminar ({selectedUsers.length})
                   </button>
                 )}
                 {canCreateAny && (
@@ -749,7 +882,34 @@ export const GestionUsuarios = () => {
                 <table className="table table-hover align-middle mb-0">
                   <thead className="bg-light text-muted small">
                     <tr>
-                      <th className="ps-4">Cédula</th>
+                      <th className="ps-4" style={{ width: '40px' }}>
+                        <div className="form-check">
+                          <input 
+                            className="form-check-input border-secondary" 
+                            type="checkbox" 
+                            title="Seleccionar visibles permitidos"
+                            checked={
+                              usuariosPaginados.length > 0 && 
+                              usuariosPaginados.filter(u => u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB)).length > 0 &&
+                              usuariosPaginados.filter(u => u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB)).every(u => selectedUsers.includes(u.id_usuario))
+                            }
+                            onChange={(e) => {
+                              const deletableUsers = usuariosPaginados.filter(u => u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB));
+                              if (e.target.checked) {
+                                const newSelection = [...selectedUsers];
+                                deletableUsers.forEach(u => {
+                                  if (!newSelection.includes(u.id_usuario)) newSelection.push(u.id_usuario);
+                                });
+                                setSelectedUsers(newSelection);
+                              } else {
+                                const idsToRemove = deletableUsers.map(u => u.id_usuario);
+                                setSelectedUsers(selectedUsers.filter(id => !idsToRemove.includes(id)));
+                              }
+                            }}
+                          />
+                        </div>
+                      </th>
+                      <th>Cédula</th>
                       <th>Escuela</th>
                       <th>Nombre Completo</th>
                       <th>Rol en Sistema</th>
@@ -761,7 +921,7 @@ export const GestionUsuarios = () => {
                   <tbody>
                     {usuariosPaginados.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center p-4 text-muted">
+                        <td colSpan={8} className="text-center p-4 text-muted">
                           <i className="bi bi-people fs-2 d-block mb-2"></i>
                           No hay usuarios que coincidan con la búsqueda.
                         </td>
@@ -772,8 +932,25 @@ export const GestionUsuarios = () => {
                         const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
 
                         return (
-                          <tr key={u.id_usuario} className="align-middle hover-efecto">
-                            <td className="fw-bold ps-4">{u.cedula}</td>
+                          <tr key={u.id_usuario} className={`align-middle hover-efecto ${selectedUsers.includes(u.id_usuario) ? 'table-danger bg-opacity-10' : ''}`}>
+                            <td className="ps-4">
+                              <div className="form-check">
+                                <input 
+                                  className="form-check-input border-secondary" 
+                                  type="checkbox" 
+                                  disabled={!canDeleteU}
+                                  checked={selectedUsers.includes(u.id_usuario)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedUsers([...selectedUsers, u.id_usuario]);
+                                    } else {
+                                      setSelectedUsers(selectedUsers.filter(id => id !== u.id_usuario));
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </td>
+                            <td className="fw-bold">{u.cedula}</td>
                             <td>
                               {u.id_escuela === 'lb' && <span className="badge bg-primary bg-opacity-10 text-primary border border-primary"><i className="bi bi-building me-1"></i>LB</span>}
                               {u.id_escuela === 'sb' && <span className="badge bg-success bg-opacity-10 text-success border border-success"><i className="bi bi-building me-1"></i>SB</span>}
@@ -839,9 +1016,15 @@ export const GestionUsuarios = () => {
                     <i className="bi bi-chevron-left"></i>
                   </button>
                 </li>
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(p => (
-                  <li key={p} className={`page-item ${paginaActual === p ? 'active' : ''}`}>
-                    <button className="page-link" onClick={() => cambiarPagina(p)}>{p}</button>
+                {obtenerRangoPaginacion().map((p, index) => (
+                  <li key={index} className={`page-item ${paginaActual === p ? 'active' : ''} ${p === '...' ? 'disabled' : ''}`}>
+                    <button 
+                      className="page-link" 
+                      onClick={() => p !== '...' && cambiarPagina(p as number)}
+                      style={p === '...' ? { cursor: 'default', pointerEvents: 'none' } : {}}
+                    >
+                      {p}
+                    </button>
                   </li>
                 ))}
                 <li className={`page-item ${paginaActual === totalPaginas ? 'disabled' : ''}`}>
@@ -1055,7 +1238,7 @@ export const GestionUsuarios = () => {
                 <button type="button" className="btn-close btn-close-white" onClick={() => setShowCargaModal(false)}></button>
               </div>
               <div className="modal-body p-4 bg-light text-start">
-                <p className="small text-muted mb-2">1. Sube un archivo <b>Excel (.xlsx)</b> o <b>Linux (.ods / .csv)</b> con las 3 columnas: Cédula, Nombre, Rol.</p>
+                <p className="small text-muted mb-2">1. Sube un archivo <b>Excel (.xlsx)</b> o <b>Linux (.ods / .csv)</b>. Columnas requeridas: Cédula, Nombre, Rol. Opcional: Escuela_Codigo (sb, lb, ambas).</p>
                 <div className="d-flex gap-2 mb-3">
                   <button className="btn btn-sm btn-outline-success fw-bold flex-fill" onClick={descargarPlantillaExcel}>
                     <i className="bi bi-file-earmark-excel-fill me-1"></i> Plantilla Excel (.xlsx)
@@ -1070,17 +1253,41 @@ export const GestionUsuarios = () => {
                   className="form-control border-success" 
                   accept=".xlsx, .xls, .ods, .csv" 
                   onChange={(e) => setCsvFile(e.target.files ? e.target.files[0] : null)}
+                  disabled={cargaProgress.procesando}
                 />
+                
+                {cargaProgress.procesando && (
+                  <div className="mt-3 animate__animated animate__fadeIn">
+                    <div className="d-flex justify-content-between mb-1">
+                      <span className="small fw-bold text-muted">Procesando registros...</span>
+                      <span className="small fw-bold text-primary">{Math.round((cargaProgress.actual / cargaProgress.total) * 100) || 0}%</span>
+                    </div>
+                    <div className="progress rounded-pill shadow-sm" style={{ height: '10px' }}>
+                      <div 
+                        className="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                        role="progressbar" 
+                        style={{ width: `${(cargaProgress.actual / cargaProgress.total) * 100}%`, transition: 'width 0.2s ease' }}
+                      ></div>
+                    </div>
+                    <div className="text-center mt-1 small text-muted">
+                      {cargaProgress.actual} de {cargaProgress.total} usuarios validados insertados
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="modal-footer bg-white border-0">
-                <button type="button" className="btn btn-secondary rounded-pill px-4" onClick={() => setShowCargaModal(false)}>Cancelar</button>
+                <button type="button" className="btn btn-secondary rounded-pill px-4" onClick={() => setShowCargaModal(false)} disabled={cargaProgress.procesando}>Cancelar</button>
                 <button 
                   type="button" 
                   className="btn btn-success rounded-pill px-4" 
-                  disabled={!csvFile} 
+                  disabled={!csvFile || cargaProgress.procesando} 
                   onClick={procesarCSV}
                 >
-                  <i className="bi bi-cloud-upload-fill me-1"></i> Procesar
+                  {cargaProgress.procesando ? (
+                    <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Cargando...</>
+                  ) : (
+                    <><i className="bi bi-cloud-upload-fill me-1"></i> Procesar</>
+                  )}
                 </button>
               </div>
             </div>

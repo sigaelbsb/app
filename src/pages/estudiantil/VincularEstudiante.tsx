@@ -36,6 +36,9 @@ export const VincularEstudiante: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [vinculaciones, setVinculaciones] = useState<any[]>([]);
   const [busquedaDir, setBusquedaDir] = useState<string>('');
+  const [paginaActualDir, setPaginaActualDir] = useState(1);
+  const elementosPorPaginaDir = 50;
+  const [seleccionados, setSeleccionados] = useState<string[]>([]);
 
   // Estados para Formulario Individual
   const [cedulaRepBuscar, setCedulaRepBuscar] = useState<string>('');
@@ -61,10 +64,12 @@ export const VincularEstudiante: React.FC = () => {
     if (activeTab === 'directorio') {
       cargarVinculaciones();
     }
-  }, [activeTab, escuelaFiltro]);
+    setPaginaActualDir(1);
+  }, [activeTab, escuelaFiltro, busquedaDir]);
 
   const cargarVinculaciones = async () => {
     setLoading(true);
+    setSeleccionados([]);
     try {
       const { data, error } = await supabase
         .from('estudiantes_vinculaciones')
@@ -226,6 +231,7 @@ export const VincularEstudiante: React.FC = () => {
     const procesarFilas = (rows: any[][]) => {
       const validos: any[] = [];
       const rechazados: any[] = [];
+      const cedulasEnArchivo = new Set<string>();
 
       let startIndex = 0;
       if (rows.length > 0) {
@@ -254,6 +260,12 @@ export const VincularEstudiante: React.FC = () => {
           rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: 'Cédulas, Nombres o Apellidos están vacíos.' });
           continue;
         }
+
+        if (cedulasEnArchivo.has(cedEst)) {
+          rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: `El estudiante con cédula '${cedEst}' está repetido en este mismo archivo. Se omitió para evitar conflicto.` });
+          continue;
+        }
+        cedulasEnArchivo.add(cedEst);
 
         const nomCompletoRep = mapaUsuarios.get(cedRep);
         if (!nomCompletoRep) {
@@ -329,17 +341,24 @@ export const VincularEstudiante: React.FC = () => {
   const handleConfirmarCargaMasiva = async () => {
     if (previewValidos.length === 0) return;
     setLoading(true);
+    let insertados = 0;
     try {
-      const { error } = await supabase
-        .from('estudiantes_vinculaciones')
-        .upsert(previewValidos, { onConflict: 'cedula_estudiante' });
+      // Upsert en lotes (chunks) para evitar timeouts y problemas con payloads muy grandes
+      const CHUNK_SIZE = 500;
+      for (let i = 0; i < previewValidos.length; i += CHUNK_SIZE) {
+        const chunk = previewValidos.slice(i, i + CHUNK_SIZE);
+        const { error } = await supabase
+          .from('estudiantes_vinculaciones')
+          .upsert(chunk, { onConflict: 'cedula_estudiante' });
 
-      if (error) throw error;
+        if (error) throw error;
+        insertados += chunk.length;
+      }
 
       if ((window as any).Swal) {
-        (window as any).Swal.fire('Carga Masiva Completada', `Se vincularon o actualizaron con éxito ${previewValidos.length} estudiantes.`, 'success');
+        (window as any).Swal.fire('Carga Masiva Completada', `Se vincularon o actualizaron con éxito ${insertados} estudiantes.`, 'success');
       } else {
-        alert(`Se vincularon ${previewValidos.length} estudiantes con éxito.`);
+        alert(`Se vincularon ${insertados} estudiantes con éxito.`);
       }
 
       auditar('Vincular Estudiante', 'Carga Masiva', `Vinculados ${previewValidos.length} registros. Rechazados: ${previewRechazados.length}`);
@@ -387,10 +406,53 @@ export const VincularEstudiante: React.FC = () => {
 
       if (error) throw error;
       setVinculaciones(prev => prev.filter(v => v.id !== id));
+      setSeleccionados(prev => prev.filter(sel => sel !== id));
       auditar('Vincular Estudiante', 'Desvincular Estudiante', `Eliminada vinculación del estudiante ID ${id}`);
     } catch (err: any) {
       console.error(err);
       alert('No se pudo desvincular: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleSeleccion = (id: string) => {
+    setSeleccionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSeleccionarTodo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSeleccionados(vinculacionesPaginadas.map(v => v.id));
+    } else {
+      setSeleccionados([]);
+    }
+  };
+
+  const handleEliminarMasivo = async () => {
+    if (seleccionados.length === 0) return;
+    if (!confirm(`¿Está seguro de eliminar ${seleccionados.length} estudiantes vinculados seleccionados? Esta acción es irreversible.`)) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('estudiantes_vinculaciones')
+        .delete()
+        .in('id', seleccionados);
+
+      if (error) throw error;
+
+      setVinculaciones(prev => prev.filter(v => !seleccionados.includes(v.id)));
+      auditar('Vincular Estudiante', 'Eliminación Masiva', `Eliminadas ${seleccionados.length} vinculaciones de forma masiva`);
+      
+      if ((window as any).Swal) {
+        (window as any).Swal.fire('Éxito', `Se eliminaron ${seleccionados.length} vinculaciones seleccionadas.`, 'success');
+      } else {
+        alert(`Se eliminaron ${seleccionados.length} vinculaciones.`);
+      }
+      setSeleccionados([]);
+    } catch (err: any) {
+      console.error(err);
+      alert('No se pudieron eliminar los registros: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -406,6 +468,11 @@ export const VincularEstudiante: React.FC = () => {
       v.nombres_representante?.toLowerCase().includes(q)
     );
   });
+
+  const indexUltimoDir = paginaActualDir * elementosPorPaginaDir;
+  const indexPrimeroDir = indexUltimoDir - elementosPorPaginaDir;
+  const vinculacionesPaginadas = listaFiltrada.slice(indexPrimeroDir, indexUltimoDir);
+  const totalPaginasDir = Math.ceil(listaFiltrada.length / elementosPorPaginaDir);
 
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
@@ -730,7 +797,12 @@ export const VincularEstudiante: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="col-md-2 text-end">
+            <div className="col-md-3 text-end d-flex gap-2 justify-content-end">
+              {seleccionados.length > 0 && (
+                <button className="btn btn-danger fw-bold shadow-sm fade-in w-100" onClick={handleEliminarMasivo} disabled={loading}>
+                  <i className="bi bi-trash-fill me-2"></i>Eliminar ({seleccionados.length})
+                </button>
+              )}
               <button className="btn btn-outline-secondary w-100 fw-bold" onClick={cargarVinculaciones} disabled={loading}>
                 <i className="bi bi-arrow-clockwise me-2"></i>Actualizar
               </button>
@@ -741,6 +813,17 @@ export const VincularEstudiante: React.FC = () => {
             <table className="table table-hover align-middle mb-0">
               <thead className="table-light">
                 <tr>
+                  <th style={{ width: '40px' }}>
+                    <div className="form-check">
+                      <input 
+                        className="form-check-input shadow-sm border-secondary" 
+                        type="checkbox"
+                        checked={vinculacionesPaginadas.length > 0 && seleccionados.length === vinculacionesPaginadas.length}
+                        onChange={handleSeleccionarTodo}
+                        disabled={vinculacionesPaginadas.length === 0}
+                      />
+                    </div>
+                  </th>
                   <th>Representante</th>
                   <th>Cédula Alumno</th>
                   <th>Estudiante</th>
@@ -752,21 +835,31 @@ export const VincularEstudiante: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5">
+                    <td colSpan={7} className="text-center py-5">
                       <div className="spinner-border text-primary me-2" role="status"></div>
                       <span className="text-muted fw-bold">Cargando directorio de vinculaciones...</span>
                     </td>
                   </tr>
                 ) : listaFiltrada.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5 text-muted">
+                    <td colSpan={7} className="text-center py-5 text-muted">
                       <i className="bi bi-folder2-open fs-1 d-block mb-2"></i>
                       No hay estudiantes vinculados en {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
                     </td>
                   </tr>
                 ) : (
-                  listaFiltrada.map((item) => (
-                    <tr key={item.id}>
+                  vinculacionesPaginadas.map((item) => (
+                    <tr key={item.id} className={seleccionados.includes(item.id) ? 'table-danger' : ''}>
+                      <td>
+                        <div className="form-check">
+                          <input 
+                            className="form-check-input border-secondary cursor-pointer" 
+                            type="checkbox"
+                            checked={seleccionados.includes(item.id)}
+                            onChange={() => handleToggleSeleccion(item.id)}
+                          />
+                        </div>
+                      </td>
                       <td>
                         <div className="fw-bold text-dark">{item.nombres_representante} {item.apellidos_representante}</div>
                         <small className="text-muted">C.I. {item.cedula_representante}</small>
@@ -802,6 +895,48 @@ export const VincularEstudiante: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {totalPaginasDir > 1 && (
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mt-4 p-3 bg-light rounded-4 shadow-sm border">
+              <span className="text-muted fw-bold mb-3 mb-md-0">
+                <i className="bi bi-list-ol me-2"></i>
+                Mostrando {indexPrimeroDir + 1} a {Math.min(indexUltimoDir, listaFiltrada.length)} de {listaFiltrada.length} estudiantes
+              </span>
+              
+              <ul className="pagination pagination-sm mb-0 shadow-sm">
+                <li className={`page-item ${paginaActualDir === 1 ? 'disabled' : ''}`}>
+                  <button className="page-link text-primary fw-bold px-3" onClick={() => setPaginaActualDir(prev => Math.max(prev - 1, 1))}>
+                    <i className="bi bi-chevron-left me-1"></i> Anterior
+                  </button>
+                </li>
+                
+                {/* Lógica de páginas visibles para no saturar si hay muchas (máximo 5 botones) */}
+                {Array.from({ length: totalPaginasDir }, (_, i) => i + 1)
+                  .filter(pag => pag === 1 || pag === totalPaginasDir || Math.abs(pag - paginaActualDir) <= 1)
+                  .map((pag, idx, array) => {
+                    const isGap = idx > 0 && pag - array[idx - 1] > 1;
+                    return (
+                      <React.Fragment key={pag}>
+                        {isGap && <li className="page-item disabled"><span className="page-link">...</span></li>}
+                        <li className={`page-item ${paginaActualDir === pag ? 'active' : ''}`}>
+                          <button className="page-link fw-bold" onClick={() => setPaginaActualDir(pag)}>
+                            {pag}
+                          </button>
+                        </li>
+                      </React.Fragment>
+                    );
+                  })
+                }
+
+                <li className={`page-item ${paginaActualDir === totalPaginasDir ? 'disabled' : ''}`}>
+                  <button className="page-link text-primary fw-bold px-3" onClick={() => setPaginaActualDir(prev => Math.min(prev + 1, totalPaginasDir))}>
+                    Siguiente <i className="bi bi-chevron-right ms-1"></i>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

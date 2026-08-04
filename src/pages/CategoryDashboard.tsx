@@ -149,7 +149,7 @@ export const CategoryDashboard = () => {
          vista === "Gestión de Colectivos")) ||
       (decodedCategory === "Control de Estudios" && vista === "Grados y Salones") ||
       (decodedCategory === "Gestión Docente" && (vista === "Mi Expediente" || vista === "Gestor de Expedientes")) ||
-      (decodedCategory === "Gestión Estudiantil" && (vista === "Solicitud de Cupos" || vista === "Vincular Estudiante" || vista === "Actualización de Datos")) ||
+      (decodedCategory === "Gestión Estudiantil" && (vista === "Gestión de Admisiones" || vista === "Solicitud de Cupos" || vista === "Vincular Estudiante" || vista === "Actualización de Datos")) ||
       (decodedCategory === "Servicios y Bienestar" && vista === "Transporte Escolar")
     ) {
       navigate(`/categoria/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(vista)}`);

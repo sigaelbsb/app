@@ -162,7 +162,7 @@ export const usePermisos = () => {
       return rolesGenerales.includes(user?.rol);
     }
 
-    if (["Solicitud de Cupos", "Mi Perfil", "Actualización de Datos"].includes(modulo)) {
+    if (["Gestión de Admisiones", "Solicitud de Cupos", "Mi Perfil", "Actualización de Datos"].includes(modulo)) {
       const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
       return rolesPermitidos.includes(user?.rol);
     }
