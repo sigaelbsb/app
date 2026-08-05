@@ -321,22 +321,21 @@ export const SolicitudCupos = () => {
   const [fechaInicioProceso, setFechaInicioProceso] = useState<string>('');
   const [fechaFinProceso, setFechaFinProceso] = useState<string>('');
 
-  const checkProcesoAbierto = () => {
+  const getEstadoProceso = () => {
     if (!fechaInicioProceso && !fechaFinProceso) return { abierto: true, motivo: '' };
     
     const ahoraMs = new Date().getTime();
     
     if (fechaInicioProceso) {
-      const inicioStr = fechaInicioProceso.includes('T') ? fechaInicioProceso : `${fechaInicioProceso}T00:00:00`;
-      const inicioMs = new Date(inicioStr).getTime();
+      let inicioStr = fechaInicioProceso.includes('T') ? fechaInicioProceso : `${fechaInicioProceso}T00:00:00`;
+      if (inicioStr.length === 16) inicioStr += ':00'; // Fix para navegadores Safari antiguos
+      const safeInicio = inicioStr.replace(/-/g, '/').replace('T', ' '); // Evitar Invalid Date
+      const inicioMs = new Date(safeInicio).getTime();
+      
       if (ahoraMs < inicioMs) {
-        const fechaFmt = new Date(inicioStr).toLocaleString('es-VE', { 
-          day: '2-digit', 
-          month: 'long', 
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true 
+        const fechaFmt = new Date(safeInicio).toLocaleString('es-VE', { 
+          day: '2-digit', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true 
         });
         return { 
           abierto: false, 
@@ -346,16 +345,15 @@ export const SolicitudCupos = () => {
     }
     
     if (fechaFinProceso) {
-      const finStr = fechaFinProceso.includes('T') ? fechaFinProceso : `${fechaFinProceso}T23:59:59`;
-      const finMs = new Date(finStr).getTime();
+      let finStr = fechaFinProceso.includes('T') ? fechaFinProceso : `${fechaFinProceso}T23:59:59`;
+      if (finStr.length === 16) finStr += ':00'; // Fix para navegadores Safari antiguos
+      const safeFin = finStr.replace(/-/g, '/').replace('T', ' '); // Evitar Invalid Date
+      const finMs = new Date(safeFin).getTime();
+      
       if (ahoraMs > finMs) {
-        const fechaFmt = new Date(finStr).toLocaleString('es-VE', { 
-          day: '2-digit', 
-          month: 'long', 
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true 
+        const fechaFmt = new Date(safeFin).toLocaleString('es-VE', { 
+          day: '2-digit', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true 
         });
         return { 
           abierto: false, 
@@ -367,7 +365,7 @@ export const SolicitudCupos = () => {
     return { abierto: true, motivo: '' };
   };
 
-  const estadoProceso = checkProcesoAbierto();
+  const estadoProceso = getEstadoProceso();
 
   const formatearFechaCorto = (fechaStr: string) => {
     if (!fechaStr) return 'No definida';
@@ -911,8 +909,9 @@ export const SolicitudCupos = () => {
   };
 
   const handleIniciarSolicitud = () => {
-    if (!estadoProceso.abierto) {
-      if (Swal) Swal.fire('Período Restringido', estadoProceso.motivo, 'warning');
+    const estadoActual = getEstadoProceso();
+    if (!estadoActual.abierto) {
+      if (Swal) Swal.fire('Período Restringido', estadoActual.motivo, 'warning');
       return;
     }
     if (!validarPaso(1)) return;
@@ -924,8 +923,9 @@ export const SolicitudCupos = () => {
   };
 
   const handleSubmitFinal = async () => {
-    if (!estadoProceso.abierto) {
-      if (Swal) Swal.fire('Período Restringido', estadoProceso.motivo, 'warning');
+    const estadoActual = getEstadoProceso();
+    if (!estadoActual.abierto) {
+      if (Swal) Swal.fire('Período Restringido', estadoActual.motivo, 'warning');
       return;
     }
     for (let i = 1; i <= 7; i++) {
@@ -3342,10 +3342,11 @@ export const SolicitudCupos = () => {
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="fw-bold text-dark mb-0"><i className="bi bi-mailbox2 text-success me-2"></i>Historial de Solicitudes</h5>
               <button onClick={() => { 
-                  if (!estadoProceso.abierto) {
+                  const estadoActual = getEstadoProceso();
+                  if (!estadoActual.abierto) {
                     Swal.fire({
                       title: 'Período Restringido',
-                      text: estadoProceso.motivo,
+                      text: estadoActual.motivo,
                       icon: 'warning',
                       confirmButtonColor: '#FF8D00'
                     });
@@ -3368,10 +3369,11 @@ export const SolicitudCupos = () => {
                 <div className="fw-bold">No tienes solicitudes registradas</div>
                 <div className="small mb-3">Aún no has registrado ninguna solicitud de cupo en esta institución.</div>
                 <button onClick={() => { 
-                  if (!estadoProceso.abierto) {
+                  const estadoActual = getEstadoProceso();
+                  if (!estadoActual.abierto) {
                     Swal.fire({
                       title: 'Período Restringido',
-                      text: estadoProceso.motivo,
+                      text: estadoActual.motivo,
                       icon: 'warning',
                       confirmButtonColor: '#FF8D00'
                     });
