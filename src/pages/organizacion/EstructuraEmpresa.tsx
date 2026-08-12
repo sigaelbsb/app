@@ -425,9 +425,17 @@ export const EstructuraEmpresa = () => {
 
         {/* Alergias */}
         {hasVerAlergia && (
-          <div className="col-12 col-md-6 col-xl-4">
-            {renderizarTarjeta('Alergias a Medicamentos', 'Medicamento (Alergia)', 'bi-capsule', '#ea580c', '#ffedd5')}
-          </div>
+          <>
+            <div className="col-12 col-md-6 col-xl-4">
+              {renderizarTarjeta('Alergias a Medicamentos', 'Medicamento (Alergia)', 'bi-capsule', '#ea580c', '#ffedd5')}
+            </div>
+            <div className="col-12 col-md-6 col-xl-4">
+              {renderizarTarjeta('Alergias a Alimentos', 'Alimento (Alergia)', 'bi-cup-hot-fill', '#d97706', '#fef3c7')}
+            </div>
+            <div className="col-12 col-md-6 col-xl-4">
+              {renderizarTarjeta('Otras Alergias / Intolerancias', 'Otra (Alergia)', 'bi-virus', '#ef4444', '#fee2e2')}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -4,21 +4,7 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
-import { formatPhoneNumber } from '../../lib/formatters';
-
-const ABREVIATURAS = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-
-const toTitulo = (value: string): string =>
-  value
-    .split(' ')
-    .map(word => {
-      const wUpper = word.toUpperCase();
-      if (ABREVIATURAS.includes(wUpper)) {
-        return wUpper;
-      }
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(' ');
+import { formatPhoneNumber, toTitulo } from '../../lib/formatters';
 
 const handleTituloChange = (
   e: React.ChangeEvent<HTMLInputElement>,
@@ -957,7 +943,7 @@ export const GestionUsuarios = () => {
                               {u.id_escuela === 'ambas' && <span className="badge bg-dark bg-opacity-10 text-dark border border-dark"><i className="bi bi-buildings me-1"></i>Ambas</span>}
                             </td>
                             <td>
-                              <div className="fw-bold text-dark">{u.nombre_completo}</div>
+                              <div className="fw-bold text-dark">{toTitulo(u.nombre_completo)}</div>
                               <div className="small text-muted">{u.email || 'Sin correo'}</div>
                             </td>
                             <td><span className="badge bg-light text-dark border">{u.rol}</span></td>

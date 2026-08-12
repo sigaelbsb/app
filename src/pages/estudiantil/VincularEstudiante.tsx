@@ -1,23 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
 import * as XLSX from 'xlsx';
 
-// ─── HELPER: MODO TÍTULO (Mayúscula inicial y minúsculas sostenidas) ─────────────────
-const ABREVIATURAS = ['CEI', 'TDA', 'TDH', 'TDHA', 'ADN', 'UE', 'CE', 'EB', 'PDVSA', 'PDV'];
-
-const toTitulo = (value: string): string =>
-  value
-    .split(' ')
-    .map(word => {
-      const wUpper = word.toUpperCase();
-      if (ABREVIATURAS.includes(wUpper)) {
-        return wUpper;
-      }
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(' ');
+import { toTitulo } from '../../lib/formatters';
 
 const handleTituloChange = (
   e: React.ChangeEvent<HTMLInputElement>,
@@ -36,9 +24,15 @@ export const VincularEstudiante: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [vinculaciones, setVinculaciones] = useState<any[]>([]);
   const [busquedaDir, setBusquedaDir] = useState<string>('');
+  const [gradoFiltroDir, setGradoFiltroDir] = useState<string>('Todos');
   const [paginaActualDir, setPaginaActualDir] = useState(1);
   const elementosPorPaginaDir = 50;
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
+  const [gradosDB, setGradosDB] = useState<string[]>([]);
+
+  // Estados para Edición
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [estudianteEditando, setEstudianteEditando] = useState<any | null>(null);
 
   // Estados para Formulario Individual
   const [cedulaRepBuscar, setCedulaRepBuscar] = useState<string>('');
@@ -61,24 +55,61 @@ export const VincularEstudiante: React.FC = () => {
   const [procesadoMasivo, setProcesadoMasivo] = useState<boolean>(false);
 
   useEffect(() => {
+    cargarCatalogos();
+  }, []);
+
+  useEffect(() => {
     if (activeTab === 'directorio') {
       cargarVinculaciones();
     }
+  }, [activeTab]);
+
+  useEffect(() => {
     setPaginaActualDir(1);
-  }, [activeTab, escuelaFiltro, busquedaDir]);
+  }, [escuelaFiltro, busquedaDir, gradoFiltroDir]);
+
+  const cargarCatalogos = async () => {
+    try {
+      const { data } = await supabase.from('conf_grados').select('valor').order('orden', { ascending: true });
+      if (data) {
+        setGradosDB(data.map(g => g.valor));
+      }
+    } catch (error) {
+      console.error('Error al cargar catálogos:', error);
+    }
+  };
 
   const cargarVinculaciones = async () => {
     setLoading(true);
     setSeleccionados([]);
     try {
-      const { data, error } = await supabase
-        .from('estudiantes_vinculaciones')
-        .select('*')
-        .eq('codigo_escuela', escuelaFiltro)
-        .order('created_at', { ascending: false });
+      let todosLosDatos: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      setVinculaciones(data || []);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          todosLosDatos = [...todosLosDatos, ...data];
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setVinculaciones(todosLosDatos);
     } catch (err: any) {
       console.error('Error al cargar vinculaciones:', err);
     } finally {
@@ -191,12 +222,11 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
-  // Descargar plantilla modelo en Excel (Sin Grado ni Sección por orden institucional en esta etapa)
   const descargarPlantillaExcel = () => {
     const wsData = [
-      ['Cédula_Representante', 'Cédula_Estudiante', 'Nombres_Estudiante', 'Apellidos_Estudiante', 'Escuela(sb/lb)'],
-      ['12345678', 'CE11223344', 'Carlos Andrés', 'Mendoza Silva', 'sb'],
-      ['18765432', 'CE55667788', 'María Fernanda', 'Rodríguez López', 'lb']
+      ['Cédula_Representante', 'Cédula_Estudiante', 'Nombres_Estudiante', 'Apellidos_Estudiante', 'Escuela(sb/lb)', 'Grado_a_Cursar', 'Seccion'],
+      ['12345678', 'CE11223344', 'Carlos Andrés', 'Mendoza Silva', 'sb', '1er Grado', 'A'],
+      ['18765432', 'CE55667788', 'María Fernanda', 'Rodríguez López', 'lb', '2do Grado', 'B']
     ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -205,9 +235,9 @@ export const VincularEstudiante: React.FC = () => {
   };
 
   const descargarPlantillaCSV = () => {
-    let csvContent = "Cédula_Representante;Cédula_Estudiante;Nombres_Estudiante;Apellidos_Estudiante;Escuela(sb/lb)\n";
-    csvContent += "12345678;CE11223344;Carlos Andrés;Mendoza Silva;sb\n";
-    csvContent += "18765432;CE55667788;María Fernanda;Rodríguez López;lb\n";
+    let csvContent = "Cédula_Representante;Cédula_Estudiante;Nombres_Estudiante;Apellidos_Estudiante;Escuela(sb/lb);Grado_a_Cursar;Seccion\n";
+    csvContent += "12345678;CE11223344;Carlos Andrés;Mendoza Silva;sb;1er Grado;A\n";
+    csvContent += "18765432;CE55667788;María Fernanda;Rodríguez López;lb;2do Grado;B\n";
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -255,6 +285,8 @@ export const VincularEstudiante: React.FC = () => {
         const nomEst = toTitulo(String(row[2] || '').trim());
         const apeEst = toTitulo(String(row[3] || '').trim());
         const esc = String(row[4] || 'sb').trim().toLowerCase();
+        const grado = String(row[5] || '').trim() || 'Sin Grado Asignado';
+        const seccion = String(row[6] || '').trim() || 'Sin Asignar';
 
         if (!cedRep || !cedEst || !nomEst || !apeEst) {
           rechazados.push({ linea: i + 1, datos: row.join(' ; '), motivo: 'Cédulas, Nombres o Apellidos están vacíos.' });
@@ -289,8 +321,8 @@ export const VincularEstudiante: React.FC = () => {
           cedula_estudiante: cedEst,
           nombres_estudiante: nomEst,
           apellidos_estudiante: apeEst,
-          grado_actual: 'Sin Grado Asignado',
-          seccion_actual: 'Sin Asignar',
+          grado_actual: grado,
+          seccion_actual: seccion,
           estado: 'Activo',
           creado_por: user?.cedula || 'Admin'
         });
@@ -396,7 +428,25 @@ export const VincularEstudiante: React.FC = () => {
   };
 
   const handleDesvincular = async (id: string, nombre: string) => {
-    if (!confirm(`¿Está seguro de desvincular o eliminar al estudiante ${nombre}?`)) return;
+    let confirmado = false;
+    if ((window as any).Swal) {
+      const result = await (window as any).Swal.fire({
+        title: '¿Está seguro?',
+        text: `¿Desea desvincular o eliminar al estudiante ${nombre}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+      });
+      confirmado = result.isConfirmed;
+    } else {
+      confirmado = window.confirm(`¿Está seguro de desvincular o eliminar al estudiante ${nombre}?`);
+    }
+
+    if (!confirmado) return;
+
     setLoading(true);
     try {
       const { error } = await supabase
@@ -420,6 +470,54 @@ export const VincularEstudiante: React.FC = () => {
     setSeleccionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const handleAbrirEdicion = (estudiante: any) => {
+    setEstudianteEditando({ ...estudiante });
+    setShowEditModal(true);
+  };
+
+  const handleGuardarEdicion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!estudianteEditando) return;
+
+    setLoading(true);
+    try {
+      const payload = {
+        nombres_estudiante: toTitulo(estudianteEditando.nombres_estudiante.trim()),
+        apellidos_estudiante: toTitulo(estudianteEditando.apellidos_estudiante.trim()),
+        grado_actual: estudianteEditando.grado_actual,
+        seccion_actual: estudianteEditando.seccion_actual
+      };
+
+      const { error } = await supabase
+        .from('estudiantes_vinculaciones')
+        .update(payload)
+        .eq('id', estudianteEditando.id);
+
+      if (error) throw error;
+
+      if ((window as any).Swal) {
+        (window as any).Swal.fire('¡Actualizado!', 'Los datos del estudiante han sido modificados exitosamente.', 'success');
+      } else {
+        alert('Estudiante actualizado exitosamente');
+      }
+
+      auditar('Vincular Estudiante', 'Editar Estudiante', `Modificó vinculación del estudiante ID ${estudianteEditando.id}`);
+      
+      setVinculaciones(prev => prev.map(v => v.id === estudianteEditando.id ? { ...v, ...payload } : v));
+      setShowEditModal(false);
+      setEstudianteEditando(null);
+    } catch (err: any) {
+      console.error(err);
+      if ((window as any).Swal) {
+        (window as any).Swal.fire('Error', `No se pudo actualizar: ${err.message}`, 'error');
+      } else {
+        alert('Error al actualizar: ' + err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSeleccionarTodo = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       setSeleccionados(vinculacionesPaginadas.map(v => v.id));
@@ -430,7 +528,25 @@ export const VincularEstudiante: React.FC = () => {
 
   const handleEliminarMasivo = async () => {
     if (seleccionados.length === 0) return;
-    if (!confirm(`¿Está seguro de eliminar ${seleccionados.length} estudiantes vinculados seleccionados? Esta acción es irreversible.`)) return;
+    
+    let confirmado = false;
+    if ((window as any).Swal) {
+      const result = await (window as any).Swal.fire({
+        title: '¿Eliminación masiva?',
+        text: `¿Está seguro de eliminar ${seleccionados.length} estudiantes vinculados seleccionados? Esta acción es irreversible.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar todos',
+        cancelButtonText: 'Cancelar'
+      });
+      confirmado = result.isConfirmed;
+    } else {
+      confirmado = window.confirm(`¿Está seguro de eliminar ${seleccionados.length} estudiantes vinculados seleccionados? Esta acción es irreversible.`);
+    }
+
+    if (!confirmado) return;
     
     setLoading(true);
     try {
@@ -458,15 +574,22 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
+  const countSB = vinculaciones.filter(v => v.codigo_escuela === 'sb').length;
+  const countLB = vinculaciones.filter(v => v.codigo_escuela === 'lb').length;
+  const countAmbas = vinculaciones.length;
+
   const listaFiltrada = vinculaciones.filter(v => {
     const q = busquedaDir.toLowerCase();
-    return (
+    const matchBusqueda = (
       v.cedula_estudiante?.toLowerCase().includes(q) ||
       v.nombres_estudiante?.toLowerCase().includes(q) ||
       v.apellidos_estudiante?.toLowerCase().includes(q) ||
       v.cedula_representante?.toLowerCase().includes(q) ||
       v.nombres_representante?.toLowerCase().includes(q)
     );
+    const matchGrado = gradoFiltroDir === 'Todos' || v.grado_actual === gradoFiltroDir;
+    const matchEscuela = escuelaFiltro === 'ambas' || v.codigo_escuela === escuelaFiltro;
+    return matchBusqueda && matchGrado && matchEscuela;
   });
 
   const indexUltimoDir = paginaActualDir * elementosPorPaginaDir;
@@ -475,8 +598,9 @@ export const VincularEstudiante: React.FC = () => {
   const totalPaginasDir = Math.ceil(listaFiltrada.length / elementosPorPaginaDir);
 
   return (
-    <div className="container-fluid py-4 animate__animated animate__fadeIn">
-      {/* Encabezado Principal */}
+    <>
+      <div className="container-fluid py-4 animate__animated animate__fadeIn">
+        {/* Encabezado Principal */}
       <div 
         className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden" 
         style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', borderRadius: '24px' }}
@@ -603,7 +727,29 @@ export const VincularEstudiante: React.FC = () => {
                         onChange={(e) => handleTituloChange(e, (val) => setFormInd(prev => ({ ...prev, apellidos_estudiante: val })))}
                       />
                     </div>
-                    <div className="col-md-12">
+                    <div className="col-md-4">
+                      <label className="form-label fw-bold text-secondary">Grado a Cursar <span className="text-danger">*</span></label>
+                      <select 
+                        className="form-select"
+                        value={formInd.grado_actual}
+                        onChange={(e) => setFormInd({ ...formInd, grado_actual: e.target.value })}
+                      >
+                        <option value="Sin Grado Asignado">Sin Grado Asignado</option>
+                        {gradosDB.map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label fw-bold text-secondary">Sección / Grupo <span className="text-danger">*</span></label>
+                      <select 
+                        className="form-select"
+                        value={formInd.seccion_actual}
+                        onChange={(e) => setFormInd({ ...formInd, seccion_actual: e.target.value })}
+                      >
+                        <option value="Sin Asignar">Sin Asignar</option>
+                        {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'Única'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-md-4">
                       <label className="form-label fw-bold text-secondary">Escuela DEP Oriente</label>
                       <select 
                         className="form-select fw-bold"
@@ -663,9 +809,9 @@ export const VincularEstudiante: React.FC = () => {
           </div>
 
           <div className="bg-light border rounded-4 p-3 mb-4 font-monospace fs-6 text-dark overflow-auto">
-            <code>Cédula_Representante | Cédula_Estudiante | Nombres_Estudiante | Apellidos_Estudiante | Escuela(sb/lb)</code>
+            <code>Cédula_Representante | Cédula_Estudiante | Nombres_Estudiante | Apellidos_Estudiante | Escuela(sb/lb) | Grado_a_Cursar | Seccion</code>
             <br />
-            <span className="text-muted small">Ejemplo: 12345678 | CE11223344 | Carlos Andrés | Mendoza Silva | sb</span>
+            <span className="text-muted small">Ejemplo: 12345678 | CE11223344 | Carlos Andrés | Mendoza Silva | sb | 1er Grado | A</span>
           </div>
 
           <div className="row g-3 align-items-center mb-4">
@@ -727,6 +873,8 @@ export const VincularEstudiante: React.FC = () => {
                         <th>Nombres Alumno</th>
                         <th>Apellidos Alumno</th>
                         <th>Escuela</th>
+                        <th>Grado</th>
+                        <th>Sección</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -738,6 +886,8 @@ export const VincularEstudiante: React.FC = () => {
                           <td>{item.nombres_estudiante}</td>
                           <td>{item.apellidos_estudiante}</td>
                           <td><span className={`badge ${item.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'}`}>{item.codigo_escuela.toUpperCase()}</span></td>
+                          <td>{item.grado_actual}</td>
+                          <td>{item.seccion_actual}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -766,7 +916,7 @@ export const VincularEstudiante: React.FC = () => {
       {/* Pestaña 3: Directorio General de Estudiantes Vinculados */}
       {activeTab === 'directorio' && (
         <div className="card border-0 shadow-sm rounded-4 p-4">
-          <div className="row g-3 align-items-center justify-content-between mb-4">
+          <div className="row g-3 align-items-center mb-4">
             <div className="col-md-4">
               <div className="btn-group w-100 shadow-sm" role="group">
                 <button 
@@ -774,37 +924,56 @@ export const VincularEstudiante: React.FC = () => {
                   className={`btn ${escuelaFiltro === 'sb' ? 'btn-primary fw-bold' : 'btn-outline-primary'}`}
                   onClick={() => setEscuelaFiltro('sb')}
                 >
-                  UE Santa Bárbara
+                  SB ({countSB})
                 </button>
                 <button 
                   type="button" 
                   className={`btn ${escuelaFiltro === 'lb' ? 'btn-success fw-bold' : 'btn-outline-success'}`}
                   onClick={() => setEscuelaFiltro('lb')}
                 >
-                  UE Libertador Bolívar
+                  LB ({countLB})
+                </button>
+                <button 
+                  type="button" 
+                  className={`btn ${escuelaFiltro === 'ambas' ? 'btn-dark fw-bold' : 'btn-outline-dark'}`}
+                  onClick={() => setEscuelaFiltro('ambas')}
+                >
+                  Ambas ({countAmbas})
                 </button>
               </div>
             </div>
-            <div className="col-md-5">
+            <div className="col-md-3">
               <div className="input-group">
                 <span className="input-group-text bg-light border-end-0"><i className="bi bi-search text-muted"></i></span>
                 <input 
                   type="text" 
                   className="form-control border-start-0" 
-                  placeholder="Buscar por cédula o nombre del alumno / representante..." 
+                  placeholder="Buscar cédula o nombre..." 
                   value={busquedaDir}
                   onChange={(e) => setBusquedaDir(e.target.value)}
                 />
               </div>
             </div>
-            <div className="col-md-3 text-end d-flex gap-2 justify-content-end">
+            <div className="col-md-3">
+              <select
+                className="form-select fw-bold text-secondary"
+                value={gradoFiltroDir}
+                onChange={(e) => setGradoFiltroDir(e.target.value)}
+              >
+                <option value="Todos">Todos los Grados</option>
+                {gradosDB.map(g => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-2 text-end d-flex gap-2 justify-content-end">
               {seleccionados.length > 0 && (
-                <button className="btn btn-danger fw-bold shadow-sm fade-in w-100" onClick={handleEliminarMasivo} disabled={loading}>
-                  <i className="bi bi-trash-fill me-2"></i>Eliminar ({seleccionados.length})
+                <button className="btn btn-danger fw-bold shadow-sm fade-in w-100" onClick={handleEliminarMasivo} disabled={loading} title="Eliminar seleccionados">
+                  <i className="bi bi-trash-fill"></i> ({seleccionados.length})
                 </button>
               )}
-              <button className="btn btn-outline-secondary w-100 fw-bold" onClick={cargarVinculaciones} disabled={loading}>
-                <i className="bi bi-arrow-clockwise me-2"></i>Actualizar
+              <button className="btn btn-outline-secondary fw-bold" onClick={cargarVinculaciones} disabled={loading} title="Actualizar lista">
+                <i className="bi bi-arrow-clockwise"></i>
               </button>
             </div>
           </div>
@@ -827,6 +996,7 @@ export const VincularEstudiante: React.FC = () => {
                   <th>Representante</th>
                   <th>Cédula Alumno</th>
                   <th>Estudiante</th>
+                  <th>Grado</th>
                   <th>Última Actualización</th>
                   <th>Estado</th>
                   <th className="text-end">Acciones</th>
@@ -861,12 +1031,15 @@ export const VincularEstudiante: React.FC = () => {
                         </div>
                       </td>
                       <td>
-                        <div className="fw-bold text-dark">{item.nombres_representante} {item.apellidos_representante}</div>
+                        <div className="fw-bold text-dark">{toTitulo(`${item.nombres_representante} ${item.apellidos_representante}`)}</div>
                         <small className="text-muted">C.I. {item.cedula_representante}</small>
                       </td>
                       <td><span className="badge bg-light text-dark border fw-bold px-2 py-1 fs-6">{item.cedula_estudiante}</span></td>
                       <td>
-                        <div className="fw-bold text-primary">{item.nombres_estudiante} {item.apellidos_estudiante}</div>
+                        <div className="fw-bold text-primary">{toTitulo(`${item.nombres_estudiante} ${item.apellidos_estudiante}`)}</div>
+                      </td>
+                      <td>
+                        <span className="badge bg-light text-dark border shadow-sm fw-semibold">{item.grado_actual || 'Sin Grado'}</span>
                       </td>
                       <td>
                         {item.fecha_ultima_actualizacion ? (
@@ -881,13 +1054,22 @@ export const VincularEstudiante: React.FC = () => {
                         </span>
                       </td>
                       <td className="text-end">
-                        <button 
-                          className="btn btn-sm btn-outline-danger rounded-pill" 
-                          onClick={() => handleDesvincular(item.id, `${item.nombres_estudiante} ${item.apellidos_estudiante}`)}
-                          title="Desvincular Estudiante"
-                        >
-                          <i className="bi bi-trash3-fill"></i>
-                        </button>
+                        <div className="btn-group">
+                          <button 
+                            className="btn btn-sm btn-outline-primary rounded-start-pill" 
+                            onClick={() => handleAbrirEdicion(item)}
+                            title="Editar Estudiante"
+                          >
+                            <i className="bi bi-pencil-square"></i>
+                          </button>
+                          <button 
+                            className="btn btn-sm btn-outline-danger rounded-end-pill" 
+                            onClick={() => handleDesvincular(item.id, toTitulo(`${item.nombres_estudiante} ${item.apellidos_estudiante}`))}
+                            title="Desvincular Estudiante"
+                          >
+                            <i className="bi bi-trash3-fill"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -939,6 +1121,97 @@ export const VincularEstudiante: React.FC = () => {
           )}
         </div>
       )}
-    </div>
+      </div>
+
+      {/* Modal de Edición (Renderizado en el Body usando Portals para escapar cualquier CSS transform del Layout) */}
+      {showEditModal && estudianteEditando && createPortal(
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }} tabIndex={-1}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content rounded-4 border-0 shadow-lg animate__animated animate__zoomIn animate__faster">
+              <div className="modal-header bg-light rounded-top-4 border-bottom-0 pb-0">
+                <h5 className="modal-title fw-bold text-dark">
+                  <i className="bi bi-pencil-square text-primary me-2"></i>Editar Estudiante Vinculado
+                </h5>
+                <button type="button" className="btn-close shadow-sm" onClick={() => setShowEditModal(false)}></button>
+              </div>
+              <form onSubmit={handleGuardarEdicion}>
+                <div className="modal-body p-4">
+                  
+                  <div className="alert alert-info border-0 bg-info bg-opacity-10 d-flex align-items-center rounded-3 p-3 mb-4">
+                    <i className="bi bi-info-circle-fill fs-4 text-info me-3"></i>
+                    <div>
+                      <small className="d-block fw-bold text-dark">Representante Actual:</small>
+                      <span className="text-secondary">{estudianteEditando.nombres_representante} {estudianteEditando.apellidos_representante} (C.I. {estudianteEditando.cedula_representante})</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-bold text-secondary small">Cédula del Estudiante (Inmutable)</label>
+                    <input type="text" className="form-control bg-light" value={estudianteEditando.cedula_estudiante} readOnly disabled />
+                  </div>
+
+                  <div className="row g-3 mb-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small">Nombres</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        required
+                        value={estudianteEditando.nombres_estudiante}
+                        onChange={(e) => handleTituloChange(e, (val) => setEstudianteEditando({ ...estudianteEditando, nombres_estudiante: val }))}
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small">Apellidos</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        required
+                        value={estudianteEditando.apellidos_estudiante}
+                        onChange={(e) => handleTituloChange(e, (val) => setEstudianteEditando({ ...estudianteEditando, apellidos_estudiante: val }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small">Grado a Cursar</label>
+                      <select 
+                        className="form-select"
+                        value={estudianteEditando.grado_actual}
+                        onChange={(e) => setEstudianteEditando({ ...estudianteEditando, grado_actual: e.target.value })}
+                      >
+                        <option value="Sin Grado Asignado">Sin Grado Asignado</option>
+                        {gradosDB.map(g => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small">Sección / Grupo</label>
+                      <select 
+                        className="form-select"
+                        value={estudianteEditando.seccion_actual}
+                        onChange={(e) => setEstudianteEditando({ ...estudianteEditando, seccion_actual: e.target.value })}
+                      >
+                        <option value="Sin Asignar">Sin Asignar</option>
+                        {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'Única'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                </div>
+                <div className="modal-footer bg-light border-top-0 rounded-bottom-4">
+                  <button type="button" className="btn btn-light fw-bold px-4" onClick={() => setShowEditModal(false)}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary fw-bold shadow-sm px-4" disabled={loading}>
+                    {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-save-fill me-2"></i>}
+                    Guardar Cambios
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };
