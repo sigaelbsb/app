@@ -782,7 +782,7 @@ export const Verificaciones: React.FC = () => {
                 onClick={() => setVistaDoc('constancia')}
                 className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'constancia' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
               >
-                <i className="bi bi-award-fill me-1"></i> Constancia de Inscripción
+                <i className="bi bi-award-fill me-1"></i> Constancia de Actualización de Datos
               </button>
               
               <button
@@ -871,7 +871,7 @@ export const Verificaciones: React.FC = () => {
                 {/* TÍTULO DE LA CONSTANCIA */}
                 <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
                   <h2 style={{ margin: 0, fontSize: '21px', fontWeight: 'bold', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Constancia de Inscripción
+                    Constancia de Actualización de Datos
                   </h2>
                 </div>
 

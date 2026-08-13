@@ -139,7 +139,7 @@ export const ValidarConstancia: React.FC = () => {
                   <i className="bi bi-patch-check-fill me-1"></i> Documento Oficial Verificado
                 </span>
               </div>
-              <h3 className="fw-bolder mb-1 text-white">Constancia de Inscripción</h3>
+              <h3 className="fw-bolder mb-1 text-white">Constancia de Actualización de Datos</h3>
               <p className="text-white-50 small mb-0">Sistema Integral de Gestión y Administración Escolar (SIGAE)</p>
             </div>
 

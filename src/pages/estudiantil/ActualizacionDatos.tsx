@@ -547,7 +547,7 @@ export const ActualizacionDatos: React.FC = () => {
     if (!Swal) return;
 
     Swal.fire({
-      title: 'Constancia de Inscripción Oficial',
+      title: 'Constancia de Actualización de Datos Oficial',
       html: `
         <p class="text-muted small mb-3">Se generará la constancia oficial firmada digitalmente y verificable públicamente vía código QR.</p>
         <div class="d-flex flex-column gap-3">
@@ -590,7 +590,7 @@ export const ActualizacionDatos: React.FC = () => {
     const Swal = (window as any).Swal;
     if (Swal) {
       Swal.fire({
-        title: 'Generando Constancia de Inscripción...',
+        title: 'Generando Constancia de Actualización de Datos...',
         html: '<div class="spinner-border text-success" role="status"></div><p class="mt-2 small text-muted">Aplicando firma digital cifrada y código QR de verificación pública...</p>',
         allowOutsideClick: false,
         showConfirmButton: false,
@@ -657,7 +657,7 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- TÍTULO DE LA CONSTANCIA -->
           <div style="text-align: center; margin: 28px 0 24px;">
-            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Constancia de Inscripción</h2>
+            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Constancia de Actualización de Datos</h2>
           </div>
 
           <!-- PÁRRAFO DE CERTIFICACIÓN MODELO PRUEBA.PDF -->
@@ -742,11 +742,11 @@ export const ActualizacionDatos: React.FC = () => {
       document.body.removeChild(clon);
 
       const pdfBlob = pdf.output('blob');
-      const nombreArchivo = `Constancia_Inscripcion_${nombreCompleto.replace(/\s+/g, '_')}.pdf`;
+      const nombreArchivo = `Constancia_Actualizacion_Datos_${nombreCompleto.replace(/\s+/g, '_')}.pdf`;
       const file = new File([pdfBlob], nombreArchivo, { type: "application/pdf" });
 
-      const textoMensaje = `*SIGAE - Constancia de Inscripción Oficial*\n\n` +
-        `Estimad@, adjunto la Constancia de Inscripción oficial del estudiante *${nombreCompleto}* en formato PDF con firma digital y código QR de verificación.\n` +
+      const textoMensaje = `*SIGAE - Constancia de Actualización de Datos Oficial*\n\n` +
+        `Estimad@, adjunto la Constancia de Actualización de Datos oficial del estudiante *${nombreCompleto}* en formato PDF con firma digital y código QR de verificación.\n` +
         `Plantel: ${escNombre}\n` +
         `Código de Verificación: ${codigoUnico}\n\n` +
         `Sistema SIGAE.`;
@@ -762,7 +762,7 @@ export const ActualizacionDatos: React.FC = () => {
       } else {
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
-            await navigator.share({ files: [file], title: `Constancia de Inscripción - ${nombreCompleto}`, text: textoMensaje });
+            await navigator.share({ files: [file], title: `Constancia de Actualización de Datos - ${nombreCompleto}`, text: textoMensaje });
             if (Swal) Swal.close();
           } catch (shareErr) {
             console.log('Web Share failed', shareErr);
@@ -786,7 +786,7 @@ export const ActualizacionDatos: React.FC = () => {
       }
     } catch (error) {
       console.error('Error generando Constancia:', error);
-      if (Swal) Swal.fire('Error', 'No se pudo generar la Constancia de Inscripción.', 'error');
+      if (Swal) Swal.fire('Error', 'No se pudo generar la Constancia de Actualización de Datos.', 'error');
     }
   };
 
@@ -4341,7 +4341,7 @@ const STEPS = [
                                 onClick={() => manejarOpcionesConstancia(est, datosFormEst)}
                               >
                                 <i className="bi bi-file-earmark-check-fill me-2 fs-5"></i>
-                                Descargar Constancia de Inscripción
+                                Descargar Constancia de Actualización de Datos
                               </button>
                             </>
                           )}
