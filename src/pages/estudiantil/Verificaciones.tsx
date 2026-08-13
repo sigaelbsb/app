@@ -45,17 +45,73 @@ interface SolicitudCupoData {
   observaciones?: string;
 }
 
+/**
+ * Función inteligente que auto-completa los guiones (-) y mayúsculas
+ * mientras el usuario escribe en el campo de búsqueda.
+ */
+const autoCompletarGuiones = (val: string, valAnterior: string): string => {
+  // Si el usuario está borrando (Backspace), permitirle borrar normalmente
+  if (val.length < valAnterior.length) {
+    return val.toUpperCase();
+  }
+
+  // Quitar espacios extra y pasar a mayúsculas
+  let raw = val.replace(/\s+/g, '').toUpperCase();
+
+  // Si pega una URL, extraer el código final
+  if (raw.includes('/VALIDAR-CONSTANCIA/')) {
+    raw = raw.split('/VALIDAR-CONSTANCIA/').pop()?.split('?')[0] || raw;
+  }
+
+  // Si es un prefijo reconocido (CI, FI, SC, RES)
+  const prefijos = ['CI', 'FI', 'SC', 'RES'];
+  const prefijoEncontrado = prefijos.find(p => raw.startsWith(p));
+
+  if (prefijoEncontrado) {
+    // Si escribió exactamente las 2 letras (ej: "CI" o "SC"), agregar guión automáticamente -> "CI-"
+    if (raw.length === prefijoEncontrado.length) {
+      return `${prefijoEncontrado}-`;
+    }
+
+    // Si escribió las letras y no puso guión (ej: "CILB"), insertar guión -> "CI-LB"
+    if (raw.length > prefijoEncontrado.length && raw[prefijoEncontrado.length] !== '-') {
+      raw = `${prefijoEncontrado}-${raw.slice(prefijoEncontrado.length)}`;
+    }
+
+    const partes = raw.split('-');
+    // partes[0] = "CI"
+    // partes[1] = "LB" o "SB"
+    // partes[2] = cedula o año
+    // partes[3] = año o correlativo
+
+    // Después de la escuela (LB o SB), auto-agregar guión
+    if (partes.length === 2 && partes[1].length === 2 && ['LB', 'SB'].includes(partes[1])) {
+      return `${partes[0]}-${partes[1]}-`;
+    }
+
+    // Si ya tiene 3 partes y termina de escribir la cédula o año
+    if (partes.length === 3) {
+      const parte3 = partes[2];
+      // Si en SC escribe 4 dígitos del año (ej: SC-LB-2026) -> "SC-LB-2026-"
+      if (prefijoEncontrado === 'SC' && parte3.length === 4 && !raw.endsWith('-')) {
+        return `${partes[0]}-${partes[1]}-${parte3}-`;
+      }
+      // Si en CI o FI escribe cédula completa (7-9 dígitos) y sigue con el año
+      if ((prefijoEncontrado === 'CI' || prefijoEncontrado === 'FI') && parte3.length > 8) {
+        const ced = parte3.slice(0, -4);
+        const ano = parte3.slice(-4);
+        return `${partes[0]}-${partes[1]}-${ced}-${ano}`;
+      }
+    }
+  }
+
+  return raw;
+};
+
 export const Verificaciones: React.FC = () => {
   const [codigoBusqueda, setCodigoBusqueda] = useState('');
   const [cargando, setCargando] = useState(false);
   const [busquedaRealizada, setBusquedaRealizada] = useState(false);
-
-  // Estados del Asistente Constructor de Códigos
-  const [mostrarConstructor, setMostrarConstructor] = useState(true);
-  const [tipoDocConstruir, setTipoDocConstruir] = useState<'CI' | 'FI' | 'SC'>('CI');
-  const [escuelaConstruir, setEscuelaConstruir] = useState<'LB' | 'SB'>('LB');
-  const [cedulaConstruir, setCedulaConstruir] = useState('');
-  const [anoConstruir, setAnoConstruir] = useState(new Date().getFullYear().toString());
 
   // Resultados de búsqueda
   const [vinculacion, setVinculacion] = useState<VinculacionData | null>(null);
@@ -70,20 +126,19 @@ export const Verificaciones: React.FC = () => {
   const [firmaBase64, setFirmaBase64] = useState<string>('');
 
   const docRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const Swal = (window as any).Swal;
 
-  // Código que se va construyendo en tiempo real
-  const codigoConstruido = `${tipoDocConstruir}-${escuelaConstruir}-${cedulaConstruir.trim().replace(/\D/g, '') || '00000000'}-${anoConstruir}`;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nuevoValor = autoCompletarGuiones(e.target.value, codigoBusqueda);
+    setCodigoBusqueda(nuevoValor);
+  };
 
-  const aplicarCodigoConstruido = () => {
-    if (!cedulaConstruir.trim()) {
-      if (Swal) Swal.fire('Ingresa la cédula', 'Por favor ingresa la cédula o número identificador.', 'info');
-      return;
+  const setAtajoPrefijo = (prefijo: string) => {
+    setCodigoBusqueda(prefijo);
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
-    const cleanCedula = cedulaConstruir.trim().replace(/\D/g, '');
-    const code = `${tipoDocConstruir}-${escuelaConstruir}-${cleanCedula}-${anoConstruir}`;
-    setCodigoBusqueda(code);
-    ejecutarBusqueda(code);
   };
 
   const calcularEstatusActualizacion = (datos: VinculacionData): { estado: string; color: string; badge: string; desc: string } => {
@@ -197,7 +252,7 @@ export const Verificaciones: React.FC = () => {
     setVinculacion(null);
     setSolicitudCupo(null);
 
-    // Extraer solo dígitos de cualquier formato (ej. de CI-LB-17780095-2026 extrae 17780095)
+    // Extraer dígitos de cédula
     const partesGuion = raw.split('-');
     let posibleCedula = '';
     for (const p of partesGuion) {
@@ -467,10 +522,10 @@ export const Verificaciones: React.FC = () => {
           <button 
             onClick={() => {
               setCodigoBusqueda('');
-              setCedulaConstruir('');
               setBusquedaRealizada(false);
               setVinculacion(null);
               setSolicitudCupo(null);
+              if (inputRef.current) inputRef.current.focus();
             }} 
             className="btn btn-outline-secondary rounded-pill px-3 fw-bold shadow-sm"
           >
@@ -479,157 +534,36 @@ export const Verificaciones: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── ASISTENTE CONSTRUCTOR DE CÓDIGO EN TIEMPO REAL ───────────────── */}
+      {/* ─── BUSCADOR UNIVERSAL CON AUTOCOMPLETADO INTELIGENTE ─────────────── */}
       <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white border-top border-4 border-success">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <div className="d-flex align-items-center gap-2">
-            <span className="badge bg-success bg-opacity-10 text-success p-2 rounded-3 fs-6">
-              <i className="bi bi-magic me-1"></i> Asistente de Búsqueda Inteligente
-            </span>
-            <span className="text-muted small">Construye o escribe el código del documento a consultar</span>
-          </div>
-          <button
-            type="button"
-            className="btn btn-link btn-sm text-decoration-none text-muted"
-            onClick={() => setMostrarConstructor(!mostrarConstructor)}
-          >
-            <i className={`bi ${mostrarConstructor ? 'bi-chevron-up' : 'bi-chevron-down'} me-1`}></i>
-            {mostrarConstructor ? 'Ocultar Asistente' : 'Mostrar Asistente'}
-          </button>
-        </div>
-
-        {mostrarConstructor && (
-          <div className="p-3 bg-light rounded-4 border mb-3 animate__animated animate__fadeIn">
-            <div className="row g-3">
-              
-              {/* 1. Tipo de Documento */}
-              <div className="col-12 col-md-4">
-                <label className="form-label fw-bold text-dark small mb-1">1. Tipo de Documento:</label>
-                <div className="btn-group w-100 p-1 bg-white border rounded-3 shadow-none">
-                  <button
-                    type="button"
-                    onClick={() => setTipoDocConstruir('CI')}
-                    className={`btn btn-sm rounded-2 fw-bold ${tipoDocConstruir === 'CI' ? 'btn-success text-white shadow-sm' : 'btn-light text-dark'}`}
-                  >
-                    🎓 Constancia (CI)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTipoDocConstruir('FI')}
-                    className={`btn btn-sm rounded-2 fw-bold ${tipoDocConstruir === 'FI' ? 'btn-success text-white shadow-sm' : 'btn-light text-dark'}`}
-                  >
-                    📋 Ficha (FI)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTipoDocConstruir('SC')}
-                    className={`btn btn-sm rounded-2 fw-bold ${tipoDocConstruir === 'SC' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
-                  >
-                    📄 Cupo (SC)
-                  </button>
-                </div>
-              </div>
-
-              {/* 2. Plantel Educativo */}
-              <div className="col-12 col-md-3">
-                <label className="form-label fw-bold text-dark small mb-1">2. Plantel:</label>
-                <div className="btn-group w-100 p-1 bg-white border rounded-3 shadow-none">
-                  <button
-                    type="button"
-                    onClick={() => setEscuelaConstruir('LB')}
-                    className={`btn btn-sm rounded-2 fw-bold ${escuelaConstruir === 'LB' ? 'btn-dark text-white shadow-sm' : 'btn-light text-dark'}`}
-                  >
-                    🏫 UE Libertador (LB)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEscuelaConstruir('SB')}
-                    className={`btn btn-sm rounded-2 fw-bold ${escuelaConstruir === 'SB' ? 'btn-dark text-white shadow-sm' : 'btn-light text-dark'}`}
-                  >
-                    🏫 UE Santa Bárbara (SB)
-                  </button>
-                </div>
-              </div>
-
-              {/* 3. Cédula / Identificador */}
-              <div className="col-12 col-md-3">
-                <label className="form-label fw-bold text-dark small mb-1">3. Cédula del Estudiante:</label>
-                <div className="input-group">
-                  <span className="input-group-text bg-white border-end-0 text-muted">
-                    <i className="bi bi-person-vcard"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control border-start-0 font-monospace fw-bold"
-                    placeholder="Ej. 17780095"
-                    value={cedulaConstruir}
-                    onChange={(e) => {
-                      const clean = e.target.value.replace(/\D/g, '');
-                      setCedulaConstruir(clean);
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* 4. Año Escolar */}
-              <div className="col-12 col-md-2">
-                <label className="form-label fw-bold text-dark small mb-1">4. Año:</label>
-                <input
-                  type="text"
-                  className="form-control text-center font-monospace fw-bold"
-                  value={anoConstruir}
-                  onChange={(e) => setAnoConstruir(e.target.value.replace(/\D/g, ''))}
-                />
-              </div>
-
-            </div>
-
-            {/* PREVISUALIZACIÓN Y BOTÓN DE ACCIÓN RÁPIDA DEL ASISTENTE */}
-            <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-3 border-top gap-2">
-              <div className="d-flex align-items-center gap-2">
-                <span className="text-muted small fw-bold">Código Resultante:</span>
-                <span className="badge bg-white text-dark border px-3 py-2 fs-6 font-monospace shadow-sm">
-                  {codigoConstruido}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={aplicarCodigoConstruido}
-                disabled={cargando || !cedulaConstruir.trim()}
-                className="btn btn-success fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center gap-2"
-                style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
-              >
-                <i className="bi bi-search"></i>
-                Consultar este Código
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* BUSCADOR LIBRE TRADICIONAL */}
         <form onSubmit={(e) => { e.preventDefault(); ejecutarBusqueda(); }}>
           <label className="form-label fw-bold text-dark small mb-1">
-            <i className="bi bi-keyboard me-1 text-success"></i> O escribe/pega directamente cualquier código o cédula:
+            <i className="bi bi-search me-1 text-success"></i> Ingresa el Código Oficial o Cédula de Identidad:
           </label>
-          <div className="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
+
+          <div className="input-group input-group-lg shadow-sm rounded-3 overflow-hidden mb-2">
             <span className="input-group-text bg-light border-0 text-muted px-3">
               <i className="bi bi-upc-scan fs-5 text-success"></i>
             </span>
             <input
+              ref={inputRef}
               type="text"
-              className="form-control border-0 bg-light fs-6 fw-bold"
-              placeholder="Ej: CI-LB-17780095-2026, FI-SB-16808608-2026, SC-SB-0012, o 32456789"
+              className="form-control border-0 bg-light fs-5 fw-bold font-monospace text-uppercase"
+              placeholder="Ej: CI-LB-17780095-2026, FI-SB-16808608-2026, SC-LB-2026-0001, o 17780095"
               value={codigoBusqueda}
-              onChange={(e) => setCodigoBusqueda(e.target.value.toUpperCase())}
+              onChange={handleInputChange}
+              autoFocus
             />
             {codigoBusqueda && (
               <button
                 type="button"
-                className="btn btn-light border-0 text-muted"
-                onClick={() => setCodigoBusqueda('')}
+                className="btn btn-light border-0 text-muted px-3"
+                onClick={() => {
+                  setCodigoBusqueda('');
+                  if (inputRef.current) inputRef.current.focus();
+                }}
               >
-                <i className="bi bi-x-circle-fill"></i>
+                <i className="bi bi-x-circle-fill fs-5"></i>
               </button>
             )}
             <button
@@ -651,6 +585,61 @@ export const Verificaciones: React.FC = () => {
               )}
             </button>
           </div>
+
+          {/* ATAJOS RÁPIDOS DE PREFIJOS CON AUTO-INSERCIÓN */}
+          <div className="d-flex flex-wrap align-items-center gap-1 mt-2">
+            <span className="text-muted small me-1" style={{ fontSize: '0.78rem' }}>
+              <i className="bi bi-lightning-charge-fill text-warning me-1"></i>Atajos de formato:
+            </span>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('CI-LB-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-success fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+            >
+              CI-LB-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('CI-SB-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-success fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+            >
+              CI-SB-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('FI-LB-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-dark fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+            >
+              FI-LB-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('FI-SB-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-dark fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+            >
+              FI-SB-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('SC-LB-2026-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-primary fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+            >
+              SC-LB-2026-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('SC-SB-2026-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-primary fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+            >
+              SC-SB-2026-
+            </button>
+          </div>
         </form>
       </div>
 
@@ -658,8 +647,8 @@ export const Verificaciones: React.FC = () => {
       {cargando && (
         <div className="card border-0 shadow-sm rounded-4 p-5 text-center bg-white my-4">
           <div className="spinner-border text-success mx-auto mb-3" style={{ width: '3rem', height: '3rem' }}></div>
-          <h5 className="fw-bold text-dark mb-1">Verificando en los registros institucionales...</h5>
-          <p className="text-muted small">Consultando Ficha Integral, firmas digitalizadas y estados de asignación.</p>
+          <h5 className="fw-bold text-dark mb-1">Consultando registros oficiales en la base de datos...</h5>
+          <p className="text-muted small">Validando Ficha Integral, firmas autorizadas y asignaciones de cupos.</p>
         </div>
       )}
 
@@ -669,14 +658,20 @@ export const Verificaciones: React.FC = () => {
             <i className="bi bi-file-earmark-x-fill fs-1"></i>
           </div>
           <h4 className="fw-bold text-danger mb-1">Documento No Encontrado</h4>
-          <p className="text-muted mb-3">
-            No se localizó ninguna Constancia, Ficha ni Solicitud de Cupo para el término: <code>"{codigoBusqueda}"</code>.
+          <p className="text-muted mb-2">
+            No se localizó ninguna Constancia, Ficha ni Solicitud de Cupo para: <code>"{codigoBusqueda}"</code>.
           </p>
           <p className="text-muted small mb-4">
-            Asegúrate de haber ingresado correctamente la cédula o el código con el formato <code>CI-LB-CEDULA-2026</code>.
+            Puedes probar escribiendo directamente el número de cédula del estudiante o representante.
           </p>
           <div className="d-flex justify-content-center gap-2">
-            <button onClick={() => setCodigoBusqueda('')} className="btn btn-outline-secondary rounded-pill px-4">
+            <button 
+              onClick={() => {
+                setCodigoBusqueda('');
+                if (inputRef.current) inputRef.current.focus();
+              }} 
+              className="btn btn-outline-secondary rounded-pill px-4"
+            >
               Intentar con otra cédula
             </button>
           </div>
