@@ -481,11 +481,13 @@ export const VincularEstudiante: React.FC = () => {
 
     setLoading(true);
     try {
+      const escuelaFinal = (estudianteEditando.codigo_escuela || 'sb').toLowerCase();
       const payload = {
         nombres_estudiante: toTitulo(estudianteEditando.nombres_estudiante.trim()),
         apellidos_estudiante: toTitulo(estudianteEditando.apellidos_estudiante.trim()),
         grado_actual: estudianteEditando.grado_actual,
-        seccion_actual: estudianteEditando.seccion_actual
+        seccion_actual: estudianteEditando.seccion_actual,
+        codigo_escuela: escuelaFinal
       };
 
       const { error } = await supabase
@@ -996,6 +998,7 @@ export const VincularEstudiante: React.FC = () => {
                   <th>Representante</th>
                   <th>Cédula Alumno</th>
                   <th>Estudiante</th>
+                  <th>Plantel</th>
                   <th>Grado</th>
                   <th>Última Actualización</th>
                   <th>Estado</th>
@@ -1005,16 +1008,16 @@ export const VincularEstudiante: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-5">
+                    <td colSpan={8} className="text-center py-5">
                       <div className="spinner-border text-primary me-2" role="status"></div>
                       <span className="text-muted fw-bold">Cargando directorio de vinculaciones...</span>
                     </td>
                   </tr>
                 ) : listaFiltrada.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-5 text-muted">
+                    <td colSpan={8} className="text-center py-5 text-muted">
                       <i className="bi bi-folder2-open fs-1 d-block mb-2"></i>
-                      No hay estudiantes vinculados en {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
+                      No hay estudiantes vinculados en {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : escuelaFiltro === 'lb' ? 'UE Libertador Bolívar' : 'el sistema'}.
                     </td>
                   </tr>
                 ) : (
@@ -1037,6 +1040,11 @@ export const VincularEstudiante: React.FC = () => {
                       <td><span className="badge bg-light text-dark border fw-bold px-2 py-1 fs-6">{item.cedula_estudiante}</span></td>
                       <td>
                         <div className="fw-bold text-primary">{toTitulo(`${item.nombres_estudiante} ${item.apellidos_estudiante}`)}</div>
+                      </td>
+                      <td>
+                        <span className={`badge ${item.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-2 py-1 shadow-sm`}>
+                          {item.codigo_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
+                        </span>
                       </td>
                       <td>
                         <span className="badge bg-light text-dark border shadow-sm fw-semibold">{item.grado_actual || 'Sin Grado'}</span>
@@ -1145,9 +1153,22 @@ export const VincularEstudiante: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mb-3">
-                    <label className="form-label fw-bold text-secondary small">Cédula del Estudiante (Inmutable)</label>
-                    <input type="text" className="form-control bg-light" value={estudianteEditando.cedula_estudiante} readOnly disabled />
+                  <div className="row g-3 mb-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small">Cédula del Estudiante (Inmutable)</label>
+                      <input type="text" className="form-control bg-light" value={estudianteEditando.cedula_estudiante} readOnly disabled />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small">Plantel / Institución Educativa</label>
+                      <select 
+                        className="form-select fw-bold"
+                        value={estudianteEditando.codigo_escuela || 'sb'}
+                        onChange={(e) => setEstudianteEditando({ ...estudianteEditando, codigo_escuela: e.target.value })}
+                      >
+                        <option value="sb">🏫 U.E. Santa Bárbara (SB)</option>
+                        <option value="lb">🏫 U.E. Libertador Bolívar (LB)</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div className="row g-3 mb-3">
