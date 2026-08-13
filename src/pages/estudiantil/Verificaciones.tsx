@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -50,11 +50,16 @@ export const Verificaciones: React.FC = () => {
   const [cargando, setCargando] = useState(false);
   const [busquedaRealizada, setBusquedaRealizada] = useState(false);
 
-  // Resultados
+  // Estados del Asistente Constructor de Códigos
+  const [mostrarConstructor, setMostrarConstructor] = useState(true);
+  const [tipoDocConstruir, setTipoDocConstruir] = useState<'CI' | 'FI' | 'SC'>('CI');
+  const [escuelaConstruir, setEscuelaConstruir] = useState<'LB' | 'SB'>('LB');
+  const [cedulaConstruir, setCedulaConstruir] = useState('');
+  const [anoConstruir, setAnoConstruir] = useState(new Date().getFullYear().toString());
+
+  // Resultados de búsqueda
   const [vinculacion, setVinculacion] = useState<VinculacionData | null>(null);
   const [solicitudCupo, setSolicitudCupo] = useState<SolicitudCupoData | null>(null);
-  const [recientesActualizaciones, setRecientesActualizaciones] = useState<any[]>([]);
-  const [recientesCupos, setRecientesCupos] = useState<any[]>([]);
 
   // Vista activa de documento
   const [vistaDoc, setVistaDoc] = useState<'constancia' | 'resumen' | 'cupo'>('constancia');
@@ -67,43 +72,18 @@ export const Verificaciones: React.FC = () => {
   const docRef = useRef<HTMLDivElement>(null);
   const Swal = (window as any).Swal;
 
-  useEffect(() => {
-    cargarRecientes();
-  }, []);
+  // Código que se va construyendo en tiempo real
+  const codigoConstruido = `${tipoDocConstruir}-${escuelaConstruir}-${cedulaConstruir.trim().replace(/\D/g, '') || '00000000'}-${anoConstruir}`;
 
-  const cargarRecientes = async () => {
-    try {
-      // 1. Recientes de Actualización de Datos
-      const { data: vincs } = await supabase
-        .from('estudiantes_vinculaciones')
-        .select('cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, codigo_escuela, fecha_ultima_actualizacion, codigo_unico')
-        .order('fecha_ultima_actualizacion', { ascending: false })
-        .limit(4);
-
-      if (vincs) setRecientesActualizaciones(vincs);
-
-      // 2. Recientes de Solicitud de Cupos (consultar solicitud_cupos y fallback solicitudes_cupos)
-      let cuposData: any[] | null = null;
-      try {
-        const { data } = await supabase
-          .from('solicitud_cupos')
-          .select('codigo_unico, estudiante_nombres, estudiante_apellidos, estudiante_cedula, grado_solicitado, estado, created_at')
-          .order('created_at', { ascending: false })
-          .limit(4);
-        cuposData = data;
-      } catch (e) {
-        const { data } = await supabase
-          .from('solicitudes_cupos')
-          .select('codigo_unico, estudiante_nombres, estudiante_apellidos, estudiante_cedula, grado_solicitado, estado, created_at')
-          .order('created_at', { ascending: false })
-          .limit(4);
-        cuposData = data;
-      }
-
-      if (cuposData) setRecientesCupos(cuposData);
-    } catch (e) {
-      console.error('Error cargando recientes', e);
+  const aplicarCodigoConstruido = () => {
+    if (!cedulaConstruir.trim()) {
+      if (Swal) Swal.fire('Ingresa la cédula', 'Por favor ingresa la cédula o número identificador.', 'info');
+      return;
     }
+    const cleanCedula = cedulaConstruir.trim().replace(/\D/g, '');
+    const code = `${tipoDocConstruir}-${escuelaConstruir}-${cleanCedula}-${anoConstruir}`;
+    setCodigoBusqueda(code);
+    ejecutarBusqueda(code);
   };
 
   const calcularEstatusActualizacion = (datos: VinculacionData): { estado: string; color: string; badge: string; desc: string } => {
@@ -200,7 +180,13 @@ export const Verificaciones: React.FC = () => {
   };
 
   const ejecutarBusqueda = async (terminoParam?: string) => {
-    const raw = (terminoParam !== undefined ? terminoParam : codigoBusqueda).trim();
+    let raw = (terminoParam !== undefined ? terminoParam : codigoBusqueda).trim();
+    
+    // Si pegaron una URL de validación, extraer el código final
+    if (raw.includes('/validar-constancia/')) {
+      raw = raw.split('/validar-constancia/').pop()?.split('?')[0] || raw;
+    }
+
     if (!raw) {
       if (Swal) Swal.fire('Ingresa un código', 'Por favor escribe el código de la constancia, resumen, cupo o cédula.', 'info');
       return;
@@ -211,14 +197,24 @@ export const Verificaciones: React.FC = () => {
     setVinculacion(null);
     setSolicitudCupo(null);
 
+    // Extraer solo dígitos de cualquier formato (ej. de CI-LB-17780095-2026 extrae 17780095)
+    const partesGuion = raw.split('-');
+    let posibleCedula = '';
+    for (const p of partesGuion) {
+      const nums = p.replace(/\D/g, '');
+      if (nums.length >= 5 && nums.length <= 9) {
+        posibleCedula = nums;
+        break;
+      }
+    }
     const soloNumeros = raw.replace(/\D/g, '');
     const cleanTerm = raw.replace(/['"%;]/g, '').trim();
 
     try {
-      // ─── 1. BUSCAR EN ESTUDIANTES_VINCULACIONES ─────────────────────────────
+      // ─── 1. CONSULTAR ESTUDIANTES_VINCULACIONES ──────────────────────────────
       let vincEncontrada: VinculacionData | null = null;
 
-      // a) Búsqueda por codigo_unico directo
+      // a) Búsqueda por codigo_unico exacto o parcial
       const { data: vByCode } = await supabase
         .from('estudiantes_vinculaciones')
         .select('*')
@@ -229,12 +225,13 @@ export const Verificaciones: React.FC = () => {
         vincEncontrada = vByCode[0];
       }
 
-      // b) Búsqueda por cédula estudiante o representante
-      if (!vincEncontrada && soloNumeros.length >= 4) {
+      // b) Búsqueda por cédula del estudiante si se extrajo del código
+      const cedulaABuscar = posibleCedula || (soloNumeros.length >= 4 && soloNumeros.length <= 10 ? soloNumeros : '');
+      if (!vincEncontrada && cedulaABuscar) {
         const { data: vByCedula } = await supabase
           .from('estudiantes_vinculaciones')
           .select('*')
-          .or(`cedula_estudiante.ilike.%${soloNumeros}%,cedula_representante.ilike.%${soloNumeros}%`)
+          .or(`cedula_estudiante.ilike.%${cedulaABuscar}%,cedula_representante.ilike.%${cedulaABuscar}%`)
           .limit(1);
 
         if (vByCedula && vByCedula.length > 0) {
@@ -242,8 +239,8 @@ export const Verificaciones: React.FC = () => {
         }
       }
 
-      // c) Búsqueda por nombres
-      if (!vincEncontrada && cleanTerm.length >= 3) {
+      // c) Búsqueda por nombres si no es código numérico
+      if (!vincEncontrada && cleanTerm.length >= 3 && !soloNumeros) {
         const { data: vByName } = await supabase
           .from('estudiantes_vinculaciones')
           .select('*')
@@ -259,34 +256,34 @@ export const Verificaciones: React.FC = () => {
         setVinculacion(vincEncontrada);
       }
 
-      // ─── 2. BUSCAR EN SOLICITUD_CUPOS (Y FALLBACK SOLICITUDES_CUPOS) ─────────
+      // ─── 2. CONSULTAR SOLICITUD_CUPOS (Y FALLBACK) ───────────────────────────
       let cupoEncontrado: SolicitudCupoData | null = null;
 
-      const consultarTablaCupos = async (nombreTabla: string) => {
+      const consultarCupos = async (tabla: string) => {
         // a) Por código único
         const { data: cByCode } = await supabase
-          .from(nombreTabla)
+          .from(tabla)
           .select('*')
           .ilike('codigo_unico', `%${cleanTerm}%`)
           .limit(1);
 
         if (cByCode && cByCode.length > 0) return cByCode[0];
 
-        // b) Por cédula estudiante o representante
-        if (soloNumeros.length >= 4) {
+        // b) Por cédula extraída
+        if (cedulaABuscar) {
           const { data: cByCedula } = await supabase
-            .from(nombreTabla)
+            .from(tabla)
             .select('*')
-            .or(`estudiante_cedula.ilike.%${soloNumeros}%,representante_cedula.ilike.%${soloNumeros}%`)
+            .or(`estudiante_cedula.ilike.%${cedulaABuscar}%,representante_cedula.ilike.%${cedulaABuscar}%`)
             .limit(1);
 
           if (cByCedula && cByCedula.length > 0) return cByCedula[0];
         }
 
         // c) Por nombres
-        if (cleanTerm.length >= 3) {
+        if (cleanTerm.length >= 3 && !soloNumeros) {
           const { data: cByName } = await supabase
-            .from(nombreTabla)
+            .from(tabla)
             .select('*')
             .or(`estudiante_nombres.ilike.%${cleanTerm}%,estudiante_apellidos.ilike.%${cleanTerm}%`)
             .limit(1);
@@ -298,31 +295,27 @@ export const Verificaciones: React.FC = () => {
       };
 
       try {
-        cupoEncontrado = await consultarTablaCupos('solicitud_cupos');
-      } catch (e) {
-        // Fallback
-      }
+        cupoEncontrado = await consultarCupos('solicitud_cupos');
+      } catch (e) {}
 
       if (!cupoEncontrado) {
         try {
-          cupoEncontrado = await consultarTablaCupos('solicitudes_cupos');
-        } catch (e) {
-          // Ignorar
-        }
+          cupoEncontrado = await consultarCupos('solicitudes_cupos');
+        } catch (e) {}
       }
 
       if (cupoEncontrado) {
         setSolicitudCupo(cupoEncontrado);
       }
 
-      // ─── 3. BÚSQUEDA CRUZADA (CÉDULA) SI SÓLO SE ENCONTRÓ UNO ────────────────
+      // ─── 3. BÚSQUEDA CRUZADA POR CÉDULA PARA ASOCIAR AMBOS REGISTROS ────────
       if (cupoEncontrado && !vincEncontrada && cupoEncontrado.estudiante_cedula) {
-        const cedClean = cupoEncontrado.estudiante_cedula.replace(/\D/g, '');
-        if (cedClean.length >= 4) {
+        const cLim = cupoEncontrado.estudiante_cedula.replace(/\D/g, '');
+        if (cLim.length >= 4) {
           const { data: cruzado } = await supabase
             .from('estudiantes_vinculaciones')
             .select('*')
-            .ilike('cedula_estudiante', `%${cedClean}%`)
+            .ilike('cedula_estudiante', `%${cLim}%`)
             .limit(1);
           if (cruzado && cruzado.length > 0) {
             vincEncontrada = cruzado[0];
@@ -332,13 +325,13 @@ export const Verificaciones: React.FC = () => {
       }
 
       if (vincEncontrada && !cupoEncontrado && vincEncontrada.cedula_estudiante) {
-        const cedClean = vincEncontrada.cedula_estudiante.replace(/\D/g, '');
-        if (cedClean.length >= 4) {
+        const cLim = vincEncontrada.cedula_estudiante.replace(/\D/g, '');
+        if (cLim.length >= 4) {
           try {
             const { data: cruzadoCupo } = await supabase
               .from('solicitud_cupos')
               .select('*')
-              .ilike('estudiante_cedula', `%${cedClean}%`)
+              .ilike('estudiante_cedula', `%${cLim}%`)
               .limit(1);
             if (cruzadoCupo && cruzadoCupo.length > 0) {
               cupoEncontrado = cruzadoCupo[0];
@@ -349,13 +342,13 @@ export const Verificaciones: React.FC = () => {
       }
 
       // ─── 4. CARGAR FIRMA DIGITAL Y DATOS DE DIRECCIÓN ───────────────────────
-      const escuelaFinal = vincEncontrada?.codigo_escuela || cupoEncontrado?.codigo_escuela || 'lb';
+      const escuelaFinal = vincEncontrada?.codigo_escuela || cupoEncontrado?.codigo_escuela || (cleanTerm.toUpperCase().includes('SB') ? 'sb' : 'lb');
       const dir = await obtenerDatosDirectorAsync(escuelaFinal);
       const firma = await obtenerFirmaDirectorProtegida(escuelaFinal);
       setDirInfo(dir);
       setFirmaBase64(firma);
 
-      // Determinar qué pestaña mostrar según lo buscado
+      // Determinar pestaña según el prefijo o datos
       if (cleanTerm.toUpperCase().startsWith('SC-') || (!vincEncontrada && cupoEncontrado)) {
         setVistaDoc('cupo');
       } else if (cleanTerm.toUpperCase().startsWith('FI-') || cleanTerm.toUpperCase().startsWith('RES-')) {
@@ -427,9 +420,9 @@ export const Verificaciones: React.FC = () => {
   const anoActual = new Date().getFullYear();
   const anoProximo = anoActual + 1;
   const cedulaLimpia = cedulaEstudiante.replace(/\D/g, '') || '0000';
-  const escuelaCodigo = (vinculacion?.codigo_escuela || solicitudCupo?.codigo_escuela || 'lb').toLowerCase();
+  const escuelaCodigo = (vinculacion?.codigo_escuela || solicitudCupo?.codigo_escuela || (codigoBusqueda.toUpperCase().includes('SB') ? 'sb' : 'lb')).toLowerCase();
 
-  // Códigos de cada documento
+  // Códigos correspondientes
   const codigoConstancia = vinculacion?.codigo_unico || `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
   const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
   const codigoSolicitud = solicitudCupo?.codigo_unico || `SC-${escuelaCodigo.toUpperCase()}-${anoActual}-${cedulaLimpia.slice(-4) || '0001'}`;
@@ -452,7 +445,7 @@ export const Verificaciones: React.FC = () => {
   const estatusCupo = calcularEstatusCupo(solicitudCupo);
 
   return (
-    <div className="modulo-animado p-3 p-md-4">
+    <div className="modulo-animado p-3 p-md-4 font-sans">
       
       {/* ─── ENCABEZADO PRINCIPAL ─────────────────────────────────────────── */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
@@ -464,7 +457,7 @@ export const Verificaciones: React.FC = () => {
             <div>
               <h3 className="fw-bold mb-0 text-dark">Módulo de Verificaciones Oficiales</h3>
               <p className="text-muted small mb-0">
-                Consulta y validación de Constancias de Inscripción, Resúmenes de Ficha Integral y Solicitudes de Cupo.
+                Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos.
               </p>
             </div>
           </div>
@@ -474,144 +467,199 @@ export const Verificaciones: React.FC = () => {
           <button 
             onClick={() => {
               setCodigoBusqueda('');
+              setCedulaConstruir('');
               setBusquedaRealizada(false);
               setVinculacion(null);
               setSolicitudCupo(null);
             }} 
-            className="btn btn-outline-secondary rounded-pill px-3 fw-bold"
+            className="btn btn-outline-secondary rounded-pill px-3 fw-bold shadow-sm"
           >
-            <i className="bi bi-arrow-counterclockwise me-1"></i> Limpiar
+            <i className="bi bi-arrow-counterclockwise me-1"></i> Nueva Consulta
           </button>
         </div>
       </div>
 
-      {/* ─── BUSCADOR UNIVERSAL ───────────────────────────────────────────── */}
-      <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
-        <form onSubmit={(e) => { e.preventDefault(); ejecutarBusqueda(); }}>
-          <div className="row g-3 align-items-center">
-            <div className="col-12 col-lg-8">
-              <label className="form-label fw-bold text-dark small mb-1">
-                <i className="bi bi-search me-1 text-success"></i> Código de Constancia (CI-), Resumen (FI-), Solicitud de Cupo (SC-) o Cédula:
-              </label>
-              <div className="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
-                <span className="input-group-text bg-light border-0 text-muted px-3">
-                  <i className="bi bi-qr-code-scan fs-5 text-success"></i>
-                </span>
-                <input
-                  type="text"
-                  className="form-control border-0 bg-light fs-6 fw-bold"
-                  placeholder="Ej: CI-LB-17780095-2026, FI-SB-16808608-2026, SC-SB-0012, o 32.456.789"
-                  value={codigoBusqueda}
-                  onChange={(e) => setCodigoBusqueda(e.target.value)}
-                  autoFocus
-                />
-                {codigoBusqueda && (
+      {/* ─── ASISTENTE CONSTRUCTOR DE CÓDIGO EN TIEMPO REAL ───────────────── */}
+      <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white border-top border-4 border-success">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex align-items-center gap-2">
+            <span className="badge bg-success bg-opacity-10 text-success p-2 rounded-3 fs-6">
+              <i className="bi bi-magic me-1"></i> Asistente de Búsqueda Inteligente
+            </span>
+            <span className="text-muted small">Construye o escribe el código del documento a consultar</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-link btn-sm text-decoration-none text-muted"
+            onClick={() => setMostrarConstructor(!mostrarConstructor)}
+          >
+            <i className={`bi ${mostrarConstructor ? 'bi-chevron-up' : 'bi-chevron-down'} me-1`}></i>
+            {mostrarConstructor ? 'Ocultar Asistente' : 'Mostrar Asistente'}
+          </button>
+        </div>
+
+        {mostrarConstructor && (
+          <div className="p-3 bg-light rounded-4 border mb-3 animate__animated animate__fadeIn">
+            <div className="row g-3">
+              
+              {/* 1. Tipo de Documento */}
+              <div className="col-12 col-md-4">
+                <label className="form-label fw-bold text-dark small mb-1">1. Tipo de Documento:</label>
+                <div className="btn-group w-100 p-1 bg-white border rounded-3 shadow-none">
                   <button
                     type="button"
-                    className="btn btn-light border-0 text-muted"
-                    onClick={() => setCodigoBusqueda('')}
+                    onClick={() => setTipoDocConstruir('CI')}
+                    className={`btn btn-sm rounded-2 fw-bold ${tipoDocConstruir === 'CI' ? 'btn-success text-white shadow-sm' : 'btn-light text-dark'}`}
                   >
-                    <i className="bi bi-x-circle-fill"></i>
+                    🎓 Constancia (CI)
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setTipoDocConstruir('FI')}
+                    className={`btn btn-sm rounded-2 fw-bold ${tipoDocConstruir === 'FI' ? 'btn-success text-white shadow-sm' : 'btn-light text-dark'}`}
+                  >
+                    📋 Ficha (FI)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoDocConstruir('SC')}
+                    className={`btn btn-sm rounded-2 fw-bold ${tipoDocConstruir === 'SC' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
+                  >
+                    📄 Cupo (SC)
+                  </button>
+                </div>
               </div>
+
+              {/* 2. Plantel Educativo */}
+              <div className="col-12 col-md-3">
+                <label className="form-label fw-bold text-dark small mb-1">2. Plantel:</label>
+                <div className="btn-group w-100 p-1 bg-white border rounded-3 shadow-none">
+                  <button
+                    type="button"
+                    onClick={() => setEscuelaConstruir('LB')}
+                    className={`btn btn-sm rounded-2 fw-bold ${escuelaConstruir === 'LB' ? 'btn-dark text-white shadow-sm' : 'btn-light text-dark'}`}
+                  >
+                    🏫 UE Libertador (LB)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEscuelaConstruir('SB')}
+                    className={`btn btn-sm rounded-2 fw-bold ${escuelaConstruir === 'SB' ? 'btn-dark text-white shadow-sm' : 'btn-light text-dark'}`}
+                  >
+                    🏫 UE Santa Bárbara (SB)
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Cédula / Identificador */}
+              <div className="col-12 col-md-3">
+                <label className="form-label fw-bold text-dark small mb-1">3. Cédula del Estudiante:</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-white border-end-0 text-muted">
+                    <i className="bi bi-person-vcard"></i>
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control border-start-0 font-monospace fw-bold"
+                    placeholder="Ej. 17780095"
+                    value={cedulaConstruir}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, '');
+                      setCedulaConstruir(clean);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 4. Año Escolar */}
+              <div className="col-12 col-md-2">
+                <label className="form-label fw-bold text-dark small mb-1">4. Año:</label>
+                <input
+                  type="text"
+                  className="form-control text-center font-monospace fw-bold"
+                  value={anoConstruir}
+                  onChange={(e) => setAnoConstruir(e.target.value.replace(/\D/g, ''))}
+                />
+              </div>
+
             </div>
 
-            <div className="col-12 col-lg-4 d-flex gap-2 align-items-end mt-lg-4">
+            {/* PREVISUALIZACIÓN Y BOTÓN DE ACCIÓN RÁPIDA DEL ASISTENTE */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center mt-3 pt-3 border-top gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <span className="text-muted small fw-bold">Código Resultante:</span>
+                <span className="badge bg-white text-dark border px-3 py-2 fs-6 font-monospace shadow-sm">
+                  {codigoConstruido}
+                </span>
+              </div>
+
               <button
-                type="submit"
-                className="btn btn-success btn-lg rounded-3 fw-bold flex-grow-1 shadow-sm d-flex align-items-center justify-content-center gap-2"
-                disabled={cargando}
+                type="button"
+                onClick={aplicarCodigoConstruido}
+                disabled={cargando || !cedulaConstruir.trim()}
+                className="btn btn-success fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center gap-2"
                 style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
               >
-                {cargando ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm" role="status"></span>
-                    Consultando...
-                  </>
-                ) : (
-                  <>
-                    <i className="bi bi-shield-check fs-5"></i>
-                    Verificar Documento
-                  </>
-                )}
+                <i className="bi bi-search"></i>
+                Consultar este Código
               </button>
             </div>
           </div>
-        </form>
-
-        {/* ACCESOS RÁPIDOS RECIENTES */}
-        {!busquedaRealizada && (
-          <div className="mt-4 pt-3 border-top">
-            <div className="row g-3">
-              {recientesActualizaciones.length > 0 && (
-                <div className="col-12 col-md-6">
-                  <small className="text-muted fw-bold text-uppercase d-block mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                    <i className="bi bi-file-earmark-person-fill me-1 text-success"></i> Fichas y Constancias Recientes:
-                  </small>
-                  <div className="d-flex flex-wrap gap-2">
-                    {recientesActualizaciones.map((rec, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          const val = rec.codigo_unico || rec.cedula_estudiante;
-                          setCodigoBusqueda(val);
-                          ejecutarBusqueda(val);
-                        }}
-                        className="btn btn-light btn-sm border rounded-pill px-3 py-1 text-dark fw-semibold d-flex align-items-center gap-1 shadow-none"
-                        style={{ fontSize: '0.8rem' }}
-                      >
-                        <span className="badge bg-success bg-opacity-25 text-success rounded-circle p-1">
-                          <i className="bi bi-person-fill" style={{ fontSize: '10px' }}></i>
-                        </span>
-                        <span>{rec.nombres_estudiante}</span>
-                        <span className="text-muted font-monospace">({rec.cedula_estudiante})</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {recientesCupos.length > 0 && (
-                <div className="col-12 col-md-6">
-                  <small className="text-muted fw-bold text-uppercase d-block mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                    <i className="bi bi-envelope-paper-fill me-1 text-primary"></i> Solicitudes de Cupos Recientes:
-                  </small>
-                  <div className="d-flex flex-wrap gap-2">
-                    {recientesCupos.map((rec, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          const val = rec.codigo_unico || rec.estudiante_cedula;
-                          setCodigoBusqueda(val);
-                          ejecutarBusqueda(val);
-                        }}
-                        className="btn btn-light btn-sm border rounded-pill px-3 py-1 text-dark fw-semibold d-flex align-items-center gap-1 shadow-none"
-                        style={{ fontSize: '0.8rem' }}
-                      >
-                        <span className="badge bg-primary bg-opacity-25 text-primary rounded-circle p-1">
-                          <i className="bi bi-envelope-fill" style={{ fontSize: '10px' }}></i>
-                        </span>
-                        <span>{rec.estudiante_nombres}</span>
-                        <span className="text-primary font-monospace fw-bold">[{rec.codigo_unico}]</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         )}
+
+        {/* BUSCADOR LIBRE TRADICIONAL */}
+        <form onSubmit={(e) => { e.preventDefault(); ejecutarBusqueda(); }}>
+          <label className="form-label fw-bold text-dark small mb-1">
+            <i className="bi bi-keyboard me-1 text-success"></i> O escribe/pega directamente cualquier código o cédula:
+          </label>
+          <div className="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
+            <span className="input-group-text bg-light border-0 text-muted px-3">
+              <i className="bi bi-upc-scan fs-5 text-success"></i>
+            </span>
+            <input
+              type="text"
+              className="form-control border-0 bg-light fs-6 fw-bold"
+              placeholder="Ej: CI-LB-17780095-2026, FI-SB-16808608-2026, SC-SB-0012, o 32456789"
+              value={codigoBusqueda}
+              onChange={(e) => setCodigoBusqueda(e.target.value.toUpperCase())}
+            />
+            {codigoBusqueda && (
+              <button
+                type="button"
+                className="btn btn-light border-0 text-muted"
+                onClick={() => setCodigoBusqueda('')}
+              >
+                <i className="bi bi-x-circle-fill"></i>
+              </button>
+            )}
+            <button
+              type="submit"
+              className="btn btn-success px-4 fw-bold shadow-sm d-flex align-items-center gap-2"
+              disabled={cargando}
+              style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
+            >
+              {cargando ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" role="status"></span>
+                  Consultando...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-shield-check fs-5"></i>
+                  Verificar
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* ─── RESULTADOS DE LA CONSULTA ───────────────────────────────────── */}
       {cargando && (
         <div className="card border-0 shadow-sm rounded-4 p-5 text-center bg-white my-4">
           <div className="spinner-border text-success mx-auto mb-3" style={{ width: '3rem', height: '3rem' }}></div>
-          <h5 className="fw-bold text-dark mb-1">Verificando registros en la base de datos...</h5>
-          <p className="text-muted small">Consultando Ficha Integral, registros de firmas y asignaciones de cupos.</p>
+          <h5 className="fw-bold text-dark mb-1">Verificando en los registros institucionales...</h5>
+          <p className="text-muted small">Consultando Ficha Integral, firmas digitalizadas y estados de asignación.</p>
         </div>
       )}
 
@@ -620,13 +668,16 @@ export const Verificaciones: React.FC = () => {
           <div className="bg-danger bg-opacity-10 text-danger rounded-circle p-3 mx-auto mb-3 d-inline-flex">
             <i className="bi bi-file-earmark-x-fill fs-1"></i>
           </div>
-          <h4 className="fw-bold text-danger mb-1">No se encontró el documento</h4>
+          <h4 className="fw-bold text-danger mb-1">Documento No Encontrado</h4>
           <p className="text-muted mb-3">
-            No se localizó ninguna Constancia, Resumen de Actualización ni Solicitud de Cupo para: <code>"{codigoBusqueda}"</code>.
+            No se localizó ninguna Constancia, Ficha ni Solicitud de Cupo para el término: <code>"{codigoBusqueda}"</code>.
+          </p>
+          <p className="text-muted small mb-4">
+            Asegúrate de haber ingresado correctamente la cédula o el código con el formato <code>CI-LB-CEDULA-2026</code>.
           </p>
           <div className="d-flex justify-content-center gap-2">
             <button onClick={() => setCodigoBusqueda('')} className="btn btn-outline-secondary rounded-pill px-4">
-              Intentar con otra cédula o código
+              Intentar con otra cédula
             </button>
           </div>
         </div>
@@ -951,7 +1002,7 @@ export const Verificaciones: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* BLOQUE 3: SALUD Y CONDICIONES ESPECIALES */}
+                  {/* BLOQUE 3: SALUD Y ANTROPOMETRÍA */}
                   <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
                     <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
                       <i className="bi bi-heart-pulse me-1 text-danger"></i> 3. Salud y Antropometría

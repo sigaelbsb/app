@@ -1680,13 +1680,15 @@ export const ActualizacionDatos: React.FC = () => {
     try {
 
       const nowIso = new Date().toISOString();
+      const escKey = (estudianteSeleccionado.codigo_escuela || 'sb').toUpperCase();
+      const cedLimpia = (estudianteSeleccionado.cedula_estudiante || form.estudiante_cedula || '').replace(/\D/g, '');
+      const anoAct = new Date().getFullYear();
+      const codigoGenerado = form.codigo_unico || estudianteSeleccionado.codigo_unico || `CI-${escKey}-${cedLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoAct}`;
 
       const payload = {
-
-        datos_actualizados: form,
-
-        fecha_ultima_actualizacion: nowIso
-
+        datos_actualizados: { ...form, codigo_unico: codigoGenerado },
+        fecha_ultima_actualizacion: nowIso,
+        codigo_unico: codigoGenerado
       };
 
 
