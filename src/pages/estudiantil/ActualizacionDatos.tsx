@@ -4,9 +4,12 @@ import imageCompression from 'browser-image-compression';
 import { supabase } from '../../lib/supabase';
 
 import { usePermisos } from '../../hooks/usePermisos';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 import { auditar } from '../../lib/audit';
 import { toTitulo } from '../../lib/formatters';
+import { obtenerFirmaDirectorProtegida, obtenerDatosDirector, obtenerDatosDirectorAsync } from '../../utils/firmasSeguras';
 
 
 
@@ -112,6 +115,8 @@ interface SolicitudForm {
   foto_carnet_url?: string;
   foto_cedula_estudiante_url?: string;
   foto_partida_nacimiento_url?: string;
+  foto_informe_medico_url?: string;
+  foto_carnet_conapdis_url?: string;
   foto_cedula_madre_url?: string;
   foto_cedula_padre_url?: string;
 
@@ -245,6 +250,9 @@ const defaultForm = (): SolicitudForm => ({
   foto_carnet_url: '',
   foto_cedula_estudiante_url: '',
   foto_partida_nacimiento_url: '',
+  foto_informe_medico_url: '',
+  foto_carnet_conapdis_url: '',
+  foto_cedula_madre_url: '',
   foto_cedula_padre_url: '',
   tiene_habilidad_cultura: 'No',
   habilidad_cultura_instrumento: '',
@@ -469,6 +477,805 @@ export const ActualizacionDatos: React.FC = () => {
     }, 1500);
     return () => clearTimeout(timer);
   }, [form, step, estudianteSeleccionado]);
+
+  const obtenerImagenBase64 = (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          try {
+            resolve(canvas.toDataURL('image/png'));
+            return;
+          } catch (e) {
+            console.error('Base64 conversion failed:', e);
+          }
+        }
+        resolve(url);
+      };
+      img.onerror = () => resolve(url);
+      img.src = url;
+    });
+  };
+
+  // ─── HELPER PARA FIRMA DIGITAL PROTEGIDA / MARCA DE AGUA ─────────────────────
+  const obtenerFirmaProtegidaBase64 = (codigoHash: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 460;
+      canvas.height = 160;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(''); return; }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Marca de agua anti-extracción semitransparente
+      ctx.save();
+      ctx.rotate(-12 * Math.PI / 180);
+      ctx.font = 'bold 8px Arial';
+      ctx.fillStyle = 'rgba(22, 101, 52, 0.08)';
+      for (let i = -80; i < 500; i += 100) {
+        for (let j = -80; j < 300; j += 24) {
+          ctx.fillText('SIGAE DOCUMENTO OFICIAL - NO DUPLICAR', i, j);
+        }
+      }
+      ctx.restore();
+
+      // Trazo de Firma Cursiva Institucional
+      ctx.strokeStyle = '#1e3a8a';
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(60, 85);
+      ctx.bezierCurveTo(80, 40, 130, 35, 150, 80);
+      ctx.bezierCurveTo(165, 110, 180, 120, 200, 75);
+      ctx.bezierCurveTo(220, 40, 260, 45, 280, 85);
+      ctx.bezierCurveTo(300, 115, 340, 100, 370, 70);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(70, 115);
+      ctx.quadraticCurveTo(220, 135, 380, 105);
+      ctx.stroke();
+
+      // Sello húmedo oficial impreso en canvas
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(310, 75, 38, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(22, 101, 52, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = 'bold 6.5px Arial';
+      ctx.fillStyle = 'rgba(22, 101, 52, 0.5)';
+      ctx.textAlign = 'center';
+      ctx.fillText('DIRECCIÓN DEL PLANTEL', 310, 67);
+      ctx.fillText('VALIDADO EN SIGAE', 310, 77);
+      ctx.fillText('★ MPPE ★', 310, 87);
+      ctx.restore();
+
+      // Hash de verificación al pie
+      ctx.font = '7.5px monospace';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(`Firma Digital Hash: SHA256-${codigoHash.slice(0, 16)}`, 10, 152);
+
+      resolve(canvas.toDataURL('image/png'));
+    });
+  };
+
+  const manejarOpcionesResumen = (datosEst: any, formDatos: SolicitudForm) => {
+    const Swal = (window as any).Swal;
+    if (!Swal) return;
+
+    Swal.fire({
+      title: 'Opciones de Ficha Integral',
+      html: `
+        <div class="d-flex flex-column gap-3 mt-3">
+          <button id="btn-pdf" class="btn btn-primary w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-download fs-5 me-2"></i> Descargar Documento (PDF)
+          </button>
+          <button id="btn-wa" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-whatsapp fs-5 me-2"></i> Enviar por WhatsApp (PDF)
+          </button>
+          <button id="btn-email" class="btn btn-info text-white w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-envelope fs-5 me-2"></i> Enviar por Correo Electrónico (PDF)
+          </button>
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar',
+      didOpen: () => {
+        document.getElementById('btn-pdf')?.addEventListener('click', () => {
+          Swal.close();
+          generarImpresionResumen(datosEst, formDatos, 'pdf');
+        });
+        document.getElementById('btn-wa')?.addEventListener('click', () => {
+          Swal.close();
+          generarImpresionResumen(datosEst, formDatos, 'whatsapp');
+        });
+        document.getElementById('btn-email')?.addEventListener('click', () => {
+          Swal.close();
+          generarImpresionResumen(datosEst, formDatos, 'email');
+        });
+      }
+    });
+  };
+
+  const manejarOpcionesConstancia = (datosEst: any, formDatos: SolicitudForm) => {
+    const Swal = (window as any).Swal;
+    if (!Swal) return;
+
+    Swal.fire({
+      title: 'Constancia de Inscripción Oficial',
+      html: `
+        <p class="text-muted small mb-3">Se generará la constancia oficial firmada digitalmente y verificable públicamente vía código QR.</p>
+        <div class="d-flex flex-column gap-3">
+          <button id="btn-const-pdf" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-file-earmark-check-fill fs-5 me-2"></i> Descargar Constancia (PDF)
+          </button>
+          <button id="btn-const-wa" class="btn btn-outline-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-whatsapp fs-5 me-2"></i> Enviar Constancia por WhatsApp
+          </button>
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar',
+      didOpen: () => {
+        document.getElementById('btn-const-pdf')?.addEventListener('click', () => {
+          Swal.close();
+          generarConstanciaInscripcion(datosEst, formDatos, 'pdf');
+        });
+        document.getElementById('btn-const-wa')?.addEventListener('click', () => {
+          Swal.close();
+          generarConstanciaInscripcion(datosEst, formDatos, 'whatsapp');
+        });
+      }
+    });
+  };
+
+  const generarConstanciaInscripcion = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp') => {
+    const escCodigo = (datosEst.codigo_escuela || datosEst.escuela_codigo || localStorage.getItem('sigae_escuela_codigo') || 'lb').toString().toLowerCase();
+    const escNombre = datosEst.nombre_escuela || (escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar');
+    const fechaHoy = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
+    const anoActual = new Date().getFullYear();
+    const anoProximo = anoActual + 1;
+    const nombreCompleto = `${formDatos.estudiante_nombres || datosEst.nombres_estudiante} ${formDatos.estudiante_apellidos || datosEst.apellidos_estudiante}`;
+    const cedulaEstudiante = formDatos.estudiante_cedula || datosEst.cedula_estudiante || 'No posee';
+    const gradoActual = formDatos.grado_solicitado || datosEst.grado_actual || 'Grado asignado';
+    const seccionActual = datosEst.seccion_actual || 'A';
+    const representanteNombre = `${formDatos.representante_nombres || datosEst.nombres_representante || ''} ${formDatos.representante_apellidos || datosEst.apellidos_representante || ''}`.trim() || 'Representante Legal';
+    const representanteCedula = formDatos.representante_cedula || datosEst.cedula_representante || 'No registrado';
+
+    const Swal = (window as any).Swal;
+    if (Swal) {
+      Swal.fire({
+        title: 'Generando Constancia de Inscripción...',
+        html: '<div class="spinner-border text-success" role="status"></div><p class="mt-2 small text-muted">Aplicando firma digital cifrada y código QR de verificación pública...</p>',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+      });
+    }
+
+    const cedulaLimpia = (cedulaEstudiante).toString().replace(/\D/g, '');
+    const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `CI-${escCodigo.toUpperCase()}-${cedulaLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoActual}`;
+    
+    // URL Pública para que cualquier teléfono la escanee y abra la constancia verificada sin login
+    const urlVerificacionPublica = `${window.location.origin}/validar-constancia/${encodeURIComponent(codigoUnico)}`;
+    const qrApiUrlPublica = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(urlVerificacionPublica)}&bgcolor=ffffff&color=166534&margin=2`;
+
+    let base64LogoEscuela = `/assets/img/logo_${escCodigo}.png`;
+    let base64Mppe = '/assets/img/logoMPPE.png';
+    let base64Qr = '';
+    let base64FirmaProtegida = '';
+
+    try {
+      [base64LogoEscuela, base64Mppe, base64Qr, base64FirmaProtegida] = await Promise.all([
+        obtenerImagenBase64(`/assets/img/logo_${escCodigo}.png`),
+        obtenerImagenBase64('/assets/img/logoMPPE.png'),
+        obtenerImagenBase64(qrApiUrlPublica),
+        obtenerFirmaDirectorProtegida(escCodigo, codigoUnico)
+      ]);
+    } catch (e) {
+      console.error('Error preloading assets for Constancia', e);
+    }
+
+    const dirData = await obtenerDatosDirectorAsync(escCodigo);
+    let nivelEducativo = 'Educación Primaria';
+    const gLower = (gradoActual).toLowerCase();
+    if (gLower.includes('maternal') || gLower.includes('preescolar') || gLower.includes('inicial') || gLower.includes('grupo')) {
+      nivelEducativo = 'Educación Inicial';
+    } else if (gLower.includes('año') || gLower.includes('media') || gLower.includes('bachillerato')) {
+      nivelEducativo = 'Educación Media General';
+    }
+
+    const htmlConstancia = `
+      <div style="border: 2px solid #94a3b8; border-radius: 12px; padding: 35px 45px; background: #ffffff; width: 800px; font-family: Arial, Helvetica, sans-serif; color: #000000; box-sizing: border-box; min-height: 980px; display: flex; flex-direction: column; justify-content: space-between; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
+        
+        <div>
+          <!-- BANDERA DE VENEZUELA -->
+          <div style="margin-bottom: 16px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="height: 6px; background-color: #facc15;"></div>
+            <div style="height: 8px; background-color: #2563eb; display: flex; justify-content: center; align-items: center; gap: 4px; color: #ffffff; font-size: 7px; line-height: 1;">
+              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+            </div>
+            <div style="height: 6px; background-color: #dc2626;"></div>
+          </div>
+
+          <!-- ENCABEZADO INSTITUCIONAL MODELO -->
+          <div style="display: flex; align-items: center; justify-content: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 16px; margin-bottom: 25px; position: relative;">
+            <img src="${base64LogoEscuela}" style="height: 70px; width: auto; position: absolute; left: 0;" />
+            <div style="text-align: center; width: 100%;">
+              <div style="font-size: 14px; font-weight: bold; line-height: 1.45; text-transform: uppercase; color: #000000;">
+                República Bolivariana de Venezuela<br/>
+                Ministerio del Poder Popular para la Educación<br/>
+                ${dirData.nombreEscuela}<br/>
+                <span style="font-weight: normal; font-size: 12px; text-transform: none; color: #334155;">${dirData.ubicacionEscuela}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TÍTULO DE LA CONSTANCIA -->
+          <div style="text-align: center; margin: 28px 0 24px;">
+            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Constancia de Inscripción</h2>
+          </div>
+
+          <!-- PÁRRAFO DE CERTIFICACIÓN MODELO PRUEBA.PDF -->
+          <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 25px;">
+            Quien suscribe, <b>${dirData.tituloDirector}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en calidad de ${dirData.cargoGenerico} de la Unidad Educativa, certifico que los datos reflejados en esta constancia corresponden a un estudiante que ha actualizado su información de forma exitosa. Este estudiante está autorizado para cursar el Año Escolar <b>${anoActual} – ${anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
+          </div>
+
+          <!-- DATOS RELEVANTES DETALLADOS MODELO PRUEBA.PDF -->
+          <div style="font-size: 13.5px; line-height: 2.2; color: #000000; margin-left: 12px; margin-bottom: 30px;">
+            <div><b>Estudiante:</b> ${nombreCompleto}</div>
+            <div><b>Cédula de Identidad o Escolar:</b> ${cedulaEstudiante}</div>
+            <div><b>Nivel Educativo:</b> ${nivelEducativo}</div>
+            <div><b>Grupo, grado o año a cursar:</b> ${gradoActual}</div>
+            <div><b>Representante Legal:</b> ${representanteNombre}</div>
+            <div><b>Cédula de Identidad:</b> ${representanteCedula}</div>
+            <div><b>Fecha de Emisión:</b> ${fechaHoy}</div>
+          </div>
+        </div>
+
+        <!-- ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1.5px solid #cbd5e1;">
+            <div style="text-align: center; flex: 1; max-width: 440px; margin: 0 auto;">
+              <p style="margin: 0 0 4px; font-size: 13.5px; font-weight: bold; color: #000000;">Atentamente</p>
+              <img src="${base64FirmaProtegida}" style="height: 105px; width: auto; display: block; margin: 0 auto 5px;" />
+              <div style="font-size: 13.5px; font-weight: bold; color: #000000;">${dirData.nombreCompleto}</div>
+              <div style="font-size: 12px; color: #333333;">C.I.: ${dirData.cedula}</div>
+              <div style="font-size: 12.5px; font-weight: bold; color: #000000;">${dirData.cargo}</div>
+            </div>
+
+            ${base64Qr ? `
+            <div style="text-align: center; border: 1.5px solid #cbd5e1; padding: 6px; border-radius: 10px; background: #ffffff; min-width: 85px;">
+              <img src="${base64Qr}" style="height: 70px; width: 70px; display: block; margin: 0 auto;" />
+              <span style="font-size: 7.5px; font-weight: bold; color: #166534; font-family: monospace; display: block; margin-top: 4px;">VERIFICACIÓN QR</span>
+              <span style="font-size: 6.5px; color: #64748b; font-family: monospace; display: block;">${codigoUnico}</span>
+            </div>
+            ` : ''}
+          </div>
+
+          <!-- PIE DE PÁGINA CON LOGO DEL MINISTERIO ALINEADO A LA IZQUIERDA -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #cbd5e1; padding-top: 10px; margin-top: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="${base64Mppe}" style="height: 40px; width: auto;" />
+            </div>
+            <div style="text-align: right; font-size: 8.5px; color: #64748b;">
+              SIGAE - Control Estudiantil | Documento Oficial Verificable mediante Código QR<br/>
+              Cód. Autenticidad: <b style="color: #166534; font-family: monospace;">${codigoUnico}</b>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    `;
+
+    try {
+      const clon = document.createElement('div');
+      clon.style.width = '800px';
+      clon.style.position = 'fixed';
+      clon.style.left = '-9999px';
+      clon.style.top = '0';
+      clon.style.background = '#ffffff';
+      clon.innerHTML = htmlConstancia;
+
+      document.body.appendChild(clon);
+      await new Promise(res => setTimeout(res, 350));
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter', compress: true });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+
+      const canvas = await html2canvas(clon, {
+        scale: 2.8,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        imageTimeout: 15000
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
+
+      document.body.removeChild(clon);
+
+      const pdfBlob = pdf.output('blob');
+      const nombreArchivo = `Constancia_Inscripcion_${nombreCompleto.replace(/\s+/g, '_')}.pdf`;
+      const file = new File([pdfBlob], nombreArchivo, { type: "application/pdf" });
+
+      const textoMensaje = `*SIGAE - Constancia de Inscripción Oficial*\n\n` +
+        `Estimad@, adjunto la Constancia de Inscripción oficial del estudiante *${nombreCompleto}* en formato PDF con firma digital y código QR de verificación.\n` +
+        `Plantel: ${escNombre}\n` +
+        `Código de Verificación: ${codigoUnico}\n\n` +
+        `Sistema SIGAE.`;
+
+      if (modo === 'pdf') {
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = nombreArchivo;
+        a.click();
+        URL.revokeObjectURL(pdfUrl);
+        if (Swal) Swal.fire('¡Constancia Descargada!', 'El documento ha sido guardado en tu dispositivo.', 'success');
+      } else {
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: `Constancia de Inscripción - ${nombreCompleto}`, text: textoMensaje });
+            if (Swal) Swal.close();
+          } catch (shareErr) {
+            console.log('Web Share failed', shareErr);
+          }
+        } else {
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = pdfUrl;
+          a.download = nombreArchivo;
+          a.click();
+          URL.revokeObjectURL(pdfUrl);
+          if (Swal) {
+            Swal.fire({
+              title: '¡Constancia Generada!',
+              html: `<p>El archivo <b>${nombreArchivo}</b> ha sido descargado en tu dispositivo.</p><p class="small text-muted">Adjúntalo en tu aplicación de WhatsApp.</p>`,
+              icon: 'info',
+              confirmButtonColor: '#16a34a'
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error generando Constancia:', error);
+      if (Swal) Swal.fire('Error', 'No se pudo generar la Constancia de Inscripción.', 'error');
+    }
+  };
+
+  const generarImpresionResumen = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp' | 'email') => {
+    const escCodigo = (datosEst.codigo_escuela || datosEst.escuela_codigo || localStorage.getItem('sigae_escuela_codigo') || 'lb').toString().toLowerCase();
+    const escNombre = datosEst.nombre_escuela || (escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar');
+    const fechaHoy = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
+    const anoActual = new Date().getFullYear();
+    const anoProximo = anoActual + 1;
+    const conQuienVive = Array.isArray(formDatos.estudiante_con_quien_vive) ? formDatos.estudiante_con_quien_vive.join(', ') : (formDatos.estudiante_con_quien_vive || 'No informado');
+    const nombreCompleto = `${formDatos.estudiante_nombres || datosEst.nombres_estudiante} ${formDatos.estudiante_apellidos || datosEst.apellidos_estudiante}`;
+
+    const Swal = (window as any).Swal;
+    if (Swal) {
+      Swal.fire({
+        title: 'Generando Documento PDF...',
+        html: '<div class="spinner-border text-primary" role="status"></div><p class="mt-2 small text-muted">Construyendo el archivo PDF de la Ficha Integral...</p>',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+      });
+    }
+
+    const cedulaLimpia = (datosEst.cedula_estudiante || formDatos.estudiante_cedula || datosEst.id || '000').toString().replace(/\D/g, '');
+    const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `FI-${escCodigo.toUpperCase()}-${cedulaLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoActual}`;
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`SIGAE:FI:${codigoUnico}:${nombreCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
+
+    let base64LogoEscuela = `/assets/img/logo_${escCodigo}.png`;
+    let base64Mppe = '/assets/img/logoMPPE.png';
+    let base64Qr = '';
+
+    try {
+      [base64LogoEscuela, base64Mppe, base64Qr] = await Promise.all([
+        obtenerImagenBase64(`/assets/img/logo_${escCodigo}.png`),
+        obtenerImagenBase64('/assets/img/logoMPPE.png'),
+        obtenerImagenBase64(qrApiUrl)
+      ]);
+    } catch (e) {
+      console.error('Error preload images', e);
+    }
+
+    const totalPaginas = 3;
+
+    // ─── HELPERS con inline styles (para que html2canvas funcione correctamente) ───
+    const banderaStyle = `margin-bottom: 10px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.05);`;
+    const banderaAmarillo = `<div style="height: 5px; background-color: #facc15;"></div>`;
+    const banderaAzul = `<div style="height: 7px; background-color: #2563eb; display: flex; justify-content: center; align-items: center; gap: 3px; color: #ffffff; font-size: 6px; line-height: 1; font-family: Arial, sans-serif;"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>`;
+    const banderaRojo = `<div style="height: 5px; background-color: #dc2626;"></div>`;
+
+    const cintilloHTML = (subtitulo: string) => `
+      <div style="${banderaStyle}">
+        ${banderaAmarillo}${banderaAzul}${banderaRojo}
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 12px;">
+        <img src="${base64LogoEscuela}" style="height: 46px; width: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));" />
+        <div style="flex: 1;">
+          <h4 style="margin: 0; color: #16a34a; font-weight: 800; font-size: 11.5px; text-transform: uppercase; letter-spacing: -0.2px;">${subtitulo}</h4>
+          <p style="margin: 1px 0 0; font-size: 9.5px; color: #64748b;">Sistema Integral de Gestión y Administración Escolar (SIGAE)</p>
+          <p style="margin: 1px 0 0; font-size: 11px; font-weight: 700; color: #1e3a8a;">${escNombre}</p>
+        </div>
+        ${base64Qr ? `
+        <div style="text-align: center; background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 6px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); min-width: 62px;">
+          <img src="${base64Qr}" style="height: 42px; width: 42px; display: block; margin: 0 auto;" />
+          <span style="font-size: 7px; font-weight: 800; color: #166534; font-family: monospace; display: block; margin-top: 2px; letter-spacing: -0.2px;">${codigoUnico}</span>
+        </div>
+        ` : ''}
+      </div>
+    `;
+
+    const pieHTML = (numPag: number) => `
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1.5px solid #e2e8f0; padding-top: 8px; margin-top: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="${base64Mppe}" style="height: 20px; width: auto;" />
+        </div>
+        <div style="text-align: right; font-size: 9px; color: #94a3b8; font-weight: 600; line-height: 1.2;">
+          Cód. Verificación: <b style="color: #166534; font-family: monospace;">${codigoUnico}</b> | Generado: ${fechaHoy}<br/>
+          SIGAE - Control Estudiantil — Página ${numPag} de ${totalPaginas}
+        </div>
+      </div>
+    `;
+
+    // Estilos inline reutilizables
+    const sS = `background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;`; // seccion
+    const sT = `margin: 0 0 6px 0; color: #0f172a; font-size: 11px; font-weight: 700; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;`; // seccion-titulo
+    const gD = `display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; font-size: 10px; color: #475569;`; // grid-datos (2 cols)
+    const gD3 = `display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px 12px; font-size: 10px; color: #475569;`; // grid-datos (3 cols)
+    const dB = `color: #334155; font-weight: 600;`; // dato bold
+    const dV = `color: #0f172a; font-weight: 600;`; // dato-valor
+    const bV = `color: #166534; font-weight: 700; background: #dcfce7; padding: 1.5px 7px; border-radius: 4px; font-size: 9.5px; display: inline-block;`; // badge-verde
+    const bA = `color: #1e3a8a; font-weight: 700; background: #dbeafe; padding: 1.5px 7px; border-radius: 4px; font-size: 9.5px; display: inline-block;`; // badge-azul
+    const pgStyle = `border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 18px; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); display: flex; flex-direction: column; justify-content: space-between; min-height: 960px; box-sizing: border-box;`; // pagina
+
+    // Campo helper
+    const campo = (label: string, valor: string, full = false) =>
+      `<div${full ? ' style="grid-column: 1 / -1;"' : ''}><b style="${dB}">${label}:</b><br/><span style="${dV}">${valor}</span></div>`;
+    const campoB = (label: string, valor: string, tipo: 'verde' | 'azul' = 'verde') =>
+      `<div><b style="${dB}">${label}:</b><br/><span style="${tipo === 'verde' ? bV : bA}">${valor}</span></div>`;
+
+    // ─── PÁGINA 1: Representante + Estudiante + Dirección ───
+    const pagina1 = `<div style="${pgStyle}">
+      <div>
+        ${cintilloHTML(`Ficha Integral de Actualización de Datos — Año Escolar ${anoActual} - ${anoProximo}`)}
+        
+        <!-- REPRESENTANTE LEGAL -->
+        <div style="${sS}">
+          <h5 style="${sT}">👤 Datos del Representante Legal</h5>
+          <div style="${gD}">
+            ${campo('Nombres del Representante', formDatos.representante_nombres || datosEst.nombres_representante || 'No informado')}
+            ${campo('Apellidos del Representante', formDatos.representante_apellidos || datosEst.apellidos_representante || 'No informado')}
+            ${campo('Cédula de Identidad', formDatos.representante_cedula || datosEst.cedula_representante || 'No informado')}
+            ${campo('Fecha de Nacimiento', formDatos.representante_fecha_nacimiento || 'No informado')}
+            ${campo('Teléfono Principal', formDatos.representante_telefono || 'No informado')}
+            ${campo('Teléfono Alternativo', formDatos.representante_telefono2 || 'No informado')}
+            ${campo('Correo Electrónico', formDatos.representante_email || 'No informado')}
+            ${campo('¿Trabaja en PDVSA?', formDatos.representante_trabaja_pdvsa || 'No')}
+            ${formDatos.representante_trabaja_pdvsa === 'Sí' ? `
+            ${campo('Condición Laboral PDVSA', formDatos.pdvsa_condicion_laboral || 'No informado')}
+            ${campo('Tipo de Nómina PDVSA', formDatos.pdvsa_tipo_nomina || 'No informado')}
+            ${campo('Negocio / Filial PDVSA', formDatos.pdvsa_negocio_filial || 'No informado')}
+            ${campo('Gerencia / Departamento PDVSA', formDatos.pdvsa_gerencia || 'No informado')}
+            ${campo('Correo Corporativo PDVSA', formDatos.pdvsa_email_empresa || 'No informado')}
+            ${campo('Localidad de Trabajo PDVSA', formDatos.pdvsa_localidad_trabajo === 'Otra' ? formDatos.pdvsa_localidad_trabajo_otra || '' : formDatos.pdvsa_localidad_trabajo || 'No informado')}
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- DATOS DEL ESTUDIANTE -->
+        <div style="${sS}">
+          <h5 style="${sT}">👦 Datos de Identificación del Estudiante</h5>
+          <div style="${gD}">
+            ${campo('Nombres del Estudiante', formDatos.estudiante_nombres || datosEst.nombres_estudiante || 'No informado')}
+            ${campo('Apellidos del Estudiante', formDatos.estudiante_apellidos || datosEst.apellidos_estudiante || 'No informado')}
+            ${campo('Cédula de Identidad / Carnet Escolar', formDatos.estudiante_cedula || datosEst.cedula_estudiante || 'No posee')}
+            ${campo('Género del Estudiante', formDatos.estudiante_sexo || 'No informado')}
+            ${campo('Fecha de Nacimiento del Estudiante', formDatos.estudiante_fecha_nacimiento || 'No informado')}
+            ${campo('País de Nacimiento', formDatos.estudiante_pais_nacimiento === 'Otro' ? formDatos.estudiante_pais_nacimiento_otro || '' : formDatos.estudiante_pais_nacimiento || 'Venezuela')}
+            ${campo('Estado / Provincia de Nacimiento', formDatos.estudiante_estado_nacimiento || 'No informado')}
+            ${campo('Municipio / Ciudad de Nacimiento', formDatos.estudiante_municipio_nacimiento || 'No informado')}
+            ${campo('Folio de la Partida de Nacimiento', formDatos.estudiante_folio_nacimiento || 'No informado')}
+            ${campo('Acta de la Partida de Nacimiento', formDatos.estudiante_acta_nacimiento || 'No informado')}
+            ${campoB('Grado / Año que cursa', formDatos.grado_solicitado || datosEst.grado_actual || 'No informado')}
+            ${campoB('Sección asignada', datosEst.seccion_actual || 'No informado')}
+            ${campo('Parentesco con Trabajador PDVSA', formDatos.parentesco || 'No informado')}
+            ${campo('¿Con quién vive el estudiante?', conQuienVive)}
+            ${campo('¿Reconocido por el padre?', formDatos.estudiante_reconocido_por_padre || 'Sí')}
+          </div>
+        </div>
+
+        <!-- DIRECCIÓN DE HABITACIÓN -->
+        <div style="${sS}">
+          <h5 style="${sT}">📍 Dirección de Habitación del Estudiante</h5>
+          <div style="${gD3}">
+            ${campo('Estado', formDatos.estado_habitacion || 'No informado')}
+            ${campo('Municipio', formDatos.municipio_habitacion || 'No informado')}
+            ${campo('Parroquia / Sector', formDatos.parroquia_habitacion || 'No informado')}
+            ${campo('Dirección Detallada de Habitación', formDatos.direccion_habitacion || 'No informado', true)}
+          </div>
+        </div>
+      </div>
+
+      ${pieHTML(1)}
+    </div>`;
+
+    // ─── PÁGINA 2: Salud + Transporte + Antropometría + Habilidades + Tecnología ───
+    const pagina2 = `<div style="${pgStyle}">
+      <div>
+        ${cintilloHTML(`Ficha Integral de Actualización de Datos — Salud, Servicios y Habilidades`)}
+
+        <!-- SALUD Y BIENESTAR -->
+        <div style="${sS}">
+          <h5 style="${sT}">🏥 Información de Salud y Bienestar (Confidencial)</h5>
+          <div style="${gD}">
+            ${campo('¿Posee Condición Neurológica?', formDatos.estudiante_condicion_neuro || 'No')}
+            ${formDatos.estudiante_condicion_neuro === 'Sí' ? `
+            ${campo('Tipo de Condición / Discapacidad', formDatos.estudiante_tipo_condicion === 'Otra' ? formDatos.estudiante_tipo_condicion_otro || '' : formDatos.estudiante_tipo_condicion || 'No informado')}
+            ${campo('¿Tiene Informe Médico?', formDatos.estudiante_informe_neuro ? 'Sí (Digitalizado)' : 'No')}
+            ${campo('¿Tiene Certificado CONAPDIS?', formDatos.estudiante_certificado_conapdis ? 'Sí (Digitalizado)' : 'No')}
+            ` : ''}
+            ${campo('Grupo Sanguíneo del Estudiante', formDatos.estudiante_grupo_sanguineo || 'No informado')}
+            ${campo('Condición Médica del Estudiante', formDatos.estudiante_condicion_medica === 'Otra' ? formDatos.estudiante_condicion_medica_otro || '' : formDatos.estudiante_condicion_medica || 'Ninguna')}
+            ${campo('¿Es alérgico a algún medicamento?', formDatos.estudiante_tiene_alergia_medicamentos === 'Sí' ? 'Sí — ' + (formDatos.estudiante_alergico_medicamentos === 'Otra' ? formDatos.estudiante_alergico_medicamentos_otro || '' : formDatos.estudiante_alergico_medicamentos || 'No especificado') : 'No')}
+            ${campo('¿Es alérgico a algún alimento?', formDatos.estudiante_tiene_alergia_alimentos === 'Sí' ? 'Sí — ' + (formDatos.estudiante_alergia_alimentos === 'Otra' ? formDatos.estudiante_alergia_alimentos_otro || '' : formDatos.estudiante_alergia_alimentos || 'No especificado') : 'No')}
+            ${campo('¿Posee otras alergias o intolerancias?', formDatos.estudiante_tiene_otras_alergias === 'Sí' ? 'Sí — ' + (formDatos.estudiante_otras_alergias === 'Otra' ? formDatos.estudiante_otras_alergias_otro || '' : formDatos.estudiante_otras_alergias || 'No especificado') : 'No')}
+          </div>
+        </div>
+
+        <!-- TRANSPORTE Y ANTROPOMETRÍA -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="${sS} margin-bottom: 0;">
+            <h5 style="${sT}">行驶 Transporte Escolar</h5>
+            <div style="${gD}">
+              ${campo('¿Requiere transporte?', formDatos.requiere_transporte ? 'Sí' : 'No')}
+              ${formDatos.requiere_transporte ? `
+              ${campoB('Ruta asignada', '🚍 ' + (formDatos.ruta_transporte || 'No informado'), 'azul')}
+              ${campo('Parada asignada', formDatos.parada_transporte || 'No informado', true)}
+              ` : ''}
+            </div>
+          </div>
+          <div style="${sS} margin-bottom: 0;">
+            <h5 style="${sT}">📏 Datos Antropométricos</h5>
+            <div style="${gD3}">
+              ${campo('Estatura', formDatos.estatura_metros ? formDatos.estatura_metros + ' m' : 'No inf.')}
+              ${campo('Peso', formDatos.peso_kg ? formDatos.peso_kg + ' kg' : 'No inf.')}
+              ${campo('Franela', formDatos.talla_franela || 'No inf.')}
+              ${campo('Pantalón', formDatos.talla_pantalon || 'No inf.')}
+              ${campo('Calzado', formDatos.talla_calzado || 'No inf.')}
+            </div>
+          </div>
+        </div>
+
+        <!-- HABILIDADES CULTURALES Y DEPORTIVAS -->
+        <div style="${sS} margin-top: 10px;">
+          <h5 style="${sT}">🎨 Habilidades Artísticas y Deportivas</h5>
+          <div style="${gD}">
+            ${campo('¿Habilidad musical?', formDatos.tiene_habilidad_cultura === 'Sí' ? 'Sí' : 'No')}
+            ${formDatos.tiene_habilidad_cultura === 'Sí' ? `
+            ${campo('Instrumento que ejecuta', formDatos.habilidad_cultura_instrumento === 'Otra' ? formDatos.habilidad_cultura_instrumento_otro || '' : formDatos.habilidad_cultura_instrumento || 'No informado')}
+            ${campo('¿Pertenece a una Orquesta?', formDatos.habilidad_cultura_orquesta || 'No')}
+            ` : ''}
+            ${campo('¿Habilidad en danza?', formDatos.tiene_habilidad_danza === 'Sí' ? 'Sí' : 'No')}
+            ${formDatos.tiene_habilidad_danza === 'Sí' ? `
+            ${campo('Tipo de danza que practica', formDatos.habilidad_danza_tipo || 'No informado')}
+            ${campo('¿Academia de danza?', formDatos.habilidad_danza_academia || 'No')}
+            ` : ''}
+            ${campo('¿Practica algún deporte?', formDatos.tiene_habilidad_deporte === 'Sí' ? 'Sí' : 'No')}
+            ${formDatos.tiene_habilidad_deporte === 'Sí' ? `
+            ${campo('Disciplina deportiva', formDatos.habilidad_deporte_disciplina === 'Otra' ? formDatos.habilidad_deporte_disciplina_otro || '' : formDatos.habilidad_deporte_disciplina || 'No informado')}
+            ${campo('¿Club deportivo?', formDatos.habilidad_deporte_academia || 'No')}
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- TECNOLOGÍA EN EL HOGAR -->
+        <div style="${sS}">
+          <h5 style="${sT}">💻 Tecnología en el Hogar</h5>
+          <div style="${gD3}">
+            ${campo('¿Computadora en el hogar?', formDatos.posee_computadora || 'No')}
+            ${campo('¿Conexión a internet?', formDatos.posee_internet || 'No')}
+            ${campo('¿Teléfono celular?', formDatos.posee_celular || 'No')}
+          </div>
+        </div>
+      </div>
+
+      ${pieHTML(2)}
+    </div>`;
+
+    // ─── PÁGINA 3: Padres + Declaración + Firmas ───
+    const pagina3 = `<div style="${pgStyle}">
+      <div>
+        ${cintilloHTML(`Ficha Integral de Actualización de Datos — Grupo Familiar y Declaración`)}
+
+        <!-- MADRE -->
+        <div style="${sS}">
+          <h5 style="${sT}">👩 Información de la Madre</h5>
+          <div style="${gD}">
+            ${campo('¿Con vida?', formDatos.madre_vive !== 'No' ? 'Sí' : 'No (Fallecida)')}
+            ${campo('Nombres de la Madre', formDatos.madre_nombres || 'No informado')}
+            ${campo('Apellidos de la Madre', formDatos.madre_apellidos || 'No informado')}
+            ${campo('Cédula de Identidad', formDatos.madre_cedula || 'No informado')}
+            ${campo('Fecha de Nacimiento', formDatos.madre_fecha_nacimiento || 'No informado')}
+            ${campo('Lugar de Nacimiento', formDatos.madre_lugar_nacimiento || 'No informado')}
+            ${formDatos.madre_vive !== 'No' ? `
+            ${campo('Teléfono de Contacto', formDatos.madre_telefono || 'No informado')}
+            ${campo('Correo Electrónico', formDatos.madre_email || 'No informado')}
+            ${campo('Dirección de Habitación', formDatos.madre_direccion || 'No informado', true)}
+            ${campo('¿Trabaja en PDVSA?', formDatos.madre_trabaja_pdvsa ? 'Sí' : 'No')}
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- PADRE -->
+        <div style="${sS}">
+          <h5 style="${sT}">👨 Información del Padre</h5>
+          ${formDatos.estudiante_reconocido_por_padre !== 'No' ? `
+          <div style="${gD}">
+            ${campo('¿Con vida?', formDatos.padre_vive !== 'No' ? 'Sí' : 'No (Fallecido)')}
+            ${campo('Nombres del Padre', formDatos.padre_nombres || 'No informado')}
+            ${campo('Apellidos del Padre', formDatos.padre_apellidos || 'No informado')}
+            ${campo('Cédula de Identidad', formDatos.padre_cedula || 'No informado')}
+            ${campo('Fecha de Nacimiento', formDatos.padre_fecha_nacimiento || 'No informado')}
+            ${campo('Lugar de Nacimiento', formDatos.padre_lugar_nacimiento || 'No informado')}
+            ${formDatos.padre_vive !== 'No' ? `
+            ${campo('Teléfono de Contacto', formDatos.padre_telefono || 'No informado')}
+            ${campo('Correo Electrónico', formDatos.padre_email || 'No informado')}
+            ${campo('Dirección de Habitación', formDatos.padre_direccion || 'No informado', true)}
+            ${campo('¿Trabaja en PDVSA?', formDatos.padre_trabaja_pdvsa ? 'Sí' : 'No')}
+            ` : ''}
+          </div>
+          ` : `
+          <div style="padding: 10px; background: #f8fafc; border-radius: 8px; font-size: 10px; color: #64748b;">
+            <b>El estudiante no fue reconocido por el padre.</b>
+          </div>
+          `}
+        </div>
+
+        <!-- NOTA INSTITUCIONAL & DECLARACIÓN JURADA -->
+        <div style="${sS} background: #fffbeb; border-color: #fde68a;">
+          <h5 style="${sT} color: #b45309; border-color: #fde68a;">📋 Declaración Jurada del Representante Legal</h5>
+          <div style="font-size: 9.5px; color: #78350f; line-height: 1.5;">
+            Yo, <b style="color: #0f172a;">${formDatos.representante_nombres || datosEst.nombres_representante || '_______________'} ${formDatos.representante_apellidos || datosEst.apellidos_representante || '_______________'}</b>, 
+            titular de la Cédula de Identidad N° <b style="color: #0f172a;">V-${formDatos.representante_cedula || datosEst.cedula_representante || '_______________'}</b>, 
+            en mi carácter de representante legal del (de la) estudiante <b style="color: #0f172a;">${nombreCompleto}</b>, 
+            declaro bajo fe de juramento que todos los datos suministrados en la presente planilla de actualización de datos son verídicos, precisos y completos. 
+            Asumo plena responsabilidad por cualquier información incorrecta, falsa u omitida para el año escolar <b>${anoActual} - ${anoProximo}</b>.
+          </div>
+        </div>
+
+        <!-- FIRMAS Y SELLO -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 30px; text-align: center;">
+          <div>
+            <div style="border-top: 1px dashed #475569; margin-top: 40px; padding-top: 5px; font-size: 10px; font-weight: 600; color: #1e293b;">
+              Firma del Representante Legal<br/>
+              C.I.: ${formDatos.representante_cedula || datosEst.cedula_representante || ''}
+            </div>
+          </div>
+          <div>
+            <div style="border-top: 1px dashed #475569; margin-top: 40px; padding-top: 5px; font-size: 10px; font-weight: 600; color: #1e293b;">
+              Firma y Sello de la Dirección del Plantel<br/>
+              Validación y Control Estudiantil
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${pieHTML(3)}
+    </div>`;
+
+    const paginas = [pagina1, pagina2, pagina3];
+
+    try {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'letter'
+      });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+
+      for (let i = 0; i < paginas.length; i++) {
+        if (i > 0) pdf.addPage();
+
+        const clon = document.createElement('div');
+        clon.style.width = '800px';
+        clon.style.position = 'fixed';
+        clon.style.left = '-9999px';
+        clon.style.top = '0';
+        clon.style.fontFamily = "'Inter', 'Segoe UI', Roboto, sans-serif";
+        clon.style.fontSize = '11px';
+        clon.style.lineHeight = '1.45';
+        clon.style.color = '#0f172a';
+        clon.style.padding = '25px';
+        clon.style.background = '#ffffff';
+        clon.innerHTML = paginas[i];
+
+        document.body.appendChild(clon);
+        await new Promise(res => setTimeout(res, 300));
+
+        const canvas = await html2canvas(clon, { scale: 1.5, backgroundColor: '#ffffff', logging: false, useCORS: true });
+        const imgData = canvas.toDataURL('image/png');
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+
+        document.body.removeChild(clon);
+      }
+
+      const pdfBlob = pdf.output('blob');
+      const nombreArchivo = `Ficha_Integral_${nombreCompleto.replace(/\s+/g, '_')}.pdf`;
+      const file = new File([pdfBlob], nombreArchivo, { type: "application/pdf" });
+
+      const textoMensaje = `*SIGAE - Ficha Integral de Actualización de Datos*\n\n` +
+        `Estimad@, adjunto la ficha integral de *${nombreCompleto}* actualizada con éxito en formato PDF.\n` +
+        `Plantel: ${escNombre}\n\n` +
+        `Sistema SIGAE.`;
+
+      if (modo === 'pdf') {
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = nombreArchivo;
+        a.click();
+        URL.revokeObjectURL(pdfUrl);
+        if (Swal) Swal.fire('¡PDF Descargado!', 'El documento ha sido guardado en tu dispositivo.', 'success');
+      } else {
+        // WhatsApp o Correo
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `Ficha Integral - ${nombreCompleto}`,
+              text: modo === 'whatsapp' ? textoMensaje : 'Adjunto Ficha Integral PDF'
+            });
+            if (Swal) Swal.close();
+          } catch (shareErr) {
+            console.log('Web Share failed', shareErr);
+          }
+        } else {
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = pdfUrl;
+          a.download = nombreArchivo;
+          a.click();
+          URL.revokeObjectURL(pdfUrl);
+
+          if (Swal) {
+            Swal.fire({
+              title: '¡Documento PDF Generado!',
+              html: `
+                <p>El archivo <b>${nombreArchivo}</b> ha sido descargado en tu dispositivo.</p>
+                <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; color: #166534; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left; margin-top: 15px;">
+                  <strong>Para enviarlo por ${modo === 'whatsapp' ? 'WhatsApp' : 'Correo'}:</strong> Abre la aplicación y adjunta el archivo PDF descargado.
+                </div>
+              `,
+              icon: 'info',
+              confirmButtonText: 'Entendido',
+              confirmButtonColor: '#16a34a'
+            });
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      if (Swal) Swal.fire('Error', 'No se pudo generar el documento PDF.', 'error');
+    }
+  };
 
 
 
@@ -2021,7 +2828,6 @@ const STEPS = [
             madre_email: prev.representante_email || '',
             madre_telefono: prev.representante_telefono || '',
             madre_fecha_nacimiento: prev.representante_fecha_nacimiento || '',
-            madre_direccion: prev.representante_direccion || '',
             madre_trabaja_pdvsa: prev.representante_trabaja_pdvsa === 'Sí',
           };
           if (prev.padre_es_representante) {
@@ -2066,7 +2872,6 @@ const STEPS = [
             padre_email: prev.representante_email || '',
             padre_telefono: prev.representante_telefono || '',
             padre_fecha_nacimiento: prev.representante_fecha_nacimiento || '',
-            padre_direccion: prev.representante_direccion || '',
             padre_trabaja_pdvsa: prev.representante_trabaja_pdvsa === 'Sí',
           };
           if (prev.madre_es_representante) {
@@ -2214,8 +3019,26 @@ const STEPS = [
                   </div>
                 </div>
 
-                {/* ─── FOTO CÉDULA MADRE ─── */}
-                <div className="col-md-12 mt-3">
+                {/* ─── DIRECCIÓN Y FOTO CÉDULA MADRE ─── */}
+                <div className="col-md-12">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <label className="form-label fw-semibold small m-0">Dirección de Habitación de la Madre <span className="text-danger">*</span></label>
+                    <button type="button" className="btn btn-xs btn-outline-success rounded-pill px-3 py-1 small fw-semibold"
+                      onClick={() => {
+                        const dirEst = form.direccion_habitacion
+                          ? `${form.direccion_habitacion}${form.parroquia_habitacion ? ', Parroquia ' + form.parroquia_habitacion : ''}${form.municipio_habitacion ? ', Mun. ' + form.municipio_habitacion : ''}${form.estado_habitacion ? ', Est. ' + form.estado_habitacion : ''}`
+                          : '';
+                        updateForm('madre_direccion', dirEst);
+                        if (Swal) Swal.fire({ icon: 'success', title: 'Dirección Copiada', text: 'Se copió la dirección de habitación del estudiante para la madre.', timer: 1800, showConfirmButton: false });
+                      }}>
+                      <i className="bi bi-geo-alt-fill me-1"></i>¿Es la misma dirección del estudiante?
+                    </button>
+                  </div>
+                  <input type="text" className="form-control input-moderno" placeholder="Ej. Urb. Las Palmas, Calle 3, Casa #45"
+                    value={form.madre_direccion || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('madre_direccion', v))} />
+                </div>
+
+                <div className="col-md-12 mt-2">
                   <label className="form-label fw-semibold small">Foto Cédula de la Madre <span className="text-danger">*</span></label>
                   <input type="file" accept="image/*" className="form-control input-moderno form-control-sm"
                     onChange={(e) => subirImagen(e, 'foto_cedula_madre_url')} disabled={uploadingImage === 'foto_cedula_madre_url'} />
@@ -2344,8 +3167,26 @@ const STEPS = [
                       </div>
                     </div>
 
-                    {/* ─── FOTO CÉDULA PADRE ─── */}
-                    <div className="col-md-12 mt-3">
+                    {/* ─── DIRECCIÓN Y FOTO CÉDULA PADRE ─── */}
+                    <div className="col-md-12">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <label className="form-label fw-semibold small m-0">Dirección de Habitación del Padre <span className="text-danger">*</span></label>
+                        <button type="button" className="btn btn-xs btn-outline-primary rounded-pill px-3 py-1 small fw-semibold"
+                          onClick={() => {
+                            const dirEst = form.direccion_habitacion
+                              ? `${form.direccion_habitacion}${form.parroquia_habitacion ? ', Parroquia ' + form.parroquia_habitacion : ''}${form.municipio_habitacion ? ', Mun. ' + form.municipio_habitacion : ''}${form.estado_habitacion ? ', Est. ' + form.estado_habitacion : ''}`
+                              : '';
+                            updateForm('padre_direccion', dirEst);
+                            if (Swal) Swal.fire({ icon: 'success', title: 'Dirección Copiada', text: 'Se copió la dirección de habitación del estudiante para el padre.', timer: 1800, showConfirmButton: false });
+                          }}>
+                          <i className="bi bi-geo-alt-fill me-1"></i>¿Es la misma dirección del estudiante?
+                        </button>
+                      </div>
+                      <input type="text" className="form-control input-moderno" placeholder="Ej. Urb. Las Palmas, Calle 3, Casa #45"
+                        value={form.padre_direccion || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('padre_direccion', v))} />
+                    </div>
+
+                    <div className="col-md-12 mt-2">
                       <label className="form-label fw-semibold small">Foto Cédula del Padre <span className="text-danger">*</span></label>
                       <input type="file" accept="image/*" className="form-control input-moderno form-control-sm"
                         onChange={(e) => subirImagen(e, 'foto_cedula_padre_url')} disabled={uploadingImage === 'foto_cedula_padre_url'} />
@@ -2417,6 +3258,15 @@ const STEPS = [
                     </button>
                   ))}
                 </div>
+                {form.estudiante_informe_neuro && (
+                  <div className="mt-3 p-2 bg-light border rounded-3 animate__animated animate__fadeIn">
+                    <label className="form-label fw-semibold small text-dark mb-1">Foto / PDF Informe Médico <span className="text-danger">*</span></label>
+                    <input type="file" accept="image/*,application/pdf" className="form-control input-moderno form-control-sm"
+                      onChange={(e) => subirImagen(e, 'foto_informe_medico_url')} disabled={uploadingImage === 'foto_informe_medico_url'} />
+                    {uploadingImage === 'foto_informe_medico_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo informe...</div>}
+                    {form.foto_informe_medico_url && <div className="form-text text-success mt-1 fw-semibold"><i className="bi bi-check-circle-fill me-1"></i>Informe médico cargado</div>}
+                  </div>
+                )}
               </div>
 
               <div className="col-md-4 animate__animated animate__fadeIn">
@@ -2430,6 +3280,15 @@ const STEPS = [
                     </button>
                   ))}
                 </div>
+                {form.estudiante_certificado_conapdis && (
+                  <div className="mt-3 p-2 bg-light border rounded-3 animate__animated animate__fadeIn">
+                    <label className="form-label fw-semibold small text-dark mb-1">Foto / PDF Carnet CONAPDIS <span className="text-danger">*</span></label>
+                    <input type="file" accept="image/*,application/pdf" className="form-control input-moderno form-control-sm"
+                      onChange={(e) => subirImagen(e, 'foto_carnet_conapdis_url')} disabled={uploadingImage === 'foto_carnet_conapdis_url'} />
+                    {uploadingImage === 'foto_carnet_conapdis_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo carnet...</div>}
+                    {form.foto_carnet_conapdis_url && <div className="form-text text-success mt-1 fw-semibold"><i className="bi bi-check-circle-fill me-1"></i>Carnet CONAPDIS cargado</div>}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -3081,7 +3940,6 @@ const STEPS = [
             <Row label="Ruta" value={form.ruta_transporte} />
             <Row label="Parada" value={form.parada_transporte} />
           </>}
-          <Row label="Plantel de Procedencia" value={form.plantel_procedencia} />
         </Section>
 
         {/* ── ANTROPOMETRÍA ── */}
@@ -3129,6 +3987,7 @@ const STEPS = [
           {form.madre_vive !== 'No' && <>
             <Row label="Teléfono" value={form.madre_telefono} />
             <Row label="Correo Electrónico" value={form.madre_email} />
+            <Row label="Dirección de Habitación" value={form.madre_direccion} />
             <Row label="¿Trabaja en PDVSA?" value={form.madre_trabaja_pdvsa ? 'Sí' : 'No'} />
           </>}
         </Section>
@@ -3143,35 +4002,104 @@ const STEPS = [
             {form.padre_vive !== 'No' && <>
               <Row label="Teléfono" value={form.padre_telefono} />
               <Row label="Correo Electrónico" value={form.padre_email} />
+              <Row label="Dirección de Habitación" value={form.padre_direccion} />
               <Row label="¿Trabaja en PDVSA?" value={form.padre_trabaja_pdvsa ? 'Sí' : 'No'} />
             </>}
-            {form.foto_cedula_padre_url && (
-              <div className="mt-2">
-                <a href={form.foto_cedula_padre_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill">
-                  <i className="bi bi-card-image me-1"></i>Ver Cédula del Padre
-                </a>
-              </div>
-            )}
           </Section>
         )}
 
-        {/* ── BOTÓN GUARDAR ── */}
+        {/* ── DOCUMENTOS E IMÁGENES CARGADOS EN EL REGISTRO ── */}
+        <Section icon="bi-paperclip" title="Documentos e Imágenes Digitalizados Cargados" color="dark">
+          <div className="d-flex flex-wrap gap-2 py-2">
+            {form.foto_carnet_url ? (
+              <a href={form.foto_carnet_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                <i className="bi bi-person-bounding-box me-1"></i>Foto Carnet Estudiante
+              </a>
+            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Foto Carnet: No cargada</span>}
+
+            {form.foto_cedula_estudiante_url ? (
+              <a href={form.foto_cedula_estudiante_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                <i className="bi bi-card-image me-1"></i>Cédula / N° Escolar Estudiante
+              </a>
+            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Estudiante: No cargada</span>}
+
+            {form.foto_partida_nacimiento_url ? (
+              <a href={form.foto_partida_nacimiento_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info rounded-pill px-3 fw-semibold">
+                <i className="bi bi-file-earmark-person me-1"></i>Partida de Nacimiento
+              </a>
+            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Partida Nacimiento: No cargada</span>}
+
+            {form.foto_informe_medico_url && (
+              <a href={form.foto_informe_medico_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold">
+                <i className="bi bi-file-earmark-medical me-1"></i>Informe Médico
+              </a>
+            )}
+
+            {form.foto_carnet_conapdis_url && (
+              <a href={form.foto_carnet_conapdis_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-warning text-dark rounded-pill px-3 fw-semibold">
+                <i className="bi bi-shield-check me-1"></i>Carnet CONAPDIS
+              </a>
+            )}
+
+            {form.foto_cedula_madre_url ? (
+              <a href={form.foto_cedula_madre_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold">
+                <i className="bi bi-card-heading me-1"></i>Cédula de la Madre
+              </a>
+            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Madre: No cargada</span>}
+
+            {form.estudiante_reconocido_por_padre !== 'No' && (
+              form.foto_cedula_padre_url ? (
+                <a href={form.foto_cedula_padre_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                  <i className="bi bi-card-heading me-1"></i>Cédula del Padre
+                </a>
+              ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Padre: No cargada</span>
+            )}
+
+            {form.constancia_cultura_url && (
+              <a href={form.constancia_cultura_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">
+                <i className="bi bi-music-note me-1"></i>Constancia Música
+              </a>
+            )}
+
+            {form.constancia_danza_url && (
+              <a href={form.constancia_danza_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">
+                <i className="bi bi-activity me-1"></i>Constancia Danza
+              </a>
+            )}
+
+            {form.constancia_deporte_url && (
+              <a href={form.constancia_deporte_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">
+                <i className="bi bi-trophy me-1"></i>Constancia Deporte
+              </a>
+            )}
+          </div>
+        </Section>
+
+        {/* ── BOTÓN GUARDAR Y DESCARGAR ── */}
         <div className="sticky-bottom pt-3 pb-2" style={{ background: 'linear-gradient(transparent, white 30%)', marginTop: 8 }}>
-          <div className="d-flex justify-content-between align-items-center">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(9)}>
               <i className="bi bi-arrow-left me-1"></i> Anterior
             </button>
-            <button
-              className="btn btn-success rounded-pill px-5 py-3 fw-bold shadow-lg hover-efecto d-flex align-items-center gap-2"
-              style={{ fontSize: '1.05rem', background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
-              onClick={handleGuardarFicha}
-              disabled={loading}
-            >
-              {loading
-                ? <><span className="spinner-border spinner-border-sm"></span> Guardando...</>
-                : <><i className="bi bi-save2-fill fs-5"></i> Guardar Ficha Integral</>
-              }
-            </button>
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-outline-success rounded-pill px-4 py-2.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2"
+                onClick={() => generarImpresionResumen(estudianteSeleccionado, form)}
+              >
+                <i className="bi bi-printer-fill fs-5"></i> Descargar Resumen (PDF / Carta)
+              </button>
+              <button
+                className="btn btn-success rounded-pill px-5 py-3 fw-bold shadow-lg hover-efecto d-flex align-items-center gap-2"
+                style={{ fontSize: '1.05rem', background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
+                onClick={handleGuardarFicha}
+                disabled={loading}
+              >
+                {loading
+                  ? <><span className="spinner-border spinner-border-sm"></span> Guardando...</>
+                  : <><i className="bi bi-save2-fill fs-5"></i> Guardar Ficha Integral</>
+                }
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3223,17 +4151,19 @@ const STEPS = [
           </div>
 
           {estudianteSeleccionado && (
-
-            <div className="mt-4 mt-md-0">
-
+            <div className="mt-4 mt-md-0 d-flex gap-2 align-items-center flex-wrap">
+              {estudianteSeleccionado.fecha_ultima_actualizacion && form.estado_habitacion && form.direccion_habitacion && form.estudiante_grupo_sanguineo && (
+                <button
+                  className="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2"
+                  onClick={() => manejarOpcionesResumen(estudianteSeleccionado, form)}
+                >
+                  <i className="bi bi-file-earmark-pdf-fill fs-5"></i> Descargar Resumen
+                </button>
+              )}
               <button className="btn btn-outline-light rounded-pill px-4 fw-bold shadow-sm hover-efecto" onClick={() => setEstudianteSeleccionado(null)}>
-
                 <i className="bi bi-arrow-left me-2"></i>Volver a Mis Representados
-
               </button>
-
             </div>
-
           )}
 
         </div>
@@ -3368,11 +4298,24 @@ const STEPS = [
             <div className="row g-4">
 
               {misRepresentados.map((est) => {
+                const d = est.datos_actualizados || {};
                 const fechaUltima = est.fecha_ultima_actualizacion ? new Date(est.fecha_ultima_actualizacion) : null;
-                let estadoFicha: 'pendiente' | 'actualizado' | 'desactualizado' = 'pendiente';
                 let diasTranscurridos = 0;
 
-                if (fechaUltima) {
+                // Validación de completitud de campos requeridos
+                const repOk = Boolean((d.representante_nombres || est.nombres_representante) && (d.representante_cedula || est.cedula_representante) && d.representante_telefono && d.representante_email);
+                const estOk = Boolean((d.estudiante_nombres || est.nombres_estudiante) && (d.estudiante_apellidos || est.apellidos_estudiante) && d.estudiante_fecha_nacimiento && d.estudiante_sexo);
+                const dirOk = Boolean(d.estado_habitacion && d.direccion_habitacion);
+                const saludOk = Boolean(d.estudiante_grupo_sanguineo);
+                const madreOk = Boolean(d.madre_nombres && d.madre_cedula);
+                const requierePadre = d.estudiante_reconocido_por_padre !== 'No';
+                const padreOk = !requierePadre || Boolean(d.padre_nombres && d.padre_cedula);
+
+                const estaTotalmenteCompletado = repOk && estOk && dirOk && saludOk && madreOk && padreOk;
+
+                let estadoFicha: 'en_proceso' | 'actualizado' | 'desactualizado' = 'en_proceso';
+
+                if (fechaUltima && estaTotalmenteCompletado) {
                   const diffTime = Math.abs(new Date().getTime() - fechaUltima.getTime());
                   diasTranscurridos = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                   if (diasTranscurridos > 90) {
@@ -3380,7 +4323,11 @@ const STEPS = [
                   } else {
                     estadoFicha = 'actualizado';
                   }
+                } else {
+                  estadoFicha = 'en_proceso';
                 }
+
+                const datosFormEst = est.datos_actualizados || {};
 
                 return (
                   <div className="col-md-6 col-xl-4" key={est.id}>
@@ -3400,9 +4347,9 @@ const STEPS = [
                             <i className="bi bi-exclamation-octagon-fill text-danger me-1"></i>Desactualizado
                           </span>
                         )}
-                        {estadoFicha === 'pendiente' && (
-                          <span className="badge bg-warning bg-opacity-10 text-dark border border-warning px-3 py-2 rounded-pill">
-                            <i className="bi bi-exclamation-triangle-fill text-warning me-1"></i>Pendiente
+                        {estadoFicha === 'en_proceso' && (
+                          <span className="badge bg-warning bg-opacity-10 text-dark border border-warning px-3 py-2 rounded-pill" title="La ficha aún tiene campos incompletos por actualizar">
+                            <i className="bi bi-hourglass-split text-warning me-1"></i>En Proceso
                           </span>
                         )}
                       </div>
@@ -3438,13 +4385,34 @@ const STEPS = [
                           </small>
                         )}
 
-                        <button 
-                          className="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
-                          onClick={() => abrirFichaEstudiante(est)}
-                        >
-                          <i className="bi bi-pencil-square me-2 fs-5"></i>
-                          Actualizar Ficha Integral
-                        </button>
+                        <div className="d-flex flex-column gap-2">
+                          <button 
+                            className="btn btn-primary w-100 py-2.5 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
+                            onClick={() => abrirFichaEstudiante(est)}
+                          >
+                            <i className="bi bi-pencil-square me-2 fs-5"></i>
+                            {estadoFicha === 'actualizado' ? 'Editar Ficha Integral' : 'Completar Ficha Integral'}
+                          </button>
+
+                          {estadoFicha === 'actualizado' && (
+                            <>
+                              <button
+                                className="btn btn-outline-success w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
+                                onClick={() => manejarOpcionesResumen(est, datosFormEst)}
+                              >
+                                <i className="bi bi-file-earmark-pdf-fill me-2 fs-5"></i>
+                                Descargar Resumen (Carta)
+                              </button>
+                              <button
+                                className="btn btn-success w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
+                                onClick={() => manejarOpcionesConstancia(est, datosFormEst)}
+                              >
+                                <i className="bi bi-file-earmark-check-fill me-2 fs-5"></i>
+                                Descargar Constancia de Inscripción
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

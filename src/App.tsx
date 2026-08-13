@@ -27,6 +27,7 @@ import { GestorExpedientes } from './pages/docente/GestorExpedientes';
 import { SolicitudCupos } from './pages/estudiantil/SolicitudCupos';
 import { GestionAdmisiones } from './pages/estudiantil/GestionAdmisiones';
 import { VincularEstudiante } from './pages/estudiantil/VincularEstudiante';
+import { ValidarConstancia } from './pages/estudiantil/ValidarConstancia';
 import { ActualizacionDatos } from './pages/estudiantil/ActualizacionDatos';
 import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
 import { EstudioDiseno } from './pages/disenos/EstudioDiseno';
@@ -127,6 +128,7 @@ function App() {
       <InstallPwaModal />
       <Router>
         <Routes>
+          <Route path="/validar-constancia/:codigo" element={<ValidarConstancia />} />
           <Route path="/login" element={!usuario ? <Auth onLogin={handleLogin} /> : <Navigate to="/" replace />} />
           
           <Route path="/" element={usuario ? <Layout onLogout={() => setUsuario(null)} /> : <Navigate to="/login" replace />}>
