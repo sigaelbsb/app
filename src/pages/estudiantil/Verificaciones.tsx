@@ -19,7 +19,6 @@ interface VinculacionData {
   datos_actualizados?: any;
   fecha_ultima_actualizacion?: string;
   codigo_unico?: string;
-  estado_actualizacion?: 'actualizado' | 'en_proceso' | 'desactualizado' | 'sin_actualizar';
 }
 
 interface SolicitudCupoData {
@@ -34,6 +33,7 @@ interface SolicitudCupoData {
   estado: string;
   prioridad?: string;
   fecha_solicitud?: string;
+  created_at?: string;
   representante_nombres: string;
   representante_apellidos: string;
   representante_cedula: string;
@@ -53,10 +53,11 @@ export const Verificaciones: React.FC = () => {
   // Resultados
   const [vinculacion, setVinculacion] = useState<VinculacionData | null>(null);
   const [solicitudCupo, setSolicitudCupo] = useState<SolicitudCupoData | null>(null);
-  const [historialReciente, setHistorialReciente] = useState<any[]>([]);
+  const [recientesActualizaciones, setRecientesActualizaciones] = useState<any[]>([]);
+  const [recientesCupos, setRecientesCupos] = useState<any[]>([]);
 
   // Vista activa de documento
-  const [vistaDoc, setVistaDoc] = useState<'constancia' | 'cupo'>('constancia');
+  const [vistaDoc, setVistaDoc] = useState<'constancia' | 'resumen' | 'cupo'>('constancia');
   const [generandoPdf, setGenerandoPdf] = useState(false);
 
   // Firma y datos de director
@@ -72,15 +73,34 @@ export const Verificaciones: React.FC = () => {
 
   const cargarRecientes = async () => {
     try {
+      // 1. Recientes de Actualización de Datos
       const { data: vincs } = await supabase
         .from('estudiantes_vinculaciones')
-        .select('cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, codigo_escuela, fecha_ultima_actualizacion, codigo_unico, datos_actualizados')
+        .select('cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, codigo_escuela, fecha_ultima_actualizacion, codigo_unico')
         .order('fecha_ultima_actualizacion', { ascending: false })
-        .limit(5);
+        .limit(4);
 
-      if (vincs) {
-        setHistorialReciente(vincs);
+      if (vincs) setRecientesActualizaciones(vincs);
+
+      // 2. Recientes de Solicitud de Cupos (consultar solicitud_cupos y fallback solicitudes_cupos)
+      let cuposData: any[] | null = null;
+      try {
+        const { data } = await supabase
+          .from('solicitud_cupos')
+          .select('codigo_unico, estudiante_nombres, estudiante_apellidos, estudiante_cedula, grado_solicitado, estado, created_at')
+          .order('created_at', { ascending: false })
+          .limit(4);
+        cuposData = data;
+      } catch (e) {
+        const { data } = await supabase
+          .from('solicitudes_cupos')
+          .select('codigo_unico, estudiante_nombres, estudiante_apellidos, estudiante_cedula, grado_solicitado, estado, created_at')
+          .order('created_at', { ascending: false })
+          .limit(4);
+        cuposData = data;
       }
+
+      if (cuposData) setRecientesCupos(cuposData);
     } catch (e) {
       console.error('Error cargando recientes', e);
     }
@@ -88,7 +108,7 @@ export const Verificaciones: React.FC = () => {
 
   const calcularEstatusActualizacion = (datos: VinculacionData): { estado: string; color: string; badge: string; desc: string } => {
     const d = datos.datos_actualizados || {};
-    const tieneCamposClave = d.estudiante_nombres && d.estudiante_apellidos && d.representante_cedula && d.direccion_vivienda;
+    const tieneCamposClave = d.estudiante_nombres && d.estudiante_apellidos && (d.representante_cedula || datos.cedula_representante);
     const fecha = datos.fecha_ultima_actualizacion ? new Date(datos.fecha_ultima_actualizacion) : null;
     
     if (!fecha || !tieneCamposClave) {
@@ -96,7 +116,7 @@ export const Verificaciones: React.FC = () => {
         estado: 'Sin Actualizar / Incompleto',
         color: 'secondary',
         badge: 'bg-secondary',
-        desc: 'El estudiante no ha completado el formulario de Ficha Integral.'
+        desc: 'El estudiante no ha completado la Ficha Integral de actualización.'
       };
     }
 
@@ -106,18 +126,17 @@ export const Verificaciones: React.FC = () => {
         estado: 'Desactualizado',
         color: 'danger',
         badge: 'bg-danger',
-        desc: `Requiere actualización obligatoria (última vez hace ${Math.floor(diasTranscurridos)} días).`
+        desc: `Requiere actualización obligatoria (última actualización hace ${Math.floor(diasTranscurridos)} días).`
       };
     }
 
-    // Verificar si faltan fotos o pasos específicos
     const tieneFotos = d.foto_carnet_url || d.foto_cedula_estudiante_url;
     if (!tieneFotos) {
       return {
         estado: 'En Proceso',
         color: 'warning',
         badge: 'bg-warning text-dark',
-        desc: 'Faltan recaudos o documentos fotográficos por adjuntar.'
+        desc: 'Ficha guardada parcialmente (faltan recaudos fotográficos).'
       };
     }
 
@@ -135,7 +154,7 @@ export const Verificaciones: React.FC = () => {
         estado: 'Sin Solicitud de Cupo',
         color: 'secondary',
         badge: 'bg-secondary text-white',
-        desc: 'No existe solicitud de cupo nueva registrada para el próximo período.'
+        desc: 'No registra solicitud de cupo nueva (es estudiante regular del plantel).'
       };
     }
 
@@ -153,7 +172,7 @@ export const Verificaciones: React.FC = () => {
         estado: 'Pre-Aprobado',
         color: 'info',
         badge: 'bg-info text-dark',
-        desc: 'En revisión de recaudos por parte del comité de admisiones.'
+        desc: 'En evaluación de recaudos por el comité de admisiones.'
       };
     }
     if (est.includes('rechaz')) {
@@ -164,18 +183,26 @@ export const Verificaciones: React.FC = () => {
         desc: 'La solicitud no pudo ser asignada por disponibilidad de cupos.'
       };
     }
+    if (est.includes('borrador')) {
+      return {
+        estado: 'Borrador / Incompleta',
+        color: 'secondary',
+        badge: 'bg-secondary text-white',
+        desc: 'Solicitud guardada en borrador, no ha sido formalmente enviada.'
+      };
+    }
     return {
       estado: 'Solicitud Pendiente',
       color: 'warning',
       badge: 'bg-warning text-dark',
-      desc: 'Solicitud en lista de espera y evaluación de baremo.'
+      desc: 'Solicitud registrada y en lista de espera de asignación.'
     };
   };
 
   const ejecutarBusqueda = async (terminoParam?: string) => {
     const raw = (terminoParam !== undefined ? terminoParam : codigoBusqueda).trim();
     if (!raw) {
-      if (Swal) Swal.fire('Ingresa un código', 'Por favor escribe el código de la constancia, cédula o código de cupo.', 'info');
+      if (Swal) Swal.fire('Ingresa un código', 'Por favor escribe el código de la constancia, resumen, cupo o cédula.', 'info');
       return;
     }
 
@@ -185,81 +212,156 @@ export const Verificaciones: React.FC = () => {
     setSolicitudCupo(null);
 
     const soloNumeros = raw.replace(/\D/g, '');
-    const codigoUpper = raw.toUpperCase();
+    const cleanTerm = raw.replace(/['"%;]/g, '').trim();
 
     try {
-      // 1. Buscar en estudiantes_vinculaciones
-      let queryVinc = supabase.from('estudiantes_vinculaciones').select('*');
-      if (codigoUpper.startsWith('CI-') || codigoUpper.startsWith('FI-') || codigoUpper.includes('-')) {
-        queryVinc = queryVinc.ilike('codigo_unico', `%${raw}%`);
-      } else if (soloNumeros.length >= 5) {
-        queryVinc = queryVinc.or(`cedula_estudiante.ilike.%${soloNumeros}%,cedula_representante.ilike.%${soloNumeros}%`);
-      } else {
-        queryVinc = queryVinc.or(`nombres_estudiante.ilike.%${raw}%,apellidos_estudiante.ilike.%${raw}%`);
+      // ─── 1. BUSCAR EN ESTUDIANTES_VINCULACIONES ─────────────────────────────
+      let vincEncontrada: VinculacionData | null = null;
+
+      // a) Búsqueda por codigo_unico directo
+      const { data: vByCode } = await supabase
+        .from('estudiantes_vinculaciones')
+        .select('*')
+        .ilike('codigo_unico', `%${cleanTerm}%`)
+        .limit(1);
+
+      if (vByCode && vByCode.length > 0) {
+        vincEncontrada = vByCode[0];
       }
 
-      const { data: dataVinc } = await queryVinc.limit(1);
-      let vincEncontrada: VinculacionData | null = null;
-      if (dataVinc && dataVinc.length > 0) {
-        vincEncontrada = dataVinc[0];
+      // b) Búsqueda por cédula estudiante o representante
+      if (!vincEncontrada && soloNumeros.length >= 4) {
+        const { data: vByCedula } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('*')
+          .or(`cedula_estudiante.ilike.%${soloNumeros}%,cedula_representante.ilike.%${soloNumeros}%`)
+          .limit(1);
+
+        if (vByCedula && vByCedula.length > 0) {
+          vincEncontrada = vByCedula[0];
+        }
+      }
+
+      // c) Búsqueda por nombres
+      if (!vincEncontrada && cleanTerm.length >= 3) {
+        const { data: vByName } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('*')
+          .or(`nombres_estudiante.ilike.%${cleanTerm}%,apellidos_estudiante.ilike.%${cleanTerm}%`)
+          .limit(1);
+
+        if (vByName && vByName.length > 0) {
+          vincEncontrada = vByName[0];
+        }
+      }
+
+      if (vincEncontrada) {
         setVinculacion(vincEncontrada);
       }
 
-      // 2. Buscar en solicitudes_cupos
-      let queryCupo = supabase.from('solicitudes_cupos').select('*');
-      if (codigoUpper.startsWith('SC-') || codigoUpper.includes('-')) {
-        queryCupo = queryCupo.ilike('codigo_unico', `%${raw}%`);
-      } else if (soloNumeros.length >= 5) {
-        queryCupo = queryCupo.or(`estudiante_cedula.ilike.%${soloNumeros}%,representante_cedula.ilike.%${soloNumeros}%`);
-      } else {
-        queryCupo = queryCupo.or(`estudiante_nombres.ilike.%${raw}%,estudiante_apellidos.ilike.%${raw}%`);
+      // ─── 2. BUSCAR EN SOLICITUD_CUPOS (Y FALLBACK SOLICITUDES_CUPOS) ─────────
+      let cupoEncontrado: SolicitudCupoData | null = null;
+
+      const consultarTablaCupos = async (nombreTabla: string) => {
+        // a) Por código único
+        const { data: cByCode } = await supabase
+          .from(nombreTabla)
+          .select('*')
+          .ilike('codigo_unico', `%${cleanTerm}%`)
+          .limit(1);
+
+        if (cByCode && cByCode.length > 0) return cByCode[0];
+
+        // b) Por cédula estudiante o representante
+        if (soloNumeros.length >= 4) {
+          const { data: cByCedula } = await supabase
+            .from(nombreTabla)
+            .select('*')
+            .or(`estudiante_cedula.ilike.%${soloNumeros}%,representante_cedula.ilike.%${soloNumeros}%`)
+            .limit(1);
+
+          if (cByCedula && cByCedula.length > 0) return cByCedula[0];
+        }
+
+        // c) Por nombres
+        if (cleanTerm.length >= 3) {
+          const { data: cByName } = await supabase
+            .from(nombreTabla)
+            .select('*')
+            .or(`estudiante_nombres.ilike.%${cleanTerm}%,estudiante_apellidos.ilike.%${cleanTerm}%`)
+            .limit(1);
+
+          if (cByName && cByName.length > 0) return cByName[0];
+        }
+
+        return null;
+      };
+
+      try {
+        cupoEncontrado = await consultarTablaCupos('solicitud_cupos');
+      } catch (e) {
+        // Fallback
       }
 
-      const { data: dataCupo } = await queryCupo.limit(1);
-      let cupoEncontrado: SolicitudCupoData | null = null;
-      if (dataCupo && dataCupo.length > 0) {
-        cupoEncontrado = dataCupo[0];
+      if (!cupoEncontrado) {
+        try {
+          cupoEncontrado = await consultarTablaCupos('solicitudes_cupos');
+        } catch (e) {
+          // Ignorar
+        }
+      }
+
+      if (cupoEncontrado) {
         setSolicitudCupo(cupoEncontrado);
       }
 
-      // Si encontramos cupo y no vinculación con esa cédula, intentar cruzar por cédula
+      // ─── 3. BÚSQUEDA CRUZADA (CÉDULA) SI SÓLO SE ENCONTRÓ UNO ────────────────
       if (cupoEncontrado && !vincEncontrada && cupoEncontrado.estudiante_cedula) {
-        const { data: cruzado } = await supabase
-          .from('estudiantes_vinculaciones')
-          .select('*')
-          .ilike('cedula_estudiante', `%${cupoEncontrado.estudiante_cedula.replace(/\D/g, '')}%`)
-          .limit(1);
-        if (cruzado && cruzado.length > 0) {
-          vincEncontrada = cruzado[0];
-          setVinculacion(vincEncontrada);
+        const cedClean = cupoEncontrado.estudiante_cedula.replace(/\D/g, '');
+        if (cedClean.length >= 4) {
+          const { data: cruzado } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('*')
+            .ilike('cedula_estudiante', `%${cedClean}%`)
+            .limit(1);
+          if (cruzado && cruzado.length > 0) {
+            vincEncontrada = cruzado[0];
+            setVinculacion(vincEncontrada);
+          }
         }
       }
 
-      // Si encontramos vinculación y no cupo, intentar cruzar cupo por cédula
       if (vincEncontrada && !cupoEncontrado && vincEncontrada.cedula_estudiante) {
-        const { data: cruzadoCupo } = await supabase
-          .from('solicitudes_cupos')
-          .select('*')
-          .ilike('estudiante_cedula', `%${vincEncontrada.cedula_estudiante.replace(/\D/g, '')}%`)
-          .limit(1);
-        if (cruzadoCupo && cruzadoCupo.length > 0) {
-          cupoEncontrado = cruzadoCupo[0];
-          setSolicitudCupo(cupoEncontrado);
+        const cedClean = vincEncontrada.cedula_estudiante.replace(/\D/g, '');
+        if (cedClean.length >= 4) {
+          try {
+            const { data: cruzadoCupo } = await supabase
+              .from('solicitud_cupos')
+              .select('*')
+              .ilike('estudiante_cedula', `%${cedClean}%`)
+              .limit(1);
+            if (cruzadoCupo && cruzadoCupo.length > 0) {
+              cupoEncontrado = cruzadoCupo[0];
+              setSolicitudCupo(cupoEncontrado);
+            }
+          } catch (e) {}
         }
       }
 
-      // Cargar datos de director y firma si encontramos registro
+      // ─── 4. CARGAR FIRMA DIGITAL Y DATOS DE DIRECCIÓN ───────────────────────
       const escuelaFinal = vincEncontrada?.codigo_escuela || cupoEncontrado?.codigo_escuela || 'lb';
       const dir = await obtenerDatosDirectorAsync(escuelaFinal);
       const firma = await obtenerFirmaDirectorProtegida(escuelaFinal);
       setDirInfo(dir);
       setFirmaBase64(firma);
 
-      // Determinar vista por defecto
-      if (vincEncontrada) {
-        setVistaDoc('constancia');
-      } else if (cupoEncontrado) {
+      // Determinar qué pestaña mostrar según lo buscado
+      if (cleanTerm.toUpperCase().startsWith('SC-') || (!vincEncontrada && cupoEncontrado)) {
         setVistaDoc('cupo');
+      } else if (cleanTerm.toUpperCase().startsWith('FI-') || cleanTerm.toUpperCase().startsWith('RES-')) {
+        setVistaDoc('resumen');
+      } else {
+        setVistaDoc('constancia');
       }
 
     } catch (e) {
@@ -289,9 +391,10 @@ export const Verificaciones: React.FC = () => {
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
 
       const nombreEst = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Documento';
-      const fileName = `SIGAE_Verificacion_${vistaDoc === 'constancia' ? 'Constancia' : 'SolicitudCupo'}_${nombreEst.replace(/\s+/g, '_')}.pdf`;
+      const tipoTexto = vistaDoc === 'constancia' ? 'Constancia' : vistaDoc === 'resumen' ? 'Ficha_Integral' : 'Solicitud_Cupo';
+      const fileName = `SIGAE_${tipoTexto}_${nombreEst.replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
-      if (Swal) Swal.fire('¡PDF Generado!', 'El comprobante oficial ha sido descargado en ultra definición.', 'success');
+      if (Swal) Swal.fire('¡PDF Generado!', 'El documento oficial ha sido descargado en alta calidad.', 'success');
     } catch (e) {
       console.error('Error al generar PDF', e);
       if (Swal) Swal.fire('Error', 'No se pudo generar el documento PDF.', 'error');
@@ -302,7 +405,7 @@ export const Verificaciones: React.FC = () => {
 
   const handleCompartirWhatsApp = () => {
     const nombre = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Estudiante';
-    const codigo = vinculacion?.codigo_unico || solicitudCupo?.codigo_unico || 'SIN-CODIGO';
+    const codigo = vinculacion?.codigo_unico || solicitudCupo?.codigo_unico || codigoConstancia;
     const link = `${window.location.origin}/validar-constancia/${encodeURIComponent(codigo)}`;
     const texto = `*SIGAE - Verificación Oficial de Documento*\n\n` +
       `Estudiante: *${nombre}*\n` +
@@ -313,21 +416,27 @@ export const Verificaciones: React.FC = () => {
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
-  // Render variables
+  // ─── VARIABLES DE FORMATO Y DATOS ──────────────────────────────────────────
   const d = vinculacion?.datos_actualizados || {};
   const nombreEstudianteCompleto = `${vinculacion?.nombres_estudiante || d.estudiante_nombres || solicitudCupo?.estudiante_nombres || ''} ${vinculacion?.apellidos_estudiante || d.estudiante_apellidos || solicitudCupo?.estudiante_apellidos || ''}`.trim() || 'Estudiante Registrado';
   const cedulaEstudiante = vinculacion?.cedula_estudiante || d.estudiante_cedula || solicitudCupo?.estudiante_cedula || 'No posee';
-  const gradoEstudiante = vinculacion?.grado_actual || d.grado_solicitado || solicitudCupo?.grado_solicitado || 'Grado no especificado';
+  const gradoEstudiante = vinculacion?.grado_actual || d.grado_solicitado || solicitudCupo?.grado_solicitado || 'Grado asignado';
   const representanteNombre = `${d.representante_nombres || vinculacion?.nombres_representante || solicitudCupo?.representante_nombres || ''} ${d.representante_apellidos || vinculacion?.apellidos_representante || solicitudCupo?.representante_apellidos || ''}`.trim() || 'Representante Legal';
   const representanteCedula = d.representante_cedula || vinculacion?.cedula_representante || solicitudCupo?.representante_cedula || 'No registrada';
-  const codigoDocumento = vinculacion?.codigo_unico || solicitudCupo?.codigo_unico || `CI-${(vinculacion?.codigo_escuela || 'LB').toUpperCase()}-${cedulaEstudiante.replace(/\D/g, '') || '0000'}`;
 
   const anoActual = new Date().getFullYear();
   const anoProximo = anoActual + 1;
+  const cedulaLimpia = cedulaEstudiante.replace(/\D/g, '') || '0000';
+  const escuelaCodigo = (vinculacion?.codigo_escuela || solicitudCupo?.codigo_escuela || 'lb').toLowerCase();
 
-  const urlQr = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/validar-constancia/${encodeURIComponent(codigoDocumento)}`)}&bgcolor=ffffff&color=166534&margin=2`;
+  // Códigos de cada documento
+  const codigoConstancia = vinculacion?.codigo_unico || `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  const codigoSolicitud = solicitudCupo?.codigo_unico || `SC-${escuelaCodigo.toUpperCase()}-${anoActual}-${cedulaLimpia.slice(-4) || '0001'}`;
 
-  const escuelaCodigo = vinculacion?.codigo_escuela || solicitudCupo?.codigo_escuela || 'lb';
+  const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
+  const urlQrResumen = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`SIGAE:FI:${codigoResumen}:${nombreEstudianteCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
+
   const logoEscuela = `/assets/img/logo_${escuelaCodigo}.png`;
   const logoMppe = '/assets/img/logoMPPE.png';
 
@@ -355,7 +464,7 @@ export const Verificaciones: React.FC = () => {
             <div>
               <h3 className="fw-bold mb-0 text-dark">Módulo de Verificaciones Oficiales</h3>
               <p className="text-muted small mb-0">
-                Consulta y validación integral de Constancias de Inscripción, Solicitudes de Cupos y Fichas Estudiantiles.
+                Consulta y validación de Constancias de Inscripción, Resúmenes de Ficha Integral y Solicitudes de Cupo.
               </p>
             </div>
           </div>
@@ -382,7 +491,7 @@ export const Verificaciones: React.FC = () => {
           <div className="row g-3 align-items-center">
             <div className="col-12 col-lg-8">
               <label className="form-label fw-bold text-dark small mb-1">
-                <i className="bi bi-search me-1 text-success"></i> Código de Constancia / Código Único / Cédula del Estudiante o Representante:
+                <i className="bi bi-search me-1 text-success"></i> Código de Constancia (CI-), Resumen (FI-), Solicitud de Cupo (SC-) o Cédula:
               </label>
               <div className="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
                 <span className="input-group-text bg-light border-0 text-muted px-3">
@@ -391,7 +500,7 @@ export const Verificaciones: React.FC = () => {
                 <input
                   type="text"
                   className="form-control border-0 bg-light fs-6 fw-bold"
-                  placeholder="Ej: CI-LB-16808608-2026, SC-SB-0012, o 32.456.789"
+                  placeholder="Ej: CI-LB-17780095-2026, FI-SB-16808608-2026, SC-SB-0012, o 32.456.789"
                   value={codigoBusqueda}
                   onChange={(e) => setCodigoBusqueda(e.target.value)}
                   autoFocus
@@ -432,30 +541,66 @@ export const Verificaciones: React.FC = () => {
         </form>
 
         {/* ACCESOS RÁPIDOS RECIENTES */}
-        {historialReciente.length > 0 && !busquedaRealizada && (
+        {!busquedaRealizada && (
           <div className="mt-4 pt-3 border-top">
-            <small className="text-muted fw-bold text-uppercase d-block mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-              <i className="bi bi-clock-history me-1"></i> Consultas o Actualizaciones Recientes en el Plantel:
-            </small>
-            <div className="d-flex flex-wrap gap-2">
-              {historialReciente.map((rec, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => {
-                    setCodigoBusqueda(rec.codigo_unico || rec.cedula_estudiante);
-                    ejecutarBusqueda(rec.codigo_unico || rec.cedula_estudiante);
-                  }}
-                  className="btn btn-light btn-sm border rounded-pill px-3 py-1 text-dark fw-semibold d-flex align-items-center gap-1 shadow-none"
-                  style={{ fontSize: '0.82rem' }}
-                >
-                  <span className="badge bg-success bg-opacity-25 text-success rounded-circle p-1">
-                    <i className="bi bi-person-fill" style={{ fontSize: '10px' }}></i>
-                  </span>
-                  <span>{rec.nombres_estudiante} {rec.apellidos_estudiante}</span>
-                  <span className="text-muted font-monospace">({rec.cedula_estudiante})</span>
-                </button>
-              ))}
+            <div className="row g-3">
+              {recientesActualizaciones.length > 0 && (
+                <div className="col-12 col-md-6">
+                  <small className="text-muted fw-bold text-uppercase d-block mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                    <i className="bi bi-file-earmark-person-fill me-1 text-success"></i> Fichas y Constancias Recientes:
+                  </small>
+                  <div className="d-flex flex-wrap gap-2">
+                    {recientesActualizaciones.map((rec, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          const val = rec.codigo_unico || rec.cedula_estudiante;
+                          setCodigoBusqueda(val);
+                          ejecutarBusqueda(val);
+                        }}
+                        className="btn btn-light btn-sm border rounded-pill px-3 py-1 text-dark fw-semibold d-flex align-items-center gap-1 shadow-none"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        <span className="badge bg-success bg-opacity-25 text-success rounded-circle p-1">
+                          <i className="bi bi-person-fill" style={{ fontSize: '10px' }}></i>
+                        </span>
+                        <span>{rec.nombres_estudiante}</span>
+                        <span className="text-muted font-monospace">({rec.cedula_estudiante})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {recientesCupos.length > 0 && (
+                <div className="col-12 col-md-6">
+                  <small className="text-muted fw-bold text-uppercase d-block mb-2" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                    <i className="bi bi-envelope-paper-fill me-1 text-primary"></i> Solicitudes de Cupos Recientes:
+                  </small>
+                  <div className="d-flex flex-wrap gap-2">
+                    {recientesCupos.map((rec, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          const val = rec.codigo_unico || rec.estudiante_cedula;
+                          setCodigoBusqueda(val);
+                          ejecutarBusqueda(val);
+                        }}
+                        className="btn btn-light btn-sm border rounded-pill px-3 py-1 text-dark fw-semibold d-flex align-items-center gap-1 shadow-none"
+                        style={{ fontSize: '0.8rem' }}
+                      >
+                        <span className="badge bg-primary bg-opacity-25 text-primary rounded-circle p-1">
+                          <i className="bi bi-envelope-fill" style={{ fontSize: '10px' }}></i>
+                        </span>
+                        <span>{rec.estudiante_nombres}</span>
+                        <span className="text-primary font-monospace fw-bold">[{rec.codigo_unico}]</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -465,7 +610,7 @@ export const Verificaciones: React.FC = () => {
       {cargando && (
         <div className="card border-0 shadow-sm rounded-4 p-5 text-center bg-white my-4">
           <div className="spinner-border text-success mx-auto mb-3" style={{ width: '3rem', height: '3rem' }}></div>
-          <h5 className="fw-bold text-dark mb-1">Verificando autenticidad en la base de datos...</h5>
+          <h5 className="fw-bold text-dark mb-1">Verificando registros en la base de datos...</h5>
           <p className="text-muted small">Consultando Ficha Integral, registros de firmas y asignaciones de cupos.</p>
         </div>
       )}
@@ -475,9 +620,9 @@ export const Verificaciones: React.FC = () => {
           <div className="bg-danger bg-opacity-10 text-danger rounded-circle p-3 mx-auto mb-3 d-inline-flex">
             <i className="bi bi-file-earmark-x-fill fs-1"></i>
           </div>
-          <h4 className="fw-bold text-danger mb-1">Sin Registros Encontrados</h4>
+          <h4 className="fw-bold text-danger mb-1">No se encontró el documento</h4>
           <p className="text-muted mb-3">
-            No se encontró ninguna Constancia de Inscripción ni Solicitud de Cupo asociada al término <code>"{codigoBusqueda}"</code>.
+            No se localizó ninguna Constancia, Resumen de Actualización ni Solicitud de Cupo para: <code>"{codigoBusqueda}"</code>.
           </p>
           <div className="d-flex justify-content-center gap-2">
             <button onClick={() => setCodigoBusqueda('')} className="btn btn-outline-secondary rounded-pill px-4">
@@ -513,28 +658,26 @@ export const Verificaciones: React.FC = () => {
                 </div>
                 <p className="text-muted small mb-3">{estatusCupo.desc}</p>
                 
-                {solicitudCupo ? (
-                  <div className="bg-light rounded-3 p-3 small font-monospace">
-                    <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
-                      <span className="text-muted">Cód. Solicitud:</span>
-                      <b className="text-dark">{solicitudCupo.codigo_unico}</b>
-                    </div>
-                    <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
-                      <span className="text-muted">Prioridad / Sector:</span>
-                      <b className="text-primary">{solicitudCupo.prioridad || solicitudCupo.representante_tipo || 'Comunidad'}</b>
-                    </div>
-                    {solicitudCupo.requiere_transporte && (
-                      <div className="d-flex justify-content-between">
-                        <span className="text-muted">Ruta Transporte:</span>
-                        <b className="text-success">{solicitudCupo.ruta_transporte || 'Solicitado'}</b>
+                <div className="bg-light rounded-3 p-3 small font-monospace">
+                  <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
+                    <span className="text-muted">Cód. Solicitud:</span>
+                    <b className="text-primary">{solicitudCupo ? solicitudCupo.codigo_unico : 'Sin Solicitud'}</b>
+                  </div>
+                  {solicitudCupo && (
+                    <>
+                      <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
+                        <span className="text-muted">Prioridad / Sector:</span>
+                        <b className="text-dark">{solicitudCupo.prioridad || solicitudCupo.representante_tipo || 'Comunidad'}</b>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="alert alert-light border small text-muted mb-0">
-                    <i className="bi bi-info-circle me-1"></i> Este estudiante no registra solicitud de cupo nueva (es estudiante regular del plantel).
-                  </div>
-                )}
+                      {solicitudCupo.requiere_transporte && (
+                        <div className="d-flex justify-content-between">
+                          <span className="text-muted">Transporte Escolar:</span>
+                          <b className="text-success">🚍 {solicitudCupo.ruta_transporte || 'Solicitado'}</b>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -564,28 +707,22 @@ export const Verificaciones: React.FC = () => {
                   {estatusActualizacion ? estatusActualizacion.desc : 'No se han cargado los datos de actualización para este período escolar.'}
                 </p>
 
-                {vinculacion ? (
-                  <div className="bg-light rounded-3 p-3 small font-monospace">
-                    <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
-                      <span className="text-muted">Cód. Autenticidad:</span>
-                      <b className="text-success">{codigoDocumento}</b>
-                    </div>
-                    <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
-                      <span className="text-muted">Grado Actual:</span>
-                      <b className="text-dark">{vinculacion.grado_actual || 'Asignado'}</b>
-                    </div>
-                    <div className="d-flex justify-content-between">
-                      <span className="text-muted">Última Actualización:</span>
-                      <b className="text-dark">
-                        {vinculacion.fecha_ultima_actualizacion ? new Date(vinculacion.fecha_ultima_actualizacion).toLocaleDateString('es-VE') : 'No registrada'}
-                      </b>
-                    </div>
+                <div className="bg-light rounded-3 p-3 small font-monospace">
+                  <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
+                    <span className="text-muted">Cód. Constancia:</span>
+                    <b className="text-success">{codigoConstancia}</b>
                   </div>
-                ) : (
-                  <div className="alert alert-light border small text-muted mb-0">
-                    <i className="bi bi-info-circle me-1"></i> El estudiante debe ingresar al módulo de Actualización de Datos para validar su expediente.
+                  <div className="d-flex justify-content-between border-bottom pb-1 mb-1">
+                    <span className="text-muted">Cód. Resumen Ficha:</span>
+                    <b className="text-dark">{codigoResumen}</b>
                   </div>
-                )}
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted">Última Actualización:</span>
+                    <b className="text-dark">
+                      {vinculacion?.fecha_ultima_actualizacion ? new Date(vinculacion.fecha_ultima_actualizacion).toLocaleDateString('es-VE') : 'No registrada'}
+                    </b>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -593,23 +730,30 @@ export const Verificaciones: React.FC = () => {
 
           {/* ─── SELECTOR DE PESTAÑAS Y ACCIONES ───────────────────────────── */}
           <div className="d-flex flex-wrap justify-content-between align-items-center bg-white p-3 rounded-4 shadow-sm mb-4 gap-3">
-            <div className="btn-group p-1 bg-light rounded-pill">
-              {vinculacion && (
-                <button
-                  type="button"
-                  onClick={() => setVistaDoc('constancia')}
-                  className={`btn rounded-pill fw-bold px-4 py-2 ${vistaDoc === 'constancia' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
-                >
-                  <i className="bi bi-award-fill me-1"></i> Constancia de Inscripción Oficial
-                </button>
-              )}
+            <div className="btn-group p-1 bg-light rounded-pill flex-wrap">
+              <button
+                type="button"
+                onClick={() => setVistaDoc('constancia')}
+                className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'constancia' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
+              >
+                <i className="bi bi-award-fill me-1"></i> Constancia de Inscripción
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setVistaDoc('resumen')}
+                className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'resumen' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
+              >
+                <i className="bi bi-file-earmark-text-fill me-1"></i> Resumen de Actualización
+              </button>
+
               {solicitudCupo && (
                 <button
                   type="button"
                   onClick={() => setVistaDoc('cupo')}
-                  className={`btn rounded-pill fw-bold px-4 py-2 ${vistaDoc === 'cupo' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted'}`}
+                  className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'cupo' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted'}`}
                 >
-                  <i className="bi bi-envelope-check-fill me-1"></i> Comprobante de Solicitud de Cupo
+                  <i className="bi bi-envelope-check-fill me-1"></i> Solicitud de Cupo
                 </button>
               )}
             </div>
@@ -626,7 +770,7 @@ export const Verificaciones: React.FC = () => {
                 ) : (
                   <i className="bi bi-file-earmark-pdf-fill fs-5"></i>
                 )}
-                Descargar PDF Oficial
+                Descargar PDF
               </button>
               <button
                 type="button"
@@ -649,8 +793,8 @@ export const Verificaciones: React.FC = () => {
           {/* ─── VISOR DE DOCUMENTO OFICIAL (RÉPLICA EXACTA) ───────────────── */}
           <div className="d-flex justify-content-center">
             
-            {vistaDoc === 'constancia' ? (
-              /* CONSTANCIA DE INSCRIPCIÓN OFICIAL */
+            {/* 1. CONSTANCIA DE INSCRIPCIÓN OFICIAL */}
+            {vistaDoc === 'constancia' && (
               <div 
                 ref={docRef}
                 className="bg-white shadow-lg rounded-4 p-4 p-md-5 mb-5 animate__animated animate__fadeIn"
@@ -716,9 +860,9 @@ export const Verificaciones: React.FC = () => {
                   </div>
 
                   <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '85px' }}>
-                    <img src={urlQr} alt="QR Verificación" style={{ height: '70px', width: '70px', display: 'block', margin: '0 auto' }} />
+                    <img src={urlQrConstancia} alt="QR Verificación" style={{ height: '70px', width: '70px', display: 'block', margin: '0 auto' }} />
                     <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>VERIFICACIÓN QR</span>
-                    <span style={{ fontSize: '6.5px', color: '#64748b', fontFamily: 'monospace', display: 'block' }}>{codigoDocumento}</span>
+                    <span style={{ fontSize: '6.5px', color: '#64748b', fontFamily: 'monospace', display: 'block' }}>{codigoConstancia}</span>
                   </div>
                 </div>
 
@@ -728,14 +872,134 @@ export const Verificaciones: React.FC = () => {
                     <img src={logoMppe} alt="MPPE" style={{ height: '40px', width: 'auto' }} />
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
-                    SIGAE - Control Estudiantil | Documento Oficial Verificable mediante Código QR<br/>
-                    Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoDocumento}</b>
+                    SIGAE - Control Estudiantil | Constancia Oficial Verificable mediante Código QR<br/>
+                    Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoConstancia}</b>
                   </div>
                 </div>
 
               </div>
-            ) : (
-              /* COMPROBANTE DE SOLICITUD DE CUPO */
+            )}
+
+            {/* 2. RESUMEN DE ACTUALIZACIÓN (FICHA INTEGRAL) */}
+            {vistaDoc === 'resumen' && (
+              <div 
+                ref={docRef}
+                className="bg-white shadow-lg rounded-4 p-4 p-md-5 mb-5 animate__animated animate__fadeIn"
+                style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box' }}
+              >
+                {/* BANDERA DE VENEZUELA */}
+                <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
+                  <div style={{ height: '8px', backgroundColor: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7px', lineHeight: '1' }}>
+                    <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                  </div>
+                  <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
+                </div>
+
+                {/* ENCABEZADO INSTITUCIONAL */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '20px', position: 'relative' }}>
+                  <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto', position: 'absolute', left: 0 }} />
+                  <div style={{ textAlign: 'center', width: '100%' }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', lineHeight: '1.4', textTransform: 'uppercase', color: '#000000' }}>
+                      República Bolivariana de Venezuela<br/>
+                      Ministerio del Poder Popular para la Educación<br/>
+                      {dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}
+                    </div>
+                  </div>
+                </div>
+
+                {/* TÍTULO DEL RESUMEN */}
+                <div style={{ textAlign: 'center', margin: '15px 0 20px' }}>
+                  <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 'bold', color: '#166534', textTransform: 'uppercase' }}>
+                    Resumen de Actualización de Datos (Ficha Integral)
+                  </h2>
+                  <span className="badge bg-success px-3 py-1 rounded-pill mt-1 fw-bold">
+                    Año Escolar {anoActual} – {anoProximo}
+                  </span>
+                </div>
+
+                {/* BLOQUES DE DATOS DE LA FICHA INTEGRAL */}
+                <div className="d-flex flex-column gap-3 mb-4">
+                  
+                  {/* BLOQUE 1: REPRESENTANTE LEGAL */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                    <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                      <i className="bi bi-person-badge me-1 text-success"></i> 1. Representante Legal
+                    </h6>
+                    <div className="row g-2 small font-monospace">
+                      <div className="col-md-6"><b>Nombre:</b> {representanteNombre}</div>
+                      <div className="col-md-6"><b>Cédula:</b> {representanteCedula}</div>
+                      <div className="col-md-6"><b>Teléfono:</b> {d.representante_telefono || 'No registrado'}</div>
+                      <div className="col-md-6"><b>Correo:</b> {d.representante_email || 'No registrado'}</div>
+                      <div className="col-md-6"><b>Vínculo / Parentesco:</b> {d.representante_parentesco || 'Representante Legal'}</div>
+                      <div className="col-md-6"><b>¿Trabaja en PDVSA?:</b> {d.representante_trabaja_pdvsa || 'No'}</div>
+                    </div>
+                  </div>
+
+                  {/* BLOQUE 2: DATOS DEL ESTUDIANTE */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                    <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                      <i className="bi bi-mortarboard me-1 text-success"></i> 2. Identificación del Estudiante
+                    </h6>
+                    <div className="row g-2 small font-monospace">
+                      <div className="col-md-6"><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
+                      <div className="col-md-6"><b>Cédula:</b> {cedulaEstudiante}</div>
+                      <div className="col-md-6"><b>Fecha Nacimiento:</b> {d.estudiante_fecha_nacimiento || 'No registrada'}</div>
+                      <div className="col-md-6"><b>Género:</b> {d.estudiante_genero || 'No informado'}</div>
+                      <div className="col-md-6"><b>Grado Actual:</b> <b className="text-primary">{gradoEstudiante}</b></div>
+                      <div className="col-md-6"><b>Sección:</b> {vinculacion?.seccion_actual || d.seccion_actual || 'A'}</div>
+                    </div>
+                  </div>
+
+                  {/* BLOQUE 3: SALUD Y CONDICIONES ESPECIALES */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                    <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                      <i className="bi bi-heart-pulse me-1 text-danger"></i> 3. Salud y Antropometría
+                    </h6>
+                    <div className="row g-2 small font-monospace">
+                      <div className="col-md-4"><b>Tipo de Sangre:</b> {d.salud_tipo_sangre || 'No informado'}</div>
+                      <div className="col-md-4"><b>Estatura (cm):</b> {d.salud_estatura || '—'}</div>
+                      <div className="col-md-4"><b>Peso (kg):</b> {d.salud_peso || '—'}</div>
+                      <div className="col-md-6"><b>Talla Camisa / Pantalón:</b> {d.salud_talla_camisa || '—'} / {d.salud_talla_pantalon || '—'}</div>
+                      <div className="col-md-6"><b>Calzado:</b> {d.salud_talla_calzado || '—'}</div>
+                      <div className="col-12"><b>Alergias / Padecimientos:</b> {d.salud_alergias || 'Ninguna manifestada'}</div>
+                    </div>
+                  </div>
+
+                  {/* BLOQUE 4: UBICACIÓN Y SERVICIOS */}
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                    <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                      <i className="bi bi-geo-alt me-1 text-primary"></i> 4. Ubicación Domiciliaria
+                    </h6>
+                    <div className="row g-2 small font-monospace">
+                      <div className="col-12"><b>Dirección de Habitación:</b> {d.direccion_vivienda || d.direccion_habitacion || 'Santa Bárbara / Miraflores, Monagas'}</div>
+                      <div className="col-md-6"><b>Punto de Referencia:</b> {d.direccion_punto_referencia || 'No indicado'}</div>
+                      <div className="col-md-6"><b>Sector:</b> {d.direccion_sector || 'Comunidad'}</div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* PIE DE PÁGINA CON CÓDIGO QR Y LOGO MPPE */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1.5px solid #cbd5e1', paddingTop: '15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src={logoMppe} alt="MPPE" style={{ height: '38px', width: 'auto' }} />
+                  </div>
+                  <div style={{ textAlign: 'center', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '8px', background: '#ffffff' }}>
+                    <img src={urlQrResumen} alt="QR Resumen" style={{ height: '55px', width: '55px', display: 'block', margin: '0 auto' }} />
+                    <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace' }}>RESUMEN VALIDADO</span>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
+                    SIGAE - Ficha Integral de Actualización<br/>
+                    Cód. Resumen: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoResumen}</b>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* 3. COMPROBANTE DE SOLICITUD DE CUPO */}
+            {vistaDoc === 'cupo' && (
               <div 
                 ref={docRef}
                 className="bg-white shadow-lg rounded-4 p-4 p-md-5 mb-5 animate__animated animate__fadeIn"
@@ -778,7 +1042,7 @@ export const Verificaciones: React.FC = () => {
                   <div className="row g-2 font-monospace">
                     <div className="col-md-6">
                       <span className="text-muted d-block small">Código Único de Solicitud:</span>
-                      <b className="fs-5 text-primary">{solicitudCupo?.codigo_unico}</b>
+                      <b className="fs-5 text-primary">{codigoSolicitud}</b>
                     </div>
                     <div className="col-md-6 text-md-end">
                       <span className="text-muted d-block small">Estatus del Trámite:</span>
@@ -793,10 +1057,10 @@ export const Verificaciones: React.FC = () => {
                 <div style={{ fontSize: '13.5px', lineHeight: '2.1', color: '#000000', marginLeft: '8px', marginBottom: '25px' }}>
                   <div><b>Estudiante Postulado:</b> {nombreEstudianteCompleto}</div>
                   <div><b>Cédula del Estudiante:</b> {cedulaEstudiante}</div>
-                  <div><b>Grado / Año Solicitado:</b> <span style={{ color: '#2563eb', fontWeight: 'bold' }}>{solicitudCupo?.grado_solicitado}</span></div>
+                  <div><b>Grado / Año Solicitado:</b> <span style={{ color: '#2563eb', fontWeight: 'bold' }}>{solicitudCupo?.grado_solicitado || gradoEstudiante}</span></div>
                   <div><b>Representante Legal:</b> {representanteNombre}</div>
                   <div><b>Cédula del Representante:</b> {representanteCedula}</div>
-                  <div><b>Teléfono de Contacto:</b> {solicitudCupo?.representante_telefono || 'No registrado'}</div>
+                  <div><b>Teléfono de Contacto:</b> {solicitudCupo?.representante_telefono || d.representante_telefono || 'No registrado'}</div>
                   <div><b>Sector de Procedencia / Prioridad:</b> {solicitudCupo?.prioridad || solicitudCupo?.representante_tipo || 'Comunidad General'}</div>
                   {solicitudCupo?.requiere_transporte && (
                     <div><b>Transporte Escolar Solicitado:</b> 🚍 {solicitudCupo?.ruta_transporte}</div>
@@ -822,7 +1086,7 @@ export const Verificaciones: React.FC = () => {
                   <img src={logoMppe} alt="MPPE" style={{ height: '38px', width: 'auto' }} />
                   <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
                     SIGAE - Sistema de Gestión Escolar | Comprobante de Admisión<br/>
-                    Cód. Verificación: <b style={{ color: '#2563eb', fontFamily: 'monospace' }}>{solicitudCupo?.codigo_unico}</b>
+                    Cód. Verificación: <b style={{ color: '#2563eb', fontFamily: 'monospace' }}>{codigoSolicitud}</b>
                   </div>
                 </div>
 
