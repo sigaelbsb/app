@@ -811,7 +811,7 @@ export const ActualizacionDatos: React.FC = () => {
 
     const cedulaLimpia = (datosEst.cedula_estudiante || formDatos.estudiante_cedula || datosEst.id || '000').toString().replace(/\D/g, '');
     const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `FI-${escCodigo.toUpperCase()}-${cedulaLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoActual}`;
-    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`SIGAE:FI:${codigoUnico}:${nombreCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`SIGAE:FI:${codigoUnico}:${nombreCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
 
     let base64LogoEscuela = `/assets/img/logo_${escCodigo}.png`;
     let base64Mppe = '/assets/img/logoMPPE.png';
@@ -1119,7 +1119,8 @@ export const ActualizacionDatos: React.FC = () => {
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: 'letter'
+        format: 'letter',
+        compress: true
       });
       const pdfWidth = pdf.internal.pageSize.getWidth();
 
@@ -1137,15 +1138,24 @@ export const ActualizacionDatos: React.FC = () => {
         clon.style.color = '#0f172a';
         clon.style.padding = '25px';
         clon.style.background = '#ffffff';
+        clon.style.setProperty('-webkit-font-smoothing', 'antialiased');
+        clon.style.textRendering = 'geometricPrecision';
         clon.innerHTML = paginas[i];
 
         document.body.appendChild(clon);
-        await new Promise(res => setTimeout(res, 300));
+        await new Promise(res => setTimeout(res, 350));
 
-        const canvas = await html2canvas(clon, { scale: 1.5, backgroundColor: '#ffffff', logging: false, useCORS: true });
+        const canvas = await html2canvas(clon, { 
+          scale: 2.8, 
+          backgroundColor: '#ffffff', 
+          logging: false, 
+          useCORS: true,
+          allowTaint: true,
+          imageTimeout: 15000
+        });
         const imgData = canvas.toDataURL('image/png');
         const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
 
         document.body.removeChild(clon);
       }

@@ -1214,13 +1214,15 @@ export const SolicitudCupos = () => {
       ]);
 
       const clon = document.createElement('div');
-      clon.style.width = '600px';
+      clon.style.width = '750px';
       clon.style.position = 'fixed';
       clon.style.left = '-9999px';
       clon.style.top = '0';
       clon.style.fontFamily = "'Inter', 'Segoe UI', Roboto, sans-serif";
       clon.style.padding = '25px';
       clon.style.background = '#ffffff';
+      clon.style.setProperty('-webkit-font-smoothing', 'antialiased');
+      clon.style.textRendering = 'geometricPrecision';
 
       const fechaHoy = new Date().toLocaleDateString('es-VE', {
         year: 'numeric', month: 'long', day: 'numeric',
@@ -1349,7 +1351,14 @@ export const SolicitudCupos = () => {
       
       await new Promise(res => setTimeout(res, 500));
 
-      const canvas = await html2canvas(clon, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true });
+      const canvas = await html2canvas(clon, { 
+        scale: 2.8, 
+        backgroundColor: '#ffffff', 
+        logging: false, 
+        useCORS: true,
+        allowTaint: true,
+        imageTimeout: 15000
+      });
       document.body.removeChild(clon);
 
       const anoActual = new Date().getFullYear();
@@ -1589,7 +1598,7 @@ export const SolicitudCupos = () => {
   };
 
   const getQrUrl = (codigo: string) =>
-    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=SC:${encodeURIComponent(codigo)}&bgcolor=ffffff&color=166534&margin=10`;
+    `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=SC:${encodeURIComponent(codigo)}&bgcolor=ffffff&color=166534&margin=2`;
 
   // ─── WIZARD STEPPER ──────────────────────────────────────────────────────────
   const STEPS = [
