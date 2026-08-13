@@ -29,6 +29,7 @@ import { GestionAdmisiones } from './pages/estudiantil/GestionAdmisiones';
 import { VincularEstudiante } from './pages/estudiantil/VincularEstudiante';
 import { ValidarConstancia } from './pages/estudiantil/ValidarConstancia';
 import { ActualizacionDatos } from './pages/estudiantil/ActualizacionDatos';
+import { Verificaciones } from './pages/estudiantil/Verificaciones';
 import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
 import { EstudioDiseno } from './pages/disenos/EstudioDiseno';
 import { InstallPwaModal } from './components/InstallPwaModal';
@@ -158,6 +159,7 @@ function App() {
             <Route path="categoria/Gestión Estudiantil/Gestión de Admisiones" element={<GestionAdmisiones />} />
             <Route path="categoria/Gestión Estudiantil/Vincular Estudiante" element={<VincularEstudiante />} />
             <Route path="categoria/Gestión Estudiantil/Actualización de Datos" element={<ActualizacionDatos />} />
+            <Route path="categoria/Gestión Estudiantil/Verificaciones" element={<Verificaciones />} />
             <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<TransporteEscolar />} />
             <Route path="categoria/Diseños/Galería y Plantillas" element={<EstudioDiseno herramientaInicial="galeria" />} />
             <Route path="categoria/Diseños/Creador de Certificados" element={<EstudioDiseno herramientaInicial="certificados" />} />
