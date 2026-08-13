@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import jsQR from 'jsqr';
 import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida } from '../../utils/firmasSeguras';
 
 interface VinculacionData {
@@ -46,6 +47,28 @@ interface SolicitudCupoData {
 }
 
 /**
+ * Función que extrae el código limpio de cualquier formato o URL de QR
+ */
+const extraerCodigoDeQR = (textoQr: string): string => {
+  let raw = textoQr.trim();
+
+  // Si es una URL (ej: https://dominio/validar-constancia/CI-LB-17780095-2026)
+  if (raw.includes('/validar-constancia/')) {
+    raw = raw.split('/validar-constancia/').pop()?.split('?')[0] || raw;
+  }
+
+  // Si viene con formato interno SIGAE:FI:CODIGO:...
+  if (raw.startsWith('SIGAE:')) {
+    const partes = raw.split(':');
+    if (partes.length >= 3) {
+      raw = partes[2];
+    }
+  }
+
+  return raw.replace(/['"%;]/g, '').trim().toUpperCase();
+};
+
+/**
  * Función inteligente que auto-completa los guiones (-) y mayúsculas
  * mientras el usuario escribe en el campo de búsqueda.
  */
@@ -79,11 +102,6 @@ const autoCompletarGuiones = (val: string, valAnterior: string): string => {
     }
 
     const partes = raw.split('-');
-    // partes[0] = "CI"
-    // partes[1] = "LB" o "SB"
-    // partes[2] = cedula o año
-    // partes[3] = año o correlativo
-
     // Después de la escuela (LB o SB), auto-agregar guión
     if (partes.length === 2 && partes[1].length === 2 && ['LB', 'SB'].includes(partes[1])) {
       return `${partes[0]}-${partes[1]}-`;
@@ -125,8 +143,19 @@ export const Verificaciones: React.FC = () => {
   const [dirInfo, setDirInfo] = useState<any>(null);
   const [firmaBase64, setFirmaBase64] = useState<string>('');
 
+  // ─── ESTADOS DEL ESCÁNER DE CÁMARA QR ─────────────────────────────────────
+  const [mostrarEscaner, setMostrarEscaner] = useState(false);
+  const [camaraActiva, setCamaraActiva] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [errorCamara, setErrorCamara] = useState<string | null>(null);
+
   const docRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationFrameId = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const Swal = (window as any).Swal;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,13 +263,9 @@ export const Verificaciones: React.FC = () => {
     };
   };
 
-  const ejecutarBusqueda = async (terminoParam?: string) => {
+  const ejecutarBusqueda = useCallback(async (terminoParam?: string) => {
     let raw = (terminoParam !== undefined ? terminoParam : codigoBusqueda).trim();
-    
-    // Si pegaron una URL de validación, extraer el código final
-    if (raw.includes('/validar-constancia/')) {
-      raw = raw.split('/validar-constancia/').pop()?.split('?')[0] || raw;
-    }
+    raw = extraerCodigoDeQR(raw);
 
     if (!raw) {
       if (Swal) Swal.fire('Ingresa un código', 'Por favor escribe el código de la constancia, resumen, cupo o cédula.', 'info');
@@ -418,7 +443,179 @@ export const Verificaciones: React.FC = () => {
     } finally {
       setCargando(false);
     }
+  }, [codigoBusqueda, Swal]);
+
+  // ─── REPRODUCIR SONIDO DE ÉXITO AL DETECTAR QR ────────────────────────────
+  const reproducirBeepExito = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 880Hz (A5)
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    } catch (e) {
+      // Audio no disponible
+    }
   };
+
+  // ─── CONTROL DEL ESCÁNER DE CÁMARA ────────────────────────────────────────
+  const detenerCamara = useCallback(() => {
+    if (animationFrameId.current) {
+      cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setCamaraActiva(false);
+  }, []);
+
+  const iniciarCamara = useCallback(async (facing: 'environment' | 'user' = facingMode) => {
+    setErrorCamara(null);
+    detenerCamara();
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Tu navegador o dispositivo no soporta acceso a la cámara.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        await videoRef.current.play();
+        setCamaraActiva(true);
+        escanearFrame();
+      }
+    } catch (err: any) {
+      console.error('Error al acceder a la cámara:', err);
+      let msg = 'No se pudo acceder a la cámara.';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        msg = 'Permiso denegado. Permite el acceso a la cámara en los ajustes de tu navegador.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        msg = 'No se encontró ninguna cámara conectada en tu equipo.';
+      }
+      setErrorCamara(msg);
+      setCamaraActiva(false);
+    }
+  }, [facingMode, detenerCamara]);
+
+  const escanearFrame = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA && ctx) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert'
+      });
+
+      if (code && code.data) {
+        reproducirBeepExito();
+        const codigoExtraido = extraerCodigoDeQR(code.data);
+        
+        detenerCamara();
+        setMostrarEscaner(false);
+        setCodigoBusqueda(codigoExtraido);
+        ejecutarBusqueda(codigoExtraido);
+
+        if (Swal) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Código QR Detectado!',
+            text: `Código: ${codigoExtraido}`,
+            timer: 1800,
+            showConfirmButton: false
+          });
+        }
+        return;
+      }
+    }
+
+    animationFrameId.current = requestAnimationFrame(escanearFrame);
+  };
+
+  const abrirEscaner = () => {
+    setMostrarEscaner(true);
+    setTimeout(() => {
+      iniciarCamara('environment');
+    }, 150);
+  };
+
+  const cerrarEscaner = () => {
+    detenerCamara();
+    setMostrarEscaner(false);
+  };
+
+  const alternarCamara = () => {
+    const nuevoModo = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nuevoModo);
+    iniciarCamara(nuevoModo);
+  };
+
+  const handleSubirImagenQr = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (code && code.data) {
+          reproducirBeepExito();
+          const codigoExtraido = extraerCodigoDeQR(code.data);
+          cerrarEscaner();
+          setCodigoBusqueda(codigoExtraido);
+          ejecutarBusqueda(codigoExtraido);
+          if (Swal) Swal.fire({ icon: 'success', title: '¡Código Detectado!', text: codigoExtraido, timer: 1800, showConfirmButton: false });
+        } else {
+          if (Swal) Swal.fire('No se detectó QR', 'No se encontró ningún código QR legible en la imagen seleccionada.', 'warning');
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  useEffect(() => {
+    return () => {
+      detenerCamara();
+    };
+  }, [detenerCamara]);
 
   const handleDescargarPdf = async () => {
     if (!docRef.current) return;
@@ -438,8 +635,8 @@ export const Verificaciones: React.FC = () => {
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
 
-      const nombreEst = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Documento';
-      const tipoTexto = vistaDoc === 'constancia' ? 'Constancia' : vistaDoc === 'resumen' ? 'Ficha_Integral' : 'Solicitud_Cupo';
+      const nombreEst = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Estudiante';
+      const tipoTexto = vistaDoc === 'constancia' ? 'Constancia_Actualizacion' : vistaDoc === 'resumen' ? 'Ficha_Integral' : 'Solicitud_Cupo';
       const fileName = `SIGAE_${tipoTexto}_${nombreEst.replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
       if (Swal) Swal.fire('¡PDF Generado!', 'El documento oficial ha sido descargado en alta calidad.', 'success');
@@ -482,8 +679,9 @@ export const Verificaciones: React.FC = () => {
   const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
   const codigoSolicitud = solicitudCupo?.codigo_unico || `SC-${escuelaCodigo.toUpperCase()}-${anoActual}-${cedulaLimpia.slice(-4) || '0001'}`;
 
-  const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
-  const urlQrResumen = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`SIGAE:FI:${codigoResumen}:${nombreEstudianteCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
+  // URL del QR oficial con el código embebido
+  const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
+  const urlQrResumen = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`SIGAE:FI:${codigoResumen}:${nombreEstudianteCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
 
   const logoEscuela = `/assets/img/logo_${escuelaCodigo}.png`;
   const logoMppe = '/assets/img/logoMPPE.png';
@@ -512,13 +710,23 @@ export const Verificaciones: React.FC = () => {
             <div>
               <h3 className="fw-bold mb-0 text-dark">Módulo de Verificaciones Oficiales</h3>
               <p className="text-muted small mb-0">
-                Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos.
+                Consulta y validación segura de Constancias de Actualización de Datos, Fichas Integrales y Solicitudes de Cupos.
               </p>
             </div>
           </div>
         </div>
 
         <div className="d-flex gap-2">
+          <button 
+            type="button"
+            onClick={abrirEscaner} 
+            className="btn btn-success fw-bold rounded-pill px-3 shadow-sm d-flex align-items-center gap-2"
+            style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
+          >
+            <i className="bi bi-camera-fill fs-5"></i>
+            <span>Escanear QR con Cámara</span>
+          </button>
+
           <button 
             onClick={() => {
               setCodigoBusqueda('');
@@ -534,17 +742,33 @@ export const Verificaciones: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── BUSCADOR UNIVERSAL CON AUTOCOMPLETADO INTELIGENTE ─────────────── */}
+      {/* ─── BUSCADOR UNIVERSAL CON AUTOCOMPLETADO INTELIGENTE Y BOTÓN CÁMARA ─ */}
       <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white border-top border-4 border-success">
         <form onSubmit={(e) => { e.preventDefault(); ejecutarBusqueda(); }}>
-          <label className="form-label fw-bold text-dark small mb-1">
-            <i className="bi bi-search me-1 text-success"></i> Ingresa el Código Oficial o Cédula de Identidad:
-          </label>
+          <div className="d-flex justify-content-between align-items-center mb-1">
+            <label className="form-label fw-bold text-dark small mb-0">
+              <i className="bi bi-search me-1 text-success"></i> Ingresa el Código Oficial, Cédula de Identidad o Escanea con tu Cámara:
+            </label>
+            <button
+              type="button"
+              onClick={abrirEscaner}
+              className="btn btn-link btn-sm text-success fw-bold text-decoration-none p-0"
+            >
+              <i className="bi bi-qr-code-scan me-1"></i> Abrir Lector QR
+            </button>
+          </div>
 
           <div className="input-group input-group-lg shadow-sm rounded-3 overflow-hidden mb-2">
-            <span className="input-group-text bg-light border-0 text-muted px-3">
-              <i className="bi bi-upc-scan fs-5 text-success"></i>
-            </span>
+            <button
+              type="button"
+              onClick={abrirEscaner}
+              className="btn btn-success px-3 d-flex align-items-center gap-1"
+              title="Escanear Código QR con Cámara"
+              style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
+            >
+              <i className="bi bi-qr-code-scan fs-4"></i>
+              <span className="d-none d-md-inline small fw-bold">Escanear</span>
+            </button>
             <input
               ref={inputRef}
               type="text"
@@ -568,9 +792,8 @@ export const Verificaciones: React.FC = () => {
             )}
             <button
               type="submit"
-              className="btn btn-success px-4 fw-bold shadow-sm d-flex align-items-center gap-2"
+              className="btn btn-dark px-4 fw-bold shadow-sm d-flex align-items-center gap-2"
               disabled={cargando}
-              style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
             >
               {cargando ? (
                 <>
@@ -579,7 +802,7 @@ export const Verificaciones: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <i className="bi bi-shield-check fs-5"></i>
+                  <i className="bi bi-shield-check fs-5 text-success"></i>
                   Verificar
                 </>
               )}
@@ -643,6 +866,118 @@ export const Verificaciones: React.FC = () => {
         </form>
       </div>
 
+      {/* ─── MODAL / VISOR DE ESCÁNER DE CÁMARA QR ─────────────────────────── */}
+      {mostrarEscaner && (
+        <div 
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1060, backdropFilter: 'blur(4px)' }}
+        >
+          <div className="card border-0 rounded-4 shadow-lg overflow-hidden bg-dark text-white" style={{ width: '500px', maxWidth: '94%' }}>
+            {/* Header del Escáner */}
+            <div className="d-flex justify-content-between align-items-center p-3 bg-black border-bottom border-secondary">
+              <div className="d-flex align-items-center gap-2">
+                <i className="bi bi-camera-fill text-success fs-5"></i>
+                <h6 className="fw-bold mb-0 text-white">Escáner de Código QR</h6>
+              </div>
+              <button 
+                type="button" 
+                onClick={cerrarEscaner} 
+                className="btn btn-sm btn-outline-light rounded-circle"
+                style={{ width: '32px', height: '32px', padding: 0 }}
+              >
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+
+            {/* Visor de Cámara con Marco Holográfico */}
+            <div className="position-relative bg-black d-flex align-items-center justify-content-center" style={{ minHeight: '340px', overflow: 'hidden' }}>
+              <video 
+                ref={videoRef} 
+                className="w-100 h-100" 
+                style={{ objectFit: 'cover', minHeight: '340px', maxHeight: '420px' }} 
+              />
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+              {/* Guía Visual / Marco de Escaneo con Láser */}
+              {camaraActiva && (
+                <div 
+                  className="position-absolute" 
+                  style={{
+                    width: '240px',
+                    height: '240px',
+                    border: '3px solid #22c55e',
+                    borderRadius: '16px',
+                    boxShadow: '0 0 20px rgba(34,197,94,0.6), inset 0 0 15px rgba(34,197,94,0.3)',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  {/* Línea Láser Animada */}
+                  <div 
+                    style={{
+                      width: '100%',
+                      height: '3px',
+                      backgroundColor: '#22c55e',
+                      boxShadow: '0 0 10px #22c55e',
+                      position: 'absolute',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      animation: 'pulse 1.5s infinite'
+                    }}
+                  ></div>
+                </div>
+              )}
+
+              {/* Mensaje de Error si la cámara no abre */}
+              {errorCamara && (
+                <div className="position-absolute p-4 text-center">
+                  <i className="bi bi-exclamation-triangle-fill text-warning fs-1 mb-2"></i>
+                  <p className="text-white small mb-3">{errorCamara}</p>
+                  <button 
+                    type="button" 
+                    onClick={() => iniciarCamara()} 
+                    className="btn btn-sm btn-success rounded-pill px-3 fw-bold"
+                  >
+                    <i className="bi bi-arrow-clockwise me-1"></i> Reintentar
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Controles del Escáner */}
+            <div className="p-3 bg-dark border-top border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div className="d-flex gap-2">
+                <button
+                  type="button"
+                  onClick={alternarCamara}
+                  className="btn btn-sm btn-outline-light rounded-pill px-3"
+                  title="Cambiar Cámara (Frontal / Trasera)"
+                >
+                  <i className="bi bi-arrow-repeat me-1"></i> Cambiar Cámara
+                </button>
+
+                <label className="btn btn-sm btn-outline-success rounded-pill px-3 mb-0 cursor-pointer">
+                  <i className="bi bi-image me-1"></i> Subir Imagen QR
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleSubirImagenQr}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={cerrarEscaner}
+                className="btn btn-sm btn-secondary rounded-pill px-3"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── RESULTADOS DE LA CONSULTA ───────────────────────────────────── */}
       {cargando && (
         <div className="card border-0 shadow-sm rounded-4 p-5 text-center bg-white my-4">
@@ -662,9 +997,16 @@ export const Verificaciones: React.FC = () => {
             No se localizó ninguna Constancia, Ficha ni Solicitud de Cupo para: <code>"{codigoBusqueda}"</code>.
           </p>
           <p className="text-muted small mb-4">
-            Puedes probar escribiendo directamente el número de cédula del estudiante o representante.
+            Puedes probar escribiendo directamente el número de cédula o escaneando el código QR con la cámara.
           </p>
           <div className="d-flex justify-content-center gap-2">
+            <button 
+              onClick={abrirEscaner} 
+              className="btn btn-success rounded-pill px-4 fw-bold shadow-sm"
+              style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
+            >
+              <i className="bi bi-camera-fill me-1"></i> Escanear Código QR
+            </button>
             <button 
               onClick={() => {
                 setCodigoBusqueda('');
@@ -839,7 +1181,7 @@ export const Verificaciones: React.FC = () => {
           {/* ─── VISOR DE DOCUMENTO OFICIAL (RÉPLICA EXACTA) ───────────────── */}
           <div className="d-flex justify-content-center">
             
-            {/* 1. CONSTANCIA DE INSCRIPCIÓN OFICIAL */}
+            {/* 1. CONSTANCIA DE ACTUALIZACIÓN DE DATOS OFICIAL */}
             {vistaDoc === 'constancia' && (
               <div 
                 ref={docRef}
@@ -891,7 +1233,7 @@ export const Verificaciones: React.FC = () => {
                   <div><b>Fecha de Emisión:</b> {new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
 
-                {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD */}
+                {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD QUE TIENE EL CÓDIGO */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px', paddingTop: '15px', borderTop: '1.5px solid #cbd5e1' }}>
                   <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', margin: '0 auto' }}>
                     <p style={{ margin: '0 0 4px', fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
@@ -905,10 +1247,10 @@ export const Verificaciones: React.FC = () => {
                     <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>{dirInfo?.cargo || 'Director(a)'}</div>
                   </div>
 
-                  <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '85px' }}>
-                    <img src={urlQrConstancia} alt="QR Verificación" style={{ height: '70px', width: '70px', display: 'block', margin: '0 auto' }} />
+                  <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
+                    <img src={urlQrConstancia} alt="QR Verificación" style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} />
                     <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>VERIFICACIÓN QR</span>
-                    <span style={{ fontSize: '6.5px', color: '#64748b', fontFamily: 'monospace', display: 'block' }}>{codigoConstancia}</span>
+                    <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>{codigoConstancia}</span>
                   </div>
                 </div>
 
@@ -1034,6 +1376,7 @@ export const Verificaciones: React.FC = () => {
                   <div style={{ textAlign: 'center', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '8px', background: '#ffffff' }}>
                     <img src={urlQrResumen} alt="QR Resumen" style={{ height: '55px', width: '55px', display: 'block', margin: '0 auto' }} />
                     <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace' }}>RESUMEN VALIDADO</span>
+                    <span style={{ fontSize: '6.5px', color: '#334155', fontFamily: 'monospace', display: 'block' }}>{codigoResumen}</span>
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
                     SIGAE - Ficha Integral de Actualización<br/>
