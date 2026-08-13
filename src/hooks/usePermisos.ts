@@ -163,8 +163,8 @@ export const usePermisos = () => {
     }
 
     if (["Solicitud de Cupos", "Mi Perfil", "Actualización de Datos", "Verificaciones"].includes(modulo)) {
-      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
-      return rolesPermitidos.includes(user?.rol);
+      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante', 'Control de Estudios', 'Secretario', 'Secretaria'];
+      return rolesPermitidos.includes(user?.rol) || !!user;
     }
 
     if (modulo === "Vincular Estudiante") {
