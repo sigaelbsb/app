@@ -9,7 +9,7 @@ import { jsPDF } from 'jspdf';
 
 import { auditar } from '../../lib/audit';
 import { toTitulo } from '../../lib/formatters';
-import { obtenerFirmaDirectorProtegida, obtenerDatosDirector, obtenerDatosDirectorAsync } from '../../utils/firmasSeguras';
+import { obtenerFirmaDirectorProtegida, obtenerDatosDirectorAsync } from '../../utils/firmasSeguras';
 
 
 
@@ -503,71 +503,6 @@ export const ActualizacionDatos: React.FC = () => {
     });
   };
 
-  // ─── HELPER PARA FIRMA DIGITAL PROTEGIDA / MARCA DE AGUA ─────────────────────
-  const obtenerFirmaProtegidaBase64 = (codigoHash: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 460;
-      canvas.height = 160;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { resolve(''); return; }
-
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Marca de agua anti-extracción semitransparente
-      ctx.save();
-      ctx.rotate(-12 * Math.PI / 180);
-      ctx.font = 'bold 8px Arial';
-      ctx.fillStyle = 'rgba(22, 101, 52, 0.08)';
-      for (let i = -80; i < 500; i += 100) {
-        for (let j = -80; j < 300; j += 24) {
-          ctx.fillText('SIGAE DOCUMENTO OFICIAL - NO DUPLICAR', i, j);
-        }
-      }
-      ctx.restore();
-
-      // Trazo de Firma Cursiva Institucional
-      ctx.strokeStyle = '#1e3a8a';
-      ctx.lineWidth = 2.2;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(60, 85);
-      ctx.bezierCurveTo(80, 40, 130, 35, 150, 80);
-      ctx.bezierCurveTo(165, 110, 180, 120, 200, 75);
-      ctx.bezierCurveTo(220, 40, 260, 45, 280, 85);
-      ctx.bezierCurveTo(300, 115, 340, 100, 370, 70);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(70, 115);
-      ctx.quadraticCurveTo(220, 135, 380, 105);
-      ctx.stroke();
-
-      // Sello húmedo oficial impreso en canvas
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(310, 75, 38, 0, 2 * Math.PI);
-      ctx.strokeStyle = 'rgba(22, 101, 52, 0.4)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.font = 'bold 6.5px Arial';
-      ctx.fillStyle = 'rgba(22, 101, 52, 0.5)';
-      ctx.textAlign = 'center';
-      ctx.fillText('DIRECCIÓN DEL PLANTEL', 310, 67);
-      ctx.fillText('VALIDADO EN SIGAE', 310, 77);
-      ctx.fillText('★ MPPE ★', 310, 87);
-      ctx.restore();
-
-      // Hash de verificación al pie
-      ctx.font = '7.5px monospace';
-      ctx.fillStyle = '#64748b';
-      ctx.fillText(`Firma Digital Hash: SHA256-${codigoHash.slice(0, 16)}`, 10, 152);
-
-      resolve(canvas.toDataURL('image/png'));
-    });
-  };
-
   const manejarOpcionesResumen = (datosEst: any, formDatos: SolicitudForm) => {
     const Swal = (window as any).Swal;
     if (!Swal) return;
@@ -649,7 +584,6 @@ export const ActualizacionDatos: React.FC = () => {
     const nombreCompleto = `${formDatos.estudiante_nombres || datosEst.nombres_estudiante} ${formDatos.estudiante_apellidos || datosEst.apellidos_estudiante}`;
     const cedulaEstudiante = formDatos.estudiante_cedula || datosEst.cedula_estudiante || 'No posee';
     const gradoActual = formDatos.grado_solicitado || datosEst.grado_actual || 'Grado asignado';
-    const seccionActual = datosEst.seccion_actual || 'A';
     const representanteNombre = `${formDatos.representante_nombres || datosEst.nombres_representante || ''} ${formDatos.representante_apellidos || datosEst.apellidos_representante || ''}`.trim() || 'Representante Legal';
     const representanteCedula = formDatos.representante_cedula || datosEst.cedula_representante || 'No registrado';
 
@@ -1545,11 +1479,9 @@ export const ActualizacionDatos: React.FC = () => {
   const [uploadingCultura, setUploadingCultura] = useState(false);
   const [uploadingDanza, setUploadingDanza] = useState(false);
   const [uploadingDeporte, setUploadingDeporte] = useState(false);
-  // Estados para documentos fotográficos
   const [uploadingFotoCarnet, setUploadingFotoCarnet] = useState(false);
   const [uploadingFotoCedulaEst, setUploadingFotoCedulaEst] = useState(false);
   const [uploadingFotoPartida, setUploadingFotoPartida] = useState(false);
-  const [uploadingFotoCedulaPadre, setUploadingFotoCedulaPadre] = useState(false);
 
   const compressImage = (file: File): Promise<File> => {
     return new Promise((resolve) => {
@@ -1617,12 +1549,11 @@ export const ActualizacionDatos: React.FC = () => {
     });
   };
 
-  type TipoDocumento = 'foto_carnet' | 'foto_cedula_estudiante' | 'foto_partida_nacimiento' | 'foto_cedula_padre';
+  type TipoDocumento = 'foto_carnet' | 'foto_cedula_estudiante' | 'foto_partida_nacimiento';
   const setUploadingDoc = (tipo: TipoDocumento, val: boolean) => {
     if (tipo === 'foto_carnet') setUploadingFotoCarnet(val);
     if (tipo === 'foto_cedula_estudiante') setUploadingFotoCedulaEst(val);
     if (tipo === 'foto_partida_nacimiento') setUploadingFotoPartida(val);
-    if (tipo === 'foto_cedula_padre') setUploadingFotoCedulaPadre(val);
   };
 
   const handleSubirDocumento = async (e: React.ChangeEvent<HTMLInputElement>, tipo: TipoDocumento) => {
@@ -1894,7 +1825,7 @@ export const ActualizacionDatos: React.FC = () => {
 
       },
 
-      (err) => {
+      () => {
 
         setLoadingGPS(false);
 
@@ -4084,7 +4015,7 @@ const STEPS = [
             <div className="d-flex gap-2">
               <button
                 className="btn btn-outline-success rounded-pill px-4 py-2.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2"
-                onClick={() => generarImpresionResumen(estudianteSeleccionado, form)}
+                onClick={() => generarImpresionResumen(estudianteSeleccionado, form, 'pdf')}
               >
                 <i className="bi bi-printer-fill fs-5"></i> Descargar Resumen (PDF / Carta)
               </button>
