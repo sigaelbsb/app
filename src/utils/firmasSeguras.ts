@@ -31,7 +31,7 @@ export const DIRECTORES_MAP: Record<string, DatosDirector> = {
     cedula: '16.808.608',
     cargo: 'Directora de la Unidad Educativa Santa Bárbara',
     cargoGenerico: 'Directora',
-    ubicacionEscuela: 'Santa Bárbara, estado Monagas',
+    ubicacionEscuela: 'El Tejero, estado Monagas',
     nombreEscuela: 'Unidad Educativa Santa Bárbara',
   },
 };
