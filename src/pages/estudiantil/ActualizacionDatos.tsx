@@ -53,6 +53,7 @@ interface SolicitudForm {
   codigo_unico: string;
 
   // Estudiante
+  estudiante_tipo_documento?: 'Cédula de Identidad' | 'Cédula Escolar';
   estudiante_nombres: string;
   estudiante_apellidos: string;
   estudiante_cedula: string;
@@ -198,6 +199,7 @@ interface SolicitudForm {
 const defaultForm = (): SolicitudForm => ({
   acepta_terminos: false,
   codigo_unico: '',
+  estudiante_tipo_documento: 'Cédula de Identidad',
   estudiante_nombres: '',
   estudiante_apellidos: '',
   estudiante_cedula: '',
@@ -1411,9 +1413,17 @@ export const ActualizacionDatos: React.FC = () => {
 
     setEstudianteSeleccionado(est);
 
+    const tipoDocDefecto = (est.datos_actualizados && est.datos_actualizados.estudiante_tipo_documento)
+      ? est.datos_actualizados.estudiante_tipo_documento
+      : (est.cedula_estudiante && (est.cedula_estudiante.toString().toUpperCase().startsWith('CE') || est.cedula_estudiante.toString().length > 9))
+        ? 'Cédula Escolar'
+        : 'Cédula de Identidad';
+
     if (est.datos_actualizados && Object.keys(est.datos_actualizados).length > 0) {
 
       setForm({ ...defaultForm(), ...est.datos_actualizados,
+
+        estudiante_tipo_documento: tipoDocDefecto,
 
         estudiante_nombres: est.nombres_estudiante,
 
@@ -1438,6 +1448,8 @@ export const ActualizacionDatos: React.FC = () => {
       setForm({
 
         ...defaultForm(),
+
+        estudiante_tipo_documento: tipoDocDefecto,
 
         estudiante_nombres: est.nombres_estudiante,
 
@@ -1874,6 +1886,9 @@ export const ActualizacionDatos: React.FC = () => {
         if (!form.estudiante_acta_nacimiento) faltantes.push('Acta de la Partida de Nacimiento');
         
         if (!form.foto_carnet_url) faltantes.push('Foto Carnet del Estudiante');
+        if (form.estudiante_tipo_documento !== 'Cédula Escolar' && !form.foto_cedula_estudiante_url) {
+          faltantes.push('Foto Cédula de Identidad del Estudiante');
+        }
         if (!form.foto_partida_nacimiento_url) faltantes.push('Foto Partida de Nacimiento');
 
         if (!form.estudiante_sexo) faltantes.push('Género');
@@ -2343,6 +2358,43 @@ const STEPS = [
       </div>
 
       <div className="row g-3">
+        <div className="col-12">
+          <label className="form-label fw-bold d-block">
+            Tipo de Documento de Identificación del Estudiante <span className="text-danger">*</span>
+          </label>
+          <div className="d-flex flex-wrap gap-2">
+            {[
+              { id: 'Cédula de Identidad', label: 'Cédula de Identidad (Posee cédula física)', icon: 'bi-person-vcard' },
+              { id: 'Cédula Escolar', label: 'Cédula Escolar (No posee cédula física)', icon: 'bi-mortarboard-fill' }
+            ].map(tipoDoc => {
+              const isSelected = (form.estudiante_tipo_documento || 'Cédula de Identidad') === tipoDoc.id;
+              return (
+                <button
+                  key={tipoDoc.id}
+                  type="button"
+                  className={`btn rounded-pill px-4 py-2 fw-semibold d-flex align-items-center gap-2 ${isSelected ? 'btn-success shadow-sm' : 'btn-outline-secondary bg-white text-dark'}`}
+                  onClick={() => {
+                    updateForm('estudiante_tipo_documento', tipoDoc.id);
+                    if (tipoDoc.id === 'Cédula Escolar') {
+                      updateForm('foto_cedula_estudiante_url', '');
+                    }
+                  }}
+                >
+                  <i className={`bi ${isSelected ? 'bi-check-circle-fill text-white' : 'bi-circle text-muted'}`}></i>
+                  <i className={`bi ${tipoDoc.icon}`}></i>
+                  {tipoDoc.label}
+                </button>
+              );
+            })}
+          </div>
+          {form.estudiante_tipo_documento === 'Cédula Escolar' && (
+            <div className="form-text text-success mt-1">
+              <i className="bi bi-info-circle-fill me-1"></i>
+              Al tener Cédula Escolar, solo se solicitará la Foto Carnet y la Partida de Nacimiento.
+            </div>
+          )}
+        </div>
+
         <div className="col-md-4">
           <label className="form-label fw-semibold text-muted small">Nombres del Estudiante</label>
           <input type="text" className="form-control bg-light fw-bold text-dark" readOnly disabled value={form.estudiante_nombres} />
@@ -2637,13 +2689,16 @@ const STEPS = [
         </div>
         <div className="row g-3">
           {([
-            { tipo: 'foto_carnet' as TipoDocumento, label: 'Foto Tipo Carnet', sub: 'Fondo blanco · cara visible', icon: 'bi-person-bounding-box', color: 'primary', urlKey: 'foto_carnet_url' as keyof SolicitudForm, uploading: uploadingFotoCarnet },
-            { tipo: 'foto_cedula_estudiante' as TipoDocumento, label: 'Foto Cédula del Estudiante', sub: 'Opcional (si posee cédula física)', icon: 'bi-card-image', color: 'warning', urlKey: 'foto_cedula_estudiante_url' as keyof SolicitudForm, uploading: uploadingFotoCedulaEst },
-            { tipo: 'foto_partida_nacimiento' as TipoDocumento, label: 'Partida de Nacimiento', sub: 'Copia legible del documento', icon: 'bi-file-earmark-person', color: 'info', urlKey: 'foto_partida_nacimiento_url' as keyof SolicitudForm, uploading: uploadingFotoPartida },
+            { tipo: 'foto_carnet' as TipoDocumento, label: 'Foto Tipo Carnet', sub: 'Fondo blanco · cara visible *', icon: 'bi-person-bounding-box', color: 'primary', urlKey: 'foto_carnet_url' as keyof SolicitudForm, uploading: uploadingFotoCarnet },
+            ...(form.estudiante_tipo_documento !== 'Cédula Escolar' ? [
+              { tipo: 'foto_cedula_estudiante' as TipoDocumento, label: 'Foto Cédula del Estudiante', sub: 'Ambas caras legibles *', icon: 'bi-card-image', color: 'warning', urlKey: 'foto_cedula_estudiante_url' as keyof SolicitudForm, uploading: uploadingFotoCedulaEst }
+            ] : []),
+            { tipo: 'foto_partida_nacimiento' as TipoDocumento, label: 'Partida de Nacimiento', sub: 'Copia legible del documento *', icon: 'bi-file-earmark-person', color: 'info', urlKey: 'foto_partida_nacimiento_url' as keyof SolicitudForm, uploading: uploadingFotoPartida },
           ]).map(({ tipo, label, sub, icon, color, urlKey, uploading }) => {
             const url = form[urlKey] as string;
+            const colClass = form.estudiante_tipo_documento === 'Cédula Escolar' ? 'col-md-6' : 'col-md-4';
             return (
-              <div key={tipo} className="col-md-4">
+              <div key={tipo} className={colClass}>
                 <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
                   <div className={`card-header bg-${color}-subtle d-flex align-items-center gap-2 py-2`}>
                     <i className={`bi ${icon} text-${color} fs-5`}></i>
@@ -3904,11 +3959,13 @@ const STEPS = [
               </a>
             ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Foto Carnet: No cargada</span>}
 
-            {form.foto_cedula_estudiante_url ? (
-              <a href={form.foto_cedula_estudiante_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
-                <i className="bi bi-card-image me-1"></i>Cédula / N° Escolar Estudiante
-              </a>
-            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Estudiante: No cargada</span>}
+            {form.estudiante_tipo_documento !== 'Cédula Escolar' && (
+              form.foto_cedula_estudiante_url ? (
+                <a href={form.foto_cedula_estudiante_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                  <i className="bi bi-card-image me-1"></i>Cédula de Identidad Estudiante
+                </a>
+              ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Estudiante: No cargada</span>
+            )}
 
             {form.foto_partida_nacimiento_url ? (
               <a href={form.foto_partida_nacimiento_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info rounded-pill px-3 fw-semibold">
