@@ -1686,18 +1686,12 @@ export const ActualizacionDatos: React.FC = () => {
 
       const payload = {
         datos_actualizados: { ...form, codigo_unico: codigoGenerado },
-        fecha_ultima_actualizacion: nowIso,
-        codigo_unico: codigoGenerado
+        fecha_ultima_actualizacion: nowIso
       };
 
-
-
       const { error } = await supabase
-
         .from('estudiantes_vinculaciones')
-
         .update(payload)
-
         .eq('id', estudianteSeleccionado.id);
 
 
