@@ -454,29 +454,6 @@ export const ActualizacionDatos: React.FC = () => {
     }
   }, [form.ruta_transporte, form.parada_transporte, rutasTransporteDB, paradasTransporteDB]);
 
-  // Auto-guardado silencioso en base de datos al estar editando (Debounce 1.5s)
-  useEffect(() => {
-    if (!estudianteSeleccionado) return;
-    if (!form.acepta_terminos || step < 2) return;
-
-    const timer = setTimeout(async () => {
-      try {
-        setSavingStatus('saving');
-        const nowIso = new Date().toISOString();
-        const payload = {
-          datos_actualizados: form,
-          fecha_ultima_actualizacion: nowIso
-        };
-        const { error } = await supabase.from('estudiantes_inscritos').update(payload).eq('id', estudianteSeleccionado.id);
-        if (error) throw error;
-        setSavingStatus('saved');
-      } catch (err) {
-        console.error('Error auto-guardando DB:', err);
-        setSavingStatus('error');
-      }
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [form, step, estudianteSeleccionado]);
 
   const obtenerImagenBase64 = (url: string): Promise<string> => {
     return new Promise((resolve) => {
