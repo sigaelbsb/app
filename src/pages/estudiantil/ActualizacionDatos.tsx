@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import imageCompression from 'browser-image-compression';
 
 import { supabase } from '../../lib/supabase';
 
@@ -336,48 +335,6 @@ export const ActualizacionDatos: React.FC = () => {
 
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [savingStatus, setSavingStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
-
-  const subirImagen = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof SolicitudForm) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploadingImage(fieldName);
-
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-      };
-
-      const compressedFile = await imageCompression(file, options);
-      
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${fieldName}_${Date.now()}.${fileExt}`;
-      const folderName = form.estudiante_cedula || `sin_cedula_${Date.now()}`;
-      const filePath = `${folderName}/${fileName}`;
-
-      const { error } = await supabase.storage
-        .from('documentos')
-        .upload(filePath, compressedFile, { upsert: true });
-
-      if (error) throw error;
-
-      const { data: publicUrlData } = supabase.storage
-        .from('documentos')
-        .getPublicUrl(filePath);
-
-      updateForm(fieldName, publicUrlData.publicUrl);
-      if (Swal) Swal.fire('¡Éxito!', 'Imagen cargada correctamente.', 'success');
-    } catch (error: any) {
-      console.error('Error subiendo imagen:', error);
-      if (Swal) Swal.fire('Error', 'No se pudo subir la imagen. Verifica tu conexión o intenta con otra imagen.', 'error');
-    } finally {
-      setUploadingImage(null);
-      e.target.value = '';
-    }
-  };
 
 
 
@@ -1485,36 +1442,6 @@ export const ActualizacionDatos: React.FC = () => {
   const [uploadingFotoConapdis, setUploadingFotoConapdis] = useState(false);
   const [uploadingFotoCedulaMadre, setUploadingFotoCedulaMadre] = useState(false);
   const [uploadingFotoCedulaPadre, setUploadingFotoCedulaPadre] = useState(false);
-
-  const compressImage = (file: File): Promise<File> => {
-    return new Promise((resolve) => {
-      if (!file.type.startsWith('image/')) { resolve(file); return; }
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width; let height = img.height;
-          const MAX_DIMENSION = 1200;
-          if (width > height && width > MAX_DIMENSION) { height *= MAX_DIMENSION / width; width = MAX_DIMENSION; }
-          else if (height > MAX_DIMENSION) { width *= MAX_DIMENSION / height; height = MAX_DIMENSION; }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob((blob) => {
-              if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
-              else resolve(file);
-            }, 'image/jpeg', 0.8);
-          } else resolve(file);
-        };
-        img.onerror = () => resolve(file);
-      };
-      reader.onerror = () => resolve(file);
-    });
-  };
 
   /**
    * Compresión inteligente optimizada:
