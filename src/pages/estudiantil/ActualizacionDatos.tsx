@@ -1874,7 +1874,6 @@ export const ActualizacionDatos: React.FC = () => {
         if (!form.estudiante_acta_nacimiento) faltantes.push('Acta de la Partida de Nacimiento');
         
         if (!form.foto_carnet_url) faltantes.push('Foto Carnet del Estudiante');
-        if (!form.foto_cedula_estudiante_url) faltantes.push('Foto Cédula del Estudiante');
         if (!form.foto_partida_nacimiento_url) faltantes.push('Foto Partida de Nacimiento');
 
         if (!form.estudiante_sexo) faltantes.push('Género');
@@ -2639,7 +2638,7 @@ const STEPS = [
         <div className="row g-3">
           {([
             { tipo: 'foto_carnet' as TipoDocumento, label: 'Foto Tipo Carnet', sub: 'Fondo blanco · cara visible', icon: 'bi-person-bounding-box', color: 'primary', urlKey: 'foto_carnet_url' as keyof SolicitudForm, uploading: uploadingFotoCarnet },
-            { tipo: 'foto_cedula_estudiante' as TipoDocumento, label: 'Foto Cédula del Estudiante', sub: 'Ambas caras si aplica', icon: 'bi-card-image', color: 'warning', urlKey: 'foto_cedula_estudiante_url' as keyof SolicitudForm, uploading: uploadingFotoCedulaEst },
+            { tipo: 'foto_cedula_estudiante' as TipoDocumento, label: 'Foto Cédula del Estudiante', sub: 'Opcional (si posee cédula física)', icon: 'bi-card-image', color: 'warning', urlKey: 'foto_cedula_estudiante_url' as keyof SolicitudForm, uploading: uploadingFotoCedulaEst },
             { tipo: 'foto_partida_nacimiento' as TipoDocumento, label: 'Partida de Nacimiento', sub: 'Copia legible del documento', icon: 'bi-file-earmark-person', color: 'info', urlKey: 'foto_partida_nacimiento_url' as keyof SolicitudForm, uploading: uploadingFotoPartida },
           ]).map(({ tipo, label, sub, icon, color, urlKey, uploading }) => {
             const url = form[urlKey] as string;
