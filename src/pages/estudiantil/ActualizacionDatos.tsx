@@ -536,8 +536,19 @@ export const ActualizacionDatos: React.FC = () => {
   };
 
   const generarConstanciaInscripcion = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp' | 'email') => {
-    const escCodigo = (datosEst.codigo_escuela || datosEst.escuela_codigo || localStorage.getItem('sigae_escuela_codigo') || 'lb').toString().toLowerCase();
-    const escNombre = datosEst.nombre_escuela || (escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar');
+    const rawEsc = (
+      datosEst.codigo_escuela || 
+      datosEst.escuela_codigo || 
+      datosEst.id_escuela || 
+      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('santa') ? 'sb' : '') ||
+      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('libertador') ? 'lb' : '') ||
+      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('sb') ? 'sb' : '') ||
+      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('lb') ? 'lb' : '') ||
+      localStorage.getItem('sigae_escuela_codigo') || 
+      'lb'
+    ).toString().toLowerCase();
+    const escCodigo = rawEsc.includes('sb') ? 'sb' : 'lb';
+    const escNombre = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
     const fechaHoy = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
     const anoActual = new Date().getFullYear();
     const anoProximo = anoActual + 1;
@@ -777,8 +788,19 @@ export const ActualizacionDatos: React.FC = () => {
   };
 
   const generarImpresionResumen = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp' | 'email') => {
-    const escCodigo = (datosEst.codigo_escuela || datosEst.escuela_codigo || localStorage.getItem('sigae_escuela_codigo') || 'lb').toString().toLowerCase();
-    const escNombre = datosEst.nombre_escuela || (escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar');
+    const rawEsc = (
+      datosEst.codigo_escuela || 
+      datosEst.escuela_codigo || 
+      datosEst.id_escuela || 
+      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('santa') ? 'sb' : '') ||
+      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('libertador') ? 'lb' : '') ||
+      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('sb') ? 'sb' : '') ||
+      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('lb') ? 'lb' : '') ||
+      localStorage.getItem('sigae_escuela_codigo') || 
+      'lb'
+    ).toString().toLowerCase();
+    const escCodigo = rawEsc.includes('sb') ? 'sb' : 'lb';
+    const escNombre = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
     const fechaHoy = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
     const anoActual = new Date().getFullYear();
     const anoProximo = anoActual + 1;
