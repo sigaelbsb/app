@@ -1548,7 +1548,15 @@ export const ActualizacionDatos: React.FC = () => {
     });
   };
 
-  type TipoDocumento = 'foto_carnet' | 'foto_cedula_estudiante' | 'foto_partida_nacimiento';
+  type TipoDocumento = 
+    | 'foto_carnet' 
+    | 'foto_cedula_estudiante' 
+    | 'foto_partida_nacimiento' 
+    | 'foto_informe_medico' 
+    | 'foto_carnet_conapdis'
+    | 'foto_cedula_madre'
+    | 'foto_cedula_padre';
+
   const setUploadingDoc = (tipo: TipoDocumento, val: boolean) => {
     if (tipo === 'foto_carnet') setUploadingFotoCarnet(val);
     if (tipo === 'foto_cedula_estudiante') setUploadingFotoCedulaEst(val);
@@ -2974,12 +2982,46 @@ const STEPS = [
                     value={form.madre_direccion || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('madre_direccion', v))} />
                 </div>
 
-                <div className="col-md-12 mt-2">
-                  <label className="form-label fw-semibold small">Foto Cédula de la Madre <span className="text-danger">*</span></label>
-                  <input type="file" accept="image/*" className="form-control input-moderno form-control-sm"
-                    onChange={(e) => subirImagen(e, 'foto_cedula_madre_url')} disabled={uploadingImage === 'foto_cedula_madre_url'} />
-                  {uploadingImage === 'foto_cedula_madre_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo...</div>}
-                  {form.foto_cedula_madre_url && <div className="form-text text-success mt-1"><i className="bi bi-check-circle-fill me-1"></i>Cargada</div>}
+                <div className="col-md-12 mt-3">
+                  <div className="card border-0 shadow-sm rounded-4 overflow-hidden" style={{ maxWidth: 380 }}>
+                    <div className="card-header bg-danger-subtle d-flex align-items-center gap-2 py-2">
+                      <i className="bi bi-card-image text-danger fs-5"></i>
+                      <div>
+                        <div className="fw-bold small text-dark">Foto Cédula de la Madre</div>
+                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Ambas caras legibles *</div>
+                      </div>
+                    </div>
+                    <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
+                      {form.foto_cedula_madre_url ? (
+                        <div className="text-center w-100">
+                          <img src={form.foto_cedula_madre_url} alt="Cédula Madre" className="img-fluid rounded-3 mb-2 shadow-sm"
+                            style={{ maxHeight: 120, objectFit: 'cover', width: '100%' }} />
+                          <div className="d-flex gap-1 justify-content-center">
+                            <a href={form.foto_cedula_madre_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-2">
+                              <i className="bi bi-eye me-1"></i>Ver
+                            </a>
+                            <label className="btn btn-sm btn-outline-secondary rounded-pill px-2 mb-0" style={{ cursor: 'pointer' }}>
+                              <i className="bi bi-arrow-repeat me-1"></i>Cambiar
+                              <input type="file" accept="image/*" className="d-none" onChange={(e) => handleSubirDocumento(e, 'foto_cedula_madre')} />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="d-flex flex-column align-items-center justify-content-center gap-2 w-100 h-100 rounded-3 p-3"
+                          style={{ cursor: uploadingFotoCedulaMadre ? 'default' : 'pointer', border: '2px dashed #cbd5e1', background: '#f8fafc', minHeight: 130 }}>
+                          {uploadingFotoCedulaMadre ? (
+                            <><span className="spinner-border spinner-border-sm text-danger"></span><span className="small text-muted">Subiendo cédula...</span></>
+                          ) : (
+                            <><i className="bi bi-cloud-arrow-up fs-2 text-danger"></i>
+                              <span className="small fw-semibold text-dark text-center">Foto Cédula de la Madre</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen</span></>
+                          )}
+                          <input type="file" accept="image/*" className="d-none" disabled={uploadingFotoCedulaMadre}
+                            onChange={(e) => handleSubirDocumento(e, 'foto_cedula_madre')} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -3122,12 +3164,46 @@ const STEPS = [
                         value={form.padre_direccion || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('padre_direccion', v))} />
                     </div>
 
-                    <div className="col-md-12 mt-2">
-                      <label className="form-label fw-semibold small">Foto Cédula del Padre <span className="text-danger">*</span></label>
-                      <input type="file" accept="image/*" className="form-control input-moderno form-control-sm"
-                        onChange={(e) => subirImagen(e, 'foto_cedula_padre_url')} disabled={uploadingImage === 'foto_cedula_padre_url'} />
-                      {uploadingImage === 'foto_cedula_padre_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo...</div>}
-                      {form.foto_cedula_padre_url && <div className="form-text text-success mt-1"><i className="bi bi-check-circle-fill me-1"></i>Cargada</div>}
+                    <div className="col-md-12 mt-3">
+                      <div className="card border-0 shadow-sm rounded-4 overflow-hidden" style={{ maxWidth: 380 }}>
+                        <div className="card-header bg-primary-subtle d-flex align-items-center gap-2 py-2">
+                          <i className="bi bi-card-image text-primary fs-5"></i>
+                          <div>
+                            <div className="fw-bold small text-dark">Foto Cédula del Padre</div>
+                            <div className="text-muted" style={{ fontSize: '0.7rem' }}>Ambas caras legibles *</div>
+                          </div>
+                        </div>
+                        <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
+                          {form.foto_cedula_padre_url ? (
+                            <div className="text-center w-100">
+                              <img src={form.foto_cedula_padre_url} alt="Cédula Padre" className="img-fluid rounded-3 mb-2 shadow-sm"
+                                style={{ maxHeight: 120, objectFit: 'cover', width: '100%' }} />
+                              <div className="d-flex gap-1 justify-content-center">
+                                <a href={form.foto_cedula_padre_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-2">
+                                  <i className="bi bi-eye me-1"></i>Ver
+                                </a>
+                                <label className="btn btn-sm btn-outline-secondary rounded-pill px-2 mb-0" style={{ cursor: 'pointer' }}>
+                                  <i className="bi bi-arrow-repeat me-1"></i>Cambiar
+                                  <input type="file" accept="image/*" className="d-none" onChange={(e) => handleSubirDocumento(e, 'foto_cedula_padre')} />
+                                </label>
+                              </div>
+                            </div>
+                          ) : (
+                            <label className="d-flex flex-column align-items-center justify-content-center gap-2 w-100 h-100 rounded-3 p-3"
+                              style={{ cursor: uploadingFotoCedulaPadre ? 'default' : 'pointer', border: '2px dashed #cbd5e1', background: '#f8fafc', minHeight: 130 }}>
+                              {uploadingFotoCedulaPadre ? (
+                                <><span className="spinner-border spinner-border-sm text-primary"></span><span className="small text-muted">Subiendo cédula...</span></>
+                              ) : (
+                                <><i className="bi bi-cloud-arrow-up fs-2 text-primary"></i>
+                                  <span className="small fw-semibold text-dark text-center">Foto Cédula del Padre</span>
+                                  <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen</span></>
+                              )}
+                              <input type="file" accept="image/*" className="d-none" disabled={uploadingFotoCedulaPadre}
+                                onChange={(e) => handleSubirDocumento(e, 'foto_cedula_padre')} />
+                            </label>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
@@ -3185,44 +3261,114 @@ const STEPS = [
 
               <div className="col-md-4 animate__animated animate__fadeIn">
                 <label className="form-label fw-semibold">¿Tiene informe médico? <span className="text-danger">*</span></label>
-                <div className="d-flex gap-3 mt-2">
+                <div className="d-flex gap-3 mt-2 mb-2">
                   {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
                     <button key={opt.label} type="button"
-                      className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_informe_neuro === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                      onClick={() => updateForm('estudiante_informe_neuro', opt.val)}>
+                      className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_informe_neuro === opt.val ? 'btn-success shadow' : 'btn-outline-secondary bg-white text-dark'}`}
+                      onClick={() => {
+                        updateForm('estudiante_informe_neuro', opt.val);
+                        if (!opt.val) updateForm('foto_informe_medico_url', '');
+                      }}>
                       {opt.label}
                     </button>
                   ))}
                 </div>
                 {form.estudiante_informe_neuro && (
-                  <div className="mt-3 p-2 bg-light border rounded-3 animate__animated animate__fadeIn">
-                    <label className="form-label fw-semibold small text-dark mb-1">Foto / PDF Informe Médico <span className="text-danger">*</span></label>
-                    <input type="file" accept="image/*,application/pdf" className="form-control input-moderno form-control-sm"
-                      onChange={(e) => subirImagen(e, 'foto_informe_medico_url')} disabled={uploadingImage === 'foto_informe_medico_url'} />
-                    {uploadingImage === 'foto_informe_medico_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo informe...</div>}
-                    {form.foto_informe_medico_url && <div className="form-text text-success mt-1 fw-semibold"><i className="bi bi-check-circle-fill me-1"></i>Informe médico cargado</div>}
+                  <div className="card border-0 shadow-sm rounded-4 overflow-hidden animate__animated animate__fadeIn">
+                    <div className="card-header bg-danger-subtle d-flex align-items-center gap-2 py-2">
+                      <i className="bi bi-file-earmark-medical text-danger fs-5"></i>
+                      <div>
+                        <div className="fw-bold small text-dark">Informe Médico</div>
+                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Foto o copia legible *</div>
+                      </div>
+                    </div>
+                    <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
+                      {form.foto_informe_medico_url ? (
+                        <div className="text-center w-100">
+                          <img src={form.foto_informe_medico_url} alt="Informe Médico" className="img-fluid rounded-3 mb-2 shadow-sm"
+                            style={{ maxHeight: 120, objectFit: 'cover', width: '100%' }} />
+                          <div className="d-flex gap-1 justify-content-center">
+                            <a href={form.foto_informe_medico_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-2">
+                              <i className="bi bi-eye me-1"></i>Ver
+                            </a>
+                            <label className="btn btn-sm btn-outline-secondary rounded-pill px-2 mb-0" style={{ cursor: 'pointer' }}>
+                              <i className="bi bi-arrow-repeat me-1"></i>Cambiar
+                              <input type="file" accept="image/*" className="d-none" onChange={(e) => handleSubirDocumento(e, 'foto_informe_medico')} />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="d-flex flex-column align-items-center justify-content-center gap-2 w-100 h-100 rounded-3 p-3"
+                          style={{ cursor: uploadingFotoInforme ? 'default' : 'pointer', border: '2px dashed #cbd5e1', background: '#f8fafc', minHeight: 130 }}>
+                          {uploadingFotoInforme ? (
+                            <><span className="spinner-border spinner-border-sm text-danger"></span><span className="small text-muted">Subiendo informe...</span></>
+                          ) : (
+                            <><i className="bi bi-cloud-arrow-up fs-2 text-danger"></i>
+                              <span className="small fw-semibold text-dark text-center">Informe Médico</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen</span></>
+                          )}
+                          <input type="file" accept="image/*" className="d-none" disabled={uploadingFotoInforme}
+                            onChange={(e) => handleSubirDocumento(e, 'foto_informe_medico')} />
+                        </label>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
 
               <div className="col-md-4 animate__animated animate__fadeIn">
                 <label className="form-label fw-semibold">¿Tiene certificado CONAPDIS? <span className="text-danger">*</span></label>
-                <div className="d-flex gap-3 mt-2">
+                <div className="d-flex gap-3 mt-2 mb-2">
                   {[{ label: 'Sí', val: true }, { label: 'No', val: false }].map(opt => (
                     <button key={opt.label} type="button"
-                      className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_certificado_conapdis === opt.val ? 'btn-success shadow' : 'btn-outline-secondary'}`}
-                      onClick={() => updateForm('estudiante_certificado_conapdis', opt.val)}>
+                      className={`btn rounded-pill px-4 fw-semibold ${form.estudiante_certificado_conapdis === opt.val ? 'btn-success shadow' : 'btn-outline-secondary bg-white text-dark'}`}
+                      onClick={() => {
+                        updateForm('estudiante_certificado_conapdis', opt.val);
+                        if (!opt.val) updateForm('foto_carnet_conapdis_url', '');
+                      }}>
                       {opt.label}
                     </button>
                   ))}
                 </div>
                 {form.estudiante_certificado_conapdis && (
-                  <div className="mt-3 p-2 bg-light border rounded-3 animate__animated animate__fadeIn">
-                    <label className="form-label fw-semibold small text-dark mb-1">Foto / PDF Carnet CONAPDIS <span className="text-danger">*</span></label>
-                    <input type="file" accept="image/*,application/pdf" className="form-control input-moderno form-control-sm"
-                      onChange={(e) => subirImagen(e, 'foto_carnet_conapdis_url')} disabled={uploadingImage === 'foto_carnet_conapdis_url'} />
-                    {uploadingImage === 'foto_carnet_conapdis_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo carnet...</div>}
-                    {form.foto_carnet_conapdis_url && <div className="form-text text-success mt-1 fw-semibold"><i className="bi bi-check-circle-fill me-1"></i>Carnet CONAPDIS cargado</div>}
+                  <div className="card border-0 shadow-sm rounded-4 overflow-hidden animate__animated animate__fadeIn">
+                    <div className="card-header bg-warning-subtle d-flex align-items-center gap-2 py-2">
+                      <i className="bi bi-shield-check text-warning fs-5"></i>
+                      <div>
+                        <div className="fw-bold small text-dark">Carnet CONAPDIS</div>
+                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Foto o copia legible *</div>
+                      </div>
+                    </div>
+                    <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
+                      {form.foto_carnet_conapdis_url ? (
+                        <div className="text-center w-100">
+                          <img src={form.foto_carnet_conapdis_url} alt="Carnet CONAPDIS" className="img-fluid rounded-3 mb-2 shadow-sm"
+                            style={{ maxHeight: 120, objectFit: 'cover', width: '100%' }} />
+                          <div className="d-flex gap-1 justify-content-center">
+                            <a href={form.foto_carnet_conapdis_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-2">
+                              <i className="bi bi-eye me-1"></i>Ver
+                            </a>
+                            <label className="btn btn-sm btn-outline-secondary rounded-pill px-2 mb-0" style={{ cursor: 'pointer' }}>
+                              <i className="bi bi-arrow-repeat me-1"></i>Cambiar
+                              <input type="file" accept="image/*" className="d-none" onChange={(e) => handleSubirDocumento(e, 'foto_carnet_conapdis')} />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="d-flex flex-column align-items-center justify-content-center gap-2 w-100 h-100 rounded-3 p-3"
+                          style={{ cursor: uploadingFotoConapdis ? 'default' : 'pointer', border: '2px dashed #cbd5e1', background: '#f8fafc', minHeight: 130 }}>
+                          {uploadingFotoConapdis ? (
+                            <><span className="spinner-border spinner-border-sm text-warning"></span><span className="small text-muted">Subiendo carnet...</span></>
+                          ) : (
+                            <><i className="bi bi-cloud-arrow-up fs-2 text-warning"></i>
+                              <span className="small fw-semibold text-dark text-center">Carnet CONAPDIS</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen</span></>
+                          )}
+                          <input type="file" accept="image/*" className="d-none" disabled={uploadingFotoConapdis}
+                            onChange={(e) => handleSubirDocumento(e, 'foto_carnet_conapdis')} />
+                        </label>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
