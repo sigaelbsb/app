@@ -83,6 +83,16 @@ export const GestionUsuarios = () => {
     if (!permLoading && pUsuarios) {
       cargarRoles();
       cargarUsuarios();
+
+      const userChannel = supabase.channel('gestion_usuarios_page_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, () => {
+          cargarUsuarios();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(userChannel);
+      };
     }
   }, [permLoading, pUsuarios]);
 

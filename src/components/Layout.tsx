@@ -12,6 +12,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { tienePermiso, tieneAccesoEscuela, loading: permLoading } = usePermisos();
+  const usuarioStr = localStorage.getItem('usuario_sigae');
+  const usuario = usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
+  const escuelaCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+  const escuelaNombre = escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+  const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
 
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
@@ -190,24 +195,56 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             const hoy = new Date();
             hoy.setHours(0, 0, 0, 0);
             
-            const { data, error } = await supabase
+            let query = supabase
               .from('notificaciones_globales')
               .select('*')
-              .eq('escuela_codigo', esc)
               .gte('creado_en', hoy.toISOString())
               .order('creado_en', { ascending: false });
 
+            if (usr.rol !== 'SuperAdmin') {
+              query = query.or(`escuela_codigo.eq.${esc},escuela_codigo.eq.todas,escuela_codigo.is.null`);
+            }
+
+            const { data, error } = await query;
             if (error) throw error;
+            let list: any[] = [];
             if (data) {
-              setNotificaciones(data.map((d: any) => ({
+              list = data.map((d: any) => ({
                 id: String(d.id),
                 titulo: d.titulo,
                 cuerpo: d.cuerpo,
                 fecha: d.creado_en,
                 tipo: d.tipo || 'transporte',
                 leido: leidasIds.includes(String(d.id))
-              })));
+              }));
             }
+
+            // Si es un rol directivo o administrativo, verificar solicitudes de reseteo pendientes
+            if (['SuperAdmin', 'Director', 'Administrador', 'Subdirector', 'Coordinador'].includes(usr.rol)) {
+              try {
+                const { data: resets } = await supabase
+                  .from('usuarios')
+                  .select('cedula, nombre_completo, id_escuela, updated_at')
+                  .eq('solicito_reseteo', true);
+
+                if (resets && resets.length > 0) {
+                  const filtered = resets.filter((r: any) => usr.rol === 'SuperAdmin' || !r.id_escuela || r.id_escuela === 'ambas' || r.id_escuela === esc);
+                  const resetNotifs = filtered.map((r: any) => ({
+                    id: 'reset-' + r.cedula,
+                    titulo: '⚠️ Solicitud de Reseteo: ' + (r.nombre_completo || r.cedula),
+                    cuerpo: `El usuario con C.I. ${r.cedula} tiene una solicitud de reseteo pendiente en Gestión de Usuarios.`,
+                    fecha: r.updated_at || new Date().toISOString(),
+                    tipo: 'seguridad',
+                    leido: leidasIds.includes('reset-' + r.cedula)
+                  }));
+                  const existingIds = new Set(list.map(n => n.id));
+                  const nuevos = resetNotifs.filter(rn => !existingIds.has(rn.id));
+                  list = [...nuevos, ...list];
+                }
+              } catch (e) {}
+            }
+
+            setNotificaciones(list);
           } catch (err) {
             console.error("Error al cargar historial de notificaciones:", err);
           }
@@ -237,6 +274,31 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     try {
       escCodigo = JSON.parse(usrStr).id_escuela || 'sb';
     } catch(e) {}
+
+    const playAlertSound = () => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const now = ctx.currentTime;
+        const notes = [
+          { freq: 587.33, start: 0, dur: 0.15 },
+          { freq: 880.00, start: 0.12, dur: 0.22 },
+          { freq: 1174.66, start: 0.24, dur: 0.40 }
+        ];
+        notes.forEach(({ freq, start, dur }) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + start);
+          gain.gain.setValueAtTime(0, now + start);
+          gain.gain.linearRampToValueAtTime(0.3, now + start + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + start);
+          osc.stop(now + start + dur + 0.05);
+        });
+      } catch (e) {}
+    };
 
     const playBusChime = (tipo: 'parada' | 'llegada') => {
       try {
@@ -273,13 +335,13 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       } catch (e) {}
     };
 
-    const sendBusNotification = (titulo: string, cuerpo: string) => {
+    const sendSystemNotification = (titulo: string, cuerpo: string, tag: string = 'general') => {
       if (!('Notification' in window) || Notification.permission !== 'granted') return;
       const opciones: any = {
         body: cuerpo,
         icon: '/assets/img/pdvsa.svg',
         badge: '/assets/img/pdvsa.svg',
-        tag: 'bus-parada',
+        tag,
         renotify: true,
         vibrate: [200, 100, 200],
         silent: false,
@@ -299,11 +361,41 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notificaciones_globales' }, async (payload: any) => {
         if (payload.eventType === 'INSERT') {
           const row = payload.new;
-          if (!row || row.escuela_codigo !== escCodigo) return;
+          if (!row) return;
 
-          const isEnd = row.titulo.toLowerCase().includes('finalizada') || row.titulo.toLowerCase().includes('destino') || row.titulo.toLowerCase().includes('alcanzado');
-          playBusChime(isEnd ? 'llegada' : 'parada');
-          sendBusNotification(row.titulo, row.cuerpo);
+          const isSuperAdmin = usuario?.rol === 'SuperAdmin';
+          if (!isSuperAdmin && row.escuela_codigo && row.escuela_codigo !== 'todas' && row.escuela_codigo !== escCodigo) return;
+
+          const isSeguridad = row.tipo === 'seguridad' || row.tipo === 'alerta' || (row.titulo && row.titulo.toLowerCase().includes('reseteo'));
+          const isEnd = (row.titulo || '').toLowerCase().includes('finalizada') || (row.titulo || '').toLowerCase().includes('destino') || (row.titulo || '').toLowerCase().includes('alcanzado');
+          
+          if (isSeguridad) {
+            playAlertSound();
+            const Swal = (window as any).Swal;
+            if (Swal) {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'warning',
+                title: row.titulo,
+                text: row.cuerpo,
+                showConfirmButton: true,
+                confirmButtonText: 'Ir a Usuarios',
+                showCancelButton: true,
+                cancelButtonText: 'Cerrar',
+                timer: 10000,
+                timerProgressBar: true
+              }).then((result: any) => {
+                if (result.isConfirmed) {
+                  navigate('/categoria/Seguridad y Accesos/Gestión de Usuarios');
+                }
+              });
+            }
+          } else {
+            playBusChime(isEnd ? 'llegada' : 'parada');
+          }
+
+          sendSystemNotification(row.titulo, row.cuerpo, isSeguridad ? 'seguridad' : 'bus-parada');
 
           setNotificaciones(prev => {
             if (prev.some(n => n.id === String(row.id))) return prev;
@@ -313,7 +405,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               cuerpo: row.cuerpo,
               leido: leidasIds.includes(String(row.id)),
               fecha: row.creado_en || new Date().toISOString(),
-              tipo: row.tipo || 'transporte'
+              tipo: row.tipo || (isSeguridad ? 'seguridad' : 'transporte')
             };
             return [newNotif, ...prev].slice(0, 30);
           });
@@ -325,8 +417,57 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [leidasIds]);
+    // Canal en tiempo real para cambios en usuarios (solicitud de reseteo directa)
+    const userChannel = supabase.channel('usuarios_reseteo_listener')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, (payload: any) => {
+        const u = payload.new;
+        if (u && u.solicito_reseteo === true) {
+          const rol = usuario?.rol || '';
+          if (['SuperAdmin', 'Director', 'Administrador', 'Subdirector', 'Coordinador'].includes(rol)) {
+            playAlertSound();
+            const Swal = (window as any).Swal;
+            if (Swal) {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'warning',
+                title: '⚠️ Solicitud de Reseteo de Cuenta',
+                text: `El usuario ${u.nombre_completo || u.cedula} (${u.cedula}) solicita reseteo de cuenta.`,
+                showConfirmButton: true,
+                confirmButtonText: 'Ir a Gestión de Usuarios',
+                showCancelButton: true,
+                cancelButtonText: 'Cerrar',
+                timer: 10000,
+                timerProgressBar: true
+              }).then((result: any) => {
+                if (result.isConfirmed) {
+                  navigate('/categoria/Seguridad y Accesos/Gestión de Usuarios');
+                }
+              });
+            }
+
+            const notifId = 'reset-' + u.cedula;
+            setNotificaciones(prev => {
+              if (prev.some(n => n.id === notifId)) return prev;
+              return [{
+                id: notifId,
+                titulo: '⚠️ Solicitud de Reseteo: ' + (u.nombre_completo || u.cedula),
+                cuerpo: `El usuario con C.I. ${u.cedula} ha solicitado restablecer su cuenta.`,
+                leido: false,
+                fecha: new Date().toISOString(),
+                tipo: 'seguridad'
+              }, ...prev].slice(0, 30);
+            });
+          }
+        }
+      })
+      .subscribe();
+
+    return () => { 
+      supabase.removeChannel(channel); 
+      supabase.removeChannel(userChannel);
+    };
+  }, [leidasIds, usuario?.rol]);
 
   const handleBloquearSesion = () => {
     localStorage.setItem('sesion_sigae', 'bloqueada');
@@ -464,13 +605,6 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       eventos.forEach(evt => window.removeEventListener(evt, actualizarActividad));
     };
   }, [navigate, onLogout]);
-
-  const usuarioStr = localStorage.getItem('usuario_sigae');
-  const usuario = usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
-  const escuelaCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-  const escuelaNombre = escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
-  
-  const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
 
   const toggleSidebar = () => {
     document.body.classList.toggle('menu-colapsado');
@@ -696,7 +830,9 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                         No tienes notificaciones
                       </div>
                     ) : (
-                      notificaciones.map((notif) => (
+                      notificaciones.map((notif) => {
+                        const isSeguridad = notif.tipo === 'seguridad' || notif.tipo === 'alerta' || (notif.titulo || '').toLowerCase().includes('reseteo');
+                        return (
                         <div 
                           key={notif.id}
                           onClick={() => {
@@ -708,10 +844,14 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                               }
                               return prevLeidas;
                             });
+                            if (isSeguridad) {
+                              navigate('/categoria/Seguridad y Accesos/Gestión de Usuarios');
+                              setMostrarNotifDropdown(false);
+                            }
                           }}
                           className={`d-flex p-3 border-bottom cursor-pointer hover-bg-light transition-all ${!notif.leido ? 'bg-aliceblue' : ''}`}
                           style={{
-                            backgroundColor: !notif.leido ? '#f0f7ff' : '#ffffff',
+                            backgroundColor: !notif.leido ? (isSeguridad ? '#fff1f2' : '#f0f7ff') : '#ffffff',
                             transition: 'background-color 0.2s'
                           }}
                         >
@@ -721,21 +861,21 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                               style={{
                                 width: '32px',
                                 height: '32px',
-                                background: notif.tipo === 'transporte' ? '#fffbeb' : '#eff6ff',
-                                color: notif.tipo === 'transporte' ? '#d97706' : '#2563eb',
-                                border: notif.tipo === 'transporte' ? '1px solid #fde68a' : '1px solid #bfdbfe'
+                                background: isSeguridad ? '#fef2f2' : notif.tipo === 'transporte' ? '#fffbeb' : '#eff6ff',
+                                color: isSeguridad ? '#dc2626' : notif.tipo === 'transporte' ? '#d97706' : '#2563eb',
+                                border: isSeguridad ? '1px solid #fecaca' : notif.tipo === 'transporte' ? '1px solid #fde68a' : '1px solid #bfdbfe'
                               }}
                             >
-                              <i className={`bi ${notif.tipo === 'transporte' ? 'bi-bus-front' : 'bi-info-circle-fill'} small`}></i>
+                              <i className={`bi ${isSeguridad ? 'bi-shield-exclamation' : notif.tipo === 'transporte' ? 'bi-bus-front' : 'bi-info-circle-fill'} small`}></i>
                             </span>
                           </div>
                           <div style={{ flexGrow: 1, minWidth: 0 }}>
                             <div className="d-flex justify-content-between align-items-start mb-1">
-                              <span className="fw-bold text-dark text-truncate small" style={{ maxWidth: '160px' }}>
+                              <span className={`fw-bold text-truncate small ${isSeguridad ? 'text-danger' : 'text-dark'}`} style={{ maxWidth: '160px' }}>
                                 {notif.titulo}
                               </span>
                               <span className="text-muted style-date" style={{ fontSize: '0.65rem' }}>
-                                {new Date(notif.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {notif.fecha ? new Date(notif.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                               </span>
                             </div>
                             <p className="text-muted mb-0 small text-wrap-break" style={{ fontSize: '0.75rem', lineHeight: '1.25' }}>
@@ -743,7 +883,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                             </p>
                           </div>
                         </div>
-                      ))
+                      );})
                     )}
                   </div>
                 </div>

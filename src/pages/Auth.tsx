@@ -956,18 +956,37 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         if (result.isConfirmed) {
           setLoading(true);
           try {
-            await supabase.from('notificaciones').insert([{
-              id_notificacion: "NOT-" + new Date().getTime(),
-              titulo: 'Solicitud de Reseteo de Clave',
-              mensaje: `El usuario con cédula ${cedula} olvidó sus datos y solicita reseteo de cuenta.`,
-              tipo: 'alerta',
-              leido: false,
-              roles_destino: 'Administrador,Director',
-              id_escuela: school || localStorage.getItem('sigae_escuela_codigo') || 'sb'
+            const escDestino = school || localStorage.getItem('sigae_escuela_codigo') || 'sb';
+
+            // Insertar en notificaciones_globales para activar alerta en tiempo real con sonido y campana
+            await supabase.from('notificaciones_globales').insert([{
+              escuela_codigo: escDestino,
+              titulo: '⚠️ Solicitud de Reseteo de Cuenta',
+              cuerpo: `El usuario con cédula ${cedula} olvidó sus datos y solicita reseteo de cuenta en Gestión de Usuarios.`,
+              tipo: 'seguridad'
             }]);
-            
+
+            // Actualizar el estado del usuario
             await supabase.from('usuarios').update({ estado: 'Requiere Reseteo', solicito_reseteo: true }).eq('cedula', cedula);
-            (window as any).Swal.fire('Solicitud Enviada', 'El administrador procesará su solicitud pronto. Por favor contacte con dirección.', 'success').then(() => {
+
+            try {
+              await supabase.from('notificaciones').insert([{
+                id_notificacion: "NOT-" + new Date().getTime(),
+                titulo: 'Solicitud de Reseteo de Clave',
+                mensaje: `El usuario con cédula ${cedula} olvidó sus datos y solicita reseteo de cuenta.`,
+                tipo: 'alerta',
+                leido: false,
+                roles_destino: 'Administrador,Director',
+                id_escuela: escDestino
+              }]);
+            } catch (e) {}
+
+            (window as any).Swal.fire({
+              icon: 'success',
+              title: 'Solicitud Enviada',
+              text: 'El administrador ha recibido la notificación y procesará su solicitud pronto.',
+              confirmButtonText: 'Entendido'
+            }).then(() => {
               resetForm();
             });
           } catch (err) {
