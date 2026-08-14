@@ -2495,38 +2495,6 @@ const STEPS = [
         </div>
         {/* ────────────────────────────────────── */}
 
-        {/* ─── FOTOS Y DOCUMENTOS DEL ESTUDIANTE ─── */}
-        <div className="col-12 mt-4">
-          <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-            <i className="bi bi-camera-fill text-success fs-5"></i>
-            <h6 className="fw-bold text-dark mb-0">Documentos del Estudiante</h6>
-          </div>
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label fw-semibold small">Foto Carnet (Fondo Blanco) <span className="text-danger">*</span></label>
-          <input type="file" accept="image/*" className="form-control input-moderno form-control-sm"
-            onChange={(e) => subirImagen(e, 'foto_carnet_url')} disabled={uploadingImage === 'foto_carnet_url'} />
-          {uploadingImage === 'foto_carnet_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo...</div>}
-          {form.foto_carnet_url && <div className="form-text text-success mt-1"><i className="bi bi-check-circle-fill me-1"></i>Cargada</div>}
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label fw-semibold small">Foto Cédula Estudiante <span className="text-danger">*</span></label>
-          <input type="file" accept="image/*" className="form-control input-moderno form-control-sm"
-            onChange={(e) => subirImagen(e, 'foto_cedula_estudiante_url')} disabled={uploadingImage === 'foto_cedula_estudiante_url'} />
-          {uploadingImage === 'foto_cedula_estudiante_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo...</div>}
-          {form.foto_cedula_estudiante_url && <div className="form-text text-success mt-1"><i className="bi bi-check-circle-fill me-1"></i>Cargada</div>}
-        </div>
-
-        <div className="col-md-4">
-          <label className="form-label fw-semibold small">Foto Partida Nacimiento <span className="text-danger">*</span></label>
-          <input type="file" accept="image/*" className="form-control input-moderno form-control-sm"
-            onChange={(e) => subirImagen(e, 'foto_partida_nacimiento_url')} disabled={uploadingImage === 'foto_partida_nacimiento_url'} />
-          {uploadingImage === 'foto_partida_nacimiento_url' && <div className="form-text text-primary mt-1"><span className="spinner-border spinner-border-sm me-1"></span>Subiendo...</div>}
-          {form.foto_partida_nacimiento_url && <div className="form-text text-success mt-1"><i className="bi bi-check-circle-fill me-1"></i>Cargada</div>}
-        </div>
-
         <div className="col-md-6 mt-4">
           <label className="form-label fw-semibold text-muted small">Nivel Educativo</label>
           <input type="text" className="form-control bg-light fw-bold text-dark" value={nivelEducativo} disabled readOnly />
