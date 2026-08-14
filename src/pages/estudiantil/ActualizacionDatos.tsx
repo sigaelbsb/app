@@ -924,7 +924,7 @@ export const ActualizacionDatos: React.FC = () => {
             ${campo('País de Nacimiento', formDatos.estudiante_pais_nacimiento === 'Otro' ? formDatos.estudiante_pais_nacimiento_otro || '' : formDatos.estudiante_pais_nacimiento || 'Venezuela')}
             ${campo('Estado / Provincia de Nacimiento', formDatos.estudiante_estado_nacimiento || 'No informado')}
             ${campo('Municipio / Ciudad de Nacimiento', formDatos.estudiante_municipio_nacimiento || 'No informado')}
-            ${campo('Folio de la Partida de Nacimiento', formDatos.estudiante_folio_nacimiento || 'No informado')}
+            ${campo('Folio o Tomo de la Partida de Nacimiento', formDatos.estudiante_folio_nacimiento || 'No informado')}
             ${campo('Acta de la Partida de Nacimiento', formDatos.estudiante_acta_nacimiento || 'No informado')}
             ${campoB('Grado / Año que cursa', formDatos.grado_solicitado || datosEst.grado_actual || 'No informado')}
             ${campoB('Sección asignada', datosEst.seccion_actual || 'No informado')}
@@ -1893,7 +1893,7 @@ export const ActualizacionDatos: React.FC = () => {
         if (form.estudiante_pais_nacimiento === 'Otro' && !form.estudiante_pais_nacimiento_otro) faltantes.push('Especifique el País de Nacimiento');
         if (!form.estudiante_estado_nacimiento) faltantes.push('Estado/Provincia de Nacimiento del Estudiante');
         if (!form.estudiante_municipio_nacimiento) faltantes.push('Municipio/Ciudad de Nacimiento del Estudiante');
-        if (!form.estudiante_folio_nacimiento) faltantes.push('Folio de la Partida de Nacimiento');
+        if (!form.estudiante_folio_nacimiento) faltantes.push('Folio o Tomo de la Partida de Nacimiento');
         if (!form.estudiante_acta_nacimiento) faltantes.push('Acta de la Partida de Nacimiento');
         
         if (!form.foto_carnet_url) faltantes.push('Foto Carnet del Estudiante');
@@ -2483,7 +2483,7 @@ const STEPS = [
         </div>
 
         <div className="col-md-4">
-          <label className="form-label fw-semibold">N° Folio de Partida <span className="text-danger">*</span></label>
+          <label className="form-label fw-semibold">N° Folio o Tomo de Partida <span className="text-danger">*</span></label>
           <input type="text" className="form-control input-moderno" placeholder="Ej. 123"
             value={form.estudiante_folio_nacimiento || ''} onChange={(e) => updateForm('estudiante_folio_nacimiento', e.target.value)} />
         </div>
