@@ -414,27 +414,44 @@ export const ActualizacionDatos: React.FC = () => {
   }, [form.ruta_transporte, form.parada_transporte, rutasTransporteDB, paradasTransporteDB]);
 
 
-  const obtenerImagenBase64 = (url: string): Promise<string> => {
+  const obtenerImagenBase64 = (url: string, timeoutMs: number = 2000): Promise<string> => {
     return new Promise((resolve) => {
+      if (!url) { resolve(''); return; }
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(url);
+        }
+      }, timeoutMs);
+
       const img = new Image();
       img.crossOrigin = 'Anonymous';
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          try {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
             resolve(canvas.toDataURL('image/png'));
             return;
-          } catch (e) {
-            console.error('Base64 conversion failed:', e);
           }
+        } catch (e) {
+          console.warn('Base64 conversion fallback for:', url);
         }
         resolve(url);
       };
-      img.onerror = () => resolve(url);
+      img.onerror = () => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        resolve(url);
+      };
       img.src = url;
     });
   };
@@ -491,7 +508,10 @@ export const ActualizacionDatos: React.FC = () => {
             <i class="bi bi-file-earmark-check-fill fs-5 me-2"></i> Descargar Constancia (PDF)
           </button>
           <button id="btn-const-wa" class="btn btn-outline-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
-            <i class="bi bi-whatsapp fs-5 me-2"></i> Enviar Constancia por WhatsApp
+            <i class="bi bi-whatsapp fs-5 me-2"></i> Enviar por WhatsApp
+          </button>
+          <button id="btn-const-email" class="btn btn-outline-info text-dark w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-envelope-fill fs-5 me-2"></i> Enviar por Correo Electrónico
           </button>
         </div>
       `,
@@ -507,11 +527,15 @@ export const ActualizacionDatos: React.FC = () => {
           Swal.close();
           generarConstanciaInscripcion(datosEst, formDatos, 'whatsapp');
         });
+        document.getElementById('btn-const-email')?.addEventListener('click', () => {
+          Swal.close();
+          generarConstanciaInscripcion(datosEst, formDatos, 'email');
+        });
       }
     });
   };
 
-  const generarConstanciaInscripcion = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp') => {
+  const generarConstanciaInscripcion = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp' | 'email') => {
     const escCodigo = (datosEst.codigo_escuela || datosEst.escuela_codigo || localStorage.getItem('sigae_escuela_codigo') || 'lb').toString().toLowerCase();
     const escNombre = datosEst.nombre_escuela || (escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar');
     const fechaHoy = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -652,28 +676,30 @@ export const ActualizacionDatos: React.FC = () => {
       const clon = document.createElement('div');
       clon.style.width = '800px';
       clon.style.position = 'fixed';
-      clon.style.left = '-9999px';
+      clon.style.left = '0';
       clon.style.top = '0';
+      clon.style.zIndex = '-99999';
+      clon.style.pointerEvents = 'none';
       clon.style.background = '#ffffff';
       clon.innerHTML = htmlConstancia;
 
       document.body.appendChild(clon);
-      await new Promise(res => setTimeout(res, 350));
+      await new Promise(res => setTimeout(res, 200));
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter', compress: true });
       const pdfWidth = pdf.internal.pageSize.getWidth();
 
       const canvas = await html2canvas(clon, {
-        scale: 2.8,
+        scale: 2.0,
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
         allowTaint: true,
-        imageTimeout: 15000
+        imageTimeout: 4000
       });
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
 
       document.body.removeChild(clon);
 
@@ -695,6 +721,30 @@ export const ActualizacionDatos: React.FC = () => {
         a.click();
         URL.revokeObjectURL(pdfUrl);
         if (Swal) Swal.fire('¡Constancia Descargada!', 'El documento ha sido guardado en tu dispositivo.', 'success');
+      } else if (modo === 'email') {
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = nombreArchivo;
+        a.click();
+        URL.revokeObjectURL(pdfUrl);
+
+        const emailDestino = formDatos.representante_email || formDatos.padre_email || formDatos.madre_email || '';
+        const asunto = encodeURIComponent(`Constancia de Actualización de Datos - ${nombreCompleto}`);
+        const cuerpo = encodeURIComponent(`Estimad@,\n\nAdjunto la Constancia de Actualización de Datos oficial del estudiante ${nombreCompleto} (Año Escolar ${anoActual}-${anoProximo}).\n\nEl archivo PDF (${nombreArchivo}) ha sido descargado en su dispositivo.\n\nCódigo de Verificación: ${codigoUnico}\n\nAtentamente,\n${escNombre}\nSistema SIGAE.`);
+        const mailtoUrl = `mailto:${emailDestino}?subject=${asunto}&body=${cuerpo}`;
+
+        if (Swal) {
+          Swal.fire({
+            title: '¡Constancia Descargada para Envío!',
+            html: `<p>El archivo <b>${nombreArchivo}</b> ha sido descargado en tu dispositivo.</p><p class="small text-muted">Haz clic en <b>Abrir Correo</b> para enviar el mensaje con el archivo adjunto.</p>`,
+            icon: 'info',
+            confirmButtonText: 'Abrir Correo',
+            confirmButtonColor: '#0284c7'
+          }).then(() => {
+            window.location.href = mailtoUrl;
+          });
+        }
       } else {
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
@@ -1066,8 +1116,10 @@ export const ActualizacionDatos: React.FC = () => {
         const clon = document.createElement('div');
         clon.style.width = '800px';
         clon.style.position = 'fixed';
-        clon.style.left = '-9999px';
+        clon.style.left = '0';
         clon.style.top = '0';
+        clon.style.zIndex = '-99999';
+        clon.style.pointerEvents = 'none';
         clon.style.fontFamily = "'Inter', 'Segoe UI', Roboto, sans-serif";
         clon.style.fontSize = '11px';
         clon.style.lineHeight = '1.45';
@@ -1079,19 +1131,19 @@ export const ActualizacionDatos: React.FC = () => {
         clon.innerHTML = paginas[i];
 
         document.body.appendChild(clon);
-        await new Promise(res => setTimeout(res, 350));
+        await new Promise(res => setTimeout(res, 200));
 
         const canvas = await html2canvas(clon, { 
-          scale: 2.8, 
+          scale: 2.0, 
           backgroundColor: '#ffffff', 
           logging: false, 
           useCORS: true,
           allowTaint: true,
-          imageTimeout: 15000
+          imageTimeout: 4000
         });
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
         const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
 
         document.body.removeChild(clon);
       }
@@ -1113,14 +1165,43 @@ export const ActualizacionDatos: React.FC = () => {
         a.click();
         URL.revokeObjectURL(pdfUrl);
         if (Swal) Swal.fire('¡PDF Descargado!', 'El documento ha sido guardado en tu dispositivo.', 'success');
+      } else if (modo === 'email') {
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = pdfUrl;
+        a.download = nombreArchivo;
+        a.click();
+        URL.revokeObjectURL(pdfUrl);
+
+        const emailDestino = formDatos.representante_email || formDatos.padre_email || formDatos.madre_email || '';
+        const asunto = encodeURIComponent(`Ficha Integral de Actualización de Datos - ${nombreCompleto}`);
+        const cuerpo = encodeURIComponent(`Estimad@,\n\nSe ha generado la Ficha Integral de Actualización de Datos oficial del estudiante ${nombreCompleto} (Año Escolar ${anoActual}-${anoProximo}).\n\nEl archivo PDF (${nombreArchivo}) ha sido descargado en su dispositivo para ser adjuntado a este correo.\n\nCódigo: ${codigoUnico}\n\nAtentamente,\n${escNombre}\nSistema SIGAE.`);
+        const mailtoUrl = `mailto:${emailDestino}?subject=${asunto}&body=${cuerpo}`;
+
+        if (Swal) {
+          Swal.fire({
+            title: '¡Ficha Descargada para Envío!',
+            html: `
+              <p>El archivo <b>${nombreArchivo}</b> se ha descargado en tu dispositivo.</p>
+              <div class="alert alert-info py-2 small text-start mt-2">
+                <i class="bi bi-envelope-fill me-1"></i> Haz clic en <b>Abrir Correo</b> para redactar el mensaje y adjuntar el archivo PDF descargado.
+              </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Abrir Correo',
+            confirmButtonColor: '#0284c7'
+          }).then(() => {
+            window.location.href = mailtoUrl;
+          });
+        }
       } else {
-        // WhatsApp o Correo
+        // WhatsApp
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({
               files: [file],
               title: `Ficha Integral - ${nombreCompleto}`,
-              text: modo === 'whatsapp' ? textoMensaje : 'Adjunto Ficha Integral PDF'
+              text: textoMensaje
             });
             if (Swal) Swal.close();
           } catch (shareErr) {
@@ -1140,7 +1221,7 @@ export const ActualizacionDatos: React.FC = () => {
               html: `
                 <p>El archivo <b>${nombreArchivo}</b> ha sido descargado en tu dispositivo.</p>
                 <div style="background-color: #f0fdf4; border-left: 4px solid #16a34a; color: #166534; padding: 10px; border-radius: 8px; font-size: 13px; text-align: left; margin-top: 15px;">
-                  <strong>Para enviarlo por ${modo === 'whatsapp' ? 'WhatsApp' : 'Correo'}:</strong> Abre la aplicación y adjunta el archivo PDF descargado.
+                  <strong>Para enviarlo por WhatsApp:</strong> Abre la aplicación y adjunta el archivo PDF descargado.
                 </div>
               `,
               icon: 'info',

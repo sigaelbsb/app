@@ -171,7 +171,27 @@ export const obtenerFirmaDirectorProtegida = (
       resolve(canvas.toDataURL('image/png'));
     };
 
-    imgFirma.onload = () => procesarCanvas(imgFirma);
-    imgFirma.onerror = () => procesarCanvas(null);
+    let completed = false;
+    const timer = setTimeout(() => {
+      if (!completed) {
+        completed = true;
+        procesarCanvas(null);
+      }
+    }, 2500);
+
+    imgFirma.onload = () => {
+      if (!completed) {
+        completed = true;
+        clearTimeout(timer);
+        procesarCanvas(imgFirma);
+      }
+    };
+    imgFirma.onerror = () => {
+      if (!completed) {
+        completed = true;
+        clearTimeout(timer);
+        procesarCanvas(null);
+      }
+    };
   });
 };
