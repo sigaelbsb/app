@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase';
-
 /**
  * Módulo de Seguridad de Firmas Digitales Institucionales - SIGAE
  * Protege y encubre las imágenes de firmas de la Dirección contra extracción limpia o copia no autorizada.
@@ -42,48 +40,13 @@ export const obtenerDatosDirector = (escCodigo: string): DatosDirector => {
 };
 
 /**
- * Consulta en tiempo real en la base de datos de SIGAE el director/a y su cargo asignado
+ * Retorna los directores oficiales actuales del plantel:
+ * - Libertador Bolívar: Profesor José Vicente Millán Montaño
+ * - Santa Bárbara: Profesora Elika Dayana Chaviel Rondón
  */
 export const obtenerDatosDirectorAsync = async (escCodigo: string): Promise<DatosDirector> => {
   const key = (escCodigo || 'lb').toLowerCase();
-  const fallback = obtenerDatosDirector(key);
-
-  try {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('nombre_completo, cedula, cargo, rol, id_escuela')
-      .eq('id_escuela', key)
-      .or('rol.eq.Director,cargo.ilike.%Director%')
-      .limit(1);
-
-    if (error || !data || data.length === 0) {
-      return fallback;
-    }
-
-    const u = data[0];
-    const nombre = u.nombre_completo || fallback.nombreCompleto;
-    const cedulaRaw = (u.cedula || '').replace(/\D/g, '');
-    const cedulaFormatted = cedulaRaw ? cedulaRaw.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : fallback.cedula;
-    
-    // Identificar género según nombre
-    const esFemenino = nombre.toLowerCase().includes('elika') || nombre.toLowerCase().includes('dayana') || nombre.toLowerCase().includes('maría') || nombre.toLowerCase().includes('ana') || nombre.toLowerCase().includes('carmen') || key === 'sb';
-    const cargoGenerico = esFemenino ? 'Directora' : 'Director';
-    const cargoCompleto = `${cargoGenerico} de la ${fallback.nombreEscuela}`;
-    const titulo = `${esFemenino ? 'profesora' : 'profesor'} ${nombre}`;
-
-    return {
-      nombreCompleto: nombre,
-      tituloDirector: titulo,
-      cedula: cedulaFormatted,
-      cargo: cargoCompleto,
-      cargoGenerico: cargoGenerico,
-      ubicacionEscuela: fallback.ubicacionEscuela,
-      nombreEscuela: fallback.nombreEscuela
-    };
-  } catch (e) {
-    console.warn('Fallback a datos estáticos de director:', e);
-    return fallback;
-  }
+  return DIRECTORES_MAP[key] || DIRECTORES_MAP['lb'];
 };
 
 const RUTA_FIRMAS: Record<string, string> = {
