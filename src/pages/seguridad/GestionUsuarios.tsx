@@ -275,11 +275,12 @@ export const GestionUsuarios = () => {
       };
 
       if (editingUser) {
-        const { error } = await supabase
-          .from('usuarios')
-          .update(payload)
-          .eq('id_usuario', editingUser.id_usuario);
+        let q = supabase.from('usuarios').update(payload);
+        if (editingUser.id_usuario) q = q.eq('id_usuario', editingUser.id_usuario);
+        else if (editingUser.id) q = q.eq('id', editingUser.id);
+        else q = q.eq('cedula', editingUser.cedula);
 
+        const { error } = await q;
         if (error) throw error;
         if (Swal) Swal.fire('¡Actualizado!', 'Los datos del usuario han sido actualizados.', 'success');
         auditar('Gestión de Usuarios', 'Editar Usuario', `Actualizó datos de: ${payload.cedula} (${payload.id_escuela})`);
@@ -304,10 +305,10 @@ export const GestionUsuarios = () => {
       }
       
       setShowUserModal(false);
-      cargarUsuarios();
-    } catch (e) {
+      await cargarUsuarios();
+    } catch (e: any) {
       console.error(e);
-      if (Swal) Swal.fire('Error', 'No se pudo guardar los datos.', 'error');
+      if (Swal) Swal.fire('Error', e?.message || 'No se pudo guardar los datos.', 'error');
     }
     setLoading(false);
   };
@@ -333,24 +334,30 @@ export const GestionUsuarios = () => {
       if (result.isConfirmed) {
         setLoading(true);
         try {
-          const { error } = await supabase
-            .from('usuarios')
-            .update({
-              clave: u.cedula,
-              primer_ingreso: true,
-              intentos_fallidos: 0,
-              bloqueo_hasta: null,
-              estado: 'Activo'
-            })
-            .eq('id_usuario', u.id_usuario);
+          const resetData = {
+            clave: u.cedula,
+            primer_ingreso: true,
+            intentos_fallidos: 0,
+            bloqueo_hasta: null,
+            estado: 'Activo'
+          };
 
-          if (error) throw error;
+          if (u.cedula) {
+            await supabase.from('usuarios').update(resetData).eq('cedula', u.cedula);
+          }
+          if (u.id_usuario) {
+            await supabase.from('usuarios').update(resetData).eq('id_usuario', u.id_usuario);
+          }
+          if (u.id) {
+            await supabase.from('usuarios').update(resetData).eq('id', u.id);
+          }
+
           Swal.fire('¡Contraseña Reseteada!', 'La contraseña ha vuelto a ser la cédula.', 'success');
           auditar('Gestión de Usuarios', 'Resetear Clave', `Reinició contraseña de: ${u.cedula}`);
-          cargarUsuarios();
-        } catch (e) {
+          await cargarUsuarios();
+        } catch (e: any) {
           console.error(e);
-          Swal.fire('Error', 'No se pudo resetear la contraseña.', 'error');
+          Swal.fire('Error', e?.message || 'No se pudo resetear la contraseña.', 'error');
         }
         setLoading(false);
       }
@@ -368,7 +375,7 @@ export const GestionUsuarios = () => {
 
     Swal.fire({
       title: `¿Eliminar a ${u.nombre_completo}?`,
-      text: "Esta acción es definitiva y borrará la cuenta permanentemente.",
+      text: `Esta acción es definitiva y borrará la cuenta permanentemente (C.I. ${u.cedula}).`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -378,18 +385,52 @@ export const GestionUsuarios = () => {
       if (result.isConfirmed) {
         setLoading(true);
         try {
-          const { error } = await supabase
-            .from('usuarios')
-            .delete()
-            .eq('id_usuario', u.id_usuario);
+          let errorEliminacion: any = null;
 
-          if (error) throw error;
-          Swal.fire('¡Eliminado!', 'El usuario ha sido eliminado.', 'success');
+          // 1. Eliminar por Cédula (clave unívoca en todo el sistema)
+          if (u.cedula) {
+            const { error: errCed } = await supabase
+              .from('usuarios')
+              .delete()
+              .eq('cedula', u.cedula);
+            if (errCed) errorEliminacion = errCed;
+          }
+
+          // 2. Eliminar por id_usuario si existe
+          if (u.id_usuario) {
+            const { error: errIdUsr } = await supabase
+              .from('usuarios')
+              .delete()
+              .eq('id_usuario', u.id_usuario);
+            if (errIdUsr && !errorEliminacion) errorEliminacion = errIdUsr;
+          }
+
+          // 3. Eliminar por id si existe
+          if (u.id) {
+            const { error: errId } = await supabase
+              .from('usuarios')
+              .delete()
+              .eq('id', u.id);
+            if (errId && !errorEliminacion) errorEliminacion = errId;
+          }
+
+          if (errorEliminacion) {
+            throw errorEliminacion;
+          }
+
+          // Actualizar estado local inmediatamente
+          setUsuarios(prev => prev.filter(item => 
+            (u.cedula ? item.cedula !== u.cedula : true) && 
+            (u.id_usuario ? item.id_usuario !== u.id_usuario : true) &&
+            (u.id ? item.id !== u.id : true)
+          ));
+
+          Swal.fire('¡Eliminado!', 'El usuario ha sido eliminado de la base de datos.', 'success');
           auditar('Gestión de Usuarios', 'Eliminar Usuario', `Se eliminó al usuario: ${u.nombre_completo} (C.I. ${u.cedula})`);
-          cargarUsuarios();
-        } catch (e) {
-          console.error(e);
-          Swal.fire('Error', 'No se pudo eliminar al usuario.', 'error');
+          await cargarUsuarios();
+        } catch (e: any) {
+          console.error("Error al eliminar usuario:", e);
+          Swal.fire('Error al Eliminar', e?.message || 'No se pudo eliminar al usuario. Verifique restricciones en la base de datos.', 'error');
         }
         setLoading(false);
       }
@@ -411,19 +452,39 @@ export const GestionUsuarios = () => {
       if (result.isConfirmed) {
         setLoading(true);
         try {
-          const { error } = await supabase
-            .from('usuarios')
-            .delete()
-            .in('id_usuario', selectedUsers);
+          const usersToDelete = usuarios.filter(u => 
+            selectedUsers.includes(u.id_usuario) || 
+            selectedUsers.includes(u.id) || 
+            selectedUsers.includes(u.cedula)
+          );
 
-          if (error) throw error;
+          const cedulas = usersToDelete.map(u => u.cedula).filter(Boolean);
+          const idsUsuario = usersToDelete.map(u => u.id_usuario).filter(Boolean);
+          const ids = usersToDelete.map(u => u.id).filter(Boolean);
+
+          if (cedulas.length > 0) {
+            await supabase.from('usuarios').delete().in('cedula', cedulas);
+          }
+          if (idsUsuario.length > 0) {
+            await supabase.from('usuarios').delete().in('id_usuario', idsUsuario);
+          }
+          if (ids.length > 0) {
+            await supabase.from('usuarios').delete().in('id', ids);
+          }
+
+          setUsuarios(prev => prev.filter(u => 
+            !selectedUsers.includes(u.id_usuario) && 
+            !selectedUsers.includes(u.id) && 
+            !selectedUsers.includes(u.cedula)
+          ));
+          setSelectedUsers([]);
+
           Swal.fire('¡Eliminados!', `Se han eliminado ${selectedUsers.length} usuarios correctamente.`, 'success');
           auditar('Gestión de Usuarios', 'Eliminación Masiva', `Se eliminaron ${selectedUsers.length} usuarios.`);
-          setSelectedUsers([]);
-          cargarUsuarios();
-        } catch (e) {
-          console.error(e);
-          Swal.fire('Error', 'No se pudieron eliminar algunos usuarios.', 'error');
+          await cargarUsuarios();
+        } catch (e: any) {
+          console.error("Error al eliminar masivo:", e);
+          Swal.fire('Error', e?.message || 'No se pudieron eliminar algunos usuarios.', 'error');
         }
         setLoading(false);
       }
@@ -463,20 +524,24 @@ export const GestionUsuarios = () => {
             solicito_reseteo: false
           };
 
-          const { error } = await supabase
-            .from('usuarios')
-            .update(payload)
-            .eq('id_usuario', u.id_usuario);
+          if (u.cedula) {
+            await supabase.from('usuarios').update(payload).eq('cedula', u.cedula);
+          }
+          if (u.id_usuario) {
+            await supabase.from('usuarios').update(payload).eq('id_usuario', u.id_usuario);
+          }
+          if (u.id) {
+            await supabase.from('usuarios').update(payload).eq('id', u.id);
+          }
 
-          if (error) throw error;
           Swal.fire('¡Reseteo Aprobado!', `La cuenta de ${u.nombre_completo} ha sido restablecida exitosamente.`, 'success');
           auditar('Gestión de Usuarios', 'Aprobar Reseteo Total', `Se borró la configuración de la cuenta de: ${u.cedula}`);
           
           setShowReseteosModal(false);
-          cargarUsuarios();
-        } catch (e) {
+          await cargarUsuarios();
+        } catch (e: any) {
           console.error(e);
-          Swal.fire('Error', 'No se pudo aplicar el reseteo.', 'error');
+          Swal.fire('Error', e?.message || 'No se pudo aplicar el reseteo.', 'error');
         }
         setLoading(false);
       }
@@ -887,18 +952,19 @@ export const GestionUsuarios = () => {
                             checked={
                               usuariosPaginados.length > 0 && 
                               usuariosPaginados.filter(u => u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB)).length > 0 &&
-                              usuariosPaginados.filter(u => u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB)).every(u => selectedUsers.includes(u.id_usuario))
+                              usuariosPaginados.filter(u => u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB)).every(u => selectedUsers.includes(u.id_usuario || u.id || u.cedula))
                             }
                             onChange={(e) => {
                               const deletableUsers = usuariosPaginados.filter(u => u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB));
                               if (e.target.checked) {
                                 const newSelection = [...selectedUsers];
                                 deletableUsers.forEach(u => {
-                                  if (!newSelection.includes(u.id_usuario)) newSelection.push(u.id_usuario);
+                                  const uid = u.id_usuario || u.id || u.cedula;
+                                  if (!newSelection.includes(uid)) newSelection.push(uid);
                                 });
                                 setSelectedUsers(newSelection);
                               } else {
-                                const idsToRemove = deletableUsers.map(u => u.id_usuario);
+                                const idsToRemove = deletableUsers.map(u => u.id_usuario || u.id || u.cedula);
                                 setSelectedUsers(selectedUsers.filter(id => !idsToRemove.includes(id)));
                               }
                             }}
@@ -926,21 +992,22 @@ export const GestionUsuarios = () => {
                       usuariosPaginados.map(u => {
                         const canEditU = u.id_escuela === 'ambas' ? (canCreateSB && canCreateLB) : (u.id_escuela === 'sb' ? canCreateSB : canCreateLB);
                         const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
+                        const uid = u.id_usuario || u.id || u.cedula;
 
                         return (
-                          <tr key={u.id_usuario} className={`align-middle hover-efecto ${selectedUsers.includes(u.id_usuario) ? 'table-danger bg-opacity-10' : ''}`}>
+                          <tr key={uid} className={`align-middle hover-efecto ${selectedUsers.includes(uid) ? 'table-danger bg-opacity-10' : ''}`}>
                             <td className="ps-4">
                               <div className="form-check">
                                 <input 
                                   className="form-check-input border-secondary" 
                                   type="checkbox" 
                                   disabled={!canDeleteU}
-                                  checked={selectedUsers.includes(u.id_usuario)}
+                                  checked={selectedUsers.includes(uid)}
                                   onChange={(e) => {
                                     if (e.target.checked) {
-                                      setSelectedUsers([...selectedUsers, u.id_usuario]);
+                                      setSelectedUsers([...selectedUsers, uid]);
                                     } else {
-                                      setSelectedUsers(selectedUsers.filter(id => id !== u.id_usuario));
+                                      setSelectedUsers(selectedUsers.filter(id => id !== uid));
                                     }
                                   }}
                                 />
@@ -1193,7 +1260,7 @@ export const GestionUsuarios = () => {
                         </tr>
                       ) : (
                         solicitudesReseteo.map(u => (
-                          <tr key={u.id_usuario} className="align-middle">
+                          <tr key={u.id_usuario || u.id || u.cedula} className="align-middle">
                             <td className="ps-3">
                               <div className="fw-bold text-dark">{u.nombre_completo}</div>
                               <div className="small text-muted">{u.cedula}</div>
