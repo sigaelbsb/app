@@ -32,6 +32,7 @@ import { ActualizacionDatos } from './pages/estudiantil/ActualizacionDatos';
 import { Verificaciones } from './pages/estudiantil/Verificaciones';
 import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
 import { EstudioDiseno } from './pages/disenos/EstudioDiseno';
+import { ConstructorEncuestas } from './pages/disenos/ConstructorEncuestas';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import './componentes.css';
 import './principal.css';
@@ -168,6 +169,9 @@ function App() {
             <Route path="categoria/Diseños/Creador de Tapas" element={<EstudioDiseno herramientaInicial="tapas" />} />
             <Route path="categoria/Diseños/Creador de Comunicados" element={<EstudioDiseno herramientaInicial="comunicados" />} />
             <Route path="categoria/Diseños/Creador de Cumpleaños" element={<EstudioDiseno herramientaInicial="cumpleanos" />} />
+            <Route path="categoria/Diseños/Encuesta" element={<ConstructorEncuestas />} />
+            <Route path="categoria/Diseños/Encuestas" element={<ConstructorEncuestas />} />
+            <Route path="categoria/Diseños/Constructor de Encuestas" element={<ConstructorEncuestas />} />
             <Route path="categoria/Formación y Capacitación/Creador de Certificados" element={<EstudioDiseno herramientaInicial="certificados" />} />
           </Route>
         </Routes>

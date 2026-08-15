@@ -17,6 +17,94 @@ const handleTituloChange = (
   setter(endsWithSpace ? converted + ' ' : converted);
 };
 
+export const calcularAvanceActualizacion = (item: any) => {
+  const d = item.datos_actualizados || {};
+  const fecha = item.fecha_ultima_actualizacion;
+
+  const secciones = [
+    {
+      id: 'rep',
+      nombre: 'Datos del Representante',
+      icono: 'bi-person-badge',
+      ok: Boolean((d.representante_nombres || item.nombres_representante) && (d.representante_cedula || item.cedula_representante) && (d.representante_telefono || d.representante_email))
+    },
+    {
+      id: 'est',
+      nombre: 'Datos del Estudiante',
+      icono: 'bi-mortarboard',
+      ok: Boolean((d.estudiante_nombres || item.nombres_estudiante) && (d.estudiante_apellidos || item.apellidos_estudiante) && d.estudiante_fecha_nacimiento && d.estudiante_sexo)
+    },
+    {
+      id: 'dir',
+      nombre: 'Ubicación y Vivienda',
+      icono: 'bi-geo-alt',
+      ok: Boolean(d.estado_habitacion && d.direccion_habitacion)
+    },
+    {
+      id: 'salud',
+      nombre: 'Salud y Antropometría',
+      icono: 'bi-heart-pulse',
+      ok: Boolean(d.estudiante_grupo_sanguineo || d.talla_franela || d.peso_kg)
+    },
+    {
+      id: 'madre',
+      nombre: 'Datos de la Madre',
+      icono: 'bi-gender-female',
+      ok: Boolean(d.madre_nombres && d.madre_cedula)
+    },
+    {
+      id: 'padre',
+      nombre: 'Datos del Padre',
+      icono: 'bi-gender-male',
+      ok: d.estudiante_reconocido_por_padre === 'No' || Boolean(d.padre_nombres && d.padre_cedula)
+    },
+    {
+      id: 'socio',
+      nombre: 'Socioeconómico y Servicios',
+      icono: 'bi-house-check',
+      ok: Boolean(d.posee_computadora || d.tipo_vivienda || d.estudiante_con_quien_vive)
+    },
+    {
+      id: 'confirmado',
+      nombre: 'Ficha Confirmada / Emitida',
+      icono: 'bi-file-earmark-check',
+      ok: Boolean(fecha)
+    }
+  ];
+
+  const completadas = secciones.filter(s => s.ok).length;
+  const porcentaje = Math.round((completadas / secciones.length) * 100);
+
+  let estado: 'sin_iniciar' | 'en_proceso' | 'completado' = 'sin_iniciar';
+  let badgeColor = 'secondary';
+  let badgeText = 'Sin Iniciar';
+  let progressColor = 'bg-secondary';
+
+  if (fecha && porcentaje >= 85) {
+    estado = 'completado';
+    badgeColor = 'success';
+    badgeText = 'Completado';
+    progressColor = 'bg-success';
+  } else if (porcentaje > 0 || fecha) {
+    estado = 'en_proceso';
+    badgeColor = 'warning';
+    badgeText = 'En Proceso';
+    progressColor = 'bg-warning';
+  }
+
+  return {
+    porcentaje,
+    completadas,
+    total: secciones.length,
+    secciones,
+    estado,
+    badgeColor,
+    badgeText,
+    progressColor,
+    fechaUltima: fecha ? new Date(fecha).toLocaleDateString('es-VE') : null
+  };
+};
+
 export const VincularEstudiante: React.FC = () => {
   const { user } = usePermisos();
   const [activeTab, setActiveTab] = useState<'individual' | 'masiva' | 'directorio'>('individual');
@@ -25,6 +113,7 @@ export const VincularEstudiante: React.FC = () => {
   const [vinculaciones, setVinculaciones] = useState<any[]>([]);
   const [busquedaDir, setBusquedaDir] = useState<string>('');
   const [gradoFiltroDir, setGradoFiltroDir] = useState<string>('Todos');
+  const [avanceFiltroDir, setAvanceFiltroDir] = useState<string>('Todos');
   const [paginaActualDir, setPaginaActualDir] = useState(1);
   const elementosPorPaginaDir = 50;
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
@@ -33,6 +122,10 @@ export const VincularEstudiante: React.FC = () => {
   // Estados para Edición
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [estudianteEditando, setEstudianteEditando] = useState<any | null>(null);
+
+  // Estados para Modal de Avance de Actualización
+  const [showAvanceModal, setShowAvanceModal] = useState<boolean>(false);
+  const [estudianteAvanceModal, setEstudianteAvanceModal] = useState<any | null>(null);
 
   // Estados para Formulario Individual
   const [cedulaRepBuscar, setCedulaRepBuscar] = useState<string>('');
@@ -66,7 +159,7 @@ export const VincularEstudiante: React.FC = () => {
 
   useEffect(() => {
     setPaginaActualDir(1);
-  }, [escuelaFiltro, busquedaDir, gradoFiltroDir]);
+  }, [escuelaFiltro, busquedaDir, gradoFiltroDir, avanceFiltroDir]);
 
   const cargarCatalogos = async () => {
     try {
@@ -475,6 +568,80 @@ export const VincularEstudiante: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const handleAbrirAvance = (estudiante: any) => {
+    setEstudianteAvanceModal(estudiante);
+    setShowAvanceModal(true);
+  };
+
+  const handleResetearActualizacion = async (estudiante: any) => {
+    const Swal = (window as any).Swal;
+    const nombre = toTitulo(`${estudiante.nombres_estudiante} ${estudiante.apellidos_estudiante}`);
+    const cedula = estudiante.cedula_estudiante;
+
+    let confirmado = false;
+    if (Swal) {
+      const result = await Swal.fire({
+        title: '¿Resetear Actualización de Datos?',
+        html: `¿Estás seguro de que deseas reiniciar la ficha de actualización de <strong>${nombre}</strong> (C.I. ${cedula})?<br/><br/><div class="alert alert-warning text-start py-2 px-3 small border-0"><i class="bi bi-exclamation-triangle-fill me-1"></i> Se borrarán los datos cargados en su ficha integral y el estado volverá a <strong>Sin Iniciar / Pendiente</strong> para que el representante pueda volver a llenarla desde cero.</div>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, resetear ficha',
+        cancelButtonText: 'Cancelar'
+      });
+      confirmado = result.isConfirmed;
+    } else {
+      confirmado = window.confirm(`¿Está seguro de reiniciar la ficha de actualización de ${nombre}?`);
+    }
+
+    if (!confirmado) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('estudiantes_vinculaciones')
+        .update({
+          datos_actualizados: null,
+          fecha_ultima_actualizacion: null
+        })
+        .eq('id', estudiante.id);
+
+      if (error) throw error;
+
+      const payloadReset = { datos_actualizados: null, fecha_ultima_actualizacion: null };
+      setVinculaciones(prev => prev.map(v => v.id === estudiante.id ? { ...v, ...payloadReset } : v));
+      
+      if (estudianteAvanceModal && estudianteAvanceModal.id === estudiante.id) {
+        setEstudianteAvanceModal((prev: any) => prev ? { ...prev, ...payloadReset } : null);
+      }
+
+      auditar('Vincular Estudiante', 'Resetear Actualización', `Se restableció la ficha de actualización del estudiante ${nombre} (C.I. ${cedula})`);
+
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: `Ficha de ${nombre} reseteada exitosamente.`,
+          showConfirmButton: false,
+          timer: 2500
+        });
+      } else {
+        alert(`Ficha de ${nombre} reseteada exitosamente.`);
+      }
+    } catch (err: any) {
+      console.error('Error al resetear actualización:', err);
+      if (Swal) {
+        Swal.fire('Error', `No se pudo resetear la actualización: ${err.message || 'Error en servidor'}`, 'error');
+      } else {
+        alert('Error al resetear: ' + err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!estudianteEditando) return;
@@ -591,7 +758,16 @@ export const VincularEstudiante: React.FC = () => {
     );
     const matchGrado = gradoFiltroDir === 'Todos' || v.grado_actual === gradoFiltroDir;
     const matchEscuela = escuelaFiltro === 'ambas' || v.codigo_escuela === escuelaFiltro;
-    return matchBusqueda && matchGrado && matchEscuela;
+    
+    let matchAvance = true;
+    if (avanceFiltroDir !== 'Todos') {
+      const avance = calcularAvanceActualizacion(v);
+      if (avanceFiltroDir === 'completado') matchAvance = avance.estado === 'completado';
+      else if (avanceFiltroDir === 'en_proceso') matchAvance = avance.estado === 'en_proceso';
+      else if (avanceFiltroDir === 'sin_iniciar') matchAvance = avance.estado === 'sin_iniciar';
+    }
+
+    return matchBusqueda && matchGrado && matchEscuela && matchAvance;
   });
 
   const indexUltimoDir = paginaActualDir * elementosPorPaginaDir;
@@ -919,7 +1095,7 @@ export const VincularEstudiante: React.FC = () => {
       {activeTab === 'directorio' && (
         <div className="card border-0 shadow-sm rounded-4 p-4">
           <div className="row g-3 align-items-center mb-4">
-            <div className="col-md-4">
+            <div className="col-lg-3 col-md-4">
               <div className="btn-group w-100 shadow-sm" role="group">
                 <button 
                   type="button" 
@@ -944,7 +1120,7 @@ export const VincularEstudiante: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-lg-3 col-md-4">
               <div className="input-group">
                 <span className="input-group-text bg-light border-end-0"><i className="bi bi-search text-muted"></i></span>
                 <input 
@@ -956,7 +1132,7 @@ export const VincularEstudiante: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-lg-2 col-md-4">
               <select
                 className="form-select fw-bold text-secondary"
                 value={gradoFiltroDir}
@@ -968,7 +1144,19 @@ export const VincularEstudiante: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div className="col-md-2 text-end d-flex gap-2 justify-content-end">
+            <div className="col-lg-2 col-md-6">
+              <select
+                className="form-select fw-bold text-secondary"
+                value={avanceFiltroDir}
+                onChange={(e) => setAvanceFiltroDir(e.target.value)}
+              >
+                <option value="Todos">📊 Todos los Avances</option>
+                <option value="completado">✅ Completados (100%)</option>
+                <option value="en_proceso">⏳ En Proceso</option>
+                <option value="sin_iniciar">⭕ Sin Iniciar (0%)</option>
+              </select>
+            </div>
+            <div className="col-lg-2 col-md-6 text-end d-flex gap-2 justify-content-end">
               {seleccionados.length > 0 && (
                 <button className="btn btn-danger fw-bold shadow-sm fade-in w-100" onClick={handleEliminarMasivo} disabled={loading} title="Eliminar seleccionados">
                   <i className="bi bi-trash-fill"></i> ({seleccionados.length})
@@ -1000,7 +1188,7 @@ export const VincularEstudiante: React.FC = () => {
                   <th>Estudiante</th>
                   <th>Plantel</th>
                   <th>Grado</th>
-                  <th>Última Actualización</th>
+                  <th>Avance de Actualización</th>
                   <th>Estado</th>
                   <th className="text-end">Acciones</th>
                 </tr>
@@ -1008,16 +1196,16 @@ export const VincularEstudiante: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-5">
+                    <td colSpan={9} className="text-center py-5">
                       <div className="spinner-border text-primary me-2" role="status"></div>
                       <span className="text-muted fw-bold">Cargando directorio de vinculaciones...</span>
                     </td>
                   </tr>
                 ) : listaFiltrada.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-5 text-muted">
+                    <td colSpan={9} className="text-center py-5 text-muted">
                       <i className="bi bi-folder2-open fs-1 d-block mb-2"></i>
-                      No hay estudiantes vinculados en {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : escuelaFiltro === 'lb' ? 'UE Libertador Bolívar' : 'el sistema'}.
+                      No hay estudiantes vinculados con los filtros aplicados en {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : escuelaFiltro === 'lb' ? 'UE Libertador Bolívar' : 'el sistema'}.
                     </td>
                   </tr>
                 ) : (
@@ -1050,11 +1238,42 @@ export const VincularEstudiante: React.FC = () => {
                         <span className="badge bg-light text-dark border shadow-sm fw-semibold">{item.grado_actual || 'Sin Grado'}</span>
                       </td>
                       <td>
-                        {item.fecha_ultima_actualizacion ? (
-                          <span className="text-success fw-bold"><i className="bi bi-check-circle-fill me-1"></i>{new Date(item.fecha_ultima_actualizacion).toLocaleDateString()}</span>
-                        ) : (
-                          <span className="text-warning fw-bold"><i className="bi bi-clock-history me-1"></i>Pendiente</span>
-                        )}
+                        {(() => {
+                          const av = calcularAvanceActualizacion(item);
+                          return (
+                            <div 
+                              className="cursor-pointer p-1 rounded-3 hover-efecto"
+                              onClick={() => handleAbrirAvance(item)}
+                              title="Haz clic para ver el desglose detallado de avance"
+                              style={{ minWidth: '140px' }}
+                            >
+                              <div className="d-flex align-items-center justify-content-between mb-1">
+                                <span className={`badge bg-${av.badgeColor} bg-opacity-10 text-${av.badgeColor} border border-${av.badgeColor} px-2 py-0.5 rounded-pill fw-bold`} style={{ fontSize: '0.7rem' }}>
+                                  {av.estado === 'completado' && <i className="bi bi-check-circle-fill me-1"></i>}
+                                  {av.estado === 'en_proceso' && <i className="bi bi-hourglass-split me-1"></i>}
+                                  {av.estado === 'sin_iniciar' && <i className="bi bi-circle me-1"></i>}
+                                  {av.badgeText} ({av.porcentaje}%)
+                                </span>
+                              </div>
+                              <div className="progress shadow-none" style={{ height: '5px', backgroundColor: '#e9ecef', borderRadius: '4px' }}>
+                                <div 
+                                  className={`progress-bar ${av.progressColor}`} 
+                                  role="progressbar" 
+                                  style={{ width: `${av.porcentaje}%` }}
+                                ></div>
+                              </div>
+                              {av.fechaUltima ? (
+                                <small className="text-muted d-block mt-1" style={{ fontSize: '0.68rem' }}>
+                                  <i className="bi bi-calendar3 me-1"></i>{av.fechaUltima}
+                                </small>
+                              ) : (
+                                <small className="text-muted d-block mt-1" style={{ fontSize: '0.68rem' }}>
+                                  <i className="bi bi-clock-history me-1"></i>No iniciada
+                                </small>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td>
                         <span className={`badge ${item.estado === 'Activo' ? 'bg-success' : 'bg-secondary'} rounded-pill`}>
@@ -1062,13 +1281,27 @@ export const VincularEstudiante: React.FC = () => {
                         </span>
                       </td>
                       <td className="text-end">
-                        <div className="btn-group">
+                        <div className="btn-group shadow-sm">
                           <button 
-                            className="btn btn-sm btn-outline-primary rounded-start-pill" 
+                            className="btn btn-sm btn-outline-info rounded-start-pill" 
+                            onClick={() => handleAbrirAvance(item)}
+                            title="Ver Avance de Actualización"
+                          >
+                            <i className="bi bi-pie-chart-fill"></i>
+                          </button>
+                          <button 
+                            className="btn btn-sm btn-outline-primary" 
                             onClick={() => handleAbrirEdicion(item)}
                             title="Editar Estudiante"
                           >
                             <i className="bi bi-pencil-square"></i>
+                          </button>
+                          <button 
+                            className="btn btn-sm btn-outline-warning" 
+                            onClick={() => handleResetearActualizacion(item)}
+                            title="Resetear Datos de Actualización"
+                          >
+                            <i className="bi bi-arrow-counterclockwise"></i>
                           </button>
                           <button 
                             className="btn btn-sm btn-outline-danger rounded-end-pill" 
@@ -1131,7 +1364,7 @@ export const VincularEstudiante: React.FC = () => {
       )}
       </div>
 
-      {/* Modal de Edición (Renderizado en el Body usando Portals para escapar cualquier CSS transform del Layout) */}
+      {/* Modal de Edición (Renderizado en el Body usando Portals) */}
       {showEditModal && estudianteEditando && createPortal(
         <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }} tabIndex={-1}>
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -1228,6 +1461,143 @@ export const VincularEstudiante: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal de Detalle de Avance de Actualización */}
+      {showAvanceModal && estudianteAvanceModal && createPortal(
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 1060 }} tabIndex={-1}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content rounded-4 border-0 shadow-lg animate__animated animate__zoomIn animate__faster overflow-hidden">
+              {(() => {
+                const av = calcularAvanceActualizacion(estudianteAvanceModal);
+                const nombreEst = toTitulo(`${estudianteAvanceModal.nombres_estudiante} ${estudianteAvanceModal.apellidos_estudiante}`);
+                const nombreRep = toTitulo(`${estudianteAvanceModal.nombres_representante} ${estudianteAvanceModal.apellidos_representante}`);
+                const escuelaNom = estudianteAvanceModal.codigo_escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+
+                return (
+                  <>
+                    <div className="modal-header bg-gradient text-white p-4" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)' }}>
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="p-3 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '54px', height: '54px' }}>
+                          <i className="bi bi-person-lines-fill fs-3"></i>
+                        </div>
+                        <div>
+                          <span className={`badge ${estudianteAvanceModal.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-2.5 py-1 rounded-pill mb-1`} style={{ fontSize: '0.75rem' }}>
+                            {escuelaNom}
+                          </span>
+                          <h5 className="modal-title fw-bold mb-0 text-white">{nombreEst}</h5>
+                          <small className="text-white-50">C.I. / Escolar: {estudianteAvanceModal.cedula_estudiante} | {estudianteAvanceModal.grado_actual || 'Sin Grado'}</small>
+                        </div>
+                      </div>
+                      <button type="button" className="btn-close btn-close-white shadow-sm" onClick={() => setShowAvanceModal(false)}></button>
+                    </div>
+
+                    <div className="modal-body p-4 bg-light">
+                      {/* Tarjeta Resumen de Progreso */}
+                      <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                          <div>
+                            <span className="text-muted small fw-bold text-uppercase">Nivel de Avance de Actualización</span>
+                            <h3 className="fw-bolder mb-0 text-dark d-flex align-items-center gap-2">
+                              <span>{av.porcentaje}%</span>
+                              <span className={`badge bg-${av.badgeColor} bg-opacity-10 text-${av.badgeColor} border border-${av.badgeColor} fs-6 px-3 py-1 rounded-pill`}>
+                                {av.badgeText}
+                              </span>
+                            </h3>
+                          </div>
+                          <div className="text-end">
+                            <span className="badge bg-light text-dark border px-3 py-2 fw-semibold rounded-pill">
+                              <i className="bi bi-check2-all text-success me-1"></i>{av.completadas} de {av.total} Secciones
+                            </span>
+                            {av.fechaUltima && (
+                              <small className="d-block text-muted mt-1">
+                                Última emisión: <strong>{av.fechaUltima}</strong>
+                              </small>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="progress" style={{ height: '10px', backgroundColor: '#e9ecef', borderRadius: '10px' }}>
+                          <div 
+                            className={`progress-bar progress-bar-striped progress-bar-animated ${av.progressColor}`} 
+                            role="progressbar" 
+                            style={{ width: `${av.porcentaje}%` }}
+                          ></div>
+                        </div>
+
+                        <div className="d-flex align-items-center justify-content-between mt-3 pt-3 border-top text-muted small">
+                          <span><i className="bi bi-person-fill me-1"></i>Representante: <strong>{nombreRep}</strong> (C.I. {estudianteAvanceModal.cedula_representante})</span>
+                          <span><i className="bi bi-door-open-fill me-1"></i>Sección: <strong>{estudianteAvanceModal.seccion_actual || 'A'}</strong></span>
+                        </div>
+                      </div>
+
+                      {/* Desglose de Secciones */}
+                      <h6 className="fw-bold text-dark mb-3 d-flex align-items-center">
+                        <i className="bi bi-list-check text-primary me-2 fs-5"></i>
+                        Desglose de Secciones de la Ficha Integral
+                      </h6>
+
+                      <div className="row g-3">
+                        {av.secciones.map((sec, i) => (
+                          <div className="col-md-6" key={sec.id}>
+                            <div className={`card border-0 shadow-sm rounded-3 p-3 h-100 ${sec.ok ? 'bg-white' : 'bg-white bg-opacity-75 border-start border-warning border-3'}`}>
+                              <div className="d-flex align-items-center justify-content-between">
+                                <div className="d-flex align-items-center gap-2.5">
+                                  <div className={`p-2 rounded-circle ${sec.ok ? 'bg-success bg-opacity-10 text-success' : 'bg-warning bg-opacity-10 text-warning'}`}>
+                                    <i className={`bi ${sec.icono} fs-5`}></i>
+                                  </div>
+                                  <div>
+                                    <span className="fw-bold text-dark d-block small" style={{ fontSize: '0.85rem' }}>
+                                      {i + 1}. {sec.nombre}
+                                    </span>
+                                    <small className={sec.ok ? 'text-success fw-bold' : 'text-warning fw-bold'} style={{ fontSize: '0.72rem' }}>
+                                      {sec.ok ? '● Completado' : '○ Incompleto / Pendiente'}
+                                    </small>
+                                  </div>
+                                </div>
+                                <div>
+                                  {sec.ok ? (
+                                    <span className="badge bg-success bg-opacity-10 text-success p-1.5 rounded-circle">
+                                      <i className="bi bi-check-lg fs-6"></i>
+                                    </span>
+                                  ) : (
+                                    <span className="badge bg-warning bg-opacity-10 text-warning p-1.5 rounded-circle">
+                                      <i className="bi bi-exclamation fs-6"></i>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="modal-footer bg-white border-top d-flex justify-content-between p-3">
+                      <button 
+                        type="button" 
+                        className="btn btn-outline-danger fw-bold rounded-pill px-4"
+                        onClick={() => handleResetearActualizacion(estudianteAvanceModal)}
+                        disabled={loading}
+                        title="Restablece la ficha integral a blanco para que el representante la vuelva a llenar"
+                      >
+                        <i className="bi bi-arrow-counterclockwise me-1"></i> Resetear Datos de Actualización
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn btn-primary fw-bold rounded-pill px-4 shadow-sm"
+                        onClick={() => setShowAvanceModal(false)}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>,

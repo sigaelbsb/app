@@ -9,8 +9,10 @@ export const PanelControl = () => {
   const { tienePermiso, loading: permLoading } = usePermisos();
   const Swal = (window as any).Swal;
 
-  const [mantenimiento, setMantenimiento] = useState<boolean>(false);
-  const [bloquearInvitados, setBloquearInvitados] = useState<boolean>(false);
+  const [mantenimientoSB, setMantenimientoSB] = useState<boolean>(false);
+  const [mantenimientoLB, setMantenimientoLB] = useState<boolean>(false);
+  const [bloquearInvitadosSB, setBloquearInvitadosSB] = useState<boolean>(false);
+  const [bloquearInvitadosLB, setBloquearInvitadosLB] = useState<boolean>(false);
   const [fechaInicioCupos, setFechaInicioCupos] = useState<string>('');
   const [fechaFinCupos, setFechaFinCupos] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -36,11 +38,25 @@ export const PanelControl = () => {
       if (error) throw error;
 
       if (data) {
-        const maint = data.find(x => x.clave === 'mantenimiento_activo');
-        if (maint) setMantenimiento(maint.valor === 'true');
+        const maintGlobal = data.find(x => x.clave === 'mantenimiento_activo');
+        const maintSB = data.find(x => x.clave === 'mantenimiento_sb');
+        const maintLB = data.find(x => x.clave === 'mantenimiento_lb');
 
-        const guests = data.find(x => x.clave === 'bloquear_invitados');
-        if (guests) setBloquearInvitados(guests.valor === 'true');
+        const isSbActive = maintSB ? (maintSB.valor === 'true') : (maintGlobal?.valor === 'true');
+        const isLbActive = maintLB ? (maintLB.valor === 'true') : (maintGlobal?.valor === 'true');
+
+        setMantenimientoSB(isSbActive);
+        setMantenimientoLB(isLbActive);
+
+        const guestsGlobal = data.find(x => x.clave === 'bloquear_invitados');
+        const guestsSB = data.find(x => x.clave === 'bloquear_invitados_sb');
+        const guestsLB = data.find(x => x.clave === 'bloquear_invitados_lb');
+
+        const isGuestSbBlocked = guestsSB ? (guestsSB.valor === 'true') : (guestsGlobal?.valor === 'true');
+        const isGuestLbBlocked = guestsLB ? (guestsLB.valor === 'true') : (guestsGlobal?.valor === 'true');
+
+        setBloquearInvitadosSB(isGuestSbBlocked);
+        setBloquearInvitadosLB(isGuestLbBlocked);
 
         const inicioCupo = data.find(x => x.clave === 'fecha_inicio_cupos');
         if (inicioCupo) setFechaInicioCupos(inicioCupo.valor || '');
@@ -63,7 +79,7 @@ export const PanelControl = () => {
     }
   };
 
-  const handleToggleMantenimiento = async (newValue: boolean) => {
+  const handleToggleSchoolMantenimiento = async (escuela: 'sb' | 'lb', newValue: boolean) => {
     if (!canModify) {
       if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
       return;
@@ -71,10 +87,12 @@ export const PanelControl = () => {
 
     if (!Swal) return;
 
+    const escuelaNombre = escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
     const actionText = newValue ? 'activar' : 'desactivar';
+
     const confirmResult = await Swal.fire({
-      title: `¿Confirmar acción?`,
-      text: `¿Estás seguro de que deseas ${actionText} el Modo Mantenimiento Global? ${newValue ? 'Los usuarios no autorizados serán desconectados inmediatamente.' : 'Los accesos volverán a la normalidad.'}`,
+      title: `¿Confirmar acción para ${escuelaNombre}?`,
+      text: `¿Estás seguro de que deseas ${actionText} el Modo Mantenimiento para ${escuelaNombre}? ${newValue ? 'Los usuarios no autorizados de esta institución serán desconectados inmediatamente.' : 'Los accesos volverán a la normalidad para esta institución.'}`,
       icon: newValue ? 'warning' : 'question',
       showCancelButton: true,
       confirmButtonText: `Sí, ${actionText}`,
@@ -87,27 +105,38 @@ export const PanelControl = () => {
 
     setSaving(true);
     try {
+      const clave = escuela === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
+      const otherVal = escuela === 'sb' ? mantenimientoLB : mantenimientoSB;
+      const globalVal = newValue || otherVal;
+
       const { error } = await supabase
         .from('ajustes_globales')
-        .update({ valor: String(newValue), actualizado_en: new Date().toISOString() })
-        .eq('clave', 'mantenimiento_activo');
+        .upsert([
+          { clave, valor: String(newValue), actualizado_en: new Date().toISOString() },
+          { clave: 'mantenimiento_activo', valor: String(globalVal), actualizado_en: new Date().toISOString() }
+        ], { onConflict: 'clave' });
 
       if (error) throw error;
 
-      setMantenimiento(newValue);
+      if (escuela === 'sb') {
+        setMantenimientoSB(newValue);
+      } else {
+        setMantenimientoLB(newValue);
+      }
+
       Swal.fire({
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: `Modo mantenimiento ${newValue ? 'activado' : 'desactivado'}`,
+        title: `Mantenimiento en ${escuelaNombre}: ${newValue ? 'ACTIVADO' : 'DESACTIVADO'}`,
         showConfirmButton: false,
-        timer: 2000
+        timer: 2500
       });
 
       auditar(
         'Panel de Control', 
         newValue ? 'Activar Mantenimiento' : 'Desactivar Mantenimiento', 
-        `Se cambió el estado del mantenimiento global a: ${newValue ? 'ACTIVO' : 'INACTIVO'}`
+        `Se cambió el estado del mantenimiento en ${escuelaNombre} a: ${newValue ? 'ACTIVO' : 'INACTIVO'}`
       );
       
       window.dispatchEvent(new Event('sigae-maintenance-changed'));
@@ -119,7 +148,7 @@ export const PanelControl = () => {
     }
   };
 
-  const handleToggleInvitados = async (newValue: boolean) => {
+  const handleToggleBothMantenimiento = async (newValue: boolean) => {
     if (!canModify) {
       if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
       return;
@@ -127,13 +156,13 @@ export const PanelControl = () => {
 
     if (!Swal) return;
 
-    const actionText = newValue ? 'bloquear' : 'desbloquear';
+    const actionText = newValue ? 'activar' : 'desactivar';
     const confirmResult = await Swal.fire({
-      title: `¿Confirmar acción?`,
-      text: `¿Estás seguro de que deseas ${actionText} el ingreso de nuevos invitados y visitantes?`,
-      icon: 'question',
+      title: `¿${newValue ? 'Activar' : 'Desactivar'} Mantenimiento en AMBAS Escuelas?`,
+      text: `¿Estás seguro de que deseas ${actionText} el Modo Mantenimiento para la U.E. Santa Bárbara y la U.E. Libertador Bolívar simultáneamente? ${newValue ? 'Los usuarios no autorizados de ambas instituciones serán desconectados inmediatamente.' : 'Los accesos volverán a la normalidad en ambas instituciones.'}`,
+      icon: newValue ? 'warning' : 'question',
       showCancelButton: true,
-      confirmButtonText: `Sí, ${actionText}`,
+      confirmButtonText: `Sí, ${actionText} en ambas`,
       cancelButtonText: 'Cancelar',
       confirmButtonColor: newValue ? '#d33' : '#3085d6',
       cancelButtonColor: '#6c757d'
@@ -145,25 +174,158 @@ export const PanelControl = () => {
     try {
       const { error } = await supabase
         .from('ajustes_globales')
-        .update({ valor: String(newValue), actualizado_en: new Date().toISOString() })
-        .eq('clave', 'bloquear_invitados');
+        .upsert([
+          { clave: 'mantenimiento_sb', valor: String(newValue), actualizado_en: new Date().toISOString() },
+          { clave: 'mantenimiento_lb', valor: String(newValue), actualizado_en: new Date().toISOString() },
+          { clave: 'mantenimiento_activo', valor: String(newValue), actualizado_en: new Date().toISOString() }
+        ], { onConflict: 'clave' });
 
       if (error) throw error;
 
-      setBloquearInvitados(newValue);
+      setMantenimientoSB(newValue);
+      setMantenimientoLB(newValue);
+
       Swal.fire({
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: `Ingreso de visitantes ${newValue ? 'bloqueado' : 'permitido'}`,
+        title: `Mantenimiento en ambas escuelas: ${newValue ? 'ACTIVADO' : 'DESACTIVADO'}`,
         showConfirmButton: false,
-        timer: 2000
+        timer: 2500
+      });
+
+      auditar(
+        'Panel de Control', 
+        newValue ? 'Activar Mantenimiento Global' : 'Desactivar Mantenimiento Global', 
+        `Se cambió el estado del mantenimiento en AMBAS escuelas a: ${newValue ? 'ACTIVO' : 'INACTIVO'}`
+      );
+      
+      window.dispatchEvent(new Event('sigae-maintenance-changed'));
+    } catch (e) {
+      console.error(e);
+      Swal.fire('Error', 'No se pudo guardar la configuración.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleSchoolInvitados = async (escuela: 'sb' | 'lb', newValue: boolean) => {
+    if (!canModify) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
+      return;
+    }
+
+    if (!Swal) return;
+
+    const escuelaNombre = escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const actionText = newValue ? 'bloquear' : 'desbloquear';
+
+    const confirmResult = await Swal.fire({
+      title: `¿Confirmar acción para ${escuelaNombre}?`,
+      text: `¿Estás seguro de que deseas ${actionText} el registro e ingreso de invitados y visitantes en ${escuelaNombre}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: `Sí, ${actionText}`,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: newValue ? '#e67e22' : '#3085d6',
+      cancelButtonColor: '#6c757d'
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    setSaving(true);
+    try {
+      const clave = escuela === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
+      const otherVal = escuela === 'sb' ? bloquearInvitadosLB : bloquearInvitadosSB;
+      const globalVal = newValue || otherVal;
+
+      const { error } = await supabase
+        .from('ajustes_globales')
+        .upsert([
+          { clave, valor: String(newValue), actualizado_en: new Date().toISOString() },
+          { clave: 'bloquear_invitados', valor: String(globalVal), actualizado_en: new Date().toISOString() }
+        ], { onConflict: 'clave' });
+
+      if (error) throw error;
+
+      if (escuela === 'sb') {
+        setBloquearInvitadosSB(newValue);
+      } else {
+        setBloquearInvitadosLB(newValue);
+      }
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: `Visitantes en ${escuelaNombre}: ${newValue ? 'BLOQUEADOS' : 'PERMITIDOS'}`,
+        showConfirmButton: false,
+        timer: 2500
       });
 
       auditar(
         'Panel de Control', 
         newValue ? 'Bloquear Invitados' : 'Desbloquear Invitados', 
-        `Se cambió el estado del acceso a visitantes a: ${newValue ? 'BLOQUEADO' : 'PERMITIDO'}`
+        `Se cambió el estado del acceso a visitantes en ${escuelaNombre} a: ${newValue ? 'BLOQUEADO' : 'PERMITIDO'}`
+      );
+    } catch (e) {
+      console.error(e);
+      Swal.fire('Error', 'No se pudo guardar la configuración.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleBothInvitados = async (newValue: boolean) => {
+    if (!canModify) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
+      return;
+    }
+
+    if (!Swal) return;
+
+    const actionText = newValue ? 'bloquear' : 'desbloquear';
+    const confirmResult = await Swal.fire({
+      title: `¿${newValue ? 'Bloquear' : 'Permitir'} Visitantes en AMBAS Escuelas?`,
+      text: `¿Estás seguro de que deseas ${actionText} el registro e ingreso de visitantes en la U.E. Santa Bárbara y U.E. Libertador Bolívar simultáneamente?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: `Sí, ${actionText} en ambas`,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: newValue ? '#e67e22' : '#3085d6',
+      cancelButtonColor: '#6c757d'
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('ajustes_globales')
+        .upsert([
+          { clave: 'bloquear_invitados_sb', valor: String(newValue), actualizado_en: new Date().toISOString() },
+          { clave: 'bloquear_invitados_lb', valor: String(newValue), actualizado_en: new Date().toISOString() },
+          { clave: 'bloquear_invitados', valor: String(newValue), actualizado_en: new Date().toISOString() }
+        ], { onConflict: 'clave' });
+
+      if (error) throw error;
+
+      setBloquearInvitadosSB(newValue);
+      setBloquearInvitadosLB(newValue);
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: `Visitantes en ambas escuelas: ${newValue ? 'BLOQUEADOS' : 'PERMITIDOS'}`,
+        showConfirmButton: false,
+        timer: 2500
+      });
+
+      auditar(
+        'Panel de Control', 
+        newValue ? 'Bloquear Invitados Global' : 'Desbloquear Invitados Global', 
+        `Se cambió el estado del acceso a visitantes en AMBAS escuelas a: ${newValue ? 'BLOQUEADO' : 'PERMITIDO'}`
       );
     } catch (e) {
       console.error(e);
@@ -378,39 +540,99 @@ export const PanelControl = () => {
           <div className="col-lg-6 col-12">
             <div className="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white">
               <div className="d-flex align-items-center mb-3">
-                <div className={`p-3 rounded-circle me-3 ${mantenimiento ? 'bg-danger bg-opacity-10 text-danger' : 'bg-success bg-opacity-10 text-success'}`}>
-                  <i className={`bi ${mantenimiento ? 'bi-cone-striped' : 'bi-check-circle-fill'} fs-3`}></i>
+                <div className={`p-3 rounded-circle me-3 ${(mantenimientoSB || mantenimientoLB) ? 'bg-danger bg-opacity-10 text-danger' : 'bg-success bg-opacity-10 text-success'}`}>
+                  <i className={`bi ${(mantenimientoSB || mantenimientoLB) ? 'bi-cone-striped' : 'bi-check-circle-fill'} fs-3`}></i>
                 </div>
                 <div>
                   <h4 className="fw-bold mb-1 text-dark">Modo Mantenimiento</h4>
-                  <span className={`badge rounded-pill px-3 py-1.5 fw-bold ${mantenimiento ? 'bg-danger text-white' : 'bg-success text-white'}`}>
-                    {mantenimiento ? 'ACTIVADO' : 'SISTEMA OPERATIVO'}
-                  </span>
+                  <div className="d-flex flex-wrap gap-2 mt-1">
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${mantenimientoSB ? 'bg-danger text-white' : 'bg-success text-white'}`} style={{ fontSize: '0.75rem' }}>
+                      <i className="bi bi-building me-1"></i> Santa Bárbara: {mantenimientoSB ? 'MANTENIMIENTO' : 'OPERATIVO'}
+                    </span>
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${mantenimientoLB ? 'bg-danger text-white' : 'bg-success text-white'}`} style={{ fontSize: '0.75rem' }}>
+                      <i className="bi bi-building me-1"></i> Libertador Bolívar: {mantenimientoLB ? 'MANTENIMIENTO' : 'OPERATIVO'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <hr className="my-3 text-muted opacity-25" />
 
-              <p className="text-muted small mb-4">
-                Al activar el modo mantenimiento, solo los usuarios autorizados (administradores o roles que posean el privilegio específico <strong>"Ingresar en Mantenimiento"</strong>) podrán acceder al sistema SIGAE. El resto de los usuarios activos serán desconectados automáticamente y no se permitirá nuevos inicios de sesión.
+              <p className="text-muted small mb-3">
+                Permite suspender el acceso de usuarios por escuela de forma individual o simultánea. Los usuarios sin el privilegio especial <strong>"Ingresar en Mantenimiento"</strong> en la institución afectada serán desconectados inmediatamente y no podrán iniciar sesión.
               </p>
 
-              <div className="d-flex align-items-center justify-content-between p-3 rounded-3 bg-light border">
-                <div>
-                  <h6 className="fw-bold mb-0 text-dark">Estado del Mantenimiento</h6>
-                  <small className="text-muted">Desliza para cambiar el estado</small>
+              {/* Controles por Escuela */}
+              <div className="d-flex flex-column gap-2 mb-3">
+                {/* U.E. Santa Bárbara */}
+                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${mantenimientoSB ? 'bg-danger bg-opacity-10 border-danger' : 'bg-light border'}`}>
+                  <div>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge bg-primary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>SB</span>
+                      <h6 className="fw-bold mb-0 text-dark">U.E. Santa Bárbara</h6>
+                    </div>
+                    <small className={mantenimientoSB ? 'text-danger fw-bold' : 'text-success fw-bold'}>
+                      {mantenimientoSB ? '● En Mantenimiento (Acceso Restringido)' : '● Sistema Operativo'}
+                    </small>
+                  </div>
+                  <div className="form-check form-switch fs-4 mb-0">
+                    <input
+                      className="form-check-input hover-mano"
+                      type="checkbox"
+                      role="switch"
+                      id="switchMantenimientoSB"
+                      checked={mantenimientoSB}
+                      disabled={saving || !canModify}
+                      onChange={(e) => handleToggleSchoolMantenimiento('sb', e.target.checked)}
+                    />
+                  </div>
                 </div>
-                <div className="form-check form-switch fs-4">
-                  <input
-                    className="form-check-input hover-mano"
-                    type="checkbox"
-                    role="switch"
-                    id="switchMantenimiento"
-                    checked={mantenimiento}
-                    disabled={saving || !canModify}
-                    onChange={(e) => handleToggleMantenimiento(e.target.checked)}
-                  />
+
+                {/* U.E. Libertador Bolívar */}
+                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${mantenimientoLB ? 'bg-danger bg-opacity-10 border-danger' : 'bg-light border'}`}>
+                  <div>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge bg-secondary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>LB</span>
+                      <h6 className="fw-bold mb-0 text-dark">U.E. Libertador Bolívar</h6>
+                    </div>
+                    <small className={mantenimientoLB ? 'text-danger fw-bold' : 'text-success fw-bold'}>
+                      {mantenimientoLB ? '● En Mantenimiento (Acceso Restringido)' : '● Sistema Operativo'}
+                    </small>
+                  </div>
+                  <div className="form-check form-switch fs-4 mb-0">
+                    <input
+                      className="form-check-input hover-mano"
+                      type="checkbox"
+                      role="switch"
+                      id="switchMantenimientoLB"
+                      checked={mantenimientoLB}
+                      disabled={saving || !canModify}
+                      onChange={(e) => handleToggleSchoolMantenimiento('lb', e.target.checked)}
+                    />
+                  </div>
                 </div>
+              </div>
+
+              {/* Botones de acción para ambas escuelas */}
+              <div className="d-flex gap-2 pt-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-danger w-50 rounded-pill fw-bold py-2"
+                  disabled={saving || !canModify || (mantenimientoSB && mantenimientoLB)}
+                  onClick={() => handleToggleBothMantenimiento(true)}
+                  title="Poner ambas escuelas en mantenimiento a la vez"
+                >
+                  <i className="bi bi-cone-striped me-1"></i> Poner Ambas en Mantenimiento
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-success w-50 rounded-pill fw-bold py-2"
+                  disabled={saving || !canModify || (!mantenimientoSB && !mantenimientoLB)}
+                  onClick={() => handleToggleBothMantenimiento(false)}
+                  title="Restablecer ambas escuelas a sistema operativo"
+                >
+                  <i className="bi bi-check-circle me-1"></i> Restablecer Ambas
+                </button>
               </div>
             </div>
           </div>
@@ -419,39 +641,99 @@ export const PanelControl = () => {
           <div className="col-lg-6 col-12">
             <div className="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white">
               <div className="d-flex align-items-center mb-3">
-                <div className={`p-3 rounded-circle me-3 ${bloquearInvitados ? 'bg-warning bg-opacity-10 text-warning' : 'bg-success bg-opacity-10 text-success'}`}>
-                  <i className={`bi ${bloquearInvitados ? 'bi-person-x-fill' : 'bi-person-check-fill'} fs-3`}></i>
+                <div className={`p-3 rounded-circle me-3 ${(bloquearInvitadosSB || bloquearInvitadosLB) ? 'bg-warning bg-opacity-10 text-warning' : 'bg-success bg-opacity-10 text-success'}`}>
+                  <i className={`bi ${(bloquearInvitadosSB || bloquearInvitadosLB) ? 'bi-person-x-fill' : 'bi-person-check-fill'} fs-3`}></i>
                 </div>
                 <div>
                   <h4 className="fw-bold mb-1 text-dark">Control de Visitantes</h4>
-                  <span className={`badge rounded-pill px-3 py-1.5 fw-bold ${bloquearInvitados ? 'bg-warning text-dark' : 'bg-success text-white'}`}>
-                    {bloquearInvitados ? 'REGISTRO BLOQUEADO' : 'INGRESO PERMITIDO'}
-                  </span>
+                  <div className="d-flex flex-wrap gap-2 mt-1">
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${bloquearInvitadosSB ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '0.75rem' }}>
+                      <i className="bi bi-building me-1"></i> Santa Bárbara: {bloquearInvitadosSB ? 'BLOQUEADO' : 'PERMITIDO'}
+                    </span>
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${bloquearInvitadosLB ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '0.75rem' }}>
+                      <i className="bi bi-building me-1"></i> Libertador Bolívar: {bloquearInvitadosLB ? 'BLOQUEADO' : 'PERMITIDO'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               <hr className="my-3 text-muted opacity-25" />
 
-              <p className="text-muted small mb-4">
-                Permite deshabilitar temporalmente el módulo de registro e ingreso de <strong>Invitados/Visitantes</strong> en la pantalla de inicio de sesión de la aplicación. Es útil para restringir el acceso a personas ajenas a la institución durante jornadas especiales o auditorías.
+              <p className="text-muted small mb-3">
+                Permite deshabilitar temporalmente el módulo de registro e ingreso de <strong>Invitados/Visitantes</strong> por institución o globalmente en la pantalla de inicio de sesión durante jornadas especiales o auditorías.
               </p>
 
-              <div className="d-flex align-items-center justify-content-between p-3 rounded-3 bg-light border">
-                <div>
-                  <h6 className="fw-bold mb-0 text-dark">Bloquear Visitantes</h6>
-                  <small className="text-muted">Desliza para activar el bloqueo</small>
+              {/* Controles por Escuela */}
+              <div className="d-flex flex-column gap-2 mb-3">
+                {/* U.E. Santa Bárbara */}
+                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${bloquearInvitadosSB ? 'bg-warning bg-opacity-10 border-warning' : 'bg-light border'}`}>
+                  <div>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge bg-primary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>SB</span>
+                      <h6 className="fw-bold mb-0 text-dark">U.E. Santa Bárbara</h6>
+                    </div>
+                    <small className={bloquearInvitadosSB ? 'text-warning fw-bold' : 'text-success fw-bold'}>
+                      {bloquearInvitadosSB ? '● Registro e Ingreso Bloqueado' : '● Ingreso de Visitantes Permitido'}
+                    </small>
+                  </div>
+                  <div className="form-check form-switch fs-4 mb-0">
+                    <input
+                      className="form-check-input hover-mano"
+                      type="checkbox"
+                      role="switch"
+                      id="switchBloquearInvitadosSB"
+                      checked={bloquearInvitadosSB}
+                      disabled={saving || !canModify}
+                      onChange={(e) => handleToggleSchoolInvitados('sb', e.target.checked)}
+                    />
+                  </div>
                 </div>
-                <div className="form-check form-switch fs-4">
-                  <input
-                    className="form-check-input hover-mano"
-                    type="checkbox"
-                    role="switch"
-                    id="switchBloquearInvitados"
-                    checked={bloquearInvitados}
-                    disabled={saving || !canModify}
-                    onChange={(e) => handleToggleInvitados(e.target.checked)}
-                  />
+
+                {/* U.E. Libertador Bolívar */}
+                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${bloquearInvitadosLB ? 'bg-warning bg-opacity-10 border-warning' : 'bg-light border'}`}>
+                  <div>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge bg-secondary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>LB</span>
+                      <h6 className="fw-bold mb-0 text-dark">U.E. Libertador Bolívar</h6>
+                    </div>
+                    <small className={bloquearInvitadosLB ? 'text-warning fw-bold' : 'text-success fw-bold'}>
+                      {bloquearInvitadosLB ? '● Registro e Ingreso Bloqueado' : '● Ingreso de Visitantes Permitido'}
+                    </small>
+                  </div>
+                  <div className="form-check form-switch fs-4 mb-0">
+                    <input
+                      className="form-check-input hover-mano"
+                      type="checkbox"
+                      role="switch"
+                      id="switchBloquearInvitadosLB"
+                      checked={bloquearInvitadosLB}
+                      disabled={saving || !canModify}
+                      onChange={(e) => handleToggleSchoolInvitados('lb', e.target.checked)}
+                    />
+                  </div>
                 </div>
+              </div>
+
+              {/* Botones de acción para ambas escuelas */}
+              <div className="d-flex gap-2 pt-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-warning w-50 rounded-pill fw-bold py-2 text-dark"
+                  disabled={saving || !canModify || (bloquearInvitadosSB && bloquearInvitadosLB)}
+                  onClick={() => handleToggleBothInvitados(true)}
+                  title="Bloquear visitantes en ambas escuelas a la vez"
+                >
+                  <i className="bi bi-person-x-fill me-1"></i> Bloquear en Ambas
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-success w-50 rounded-pill fw-bold py-2"
+                  disabled={saving || !canModify || (!bloquearInvitadosSB && !bloquearInvitadosLB)}
+                  onClick={() => handleToggleBothInvitados(false)}
+                  title="Permitir visitantes en ambas escuelas"
+                >
+                  <i className="bi bi-person-check-fill me-1"></i> Permitir en Ambas
+                </button>
               </div>
             </div>
           </div>

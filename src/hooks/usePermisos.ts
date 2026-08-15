@@ -171,7 +171,7 @@ export const usePermisos = () => {
       if (['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(user?.rol)) return true;
     }
 
-    if (["Diseños", "Galería y Plantillas", "Creador de Certificados", "Creador de Flyers", "Creador de Invitaciones", "Creador de Tapas", "Creador de Comunicados", "Creador de Cumpleaños"].includes(modulo)) {
+    if (["Diseños", "Galería y Plantillas", "Creador de Certificados", "Creador de Flyers", "Creador de Invitaciones", "Creador de Tapas", "Creador de Comunicados", "Creador de Cumpleaños", "Encuesta", "Encuestas", "Constructor de Encuestas"].includes(modulo)) {
       const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
       return rolesPermitidos.includes(user?.rol);
     }

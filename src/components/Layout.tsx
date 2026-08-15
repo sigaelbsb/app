@@ -96,13 +96,20 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     }
 
     try {
-      const { data: maintData } = await supabase
-        .from('ajustes_globales')
-        .select('valor')
-        .eq('clave', 'mantenimiento_activo')
-        .maybeSingle();
+      const activeSchool = (usr.id_escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb') as 'sb' | 'lb';
+      const schoolNombre = activeSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
 
-      if (maintData && maintData.valor === 'true') {
+      const { data: ajustes } = await supabase
+        .from('ajustes_globales')
+        .select('clave, valor')
+        .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo']);
+
+      const maintKey = activeSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
+      const schoolMaint = ajustes?.find(x => x.clave === maintKey);
+      const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
+      const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
+
+      if (isSchoolInMaint) {
         let hasAccess = false;
         if (usr.rol === 'SuperAdmin') {
           hasAccess = true;
@@ -115,7 +122,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
           if (roleData && roleData.permisos) {
             const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
-            const escPerms = parsed[usr.id_escuela || 'sb'] || {};
+            const escPerms = parsed[activeSchool] || {};
             if (escPerms["Ingresar en Mantenimiento"]?.ver === true) {
               hasAccess = true;
             }
@@ -133,8 +140,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           const Swal = (window as any).Swal;
           if (Swal) {
             Swal.fire({
-              title: 'Sistema en Mantenimiento',
-              text: 'El sistema ha entrado en mantenimiento global (acceso restringido solo a administradores y personal autorizado). Tu sesión ha sido finalizada.',
+              title: 'Institución en Mantenimiento',
+              text: `La institución ${schoolNombre} ha entrado en modo mantenimiento (acceso restringido solo a administradores y personal autorizado). Tu sesión ha sido finalizada.`,
               icon: 'warning',
               confirmButtonColor: '#FF8D00',
               confirmButtonText: 'Entendido',
@@ -144,7 +151,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               disconnectUser();
             });
           } else {
-            alert('El sistema ha entrado en mantenimiento global. Tu sesión ha sido finalizada.');
+            alert(`La institución ${schoolNombre} ha entrado en modo mantenimiento. Tu sesión ha sido finalizada.`);
             disconnectUser();
           }
         }

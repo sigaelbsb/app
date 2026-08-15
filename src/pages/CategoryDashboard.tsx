@@ -60,7 +60,7 @@ export const ModulosSistema = {
     ] 
   },
   "Diseños": { 
-    icono: "bi-palette-fill", color: "#EC4899", desc: "Estudio de diseño creativo, certificados, flyers, comunicados y cumpleaños.", 
+    icono: "bi-palette-fill", color: "#EC4899", desc: "Estudio de diseño creativo, certificados, flyers, comunicados, cumpleaños y encuestas.", 
     items: [
       { vista: "Galería y Plantillas", icono: "bi-grid-1x2-fill" },
       { vista: "Creador de Certificados", icono: "bi-patch-check-fill" },
@@ -68,7 +68,8 @@ export const ModulosSistema = {
       { vista: "Creador de Invitaciones", icono: "bi-envelope-paper-heart-fill" },
       { vista: "Creador de Tapas", icono: "bi-journal-album" },
       { vista: "Creador de Comunicados", icono: "bi-megaphone-fill" },
-      { vista: "Creador de Cumpleaños", icono: "bi-balloon-heart-fill" }
+      { vista: "Creador de Cumpleaños", icono: "bi-balloon-heart-fill" },
+      { vista: "Encuesta", icono: "bi-ui-checks-grid" }
     ] 
   },
   "Servicios y Bienestar": { 
@@ -134,6 +135,7 @@ export const CategoryDashboard = () => {
   const handleSubmoduloClick = (vista: string) => {
     if (
       decodedCategory === "Seguridad y Accesos" ||
+      decodedCategory === "Diseños" ||
       (decodedCategory === "Dirección y Sistema" && 
         (vista === "Perfil de la Escuela" || 
          vista === "Espacios Escolares" || 

@@ -217,19 +217,32 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       if (error || !data) {
         // No existe -> Invitado (verificar mantenimiento e inhabilitación de invitados antes)
         try {
-          const [maintRes, guestRes] = await Promise.all([
-            supabase.from('ajustes_globales').select('valor').eq('clave', 'mantenimiento_activo').maybeSingle(),
-            supabase.from('ajustes_globales').select('valor').eq('clave', 'bloquear_invitados').maybeSingle()
-          ]);
+          const targetSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+          const schoolNombre = targetSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
 
-          if (maintRes.data && maintRes.data.valor === 'true') {
-            setErrorMsg('El sistema se encuentra en mantenimiento global y solo se permitirá el acceso a los administradores y personal autorizado.');
+          const { data: ajustes } = await supabase
+            .from('ajustes_globales')
+            .select('clave, valor')
+            .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo', 'bloquear_invitados_sb', 'bloquear_invitados_lb', 'bloquear_invitados']);
+
+          const maintKey = targetSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
+          const schoolMaint = ajustes?.find(x => x.clave === maintKey);
+          const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
+          const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
+
+          if (isSchoolInMaint) {
+            setErrorMsg(`La institución (${schoolNombre}) se encuentra en mantenimiento y no permite acceso de visitantes.`);
             setLoading(false);
             return;
           }
 
-          if (guestRes.data && guestRes.data.valor === 'true') {
-            setErrorMsg('El registro e ingreso de invitados y visitantes está temporalmente inhabilitado por la dirección.');
+          const guestKey = targetSchool === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
+          const guestSchool = ajustes?.find(x => x.clave === guestKey);
+          const guestGlobal = ajustes?.find(x => x.clave === 'bloquear_invitados');
+          const isGuestBlocked = guestSchool ? (guestSchool.valor === 'true') : (guestGlobal?.valor === 'true');
+
+          if (isGuestBlocked) {
+            setErrorMsg(`El registro e ingreso de invitados y visitantes para ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
             setLoading(false);
             return;
           }
@@ -263,18 +276,24 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       } else {
         // Existe -> Verificar si está en mantenimiento
         try {
-          const { data: maintData } = await supabase
-            .from('ajustes_globales')
-            .select('valor')
-            .eq('clave', 'mantenimiento_activo')
-            .maybeSingle();
+          const activeSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+          const schoolNombre = activeSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
 
-          if (maintData && maintData.valor === 'true') {
+          const { data: ajustes } = await supabase
+            .from('ajustes_globales')
+            .select('clave, valor')
+            .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo']);
+
+          const maintKey = activeSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
+          const schoolMaint = ajustes?.find(x => x.clave === maintKey);
+          const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
+          const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
+
+          if (isSchoolInMaint) {
             let hasMaintAccess = false;
             if (data.rol === 'SuperAdmin') {
               hasMaintAccess = true;
             } else {
-              const activeSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
               const { data: roleData } = await supabase
                 .from('roles')
                 .select('permisos')
@@ -291,7 +310,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
             }
 
             if (!hasMaintAccess) {
-              setErrorMsg('El sistema se encuentra en mantenimiento global y solo se permitirá el acceso a los administradores y personal autorizado.');
+              setErrorMsg(`La institución (${schoolNombre}) se encuentra actualmente en mantenimiento. Solo se permite el acceso a administradores y personal autorizado.`);
               setLoading(false);
               return;
             }
@@ -461,15 +480,20 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
   const completarLogin = async (userData: any, resolvedSchool?: 'sb' | 'lb') => {
     const activeSchool = resolvedSchool || school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
     
-    // Check maintenance mode
+    // Check maintenance mode for the target school
     try {
-      const { data: maintData } = await supabase
+      const schoolNombre = activeSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+      const { data: ajustes } = await supabase
         .from('ajustes_globales')
-        .select('valor')
-        .eq('clave', 'mantenimiento_activo')
-        .maybeSingle();
+        .select('clave, valor')
+        .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo']);
 
-      if (maintData && maintData.valor === 'true') {
+      const maintKey = activeSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
+      const schoolMaint = ajustes?.find(x => x.clave === maintKey);
+      const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
+      const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
+
+      if (isSchoolInMaint) {
         let hasMaintAccess = false;
         if (userData.rol === 'SuperAdmin') {
           hasMaintAccess = true;
@@ -490,7 +514,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         }
 
         if (!hasMaintAccess) {
-          setErrorMsg('El sistema se encuentra en mantenimiento global y solo se permitirá el acceso a los administradores y personal autorizado.');
+          setErrorMsg(`La institución (${schoolNombre}) se encuentra actualmente en mantenimiento. Solo se permite el acceso a administradores y personal autorizado.`);
           setLoading(false);
           return;
         }
@@ -740,26 +764,38 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     setErrorMsg('');
 
     try {
-      // Check maintenance mode and visitors blocking
-      const [maintRes, guestRes] = await Promise.all([
-        supabase.from('ajustes_globales').select('valor').eq('clave', 'mantenimiento_activo').maybeSingle(),
-        supabase.from('ajustes_globales').select('valor').eq('clave', 'bloquear_invitados').maybeSingle()
-      ]);
+      // Check maintenance mode and visitors blocking for the target school
+      const escuelaID = (school || localStorage.getItem('sigae_escuela_codigo') || 'sb') as 'sb' | 'lb';
+      const schoolNombre = escuelaID === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
 
-      if (maintRes.data && maintRes.data.valor === 'true') {
-        setErrorMsg('El sistema se encuentra en mantenimiento global. No se permiten accesos de visitantes.');
+      const { data: ajustes } = await supabase
+        .from('ajustes_globales')
+        .select('clave, valor')
+        .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo', 'bloquear_invitados_sb', 'bloquear_invitados_lb', 'bloquear_invitados']);
+
+      const maintKey = escuelaID === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
+      const schoolMaint = ajustes?.find(x => x.clave === maintKey);
+      const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
+      const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
+
+      if (isSchoolInMaint) {
+        setErrorMsg(`La institución (${schoolNombre}) se encuentra en mantenimiento. No se permiten accesos de visitantes.`);
         setLoading(false);
         return;
       }
 
-      if (guestRes.data && guestRes.data.valor === 'true') {
-        setErrorMsg('El registro e ingreso de invitados y visitantes está temporalmente inhabilitado por la dirección.');
+      const guestKey = escuelaID === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
+      const guestSchool = ajustes?.find(x => x.clave === guestKey);
+      const guestGlobal = ajustes?.find(x => x.clave === 'bloquear_invitados');
+      const isGuestBlocked = guestSchool ? (guestSchool.valor === 'true') : (guestGlobal?.valor === 'true');
+
+      if (isGuestBlocked) {
+        setErrorMsg(`El registro e ingreso de invitados y visitantes para ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
         setLoading(false);
         return;
       }
 
       // Insertar en la tabla de invitados
-      const escuelaID = school || localStorage.getItem('sigae_escuela_codigo') || 'sb';
       const { error: insertError } = await supabase
         .from('invitados')
         .insert([{

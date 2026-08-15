@@ -76,7 +76,52 @@ export const Dashboard = () => {
       }
     };
     fetchEscuelas();
+
+    // Fetch encuestas pendientes para el rol del usuario
+    const fetchEncuestasPendientes = async () => {
+      try {
+        let todas: any[] = [];
+        const { data, error } = await supabase.from('encuestas').select('*').eq('estado', 'Publicada');
+        if (!error && data && data.length > 0) {
+          todas = data.map((enc: any) => ({
+            ...enc,
+            roles_permitidos: typeof enc.roles_permitidos === 'string' ? JSON.parse(enc.roles_permitidos) : (enc.roles_permitidos || []),
+            preguntas: typeof enc.preguntas === 'string' ? JSON.parse(enc.preguntas) : (enc.preguntas || [])
+          }));
+        } else {
+          const local = localStorage.getItem('sigae_encuestas_local');
+          if (local) todas = JSON.parse(local).filter((e: any) => e.estado === 'Publicada');
+        }
+
+        const rolUsuario = usuario.rol || 'Docente';
+        const cedulaUsuario = usuario.cedula;
+
+        const aplicables = todas.filter(e => {
+          const matchEscuela = e.codigo_escuela === 'ambas' || e.codigo_escuela === activeSchoolCode;
+          const matchRol = Array.isArray(e.roles_permitidos) && (e.roles_permitidos.includes(rolUsuario) || rolUsuario === 'SuperAdmin');
+          
+          if (!matchEscuela || !matchRol) return false;
+
+          // Si no permite múltiples respuestas, verificar si ya respondió
+          if (!e.permitir_multiples_respuestas && cedulaUsuario) {
+            const key = `sigae_respuestas_${e.id}`;
+            const respuestasLocales = JSON.parse(localStorage.getItem(key) || '[]');
+            const yaRespondio = respuestasLocales.some((r: any) => r.usuario_cedula === cedulaUsuario);
+            if (yaRespondio) return false;
+          }
+
+          return true;
+        });
+
+        setEncuestasPendientes(aplicables);
+      } catch (e) {
+        console.warn("Error al cargar encuestas en dashboard:", e);
+      }
+    };
+    fetchEncuestasPendientes();
   }, []);
+
+  const [encuestasPendientes, setEncuestasPendientes] = useState<any[]>([]);
 
   const handleCardClick = (cardId: string) => {
     setFlipped(prev => ({
@@ -240,6 +285,49 @@ export const Dashboard = () => {
           </span>
         </div>
       </div>
+
+      {/* BANNER DINÁMICO DE ENCUESTAS PENDIENTES */}
+      {encuestasPendientes.length > 0 && (
+        <div className="mb-4 animate__animated animate__fadeInDown">
+          <div 
+            className="card border-0 shadow-sm rounded-4 p-4 text-white position-relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' }}
+          >
+            <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 position-relative z-1">
+              <div className="d-flex align-items-center gap-3">
+                <div className="p-3 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '56px', height: '56px' }}>
+                  <i className="bi bi-ui-checks-grid fs-3"></i>
+                </div>
+                <div>
+                  <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                    <span className="badge bg-white text-dark fw-bold px-2.5 py-1 rounded-pill small">
+                      {encuestasPendientes[0].es_obligatoria ? '⚠️ Consulta Obligatoria' : '📋 Consulta Institucional'}
+                    </span>
+                    <span className="badge bg-white bg-opacity-25 text-white fw-semibold px-2 py-0.5 rounded-pill small">
+                      Para tu rol: {usuario.rol || 'Comunidad'}
+                    </span>
+                  </div>
+                  <h4 className="fw-bolder mb-1 text-white">{encuestasPendientes[0].titulo}</h4>
+                  <p className="mb-0 text-white-50 small" style={{ maxWidth: '650px' }}>
+                    {encuestasPendientes[0].descripcion || 'Tu opinión es fundamental para la toma de decisiones institucionales.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="d-flex align-items-center gap-2">
+                <button 
+                  onClick={() => navigate('/categoria/Diseños/Encuesta')}
+                  className="btn btn-white text-dark rounded-pill px-4 py-2.5 fw-bold shadow hover-efecto d-flex align-items-center gap-2 text-nowrap"
+                  style={{ backgroundColor: '#ffffff' }}
+                >
+                  <i className="bi bi-pencil-square text-pink"></i>
+                  <span>Responder Encuesta ({encuestasPendientes.length})</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PANTALLA DIVIDIDA: LAS DOS ESCUELAS */}
       <div className="row g-4 mb-4">

@@ -51,7 +51,9 @@ const ESTRUCTURA_ACCESOS = {
     "Creador de Invitaciones": [],
     "Creador de Tapas": [],
     "Creador de Comunicados": [],
-    "Creador de Cumpleaños": []
+    "Creador de Cumpleaños": [],
+    "Encuesta": ["Función: Crear Encuestas", "Función: Ver Respuestas", "Función: Exportar Resultados", "Función: Eliminar Encuestas"],
+    "Constructor de Encuestas": []
   },
   "Servicios y Bienestar": {
     "Transporte Escolar": ["Tarjeta: Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Tarjeta: Visor de Recorrido", "Función: Control Coordinación"]

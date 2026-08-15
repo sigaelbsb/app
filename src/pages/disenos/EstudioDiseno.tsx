@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 
 export type TipoHerramienta = 'certificados' | 'flyers' | 'invitaciones' | 'tapas' | 'comunicados' | 'cumpleanos' | 'galeria';
@@ -276,6 +277,7 @@ const PLANTILLAS_PREDEFINIDAS: PlantillaDiseno[] = [
 ];
 
 export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial = 'galeria' }) => {
+  const navigate = useNavigate();
   const [herramienta, setHerramienta] = useState<TipoHerramienta>(herramientaInicial);
   const [plantillaActiva, setPlantillaActiva] = useState<PlantillaDiseno>(PLANTILLAS_PREDEFINIDAS[0]);
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState<'sb' | 'lb'>(
@@ -578,6 +580,17 @@ export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial
           >
             <i className="bi bi-balloon-heart-fill fs-4 text-pink mb-1" style={{ color: '#ec4899' }}></i>
             <span>Cumpleaños y Felicitaciones</span>
+          </button>
+        </div>
+        <div className="col-6 col-md-4 col-xl">
+          <button
+            type="button"
+            onClick={() => navigate('/categoria/Diseños/Encuesta')}
+            className="btn w-100 py-3 tab-diseno-btn d-flex flex-column align-items-center justify-content-center shadow-sm btn-white bg-white border text-dark hover-shadow"
+            title="Ir al Constructor de Encuestas"
+          >
+            <i className="bi bi-ui-checks-grid fs-4 mb-1" style={{ color: '#8b5cf6' }}></i>
+            <span>Constructor de Encuestas</span>
           </button>
         </div>
       </div>
