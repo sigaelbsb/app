@@ -110,6 +110,24 @@ export const GestionUsuarios = () => {
     }
   };
 
+  const limpiarCedula = (ced: any) => String(ced || '').replace(/\D/g, '');
+
+  const getEstudiantesDeUsuario = (u: any, vMap: Record<string, any[]>) => {
+    if (!u || !u.cedula) return [];
+    const raw = String(u.cedula).trim().toUpperCase();
+    const digits = limpiarCedula(u.cedula);
+    
+    const lista1 = vMap[raw] || [];
+    const lista2 = digits ? (vMap[digits] || []) : [];
+    
+    const unicos: Record<string, any> = {};
+    [...lista1, ...lista2].forEach(est => {
+      const key = est.cedula_estudiante || `${est.nombres_estudiante}_${est.apellidos_estudiante}`;
+      if (!unicos[key]) unicos[key] = est;
+    });
+    return Object.values(unicos);
+  };
+
   const cargarUsuarios = async () => {
     setLoading(true);
     try {
@@ -121,22 +139,66 @@ export const GestionUsuarios = () => {
       if (error) throw error;
       setUsuarios(data || []);
 
-      // Cargar vinculaciones de estudiantes por representante
+      // Cargar vinculaciones de estudiantes por representante (con paginación completa)
       try {
-        const { data: vincData } = await supabase
-          .from('estudiantes_vinculaciones')
-          .select('cedula_representante, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela');
-        
-        const vMap: Record<string, any[]> = {};
-        if (vincData) {
-          vincData.forEach((v: any) => {
-            const cedRep = (v.cedula_representante || '').trim().toUpperCase();
-            if (cedRep) {
-              if (!vMap[cedRep]) vMap[cedRep] = [];
-              vMap[cedRep].push(v);
-            }
-          });
+        let todosLosEstudiantes: any[] = [];
+        let page = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data: chunk, error: errChunk } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('cedula_representante, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela')
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+          if (errChunk || !chunk || chunk.length === 0) {
+            hasMore = false;
+          } else {
+            todosLosEstudiantes = [...todosLosEstudiantes, ...chunk];
+            if (chunk.length < pageSize) hasMore = false;
+            else page++;
+          }
         }
+
+        // También consultar solicitudes de cupos por si hay admisiones
+        try {
+          const { data: sols } = await supabase
+            .from('solicitud_cupos')
+            .select('representante_cedula, estudiante_cedula, estudiante_nombres, estudiante_apellidos, grado_solicitado, codigo_escuela');
+          
+          if (sols && sols.length > 0) {
+            sols.forEach((s: any) => {
+              if (s.representante_cedula) {
+                todosLosEstudiantes.push({
+                  cedula_representante: s.representante_cedula,
+                  cedula_estudiante: s.estudiante_cedula || 'En trámite',
+                  nombres_estudiante: s.estudiante_nombres,
+                  apellidos_estudiante: s.estudiante_apellidos,
+                  grado_actual: s.grado_solicitado || 'Admisión',
+                  seccion_actual: 'Cupo',
+                  codigo_escuela: s.codigo_escuela
+                });
+              }
+            });
+          }
+        } catch (eSol) {}
+
+        const vMap: Record<string, any[]> = {};
+        todosLosEstudiantes.forEach((v: any) => {
+          const raw = String(v.cedula_representante || '').trim().toUpperCase();
+          const digits = raw.replace(/\D/g, '');
+
+          if (raw) {
+            if (!vMap[raw]) vMap[raw] = [];
+            vMap[raw].push(v);
+          }
+          if (digits && digits !== raw) {
+            if (!vMap[digits]) vMap[digits] = [];
+            vMap[digits].push(v);
+          }
+        });
+
         setVinculacionesMap(vMap);
       } catch (errVinc) {
         console.warn("No se pudieron cargar vinculaciones:", errVinc);
@@ -207,12 +269,11 @@ export const GestionUsuarios = () => {
     }
 
     let coincideEstudiantes = true;
-    const cedNorm = (u.cedula || '').trim().toUpperCase();
-    const numEstudiantes = (vinculacionesMap[cedNorm] || []).length;
+    const listaEst = getEstudiantesDeUsuario(u, vinculacionesMap);
     if (filtroEstudiantes === 'CON_ESTUDIANTES') {
-      coincideEstudiantes = (numEstudiantes > 0);
+      coincideEstudiantes = (listaEst.length > 0);
     } else if (filtroEstudiantes === 'SIN_ESTUDIANTES') {
-      coincideEstudiantes = (numEstudiantes === 0);
+      coincideEstudiantes = (listaEst.length === 0);
     }
     
     return coincideTexto && coincideEscuela && coincideRol && coincideEstudiantes;
@@ -938,8 +999,8 @@ export const GestionUsuarios = () => {
                   onChange={(e) => { setFiltroEstudiantes(e.target.value as any); setPaginaActual(1); }}
                 >
                   <option value="TODOS">Todos ({usuarios.length})</option>
-                  <option value="CON_ESTUDIANTES">🟢 Con Estudiantes ({usuarios.filter(u => (vinculacionesMap[(u.cedula || '').trim().toUpperCase()] || []).length > 0).length})</option>
-                  <option value="SIN_ESTUDIANTES">⚪ Sin Estudiantes ({usuarios.filter(u => (vinculacionesMap[(u.cedula || '').trim().toUpperCase()] || []).length === 0).length})</option>
+                  <option value="CON_ESTUDIANTES">🟢 Con Estudiantes ({usuarios.filter(u => getEstudiantesDeUsuario(u, vinculacionesMap).length > 0).length})</option>
+                  <option value="SIN_ESTUDIANTES">⚪ Sin Estudiantes ({usuarios.filter(u => getEstudiantesDeUsuario(u, vinculacionesMap).length === 0).length})</option>
                 </select>
               </div>
               <div className="col-md-2">
@@ -1060,7 +1121,7 @@ export const GestionUsuarios = () => {
                         const canEditU = u.id_escuela === 'ambas' ? (canCreateSB && canCreateLB) : (u.id_escuela === 'sb' ? canCreateSB : canCreateLB);
                         const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
                         const uid = u.id_usuario || u.id || u.cedula;
-                        const listaEst = vinculacionesMap[(u.cedula || '').trim().toUpperCase()] || [];
+                        const listaEst = getEstudiantesDeUsuario(u, vinculacionesMap);
 
                         return (
                           <tr key={uid} className={`align-middle hover-efecto ${selectedUsers.includes(uid) ? 'table-danger bg-opacity-10' : ''}`}>
