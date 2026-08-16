@@ -1265,11 +1265,12 @@ export const VincularEstudiante: React.FC = () => {
         title: `Reporte Estadístico - ${nombreInstitucion}`,
         text: texto,
       }).catch(() => {
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+        window.location.href = `whatsapp://send?text=${encodeURIComponent(texto)}`;
       });
       return;
     }
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+    // Abrir App nativa de WhatsApp
+    window.location.href = `whatsapp://send?text=${encodeURIComponent(texto)}`;
   };
 
   const enviarWhatsAppImagen = async (stats: any, nombreInstitucion: string, formato: 'png' | 'jpeg', incluirTexto: boolean = true) => {
@@ -1295,7 +1296,7 @@ export const VincularEstudiante: React.FC = () => {
       contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
 
       document.body.appendChild(contenedor);
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 80));
 
       const canvas = await html2canvas(contenedor, {
         scale: 1.5,
@@ -1320,7 +1321,7 @@ export const VincularEstudiante: React.FC = () => {
 
         const file = new File([blob], nombreArchivo, { type: mimeType });
 
-        // En Móviles / Tablets o navegadores compatibles: Compartir archivo directamente a WhatsApp
+        // En Móviles / Tablets o navegadores compatibles: Compartir archivo directamente a la App de WhatsApp
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             if (Swal) Swal.close();
@@ -1331,11 +1332,11 @@ export const VincularEstudiante: React.FC = () => {
             });
             return;
           } catch (e) {
-            console.log('Share nativo omitido o fallback a web');
+            console.log('Share nativo omitido o fallback');
           }
         }
 
-        // En PC: Copiar imagen al portapapeles y abrir WhatsApp Web directamente
+        // En PC: Copiar imagen al portapapeles y abrir App nativa de WhatsApp
         let copiado = false;
         if (navigator.clipboard && navigator.clipboard.write && formato === 'png') {
           try {
@@ -1348,25 +1349,25 @@ export const VincularEstudiante: React.FC = () => {
           }
         }
 
-        const waUrl = textoMensaje 
-          ? `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`
-          : `https://web.whatsapp.com`;
+        const appUrl = textoMensaje 
+          ? `whatsapp://send?text=${encodeURIComponent(textoMensaje)}`
+          : `whatsapp://`;
 
         if (Swal) {
           Swal.fire({
             icon: 'success',
             title: copiado ? '¡Imagen Copiada al Portapapeles!' : '¡Imagen Lista!',
             text: copiado 
-              ? 'Se abrirá WhatsApp. Solo selecciona tu chat y presiona Ctrl + V para pegar la imagen.' 
-              : 'Abriendo WhatsApp...',
+              ? 'Abriendo la App de WhatsApp... Selecciona tu chat y presiona Ctrl + V para pegar la imagen.' 
+              : 'Abriendo la App de WhatsApp...',
             timer: 2000,
             showConfirmButton: false
           });
         }
 
         setTimeout(() => {
-          window.open(waUrl, '_blank');
-        }, 400);
+          window.location.href = appUrl;
+        }, 300);
 
       }, mimeType, 0.95);
 
