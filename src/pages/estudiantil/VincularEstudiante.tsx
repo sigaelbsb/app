@@ -1396,7 +1396,7 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
-  const handleCompartirWhatsApp = async () => {
+  const handleEnviarWhatsApp = async () => {
     const Swal = (window as any).Swal;
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
@@ -1408,80 +1408,28 @@ export const VincularEstudiante: React.FC = () => {
       return;
     }
 
-    await Swal.fire({
-      title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Compartir por WhatsApp</span>',
-      html: `
-        <p class="text-muted small mb-3">Elige cómo deseas compartir el reporte de <b>${nombreInstitucion}</b>:</p>
-
-        <!-- OPCIÓN DE INCLUIR TEXTO CON LA IMAGEN -->
-        <div class="mb-3 p-3 bg-light rounded-4 border text-start">
-          <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
-            <div>
-              <label class="form-check-label fw-bold text-dark d-block small" for="chk-incluir-texto" style="cursor: pointer;">
-                <i class="bi bi-card-text me-1.5 text-primary"></i> Acompañar imagen con texto explicativo
-              </label>
-              <span class="text-muted d-block" style="font-size: 0.75rem;">Si lo desactivas, se compartirá <b>únicamente la imagen</b> sin texto adjunto.</span>
-            </div>
-            <input class="form-check-input ms-3" type="checkbox" id="chk-incluir-texto" checked style="cursor: pointer; transform: scale(1.2);">
-          </div>
-        </div>
-
-        <div class="d-grid gap-2 text-start">
-          <button id="btn-wa-opt-texto" class="btn btn-outline-primary p-3 rounded-3 text-start d-flex align-items-center gap-3 border shadow-sm hover-efecto">
-            <div class="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
-              <i class="bi bi-chat-text-fill fs-4"></i>
-            </div>
-            <div>
-              <div class="fw-bold text-dark fs-6">1. Solo Mensaje de Texto</div>
-              <small class="text-muted">Resumen ejecutivo formal con emojis, KPIs y avance por grado listo para enviar.</small>
-            </div>
-          </button>
-
-          <button id="btn-wa-opt-png" class="btn btn-outline-success p-3 rounded-3 text-start d-flex align-items-center gap-3 border shadow-sm hover-efecto">
-            <div class="bg-success bg-opacity-10 text-success p-2.5 rounded-circle">
-              <i class="bi bi-file-earmark-image-fill fs-4"></i>
-            </div>
-            <div>
-              <div class="fw-bold text-dark fs-6">2. Imagen Oficial (PNG en Alta Resolución)</div>
-              <small class="text-muted">Dossier visual con gráfico circular Donut, tarjetas KPI, tablas y firmas.</small>
-            </div>
-          </button>
-
-          <button id="btn-wa-opt-jpg" class="btn btn-outline-warning p-3 rounded-3 text-start d-flex align-items-center gap-3 border shadow-sm hover-efecto">
-            <div class="bg-warning bg-opacity-10 text-warning p-2.5 rounded-circle">
-              <i class="bi bi-card-image fs-4"></i>
-            </div>
-            <div>
-              <div class="fw-bold text-dark fs-6">3. Imagen Comprimida (JPG Ligera)</div>
-              <small class="text-muted">Formato optimizado de bajo consumo de datos para chats y grupos móviles.</small>
-            </div>
-          </button>
-        </div>
-      `,
-      showConfirmButton: false,
+    const { value: opcion } = await Swal.fire({
+      title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</span>',
+      text: '¿Cómo deseas enviar el reporte institucional?',
+      icon: 'question',
       showCancelButton: true,
-      cancelButtonText: 'Cerrar',
-      cancelButtonColor: '#6c757d',
-      didOpen: () => {
-        document.getElementById('btn-wa-opt-texto')?.addEventListener('click', () => {
-          Swal.close();
-          enviarWhatsAppTexto(stats, nombreInstitucion);
-        });
-        document.getElementById('btn-wa-opt-png')?.addEventListener('click', () => {
-          const incluirTexto = (document.getElementById('chk-incluir-texto') as HTMLInputElement)?.checked ?? true;
-          Swal.close();
-          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', incluirTexto);
-        });
-        document.getElementById('btn-wa-opt-jpg')?.addEventListener('click', () => {
-          const incluirTexto = (document.getElementById('chk-incluir-texto') as HTMLInputElement)?.checked ?? true;
-          Swal.close();
-          enviarWhatsAppImagen(stats, nombreInstitucion, 'jpeg', incluirTexto);
-        });
-      }
+      showDenyButton: true,
+      confirmButtonText: '<i class="bi bi-card-image me-1"></i> Enviar Imagen (PNG)',
+      denyButtonText: '<i class="bi bi-chat-left-text-fill me-1"></i> Enviar en Texto',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#10b981',
+      denyButtonColor: '#3b82f6',
+      cancelButtonColor: '#6c757d'
     });
+
+    if (opcion === true || (opcion as any)?.isConfirmed) {
+      enviarWhatsAppImagen(stats, nombreInstitucion, 'png', true);
+    } else if ((opcion as any)?.isDenied) {
+      enviarWhatsAppTexto(stats, nombreInstitucion);
+    }
   };
 
-  const handleCompartirCorreo = () => {
+  const handleEnviarCorreo = () => {
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
       ? 'GENERAL ESCUELAS DEP ORIENTE' 
@@ -2995,63 +2943,72 @@ export const VincularEstudiante: React.FC = () => {
                     <div className="modal-footer bg-white border-top p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                       <div className="small text-muted">
                         <i className="bi bi-shield-lock-fill me-1 text-primary"></i>
-                        Reporte oficial válido con marca de tiempo institucional: <b>{stats.fechaHoraReporte}</b>
+                        Reporte emitido con marca de tiempo: <b>{stats.fechaHoraReporte}</b>
                       </div>
+
                       <div className="d-flex gap-2 flex-wrap align-items-center">
-                        <button 
-                          type="button" 
-                          className="btn btn-outline-success fw-bold rounded-pill px-3 shadow-sm hover-efecto"
-                          onClick={exportarEstadisticasExcel}
-                          title="Descargar datos tabulados en Excel"
-                        >
-                          <i className="bi bi-file-earmark-excel-fill me-1.5 text-success"></i> Excel (.xlsx)
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-danger fw-bold rounded-pill px-3 shadow-sm hover-efecto d-flex align-items-center gap-1.5"
-                          onClick={descargarReportePDF}
-                          disabled={generandoPDF}
-                          title="Descargar directamente el informe oficial en formato PDF"
-                        >
-                          {generandoPDF ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm"></span>
-                              <span>Generando PDF...</span>
-                            </>
-                          ) : (
-                            <>
-                              <i className="bi bi-file-earmark-pdf-fill"></i>
-                              <span>Descargar PDF</span>
-                            </>
-                          )}
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-success fw-bold rounded-pill px-3 shadow-sm hover-efecto d-flex align-items-center gap-1.5"
-                          style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
-                          onClick={handleCompartirWhatsApp}
-                          title="Compartir resumen ejecutivo y reporte por WhatsApp"
-                        >
-                          <i className="bi bi-whatsapp"></i>
-                          <span>WhatsApp</span>
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-dark fw-bold rounded-pill px-3 shadow-sm hover-efecto d-flex align-items-center gap-1.5"
-                          onClick={handleCompartirCorreo}
-                          title="Compartir reporte por correo electrónico"
-                        >
-                          <i className="bi bi-envelope-fill"></i>
-                          <span>Correo</span>
-                        </button>
-                        <button 
-                          type="button" 
-                          className="btn btn-primary fw-bold rounded-pill px-3 shadow-sm hover-efecto"
-                          onClick={imprimirReporteEstadistico}
-                          title="Abrir vista de impresión y diálogo del navegador"
-                        >
-                          <i className="bi bi-printer-fill me-1.5"></i> Imprimir
-                        </button>
+                        {/* GRUPO EXPORTAR / DESCARGAR */}
+                        <div className="btn-group shadow-sm" role="group">
+                          <button 
+                            type="button" 
+                            className="btn btn-danger fw-bold px-3 d-flex align-items-center gap-1.5"
+                            onClick={descargarReportePDF}
+                            disabled={generandoPDF}
+                            title="Descargar documento oficial en PDF"
+                          >
+                            {generandoPDF ? (
+                              <>
+                                <span className="spinner-border spinner-border-sm"></span>
+                                <span>PDF...</span>
+                              </>
+                            ) : (
+                              <>
+                                <i className="bi bi-file-earmark-pdf-fill"></i>
+                                <span>Descargar PDF</span>
+                              </>
+                            )}
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn btn-outline-success fw-bold px-3"
+                            onClick={exportarEstadisticasExcel}
+                            title="Descargar datos en Excel"
+                          >
+                            <i className="bi bi-file-earmark-excel-fill me-1"></i> Excel
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn btn-outline-primary fw-bold px-3"
+                            onClick={imprimirReporteEstadistico}
+                            title="Imprimir reporte"
+                          >
+                            <i className="bi bi-printer-fill me-1"></i> Imprimir
+                          </button>
+                        </div>
+
+                        {/* GRUPO ENVIAR DIRECTO */}
+                        <div className="btn-group shadow-sm" role="group">
+                          <button 
+                            type="button" 
+                            className="btn btn-success fw-bold px-3 d-flex align-items-center gap-1.5"
+                            style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                            onClick={handleEnviarWhatsApp}
+                            title="Enviar reporte por WhatsApp (Texto o Imagen)"
+                          >
+                            <i className="bi bi-whatsapp"></i>
+                            <span>Enviar WhatsApp</span>
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn btn-dark fw-bold px-3 d-flex align-items-center gap-1.5"
+                            onClick={handleEnviarCorreo}
+                            title="Enviar reporte por correo electrónico"
+                          >
+                            <i className="bi bi-envelope-fill"></i>
+                            <span>Enviar Correo</span>
+                          </button>
+                        </div>
+
                         <button 
                           type="button" 
                           className="btn btn-secondary rounded-pill px-4"
