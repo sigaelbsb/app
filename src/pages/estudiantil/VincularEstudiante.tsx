@@ -1385,37 +1385,25 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
-  const handleEnviarWhatsApp = async () => {
-    const Swal = (window as any).Swal;
+  const handleEnviarWhatsApp = () => {
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
       ? 'GENERAL ESCUELAS DEP ORIENTE' 
       : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
     
-    if (!Swal) {
-      enviarWhatsAppTexto(stats, nombreInstitucion);
+    const texto = generarTextoResumen(stats, nombreInstitucion);
+
+    if (navigator.share) {
+      navigator.share({
+        title: `Reporte Estadístico - ${nombreInstitucion}`,
+        text: texto,
+      }).catch(() => {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+      });
       return;
     }
 
-    const result = await Swal.fire({
-      title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</span>',
-      text: '¿Cómo deseas enviar el reporte institucional?',
-      icon: 'question',
-      showCancelButton: true,
-      showDenyButton: true,
-      confirmButtonText: '<i class="bi bi-card-image me-1"></i> Enviar Imagen (PNG)',
-      denyButtonText: '<i class="bi bi-chat-left-text-fill me-1"></i> Enviar en Texto',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#10b981',
-      denyButtonColor: '#3b82f6',
-      cancelButtonColor: '#6c757d'
-    });
-
-    if (result.isConfirmed) {
-      enviarWhatsAppImagen(stats, nombreInstitucion, 'png', true);
-    } else if (result.isDenied) {
-      enviarWhatsAppTexto(stats, nombreInstitucion);
-    }
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
   const handleEnviarCorreo = () => {
