@@ -130,6 +130,7 @@ export const VincularEstudiante: React.FC = () => {
   // Estados para Modal de Estadísticas y Reportes
   const [showEstadisticasModal, setShowEstadisticasModal] = useState<boolean>(false);
   const [escuelaReporte, setEscuelaReporte] = useState<'ambas' | 'sb' | 'lb'>('ambas');
+  const [tabReporte, setTabReporte] = useState<'graficos' | 'tabla'>('graficos');
 
   // Estados para Formulario Individual
   const [cedulaRepBuscar, setCedulaRepBuscar] = useState<string>('');
@@ -895,6 +896,15 @@ export const VincularEstudiante: React.FC = () => {
       return;
     }
 
+    const R = 50;
+    const C = 2 * Math.PI * R;
+    const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
+    const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
+    const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
+    const offComp = 0;
+    const offProc = -lenComp;
+    const offSin = -(lenComp + lenProc);
+
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="es">
@@ -904,21 +914,25 @@ export const VincularEstudiante: React.FC = () => {
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
         <style>
-          @page { size: portrait; margin: 12mm; }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #fff; font-size: 12px; }
-          .header-box { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-          .stat-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; text-align: center; }
+          @page { size: portrait; margin: 10mm; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #fff; font-size: 11.5px; }
+          .header-box { border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 16px; }
+          .stat-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; }
           .table-header { background-color: #f1f5f9 !important; font-weight: bold; }
           .table-bordered td, .table-bordered th { border: 1px solid #cbd5e1 !important; }
-          .badge-comp { background: #dcfce7; color: #166534; font-weight: bold; padding: 3px 7px; border-radius: 4px; display: inline-block; }
-          .badge-proc { background: #fef9c3; color: #854d0e; font-weight: bold; padding: 3px 7px; border-radius: 4px; display: inline-block; }
-          .badge-sin { background: #f1f5f9; color: #475569; font-weight: bold; padding: 3px 7px; border-radius: 4px; display: inline-block; }
+          .badge-comp { background: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; font-size: 11px; }
+          .badge-proc { background: #fef9c3; color: #854d0e; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; font-size: 11px; }
+          .badge-sin { background: #f1f5f9; color: #475569; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; font-size: 11px; }
+          .bar-track { background-color: #f1f5f9; border-radius: 4px; height: 10px; overflow: hidden; display: flex; width: 100%; }
+          .bar-comp { background-color: #10b981; height: 100%; }
+          .bar-proc { background-color: #f59e0b; height: 100%; }
+          .bar-sin { background-color: #cbd5e1; height: 100%; }
           @media print {
             .no-print { display: none !important; }
           }
         </style>
       </head>
-      <body class="p-4">
+      <body class="p-3">
         <div class="no-print mb-4 d-flex justify-content-between align-items-center bg-light p-3 rounded border">
           <span class="fw-bold text-muted"><i class="bi bi-printer me-1"></i> Vista Previa Oficial para Impresión / Descarga PDF</span>
           <div>
@@ -932,95 +946,138 @@ export const VincularEstudiante: React.FC = () => {
           <h5 class="fw-bold text-uppercase mb-1" style="color: #0f172a; letter-spacing: 0.5px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE</h5>
           <h6 class="fw-bold text-muted mb-2">GERENCIA DE RECURSOS HUMANOS • GESTIÓN EDUCATIVA</h6>
           <h4 class="fw-bolder text-primary mb-1">${nombreInstitucion}</h4>
-          <p class="mb-1 fw-bold fs-6">REPORTE ESTADÍSTICO DE ACTUALIZACIÓN DE DATOS ESTUDIANTILES</p>
-          <div class="d-flex justify-content-between text-muted small mt-2 px-2 border-top pt-2">
+          <p class="mb-1 fw-bold fs-6">INFORME ESTADÍSTICO Y GRÁFICO DE ACTUALIZACIÓN ESTUDIANTIL</p>
+          <div class="d-flex justify-content-between text-muted small mt-2 px-2 border-top pt-1">
             <span><i class="bi bi-clock-history me-1"></i><strong>Fecha y Hora de Emisión:</strong> ${stats.fechaHoraReporte}</span>
             <span><i class="bi bi-person-circle me-1"></i><strong>Generado por:</strong> ${user?.nombre_completo || user?.cedula || 'Administrador'}</span>
           </div>
         </div>
 
-        <div class="row g-3 mb-4">
-          <div class="col-3">
-            <div class="stat-card bg-light">
-              <div class="text-muted small fw-bold">TOTAL MATRÍCULA</div>
-              <div class="fs-4 fw-bold text-dark">${stats.totalGeneral}</div>
-              <div class="small text-muted">Estudiantes</div>
+        <!-- SECCIÓN DE GRÁFICO DE TORTA / KPI -->
+        <div class="row g-3 mb-3 align-items-center">
+          <div class="col-4 text-center">
+            <div class="p-2 border rounded-3 bg-light position-relative d-inline-block">
+              <svg width="140" height="140" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
+                <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="18" />
+                ${lenComp > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#10b981" stroke-width="18" stroke-dasharray="${lenComp} ${C - lenComp}" stroke-dashoffset="${offComp}" />` : ''}
+                ${lenProc > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#f59e0b" stroke-width="18" stroke-dasharray="${lenProc} ${C - lenProc}" stroke-dashoffset="${offProc}" />` : ''}
+                ${lenSin > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#94a3b8" stroke-width="18" stroke-dasharray="${lenSin} ${C - lenSin}" stroke-dashoffset="${offSin}" />` : ''}
+              </svg>
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                <div style="font-size: 9px; font-weight: bold; color: #64748b;">AVANCE</div>
+                <div style="font-size: 18px; font-weight: 900; color: #0f172a;">${stats.pctGeneral}%</div>
+              </div>
             </div>
+            <div class="small fw-bold text-muted mt-1">Gráfico de Distribución Global</div>
           </div>
-          <div class="col-3">
-            <div class="stat-card" style="background: #f0fdf4; border-color: #86efac;">
-              <div class="text-success small fw-bold">COMPLETADOS</div>
-              <div class="fs-4 fw-bold text-success">${stats.completadosGeneral}</div>
-              <div class="small fw-bold text-success">${stats.pctGeneral}% del total</div>
-            </div>
-          </div>
-          <div class="col-3">
-            <div class="stat-card" style="background: #fefce8; border-color: #fde047;">
-              <div class="text-warning small fw-bold">EN PROCESO</div>
-              <div class="fs-4 fw-bold text-warning" style="color: #ca8a04 !important;">${stats.enProcesoGeneral}</div>
-              <div class="small fw-bold text-warning" style="color: #ca8a04 !important;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% del total</div>
-            </div>
-          </div>
-          <div class="col-3">
-            <div class="stat-card" style="background: #f8fafc; border-color: #cbd5e1;">
-              <div class="text-secondary small fw-bold">SIN INICIAR</div>
-              <div class="fs-4 fw-bold text-secondary">${stats.sinIniciarGeneral}</div>
-              <div class="small fw-bold text-secondary">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% del total</div>
+          <div class="col-8">
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="stat-card bg-light">
+                  <div class="text-muted small fw-bold">TOTAL MATRÍCULA</div>
+                  <div class="fs-5 fw-bold text-dark">${stats.totalGeneral} Estudiantes</div>
+                  <div class="small text-muted">100% de registros</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="stat-card" style="background: #f0fdf4; border-color: #86efac;">
+                  <div class="text-success small fw-bold">ACTUALIZADOS (100%)</div>
+                  <div class="fs-5 fw-bold text-success">${stats.completadosGeneral} Estudiantes</div>
+                  <div class="small fw-bold text-success">${stats.pctGeneral}% completado</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="stat-card" style="background: #fefce8; border-color: #fde047;">
+                  <div class="text-warning small fw-bold">EN PROCESO</div>
+                  <div class="fs-5 fw-bold text-warning" style="color: #ca8a04 !important;">${stats.enProcesoGeneral} Estudiantes</div>
+                  <div class="small fw-bold text-warning" style="color: #ca8a04 !important;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="stat-card" style="background: #f8fafc; border-color: #cbd5e1;">
+                  <div class="text-secondary small fw-bold">SIN INICIAR (0%)</div>
+                  <div class="fs-5 fw-bold text-secondary">${stats.sinIniciarGeneral} Estudiantes</div>
+                  <div class="small fw-bold text-secondary">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-list-columns-reverse me-1"></i> Desglose Detallado por Grupo, Grado o Año Escolar</h6>
-        <table class="table table-bordered align-middle mb-4">
+        <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-bar-chart-steps me-1"></i> Desglose y Distribución por Grupo, Grado o Año Escolar</h6>
+        <table class="table table-bordered align-middle mb-3">
           <thead>
             <tr class="table-header text-center">
-              <th class="text-start ps-3" style="width: 35%;">Grupo / Grado / Año Escolar</th>
-              <th style="width: 13%;">Total</th>
-              <th style="width: 13%;">Completados</th>
-              <th style="width: 13%;">En Proceso</th>
-              <th style="width: 13%;">Sin Iniciar</th>
-              <th style="width: 13%;">% Avance</th>
+              <th class="text-start ps-2" style="width: 28%;">Grupo / Grado / Año Escolar</th>
+              <th style="width: 10%;">Total</th>
+              <th style="width: 11%;">Completados</th>
+              <th style="width: 11%;">En Proceso</th>
+              <th style="width: 11%;">Sin Iniciar</th>
+              <th style="width: 29%;">Gráfico Proporcional de Avance</th>
             </tr>
           </thead>
           <tbody>
-            ${stats.desglosePorGrado.map(g => `
+            ${stats.desglosePorGrado.map(g => {
+              const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
+              const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
+              const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
+              return `
               <tr class="text-center">
-                <td class="text-start ps-3 fw-bold">${g.grado}</td>
+                <td class="text-start ps-2 fw-bold">${g.grado}</td>
                 <td class="fw-bold">${g.total}</td>
                 <td><span class="badge-comp">${g.completados}</span></td>
                 <td><span class="badge-proc">${g.enProceso}</span></td>
                 <td><span class="badge-sin">${g.sinIniciar}</span></td>
-                <td class="fw-bold text-success">${g.pctCompletado}%</td>
+                <td>
+                  <div class="d-flex align-items-center gap-1">
+                    <div class="bar-track flex-grow-1">
+                      <div class="bar-comp" style="width: ${pComp}%;"></div>
+                      <div class="bar-proc" style="width: ${pProc}%;"></div>
+                      <div class="bar-sin" style="width: ${pSin}%;"></div>
+                    </div>
+                    <span style="min-width: 32px; font-weight: bold; color: #166534; font-size: 10.5px;">${g.pctCompletado}%</span>
+                  </div>
+                </td>
               </tr>
-            `).join('')}
-            <tr class="table-header text-center fw-bold" style="background: #e2e8f0 !important; font-size: 13px;">
-              <td class="text-start ps-3">TOTAL GENERAL CONSOLIDADO</td>
+            `;
+            }).join('')}
+            <tr class="table-header text-center fw-bold" style="background: #e2e8f0 !important; font-size: 12px;">
+              <td class="text-start ps-2">TOTAL CONSOLIDADO</td>
               <td>${stats.totalGeneral}</td>
               <td class="text-success">${stats.completadosGeneral}</td>
               <td style="color: #ca8a04;">${stats.enProcesoGeneral}</td>
               <td class="text-secondary">${stats.sinIniciarGeneral}</td>
-              <td class="text-primary">${stats.pctGeneral}%</td>
+              <td>
+                <div class="d-flex align-items-center gap-1">
+                  <div class="bar-track flex-grow-1" style="height: 12px;">
+                    <div class="bar-comp" style="width: ${stats.pctGeneral}%;"></div>
+                    <div class="bar-proc" style="width: ${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
+                    <div class="bar-sin" style="width: ${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
+                  </div>
+                  <span style="min-width: 32px; font-weight: bold; color: #1e3a8a; font-size: 11px;">${stats.pctGeneral}%</span>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
 
-        <div class="row mt-5 pt-4 text-center">
+        <div class="row mt-4 pt-3 text-center">
           <div class="col-6">
-            <div style="border-top: 1px solid #94a3b8; width: 75%; margin: 0 auto; padding-top: 5px;">
-              <strong class="small">Coordinación de Control de Estudios</strong><br>
-              <span class="text-muted" style="font-size: 10px;">Firma y Sello</span>
+            <div style="border-top: 1px solid #94a3b8; width: 70%; margin: 0 auto; padding-top: 4px;">
+              <strong class="small">Control de Estudios</strong><br>
+              <span class="text-muted" style="font-size: 9.5px;">Firma y Sello</span>
             </div>
           </div>
           <div class="col-6">
-            <div style="border-top: 1px solid #94a3b8; width: 75%; margin: 0 auto; padding-top: 5px;">
+            <div style="border-top: 1px solid #94a3b8; width: 70%; margin: 0 auto; padding-top: 4px;">
               <strong class="small">Dirección del Plantel / DEP Oriente</strong><br>
-              <span class="text-muted" style="font-size: 10px;">Firma y Sello</span>
+              <span class="text-muted" style="font-size: 9.5px;">Firma y Sello</span>
             </div>
           </div>
         </div>
 
-        <div class="text-center text-muted small mt-5 pt-3 border-top" style="font-size: 9px;">
-          Documento oficial generado automáticamente por el Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente.
+        <div class="text-center text-muted small mt-4 pt-2 border-top" style="font-size: 8.5px;">
+          Documento oficial con gráficos y estadísticas generado por el Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente.
         </div>
       </body>
       </html>
@@ -1936,7 +1993,7 @@ export const VincularEstudiante: React.FC = () => {
                     </div>
 
                     <div className="modal-body p-4 bg-light">
-                      {/* Selector de Ámbito / Escuela */}
+                      {/* Selector de Ámbito / Escuela y Selector de Vista */}
                       <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 bg-white p-3 rounded-4 shadow-sm border">
                         <div className="d-flex align-items-center gap-2">
                           <div className="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
@@ -1947,35 +2004,55 @@ export const VincularEstudiante: React.FC = () => {
                             <span className="fw-bolder text-dark fs-5">{nombreInstitucion}</span>
                           </div>
                         </div>
-                        <div className="btn-group shadow-sm" role="group">
-                          <button 
-                            type="button" 
-                            className={`btn px-3 fw-bold ${escuelaReporte === 'ambas' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
-                            onClick={() => setEscuelaReporte('ambas')}
-                          >
-                            <i className="bi bi-globe me-1"></i> General Escuelas DEP Oriente
-                          </button>
-                          <button 
-                            type="button" 
-                            className={`btn px-3 fw-bold ${escuelaReporte === 'sb' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
-                            onClick={() => setEscuelaReporte('sb')}
-                          >
-                            <i className="bi bi-building me-1"></i> UE Santa Bárbara
-                          </button>
-                          <button 
-                            type="button" 
-                            className={`btn px-3 fw-bold ${escuelaReporte === 'lb' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
-                            onClick={() => setEscuelaReporte('lb')}
-                          >
-                            <i className="bi bi-building me-1"></i> UE Libertador Bolívar
-                          </button>
+                        
+                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                          <div className="btn-group shadow-sm" role="group">
+                            <button 
+                              type="button" 
+                              className={`btn btn-sm px-3 fw-bold ${escuelaReporte === 'ambas' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
+                              onClick={() => setEscuelaReporte('ambas')}
+                            >
+                              <i className="bi bi-globe me-1"></i> General Escuelas DEP Oriente
+                            </button>
+                            <button 
+                              type="button" 
+                              className={`btn btn-sm px-3 fw-bold ${escuelaReporte === 'sb' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
+                              onClick={() => setEscuelaReporte('sb')}
+                            >
+                              <i className="bi bi-building me-1"></i> UE Santa Bárbara
+                            </button>
+                            <button 
+                              type="button" 
+                              className={`btn btn-sm px-3 fw-bold ${escuelaReporte === 'lb' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
+                              onClick={() => setEscuelaReporte('lb')}
+                            >
+                              <i className="bi bi-building me-1"></i> UE Libertador Bolívar
+                            </button>
+                          </div>
+
+                          <div className="btn-group shadow-sm" role="group">
+                            <button 
+                              type="button" 
+                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'graficos' ? 'btn-dark' : 'btn-outline-dark'}`}
+                              onClick={() => setTabReporte('graficos')}
+                            >
+                              <i className="bi bi-pie-chart-fill me-1"></i> Gráficos
+                            </button>
+                            <button 
+                              type="button" 
+                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'tabla' ? 'btn-dark' : 'btn-outline-dark'}`}
+                              onClick={() => setTabReporte('tabla')}
+                            >
+                              <i className="bi bi-table me-1"></i> Tabla
+                            </button>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Tarjetas de Resumen */}
+                      {/* Tarjetas de Resumen KPI */}
                       <div className="row g-3 mb-4">
                         <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-primary border-4">
+                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-primary border-4 hover-efecto">
                             <span className="small fw-bold text-muted text-uppercase">Total Matrícula</span>
                             <div className="d-flex align-items-center justify-content-between mt-2">
                               <span className="fs-2 fw-bolder text-dark">{stats.totalGeneral}</span>
@@ -1988,7 +2065,7 @@ export const VincularEstudiante: React.FC = () => {
                         </div>
 
                         <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-success border-4">
+                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-success border-4 hover-efecto">
                             <span className="small fw-bold text-success text-uppercase">Actualizados (100%)</span>
                             <div className="d-flex align-items-center justify-content-between mt-2">
                               <span className="fs-2 fw-bolder text-success">{stats.completadosGeneral}</span>
@@ -2001,7 +2078,7 @@ export const VincularEstudiante: React.FC = () => {
                         </div>
 
                         <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-warning border-4">
+                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-warning border-4 hover-efecto">
                             <span className="small fw-bold text-warning text-uppercase" style={{ color: '#ca8a04 !important' }}>En Proceso</span>
                             <div className="d-flex align-items-center justify-content-between mt-2">
                               <span className="fs-2 fw-bolder text-warning" style={{ color: '#ca8a04 !important' }}>{stats.enProcesoGeneral}</span>
@@ -2016,7 +2093,7 @@ export const VincularEstudiante: React.FC = () => {
                         </div>
 
                         <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-secondary border-4">
+                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-secondary border-4 hover-efecto">
                             <span className="small fw-bold text-secondary text-uppercase">Sin Iniciar (0%)</span>
                             <div className="d-flex align-items-center justify-content-between mt-2">
                               <span className="fs-2 fw-bolder text-secondary">{stats.sinIniciarGeneral}</span>
@@ -2031,127 +2108,275 @@ export const VincularEstudiante: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Barra de Progreso Global */}
-                      <div className="bg-white p-3 rounded-4 shadow-sm border mb-4">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <span className="fw-bold text-dark small"><i className="bi bi-pie-chart-fill me-1 text-primary"></i> Avance General Consolidado:</span>
-                          <span className="fw-bolder text-primary fs-6">{stats.pctGeneral}%</span>
-                        </div>
-                        <div className="progress rounded-pill shadow-inner" style={{ height: '14px' }}>
-                          <div 
-                            className="progress-bar bg-success" 
-                            role="progressbar" 
-                            style={{ width: `${stats.pctGeneral}%` }} 
-                            title={`Completados: ${stats.completadosGeneral} (${stats.pctGeneral}%)`}
-                          ></div>
-                          <div 
-                            className="progress-bar bg-warning" 
-                            role="progressbar" 
-                            style={{ width: `${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%` }} 
-                            title={`En Proceso: ${stats.enProcesoGeneral}`}
-                          ></div>
-                          <div 
-                            className="progress-bar bg-secondary" 
-                            role="progressbar" 
-                            style={{ width: `${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%` }} 
-                            title={`Sin Iniciar: ${stats.sinIniciarGeneral}`}
-                          ></div>
-                        </div>
-                        <div className="d-flex justify-content-between text-muted small mt-2">
-                          <span>🟢 Completados: <b>{stats.completadosGeneral}</b></span>
-                          <span>🟡 En Proceso: <b>{stats.enProcesoGeneral}</b></span>
-                          <span>⚪ Sin Iniciar: <b>{stats.sinIniciarGeneral}</b></span>
-                        </div>
-                      </div>
+                      {/* VISTA 1: GRÁFICOS Y TABLERO EJECUTIVO */}
+                      {tabReporte === 'graficos' && (
+                        <div className="row g-4 mb-3 animate__animated animate__fadeIn">
+                          {/* Columna Izquierda: Gráfico de Torta (Donut) */}
+                          <div className="col-lg-5">
+                            <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 d-flex flex-column justify-content-between">
+                              <div>
+                                <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                                  <h6 className="fw-bold text-dark mb-0">
+                                    <i className="bi bi-pie-chart-fill me-2 text-primary"></i>
+                                    Distribución Global de Avance
+                                  </h6>
+                                  <span className="badge bg-light text-muted border">Torta Proporcional</span>
+                                </div>
 
-                      {/* Tabla Desglosada por Grado / Grupo / Año */}
-                      <div className="bg-white rounded-4 shadow-sm border overflow-hidden">
-                        <div className="p-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-                          <h6 className="fw-bold text-dark mb-0">
-                            <i className="bi bi-list-task me-2 text-primary"></i>
-                            Detalle de Avance por Grupo, Grado o Año Escolar ({stats.desglosePorGrado.length} Niveles)
-                          </h6>
-                          <span className="badge bg-dark bg-opacity-10 text-dark border px-3 py-1.5 fw-bold">
-                            {nombreInstitucion}
-                          </span>
-                        </div>
-                        <div className="table-responsive">
-                          <table className="table table-hover align-middle mb-0">
-                            <thead className="bg-light text-muted small">
-                              <tr>
-                                <th className="ps-4">Grupo / Grado / Año</th>
-                                <th className="text-center">Total Estudiantes</th>
-                                <th className="text-center">Actualizados (100%)</th>
-                                <th className="text-center">En Proceso</th>
-                                <th className="text-center">Sin Iniciar (0%)</th>
-                                <th style={{ width: '220px' }}>Progreso de Nivel</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {stats.desglosePorGrado.length === 0 ? (
-                                <tr>
-                                  <td colSpan={6} className="text-center py-4 text-muted">
-                                    No hay estudiantes registrados en el ámbito seleccionado.
-                                  </td>
-                                </tr>
-                              ) : (
-                                stats.desglosePorGrado.map((g, idx) => (
-                                  <tr key={idx}>
-                                    <td className="ps-4 fw-bold text-dark">{g.grado}</td>
-                                    <td className="text-center fw-bold">{g.total}</td>
-                                    <td className="text-center">
-                                      <span className="badge bg-success bg-opacity-10 text-success border border-success px-2.5 py-1 fw-bold">
-                                        {g.completados}
-                                      </span>
-                                    </td>
-                                    <td className="text-center">
-                                      <span className="badge bg-warning bg-opacity-10 text-warning border border-warning px-2.5 py-1 fw-bold" style={{ color: '#ca8a04 !important' }}>
-                                        {g.enProceso}
-                                      </span>
-                                    </td>
-                                    <td className="text-center">
-                                      <span className="badge bg-light text-secondary border px-2.5 py-1">
-                                        {g.sinIniciar}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      <div className="d-flex align-items-center gap-2">
-                                        <div className="progress flex-grow-1 rounded-pill" style={{ height: '8px' }}>
+                                {(() => {
+                                  const R = 70;
+                                  const C = 2 * Math.PI * R;
+                                  const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
+                                  const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
+                                  const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
+                                  const offComp = 0;
+                                  const offProc = -lenComp;
+                                  const offSin = -(lenComp + lenProc);
+
+                                  return (
+                                    <div className="py-3 text-center position-relative d-flex justify-content-center align-items-center">
+                                      <svg width="220" height="220" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
+                                        <circle cx="110" cy="110" r={R} fill="none" stroke="#f1f5f9" strokeWidth="26" />
+                                        {lenComp > 0 && (
+                                          <circle 
+                                            cx="110" cy="110" r={R} fill="none" 
+                                            stroke="#10b981" strokeWidth="26" 
+                                            strokeDasharray={`${lenComp} ${C - lenComp}`}
+                                            strokeDashoffset={offComp}
+                                            style={{ transition: 'all 0.5s ease' }}
+                                          />
+                                        )}
+                                        {lenProc > 0 && (
+                                          <circle 
+                                            cx="110" cy="110" r={R} fill="none" 
+                                            stroke="#f59e0b" strokeWidth="26" 
+                                            strokeDasharray={`${lenProc} ${C - lenProc}`}
+                                            strokeDashoffset={offProc}
+                                            style={{ transition: 'all 0.5s ease' }}
+                                          />
+                                        )}
+                                        {lenSin > 0 && (
+                                          <circle 
+                                            cx="110" cy="110" r={R} fill="none" 
+                                            stroke="#94a3b8" strokeWidth="26" 
+                                            strokeDasharray={`${lenSin} ${C - lenSin}`}
+                                            strokeDashoffset={offSin}
+                                            style={{ transition: 'all 0.5s ease' }}
+                                          />
+                                        )}
+                                      </svg>
+                                      <div className="position-absolute text-center" style={{ pointerEvents: 'none' }}>
+                                        <span className="d-block text-muted text-uppercase fw-bold" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>Avance Global</span>
+                                        <span className="fs-1 fw-bolder text-dark d-block lh-1 my-1">{stats.pctGeneral}%</span>
+                                        <span className="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-0.5 fw-bold small">
+                                          {stats.completadosGeneral} de {stats.totalGeneral}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+
+                              {/* Leyenda interactiva */}
+                              <div className="bg-light p-3 rounded-4 border mt-3">
+                                <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <span className="p-1.5 rounded-circle bg-success"></span>
+                                    <span className="small fw-bold text-dark">Completados (100%)</span>
+                                  </div>
+                                  <div className="text-end">
+                                    <span className="fw-bold text-success me-1">{stats.completadosGeneral}</span>
+                                    <small className="text-muted">({stats.pctGeneral}%)</small>
+                                  </div>
+                                </div>
+
+                                <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <span className="p-1.5 rounded-circle bg-warning"></span>
+                                    <span className="small fw-bold text-dark">En Proceso</span>
+                                  </div>
+                                  <div className="text-end">
+                                    <span className="fw-bold text-warning me-1" style={{ color: '#ca8a04 !important' }}>{stats.enProcesoGeneral}</span>
+                                    <small className="text-muted">({stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%)</small>
+                                  </div>
+                                </div>
+
+                                <div className="d-flex justify-content-between align-items-center">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <span className="p-1.5 rounded-circle bg-secondary"></span>
+                                    <span className="small fw-bold text-dark">Sin Iniciar (0%)</span>
+                                  </div>
+                                  <div className="text-end">
+                                    <span className="fw-bold text-secondary me-1">{stats.sinIniciarGeneral}</span>
+                                    <small className="text-muted">({stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%)</small>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Columna Derecha: Gráfico de Barras Apiladas por Grado */}
+                          <div className="col-lg-7">
+                            <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                                <h6 className="fw-bold text-dark mb-0">
+                                  <i className="bi bi-bar-chart-steps me-2 text-primary"></i>
+                                  Avance por Grupo, Grado o Año Escolar
+                                </h6>
+                                <span className="badge bg-primary bg-opacity-10 text-primary border">{stats.desglosePorGrado.length} Niveles</span>
+                              </div>
+
+                              <div className="overflow-auto pe-2" style={{ maxHeight: '430px' }}>
+                                {stats.desglosePorGrado.length === 0 ? (
+                                  <div className="text-center py-5 text-muted">
+                                    No hay estudiantes registrados para el ámbito seleccionado.
+                                  </div>
+                                ) : (
+                                  stats.desglosePorGrado.map((g, idx) => {
+                                    const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
+                                    const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
+                                    const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
+
+                                    return (
+                                      <div key={idx} className="mb-3 p-2.5 rounded-3 bg-light border hover-efecto">
+                                        <div className="d-flex justify-content-between align-items-center mb-1.5">
+                                          <div className="d-flex align-items-center gap-2">
+                                            <span className="fw-bold text-dark small">{g.grado}</span>
+                                            <span className="badge bg-white text-muted border small px-2 py-0.5">
+                                              {g.total} {g.total === 1 ? 'alumno' : 'alumnos'}
+                                            </span>
+                                          </div>
+                                          <div className="d-flex align-items-center gap-2">
+                                            <span className="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
+                                              {g.completados} listos
+                                            </span>
+                                            <span className="fw-bolder text-primary small" style={{ minWidth: '42px', textAlign: 'right' }}>
+                                              {g.pctCompletado}%
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Barra Apilada Visual */}
+                                        <div className="progress rounded-pill shadow-inner" style={{ height: '10px' }}>
                                           <div 
                                             className="progress-bar bg-success" 
                                             role="progressbar" 
-                                            style={{ width: `${g.pctCompletado}%` }}
+                                            style={{ width: `${pComp}%` }} 
+                                            title={`Completados: ${g.completados} (${Math.round(pComp)}%)`}
+                                          ></div>
+                                          <div 
+                                            className="progress-bar bg-warning" 
+                                            role="progressbar" 
+                                            style={{ width: `${pProc}%` }} 
+                                            title={`En Proceso: ${g.enProceso} (${Math.round(pProc)}%)`}
+                                          ></div>
+                                          <div 
+                                            className="progress-bar bg-secondary bg-opacity-50" 
+                                            role="progressbar" 
+                                            style={{ width: `${pSin}%` }} 
+                                            title={`Sin Iniciar: ${g.sinIniciar} (${Math.round(pSin)}%)`}
                                           ></div>
                                         </div>
-                                        <span className="small fw-bold text-success" style={{ minWidth: '40px' }}>
-                                          {g.pctCompletado}%
-                                        </span>
                                       </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VISTA 2: TABLA DETALLADA POR GRADO */}
+                      {tabReporte === 'tabla' && (
+                        <div className="bg-white rounded-4 shadow-sm border overflow-hidden animate__animated animate__fadeIn mb-3">
+                          <div className="p-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h6 className="fw-bold text-dark mb-0">
+                              <i className="bi bi-list-task me-2 text-primary"></i>
+                              Detalle Tabular de Avance por Grupo, Grado o Año Escolar ({stats.desglosePorGrado.length} Niveles)
+                            </h6>
+                            <span className="badge bg-dark bg-opacity-10 text-dark border px-3 py-1.5 fw-bold">
+                              {nombreInstitucion}
+                            </span>
+                          </div>
+                          <div className="table-responsive">
+                            <table className="table table-hover align-middle mb-0">
+                              <thead className="bg-light text-muted small">
+                                <tr>
+                                  <th className="ps-4">Grupo / Grado / Año</th>
+                                  <th className="text-center">Total Estudiantes</th>
+                                  <th className="text-center">Actualizados (100%)</th>
+                                  <th className="text-center">En Proceso</th>
+                                  <th className="text-center">Sin Iniciar (0%)</th>
+                                  <th style={{ width: '220px' }}>Progreso de Nivel</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {stats.desglosePorGrado.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={6} className="text-center py-4 text-muted">
+                                      No hay estudiantes registrados en el ámbito seleccionado.
                                     </td>
                                   </tr>
-                                ))
-                              )}
-                              <tr className="table-light fw-bold border-top border-2" style={{ fontSize: '0.95rem' }}>
-                                <td className="ps-4 text-primary">TOTAL GENERAL CONSOLIDADO</td>
-                                <td className="text-center text-dark">{stats.totalGeneral}</td>
-                                <td className="text-center text-success">{stats.completadosGeneral}</td>
-                                <td className="text-center text-warning" style={{ color: '#ca8a04 !important' }}>{stats.enProcesoGeneral}</td>
-                                <td className="text-center text-secondary">{stats.sinIniciarGeneral}</td>
-                                <td>
-                                  <div className="d-flex align-items-center gap-2">
-                                    <div className="progress flex-grow-1 rounded-pill" style={{ height: '10px' }}>
-                                      <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${stats.pctGeneral}%` }}></div>
+                                ) : (
+                                  stats.desglosePorGrado.map((g, idx) => (
+                                    <tr key={idx}>
+                                      <td className="ps-4 fw-bold text-dark">{g.grado}</td>
+                                      <td className="text-center fw-bold">{g.total}</td>
+                                      <td className="text-center">
+                                        <span className="badge bg-success bg-opacity-10 text-success border border-success px-2.5 py-1 fw-bold">
+                                          {g.completados}
+                                        </span>
+                                      </td>
+                                      <td className="text-center">
+                                        <span className="badge bg-warning bg-opacity-10 text-warning border border-warning px-2.5 py-1 fw-bold" style={{ color: '#ca8a04 !important' }}>
+                                          {g.enProceso}
+                                        </span>
+                                      </td>
+                                      <td className="text-center">
+                                        <span className="badge bg-light text-secondary border px-2.5 py-1">
+                                          {g.sinIniciar}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <div className="d-flex align-items-center gap-2">
+                                          <div className="progress flex-grow-1 rounded-pill" style={{ height: '8px' }}>
+                                            <div 
+                                              className="progress-bar bg-success" 
+                                              role="progressbar" 
+                                              style={{ width: `${g.pctCompletado}%` }}
+                                            ></div>
+                                          </div>
+                                          <span className="small fw-bold text-success" style={{ minWidth: '40px' }}>
+                                            {g.pctCompletado}%
+                                          </span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))
+                                )}
+                                <tr className="table-light fw-bold border-top border-2" style={{ fontSize: '0.95rem' }}>
+                                  <td className="ps-4 text-primary">TOTAL GENERAL CONSOLIDADO</td>
+                                  <td className="text-center text-dark">{stats.totalGeneral}</td>
+                                  <td className="text-center text-success">{stats.completadosGeneral}</td>
+                                  <td className="text-center text-warning" style={{ color: '#ca8a04 !important' }}>{stats.enProcesoGeneral}</td>
+                                  <td className="text-center text-secondary">{stats.sinIniciarGeneral}</td>
+                                  <td>
+                                    <div className="d-flex align-items-center gap-2">
+                                      <div className="progress flex-grow-1 rounded-pill" style={{ height: '10px' }}>
+                                        <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${stats.pctGeneral}%` }}></div>
+                                      </div>
+                                      <span className="small fw-bold text-primary" style={{ minWidth: '40px' }}>
+                                        {stats.pctGeneral}%
+                                      </span>
                                     </div>
-                                    <span className="small fw-bold text-primary" style={{ minWidth: '40px' }}>
-                                      {stats.pctGeneral}%
-                                    </span>
-                                  </div>
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     <div className="modal-footer bg-white border-top p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
