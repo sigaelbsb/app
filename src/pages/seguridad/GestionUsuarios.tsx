@@ -41,9 +41,14 @@ export const GestionUsuarios = () => {
   // Filtering & Pagination
   const [filtroEscuela, setFiltroEscuela] = useState('TODAS');
   const [filtroRol, setFiltroRol] = useState('TODOS');
+  const [filtroEstudiantes, setFiltroEstudiantes] = useState<'TODOS' | 'CON_ESTUDIANTES' | 'SIN_ESTUDIANTES'>('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 10;
+
+  // Vinculaciones de estudiantes
+  const [vinculacionesMap, setVinculacionesMap] = useState<Record<string, any[]>>({});
+  const [usuarioDetalleEstudiantes, setUsuarioDetalleEstudiantes] = useState<any | null>(null);
 
   // Modal states
   const [showUserModal, setShowUserModal] = useState(false);
@@ -116,6 +121,27 @@ export const GestionUsuarios = () => {
       if (error) throw error;
       setUsuarios(data || []);
 
+      // Cargar vinculaciones de estudiantes por representante
+      try {
+        const { data: vincData } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('cedula_representante, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela');
+        
+        const vMap: Record<string, any[]> = {};
+        if (vincData) {
+          vincData.forEach((v: any) => {
+            const cedRep = (v.cedula_representante || '').trim().toUpperCase();
+            if (cedRep) {
+              if (!vMap[cedRep]) vMap[cedRep] = [];
+              vMap[cedRep].push(v);
+            }
+          });
+        }
+        setVinculacionesMap(vMap);
+      } catch (errVinc) {
+        console.warn("No se pudieron cargar vinculaciones:", errVinc);
+      }
+
       // Cargar solicitudes de reseteo con filtro de permisos por escuela
       const solicitudes = (data || []).filter(u => {
         if (u.solicito_reseteo !== true) return false;
@@ -179,8 +205,17 @@ export const GestionUsuarios = () => {
     if (filtroRol !== 'TODOS') {
       coincideRol = ((u.rol || '').toLowerCase() === filtroRol.toLowerCase());
     }
+
+    let coincideEstudiantes = true;
+    const cedNorm = (u.cedula || '').trim().toUpperCase();
+    const numEstudiantes = (vinculacionesMap[cedNorm] || []).length;
+    if (filtroEstudiantes === 'CON_ESTUDIANTES') {
+      coincideEstudiantes = (numEstudiantes > 0);
+    } else if (filtroEstudiantes === 'SIN_ESTUDIANTES') {
+      coincideEstudiantes = (numEstudiantes === 0);
+    }
     
-    return coincideTexto && coincideEscuela && coincideRol;
+    return coincideTexto && coincideEscuela && coincideRol && coincideEstudiantes;
   });
 
   // Pagination logic
@@ -895,7 +930,19 @@ export const GestionUsuarios = () => {
                   ))}
                 </select>
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
+                <label className="small fw-bold text-muted mb-1"><i className="bi bi-mortarboard-fill me-1"></i>Estudiantes</label>
+                <select 
+                  className="form-select input-moderno border-success fw-bold" 
+                  value={filtroEstudiantes}
+                  onChange={(e) => { setFiltroEstudiantes(e.target.value as any); setPaginaActual(1); }}
+                >
+                  <option value="TODOS">Todos ({usuarios.length})</option>
+                  <option value="CON_ESTUDIANTES">🟢 Con Estudiantes ({usuarios.filter(u => (vinculacionesMap[(u.cedula || '').trim().toUpperCase()] || []).length > 0).length})</option>
+                  <option value="SIN_ESTUDIANTES">⚪ Sin Estudiantes ({usuarios.filter(u => (vinculacionesMap[(u.cedula || '').trim().toUpperCase()] || []).length === 0).length})</option>
+                </select>
+              </div>
+              <div className="col-md-2">
                 <label className="small fw-bold text-muted mb-1"><i className="bi bi-search me-1"></i>Buscar</label>
                 <input 
                   type="text" 
@@ -905,7 +952,7 @@ export const GestionUsuarios = () => {
                   onChange={(e) => { setSearchQuery(e.target.value); setPaginaActual(1); }}
                 />
               </div>
-              <div className="col-md-5 text-md-end">
+              <div className="col-md-4 text-md-end">
                 <div className="text-muted small fw-bold mb-2 text-md-end text-start">
                   Mostrando {usuariosFiltrados.length} resultados {selectedUsers.length > 0 && <span className="text-danger ms-1">({selectedUsers.length} seleccionados)</span>}
                 </div>
@@ -994,6 +1041,7 @@ export const GestionUsuarios = () => {
                       <th>Escuela</th>
                       <th>Nombre Completo</th>
                       <th>Rol en Sistema</th>
+                      <th>Estudiantes</th>
                       <th>Cargo</th>
                       <th>Estado</th>
                       <th className="text-end pe-4">Acciones</th>
@@ -1002,7 +1050,7 @@ export const GestionUsuarios = () => {
                   <tbody>
                     {usuariosPaginados.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="text-center p-4 text-muted">
+                        <td colSpan={9} className="text-center p-4 text-muted">
                           <i className="bi bi-people fs-2 d-block mb-2"></i>
                           No hay usuarios que coincidan con la búsqueda.
                         </td>
@@ -1012,6 +1060,7 @@ export const GestionUsuarios = () => {
                         const canEditU = u.id_escuela === 'ambas' ? (canCreateSB && canCreateLB) : (u.id_escuela === 'sb' ? canCreateSB : canCreateLB);
                         const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
                         const uid = u.id_usuario || u.id || u.cedula;
+                        const listaEst = vinculacionesMap[(u.cedula || '').trim().toUpperCase()] || [];
 
                         return (
                           <tr key={uid} className={`align-middle hover-efecto ${selectedUsers.includes(uid) ? 'table-danger bg-opacity-10' : ''}`}>
@@ -1043,6 +1092,24 @@ export const GestionUsuarios = () => {
                               <div className="small text-muted">{u.email || 'Sin correo'}</div>
                             </td>
                             <td><span className="badge bg-light text-dark border">{u.rol}</span></td>
+                            <td>
+                              {listaEst.length > 0 ? (
+                                <button 
+                                  type="button"
+                                  className="btn btn-xs btn-outline-success rounded-pill fw-bold px-2.5 py-1 shadow-sm d-inline-flex align-items-center gap-1 hover-efecto"
+                                  onClick={() => setUsuarioDetalleEstudiantes({ ...u, estudiantes: listaEst })}
+                                  title="Ver detalle de estudiantes asignados"
+                                  style={{ fontSize: '0.75rem' }}
+                                >
+                                  <i className="bi bi-mortarboard-fill"></i>
+                                  <span>{listaEst.length} {listaEst.length === 1 ? 'Estudiante' : 'Estudiantes'}</span>
+                                </button>
+                              ) : (
+                                <span className="badge bg-light text-muted border px-2 py-1" style={{ fontSize: '0.7rem' }}>
+                                  0 Asignados
+                                </span>
+                              )}
+                            </td>
                             <td><span className="text-muted small"><i className="bi bi-briefcase me-1"></i>{u.cargo || 'Sin asignar'}</span></td>
                             <td>
                               {u.estado === 'Activo' ? (
@@ -1370,6 +1437,64 @@ export const GestionUsuarios = () => {
                   ) : (
                     <><i className="bi bi-cloud-upload-fill me-1"></i> Procesar</>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETALLE DE ESTUDIANTES ASIGNADOS */}
+      {usuarioDetalleEstudiantes && (
+        <div className="modal fade show d-block" tabIndex={-1} style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+              <div className="modal-header bg-success text-white p-4">
+                <div>
+                  <h5 className="modal-title fw-bold mb-1">
+                    <i className="bi bi-mortarboard-fill me-2"></i> Estudiantes Asignados
+                  </h5>
+                  <small className="opacity-75">
+                    Usuario: <b>{usuarioDetalleEstudiantes.nombre_completo}</b> (C.I. {usuarioDetalleEstudiantes.cedula} - {usuarioDetalleEstudiantes.rol})
+                  </small>
+                </div>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setUsuarioDetalleEstudiantes(null)}></button>
+              </div>
+              <div className="modal-body p-4 bg-light">
+                <div className="table-responsive rounded-4 shadow-sm bg-white border">
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="bg-light text-muted small">
+                      <tr>
+                        <th className="ps-3">#</th>
+                        <th>Cédula Estudiante</th>
+                        <th>Nombre y Apellido</th>
+                        <th>Grado / Año</th>
+                        <th>Sección</th>
+                        <th className="text-center">Escuela</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usuarioDetalleEstudiantes.estudiantes?.map((est: any, eIdx: number) => (
+                        <tr key={eIdx}>
+                          <td className="ps-3 fw-bold text-muted">{eIdx + 1}</td>
+                          <td className="fw-bold text-dark">{est.cedula_estudiante}</td>
+                          <td className="fw-bold">{toTitulo(`${est.nombres_estudiante || ''} ${est.apellidos_estudiante || ''}`)}</td>
+                          <td><span className="badge bg-primary bg-opacity-10 text-primary border">{est.grado_actual || 'Sin Grado'}</span></td>
+                          <td><span className="badge bg-light text-dark border">{est.seccion_actual || 'U'}</span></td>
+                          <td className="text-center">
+                            <span className={`badge ${est.codigo_escuela === 'lb' ? 'bg-primary' : 'bg-success'}`}>
+                              {(est.codigo_escuela || 'SB').toUpperCase()}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="modal-footer bg-white border-0 p-3">
+                <button type="button" className="btn btn-secondary rounded-pill px-4" onClick={() => setUsuarioDetalleEstudiantes(null)}>
+                  Cerrar
                 </button>
               </div>
             </div>
