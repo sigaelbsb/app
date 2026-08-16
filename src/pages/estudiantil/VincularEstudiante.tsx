@@ -1085,6 +1085,67 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
+  const generarTextoResumen = (stats: any, nombreInstitucion: string) => {
+    let msg = `📊 *SIGAE - REPORTE DE ACTUALIZACIÓN ESTUDIANTIL*\n`;
+    msg += `🏛️ *Ámbito:* ${nombreInstitucion}\n`;
+    msg += `📅 *Fecha de Emisión:* ${stats.fechaHoraReporte}\n`;
+    msg += `👤 *Emitido por:* ${user?.nombre_completo || user?.cedula || 'Administrador'}\n\n`;
+    msg += `📈 *RESUMEN GENERAL:*\n`;
+    msg += `• 👥 Total Matrícula: *${stats.totalGeneral}*\n`;
+    msg += `• 🟢 Actualizados (100%): *${stats.completadosGeneral}* (${stats.pctGeneral}%)\n`;
+    msg += `• 🟡 En Proceso: *${stats.enProcesoGeneral}* (${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%)\n`;
+    msg += `• ⚪ Sin Iniciar: *${stats.sinIniciarGeneral}* (${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%)\n\n`;
+    
+    if (stats.desglosePorGrado.length > 0) {
+      msg += `📋 *AVANCE POR GRADO / NIVEL:*\n`;
+      stats.desglosePorGrado.slice(0, 10).forEach((g: any) => {
+        msg += `• ${g.grado}: ${g.completados}/${g.total} (${g.pctCompletado}%)\n`;
+      });
+      if (stats.desglosePorGrado.length > 10) {
+        msg += `• ...y ${stats.desglosePorGrado.length - 10} niveles más.\n`;
+      }
+      msg += `\n`;
+    }
+
+    msg += `🌐 _Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente_`;
+    return msg;
+  };
+
+  const handleCompartirWhatsApp = async () => {
+    const stats = calcularEstadisticasReporte(escuelaReporte);
+    const nombreInstitucion = escuelaReporte === 'ambas' 
+      ? 'GENERAL ESCUELAS DEP ORIENTE' 
+      : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
+    
+    const texto = generarTextoResumen(stats, nombreInstitucion);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Reporte Estadístico - ${nombreInstitucion}`,
+          text: texto,
+        });
+        return;
+      } catch (e) {
+        // Fallback a web WhatsApp
+      }
+    }
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+  };
+
+  const handleCompartirCorreo = () => {
+    const stats = calcularEstadisticasReporte(escuelaReporte);
+    const nombreInstitucion = escuelaReporte === 'ambas' 
+      ? 'GENERAL ESCUELAS DEP ORIENTE' 
+      : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
+    
+    const asunto = `SIGAE: Reporte Estadístico de Actualización - ${nombreInstitucion}`;
+    const cuerpo = generarTextoResumen(stats, nombreInstitucion).replace(/\*/g, '');
+    
+    window.location.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  };
+
   const imprimirReporteEstadistico = () => {
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
@@ -2585,13 +2646,14 @@ export const VincularEstudiante: React.FC = () => {
                         <i className="bi bi-shield-lock-fill me-1 text-primary"></i>
                         Reporte oficial válido con marca de tiempo institucional: <b>{stats.fechaHoraReporte}</b>
                       </div>
-                      <div className="d-flex gap-2 flex-wrap">
+                      <div className="d-flex gap-2 flex-wrap align-items-center">
                         <button 
                           type="button" 
                           className="btn btn-outline-success fw-bold rounded-pill px-3 shadow-sm hover-efecto"
                           onClick={exportarEstadisticasExcel}
+                          title="Descargar datos tabulados en Excel"
                         >
-                          <i className="bi bi-file-earmark-excel-fill me-1.5 text-success"></i> Descargar Excel (.xlsx)
+                          <i className="bi bi-file-earmark-excel-fill me-1.5 text-success"></i> Excel (.xlsx)
                         </button>
                         <button 
                           type="button" 
@@ -2611,6 +2673,25 @@ export const VincularEstudiante: React.FC = () => {
                               <span>Descargar PDF</span>
                             </>
                           )}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-success fw-bold rounded-pill px-3 shadow-sm hover-efecto d-flex align-items-center gap-1.5"
+                          style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                          onClick={handleCompartirWhatsApp}
+                          title="Compartir resumen ejecutivo y reporte por WhatsApp"
+                        >
+                          <i className="bi bi-whatsapp"></i>
+                          <span>WhatsApp</span>
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-dark fw-bold rounded-pill px-3 shadow-sm hover-efecto d-flex align-items-center gap-1.5"
+                          onClick={handleCompartirCorreo}
+                          title="Compartir reporte por correo electrónico"
+                        >
+                          <i className="bi bi-envelope-fill"></i>
+                          <span>Correo</span>
                         </button>
                         <button 
                           type="button" 
