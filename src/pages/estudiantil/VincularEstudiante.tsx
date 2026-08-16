@@ -1248,12 +1248,9 @@ export const VincularEstudiante: React.FC = () => {
     
     if (stats.desglosePorGrado.length > 0) {
       msg += `📋 *AVANCE POR GRADO / NIVEL:*\n`;
-      stats.desglosePorGrado.slice(0, 10).forEach((g: any) => {
+      stats.desglosePorGrado.forEach((g: any) => {
         msg += `• ${g.grado}: ${g.completados}/${g.total} (${g.pctCompletado}%)\n`;
       });
-      if (stats.desglosePorGrado.length > 10) {
-        msg += `• ...y ${stats.desglosePorGrado.length - 10} niveles más.\n`;
-      }
       msg += `\n`;
     }
 
@@ -1281,7 +1278,7 @@ export const VincularEstudiante: React.FC = () => {
       if (Swal) {
         Swal.fire({
           title: 'Generando Imagen Oficial...',
-          text: 'Preparando el informe gráfico en alta resolución.',
+          text: 'Preparando el informe gráfico.',
           allowOutsideClick: false,
           didOpen: () => {
             Swal.showLoading();
@@ -1298,10 +1295,10 @@ export const VincularEstudiante: React.FC = () => {
       contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
 
       document.body.appendChild(contenedor);
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 100));
 
       const canvas = await html2canvas(contenedor, {
-        scale: 2.0,
+        scale: 1.5,
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
@@ -1312,7 +1309,7 @@ export const VincularEstudiante: React.FC = () => {
 
       const mimeType = formato === 'png' ? 'image/png' : 'image/jpeg';
       const extension = formato === 'png' ? 'png' : 'jpg';
-      const nombreArchivo = `Reporte_Estadistico_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.${extension}`;
+      const nombreArchivo = `Reporte_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.${extension}`;
       const textoMensaje = incluirTexto ? generarTextoResumen(stats, nombreInstitucion) : '';
 
       canvas.toBlob(async (blob) => {
@@ -1334,7 +1331,7 @@ export const VincularEstudiante: React.FC = () => {
             if (Swal) Swal.close();
             return;
           } catch (e) {
-            console.log('Share cancelado o fallback');
+            console.log('Share nativo no completado, usando fallback');
           }
         }
 
@@ -1360,33 +1357,25 @@ export const VincularEstudiante: React.FC = () => {
         }
 
         if (Swal) {
-          await Swal.fire({
+          const result = await Swal.fire({
             icon: 'success',
-            title: '¡Imagen Oficial Lista!',
+            title: '¡Imagen Lista!',
             html: `
-              <p class="mb-2">El archivo <b>${nombreArchivo}</b> ha sido descargado en tu dispositivo.</p>
-              ${copiadoPortapapeles ? '<div class="alert alert-success p-2 small mb-2"><i class="bi bi-clipboard-check me-1"></i> ¡La imagen también se copió automáticamente a tu portapapeles!</div>' : ''}
-              <p class="small text-muted mb-0">
-                ${incluirTexto ? 'Se abrirá WhatsApp con el texto resumen precargado. Solo pega la imagen con <b>Ctrl + V</b>.' : 'Se abrirá WhatsApp para que pegues la imagen con <b>Ctrl + V</b> (o la adjuntes desde tus descargas).'}
-              </p>
+              <p class="mb-2">El archivo <b>${nombreArchivo}</b> ha sido descargado.</p>
+              ${copiadoPortapapeles ? '<div class="alert alert-success p-2 small mb-2"><i class="bi bi-clipboard-check me-1"></i> ¡Imagen copiada a tu portapapeles!</div>' : ''}
+              <p class="small text-muted mb-0">Al abrir WhatsApp, selecciona tu chat y presiona <b>Ctrl + V</b> (o adjunta la imagen descargada).</p>
             `,
             showCancelButton: true,
             confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
             cancelButtonText: 'Listo',
             confirmButtonColor: '#25D366'
-          }).then((result: any) => {
-            if (result.isConfirmed) {
-              const waUrl = textoMensaje 
-                ? `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`
-                : `https://web.whatsapp.com`;
-              window.open(waUrl, '_blank');
-            }
           });
+
+          if (result.isConfirmed) {
+            window.open('https://web.whatsapp.com', '_blank');
+          }
         } else {
-          const waUrl = textoMensaje 
-            ? `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`
-            : `https://web.whatsapp.com`;
-          window.open(waUrl, '_blank');
+          window.open('https://web.whatsapp.com', '_blank');
         }
       }, mimeType, 0.95);
 
@@ -1408,7 +1397,7 @@ export const VincularEstudiante: React.FC = () => {
       return;
     }
 
-    const { value: opcion } = await Swal.fire({
+    const result = await Swal.fire({
       title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</span>',
       text: '¿Cómo deseas enviar el reporte institucional?',
       icon: 'question',
@@ -1422,9 +1411,9 @@ export const VincularEstudiante: React.FC = () => {
       cancelButtonColor: '#6c757d'
     });
 
-    if (opcion === true || (opcion as any)?.isConfirmed) {
+    if (result.isConfirmed) {
       enviarWhatsAppImagen(stats, nombreInstitucion, 'png', true);
-    } else if ((opcion as any)?.isDenied) {
+    } else if (result.isDenied) {
       enviarWhatsAppTexto(stats, nombreInstitucion);
     }
   };
