@@ -1182,6 +1182,47 @@ export const VincularEstudiante: React.FC = () => {
     `;
   };
 
+  const generarReportePDFBlob = async (stats: any, nombreInstitucion: string): Promise<{ blob: Blob; nombreArchivo: string }> => {
+    const contenedor = document.createElement('div');
+    contenedor.style.position = 'fixed';
+    contenedor.style.left = '-9999px';
+    contenedor.style.top = '0';
+    contenedor.style.width = '790px';
+    contenedor.style.backgroundColor = '#ffffff';
+    contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
+
+    document.body.appendChild(contenedor);
+    await new Promise(r => setTimeout(r, 100));
+
+    const canvas = await html2canvas(contenedor, {
+      scale: 1.5,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true,
+      allowTaint: true
+    });
+
+    document.body.removeChild(contenedor);
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'letter',
+      compress: true
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight), undefined, 'FAST');
+
+    const nombreArchivo = `Reporte_Estadistico_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const blob = pdf.output('blob');
+    return { blob, nombreArchivo };
+  };
+
   const descargarReportePDF = async () => {
     try {
       setGenerandoPDF(true);
@@ -1190,48 +1231,84 @@ export const VincularEstudiante: React.FC = () => {
         ? 'GENERAL ESCUELAS DEP ORIENTE' 
         : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
 
-      const contenedor = document.createElement('div');
-      contenedor.style.position = 'fixed';
-      contenedor.style.left = '-9999px';
-      contenedor.style.top = '0';
-      contenedor.style.width = '790px';
-      contenedor.style.backgroundColor = '#ffffff';
-      contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
-
-      document.body.appendChild(contenedor);
-      await new Promise(r => setTimeout(r, 300));
-
-      const canvas = await html2canvas(contenedor, {
-        scale: 2.0,
-        backgroundColor: '#ffffff',
-        logging: false,
-        useCORS: true,
-        allowTaint: true
-      });
-
-      document.body.removeChild(contenedor);
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'letter',
-        compress: true
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight), undefined, 'FAST');
-
-      const nombreArchivo = `Reporte_Estadistico_Avance_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      pdf.save(nombreArchivo);
+      const { blob, nombreArchivo } = await generarReportePDFBlob(stats, nombreInstitucion);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombreArchivo;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error('Error al generar PDF:', err);
-      alert('Ocurrió un error al generar el archivo PDF. Intente con la opción de Imprimir.');
+      alert('Ocurrió un error al generar el archivo PDF.');
     } finally {
       setGenerandoPDF(false);
+    }
+  };
+
+  const enviarWhatsAppPDF = async (stats: any, nombreInstitucion: string) => {
+    const Swal = (window as any).Swal;
+    try {
+      if (Swal) {
+        Swal.fire({
+          title: 'Preparando Documento PDF...',
+          text: 'Generando el informe institucional con gráficos.',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+      }
+
+      const { blob, nombreArchivo } = await generarReportePDFBlob(stats, nombreInstitucion);
+      const file = new File([blob], nombreArchivo, { type: 'application/pdf' });
+      const textoMensaje = generarTextoResumen(stats, nombreInstitucion);
+
+      // Si el navegador soporta compartir archivos directamente (Móviles / Tablets)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          if (Swal) Swal.close();
+          await navigator.share({
+            files: [file],
+            title: `Reporte Estadístico - ${nombreInstitucion}`,
+            text: textoMensaje
+          });
+          return;
+        } catch (e) {
+          console.log('Share nativo omitido');
+        }
+      }
+
+      // En PC: Descargar el PDF y abrir la app de WhatsApp
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombreArchivo;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      const appUrl = `whatsapp://send?text=${encodeURIComponent(textoMensaje)}`;
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Documento PDF Listo!',
+          html: `
+            <p class="mb-2">El archivo <b>${nombreArchivo}</b> ha sido descargado.</p>
+            <p class="small text-muted mb-0">Abriendo la App de WhatsApp... Selecciona tu chat y adjunta el PDF descargado.</p>
+          `,
+          timer: 2500,
+          showConfirmButton: false
+        });
+      }
+
+      setTimeout(() => {
+        window.location.href = appUrl;
+      }, 400);
+
+    } catch (err: any) {
+      console.error('Error al generar PDF para WhatsApp:', err);
+      if (Swal) Swal.fire('Error', 'No se pudo generar el documento PDF.', 'error');
     }
   };
 
@@ -1269,112 +1346,7 @@ export const VincularEstudiante: React.FC = () => {
       });
       return;
     }
-    // Abrir App nativa de WhatsApp
     window.location.href = `whatsapp://send?text=${encodeURIComponent(texto)}`;
-  };
-
-  const enviarWhatsAppImagen = async (stats: any, nombreInstitucion: string, formato: 'png' | 'jpeg', incluirTexto: boolean = true) => {
-    const Swal = (window as any).Swal;
-    try {
-      if (Swal) {
-        Swal.fire({
-          title: 'Generando Imagen Oficial...',
-          text: 'Preparando el informe gráfico.',
-          allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
-      }
-
-      const contenedor = document.createElement('div');
-      contenedor.style.position = 'fixed';
-      contenedor.style.left = '-9999px';
-      contenedor.style.top = '0';
-      contenedor.style.width = '790px';
-      contenedor.style.backgroundColor = '#ffffff';
-      contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
-
-      document.body.appendChild(contenedor);
-      await new Promise(r => setTimeout(r, 80));
-
-      const canvas = await html2canvas(contenedor, {
-        scale: 1.5,
-        backgroundColor: '#ffffff',
-        logging: false,
-        useCORS: true,
-        allowTaint: true
-      });
-
-      document.body.removeChild(contenedor);
-
-      const mimeType = formato === 'png' ? 'image/png' : 'image/jpeg';
-      const extension = formato === 'png' ? 'png' : 'jpg';
-      const nombreArchivo = `Reporte_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.${extension}`;
-      const textoMensaje = incluirTexto ? generarTextoResumen(stats, nombreInstitucion) : '';
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          if (Swal) Swal.fire('Error', 'No se pudo generar la imagen del reporte.', 'error');
-          return;
-        }
-
-        const file = new File([blob], nombreArchivo, { type: mimeType });
-
-        // En Móviles / Tablets o navegadores compatibles: Compartir archivo directamente a la App de WhatsApp
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            if (Swal) Swal.close();
-            await navigator.share({
-              files: [file],
-              title: `Reporte Estadístico - ${nombreInstitucion}`,
-              text: textoMensaje
-            });
-            return;
-          } catch (e) {
-            console.log('Share nativo omitido o fallback');
-          }
-        }
-
-        // En PC: Copiar imagen al portapapeles y abrir App nativa de WhatsApp
-        let copiado = false;
-        if (navigator.clipboard && navigator.clipboard.write && formato === 'png') {
-          try {
-            await navigator.clipboard.write([
-              new ClipboardItem({ 'image/png': blob })
-            ]);
-            copiado = true;
-          } catch (e) {
-            console.log('Clipboard no disponible', e);
-          }
-        }
-
-        const appUrl = textoMensaje 
-          ? `whatsapp://send?text=${encodeURIComponent(textoMensaje)}`
-          : `whatsapp://`;
-
-        if (Swal) {
-          Swal.fire({
-            icon: 'success',
-            title: copiado ? '¡Imagen Copiada al Portapapeles!' : '¡Imagen Lista!',
-            text: copiado 
-              ? 'Abriendo la App de WhatsApp... Selecciona tu chat y presiona Ctrl + V para pegar la imagen.' 
-              : 'Abriendo la App de WhatsApp...',
-            timer: 2000,
-            showConfirmButton: false
-          });
-        }
-
-        setTimeout(() => {
-          window.location.href = appUrl;
-        }, 300);
-
-      }, mimeType, 0.95);
-
-    } catch (err: any) {
-      console.error('Error al generar imagen para WhatsApp:', err);
-      if (Swal) Swal.fire('Error', 'No se pudo generar la imagen para compartir.', 'error');
-    }
   };
 
   const handleEnviarWhatsApp = async () => {
@@ -1392,35 +1364,25 @@ export const VincularEstudiante: React.FC = () => {
     await Swal.fire({
       title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</span>',
       html: `
-        <p class="text-muted small mb-3">Selecciona el formato de envío para <b>${nombreInstitucion}</b>:</p>
+        <p class="text-muted small mb-3">¿Cómo deseas enviar el reporte de <b>${nombreInstitucion}</b>?</p>
         <div class="d-grid gap-2 text-start">
           <button id="btn-wa-solo-texto" class="btn btn-outline-primary p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
             <div class="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
               <i class="bi bi-chat-left-text-fill fs-3"></i>
             </div>
             <div>
-              <div class="fw-bold text-dark fs-6">1. Solo Texto</div>
-              <small class="text-muted">Envío instantáneo con emojis, KPIs y avance de todos los grados.</small>
+              <div class="fw-bold text-dark fs-6">1. Mensaje de Texto Directo</div>
+              <small class="text-muted">Envío instantáneo con todos los grados, KPIs y avance general.</small>
             </div>
           </button>
 
-          <button id="btn-wa-solo-imagen" class="btn btn-outline-success p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
-            <div class="bg-success bg-opacity-10 text-success p-2.5 rounded-circle">
-              <i class="bi bi-card-image fs-3"></i>
+          <button id="btn-wa-pdf" class="btn btn-outline-danger p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-danger bg-opacity-10 text-danger p-2.5 rounded-circle">
+              <i class="bi bi-file-earmark-pdf-fill fs-3"></i>
             </div>
             <div>
-              <div class="fw-bold text-dark fs-6">2. Solo Imagen</div>
-              <small class="text-muted">Genera y envía únicamente el informe gráfico oficial (PNG).</small>
-            </div>
-          </button>
-
-          <button id="btn-wa-imagen-texto" class="btn btn-outline-warning p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
-            <div class="bg-warning bg-opacity-10 text-warning p-2.5 rounded-circle">
-              <i class="bi bi-file-earmark-richtext-fill fs-3"></i>
-            </div>
-            <div>
-              <div class="fw-bold text-dark fs-6">3. Imagen + Texto</div>
-              <small class="text-muted">Informe gráfico oficial acompañado del resumen de texto.</small>
+              <div class="fw-bold text-dark fs-6">2. Documento PDF Oficial</div>
+              <small class="text-muted">Dossier oficial con gráficos, tacómetro radial, tablas y sellos.</small>
             </div>
           </button>
         </div>
@@ -1434,13 +1396,9 @@ export const VincularEstudiante: React.FC = () => {
           Swal.close();
           enviarWhatsAppTexto(stats, nombreInstitucion);
         });
-        document.getElementById('btn-wa-solo-imagen')?.addEventListener('click', () => {
+        document.getElementById('btn-wa-pdf')?.addEventListener('click', () => {
           Swal.close();
-          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', false);
-        });
-        document.getElementById('btn-wa-imagen-texto')?.addEventListener('click', () => {
-          Swal.close();
-          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', true);
+          enviarWhatsAppPDF(stats, nombreInstitucion);
         });
       }
     });
