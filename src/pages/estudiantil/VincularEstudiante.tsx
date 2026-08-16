@@ -1342,66 +1342,20 @@ export const VincularEstudiante: React.FC = () => {
         title: `Reporte Estadístico - ${nombreInstitucion}`,
         text: texto,
       }).catch(() => {
-        window.location.href = `whatsapp://send?text=${encodeURIComponent(texto)}`;
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
       });
       return;
     }
-    window.location.href = `whatsapp://send?text=${encodeURIComponent(texto)}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
-  const handleEnviarWhatsApp = async () => {
-    const Swal = (window as any).Swal;
+  const handleEnviarWhatsApp = () => {
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
       ? 'GENERAL ESCUELAS DEP ORIENTE' 
       : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
     
-    if (!Swal) {
-      enviarWhatsAppTexto(stats, nombreInstitucion);
-      return;
-    }
-
-    await Swal.fire({
-      title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</span>',
-      html: `
-        <p class="text-muted small mb-3">¿Cómo deseas enviar el reporte de <b>${nombreInstitucion}</b>?</p>
-        <div class="d-grid gap-2 text-start">
-          <button id="btn-wa-solo-texto" class="btn btn-outline-primary p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
-            <div class="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
-              <i class="bi bi-chat-left-text-fill fs-3"></i>
-            </div>
-            <div>
-              <div class="fw-bold text-dark fs-6">1. Mensaje de Texto Directo</div>
-              <small class="text-muted">Envío instantáneo con todos los grados, KPIs y avance general.</small>
-            </div>
-          </button>
-
-          <button id="btn-wa-pdf" class="btn btn-outline-danger p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
-            <div class="bg-danger bg-opacity-10 text-danger p-2.5 rounded-circle">
-              <i class="bi bi-file-earmark-pdf-fill fs-3"></i>
-            </div>
-            <div>
-              <div class="fw-bold text-dark fs-6">2. Documento PDF Oficial</div>
-              <small class="text-muted">Dossier oficial con gráficos, tacómetro radial, tablas y sellos.</small>
-            </div>
-          </button>
-        </div>
-      `,
-      showConfirmButton: false,
-      showCancelButton: true,
-      cancelButtonText: 'Cancelar',
-      cancelButtonColor: '#6c757d',
-      didOpen: () => {
-        document.getElementById('btn-wa-solo-texto')?.addEventListener('click', () => {
-          Swal.close();
-          enviarWhatsAppTexto(stats, nombreInstitucion);
-        });
-        document.getElementById('btn-wa-pdf')?.addEventListener('click', () => {
-          Swal.close();
-          enviarWhatsAppPDF(stats, nombreInstitucion);
-        });
-      }
-    });
+    enviarWhatsAppTexto(stats, nombreInstitucion);
   };
 
   const handleEnviarCorreo = () => {
