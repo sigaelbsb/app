@@ -977,9 +977,9 @@ export const GestionUsuarios = () => {
                   value={filtroEscuela}
                   onChange={(e) => { setFiltroEscuela(e.target.value); setPaginaActual(1); }}
                 >
-                  {canUsersSB && canUsersLB && <option value="TODAS">Ambas</option>}
-                  {canUsersLB && <option value="lb">Libertador Bolívar</option>}
-                  {canUsersSB && <option value="sb">Simón Bolívar</option>}
+                  {canUsersSB && canUsersLB && <option value="TODAS">Ambas Escuelas</option>}
+                  {canUsersLB && <option value="lb">UE Libertador Bolívar</option>}
+                  {canUsersSB && <option value="sb">UE Santa Bárbara</option>}
                 </select>
               </div>
               <div className="col-md-2">
