@@ -1125,7 +1125,7 @@ export const VincularEstudiante: React.FC = () => {
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
-  const enviarWhatsAppImagen = async (stats: any, nombreInstitucion: string, formato: 'png' | 'jpeg') => {
+  const enviarWhatsAppImagen = async (stats: any, nombreInstitucion: string, formato: 'png' | 'jpeg', incluirTexto: boolean = true) => {
     const Swal = (window as any).Swal;
     try {
       if (Swal) {
@@ -1163,7 +1163,7 @@ export const VincularEstudiante: React.FC = () => {
       const mimeType = formato === 'png' ? 'image/png' : 'image/jpeg';
       const extension = formato === 'png' ? 'png' : 'jpg';
       const nombreArchivo = `Reporte_Estadistico_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.${extension}`;
-      const textoMensaje = generarTextoResumen(stats, nombreInstitucion);
+      const textoMensaje = incluirTexto ? generarTextoResumen(stats, nombreInstitucion) : '';
 
       canvas.toBlob(async (blob) => {
         if (!blob) {
@@ -1216,7 +1216,9 @@ export const VincularEstudiante: React.FC = () => {
             html: `
               <p class="mb-2">El archivo <b>${nombreArchivo}</b> ha sido descargado en tu dispositivo.</p>
               ${copiadoPortapapeles ? '<div class="alert alert-success p-2 small mb-2"><i class="bi bi-clipboard-check me-1"></i> ¡La imagen también se copió automáticamente a tu portapapeles!</div>' : ''}
-              <p class="small text-muted mb-0">Al presionar <b>Abrir WhatsApp</b>, selecciona tu chat o grupo y presiona <b>Ctrl + V</b> (o adjunta el archivo descargado).</p>
+              <p class="small text-muted mb-0">
+                ${incluirTexto ? 'Se abrirá WhatsApp con el texto resumen precargado. Solo pega la imagen con <b>Ctrl + V</b>.' : 'Se abrirá WhatsApp para que pegues la imagen con <b>Ctrl + V</b> (o la adjuntes desde tus descargas).'}
+              </p>
             `,
             showCancelButton: true,
             confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
@@ -1224,11 +1226,17 @@ export const VincularEstudiante: React.FC = () => {
             confirmButtonColor: '#25D366'
           }).then((result: any) => {
             if (result.isConfirmed) {
-              window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`, '_blank');
+              const waUrl = textoMensaje 
+                ? `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`
+                : `https://web.whatsapp.com`;
+              window.open(waUrl, '_blank');
             }
           });
         } else {
-          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`, '_blank');
+          const waUrl = textoMensaje 
+            ? `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`
+            : `https://web.whatsapp.com`;
+          window.open(waUrl, '_blank');
         }
       }, mimeType, 0.95);
 
@@ -1253,14 +1261,28 @@ export const VincularEstudiante: React.FC = () => {
     await Swal.fire({
       title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Compartir por WhatsApp</span>',
       html: `
-        <p class="text-muted small mb-3">¿En qué formato deseas compartir el reporte de <b>${nombreInstitucion}</b>?</p>
+        <p class="text-muted small mb-3">Elige cómo deseas compartir el reporte de <b>${nombreInstitucion}</b>:</p>
+
+        <!-- OPCIÓN DE INCLUIR TEXTO CON LA IMAGEN -->
+        <div class="mb-3 p-3 bg-light rounded-4 border text-start">
+          <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+            <div>
+              <label class="form-check-label fw-bold text-dark d-block small" for="chk-incluir-texto" style="cursor: pointer;">
+                <i class="bi bi-card-text me-1.5 text-primary"></i> Acompañar imagen con texto explicativo
+              </label>
+              <span class="text-muted d-block" style="font-size: 0.75rem;">Si lo desactivas, se compartirá <b>únicamente la imagen</b> sin texto adjunto.</span>
+            </div>
+            <input class="form-check-input ms-3" type="checkbox" id="chk-incluir-texto" checked style="cursor: pointer; transform: scale(1.2);">
+          </div>
+        </div>
+
         <div class="d-grid gap-2 text-start">
           <button id="btn-wa-opt-texto" class="btn btn-outline-primary p-3 rounded-3 text-start d-flex align-items-center gap-3 border shadow-sm hover-efecto">
             <div class="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
               <i class="bi bi-chat-text-fill fs-4"></i>
             </div>
             <div>
-              <div class="fw-bold text-dark fs-6">1. Mensaje de Texto Detallado</div>
+              <div class="fw-bold text-dark fs-6">1. Solo Mensaje de Texto</div>
               <small class="text-muted">Resumen ejecutivo formal con emojis, KPIs y avance por grado listo para enviar.</small>
             </div>
           </button>
@@ -1296,12 +1318,14 @@ export const VincularEstudiante: React.FC = () => {
           enviarWhatsAppTexto(stats, nombreInstitucion);
         });
         document.getElementById('btn-wa-opt-png')?.addEventListener('click', () => {
+          const incluirTexto = (document.getElementById('chk-incluir-texto') as HTMLInputElement)?.checked ?? true;
           Swal.close();
-          enviarWhatsAppImagen(stats, nombreInstitucion, 'png');
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', incluirTexto);
         });
         document.getElementById('btn-wa-opt-jpg')?.addEventListener('click', () => {
+          const incluirTexto = (document.getElementById('chk-incluir-texto') as HTMLInputElement)?.checked ?? true;
           Swal.close();
-          enviarWhatsAppImagen(stats, nombreInstitucion, 'jpeg');
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'jpeg', incluirTexto);
         });
       }
     });
