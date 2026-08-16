@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
@@ -131,6 +133,7 @@ export const VincularEstudiante: React.FC = () => {
   const [showEstadisticasModal, setShowEstadisticasModal] = useState<boolean>(false);
   const [escuelaReporte, setEscuelaReporte] = useState<'ambas' | 'sb' | 'lb'>('ambas');
   const [tabReporte, setTabReporte] = useState<'graficos' | 'tabla'>('graficos');
+  const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
 
   // Estados para Formulario Individual
   const [cedulaRepBuscar, setCedulaRepBuscar] = useState<string>('');
@@ -882,6 +885,204 @@ export const VincularEstudiante: React.FC = () => {
 
     const filename = `Reporte_Estadistico_Avance_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(wb, filename);
+  };
+
+  const generarReporteHTML = (stats: any, nombreInstitucion: string) => {
+    const R = 50;
+    const C = 2 * Math.PI * R;
+    const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
+    const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
+    const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
+    const offComp = 0;
+    const offProc = -lenComp;
+    const offSin = -(lenComp + lenProc);
+
+    return `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #ffffff; padding: 25px; width: 790px; box-sizing: border-box;">
+        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 16px; text-align: center;">
+          <div style="letter-spacing: 1px; font-weight: bold; text-transform: uppercase; font-size: 11px; color: #64748b;">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
+          <h4 style="font-weight: 800; text-transform: uppercase; margin: 3px 0; color: #0f172a; letter-spacing: 0.5px; font-size: 15px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE</h4>
+          <h5 style="font-weight: bold; color: #64748b; margin: 3px 0; font-size: 12px;">GERENCIA DE RECURSOS HUMANOS • GESTIÓN EDUCATIVA</h5>
+          <h3 style="font-weight: 800; color: #1e40af; margin: 4px 0; font-size: 16px;">${nombreInstitucion}</h3>
+          <p style="margin: 3px 0; font-weight: bold; font-size: 13px; color: #0f172a;">INFORME ESTADÍSTICO Y GRÁFICO DE ACTUALIZACIÓN ESTUDIANTIL</p>
+          <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 10.5px; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+            <span><strong>Fecha y Hora de Emisión:</strong> ${stats.fechaHoraReporte}</span>
+            <span><strong>Generado por:</strong> ${user?.nombre_completo || user?.cedula || 'Administrador'}</span>
+          </div>
+        </div>
+
+        <!-- SECCIÓN DE GRÁFICO DE TORTA / KPI -->
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 16px;">
+          <div style="width: 170px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
+            <div style="position: relative; width: 130px; height: 130px; margin: 0 auto;">
+              <svg width="130" height="130" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
+                <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="18" />
+                ${lenComp > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#10b981" stroke-width="18" stroke-dasharray="${lenComp} ${C - lenComp}" stroke-dashoffset="${offComp}" />` : ''}
+                ${lenProc > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#f59e0b" stroke-width="18" stroke-dasharray="${lenProc} ${C - lenProc}" stroke-dashoffset="${offProc}" />` : ''}
+                ${lenSin > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#94a3b8" stroke-width="18" stroke-dasharray="${lenSin} ${C - lenSin}" stroke-dashoffset="${offSin}" />` : ''}
+              </svg>
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                <div style="font-size: 8px; font-weight: bold; color: #64748b;">AVANCE</div>
+                <div style="font-size: 17px; font-weight: 900; color: #0f172a;">${stats.pctGeneral}%</div>
+              </div>
+            </div>
+            <div style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 4px;">Distribución Global</div>
+          </div>
+
+          <div style="flex-grow: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; background: #f8fafc; text-align: center;">
+              <div style="color: #64748b; font-size: 10px; font-weight: bold;">TOTAL MATRÍCULA</div>
+              <div style="font-size: 17px; font-weight: bold; color: #0f172a; margin: 2px 0;">${stats.totalGeneral} Estudiantes</div>
+              <div style="font-size: 9.5px; color: #64748b;">100% de la matrícula</div>
+            </div>
+            <div style="border: 1px solid #86efac; border-radius: 8px; padding: 8px 12px; background: #f0fdf4; text-align: center;">
+              <div style="color: #166534; font-size: 10px; font-weight: bold;">ACTUALIZADOS (100%)</div>
+              <div style="font-size: 17px; font-weight: bold; color: #16a34a; margin: 2px 0;">${stats.completadosGeneral} Estudiantes</div>
+              <div style="font-size: 9.5px; font-weight: bold; color: #166534;">${stats.pctGeneral}% completado</div>
+            </div>
+            <div style="border: 1px solid #fde047; border-radius: 8px; padding: 8px 12px; background: #fefce8; text-align: center;">
+              <div style="color: #854d0e; font-size: 10px; font-weight: bold;">EN PROCESO</div>
+              <div style="font-size: 17px; font-weight: bold; color: #d97706; margin: 2px 0;">${stats.enProcesoGeneral} Estudiantes</div>
+              <div style="font-size: 9.5px; font-weight: bold; color: #854d0e;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
+            </div>
+            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; background: #f8fafc; text-align: center;">
+              <div style="color: #475569; font-size: 10px; font-weight: bold;">SIN INICIAR (0%)</div>
+              <div style="font-size: 17px; font-weight: bold; color: #475569; margin: 2px 0;">${stats.sinIniciarGeneral} Estudiantes</div>
+              <div style="font-size: 9.5px; font-weight: bold; color: #475569;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-weight: bold; margin-bottom: 8px; color: #0f172a; font-size: 12px;">Desglose y Distribución por Grupo, Grado o Año Escolar</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px;">
+          <thead>
+            <tr style="background-color: #f1f5f9; text-align: center; border: 1px solid #cbd5e1;">
+              <th style="padding: 6px; text-align: left; width: 28%; border: 1px solid #cbd5e1;">Grupo / Grado / Año Escolar</th>
+              <th style="padding: 6px; width: 10%; border: 1px solid #cbd5e1;">Total</th>
+              <th style="padding: 6px; width: 12%; border: 1px solid #cbd5e1;">Completados</th>
+              <th style="padding: 6px; width: 12%; border: 1px solid #cbd5e1;">En Proceso</th>
+              <th style="padding: 6px; width: 12%; border: 1px solid #cbd5e1;">Sin Iniciar</th>
+              <th style="padding: 6px; width: 26%; border: 1px solid #cbd5e1;">Gráfico de Avance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stats.desglosePorGrado.map((g: any) => {
+              const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
+              const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
+              const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
+              return `
+              <tr style="text-align: center; border: 1px solid #cbd5e1;">
+                <td style="padding: 5px; text-align: left; font-weight: bold; border: 1px solid #cbd5e1;">${g.grado}</td>
+                <td style="padding: 5px; font-weight: bold; border: 1px solid #cbd5e1;">${g.total}</td>
+                <td style="padding: 5px; border: 1px solid #cbd5e1;"><span style="background: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;">${g.completados}</span></td>
+                <td style="padding: 5px; border: 1px solid #cbd5e1;"><span style="background: #fef9c3; color: #854d0e; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;">${g.enProceso}</span></td>
+                <td style="padding: 5px; border: 1px solid #cbd5e1;"><span style="background: #f1f5f9; color: #475569; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;">${g.sinIniciar}</span></td>
+                <td style="padding: 5px; border: 1px solid #cbd5e1;">
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="background-color: #f1f5f9; border-radius: 4px; height: 9px; overflow: hidden; display: flex; width: 100%;">
+                      <div style="background-color: #10b981; height: 100%; width: ${pComp}%;"></div>
+                      <div style="background-color: #f59e0b; height: 100%; width: ${pProc}%;"></div>
+                      <div style="background-color: #cbd5e1; height: 100%; width: ${pSin}%;"></div>
+                    </div>
+                    <span style="min-width: 32px; font-weight: bold; color: #166534; font-size: 10px;">${g.pctCompletado}%</span>
+                  </div>
+                </td>
+              </tr>
+            `;
+            }).join('')}
+            <tr style="background-color: #e2e8f0; text-align: center; font-weight: bold; border: 1px solid #cbd5e1;">
+              <td style="padding: 6px; text-align: left; border: 1px solid #cbd5e1;">TOTAL CONSOLIDADO</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1;">${stats.totalGeneral}</td>
+              <td style="padding: 6px; color: #16a34a; border: 1px solid #cbd5e1;">${stats.completadosGeneral}</td>
+              <td style="padding: 6px; color: #d97706; border: 1px solid #cbd5e1;">${stats.enProcesoGeneral}</td>
+              <td style="padding: 6px; color: #475569; border: 1px solid #cbd5e1;">${stats.sinIniciarGeneral}</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <div style="background-color: #f1f5f9; border-radius: 4px; height: 11px; overflow: hidden; display: flex; width: 100%;">
+                    <div style="background-color: #10b981; height: 100%; width: ${stats.pctGeneral}%;"></div>
+                    <div style="background-color: #f59e0b; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
+                    <div style="background-color: #cbd5e1; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
+                  </div>
+                  <span style="min-width: 32px; font-weight: bold; color: #1e40af; font-size: 10.5px;">${stats.pctGeneral}%</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-around; margin-top: 25px; text-align: center;">
+          <div style="width: 40%;">
+            <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
+              <strong style="font-size: 10.5px;">Control de Estudios</strong><br>
+              <span style="color: #64748b; font-size: 9px;">Firma y Sello</span>
+            </div>
+          </div>
+          <div style="width: 40%;">
+            <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
+              <strong style="font-size: 10.5px;">Dirección del Plantel / DEP Oriente</strong><br>
+              <span style="color: #64748b; font-size: 9px;">Firma y Sello</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; color: #94a3b8; font-size: 8px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 5px;">
+          Documento oficial con gráficos y estadísticas emitido por el Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente.
+        </div>
+      </div>
+    `;
+  };
+
+  const descargarReportePDF = async () => {
+    try {
+      setGenerandoPDF(true);
+      const stats = calcularEstadisticasReporte(escuelaReporte);
+      const nombreInstitucion = escuelaReporte === 'ambas' 
+        ? 'GENERAL ESCUELAS DEP ORIENTE' 
+        : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
+
+      const contenedor = document.createElement('div');
+      contenedor.style.position = 'fixed';
+      contenedor.style.left = '-9999px';
+      contenedor.style.top = '0';
+      contenedor.style.width = '790px';
+      contenedor.style.backgroundColor = '#ffffff';
+      contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
+
+      document.body.appendChild(contenedor);
+      await new Promise(r => setTimeout(r, 300));
+
+      const canvas = await html2canvas(contenedor, {
+        scale: 2.0,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+
+      document.body.removeChild(contenedor);
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'letter',
+        compress: true
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight), undefined, 'FAST');
+
+      const nombreArchivo = `Reporte_Estadistico_Avance_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(nombreArchivo);
+    } catch (err: any) {
+      console.error('Error al generar PDF:', err);
+      alert('Ocurrió un error al generar el archivo PDF. Intente con la opción de Imprimir.');
+    } finally {
+      setGenerandoPDF(false);
+    }
   };
 
   const imprimirReporteEstadistico = () => {
@@ -2384,7 +2585,7 @@ export const VincularEstudiante: React.FC = () => {
                         <i className="bi bi-shield-lock-fill me-1 text-primary"></i>
                         Reporte oficial válido con marca de tiempo institucional: <b>{stats.fechaHoraReporte}</b>
                       </div>
-                      <div className="d-flex gap-2">
+                      <div className="d-flex gap-2 flex-wrap">
                         <button 
                           type="button" 
                           className="btn btn-outline-success fw-bold rounded-pill px-3 shadow-sm hover-efecto"
@@ -2394,10 +2595,30 @@ export const VincularEstudiante: React.FC = () => {
                         </button>
                         <button 
                           type="button" 
-                          className="btn btn-primary fw-bold rounded-pill px-4 shadow-sm hover-efecto"
-                          onClick={imprimirReporteEstadistico}
+                          className="btn btn-danger fw-bold rounded-pill px-3 shadow-sm hover-efecto d-flex align-items-center gap-1.5"
+                          onClick={descargarReportePDF}
+                          disabled={generandoPDF}
+                          title="Descargar directamente el informe oficial en formato PDF"
                         >
-                          <i className="bi bi-printer-fill me-1.5"></i> Imprimir / Guardar PDF
+                          {generandoPDF ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm"></span>
+                              <span>Generando PDF...</span>
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-file-earmark-pdf-fill"></i>
+                              <span>Descargar PDF</span>
+                            </>
+                          )}
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-primary fw-bold rounded-pill px-3 shadow-sm hover-efecto"
+                          onClick={imprimirReporteEstadistico}
+                          title="Abrir vista de impresión y diálogo del navegador"
+                        >
+                          <i className="bi bi-printer-fill me-1.5"></i> Imprimir
                         </button>
                         <button 
                           type="button" 
