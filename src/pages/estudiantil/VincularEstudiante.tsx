@@ -1385,25 +1385,73 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
-  const handleEnviarWhatsApp = () => {
+  const handleEnviarWhatsApp = async () => {
+    const Swal = (window as any).Swal;
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
       ? 'GENERAL ESCUELAS DEP ORIENTE' 
       : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
     
-    const texto = generarTextoResumen(stats, nombreInstitucion);
-
-    if (navigator.share) {
-      navigator.share({
-        title: `Reporte Estadístico - ${nombreInstitucion}`,
-        text: texto,
-      }).catch(() => {
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
-      });
+    if (!Swal) {
+      enviarWhatsAppTexto(stats, nombreInstitucion);
       return;
     }
 
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+    await Swal.fire({
+      title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</span>',
+      html: `
+        <p class="text-muted small mb-3">Selecciona el formato de envío para <b>${nombreInstitucion}</b>:</p>
+        <div class="d-grid gap-2 text-start">
+          <button id="btn-wa-solo-texto" class="btn btn-outline-primary p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
+              <i class="bi bi-chat-left-text-fill fs-3"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">1. Solo Texto</div>
+              <small class="text-muted">Envío instantáneo con emojis, KPIs y avance de todos los grados.</small>
+            </div>
+          </button>
+
+          <button id="btn-wa-solo-imagen" class="btn btn-outline-success p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-success bg-opacity-10 text-success p-2.5 rounded-circle">
+              <i class="bi bi-card-image fs-3"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">2. Solo Imagen</div>
+              <small class="text-muted">Genera y envía únicamente el informe gráfico oficial (PNG).</small>
+            </div>
+          </button>
+
+          <button id="btn-wa-imagen-texto" class="btn btn-outline-warning p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-warning bg-opacity-10 text-warning p-2.5 rounded-circle">
+              <i class="bi bi-file-earmark-richtext-fill fs-3"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">3. Imagen + Texto</div>
+              <small class="text-muted">Informe gráfico oficial acompañado del resumen de texto.</small>
+            </div>
+          </button>
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar',
+      cancelButtonColor: '#6c757d',
+      didOpen: () => {
+        document.getElementById('btn-wa-solo-texto')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppTexto(stats, nombreInstitucion);
+        });
+        document.getElementById('btn-wa-solo-imagen')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', false);
+        });
+        document.getElementById('btn-wa-imagen-texto')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', true);
+        });
+      }
+    });
   };
 
   const handleEnviarCorreo = () => {
