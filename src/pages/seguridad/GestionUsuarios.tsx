@@ -113,15 +113,17 @@ export const GestionUsuarios = () => {
   const limpiarCedula = (ced: any) => String(ced || '').replace(/\D/g, '');
 
   const getEstudiantesDeUsuario = (u: any, vMap: Record<string, any[]>) => {
-    if (!u || !u.cedula) return [];
-    const raw = String(u.cedula).trim().toUpperCase();
+    if (!u) return [];
+    const raw = String(u.cedula || '').trim().toUpperCase();
     const digits = limpiarCedula(u.cedula);
+    const nomKey = 'nom_' + String(u.nombre_completo || '').trim().toLowerCase().replace(/\s+/g, ' ');
     
-    const lista1 = vMap[raw] || [];
+    const lista1 = raw ? (vMap[raw] || []) : [];
     const lista2 = digits ? (vMap[digits] || []) : [];
+    const lista3 = (nomKey.length > 9 && lista1.length === 0 && lista2.length === 0) ? (vMap[nomKey] || []) : [];
     
     const unicos: Record<string, any> = {};
-    [...lista1, ...lista2].forEach(est => {
+    [...lista1, ...lista2, ...lista3].forEach(est => {
       const key = est.cedula_estudiante || `${est.nombres_estudiante}_${est.apellidos_estudiante}`;
       if (!unicos[key]) unicos[key] = est;
     });
@@ -139,7 +141,7 @@ export const GestionUsuarios = () => {
       if (error) throw error;
       setUsuarios(data || []);
 
-      // Cargar vinculaciones de estudiantes por representante (con paginación completa)
+      // Cargar vinculaciones de estudiantes por representante (idéntico a VincularEstudiante.tsx)
       try {
         let todosLosEstudiantes: any[] = [];
         let page = 0;
@@ -149,59 +151,61 @@ export const GestionUsuarios = () => {
         while (hasMore) {
           const { data: chunk, error: errChunk } = await supabase
             .from('estudiantes_vinculaciones')
-            .select('cedula_representante, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela')
+            .select('*')
+            .order('created_at', { ascending: false })
             .range(page * pageSize, (page + 1) * pageSize - 1);
 
-          if (errChunk || !chunk || chunk.length === 0) {
+          if (errChunk) {
+            console.error("Error cargando vinculaciones en GestionUsuarios:", errChunk);
             hasMore = false;
-          } else {
+          } else if (chunk && chunk.length > 0) {
             todosLosEstudiantes = [...todosLosEstudiantes, ...chunk];
             if (chunk.length < pageSize) hasMore = false;
             else page++;
+          } else {
+            hasMore = false;
           }
         }
 
-        // También consultar solicitudes de cupos por si hay admisiones
-        try {
-          const { data: sols } = await supabase
-            .from('solicitud_cupos')
-            .select('representante_cedula, estudiante_cedula, estudiante_nombres, estudiante_apellidos, grado_solicitado, codigo_escuela');
-          
-          if (sols && sols.length > 0) {
-            sols.forEach((s: any) => {
-              if (s.representante_cedula) {
-                todosLosEstudiantes.push({
-                  cedula_representante: s.representante_cedula,
-                  cedula_estudiante: s.estudiante_cedula || 'En trámite',
-                  nombres_estudiante: s.estudiante_nombres,
-                  apellidos_estudiante: s.estudiante_apellidos,
-                  grado_actual: s.grado_solicitado || 'Admisión',
-                  seccion_actual: 'Cupo',
-                  codigo_escuela: s.codigo_escuela
-                });
-              }
-            });
-          }
-        } catch (eSol) {}
-
         const vMap: Record<string, any[]> = {};
         todosLosEstudiantes.forEach((v: any) => {
-          const raw = String(v.cedula_representante || '').trim().toUpperCase();
-          const digits = raw.replace(/\D/g, '');
+          const dAct = v.datos_actualizados || {};
+          const cedRep = v.cedula_representante || dAct.representante_cedula || v.representante_cedula;
+          
+          const estItem = {
+            cedula_estudiante: v.cedula_estudiante || dAct.estudiante_cedula || 'Sin Cédula',
+            nombres_estudiante: v.nombres_estudiante || dAct.estudiante_nombres || '',
+            apellidos_estudiante: v.apellidos_estudiante || dAct.estudiante_apellidos || '',
+            grado_actual: v.grado_actual || dAct.grado_actual || 'Sin Grado',
+            seccion_actual: v.seccion_actual || dAct.seccion_actual || 'U',
+            codigo_escuela: v.codigo_escuela || 'sb'
+          };
 
-          if (raw) {
-            if (!vMap[raw]) vMap[raw] = [];
-            vMap[raw].push(v);
+          if (cedRep) {
+            const raw = String(cedRep).trim().toUpperCase();
+            const digits = raw.replace(/\D/g, '');
+
+            if (raw) {
+              if (!vMap[raw]) vMap[raw] = [];
+              vMap[raw].push(estItem);
+            }
+            if (digits && digits !== raw) {
+              if (!vMap[digits]) vMap[digits] = [];
+              vMap[digits].push(estItem);
+            }
           }
-          if (digits && digits !== raw) {
-            if (!vMap[digits]) vMap[digits] = [];
-            vMap[digits].push(v);
+
+          const repNombreCompleto = String((v.nombres_representante || dAct.representante_nombres || '') + ' ' + (v.apellidos_representante || dAct.representante_apellidos || '')).trim().toLowerCase();
+          if (repNombreCompleto && repNombreCompleto.length > 5) {
+            const nomKey = 'nom_' + repNombreCompleto.replace(/\s+/g, ' ');
+            if (!vMap[nomKey]) vMap[nomKey] = [];
+            vMap[nomKey].push(estItem);
           }
         });
 
         setVinculacionesMap(vMap);
       } catch (errVinc) {
-        console.warn("No se pudieron cargar vinculaciones:", errVinc);
+        console.error("Error al procesar vinculaciones:", errVinc);
       }
 
       // Cargar solicitudes de reseteo con filtro de permisos por escuela
