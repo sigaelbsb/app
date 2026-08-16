@@ -1320,63 +1320,54 @@ export const VincularEstudiante: React.FC = () => {
 
         const file = new File([blob], nombreArchivo, { type: mimeType });
 
-        // Si el navegador soporta compartir archivos directamente (Móviles / Tablets)
+        // En Móviles / Tablets o navegadores compatibles: Compartir archivo directamente a WhatsApp
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
+            if (Swal) Swal.close();
             await navigator.share({
               files: [file],
               title: `Reporte Estadístico - ${nombreInstitucion}`,
               text: textoMensaje
             });
-            if (Swal) Swal.close();
             return;
           } catch (e) {
-            console.log('Share nativo no completado, usando fallback');
+            console.log('Share nativo omitido o fallback a web');
           }
         }
 
-        // Descarga de archivo en dispositivo
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nombreArchivo;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        // Copiar al portapapeles si está disponible
-        let copiadoPortapapeles = false;
+        // En PC: Copiar imagen al portapapeles y abrir WhatsApp Web directamente
+        let copiado = false;
         if (navigator.clipboard && navigator.clipboard.write && formato === 'png') {
           try {
             await navigator.clipboard.write([
               new ClipboardItem({ 'image/png': blob })
             ]);
-            copiadoPortapapeles = true;
+            copiado = true;
           } catch (e) {
-            console.log('Portapapeles no soportado para imágenes', e);
+            console.log('Clipboard no disponible', e);
           }
         }
+
+        const waUrl = textoMensaje 
+          ? `https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`
+          : `https://web.whatsapp.com`;
 
         if (Swal) {
-          const result = await Swal.fire({
+          Swal.fire({
             icon: 'success',
-            title: '¡Imagen Lista!',
-            html: `
-              <p class="mb-2">El archivo <b>${nombreArchivo}</b> ha sido descargado.</p>
-              ${copiadoPortapapeles ? '<div class="alert alert-success p-2 small mb-2"><i class="bi bi-clipboard-check me-1"></i> ¡Imagen copiada a tu portapapeles!</div>' : ''}
-              <p class="small text-muted mb-0">Al abrir WhatsApp, selecciona tu chat y presiona <b>Ctrl + V</b> (o adjunta la imagen descargada).</p>
-            `,
-            showCancelButton: true,
-            confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
-            cancelButtonText: 'Listo',
-            confirmButtonColor: '#25D366'
+            title: copiado ? '¡Imagen Copiada al Portapapeles!' : '¡Imagen Lista!',
+            text: copiado 
+              ? 'Se abrirá WhatsApp. Solo selecciona tu chat y presiona Ctrl + V para pegar la imagen.' 
+              : 'Abriendo WhatsApp...',
+            timer: 2000,
+            showConfirmButton: false
           });
-
-          if (result.isConfirmed) {
-            window.open('https://web.whatsapp.com', '_blank');
-          }
-        } else {
-          window.open('https://web.whatsapp.com', '_blank');
         }
+
+        setTimeout(() => {
+          window.open(waUrl, '_blank');
+        }, 400);
+
       }, mimeType, 0.95);
 
     } catch (err: any) {
