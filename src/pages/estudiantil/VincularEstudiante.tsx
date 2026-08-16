@@ -1111,27 +1111,200 @@ export const VincularEstudiante: React.FC = () => {
     return msg;
   };
 
+  const enviarWhatsAppTexto = (stats: any, nombreInstitucion: string) => {
+    const texto = generarTextoResumen(stats, nombreInstitucion);
+    if (navigator.share) {
+      navigator.share({
+        title: `Reporte Estadístico - ${nombreInstitucion}`,
+        text: texto,
+      }).catch(() => {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+      });
+      return;
+    }
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+  };
+
+  const enviarWhatsAppImagen = async (stats: any, nombreInstitucion: string, formato: 'png' | 'jpeg') => {
+    const Swal = (window as any).Swal;
+    try {
+      if (Swal) {
+        Swal.fire({
+          title: 'Generando Imagen Oficial...',
+          text: 'Preparando el informe gráfico en alta resolución.',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+      }
+
+      const contenedor = document.createElement('div');
+      contenedor.style.position = 'fixed';
+      contenedor.style.left = '-9999px';
+      contenedor.style.top = '0';
+      contenedor.style.width = '790px';
+      contenedor.style.backgroundColor = '#ffffff';
+      contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
+
+      document.body.appendChild(contenedor);
+      await new Promise(r => setTimeout(r, 300));
+
+      const canvas = await html2canvas(contenedor, {
+        scale: 2.0,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+
+      document.body.removeChild(contenedor);
+
+      const mimeType = formato === 'png' ? 'image/png' : 'image/jpeg';
+      const extension = formato === 'png' ? 'png' : 'jpg';
+      const nombreArchivo = `Reporte_Estadistico_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.${extension}`;
+      const textoMensaje = generarTextoResumen(stats, nombreInstitucion);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          if (Swal) Swal.fire('Error', 'No se pudo generar la imagen del reporte.', 'error');
+          return;
+        }
+
+        const file = new File([blob], nombreArchivo, { type: mimeType });
+
+        // Si el navegador soporta compartir archivos directamente (Móviles / Tablets)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `Reporte Estadístico - ${nombreInstitucion}`,
+              text: textoMensaje
+            });
+            if (Swal) Swal.close();
+            return;
+          } catch (e) {
+            console.log('Share cancelado o fallback');
+          }
+        }
+
+        // Descarga de archivo en dispositivo
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombreArchivo;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Copiar al portapapeles si está disponible
+        let copiadoPortapapeles = false;
+        if (navigator.clipboard && navigator.clipboard.write && formato === 'png') {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            copiadoPortapapeles = true;
+          } catch (e) {
+            console.log('Portapapeles no soportado para imágenes', e);
+          }
+        }
+
+        if (Swal) {
+          await Swal.fire({
+            icon: 'success',
+            title: '¡Imagen Oficial Lista!',
+            html: `
+              <p class="mb-2">El archivo <b>${nombreArchivo}</b> ha sido descargado en tu dispositivo.</p>
+              ${copiadoPortapapeles ? '<div class="alert alert-success p-2 small mb-2"><i class="bi bi-clipboard-check me-1"></i> ¡La imagen también se copió automáticamente a tu portapapeles!</div>' : ''}
+              <p class="small text-muted mb-0">Al presionar <b>Abrir WhatsApp</b>, selecciona tu chat o grupo y presiona <b>Ctrl + V</b> (o adjunta el archivo descargado).</p>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
+            cancelButtonText: 'Listo',
+            confirmButtonColor: '#25D366'
+          }).then((result: any) => {
+            if (result.isConfirmed) {
+              window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`, '_blank');
+            }
+          });
+        } else {
+          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(textoMensaje)}`, '_blank');
+        }
+      }, mimeType, 0.95);
+
+    } catch (err: any) {
+      console.error('Error al generar imagen para WhatsApp:', err);
+      if (Swal) Swal.fire('Error', 'No se pudo generar la imagen para compartir.', 'error');
+    }
+  };
+
   const handleCompartirWhatsApp = async () => {
+    const Swal = (window as any).Swal;
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
       ? 'GENERAL ESCUELAS DEP ORIENTE' 
       : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
     
-    const texto = generarTextoResumen(stats, nombreInstitucion);
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Reporte Estadístico - ${nombreInstitucion}`,
-          text: texto,
-        });
-        return;
-      } catch (e) {
-        // Fallback a web WhatsApp
-      }
+    if (!Swal) {
+      enviarWhatsAppTexto(stats, nombreInstitucion);
+      return;
     }
 
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+    await Swal.fire({
+      title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Compartir por WhatsApp</span>',
+      html: `
+        <p class="text-muted small mb-3">¿En qué formato deseas compartir el reporte de <b>${nombreInstitucion}</b>?</p>
+        <div class="d-grid gap-2 text-start">
+          <button id="btn-wa-opt-texto" class="btn btn-outline-primary p-3 rounded-3 text-start d-flex align-items-center gap-3 border shadow-sm hover-efecto">
+            <div class="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
+              <i class="bi bi-chat-text-fill fs-4"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">1. Mensaje de Texto Detallado</div>
+              <small class="text-muted">Resumen ejecutivo formal con emojis, KPIs y avance por grado listo para enviar.</small>
+            </div>
+          </button>
+
+          <button id="btn-wa-opt-png" class="btn btn-outline-success p-3 rounded-3 text-start d-flex align-items-center gap-3 border shadow-sm hover-efecto">
+            <div class="bg-success bg-opacity-10 text-success p-2.5 rounded-circle">
+              <i class="bi bi-file-earmark-image-fill fs-4"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">2. Imagen Oficial (PNG en Alta Resolución)</div>
+              <small class="text-muted">Dossier visual con gráfico circular Donut, tarjetas KPI, tablas y firmas.</small>
+            </div>
+          </button>
+
+          <button id="btn-wa-opt-jpg" class="btn btn-outline-warning p-3 rounded-3 text-start d-flex align-items-center gap-3 border shadow-sm hover-efecto">
+            <div class="bg-warning bg-opacity-10 text-warning p-2.5 rounded-circle">
+              <i class="bi bi-card-image fs-4"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">3. Imagen Comprimida (JPG Ligera)</div>
+              <small class="text-muted">Formato optimizado de bajo consumo de datos para chats y grupos móviles.</small>
+            </div>
+          </button>
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Cerrar',
+      cancelButtonColor: '#6c757d',
+      didOpen: () => {
+        document.getElementById('btn-wa-opt-texto')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppTexto(stats, nombreInstitucion);
+        });
+        document.getElementById('btn-wa-opt-png')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'png');
+        });
+        document.getElementById('btn-wa-opt-jpg')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'jpeg');
+        });
+      }
+    });
   };
 
   const handleCompartirCorreo = () => {
