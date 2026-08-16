@@ -132,7 +132,7 @@ export const VincularEstudiante: React.FC = () => {
   // Estados para Modal de Estadísticas y Reportes
   const [showEstadisticasModal, setShowEstadisticasModal] = useState<boolean>(false);
   const [escuelaReporte, setEscuelaReporte] = useState<'ambas' | 'sb' | 'lb'>('ambas');
-  const [tabReporte, setTabReporte] = useState<'graficos' | 'tabla'>('graficos');
+  const [tabReporte, setTabReporte] = useState<'ejecutivo' | 'barras' | 'secciones' | 'tabla'>('ejecutivo');
   const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
 
   // Estados para Formulario Individual
@@ -756,6 +756,17 @@ export const VincularEstudiante: React.FC = () => {
   const countAmbas = vinculaciones.length;
 
   // ─── CÁLCULO DE ESTADÍSTICAS Y REPORTES ─────────────────────────────────────────
+  const clasificarEtapa = (grado: string) => {
+    const g = grado.toLowerCase();
+    if (g.includes('maternal') || g.includes('grupo') || g.includes('inicial') || g.includes('preescolar') || g.includes('kinder')) {
+      return 'Educación Inicial';
+    }
+    if (g.includes('año') || g.includes('media') || g.includes('bachillerato') || g.includes('secundaria')) {
+      return 'Media General';
+    }
+    return 'Educación Primaria';
+  };
+
   const calcularEstadisticasReporte = (esc: 'ambas' | 'sb' | 'lb') => {
     const filtrados = vinculaciones.filter(v => esc === 'ambas' || v.codigo_escuela === esc);
     
@@ -765,27 +776,61 @@ export const VincularEstudiante: React.FC = () => {
     let sinIniciarGeneral = 0;
 
     const porGradoMap: Record<string, { total: number; completados: number; enProceso: number; sinIniciar: number }> = {};
+    
+    const etapasMap: Record<string, { total: number; completados: number; enProceso: number; sinIniciar: number }> = {
+      'Educación Inicial': { total: 0, completados: 0, enProceso: 0, sinIniciar: 0 },
+      'Educación Primaria': { total: 0, completados: 0, enProceso: 0, sinIniciar: 0 },
+      'Media General': { total: 0, completados: 0, enProceso: 0, sinIniciar: 0 }
+    };
+
+    const seccionesTotalesMap: Record<string, { id: string; nombre: string; icono: string; completados: number }> = {
+      rep: { id: 'rep', nombre: 'Datos del Representante', icono: 'bi-person-badge', completados: 0 },
+      est: { id: 'est', nombre: 'Datos del Estudiante', icono: 'bi-mortarboard', completados: 0 },
+      dir: { id: 'dir', nombre: 'Ubicación y Vivienda', icono: 'bi-geo-alt', completados: 0 },
+      salud: { id: 'salud', nombre: 'Salud y Antropometría', icono: 'bi-heart-pulse', completados: 0 },
+      madre: { id: 'madre', nombre: 'Datos de la Madre', icono: 'bi-gender-female', completados: 0 },
+      padre: { id: 'padre', nombre: 'Datos del Padre', icono: 'bi-gender-male', completados: 0 },
+      socio: { id: 'socio', nombre: 'Socioeconómico y Servicios', icono: 'bi-house-check', completados: 0 },
+      confirmado: { id: 'confirmado', nombre: 'Ficha Confirmada / Emitida', icono: 'bi-file-earmark-check', completados: 0 }
+    };
 
     filtrados.forEach(v => {
       const avance = calcularAvanceActualizacion(v);
       const grado = v.grado_actual || 'Sin Grado Asignado';
+      const etapa = clasificarEtapa(grado);
 
       if (!porGradoMap[grado]) {
         porGradoMap[grado] = { total: 0, completados: 0, enProceso: 0, sinIniciar: 0 };
       }
 
       porGradoMap[grado].total++;
+      if (etapasMap[etapa]) etapasMap[etapa].total++;
 
       if (avance.estado === 'completado') {
         completadosGeneral++;
         porGradoMap[grado].completados++;
+        if (etapasMap[etapa]) etapasMap[etapa].completados++;
       } else if (avance.estado === 'en_proceso') {
         enProcesoGeneral++;
         porGradoMap[grado].enProceso++;
+        if (etapasMap[etapa]) etapasMap[etapa].enProceso++;
       } else {
         sinIniciarGeneral++;
         porGradoMap[grado].sinIniciar++;
+        if (etapasMap[etapa]) etapasMap[etapa].sinIniciar++;
       }
+
+      // Evaluar secciones completadas
+      const d = v.datos_actualizados || {};
+      const fecha = v.fecha_ultima_actualizacion;
+      if (Boolean((d.representante_nombres || v.nombres_representante) && (d.representante_cedula || v.cedula_representante))) seccionesTotalesMap.rep.completados++;
+      if (Boolean((d.estudiante_nombres || v.nombres_estudiante) && (d.estudiante_apellidos || v.apellidos_estudiante) && d.estudiante_fecha_nacimiento)) seccionesTotalesMap.est.completados++;
+      if (Boolean(d.estado_habitacion && d.direccion_habitacion)) seccionesTotalesMap.dir.completados++;
+      if (Boolean(d.estudiante_grupo_sanguineo || d.talla_franela || d.peso_kg)) seccionesTotalesMap.salud.completados++;
+      if (Boolean(d.madre_nombres && d.madre_cedula)) seccionesTotalesMap.madre.completados++;
+      if (d.estudiante_reconocido_por_padre === 'No' || Boolean(d.padre_nombres && d.padre_cedula)) seccionesTotalesMap.padre.completados++;
+      if (Boolean(d.posee_computadora || d.tipo_vivienda || d.estudiante_con_quien_vive)) seccionesTotalesMap.socio.completados++;
+      if (Boolean(fecha)) seccionesTotalesMap.confirmado.completados++;
     });
 
     // Ordenar grados según catálogo conf_grados
@@ -808,6 +853,28 @@ export const VincularEstudiante: React.FC = () => {
       };
     });
 
+    const desgloseEtapas = Object.keys(etapasMap).map(nombreEtapa => {
+      const e = etapasMap[nombreEtapa];
+      const pct = e.total > 0 ? Math.round((e.completados / e.total) * 100) : 0;
+      return {
+        etapa: nombreEtapa,
+        ...e,
+        pct
+      };
+    });
+
+    const desgloseSecciones = Object.values(seccionesTotalesMap).map(sec => {
+      const pct = totalGeneral > 0 ? Math.round((sec.completados / totalGeneral) * 100) : 0;
+      return {
+        ...sec,
+        pct
+      };
+    });
+
+    const semaforoOptimo = desglosePorGrado.filter(g => g.pctCompletado >= 75);
+    const semaforoEnProgreso = desglosePorGrado.filter(g => g.pctCompletado >= 40 && g.pctCompletado < 75);
+    const semaforoAtencion = desglosePorGrado.filter(g => g.pctCompletado < 40);
+
     const pctGeneral = totalGeneral > 0 ? Math.round((completadosGeneral / totalGeneral) * 100) : 0;
 
     const ahora = new Date();
@@ -818,7 +885,7 @@ export const VincularEstudiante: React.FC = () => {
       day: 'numeric', 
       hour: '2-digit', 
       minute: '2-digit', 
-      second: '2-digit',
+      second: '2-digit', 
       hour12: true 
     });
 
@@ -829,6 +896,11 @@ export const VincularEstudiante: React.FC = () => {
       sinIniciarGeneral,
       pctGeneral,
       desglosePorGrado,
+      desgloseEtapas,
+      desgloseSecciones,
+      semaforoOptimo,
+      semaforoEnProgreso,
+      semaforoAtencion,
       fechaHoraReporte
     };
   };
@@ -897,72 +969,149 @@ export const VincularEstudiante: React.FC = () => {
     const offProc = -lenComp;
     const offSin = -(lenComp + lenProc);
 
+    // Tacómetro Radial (Gauge de Meta 180°)
+    const pct = stats.pctGeneral;
+    const needleAngle = -90 + (pct / 100) * 180; // de -90 a +90
+    const gaugeColor = pct >= 75 ? '#10b981' : (pct >= 40 ? '#f59e0b' : '#ef4444');
+
     return `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #ffffff; padding: 25px; width: 790px; box-sizing: border-box;">
-        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 16px; text-align: center;">
-          <div style="letter-spacing: 1px; font-weight: bold; text-transform: uppercase; font-size: 11px; color: #64748b;">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
-          <h4 style="font-weight: 800; text-transform: uppercase; margin: 3px 0; color: #0f172a; letter-spacing: 0.5px; font-size: 15px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE</h4>
-          <h5 style="font-weight: bold; color: #64748b; margin: 3px 0; font-size: 12px;">GERENCIA DE RECURSOS HUMANOS • GESTIÓN EDUCATIVA</h5>
-          <h3 style="font-weight: 800; color: #1e40af; margin: 4px 0; font-size: 16px;">${nombreInstitucion}</h3>
-          <p style="margin: 3px 0; font-weight: bold; font-size: 13px; color: #0f172a;">INFORME ESTADÍSTICO Y GRÁFICO DE ACTUALIZACIÓN ESTUDIANTIL</p>
-          <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 10.5px; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #ffffff; padding: 22px; width: 790px; box-sizing: border-box;">
+        <!-- ENCABEZADO INSTITUCIONAL -->
+        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; text-align: center;">
+          <div style="letter-spacing: 1px; font-weight: bold; text-transform: uppercase; font-size: 10.5px; color: #64748b;">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
+          <h4 style="font-weight: 800; text-transform: uppercase; margin: 2px 0; color: #0f172a; letter-spacing: 0.5px; font-size: 14.5px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE</h4>
+          <h5 style="font-weight: bold; color: #64748b; margin: 2px 0; font-size: 11.5px;">GERENCIA DE RECURSOS HUMANOS • GESTIÓN EDUCATIVA</h5>
+          <h3 style="font-weight: 800; color: #1e40af; margin: 3px 0; font-size: 15.5px;">${nombreInstitucion}</h3>
+          <p style="margin: 2px 0; font-weight: bold; font-size: 12.5px; color: #0f172a;">DOSSIER ESTADÍSTICO Y EJECUTIVO DE ACTUALIZACIÓN ESTUDIANTIL</p>
+          <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 10px; margin-top: 6px; border-top: 1px solid #e2e8f0; padding-top: 5px;">
             <span><strong>Fecha y Hora de Emisión:</strong> ${stats.fechaHoraReporte}</span>
             <span><strong>Generado por:</strong> ${user?.nombre_completo || user?.cedula || 'Administrador'}</span>
           </div>
         </div>
 
-        <!-- SECCIÓN DE GRÁFICO DE TORTA / KPI -->
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 16px;">
-          <div style="width: 170px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
-            <div style="position: relative; width: 130px; height: 130px; margin: 0 auto;">
-              <svg width="130" height="130" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
+        <!-- FILA SUPERIOR: TACÓMETRO RADIAL + DONUT + KPIS -->
+        <div style="display: flex; align-items: stretch; gap: 12px; margin-bottom: 14px;">
+          <!-- TACÓMETRO DE META -->
+          <div style="width: 175px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
+            <div style="font-size: 10px; font-weight: bold; color: #475569; margin-bottom: 2px;">TACÓMETRO DE META</div>
+            <div style="position: relative; width: 140px; height: 85px; margin: 0 auto; overflow: hidden;">
+              <svg width="140" height="140" viewBox="0 0 140 140">
+                <!-- Arco fondo 180° -->
+                <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
+                <!-- Arco progreso coloreado -->
+                <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="${gaugeColor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="172.78" stroke-dashoffset="${172.78 * (1 - pct / 100)}" />
+                <!-- Aguja indicadora -->
+                <g transform="translate(70, 80) rotate(${needleAngle})">
+                  <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" stroke-width="3" stroke-linecap="round" />
+                  <circle cx="0" cy="0" r="5" fill="#0f172a" />
+                </g>
+              </svg>
+            </div>
+            <div style="font-size: 18px; font-weight: 900; color: ${gaugeColor}; margin-top: -6px;">${stats.pctGeneral}%</div>
+            <div style="font-size: 9px; font-weight: bold; color: #64748b;">${pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}</div>
+          </div>
+
+          <!-- GRÁFICO DONUT 3D -->
+          <div style="width: 165px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
+            <div style="font-size: 10px; font-weight: bold; color: #475569; margin-bottom: 2px;">DISTRIBUCIÓN GLOBAL</div>
+            <div style="position: relative; width: 100px; height: 100px; margin: 0 auto;">
+              <svg width="100" height="100" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
                 <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="18" />
                 ${lenComp > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#10b981" stroke-width="18" stroke-dasharray="${lenComp} ${C - lenComp}" stroke-dashoffset="${offComp}" />` : ''}
                 ${lenProc > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#f59e0b" stroke-width="18" stroke-dasharray="${lenProc} ${C - lenProc}" stroke-dashoffset="${offProc}" />` : ''}
                 ${lenSin > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#94a3b8" stroke-width="18" stroke-dasharray="${lenSin} ${C - lenSin}" stroke-dashoffset="${offSin}" />` : ''}
               </svg>
               <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                <div style="font-size: 8px; font-weight: bold; color: #64748b;">AVANCE</div>
-                <div style="font-size: 17px; font-weight: 900; color: #0f172a;">${stats.pctGeneral}%</div>
+                <div style="font-size: 14px; font-weight: 900; color: #0f172a;">${stats.totalGeneral}</div>
+                <div style="font-size: 7px; font-weight: bold; color: #64748b;">ALUMNOS</div>
               </div>
             </div>
-            <div style="font-size: 10px; font-weight: bold; color: #475569; margin-top: 4px;">Distribución Global</div>
+            <div style="font-size: 9px; font-weight: bold; color: #166534;">${stats.completadosGeneral} completados</div>
           </div>
 
-          <div style="flex-grow: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; background: #f8fafc; text-align: center;">
-              <div style="color: #64748b; font-size: 10px; font-weight: bold;">TOTAL MATRÍCULA</div>
-              <div style="font-size: 17px; font-weight: bold; color: #0f172a; margin: 2px 0;">${stats.totalGeneral} Estudiantes</div>
-              <div style="font-size: 9.5px; color: #64748b;">100% de la matrícula</div>
+          <!-- TARJETAS KPIS -->
+          <div style="flex-grow: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; background: #f8fafc; text-align: center;">
+              <div style="color: #64748b; font-size: 9px; font-weight: bold;">MATRÍCULA TOTAL</div>
+              <div style="font-size: 16px; font-weight: bold; color: #0f172a;">${stats.totalGeneral}</div>
+              <div style="font-size: 8.5px; color: #64748b;">100% de estudiantes</div>
             </div>
-            <div style="border: 1px solid #86efac; border-radius: 8px; padding: 8px 12px; background: #f0fdf4; text-align: center;">
-              <div style="color: #166534; font-size: 10px; font-weight: bold;">ACTUALIZADOS (100%)</div>
-              <div style="font-size: 17px; font-weight: bold; color: #16a34a; margin: 2px 0;">${stats.completadosGeneral} Estudiantes</div>
-              <div style="font-size: 9.5px; font-weight: bold; color: #166534;">${stats.pctGeneral}% completado</div>
+            <div style="border: 1px solid #86efac; border-radius: 8px; padding: 7px 10px; background: #f0fdf4; text-align: center;">
+              <div style="color: #166534; font-size: 9px; font-weight: bold;">ACTUALIZADOS (100%)</div>
+              <div style="font-size: 16px; font-weight: bold; color: #16a34a;">${stats.completadosGeneral}</div>
+              <div style="font-size: 8.5px; font-weight: bold; color: #166534;">${stats.pctGeneral}% del plantel</div>
             </div>
-            <div style="border: 1px solid #fde047; border-radius: 8px; padding: 8px 12px; background: #fefce8; text-align: center;">
-              <div style="color: #854d0e; font-size: 10px; font-weight: bold;">EN PROCESO</div>
-              <div style="font-size: 17px; font-weight: bold; color: #d97706; margin: 2px 0;">${stats.enProcesoGeneral} Estudiantes</div>
-              <div style="font-size: 9.5px; font-weight: bold; color: #854d0e;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
+            <div style="border: 1px solid #fde047; border-radius: 8px; padding: 7px 10px; background: #fefce8; text-align: center;">
+              <div style="color: #854d0e; font-size: 9px; font-weight: bold;">EN PROCESO</div>
+              <div style="font-size: 16px; font-weight: bold; color: #d97706;">${stats.enProcesoGeneral}</div>
+              <div style="font-size: 8.5px; font-weight: bold; color: #854d0e;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
             </div>
-            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; background: #f8fafc; text-align: center;">
-              <div style="color: #475569; font-size: 10px; font-weight: bold;">SIN INICIAR (0%)</div>
-              <div style="font-size: 17px; font-weight: bold; color: #475569; margin: 2px 0;">${stats.sinIniciarGeneral} Estudiantes</div>
-              <div style="font-size: 9.5px; font-weight: bold; color: #475569;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
+            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; background: #f8fafc; text-align: center;">
+              <div style="color: #475569; font-size: 9px; font-weight: bold;">SIN INICIAR (0%)</div>
+              <div style="font-size: 16px; font-weight: bold; color: #475569;">${stats.sinIniciarGeneral}</div>
+              <div style="font-size: 8.5px; font-weight: bold; color: #475569;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
             </div>
           </div>
         </div>
 
-        <div style="font-weight: bold; margin-bottom: 8px; color: #0f172a; font-size: 12px;">Desglose y Distribución por Grupo, Grado o Año Escolar</div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px;">
+        <!-- FILA INTERMEDIA: COMPARATIVA POR ETAPAS EDUCATIVAS + SEMÁFORO -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <!-- COMPARATIVA ETAPAS -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #ffffff;">
+            <div style="font-size: 10.5px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+              📊 Avance por Etapa Educativa
+            </div>
+            ${stats.desgloseEtapas?.map((et: any) => `
+              <div style="margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; font-size: 9.5px; margin-bottom: 2px;">
+                  <span style="font-weight: bold; color: #1e293b;">${et.etapa}</span>
+                  <span style="color: #166534; font-weight: bold;">${et.completados}/${et.total} (${et.pct}%)</span>
+                </div>
+                <div style="background-color: #f1f5f9; border-radius: 4px; height: 8px; overflow: hidden; display: flex;">
+                  <div style="background-color: #10b981; height: 100%; width: ${et.pct}%;"></div>
+                  <div style="background-color: #f59e0b; height: 100%; width: ${et.total > 0 ? (et.enProceso / et.total) * 100 : 0}%;"></div>
+                  <div style="background-color: #cbd5e1; height: 100%; width: ${et.total > 0 ? (et.sinIniciar / et.total) * 100 : 0}%;"></div>
+                </div>
+              </div>
+            `).join('') || ''}
+          </div>
+
+          <!-- SEMÁFORO DE GESTIÓN -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #ffffff;">
+            <div style="font-size: 10.5px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+              🚦 Semáforo de Cumplimiento
+            </div>
+            <div style="display: flex; gap: 6px; font-size: 9.5px; text-align: center;">
+              <div style="flex: 1; border: 1px solid #86efac; border-radius: 6px; padding: 6px; background: #f0fdf4;">
+                <div style="color: #166534; font-weight: bold;">🟢 Óptimo (≥75%)</div>
+                <div style="font-size: 14px; font-weight: bold; color: #166534; margin: 2px 0;">${stats.semaforoOptimo?.length || 0}</div>
+                <div style="font-size: 8px; color: #166534;">grados listos</div>
+              </div>
+              <div style="flex: 1; border: 1px solid #fde047; border-radius: 6px; padding: 6px; background: #fefce8;">
+                <div style="color: #854d0e; font-weight: bold;">🟡 En Progreso</div>
+                <div style="font-size: 14px; font-weight: bold; color: #d97706; margin: 2px 0;">${stats.semaforoEnProgreso?.length || 0}</div>
+                <div style="font-size: 8px; color: #854d0e;">en llenado</div>
+              </div>
+              <div style="flex: 1; border: 1px solid #fca5a5; border-radius: 6px; padding: 6px; background: #fef2f2;">
+                <div style="color: #991b1b; font-weight: bold;">🔴 Atención (&lt;40%)</div>
+                <div style="font-size: 14px; font-weight: bold; color: #dc2626; margin: 2px 0;">${stats.semaforoAtencion?.length || 0}</div>
+                <div style="font-size: 8px; color: #991b1b;">convocatoria</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABLA DESGLOSADA POR GRADO / NIVEL -->
+        <div style="font-weight: bold; margin-bottom: 6px; color: #0f172a; font-size: 11px;">📋 Desglose y Distribución por Grupo, Grado o Año Escolar</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 14px;">
           <thead>
             <tr style="background-color: #f1f5f9; text-align: center; border: 1px solid #cbd5e1;">
-              <th style="padding: 6px; text-align: left; width: 28%; border: 1px solid #cbd5e1;">Grupo / Grado / Año Escolar</th>
-              <th style="padding: 6px; width: 10%; border: 1px solid #cbd5e1;">Total</th>
-              <th style="padding: 6px; width: 12%; border: 1px solid #cbd5e1;">Completados</th>
-              <th style="padding: 6px; width: 12%; border: 1px solid #cbd5e1;">En Proceso</th>
-              <th style="padding: 6px; width: 12%; border: 1px solid #cbd5e1;">Sin Iniciar</th>
-              <th style="padding: 6px; width: 26%; border: 1px solid #cbd5e1;">Gráfico de Avance</th>
+              <th style="padding: 5px; text-align: left; width: 28%; border: 1px solid #cbd5e1;">Grupo / Grado / Año Escolar</th>
+              <th style="padding: 5px; width: 10%; border: 1px solid #cbd5e1;">Total</th>
+              <th style="padding: 5px; width: 12%; border: 1px solid #cbd5e1;">Completados</th>
+              <th style="padding: 5px; width: 12%; border: 1px solid #cbd5e1;">En Proceso</th>
+              <th style="padding: 5px; width: 12%; border: 1px solid #cbd5e1;">Sin Iniciar</th>
+              <th style="padding: 5px; width: 26%; border: 1px solid #cbd5e1;">Gráfico de Avance</th>
             </tr>
           </thead>
           <tbody>
@@ -972,61 +1121,62 @@ export const VincularEstudiante: React.FC = () => {
               const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
               return `
               <tr style="text-align: center; border: 1px solid #cbd5e1;">
-                <td style="padding: 5px; text-align: left; font-weight: bold; border: 1px solid #cbd5e1;">${g.grado}</td>
-                <td style="padding: 5px; font-weight: bold; border: 1px solid #cbd5e1;">${g.total}</td>
-                <td style="padding: 5px; border: 1px solid #cbd5e1;"><span style="background: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;">${g.completados}</span></td>
-                <td style="padding: 5px; border: 1px solid #cbd5e1;"><span style="background: #fef9c3; color: #854d0e; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;">${g.enProceso}</span></td>
-                <td style="padding: 5px; border: 1px solid #cbd5e1;"><span style="background: #f1f5f9; color: #475569; font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10.5px;">${g.sinIniciar}</span></td>
-                <td style="padding: 5px; border: 1px solid #cbd5e1;">
+                <td style="padding: 4px; text-align: left; font-weight: bold; border: 1px solid #cbd5e1;">${g.grado}</td>
+                <td style="padding: 4px; font-weight: bold; border: 1px solid #cbd5e1;">${g.total}</td>
+                <td style="padding: 4px; border: 1px solid #cbd5e1;"><span style="background: #dcfce7; color: #166534; font-weight: bold; padding: 2px 5px; border-radius: 4px; font-size: 9.5px;">${g.completados}</span></td>
+                <td style="padding: 4px; border: 1px solid #cbd5e1;"><span style="background: #fef9c3; color: #854d0e; font-weight: bold; padding: 2px 5px; border-radius: 4px; font-size: 9.5px;">${g.enProceso}</span></td>
+                <td style="padding: 4px; border: 1px solid #cbd5e1;"><span style="background: #f1f5f9; color: #475569; font-weight: bold; padding: 2px 5px; border-radius: 4px; font-size: 9.5px;">${g.sinIniciar}</span></td>
+                <td style="padding: 4px; border: 1px solid #cbd5e1;">
                   <div style="display: flex; align-items: center; gap: 4px;">
-                    <div style="background-color: #f1f5f9; border-radius: 4px; height: 9px; overflow: hidden; display: flex; width: 100%;">
+                    <div style="background-color: #f1f5f9; border-radius: 4px; height: 8px; overflow: hidden; display: flex; width: 100%;">
                       <div style="background-color: #10b981; height: 100%; width: ${pComp}%;"></div>
                       <div style="background-color: #f59e0b; height: 100%; width: ${pProc}%;"></div>
                       <div style="background-color: #cbd5e1; height: 100%; width: ${pSin}%;"></div>
                     </div>
-                    <span style="min-width: 32px; font-weight: bold; color: #166534; font-size: 10px;">${g.pctCompletado}%</span>
+                    <span style="min-width: 28px; font-weight: bold; color: #166534; font-size: 9.5px;">${g.pctCompletado}%</span>
                   </div>
                 </td>
               </tr>
             `;
             }).join('')}
             <tr style="background-color: #e2e8f0; text-align: center; font-weight: bold; border: 1px solid #cbd5e1;">
-              <td style="padding: 6px; text-align: left; border: 1px solid #cbd5e1;">TOTAL CONSOLIDADO</td>
-              <td style="padding: 6px; border: 1px solid #cbd5e1;">${stats.totalGeneral}</td>
-              <td style="padding: 6px; color: #16a34a; border: 1px solid #cbd5e1;">${stats.completadosGeneral}</td>
-              <td style="padding: 6px; color: #d97706; border: 1px solid #cbd5e1;">${stats.enProcesoGeneral}</td>
-              <td style="padding: 6px; color: #475569; border: 1px solid #cbd5e1;">${stats.sinIniciarGeneral}</td>
-              <td style="padding: 6px; border: 1px solid #cbd5e1;">
+              <td style="padding: 5px; text-align: left; border: 1px solid #cbd5e1;">TOTAL CONSOLIDADO</td>
+              <td style="padding: 5px; border: 1px solid #cbd5e1;">${stats.totalGeneral}</td>
+              <td style="padding: 5px; color: #16a34a; border: 1px solid #cbd5e1;">${stats.completadosGeneral}</td>
+              <td style="padding: 5px; color: #d97706; border: 1px solid #cbd5e1;">${stats.enProcesoGeneral}</td>
+              <td style="padding: 5px; color: #475569; border: 1px solid #cbd5e1;">${stats.sinIniciarGeneral}</td>
+              <td style="padding: 5px; border: 1px solid #cbd5e1;">
                 <div style="display: flex; align-items: center; gap: 4px;">
-                  <div style="background-color: #f1f5f9; border-radius: 4px; height: 11px; overflow: hidden; display: flex; width: 100%;">
+                  <div style="background-color: #f1f5f9; border-radius: 4px; height: 10px; overflow: hidden; display: flex; width: 100%;">
                     <div style="background-color: #10b981; height: 100%; width: ${stats.pctGeneral}%;"></div>
                     <div style="background-color: #f59e0b; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
                     <div style="background-color: #cbd5e1; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
                   </div>
-                  <span style="min-width: 32px; font-weight: bold; color: #1e40af; font-size: 10.5px;">${stats.pctGeneral}%</span>
+                  <span style="min-width: 28px; font-weight: bold; color: #1e40af; font-size: 10px;">${stats.pctGeneral}%</span>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
 
-        <div style="display: flex; justify-content: space-around; margin-top: 25px; text-align: center;">
+        <!-- FIRMAS Y SELLOS -->
+        <div style="display: flex; justify-content: space-around; margin-top: 20px; text-align: center;">
           <div style="width: 40%;">
-            <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
-              <strong style="font-size: 10.5px;">Control de Estudios</strong><br>
-              <span style="color: #64748b; font-size: 9px;">Firma y Sello</span>
+            <div style="border-top: 1px solid #94a3b8; padding-top: 3px;">
+              <strong style="font-size: 10px;">Control de Estudios</strong><br>
+              <span style="color: #64748b; font-size: 8.5px;">Firma y Sello</span>
             </div>
           </div>
           <div style="width: 40%;">
-            <div style="border-top: 1px solid #94a3b8; padding-top: 4px;">
-              <strong style="font-size: 10.5px;">Dirección del Plantel / DEP Oriente</strong><br>
-              <span style="color: #64748b; font-size: 9px;">Firma y Sello</span>
+            <div style="border-top: 1px solid #94a3b8; padding-top: 3px;">
+              <strong style="font-size: 10px;">Dirección del Plantel / DEP Oriente</strong><br>
+              <span style="color: #64748b; font-size: 8.5px;">Firma y Sello</span>
             </div>
           </div>
         </div>
 
-        <div style="text-align: center; color: #94a3b8; font-size: 8px; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 5px;">
-          Documento oficial con gráficos y estadísticas emitido por el Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente.
+        <div style="text-align: center; color: #94a3b8; font-size: 7.5px; margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+          Dossier oficial de auditoría y avance de matrícula generado por el Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente.
         </div>
       </div>
     `;
@@ -1355,15 +1505,6 @@ export const VincularEstudiante: React.FC = () => {
       return;
     }
 
-    const R = 50;
-    const C = 2 * Math.PI * R;
-    const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
-    const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
-    const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
-    const offComp = 0;
-    const offProc = -lenComp;
-    const offSin = -(lenComp + lenProc);
-
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="es">
@@ -1374,169 +1515,26 @@ export const VincularEstudiante: React.FC = () => {
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
         <style>
           @page { size: portrait; margin: 10mm; }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #fff; font-size: 11.5px; }
-          .header-box { border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 16px; }
-          .stat-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; }
-          .table-header { background-color: #f1f5f9 !important; font-weight: bold; }
-          .table-bordered td, .table-bordered th { border: 1px solid #cbd5e1 !important; }
-          .badge-comp { background: #dcfce7; color: #166534; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; font-size: 11px; }
-          .badge-proc { background: #fef9c3; color: #854d0e; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; font-size: 11px; }
-          .badge-sin { background: #f1f5f9; color: #475569; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; font-size: 11px; }
-          .bar-track { background-color: #f1f5f9; border-radius: 4px; height: 10px; overflow: hidden; display: flex; width: 100%; }
-          .bar-comp { background-color: #10b981; height: 100%; }
-          .bar-proc { background-color: #f59e0b; height: 100%; }
-          .bar-sin { background-color: #cbd5e1; height: 100%; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #f8fafc; font-size: 11px; padding: 20px; }
           @media print {
             .no-print { display: none !important; }
+            body { background: #fff !important; padding: 0 !important; }
           }
         </style>
       </head>
-      <body class="p-3">
-        <div class="no-print mb-4 d-flex justify-content-between align-items-center bg-light p-3 rounded border">
-          <span class="fw-bold text-muted"><i class="bi bi-printer me-1"></i> Vista Previa Oficial para Impresión / Descarga PDF</span>
+      <body>
+        <div class="no-print mb-3 d-flex justify-content-between align-items-center bg-white p-3 rounded-4 shadow-sm border" style="max-width: 790px; margin: 0 auto 15px auto;">
+          <span class="fw-bold text-muted"><i class="bi bi-printer me-2 text-primary"></i> Dossier Oficial para Impresión / Guardar en PDF</span>
           <div>
-            <button class="btn btn-primary fw-bold px-4 me-2" onclick="window.print()"><i class="bi bi-printer-fill me-2"></i>Imprimir / Guardar PDF</button>
-            <button class="btn btn-secondary px-3" onclick="window.close()">Cerrar</button>
+            <button class="btn btn-primary fw-bold px-4 me-2 shadow-sm rounded-pill" onclick="window.print()"><i class="bi bi-printer-fill me-2"></i>Imprimir / Guardar PDF</button>
+            <button class="btn btn-secondary px-3 rounded-pill" onclick="window.close()">Cerrar</button>
           </div>
         </div>
 
-        <div class="header-box text-center">
-          <div style="letter-spacing: 1px;" class="fw-bold text-uppercase small text-muted">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
-          <h5 class="fw-bold text-uppercase mb-1" style="color: #0f172a; letter-spacing: 0.5px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE</h5>
-          <h6 class="fw-bold text-muted mb-2">GERENCIA DE RECURSOS HUMANOS • GESTIÓN EDUCATIVA</h6>
-          <h4 class="fw-bolder text-primary mb-1">${nombreInstitucion}</h4>
-          <p class="mb-1 fw-bold fs-6">INFORME ESTADÍSTICO Y GRÁFICO DE ACTUALIZACIÓN ESTUDIANTIL</p>
-          <div class="d-flex justify-content-between text-muted small mt-2 px-2 border-top pt-1">
-            <span><i class="bi bi-clock-history me-1"></i><strong>Fecha y Hora de Emisión:</strong> ${stats.fechaHoraReporte}</span>
-            <span><i class="bi bi-person-circle me-1"></i><strong>Generado por:</strong> ${user?.nombre_completo || user?.cedula || 'Administrador'}</span>
+        <div style="display: flex; justify-content: center;">
+          <div style="background: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 12px; border: 1px solid #cbd5e1;">
+            ${generarReporteHTML(stats, nombreInstitucion)}
           </div>
-        </div>
-
-        <!-- SECCIÓN DE GRÁFICO DE TORTA / KPI -->
-        <div class="row g-3 mb-3 align-items-center">
-          <div class="col-4 text-center">
-            <div class="p-2 border rounded-3 bg-light position-relative d-inline-block">
-              <svg width="140" height="140" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
-                <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="18" />
-                ${lenComp > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#10b981" stroke-width="18" stroke-dasharray="${lenComp} ${C - lenComp}" stroke-dashoffset="${offComp}" />` : ''}
-                ${lenProc > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#f59e0b" stroke-width="18" stroke-dasharray="${lenProc} ${C - lenProc}" stroke-dashoffset="${offProc}" />` : ''}
-                ${lenSin > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#94a3b8" stroke-width="18" stroke-dasharray="${lenSin} ${C - lenSin}" stroke-dashoffset="${offSin}" />` : ''}
-              </svg>
-              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                <div style="font-size: 9px; font-weight: bold; color: #64748b;">AVANCE</div>
-                <div style="font-size: 18px; font-weight: 900; color: #0f172a;">${stats.pctGeneral}%</div>
-              </div>
-            </div>
-            <div class="small fw-bold text-muted mt-1">Gráfico de Distribución Global</div>
-          </div>
-          <div class="col-8">
-            <div class="row g-2">
-              <div class="col-6">
-                <div class="stat-card bg-light">
-                  <div class="text-muted small fw-bold">TOTAL MATRÍCULA</div>
-                  <div class="fs-5 fw-bold text-dark">${stats.totalGeneral} Estudiantes</div>
-                  <div class="small text-muted">100% de registros</div>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="stat-card" style="background: #f0fdf4; border-color: #86efac;">
-                  <div class="text-success small fw-bold">ACTUALIZADOS (100%)</div>
-                  <div class="fs-5 fw-bold text-success">${stats.completadosGeneral} Estudiantes</div>
-                  <div class="small fw-bold text-success">${stats.pctGeneral}% completado</div>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="stat-card" style="background: #fefce8; border-color: #fde047;">
-                  <div class="text-warning small fw-bold">EN PROCESO</div>
-                  <div class="fs-5 fw-bold text-warning" style="color: #ca8a04 !important;">${stats.enProcesoGeneral} Estudiantes</div>
-                  <div class="small fw-bold text-warning" style="color: #ca8a04 !important;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="stat-card" style="background: #f8fafc; border-color: #cbd5e1;">
-                  <div class="text-secondary small fw-bold">SIN INICIAR (0%)</div>
-                  <div class="fs-5 fw-bold text-secondary">${stats.sinIniciarGeneral} Estudiantes</div>
-                  <div class="small fw-bold text-secondary">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <h6 class="fw-bold mb-2 text-dark"><i class="bi bi-bar-chart-steps me-1"></i> Desglose y Distribución por Grupo, Grado o Año Escolar</h6>
-        <table class="table table-bordered align-middle mb-3">
-          <thead>
-            <tr class="table-header text-center">
-              <th class="text-start ps-2" style="width: 28%;">Grupo / Grado / Año Escolar</th>
-              <th style="width: 10%;">Total</th>
-              <th style="width: 11%;">Completados</th>
-              <th style="width: 11%;">En Proceso</th>
-              <th style="width: 11%;">Sin Iniciar</th>
-              <th style="width: 29%;">Gráfico Proporcional de Avance</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${stats.desglosePorGrado.map(g => {
-              const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
-              const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
-              const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
-              return `
-              <tr class="text-center">
-                <td class="text-start ps-2 fw-bold">${g.grado}</td>
-                <td class="fw-bold">${g.total}</td>
-                <td><span class="badge-comp">${g.completados}</span></td>
-                <td><span class="badge-proc">${g.enProceso}</span></td>
-                <td><span class="badge-sin">${g.sinIniciar}</span></td>
-                <td>
-                  <div class="d-flex align-items-center gap-1">
-                    <div class="bar-track flex-grow-1">
-                      <div class="bar-comp" style="width: ${pComp}%;"></div>
-                      <div class="bar-proc" style="width: ${pProc}%;"></div>
-                      <div class="bar-sin" style="width: ${pSin}%;"></div>
-                    </div>
-                    <span style="min-width: 32px; font-weight: bold; color: #166534; font-size: 10.5px;">${g.pctCompletado}%</span>
-                  </div>
-                </td>
-              </tr>
-            `;
-            }).join('')}
-            <tr class="table-header text-center fw-bold" style="background: #e2e8f0 !important; font-size: 12px;">
-              <td class="text-start ps-2">TOTAL CONSOLIDADO</td>
-              <td>${stats.totalGeneral}</td>
-              <td class="text-success">${stats.completadosGeneral}</td>
-              <td style="color: #ca8a04;">${stats.enProcesoGeneral}</td>
-              <td class="text-secondary">${stats.sinIniciarGeneral}</td>
-              <td>
-                <div class="d-flex align-items-center gap-1">
-                  <div class="bar-track flex-grow-1" style="height: 12px;">
-                    <div class="bar-comp" style="width: ${stats.pctGeneral}%;"></div>
-                    <div class="bar-proc" style="width: ${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
-                    <div class="bar-sin" style="width: ${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
-                  </div>
-                  <span style="min-width: 32px; font-weight: bold; color: #1e3a8a; font-size: 11px;">${stats.pctGeneral}%</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="row mt-4 pt-3 text-center">
-          <div class="col-6">
-            <div style="border-top: 1px solid #94a3b8; width: 70%; margin: 0 auto; padding-top: 4px;">
-              <strong class="small">Control de Estudios</strong><br>
-              <span class="text-muted" style="font-size: 9.5px;">Firma y Sello</span>
-            </div>
-          </div>
-          <div class="col-6">
-            <div style="border-top: 1px solid #94a3b8; width: 70%; margin: 0 auto; padding-top: 4px;">
-              <strong class="small">Dirección del Plantel / DEP Oriente</strong><br>
-              <span class="text-muted" style="font-size: 9.5px;">Firma y Sello</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="text-center text-muted small mt-4 pt-2 border-top" style="font-size: 8.5px;">
-          Documento oficial con gráficos y estadísticas generado por el Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente.
         </div>
       </body>
       </html>
@@ -2492,10 +2490,24 @@ export const VincularEstudiante: React.FC = () => {
                           <div className="btn-group shadow-sm" role="group">
                             <button 
                               type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'graficos' ? 'btn-dark' : 'btn-outline-dark'}`}
-                              onClick={() => setTabReporte('graficos')}
+                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'ejecutivo' ? 'btn-dark' : 'btn-outline-dark'}`}
+                              onClick={() => setTabReporte('ejecutivo')}
                             >
-                              <i className="bi bi-pie-chart-fill me-1"></i> Gráficos
+                              <i className="bi bi-speedometer2 me-1"></i> Tablero 360°
+                            </button>
+                            <button 
+                              type="button" 
+                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'barras' ? 'btn-dark' : 'btn-outline-dark'}`}
+                              onClick={() => setTabReporte('barras')}
+                            >
+                              <i className="bi bi-bar-chart-steps me-1"></i> Por Grados
+                            </button>
+                            <button 
+                              type="button" 
+                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'secciones' ? 'btn-dark' : 'btn-outline-dark'}`}
+                              onClick={() => setTabReporte('secciones')}
+                            >
+                              <i className="bi bi-ui-checks me-1"></i> Por Secciones
                             </button>
                             <button 
                               type="button" 
@@ -2567,186 +2579,328 @@ export const VincularEstudiante: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* VISTA 1: GRÁFICOS Y TABLERO EJECUTIVO */}
-                      {tabReporte === 'graficos' && (
-                        <div className="row g-4 mb-3 animate__animated animate__fadeIn">
-                          {/* Columna Izquierda: Gráfico de Torta (Donut) */}
-                          <div className="col-lg-5">
-                            <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 d-flex flex-column justify-content-between">
-                              <div>
-                                <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                                  <h6 className="fw-bold text-dark mb-0">
-                                    <i className="bi bi-pie-chart-fill me-2 text-primary"></i>
-                                    Distribución Global de Avance
-                                  </h6>
-                                  <span className="badge bg-light text-muted border">Torta Proporcional</span>
-                                </div>
+                      {/* VISTA 1: TABLERO EJECUTIVO 360° */}
+                      {tabReporte === 'ejecutivo' && (
+                        <div className="animate__animated animate__fadeIn">
+                          <div className="row g-4 mb-4">
+                            {/* Gráfico 1: Tacómetro Radial de Meta */}
+                            <div className="col-lg-4 col-md-6">
+                              <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 text-center d-flex flex-column justify-content-between">
+                                <div>
+                                  <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                    <h6 className="fw-bold text-dark mb-0">
+                                      <i className="bi bi-speedometer2 text-primary me-2"></i>
+                                      Tacómetro de Meta
+                                    </h6>
+                                    <span className="badge bg-light text-muted border">Meta: 100%</span>
+                                  </div>
 
-                                {(() => {
-                                  const R = 70;
-                                  const C = 2 * Math.PI * R;
-                                  const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
-                                  const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
-                                  const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
-                                  const offComp = 0;
-                                  const offProc = -lenComp;
-                                  const offSin = -(lenComp + lenProc);
-
-                                  return (
-                                    <div className="py-3 text-center position-relative d-flex justify-content-center align-items-center">
-                                      <svg width="220" height="220" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
-                                        <circle cx="110" cy="110" r={R} fill="none" stroke="#f1f5f9" strokeWidth="26" />
-                                        {lenComp > 0 && (
-                                          <circle 
-                                            cx="110" cy="110" r={R} fill="none" 
-                                            stroke="#10b981" strokeWidth="26" 
-                                            strokeDasharray={`${lenComp} ${C - lenComp}`}
-                                            strokeDashoffset={offComp}
-                                            style={{ transition: 'all 0.5s ease' }}
-                                          />
-                                        )}
-                                        {lenProc > 0 && (
-                                          <circle 
-                                            cx="110" cy="110" r={R} fill="none" 
-                                            stroke="#f59e0b" strokeWidth="26" 
-                                            strokeDasharray={`${lenProc} ${C - lenProc}`}
-                                            strokeDashoffset={offProc}
-                                            style={{ transition: 'all 0.5s ease' }}
-                                          />
-                                        )}
-                                        {lenSin > 0 && (
-                                          <circle 
-                                            cx="110" cy="110" r={R} fill="none" 
-                                            stroke="#94a3b8" strokeWidth="26" 
-                                            strokeDasharray={`${lenSin} ${C - lenSin}`}
-                                            strokeDashoffset={offSin}
-                                            style={{ transition: 'all 0.5s ease' }}
-                                          />
-                                        )}
-                                      </svg>
-                                      <div className="position-absolute text-center" style={{ pointerEvents: 'none' }}>
-                                        <span className="d-block text-muted text-uppercase fw-bold" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>Avance Global</span>
-                                        <span className="fs-1 fw-bolder text-dark d-block lh-1 my-1">{stats.pctGeneral}%</span>
-                                        <span className="badge bg-success bg-opacity-10 text-success rounded-pill px-2.5 py-0.5 fw-bold small">
-                                          {stats.completadosGeneral} de {stats.totalGeneral}
+                                  {(() => {
+                                    const pct = stats.pctGeneral;
+                                    const needleAngle = -90 + (pct / 100) * 180;
+                                    const gaugeColor = pct >= 75 ? '#10b981' : (pct >= 40 ? '#f59e0b' : '#ef4444');
+                                    return (
+                                      <div className="py-2">
+                                        <div className="position-relative d-flex justify-content-center align-items-center" style={{ height: '120px' }}>
+                                          <svg width="200" height="120" viewBox="0 0 140 90">
+                                            <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeLinecap="round" />
+                                            <path 
+                                              d="M 15 80 A 55 55 0 0 1 125 80" 
+                                              fill="none" 
+                                              stroke={gaugeColor} 
+                                              strokeWidth="14" 
+                                              strokeLinecap="round" 
+                                              strokeDasharray="172.78" 
+                                              strokeDashoffset={172.78 * (1 - pct / 100)}
+                                              style={{ transition: 'all 0.6s ease' }}
+                                            />
+                                            <g transform={`translate(70, 80) rotate(${needleAngle})`} style={{ transition: 'transform 0.6s ease' }}>
+                                              <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" />
+                                              <circle cx="0" cy="0" r="5.5" fill="#0f172a" />
+                                            </g>
+                                          </svg>
+                                        </div>
+                                        <div className="fs-2 fw-bolder lh-1 mb-1" style={{ color: gaugeColor }}>
+                                          {stats.pctGeneral}%
+                                        </div>
+                                        <span className={`badge px-3 py-1 rounded-pill fw-bold ${pct >= 75 ? 'bg-success bg-opacity-10 text-success' : (pct >= 40 ? 'bg-warning bg-opacity-10 text-warning' : 'bg-danger bg-opacity-10 text-danger')}`}>
+                                          {pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}
                                         </span>
                                       </div>
-                                    </div>
-                                  );
-                                })()}
+                                    );
+                                  })()}
+                                </div>
+                                <div className="p-2.5 rounded-3 bg-light border small text-muted">
+                                  {stats.completadosGeneral} de {stats.totalGeneral} estudiantes con ficha integral completada.
+                                </div>
                               </div>
+                            </div>
 
-                              {/* Leyenda interactiva */}
-                              <div className="bg-light p-3 rounded-4 border mt-3">
-                                <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span className="p-1.5 rounded-circle bg-success"></span>
-                                    <span className="small fw-bold text-dark">Completados (100%)</span>
+                            {/* Gráfico 2: Torta / Donut 3D */}
+                            <div className="col-lg-4 col-md-6">
+                              <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 text-center d-flex flex-column justify-content-between">
+                                <div>
+                                  <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                    <h6 className="fw-bold text-dark mb-0">
+                                      <i className="bi bi-pie-chart-fill text-primary me-2"></i>
+                                      Distribución Global
+                                    </h6>
+                                    <span className="badge bg-light text-muted border">Torta Vectorial</span>
                                   </div>
-                                  <div className="text-end">
-                                    <span className="fw-bold text-success me-1">{stats.completadosGeneral}</span>
-                                    <small className="text-muted">({stats.pctGeneral}%)</small>
+
+                                  {(() => {
+                                    const R = 55;
+                                    const C = 2 * Math.PI * R;
+                                    const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
+                                    const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
+                                    const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
+                                    const offComp = 0;
+                                    const offProc = -lenComp;
+                                    const offSin = -(lenComp + lenProc);
+
+                                    return (
+                                      <div className="py-2 position-relative d-flex justify-content-center align-items-center">
+                                        <svg width="150" height="150" viewBox="0 0 150 150" style={{ transform: 'rotate(-90deg)' }}>
+                                          <circle cx="75" cy="75" r={R} fill="none" stroke="#f1f5f9" strokeWidth="20" />
+                                          {lenComp > 0 && <circle cx="75" cy="75" r={R} fill="none" stroke="#10b981" strokeWidth="20" strokeDasharray={`${lenComp} ${C - lenComp}`} strokeDashoffset={offComp} style={{ transition: 'all 0.5s ease' }} />}
+                                          {lenProc > 0 && <circle cx="75" cy="75" r={R} fill="none" stroke="#f59e0b" strokeWidth="20" strokeDasharray={`${lenProc} ${C - lenProc}`} strokeDashoffset={offProc} style={{ transition: 'all 0.5s ease' }} />}
+                                          {lenSin > 0 && <circle cx="75" cy="75" r={R} fill="none" stroke="#94a3b8" strokeWidth="20" strokeDasharray={`${lenSin} ${C - lenSin}`} strokeDashoffset={offSin} style={{ transition: 'all 0.5s ease' }} />}
+                                        </svg>
+                                        <div className="position-absolute text-center" style={{ pointerEvents: 'none' }}>
+                                          <span className="fs-4 fw-bolder text-dark d-block lh-1">{stats.totalGeneral}</span>
+                                          <span className="small text-muted fw-bold" style={{ fontSize: '0.65rem' }}>MATRÍCULA</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+
+                                <div className="d-flex justify-content-around text-center border-top pt-2">
+                                  <div><span className="d-block fw-bold text-success small">{stats.completadosGeneral}</span><span className="text-muted" style={{ fontSize: '0.7rem' }}>Listos</span></div>
+                                  <div><span className="d-block fw-bold text-warning small">{stats.enProcesoGeneral}</span><span className="text-muted" style={{ fontSize: '0.7rem' }}>En Proceso</span></div>
+                                  <div><span className="d-block fw-bold text-secondary small">{stats.sinIniciarGeneral}</span><span className="text-muted" style={{ fontSize: '0.7rem' }}>Sin Iniciar</span></div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Gráfico 3: Comparativa por Etapas Educativas */}
+                            <div className="col-lg-4 col-md-12">
+                              <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                  <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                                    <h6 className="fw-bold text-dark mb-0">
+                                      <i className="bi bi-diagram-3-fill text-primary me-2"></i>
+                                      Avance por Etapa Educativa
+                                    </h6>
+                                    <span className="badge bg-primary bg-opacity-10 text-primary border">Nivel</span>
+                                  </div>
+
+                                  <div className="d-flex flex-column gap-3">
+                                    {stats.desgloseEtapas?.map((et, idx) => (
+                                      <div key={idx} className="p-2.5 rounded-3 bg-light border">
+                                        <div className="d-flex justify-content-between align-items-center mb-1">
+                                          <span className="fw-bold text-dark small">{et.etapa}</span>
+                                          <span className="badge bg-success bg-opacity-10 text-success fw-bold">
+                                            {et.completados} de {et.total} ({et.pct}%)
+                                          </span>
+                                        </div>
+                                        <div className="progress rounded-pill shadow-inner" style={{ height: '9px' }}>
+                                          <div className="progress-bar bg-success" style={{ width: `${et.pct}%` }}></div>
+                                          <div className="progress-bar bg-warning" style={{ width: `${et.total > 0 ? (et.enProceso / et.total) * 100 : 0}%` }}></div>
+                                          <div className="progress-bar bg-secondary bg-opacity-50" style={{ width: `${et.total > 0 ? (et.sinIniciar / et.total) * 100 : 0}%` }}></div>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
 
-                                <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span className="p-1.5 rounded-circle bg-warning"></span>
-                                    <span className="small fw-bold text-dark">En Proceso</span>
-                                  </div>
-                                  <div className="text-end">
-                                    <span className="fw-bold text-warning me-1" style={{ color: '#ca8a04 !important' }}>{stats.enProcesoGeneral}</span>
-                                    <small className="text-muted">({stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%)</small>
-                                  </div>
-                                </div>
-
-                                <div className="d-flex justify-content-between align-items-center">
-                                  <div className="d-flex align-items-center gap-2">
-                                    <span className="p-1.5 rounded-circle bg-secondary"></span>
-                                    <span className="small fw-bold text-dark">Sin Iniciar (0%)</span>
-                                  </div>
-                                  <div className="text-end">
-                                    <span className="fw-bold text-secondary me-1">{stats.sinIniciarGeneral}</span>
-                                    <small className="text-muted">({stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%)</small>
-                                  </div>
+                                <div className="mt-3 text-center">
+                                  <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                                    <i className="bi bi-info-circle me-1"></i> Inicial, Primaria y Media General consolidadas.
+                                  </small>
                                 </div>
                               </div>
                             </div>
                           </div>
 
-                          {/* Columna Derecha: Gráfico de Barras Apiladas por Grado */}
-                          <div className="col-lg-7">
-                            <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                              <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                                <h6 className="fw-bold text-dark mb-0">
-                                  <i className="bi bi-bar-chart-steps me-2 text-primary"></i>
-                                  Avance por Grupo, Grado o Año Escolar
-                                </h6>
-                                <span className="badge bg-primary bg-opacity-10 text-primary border">{stats.desglosePorGrado.length} Niveles</span>
+                          {/* Fila Inferior del Tablero 360: Semáforo de Cumplimiento Institucional */}
+                          <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
+                            <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+                              <h6 className="fw-bold text-dark mb-0">
+                                <i className="bi bi-traffic-light-fill text-warning me-2"></i>
+                                Semáforo de Gestión y Priorización por Grado
+                              </h6>
+                              <span className="small text-muted">Clasificación automática para llamadas y convocatorias</span>
+                            </div>
+
+                            <div className="row g-3">
+                              <div className="col-md-4">
+                                <div className="p-3 rounded-4 border border-success bg-success bg-opacity-10 h-100">
+                                  <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <span className="fw-bold text-success small text-uppercase">🟢 Nivel Óptimo (≥75%)</span>
+                                    <span className="badge bg-success text-white fw-bold">{stats.semaforoOptimo?.length || 0}</span>
+                                  </div>
+                                  <div className="d-flex flex-wrap gap-1 mt-2">
+                                    {stats.semaforoOptimo?.length === 0 ? (
+                                      <span className="text-muted small">Ningún grado en este nivel aún.</span>
+                                    ) : (
+                                      stats.semaforoOptimo?.map((g, i) => (
+                                        <span key={i} className="badge bg-white text-success border border-success py-1.5 px-2">
+                                          {g.grado} ({g.pctCompletado}%)
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
                               </div>
 
-                              <div className="overflow-auto pe-2" style={{ maxHeight: '430px' }}>
-                                {stats.desglosePorGrado.length === 0 ? (
-                                  <div className="text-center py-5 text-muted">
-                                    No hay estudiantes registrados para el ámbito seleccionado.
+                              <div className="col-md-4">
+                                <div className="p-3 rounded-4 border border-warning bg-warning bg-opacity-10 h-100">
+                                  <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <span className="fw-bold text-warning small text-uppercase" style={{ color: '#ca8a04 !important' }}>🟡 En Progreso (40% - 74%)</span>
+                                    <span className="badge bg-warning text-dark fw-bold">{stats.semaforoEnProgreso?.length || 0}</span>
                                   </div>
-                                ) : (
-                                  stats.desglosePorGrado.map((g, idx) => {
-                                    const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
-                                    const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
-                                    const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
+                                  <div className="d-flex flex-wrap gap-1 mt-2">
+                                    {stats.semaforoEnProgreso?.length === 0 ? (
+                                      <span className="text-muted small">Ningún grado en este rango.</span>
+                                    ) : (
+                                      stats.semaforoEnProgreso?.map((g, i) => (
+                                        <span key={i} className="badge bg-white text-dark border border-warning py-1.5 px-2">
+                                          {g.grado} ({g.pctCompletado}%)
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
 
-                                    return (
-                                      <div key={idx} className="mb-3 p-2.5 rounded-3 bg-light border hover-efecto">
-                                        <div className="d-flex justify-content-between align-items-center mb-1.5">
-                                          <div className="d-flex align-items-center gap-2">
-                                            <span className="fw-bold text-dark small">{g.grado}</span>
-                                            <span className="badge bg-white text-muted border small px-2 py-0.5">
-                                              {g.total} {g.total === 1 ? 'alumno' : 'alumnos'}
-                                            </span>
-                                          </div>
-                                          <div className="d-flex align-items-center gap-2">
-                                            <span className="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
-                                              {g.completados} listos
-                                            </span>
-                                            <span className="fw-bolder text-primary small" style={{ minWidth: '42px', textAlign: 'right' }}>
-                                              {g.pctCompletado}%
-                                            </span>
-                                          </div>
-                                        </div>
-
-                                        {/* Barra Apilada Visual */}
-                                        <div className="progress rounded-pill shadow-inner" style={{ height: '10px' }}>
-                                          <div 
-                                            className="progress-bar bg-success" 
-                                            role="progressbar" 
-                                            style={{ width: `${pComp}%` }} 
-                                            title={`Completados: ${g.completados} (${Math.round(pComp)}%)`}
-                                          ></div>
-                                          <div 
-                                            className="progress-bar bg-warning" 
-                                            role="progressbar" 
-                                            style={{ width: `${pProc}%` }} 
-                                            title={`En Proceso: ${g.enProceso} (${Math.round(pProc)}%)`}
-                                          ></div>
-                                          <div 
-                                            className="progress-bar bg-secondary bg-opacity-50" 
-                                            role="progressbar" 
-                                            style={{ width: `${pSin}%` }} 
-                                            title={`Sin Iniciar: ${g.sinIniciar} (${Math.round(pSin)}%)`}
-                                          ></div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })
-                                )}
+                              <div className="col-md-4">
+                                <div className="p-3 rounded-4 border border-danger bg-danger bg-opacity-10 h-100">
+                                  <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <span className="fw-bold text-danger small text-uppercase">🔴 Atención Prioritaria (&lt;40%)</span>
+                                    <span className="badge bg-danger text-white fw-bold">{stats.semaforoAtencion?.length || 0}</span>
+                                  </div>
+                                  <div className="d-flex flex-wrap gap-1 mt-2">
+                                    {stats.semaforoAtencion?.length === 0 ? (
+                                      <span className="text-success small fw-bold"><i className="bi bi-check-all me-1"></i> ¡Excelente! Ningún grado en alerta roja.</span>
+                                    ) : (
+                                      stats.semaforoAtencion?.map((g, i) => (
+                                        <span key={i} className="badge bg-white text-danger border border-danger py-1.5 px-2">
+                                          {g.grado} ({g.pctCompletado}%)
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* VISTA 2: TABLA DETALLADA POR GRADO */}
+                      {/* VISTA 2: BARRAS DETALLADAS POR GRADO */}
+                      {tabReporte === 'barras' && (
+                        <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3 animate__animated animate__fadeIn">
+                          <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                            <h6 className="fw-bold text-dark mb-0">
+                              <i className="bi bi-bar-chart-steps me-2 text-primary"></i>
+                              Desglose Detallado por Cada Grado / Año Escolar ({stats.desglosePorGrado.length} Niveles)
+                            </h6>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border">{nombreInstitucion}</span>
+                          </div>
+
+                          <div className="row g-3">
+                            {stats.desglosePorGrado.length === 0 ? (
+                              <div className="col-12 text-center py-5 text-muted">
+                                No hay estudiantes registrados para el ámbito seleccionado.
+                              </div>
+                            ) : (
+                              stats.desglosePorGrado.map((g, idx) => {
+                                const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
+                                const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
+                                const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
+
+                                return (
+                                  <div key={idx} className="col-md-6">
+                                    <div className="p-3 rounded-4 bg-light border hover-efecto h-100">
+                                      <div className="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                          <span className="fw-bold text-dark d-block">{g.grado}</span>
+                                          <small className="text-muted">Matrícula: {g.total} alumnos</small>
+                                        </div>
+                                        <div className="text-end">
+                                          <span className="fs-5 fw-bolder text-primary d-block">{g.pctCompletado}%</span>
+                                          <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '0.7rem' }}>
+                                            {g.completados} listos
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="progress rounded-pill shadow-inner mb-2" style={{ height: '11px' }}>
+                                        <div className="progress-bar bg-success" style={{ width: `${pComp}%` }} title={`Completados: ${g.completados}`}></div>
+                                        <div className="progress-bar bg-warning" style={{ width: `${pProc}%` }} title={`En Proceso: ${g.enProceso}`}></div>
+                                        <div className="progress-bar bg-secondary bg-opacity-50" style={{ width: `${pSin}%` }} title={`Sin Iniciar: ${g.sinIniciar}`}></div>
+                                      </div>
+
+                                      <div className="d-flex justify-content-between small text-muted" style={{ fontSize: '0.75rem' }}>
+                                        <span>🟢 {g.completados} completados</span>
+                                        <span>🟡 {g.enProceso} en proceso</span>
+                                        <span>⚪ {g.sinIniciar} sin iniciar</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VISTA 3: COBERTURA POR DIMENSIÓN / SECCIÓN */}
+                      {tabReporte === 'secciones' && (
+                        <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3 animate__animated animate__fadeIn">
+                          <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                            <div>
+                              <h6 className="fw-bold text-dark mb-0">
+                                <i className="bi bi-ui-checks-grid me-2 text-primary"></i>
+                                Cobertura de Llenado por Dimensión del Formulario
+                              </h6>
+                              <small className="text-muted">Porcentaje de avance en cada una de las 8 secciones evaluadas en el censo integral.</small>
+                            </div>
+                            <span className="badge bg-dark bg-opacity-10 text-dark border">{stats.totalGeneral} Estudiantes</span>
+                          </div>
+
+                          <div className="row g-3">
+                            {stats.desgloseSecciones?.map((sec, idx) => (
+                              <div key={idx} className="col-md-6">
+                                <div className="p-3 rounded-4 bg-light border hover-efecto h-100">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <div className="d-flex align-items-center gap-2.5">
+                                      <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
+                                        <i className={`bi ${sec.icono} fs-5`}></i>
+                                      </div>
+                                      <div>
+                                        <span className="fw-bold text-dark d-block small">{sec.nombre}</span>
+                                        <small className="text-muted">{sec.completados} de {stats.totalGeneral} registros</small>
+                                      </div>
+                                    </div>
+                                    <span className="fs-5 fw-bolder text-primary">{sec.pct}%</span>
+                                  </div>
+
+                                  <div className="progress rounded-pill shadow-inner" style={{ height: '9px' }}>
+                                    <div 
+                                      className={`progress-bar ${sec.pct >= 75 ? 'bg-success' : (sec.pct >= 40 ? 'bg-warning' : 'bg-danger')}`} 
+                                      style={{ width: `${sec.pct}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VISTA 4: TABLA DETALLADA POR GRADO */}
                       {tabReporte === 'tabla' && (
                         <div className="bg-white rounded-4 shadow-sm border overflow-hidden animate__animated animate__fadeIn mb-3">
                           <div className="p-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
