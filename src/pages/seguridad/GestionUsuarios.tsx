@@ -385,37 +385,56 @@ export const GestionUsuarios = () => {
       if (result.isConfirmed) {
         setLoading(true);
         try {
+          let filasEliminadas = 0;
           let errorEliminacion: any = null;
 
-          // 1. Eliminar por Cédula (clave unívoca en todo el sistema)
+          // 1. Eliminar por Cédula (clave unívoca en todo el sistema) y obtener filas afectadas
           if (u.cedula) {
-            const { error: errCed } = await supabase
+            const { data: dCed, error: errCed } = await supabase
               .from('usuarios')
               .delete()
-              .eq('cedula', u.cedula);
+              .eq('cedula', u.cedula)
+              .select();
             if (errCed) errorEliminacion = errCed;
+            if (dCed && dCed.length > 0) filasEliminadas += dCed.length;
           }
 
           // 2. Eliminar por id_usuario si existe
-          if (u.id_usuario) {
-            const { error: errIdUsr } = await supabase
+          if (u.id_usuario && filasEliminadas === 0) {
+            const { data: dIdUsr, error: errIdUsr } = await supabase
               .from('usuarios')
               .delete()
-              .eq('id_usuario', u.id_usuario);
+              .eq('id_usuario', u.id_usuario)
+              .select();
             if (errIdUsr && !errorEliminacion) errorEliminacion = errIdUsr;
+            if (dIdUsr && dIdUsr.length > 0) filasEliminadas += dIdUsr.length;
           }
 
           // 3. Eliminar por id si existe
-          if (u.id) {
-            const { error: errId } = await supabase
+          if (u.id && filasEliminadas === 0) {
+            const { data: dId, error: errId } = await supabase
               .from('usuarios')
               .delete()
-              .eq('id', u.id);
+              .eq('id', u.id)
+              .select();
             if (errId && !errorEliminacion) errorEliminacion = errId;
+            if (dId && dId.length > 0) filasEliminadas += dId.length;
           }
 
           if (errorEliminacion) {
             throw errorEliminacion;
+          }
+
+          // Si Supabase no eliminó ninguna fila debido a políticas RLS de PostgreSQL
+          if (filasEliminadas === 0) {
+            Swal.fire({
+              title: 'Política RLS Bloqueando Eliminación',
+              html: `La base de datos Supabase tiene activada la seguridad (RLS) en la tabla <code>usuarios</code> pero no tiene la política para permitir <b>DELETE</b>.<br/><br/>Para permitir la eliminación permanente, ejecuta este comando en el <b>SQL Editor de Supabase</b>:<br/><br/><pre style="text-align:left;background:#f1f5f9;padding:10px;border-radius:8px;font-size:12px;">CREATE POLICY "Permitir delete usuarios" ON public.usuarios FOR DELETE USING (true);</pre>`,
+              icon: 'warning',
+              confirmButtonText: 'Entendido'
+            });
+            setLoading(false);
+            return;
           }
 
           // Actualizar estado local inmediatamente
@@ -425,8 +444,8 @@ export const GestionUsuarios = () => {
             (u.id ? item.id !== u.id : true)
           ));
 
-          Swal.fire('¡Eliminado!', 'El usuario ha sido eliminado de la base de datos.', 'success');
-          auditar('Gestión de Usuarios', 'Eliminar Usuario', `Se eliminó al usuario: ${u.nombre_completo} (C.I. ${u.cedula})`);
+          Swal.fire('¡Eliminado!', 'El usuario ha sido eliminado definitivamente de la base de datos.', 'success');
+          auditar('Gestión de Usuarios', 'Eliminar Usuario', `Se eliminó permanentemente al usuario: ${u.nombre_completo} (C.I. ${u.cedula})`);
           await cargarUsuarios();
         } catch (e: any) {
           console.error("Error al eliminar usuario:", e);
