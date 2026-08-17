@@ -25,9 +25,9 @@ const ESTRUCTURA_ACCESOS = {
     "Grados y Salones": ["Tarjeta: Configurar Grados", "Tarjeta: Configurar Secciones", "Tarjeta: Apertura de Salones"]
   },
   "Gestión Estudiantil": {
-    "Gestión de Admisiones": [], 
+    "Gestión de Admisiones": ["Tarjeta: Baremo y Clasificación", "Tarjeta: Auditoría Uno por Uno", "Tarjeta: Formalización de Matrícula", "Función: Enviar WhatsApp", "Función: Exportar Excel"], 
     "Gestión de Matrícula": [], 
-    "Vincular Estudiante": [],
+    "Vincular Estudiante": ["Tarjeta: Registrar Vinculación", "Tarjeta: Lista de Matriculados", "Función: Descargar Ficha PDF", "Función: Exportar Ficha"],
     "Expediente Estudiantil": [], 
     "Actualización de Datos": [], 
     "Solicitud de Cupos": [], 
@@ -36,7 +36,7 @@ const ESTRUCTURA_ACCESOS = {
   },
   "Gestión Docente": {
     "Mi Expediente": ["Tarjeta: Modificar Ficha Docente"], 
-    "Gestor de Expedientes": []
+    "Gestor de Expedientes": ["Tarjeta: Expedientes Activos", "Tarjeta: Registro de Docente", "Función: Vacaciones", "Función: Descargar Reporte"]
   },
   "Formación y Capacitación": {
     "Gestor de Catálogo": ["Función: Crear Cursos", "Función: Editar Cursos", "Función: Eliminar Cursos"],

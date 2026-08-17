@@ -70,8 +70,17 @@ const ROLES_PREDETERMINADOS = [
 
 export const ConstructorEncuestas: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = usePermisos();
+  const { user, tienePermiso } = usePermisos();
   const Swal = (window as any).Swal;
+
+  const rolUsuario = (user?.rol || 'Docente').trim();
+  const esAdminOGestor = ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Subdirectora', 'Coordinador', 'Coordinadora', 'Administrador'].includes(rolUsuario);
+
+  const canCrearEncuestas = esAdminOGestor || tienePermiso('Función: Crear Encuestas', 'crear') || tienePermiso('Constructor de Encuestas', 'crear');
+  const canVerEstadisticas = esAdminOGestor || tienePermiso('Función: Ver Respuestas', 'ver') || tienePermiso('Constructor de Encuestas', 'ver');
+  const canExportarResultados = esAdminOGestor || tienePermiso('Función: Exportar Resultados', 'exportar');
+  const canEliminarEncuestas = esAdminOGestor || tienePermiso('Función: Eliminar Encuestas', 'eliminar');
+  const isSoloRespondiente = !canCrearEncuestas && !canVerEstadisticas;
 
   // Estados de Vistas
   const [vistaActual, setVistaActual] = useState<'listado' | 'constructor' | 'estadisticas' | 'responder'>('listado');
@@ -82,6 +91,7 @@ export const ConstructorEncuestas: React.FC = () => {
   const [encuestas, setEncuestas] = useState<Encuesta[]>([]);
   const [rolesDisponibles, setRolesDisponibles] = useState<string[]>(ROLES_PREDETERMINADOS);
   const [respuestasEncuesta, setRespuestasEncuesta] = useState<RespuestaUsuario[]>([]);
+  const [mapaRespuestasUsuario, setMapaRespuestasUsuario] = useState<Record<string, { fecha: string, respuestas: any }>>({});
 
   // Filtros de Listado
   const [filtroEscuela, setFiltroEscuela] = useState<string>(localStorage.getItem('sigae_escuela_codigo') || 'ambas');
@@ -119,6 +129,44 @@ export const ConstructorEncuestas: React.FC = () => {
     }
   };
 
+  const verificarRespuestasUsuario = async (encuestasLista: Encuesta[]) => {
+    const cedulaUsr = user?.cedula;
+    if (!cedulaUsr) return;
+
+    const mapa: Record<string, { fecha: string, respuestas: any }> = {};
+
+    try {
+      const { data } = await supabase
+        .from('encuestas_respuestas')
+        .select('*')
+        .eq('usuario_cedula', cedulaUsr);
+
+      if (data) {
+        data.forEach((r: any) => {
+          mapa[r.encuesta_id] = {
+            fecha: r.created_at ? new Date(r.created_at).toLocaleString('es-VE') : 'Registrado',
+            respuestas: typeof r.respuestas === 'string' ? JSON.parse(r.respuestas) : (r.respuestas || {})
+          };
+        });
+      }
+    } catch (e) {
+      // Fallback local
+      encuestasLista.forEach(enc => {
+        const key = `sigae_respuestas_${enc.id}`;
+        const local = JSON.parse(localStorage.getItem(key) || '[]');
+        const encontrada = local.find((r: any) => r.usuario_cedula === cedulaUsr);
+        if (encontrada) {
+          mapa[enc.id] = {
+            fecha: encontrada.created_at ? new Date(encontrada.created_at).toLocaleString('es-VE') : 'Registrado',
+            respuestas: encontrada.respuestas || {}
+          };
+        }
+      });
+    }
+
+    setMapaRespuestasUsuario(mapa);
+  };
+
   const cargarEncuestas = async () => {
     setLoading(true);
     try {
@@ -138,13 +186,16 @@ export const ConstructorEncuestas: React.FC = () => {
         }));
         setEncuestas(parsed);
         localStorage.setItem('sigae_encuestas_local', JSON.stringify(parsed));
+        verificarRespuestasUsuario(parsed);
       }
     } catch (e: any) {
       console.warn("Leyendo encuestas de almacenamiento local o inicial:", e);
       const guardadas = localStorage.getItem('sigae_encuestas_local');
       if (guardadas) {
         try {
-          setEncuestas(JSON.parse(guardadas));
+          const parsed = JSON.parse(guardadas);
+          setEncuestas(parsed);
+          verificarRespuestasUsuario(parsed);
         } catch (err) {}
       } else {
         // Cargar encuestas demo de ejemplo para primera visualización
@@ -279,6 +330,11 @@ export const ConstructorEncuestas: React.FC = () => {
   // ACCIONES DEL CONSTRUCTOR DE ENCUESTAS
   // -------------------------------------------------------------
   const handleNuevaEncuesta = () => {
+    if (!canCrearEncuestas) {
+      if (Swal) Swal.fire('Acceso Restringido', 'No posees privilegios para crear o estructurar nuevas encuestas.', 'warning');
+      return;
+    }
+
     const nueva: Encuesta = {
       id: 'enc-' + Date.now(),
       titulo: '',
@@ -311,12 +367,20 @@ export const ConstructorEncuestas: React.FC = () => {
   };
 
   const handleEditarEncuesta = (enc: Encuesta) => {
+    if (!canCrearEncuestas) {
+      if (Swal) Swal.fire('Acceso Restringido', 'No posees privilegios para editar encuestas.', 'warning');
+      return;
+    }
     setEncuestaActiva(JSON.parse(JSON.stringify(enc)));
     setVistaPreviaModo(false);
     setVistaActual('constructor');
   };
 
   const handleVerEstadisticas = async (enc: Encuesta) => {
+    if (!canVerEstadisticas) {
+      if (Swal) Swal.fire('Acceso Restringido', 'No posees privilegios para consultar analíticas de encuestas.', 'warning');
+      return;
+    }
     setEncuestaActiva(enc);
     await cargarRespuestas(enc.id);
     setVistaActual('estadisticas');
@@ -466,6 +530,11 @@ export const ConstructorEncuestas: React.FC = () => {
   };
 
   const handleEliminarEncuesta = async (encuestaId: string, titulo: string) => {
+    if (!canEliminarEncuestas) {
+      if (Swal) Swal.fire('Acceso Restringido', 'No cuentas con privilegios para eliminar encuestas institucionales.', 'warning');
+      return;
+    }
+
     let confirmado = false;
     if (Swal) {
       const result = await Swal.fire({
@@ -686,6 +755,8 @@ export const ConstructorEncuestas: React.FC = () => {
     localStorage.setItem(key, JSON.stringify(actualizadas));
 
     setSaving(false);
+    verificarRespuestasUsuario(encuestas);
+
     if (Swal) {
       Swal.fire({
         icon: 'success',
@@ -701,6 +772,11 @@ export const ConstructorEncuestas: React.FC = () => {
   // EXPORTACIÓN DE RESULTADOS A EXCEL
   // -------------------------------------------------------------
   const handleExportarExcel = () => {
+    if (!canExportarResultados) {
+      if (Swal) Swal.fire('Acceso Restringido', 'No tienes permisos para exportar los resultados de encuestas.', 'warning');
+      return;
+    }
+
     if (!encuestaActiva || respuestasEncuesta.length === 0) {
       if (Swal) Swal.fire('Sin Respuestas', 'No hay respuestas registradas para exportar en esta encuesta.', 'info');
       return;
@@ -735,7 +811,6 @@ export const ConstructorEncuestas: React.FC = () => {
     XLSX.utils.book_append_sheet(wb, ws, "Resultados Encuesta");
     const nombreArchivo = `Resultados_Encuesta_${encuestaActiva.titulo.replace(/[\s/\\:]+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, nombreArchivo);
-
     auditar('Módulo de Diseños', 'Exportar Resultados Encuesta', `Se exportaron ${respuestasEncuesta.length} respuestas de la encuesta "${encuestaActiva.titulo}"`);
   };
 
@@ -743,6 +818,16 @@ export const ConstructorEncuestas: React.FC = () => {
   // FILTRADO DE ENCUESTAS EN EL LISTADO
   // -------------------------------------------------------------
   const encuestasFiltradas = encuestas.filter(e => {
+    if (isSoloRespondiente) {
+      if (e.estado !== 'Publicada') return false;
+      const escuelaActiva = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+      const matchEscuela = e.codigo_escuela === 'ambas' || e.codigo_escuela === escuelaActiva;
+      const matchRol = Array.isArray(e.roles_permitidos) && (e.roles_permitidos.length === 0 || e.roles_permitidos.includes(rolUsuario) || rolUsuario === 'SuperAdmin');
+      const q = busqueda.toLowerCase();
+      const matchBusqueda = e.titulo.toLowerCase().includes(q) || e.descripcion.toLowerCase().includes(q);
+      return matchEscuela && matchRol && matchBusqueda;
+    }
+
     const q = busqueda.toLowerCase();
     const matchBusqueda = e.titulo.toLowerCase().includes(q) || e.descripcion.toLowerCase().includes(q);
     const matchEscuela = filtroEscuela === 'ambas' || e.codigo_escuela === 'ambas' || e.codigo_escuela === filtroEscuela;
@@ -793,22 +878,24 @@ export const ConstructorEncuestas: React.FC = () => {
                 <i className="bi bi-palette-fill text-pink me-1"></i> MÓDULO DE DISEÑOS
               </span>
               <span className="badge bg-white bg-opacity-25 text-white fw-bold px-3 py-1.5 rounded-pill" style={{ fontSize: '0.75rem' }}>
-                <i className="bi bi-ui-checks-grid me-1"></i> CONSTRUCTOR DE ENCUESTAS
+                <i className="bi bi-ui-checks-grid me-1"></i> {isSoloRespondiente ? 'CONSULTAS Y ENCUESTAS' : 'CONSTRUCTOR DE ENCUESTAS'}
               </span>
             </div>
             <h1 className="fw-bolder mb-2 display-6 text-white">
-              <i className="bi bi-ui-checks-grid me-3"></i>Constructor de Encuestas
+              <i className="bi bi-ui-checks-grid me-3"></i>{isSoloRespondiente ? 'Consultas y Encuestas Institucionales' : 'Constructor de Encuestas'}
             </h1>
             <p className="mb-0 text-white-50 fs-6" style={{ maxWidth: '750px' }}>
-              Diseña encuestas dinámicas, define a qué roles de usuarios aplicar cada consulta (Docentes, Representantes, etc.), analiza métricas en tiempo real y exporta resultados.
+              {isSoloRespondiente
+                ? 'Participa en las consultas activas para tu rol. Tu opinión es fundamental para la toma de decisiones y la mejora continua de la institución.'
+                : 'Diseña encuestas dinámicas, define a qué roles de usuarios aplicar cada consulta (Docentes, Representantes, etc.), analiza métricas en tiempo real y exporta resultados.'}
             </p>
           </div>
           <div className="mt-4 mt-md-0 d-flex flex-wrap gap-2">
             <button 
-              onClick={() => navigate('/categoria/Diseños')}
+              onClick={() => navigate(isSoloRespondiente ? '/' : '/categoria/Diseños')}
               className="btn btn-light rounded-pill px-4 fw-bold shadow-sm hover-efecto"
             >
-              <i className="bi bi-arrow-left-short me-1"></i> Volver a Diseños
+              <i className="bi bi-arrow-left-short me-1"></i> {isSoloRespondiente ? 'Volver al Inicio' : 'Volver a Diseños'}
             </button>
             {vistaActual !== 'listado' && (
               <button 
@@ -818,7 +905,7 @@ export const ConstructorEncuestas: React.FC = () => {
                 <i className="bi bi-grid-fill me-1"></i> Ver Todas las Encuestas
               </button>
             )}
-            {vistaActual === 'listado' && (
+            {vistaActual === 'listado' && !isSoloRespondiente && canCrearEncuestas && (
               <button 
                 onClick={handleNuevaEncuesta}
                 className="btn btn-white text-dark rounded-pill px-4 fw-bold shadow-lg hover-efecto d-flex align-items-center gap-2"
@@ -841,7 +928,7 @@ export const ConstructorEncuestas: React.FC = () => {
           <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
             <div className="row g-3 align-items-center">
               {/* Filtro Escuela */}
-              <div className="col-lg-3 col-md-6">
+              <div className={isSoloRespondiente ? "col-lg-4 col-md-6" : "col-lg-3 col-md-6"}>
                 <label className="form-label small fw-bold text-muted mb-1">Institución / Plantel</label>
                 <div className="btn-group w-100 shadow-none border rounded-3 overflow-hidden" role="group">
                   <button 
@@ -869,7 +956,7 @@ export const ConstructorEncuestas: React.FC = () => {
               </div>
 
               {/* Búsqueda */}
-              <div className="col-lg-3 col-md-6">
+              <div className={isSoloRespondiente ? "col-lg-8 col-md-6" : "col-lg-3 col-md-6"}>
                 <label className="form-label small fw-bold text-muted mb-1">Buscar por Título</label>
                 <div className="input-group">
                   <span className="input-group-text bg-light border-end-0"><i className="bi bi-search text-muted"></i></span>
@@ -883,54 +970,58 @@ export const ConstructorEncuestas: React.FC = () => {
                 </div>
               </div>
 
-              {/* Filtro Estado */}
-              <div className="col-lg-2 col-md-4">
-                <label className="form-label small fw-bold text-muted mb-1">Estado</label>
-                <select 
-                  className="form-select fw-semibold"
-                  value={filtroEstado}
-                  onChange={(e) => setFiltroEstado(e.target.value)}
-                >
-                  <option value="Todos">Todos los Estados</option>
-                  <option value="Publicada">🟢 Publicadas (Activas)</option>
-                  <option value="Borrador">🟡 Borradores</option>
-                  <option value="Cerrada">🔴 Cerradas / Finalizadas</option>
-                </select>
-              </div>
+              {!isSoloRespondiente && (
+                <>
+                  {/* Filtro Estado */}
+                  <div className="col-lg-2 col-md-4">
+                    <label className="form-label small fw-bold text-muted mb-1">Estado</label>
+                    <select 
+                      className="form-select fw-semibold"
+                      value={filtroEstado}
+                      onChange={(e) => setFiltroEstado(e.target.value)}
+                    >
+                      <option value="Todos">Todos los Estados</option>
+                      <option value="Publicada">🟢 Publicadas (Activas)</option>
+                      <option value="Borrador">🟡 Borradores</option>
+                      <option value="Cerrada">🔴 Cerradas / Finalizadas</option>
+                    </select>
+                  </div>
 
-              {/* Filtro Rol Destino */}
-              <div className="col-lg-2 col-md-4">
-                <label className="form-label small fw-bold text-muted mb-1">Rol Destino</label>
-                <select 
-                  className="form-select fw-semibold"
-                  value={filtroRol}
-                  onChange={(e) => setFiltroRol(e.target.value)}
-                >
-                  <option value="Todos">Todos los Roles</option>
-                  {rolesDisponibles.map(r => (
-                    <option key={r} value={r}>👤 {r}</option>
-                  ))}
-                </select>
-              </div>
+                  {/* Filtro Rol Destino */}
+                  <div className="col-lg-2 col-md-4">
+                    <label className="form-label small fw-bold text-muted mb-1">Rol Destino</label>
+                    <select 
+                      className="form-select fw-semibold"
+                      value={filtroRol}
+                      onChange={(e) => setFiltroRol(e.target.value)}
+                    >
+                      <option value="Todos">Todos los Roles</option>
+                      {rolesDisponibles.map(r => (
+                        <option key={r} value={r}>👤 {r}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              {/* Botón de recargar y SQL */}
-              <div className="col-lg-2 col-md-4 text-end d-flex gap-2 align-items-end justify-content-end">
-                <button 
-                  className="btn btn-outline-secondary rounded-3 fw-bold w-50"
-                  onClick={cargarEncuestas}
-                  disabled={loading}
-                  title="Refrescar lista"
-                >
-                  <i className="bi bi-arrow-clockwise"></i>
-                </button>
-                <button 
-                  className="btn btn-outline-primary rounded-3 fw-bold w-50"
-                  onClick={() => setShowSqlModal(true)}
-                  title="Ver script SQL de base de datos"
-                >
-                  <i className="bi bi-database"></i> SQL
-                </button>
-              </div>
+                  {/* Botón de recargar y SQL */}
+                  <div className="col-lg-2 col-md-4 text-end d-flex gap-2 align-items-end justify-content-end">
+                    <button 
+                      className="btn btn-outline-secondary rounded-3 fw-bold w-50"
+                      onClick={cargarEncuestas}
+                      disabled={loading}
+                      title="Refrescar lista"
+                    >
+                      <i className="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <button 
+                      className="btn btn-outline-primary rounded-3 fw-bold w-50"
+                      onClick={() => setShowSqlModal(true)}
+                      title="Ver script SQL de base de datos"
+                    >
+                      <i className="bi bi-database"></i> SQL
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -945,21 +1036,26 @@ export const ConstructorEncuestas: React.FC = () => {
               <div className="mb-3">
                 <i className="bi bi-ui-checks-grid text-muted opacity-50" style={{ fontSize: '4rem' }}></i>
               </div>
-              <h4 className="fw-bold text-dark mb-2">No se encontraron encuestas</h4>
+              <h4 className="fw-bold text-dark mb-2">No se encontraron encuestas disponibles</h4>
               <p className="text-muted mb-4" style={{ maxWidth: '500px', margin: '0 auto' }}>
-                No hay encuestas creadas con los filtros actuales. Crea tu primera encuesta para recopilar la opinión de docentes, representantes u otros roles.
+                {isSoloRespondiente
+                  ? 'No tienes consultas o encuestas pendientes para responder en este momento.'
+                  : 'No hay encuestas creadas con los filtros actuales. Crea tu primera encuesta para recopilar la opinión de docentes, representantes u otros roles.'}
               </p>
-              <div>
-                <button onClick={handleNuevaEncuesta} className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
-                  <i className="bi bi-plus-lg me-1"></i> Diseñar Nueva Encuesta
-                </button>
-              </div>
+              {!isSoloRespondiente && canCrearEncuestas && (
+                <div>
+                  <button onClick={handleNuevaEncuesta} className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+                    <i className="bi bi-plus-lg me-1"></i> Diseñar Nueva Encuesta
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="row g-4">
               {encuestasFiltradas.map((enc) => {
                 const totalP = enc.preguntas?.length || 0;
                 const roles = enc.roles_permitidos || [];
+                const yaResp = Boolean(mapaRespuestasUsuario[enc.id]);
 
                 return (
                   <div className="col-lg-6 col-12" key={enc.id}>
@@ -974,10 +1070,20 @@ export const ConstructorEncuestas: React.FC = () => {
                               {enc.codigo_escuela === 'sb' ? 'UE Santa Bárbara' : enc.codigo_escuela === 'lb' ? 'UE Libertador Bolívar' : 'Ambas Escuelas'}
                             </span>
 
-                            {/* Badge Estado */}
-                            <span className={`badge ${enc.estado === 'Publicada' ? 'bg-success' : enc.estado === 'Borrador' ? 'bg-warning text-dark' : 'bg-danger'} fw-bold px-2.5 py-1 rounded-pill`} style={{ fontSize: '0.7rem' }}>
-                              ● {enc.estado}
-                            </span>
+                            {/* Badge Estado (si es admin) o Estado Respuesta (si es solo respondiente) */}
+                            {!isSoloRespondiente ? (
+                              <span className={`badge ${enc.estado === 'Publicada' ? 'bg-success' : enc.estado === 'Borrador' ? 'bg-warning text-dark' : 'bg-danger'} fw-bold px-2.5 py-1 rounded-pill`} style={{ fontSize: '0.7rem' }}>
+                                ● {enc.estado}
+                              </span>
+                            ) : yaResp ? (
+                              <span className="badge bg-success text-white fw-bold px-2.5 py-1 rounded-pill" style={{ fontSize: '0.7rem' }}>
+                                <i className="bi bi-check-circle-fill me-1"></i> Respondida
+                              </span>
+                            ) : (
+                              <span className="badge bg-warning text-dark fw-bold px-2.5 py-1 rounded-pill" style={{ fontSize: '0.7rem' }}>
+                                ⚡ Pendiente
+                              </span>
+                            )}
 
                             {enc.es_obligatoria && (
                               <span className="badge bg-danger bg-opacity-10 text-danger border border-danger px-2 py-0.5 rounded-pill fw-bold" style={{ fontSize: '0.68rem' }}>
@@ -995,41 +1101,49 @@ export const ConstructorEncuestas: React.FC = () => {
                           <h5 className="fw-bolder text-dark mb-1">{enc.titulo}</h5>
                         </div>
 
-                        {/* Dropdown de Estado */}
-                        <div className="dropdown">
-                          <button className="btn btn-sm btn-light rounded-circle shadow-none p-2" data-bs-toggle="dropdown" title="Opciones">
-                            <i className="bi bi-three-dots-vertical"></i>
-                          </button>
-                          <ul className="dropdown-menu dropdown-menu-end shadow border-0 rounded-3">
-                            <li><h6 className="dropdown-header">Cambiar Estado</h6></li>
-                            <li>
-                              <button className="dropdown-item small text-success fw-bold" onClick={() => handleCambiarEstadoEncuesta(enc, 'Publicada')}>
-                                <i className="bi bi-check-circle me-2"></i> Publicar / Activar
-                              </button>
-                            </li>
-                            <li>
-                              <button className="dropdown-item small text-warning fw-bold" onClick={() => handleCambiarEstadoEncuesta(enc, 'Borrador')}>
-                                <i className="bi bi-pencil me-2"></i> Pasar a Borrador
-                              </button>
-                            </li>
-                            <li>
-                              <button className="dropdown-item small text-danger fw-bold" onClick={() => handleCambiarEstadoEncuesta(enc, 'Cerrada')}>
-                                <i className="bi bi-lock me-2"></i> Finalizar / Cerrar
-                              </button>
-                            </li>
-                            <li><hr className="dropdown-divider" /></li>
-                            <li>
-                              <button className="dropdown-item small text-secondary" onClick={() => handleDuplicarEncuesta(enc)}>
-                                <i className="bi bi-copy me-2"></i> Duplicar Encuesta
-                              </button>
-                            </li>
-                            <li>
-                              <button className="dropdown-item small text-danger" onClick={() => handleEliminarEncuesta(enc.id, enc.titulo)}>
-                                <i className="bi bi-trash3-fill me-2"></i> Eliminar Encuesta
-                              </button>
-                            </li>
-                          </ul>
-                        </div>
+                        {/* Dropdown de Estado (Solo administradores y creadores) */}
+                        {!isSoloRespondiente && (
+                          <div className="dropdown">
+                            <button className="btn btn-sm btn-light rounded-circle shadow-none p-2" data-bs-toggle="dropdown" title="Opciones">
+                              <i className="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul className="dropdown-menu dropdown-menu-end shadow border-0 rounded-3">
+                              <li><h6 className="dropdown-header">Cambiar Estado</h6></li>
+                              <li>
+                                <button className="dropdown-item small text-success fw-bold" onClick={() => handleCambiarEstadoEncuesta(enc, 'Publicada')}>
+                                  <i className="bi bi-check-circle me-2"></i> Publicar / Activar
+                                </button>
+                              </li>
+                              <li>
+                                <button className="dropdown-item small text-warning fw-bold" onClick={() => handleCambiarEstadoEncuesta(enc, 'Borrador')}>
+                                  <i className="bi bi-pencil me-2"></i> Pasar a Borrador
+                                </button>
+                              </li>
+                              <li>
+                                <button className="dropdown-item small text-danger fw-bold" onClick={() => handleCambiarEstadoEncuesta(enc, 'Cerrada')}>
+                                  <i className="bi bi-lock me-2"></i> Finalizar / Cerrar
+                                </button>
+                              </li>
+                              {canCrearEncuestas && (
+                                <>
+                                  <li><hr className="dropdown-divider" /></li>
+                                  <li>
+                                    <button className="dropdown-item small text-secondary" onClick={() => handleDuplicarEncuesta(enc)}>
+                                      <i className="bi bi-copy me-2"></i> Duplicar Encuesta
+                                    </button>
+                                  </li>
+                                </>
+                              )}
+                              {canEliminarEncuestas && (
+                                <li>
+                                  <button className="dropdown-item small text-danger" onClick={() => handleEliminarEncuesta(enc.id, enc.titulo)}>
+                                    <i className="bi bi-trash3-fill me-2"></i> Eliminar Encuesta
+                                  </button>
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
                       {/* Descripción */}
@@ -1037,24 +1151,26 @@ export const ConstructorEncuestas: React.FC = () => {
                         {enc.descripcion || 'Sin descripción adicional proporcionada.'}
                       </p>
 
-                      {/* Roles Objetivo */}
-                      <div className="mb-3 p-2.5 rounded-3 bg-light border">
-                        <small className="text-muted fw-bold d-block mb-1.5" style={{ fontSize: '0.72rem' }}>
-                          <i className="bi bi-people-fill text-primary me-1"></i>
-                          APLICA A LOS ROLES:
-                        </small>
-                        <div className="d-flex flex-wrap gap-1.5">
-                          {roles.length === 0 ? (
-                            <span className="badge bg-secondary text-white px-2 py-1">Sin roles asignados</span>
-                          ) : (
-                            roles.map(r => (
-                              <span key={r} className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 rounded-pill" style={{ fontSize: '0.72rem' }}>
-                                👤 {r}
-                              </span>
-                            ))
-                          )}
+                      {/* Roles Objetivo (Visible para administradores) */}
+                      {!isSoloRespondiente && (
+                        <div className="mb-3 p-2.5 rounded-3 bg-light border">
+                          <small className="text-muted fw-bold d-block mb-1.5" style={{ fontSize: '0.72rem' }}>
+                            <i className="bi bi-people-fill text-primary me-1"></i>
+                            APLICA A LOS ROLES:
+                          </small>
+                          <div className="d-flex flex-wrap gap-1.5">
+                            {roles.length === 0 ? (
+                              <span className="badge bg-secondary text-white px-2 py-1">Sin roles asignados</span>
+                            ) : (
+                              roles.map(r => (
+                                <span key={r} className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 rounded-pill" style={{ fontSize: '0.72rem' }}>
+                                  👤 {r}
+                                </span>
+                              ))
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Métricas y Datos Rápidos */}
                       <div className="row g-2 text-center mb-4">
@@ -1067,37 +1183,68 @@ export const ConstructorEncuestas: React.FC = () => {
                           <span className="fw-bold small text-dark">{enc.fecha_inicio || 'Inmediata'}</span>
                         </div>
                         <div className="col-4">
-                          <small className="text-muted d-block fw-bold" style={{ fontSize: '0.7rem' }}>Creador</small>
-                          <span className="fw-bold small text-truncate d-block text-secondary">{enc.creado_por || 'Admin'}</span>
+                          <small className="text-muted d-block fw-bold" style={{ fontSize: '0.7rem' }}>Modalidad</small>
+                          <span className="fw-bold small text-truncate d-block text-secondary">{enc.es_anonima ? 'Anónima' : 'Identificada'}</span>
                         </div>
                       </div>
 
                       {/* Botones de Acción */}
-                      <div className="d-flex flex-wrap gap-2 mt-auto pt-2 border-top">
-                        <button 
-                          className="btn btn-sm btn-primary rounded-pill px-3 fw-bold flex-grow-1"
-                          onClick={() => handleEditarEncuesta(enc)}
-                          title="Modificar preguntas y roles"
-                        >
-                          <i className="bi bi-pencil-square me-1"></i> Diseñar / Editar
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-outline-info rounded-pill px-3 fw-bold text-dark"
-                          onClick={() => handleVerEstadisticas(enc)}
-                          title="Ver estadísticas y analíticas de respuestas"
-                        >
-                          <i className="bi bi-bar-chart-fill me-1"></i> Resultados
-                        </button>
-                        {enc.estado === 'Publicada' && (
-                          <button 
-                            className="btn btn-sm btn-outline-success rounded-pill px-3 fw-bold"
-                            onClick={() => handleAbrirResponder(enc)}
-                            title="Probar o responder la encuesta"
-                          >
-                            <i className="bi bi-ui-checks me-1"></i> Responder
-                          </button>
-                        )}
-                      </div>
+                      {isSoloRespondiente ? (
+                        <div className="mt-auto pt-3 border-top">
+                          {yaResp && !enc.permitir_multiples_respuestas ? (
+                            <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                              <span className="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 rounded-pill fw-bold">
+                                <i className="bi bi-check-circle-fill me-1"></i> Respondida ({mapaRespuestasUsuario[enc.id]?.fecha})
+                              </span>
+                              <button 
+                                className="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold"
+                                onClick={() => handleAbrirResponder(enc)}
+                              >
+                                <i className="bi bi-eye me-1"></i> Ver mi Respuesta
+                              </button>
+                            </div>
+                          ) : (
+                            <button 
+                              className="btn btn-sm btn-primary rounded-pill px-4 py-2.5 fw-bold w-100 shadow-sm hover-efecto d-flex align-items-center justify-content-center gap-2"
+                              onClick={() => handleAbrirResponder(enc)}
+                              style={{ background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)', border: 'none' }}
+                            >
+                              <i className="bi bi-pencil-square fs-6"></i>
+                              <span>Responder Encuesta</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="d-flex flex-wrap gap-2 mt-auto pt-2 border-top">
+                          {canCrearEncuestas && (
+                            <button 
+                              className="btn btn-sm btn-primary rounded-pill px-3 fw-bold flex-grow-1"
+                              onClick={() => handleEditarEncuesta(enc)}
+                              title="Modificar preguntas y roles"
+                            >
+                              <i className="bi bi-pencil-square me-1"></i> Diseñar / Editar
+                            </button>
+                          )}
+                          {canVerEstadisticas && (
+                            <button 
+                              className="btn btn-sm btn-outline-info rounded-pill px-3 fw-bold text-dark"
+                              onClick={() => handleVerEstadisticas(enc)}
+                              title="Ver estadísticas y analíticas de respuestas"
+                            >
+                              <i className="bi bi-bar-chart-fill me-1"></i> Resultados
+                            </button>
+                          )}
+                          {enc.estado === 'Publicada' && (
+                            <button 
+                              className="btn btn-sm btn-outline-success rounded-pill px-3 fw-bold"
+                              onClick={() => handleAbrirResponder(enc)}
+                              title="Probar o responder la encuesta"
+                            >
+                              <i className="bi bi-ui-checks me-1"></i> Responder
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

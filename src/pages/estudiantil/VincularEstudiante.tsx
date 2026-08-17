@@ -132,7 +132,8 @@ export const VincularEstudiante: React.FC = () => {
   // Estados para Modal de Estadísticas y Reportes
   const [showEstadisticasModal, setShowEstadisticasModal] = useState<boolean>(false);
   const [escuelaReporte, setEscuelaReporte] = useState<'ambas' | 'sb' | 'lb'>('ambas');
-  const [tabReporte, setTabReporte] = useState<'ejecutivo' | 'barras' | 'secciones' | 'tabla'>('ejecutivo');
+  const [criterioAgrupacion, setCriterioAgrupacion] = useState<'general' | 'niveles' | 'grados' | 'secciones' | 'semaforo'>('grados');
+  const [tipoGrafico, setTipoGrafico] = useState<'dossier' | 'anillos' | 'torta' | 'picos' | 'barras' | 'radar' | 'tacometro' | 'tabla'>('dossier');
   const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
 
   // Estados para Formulario Individual
@@ -959,8 +960,8 @@ export const VincularEstudiante: React.FC = () => {
     XLSX.writeFile(wb, filename);
   };
 
-  const generarReporteHTML = (stats: any, nombreInstitucion: string) => {
-    const R = 50;
+  const generarReporteHTML = (stats: any, nombreInstitucion: string, tipo: string = 'dossier', agrupacion: string = 'grados') => {
+    const R = 48;
     const C = 2 * Math.PI * R;
     const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
     const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
@@ -971,147 +972,398 @@ export const VincularEstudiante: React.FC = () => {
 
     // Tacómetro Radial (Gauge de Meta 180°)
     const pct = stats.pctGeneral;
-    const needleAngle = -90 + (pct / 100) * 180; // de -90 a +90
+    const needleAngle = -90 + (pct / 100) * 180;
     const gaugeColor = pct >= 75 ? '#10b981' : (pct >= 40 ? '#f59e0b' : '#ef4444');
 
+    // Determinar dataset según criterio de agrupación
+    let itemsDesglose: any[] = [];
+    let tituloDesglose = 'Por Grados / Años Escolares';
+    if (agrupacion === 'niveles') {
+      itemsDesglose = stats.desgloseEtapas || [];
+      tituloDesglose = 'Por Niveles y Etapas Educativas';
+    } else if (agrupacion === 'secciones') {
+      itemsDesglose = stats.desgloseSecciones || [];
+      tituloDesglose = 'Por Dimensiones del Formulario Censal';
+    } else if (agrupacion === 'semaforo') {
+      itemsDesglose = [
+        { nombre: '🟢 Nivel Óptimo (≥75%)', total: stats.semaforoOptimo?.length || 0, pct: stats.totalGeneral > 0 ? Math.round(((stats.semaforoOptimo?.reduce((a: number, c: any) => a + c.completados, 0) || 0) / stats.totalGeneral) * 100) : 0, completados: stats.semaforoOptimo?.reduce((a: number, c: any) => a + c.completados, 0) || 0 },
+        { nombre: '🟡 En Progreso (40%-74%)', total: stats.semaforoEnProgreso?.length || 0, pct: stats.totalGeneral > 0 ? Math.round(((stats.semaforoEnProgreso?.reduce((a: number, c: any) => a + c.completados, 0) || 0) / stats.totalGeneral) * 100) : 0, completados: stats.semaforoEnProgreso?.reduce((a: number, c: any) => a + c.completados, 0) || 0 },
+        { nombre: '🔴 Atención Prioritaria (<40%)', total: stats.semaforoAtencion?.length || 0, pct: stats.totalGeneral > 0 ? Math.round(((stats.semaforoAtencion?.reduce((a: number, c: any) => a + c.completados, 0) || 0) / stats.totalGeneral) * 100) : 0, completados: stats.semaforoAtencion?.reduce((a: number, c: any) => a + c.completados, 0) || 0 }
+      ];
+      tituloDesglose = 'Por Estatus del Semáforo de Gestión';
+    } else {
+      itemsDesglose = stats.desglosePorGrado || [];
+      tituloDesglose = 'Por Grado / Año Escolar';
+    }
+
+    // Obtener Nombre y Apellido del usuario emisor desde la sesión
+    let nombreEmisor = 'Administrador SIGAE';
+    try {
+      const rawUser = localStorage.getItem('usuario_sigae');
+      if (rawUser) {
+        const uObj = JSON.parse(rawUser);
+        if (uObj.nombre_completo && uObj.nombre_completo.trim()) {
+          nombreEmisor = uObj.nombre_completo.trim();
+        } else {
+          const n = (uObj.nombres || uObj.nombre || '').trim();
+          const a = (uObj.apellidos || uObj.apellido || '').trim();
+          if (n || a) {
+            nombreEmisor = `${n} ${a}`.trim();
+          }
+        }
+      }
+    } catch (e) {}
+
     return `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #ffffff; padding: 22px; width: 790px; box-sizing: border-box;">
-        <!-- ENCABEZADO INSTITUCIONAL -->
-        <div style="border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; text-align: center;">
-          <div style="letter-spacing: 1px; font-weight: bold; text-transform: uppercase; font-size: 10.5px; color: #64748b;">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
-          <h4 style="font-weight: 800; text-transform: uppercase; margin: 2px 0; color: #0f172a; letter-spacing: 0.5px; font-size: 14.5px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE</h4>
-          <h5 style="font-weight: bold; color: #64748b; margin: 2px 0; font-size: 11.5px;">GERENCIA DE RECURSOS HUMANOS • GESTIÓN EDUCATIVA</h5>
-          <h3 style="font-weight: 800; color: #1e40af; margin: 3px 0; font-size: 15.5px;">${nombreInstitucion}</h3>
-          <p style="margin: 2px 0; font-weight: bold; font-size: 12.5px; color: #0f172a;">DOSSIER ESTADÍSTICO Y EJECUTIVO DE ACTUALIZACIÓN ESTUDIANTIL</p>
-          <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 10px; margin-top: 6px; border-top: 1px solid #e2e8f0; padding-top: 5px;">
-            <span><strong>Fecha y Hora de Emisión:</strong> ${stats.fechaHoraReporte}</span>
-            <span><strong>Generado por:</strong> ${user?.nombre_completo || user?.cedula || 'Administrador'}</span>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; background: #ffffff; padding: 22px; width: 800px; box-sizing: border-box;">
+        <!-- ENCABEZADO INSTITUCIONAL CON LOGOS OFICIALES -->
+        <div style="border-bottom: 2.5px solid #1e40af; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <!-- LOGO IZQUIERDA: ESCUELA -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            ${escuelaReporte === 'ambas' ? `
+              <img src="/assets/img/logo_sb.png" style="height: 42px; width: auto;" alt="SB" />
+              <img src="/assets/img/logo_lb.png" style="height: 42px; width: auto;" alt="LB" />
+            ` : (escuelaReporte === 'sb' ? `
+              <img src="/assets/img/logo_sb.png" style="height: 44px; width: auto;" alt="SB" />
+            ` : `
+              <img src="/assets/img/logo_lb.png" style="height: 44px; width: auto;" alt="LB" />
+            `)}
+          </div>
+
+          <!-- TEXTO CENTRADO INSTITUCIONAL -->
+          <div style="text-align: center; flex-grow: 1;">
+            <div style="letter-spacing: 0.8px; font-weight: bold; text-transform: uppercase; font-size: 8.5px; color: #64748b;">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
+            <div style="font-weight: 800; text-transform: uppercase; margin: 1px 0; color: #1e293b; font-size: 10.5px;">MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN</div>
+            <div style="font-weight: bold; color: #1e40af; margin: 1px 0; font-size: 9.5px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE • GESTIÓN EDUCATIVA</div>
+            <h3 style="font-weight: 800; color: #1e40af; margin: 2px 0; font-size: 13.5px;">${nombreInstitucion}</h3>
+            <div style="font-weight: bold; font-size: 10px; color: #1e40af; background: #eff6ff; padding: 2px 8px; border-radius: 4px; display: inline-block; border: 1px solid #bfdbfe; margin-top: 1px;">
+              ${tipo === 'dossier' ? 'DOSSIER ESTADÍSTICO INTEGRAL 360°' : `INFORME ESTADÍSTICO: ${tipo.toUpperCase()} (${tituloDesglose.toUpperCase()})`}
+            </div>
+          </div>
+
+          <!-- LOGO DERECHA: SIGAE -->
+          <div style="display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0;">
+            <img src="/assets/img/sigae.png" style="height: 45px; width: auto;" alt="SIGAE" />
           </div>
         </div>
 
-        <!-- FILA SUPERIOR: TACÓMETRO RADIAL + DONUT + KPIS -->
-        <div style="display: flex; align-items: stretch; gap: 12px; margin-bottom: 14px;">
-          <!-- TACÓMETRO DE META -->
-          <div style="width: 175px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
-            <div style="font-size: 10px; font-weight: bold; color: #475569; margin-bottom: 2px;">TACÓMETRO DE META</div>
-            <div style="position: relative; width: 140px; height: 85px; margin: 0 auto; overflow: hidden;">
-              <svg width="140" height="140" viewBox="0 0 140 140">
-                <!-- Arco fondo 180° -->
-                <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
-                <!-- Arco progreso coloreado -->
-                <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="${gaugeColor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="172.78" stroke-dashoffset="${172.78 * (1 - pct / 100)}" />
-                <!-- Aguja indicadora -->
-                <g transform="translate(70, 80) rotate(${needleAngle})">
-                  <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" stroke-width="3" stroke-linecap="round" />
-                  <circle cx="0" cy="0" r="5" fill="#0f172a" />
-                </g>
-              </svg>
-            </div>
-            <div style="font-size: 18px; font-weight: 900; color: ${gaugeColor}; margin-top: -6px;">${stats.pctGeneral}%</div>
-            <div style="font-size: 9px; font-weight: bold; color: #64748b;">${pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}</div>
-          </div>
+        <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 9px; margin-top: -4px; margin-bottom: 10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px;">
+          <span><strong>Fecha y Hora de Emisión:</strong> ${stats.fechaHoraReporte}</span>
+          <span><strong>Emitido por:</strong> ${nombreEmisor}</span>
+        </div>
 
-          <!-- GRÁFICO DONUT 3D -->
-          <div style="width: 165px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
-            <div style="font-size: 10px; font-weight: bold; color: #475569; margin-bottom: 2px;">DISTRIBUCIÓN GLOBAL</div>
-            <div style="position: relative; width: 100px; height: 100px; margin: 0 auto;">
-              <svg width="100" height="100" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
-                <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="18" />
-                ${lenComp > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#10b981" stroke-width="18" stroke-dasharray="${lenComp} ${C - lenComp}" stroke-dashoffset="${offComp}" />` : ''}
-                ${lenProc > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#f59e0b" stroke-width="18" stroke-dasharray="${lenProc} ${C - lenProc}" stroke-dashoffset="${offProc}" />` : ''}
-                ${lenSin > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#94a3b8" stroke-width="18" stroke-dasharray="${lenSin} ${C - lenSin}" stroke-dashoffset="${offSin}" />` : ''}
-              </svg>
-              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                <div style="font-size: 14px; font-weight: 900; color: #0f172a;">${stats.totalGeneral}</div>
-                <div style="font-size: 7px; font-weight: bold; color: #64748b;">ALUMNOS</div>
-              </div>
-            </div>
-            <div style="font-size: 9px; font-weight: bold; color: #166534;">${stats.completadosGeneral} completados</div>
+        <!-- TARJETAS KPIS SUPERIORES -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px;">
+          <div style="border: 1px solid #bfdbfe; border-radius: 8px; padding: 6px 8px; background: #eff6ff; text-align: center;">
+            <div style="color: #1e40af; font-size: 8px; font-weight: bold;">MATRÍCULA TOTAL</div>
+            <div style="font-size: 15px; font-weight: bold; color: #1e40af;">${stats.totalGeneral}</div>
+            <div style="font-size: 7.5px; color: #3b82f6;">100% de estudiantes</div>
           </div>
-
-          <!-- TARJETAS KPIS -->
-          <div style="flex-grow: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; background: #f8fafc; text-align: center;">
-              <div style="color: #64748b; font-size: 9px; font-weight: bold;">MATRÍCULA TOTAL</div>
-              <div style="font-size: 16px; font-weight: bold; color: #0f172a;">${stats.totalGeneral}</div>
-              <div style="font-size: 8.5px; color: #64748b;">100% de estudiantes</div>
-            </div>
-            <div style="border: 1px solid #86efac; border-radius: 8px; padding: 7px 10px; background: #f0fdf4; text-align: center;">
-              <div style="color: #166534; font-size: 9px; font-weight: bold;">ACTUALIZADOS (100%)</div>
-              <div style="font-size: 16px; font-weight: bold; color: #16a34a;">${stats.completadosGeneral}</div>
-              <div style="font-size: 8.5px; font-weight: bold; color: #166534;">${stats.pctGeneral}% del plantel</div>
-            </div>
-            <div style="border: 1px solid #fde047; border-radius: 8px; padding: 7px 10px; background: #fefce8; text-align: center;">
-              <div style="color: #854d0e; font-size: 9px; font-weight: bold;">EN PROCESO</div>
-              <div style="font-size: 16px; font-weight: bold; color: #d97706;">${stats.enProcesoGeneral}</div>
-              <div style="font-size: 8.5px; font-weight: bold; color: #854d0e;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
-            </div>
-            <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 10px; background: #f8fafc; text-align: center;">
-              <div style="color: #475569; font-size: 9px; font-weight: bold;">SIN INICIAR (0%)</div>
-              <div style="font-size: 16px; font-weight: bold; color: #475569;">${stats.sinIniciarGeneral}</div>
-              <div style="font-size: 8.5px; font-weight: bold; color: #475569;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
-            </div>
+          <div style="border: 1px solid #bbf7d0; border-radius: 8px; padding: 6px 8px; background: #f0fdf4; text-align: center;">
+            <div style="color: #166534; font-size: 8px; font-weight: bold;">ACTUALIZADOS (100%)</div>
+            <div style="font-size: 15px; font-weight: bold; color: #16a34a;">${stats.completadosGeneral}</div>
+            <div style="font-size: 7.5px; font-weight: bold; color: #166534;">${stats.pctGeneral}% completado</div>
+          </div>
+          <div style="border: 1px solid #fde68a; border-radius: 8px; padding: 6px 8px; background: #fefce8; text-align: center;">
+            <div style="color: #854d0e; font-size: 8px; font-weight: bold;">EN PROCESO</div>
+            <div style="font-size: 15px; font-weight: bold; color: #d97706;">${stats.enProcesoGeneral}</div>
+            <div style="font-size: 7.5px; font-weight: bold; color: #854d0e;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
+          </div>
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; background: #f8fafc; text-align: center;">
+            <div style="color: #64748b; font-size: 8px; font-weight: bold;">SIN INICIAR (0%)</div>
+            <div style="font-size: 15px; font-weight: bold; color: #64748b;">${stats.sinIniciarGeneral}</div>
+            <div style="font-size: 7.5px; color: #64748b;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
           </div>
         </div>
 
-        <!-- FILA INTERMEDIA: COMPARATIVA POR ETAPAS EDUCATIVAS + SEMÁFORO -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
-          <!-- COMPARATIVA ETAPAS -->
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #ffffff;">
-            <div style="font-size: 10.5px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
-              📊 Avance por Etapa Educativa
-            </div>
-            ${stats.desgloseEtapas?.map((et: any) => `
-              <div style="margin-bottom: 6px;">
-                <div style="display: flex; justify-content: space-between; font-size: 9.5px; margin-bottom: 2px;">
-                  <span style="font-weight: bold; color: #1e293b;">${et.etapa}</span>
-                  <span style="color: #166534; font-weight: bold;">${et.completados}/${et.total} (${et.pct}%)</span>
-                </div>
-                <div style="background-color: #f1f5f9; border-radius: 4px; height: 8px; overflow: hidden; display: flex;">
-                  <div style="background-color: #10b981; height: 100%; width: ${et.pct}%;"></div>
-                  <div style="background-color: #f59e0b; height: 100%; width: ${et.total > 0 ? (et.enProceso / et.total) * 100 : 0}%;"></div>
-                  <div style="background-color: #cbd5e1; height: 100%; width: ${et.total > 0 ? (et.sinIniciar / et.total) * 100 : 0}%;"></div>
+        ${tipo === 'dossier' ? `
+          <!-- VISTA DOSSIER 360° COMBINADO -->
+          <div style="display: flex; align-items: stretch; gap: 10px; margin-bottom: 12px;">
+            <!-- ANILLO CONCÉNTRICO -->
+            <div style="width: 165px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #f8fafc; flex-shrink: 0;">
+              <div style="font-size: 9.5px; font-weight: bold; color: #475569; margin-bottom: 2px;">DISTRIBUCIÓN EN ANILLO</div>
+              <div style="position: relative; width: 95px; height: 95px; margin: 0 auto;">
+                <svg width="95" height="95" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
+                  <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="18" />
+                  ${lenComp > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#10b981" stroke-width="18" stroke-dasharray="${lenComp} ${C - lenComp}" stroke-dashoffset="${offComp}" />` : ''}
+                  ${lenProc > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#f59e0b" stroke-width="18" stroke-dasharray="${lenProc} ${C - lenProc}" stroke-dashoffset="${offProc}" />` : ''}
+                  ${lenSin > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#94a3b8" stroke-width="18" stroke-dasharray="${lenSin} ${C - lenSin}" stroke-dashoffset="${offSin}" />` : ''}
+                </svg>
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                  <div style="font-size: 13px; font-weight: 900; color: #0f172a;">${stats.totalGeneral}</div>
+                  <div style="font-size: 7px; font-weight: bold; color: #64748b;">ALUMNOS</div>
                 </div>
               </div>
-            `).join('') || ''}
+              <div style="font-size: 9px; font-weight: bold; color: #166534; margin-top: 2px;">🟢 ${stats.pctGeneral}% al día</div>
+            </div>
+
+            <!-- TACÓMETRO DE META -->
+            <div style="width: 175px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #f8fafc; flex-shrink: 0;">
+              <div style="font-size: 9.5px; font-weight: bold; color: #475569; margin-bottom: 2px;">TACÓMETRO DE META (180°)</div>
+              <div style="position: relative; width: 135px; height: 75px; margin: 0 auto; overflow: hidden;">
+                <svg width="135" height="135" viewBox="0 0 140 140">
+                  <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
+                  <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="${gaugeColor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="172.78" stroke-dashoffset="${172.78 * (1 - pct / 100)}" />
+                  <g transform="translate(70, 80) rotate(${needleAngle})">
+                    <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" stroke-width="3" stroke-linecap="round" />
+                    <circle cx="0" cy="0" r="5" fill="#0f172a" />
+                  </g>
+                </svg>
+              </div>
+              <div style="font-size: 16px; font-weight: 900; color: ${gaugeColor}; margin-top: -4px;">${stats.pctGeneral}%</div>
+              <div style="font-size: 8.5px; font-weight: bold; color: #64748b;">${pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}</div>
+            </div>
+
+            <!-- COMPARATIVA ETAPAS -->
+            <div style="flex-grow: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #ffffff;">
+              <div style="font-size: 10px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">
+                📊 Avance por Etapa Educativa
+              </div>
+              ${stats.desgloseEtapas?.map((et: any) => `
+                <div style="margin-bottom: 5px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 2px;">
+                    <span style="font-weight: bold; color: #1e293b;">${et.etapa}</span>
+                    <span style="color: #166534; font-weight: bold;">${et.completados}/${et.total} (${et.pct}%)</span>
+                  </div>
+                  <div style="background-color: #f1f5f9; border-radius: 4px; height: 7px; overflow: hidden; display: flex;">
+                    <div style="background-color: #10b981; height: 100%; width: ${et.pct}%;"></div>
+                    <div style="background-color: #f59e0b; height: 100%; width: ${et.total > 0 ? (et.enProceso / et.total) * 100 : 0}%;"></div>
+                    <div style="background-color: #cbd5e1; height: 100%; width: ${et.total > 0 ? (et.sinIniciar / et.total) * 100 : 0}%;"></div>
+                  </div>
+                </div>
+              `).join('') || ''}
+            </div>
           </div>
 
-          <!-- SEMÁFORO DE GESTIÓN -->
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #ffffff;">
-            <div style="font-size: 10.5px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
-              🚦 Semáforo de Cumplimiento
+          <!-- FILA DE PICOS DE RENDIMIENTO POR GRADO -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #ffffff; margin-bottom: 12px;">
+            <div style="font-size: 10px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">
+              ⛰️ Picos de Avance y Cumplimiento por Grado / Año Escolar
             </div>
-            <div style="display: flex; gap: 6px; font-size: 9.5px; text-align: center;">
-              <div style="flex: 1; border: 1px solid #86efac; border-radius: 6px; padding: 6px; background: #f0fdf4;">
-                <div style="color: #166534; font-weight: bold;">🟢 Óptimo (≥75%)</div>
-                <div style="font-size: 14px; font-weight: bold; color: #166534; margin: 2px 0;">${stats.semaforoOptimo?.length || 0}</div>
-                <div style="font-size: 8px; color: #166534;">grados listos</div>
-              </div>
-              <div style="flex: 1; border: 1px solid #fde047; border-radius: 6px; padding: 6px; background: #fefce8;">
-                <div style="color: #854d0e; font-weight: bold;">🟡 En Progreso</div>
-                <div style="font-size: 14px; font-weight: bold; color: #d97706; margin: 2px 0;">${stats.semaforoEnProgreso?.length || 0}</div>
-                <div style="font-size: 8px; color: #854d0e;">en llenado</div>
-              </div>
-              <div style="flex: 1; border: 1px solid #fca5a5; border-radius: 6px; padding: 6px; background: #fef2f2;">
-                <div style="color: #991b1b; font-weight: bold;">🔴 Atención (&lt;40%)</div>
-                <div style="font-size: 14px; font-weight: bold; color: #dc2626; margin: 2px 0;">${stats.semaforoAtencion?.length || 0}</div>
-                <div style="font-size: 8px; color: #991b1b;">convocatoria</div>
-              </div>
+            <div style="height: 85px; display: flex; align-items: flex-end; gap: 4px; padding: 0 4px; border-bottom: 1px solid #cbd5e1;">
+              ${stats.desglosePorGrado.slice(0, 15).map((g: any) => {
+                const heightPct = Math.max(g.pctCompletado, 8);
+                const barColor = g.pctCompletado >= 75 ? '#10b981' : (g.pctCompletado >= 40 ? '#f59e0b' : '#ef4444');
+                return `
+                  <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+                    <span style="font-size: 7px; font-weight: bold; color: ${barColor}; margin-bottom: 1px;">${g.pctCompletado}%</span>
+                    <div style="width: 100%; max-width: 16px; background: ${barColor}; height: ${heightPct}%; border-radius: 3px 3px 0 0;"></div>
+                    <span style="font-size: 6.5px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32px;">${g.grado.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}</span>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
-        </div>
+        ` : `
+          <!-- VISTA PERSONALIZADA DE GRÁFICO SELECCIONADO -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; background: #f8fafc; margin-bottom: 12px;">
+            <div style="font-size: 11px; font-weight: bold; color: #0f172a; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; display: flex; justify-content: space-between;">
+              <span>📊 Gráfica Seleccionada: ${tipo.toUpperCase()} (${tituloDesglose})</span>
+              <span style="color: #1e40af;">Total: ${stats.totalGeneral} Alumnos</span>
+            </div>
+
+            ${tipo === 'picos' ? `
+              <div style="height: 120px; display: flex; align-items: flex-end; gap: 6px; padding: 0 8px; border-bottom: 1px solid #cbd5e1;">
+                ${itemsDesglose.map((it: any) => {
+                  const label = it.grado || it.etapa || it.nombre || '';
+                  const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                  const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                  return `
+                    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+                      <span style="font-size: 7.5px; font-weight: bold; color: ${itemColor}; margin-bottom: 1px;">${itemPct}%</span>
+                      <div style="width: 100%; max-width: 22px; background: ${itemColor}; height: ${Math.max(itemPct, 8)}%; border-radius: 4px 4px 0 0;"></div>
+                      <span style="font-size: 7px; color: #475569; margin-top: 2px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40px;">${label.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}</span>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+
+            ${tipo === 'anillos' ? `
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; text-align: center;">
+                ${itemsDesglose.slice(0, 8).map((it: any) => {
+                  const label = it.grado || it.etapa || it.nombre || '';
+                  const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                  const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                  const itTot = it.total || stats.totalGeneral || 0;
+                  const itComp = it.completados || 0;
+                  const itemLen = itTot > 0 ? (itComp / itTot) * C : 0;
+                  return `
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; background: #ffffff;">
+                      <div style="font-size: 8px; font-weight: bold; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</div>
+                      <div style="position: relative; width: 65px; height: 65px; margin: 4px auto;">
+                        <svg width="65" height="65" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
+                          <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="20" />
+                          <circle cx="70" cy="70" r="${R}" fill="none" stroke="${itemColor}" stroke-width="20" stroke-dasharray="${itemLen} ${C - itemLen}" stroke-dashoffset="0" />
+                        </svg>
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: 900; color: ${itemColor};">
+                          ${itemPct}%
+                        </div>
+                      </div>
+                      <div style="font-size: 7.5px; color: #64748b;">${itComp}/${itTot} listos</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+
+            ${tipo === 'torta' ? (() => {
+              const pal = ['#00C3FF', '#8B5CF6', '#00E676', '#FF8D00', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#06B6D4', '#6366F1', '#14B8A6', '#84CC16'];
+              const darkPal = ['#0095C2', '#6D28D9', '#00B359', '#CC7000', '#BE185D', '#1D4ED8', '#059669', '#D97706', '#0891B2', '#4338CA', '#0D9488', '#65A30D'];
+              const tVal = itemsDesglose.reduce((acc: number, it: any) => acc + (it.completados || it.total || it.pct || 1), 0);
+              let curAngle = -Math.PI / 2;
+              const cx3 = 140;
+              const cy3 = 75;
+              const rx3 = 105;
+              const ry3 = 50;
+              const d3 = 18;
+              const sls = itemsDesglose.slice(0, 10).map((it: any, i: number) => {
+                const val = it.completados !== undefined ? (it.completados || (it.total ? 0.01 : 1)) : (it.pct || 1);
+                const frac = tVal > 0 ? (val / tVal) : (1 / itemsDesglose.length);
+                const aSpan = frac * 2 * Math.PI;
+                const sAng = curAngle;
+                const eAng = curAngle + aSpan;
+                curAngle = eAng;
+                const sx1 = cx3 + rx3 * Math.cos(sAng);
+                const sy1 = cy3 + ry3 * Math.sin(sAng);
+                const sx2 = cx3 + rx3 * Math.cos(eAng);
+                const sy2 = cy3 + ry3 * Math.sin(eAng);
+                const lArc = aSpan > Math.PI ? 1 : 0;
+                const col = pal[i % pal.length];
+                const dCol = darkPal[i % darkPal.length];
+                const lab = it.grado || it.etapa || it.nombre || `Seg ${i + 1}`;
+                const pctDisp = it.pctCompletado ?? it.pct ?? Math.round(frac * 100);
+                return { sx1, sy1, sx2, sy2, lArc, col, dCol, lab, pctDisp, frac, it, sAng, eAng };
+              });
+
+              return `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="flex-shrink: 0; width: 290px; text-align: center;">
+                    <svg width="280" height="170" viewBox="0 0 280 170">
+                      <ellipse cx="${cx3}" cy="${cy3 + d3 + 6}" rx="${rx3 + 3}" ry="${ry3 + 2}" fill="#cbd5e1" opacity="0.6" />
+                      <g>
+                        ${sls.map((s: any) => `
+                          <path d="M ${s.sx1} ${s.sy1} A ${rx3} ${ry3} 0 ${s.lArc} 1 ${s.sx2} ${s.sy2} L ${s.sx2} ${s.sy2 + d3} A ${rx3} ${ry3} 0 ${s.lArc} 0 ${s.sx1} ${s.sy1 + d3} Z" fill="${s.dCol}" stroke="${s.dCol}" stroke-width="0.5" />
+                        `).join('')}
+                      </g>
+                      <g>
+                        ${sls.map((s: any) => `
+                          <path d="M ${cx3} ${cy3} L ${s.sx1} ${s.sy1} A ${rx3} ${ry3} 0 ${s.lArc} 1 ${s.sx2} ${s.sy2} Z" fill="${s.col}" stroke="#ffffff" stroke-width="1" />
+                        `).join('')}
+                      </g>
+                      <!-- VALORES VISIBLES SOBRE CADA COLOR DE LA TORTA -->
+                      <g>
+                        ${sls.map((s: any) => {
+                          const midA = s.sAng + (s.eAng - s.sAng) / 2;
+                          const tagX = cx3 + (rx3 * 0.65) * Math.cos(midA);
+                          const tagY = cy3 + (ry3 * 0.65) * Math.sin(midA);
+                          return `
+                            <g>
+                              <rect x="${tagX - 15}" y="${tagY - 8}" width="30" height="16" rx="8" fill="#ffffff" stroke="${s.col}" stroke-width="1.5" />
+                              <text x="${tagX}" y="${tagY + 3.5}" text-anchor="middle" fill="#0f172a" font-size="8" font-weight="bold">${s.pctDisp}%</text>
+                            </g>
+                          `;
+                        }).join('')}
+                      </g>
+                    </svg>
+                  </div>
+                  <div style="flex-grow: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                    ${sls.map((s: any) => `
+                      <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; background: #ffffff; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 4px; overflow: hidden;">
+                          <div style="width: 8px; height: 8px; border-radius: 50%; background: ${s.col}; flex-shrink: 0;"></div>
+                          <span style="font-size: 7.5px; font-weight: bold; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">${s.lab}</span>
+                        </div>
+                        <span style="font-size: 8px; font-weight: bold; color: ${s.col};">${s.pctDisp}%</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `;
+            })() : ''}
+
+            ${tipo === 'barras' ? `
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                ${itemsDesglose.map((it: any) => {
+                  const label = it.grado || it.etapa || it.nombre || '';
+                  const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                  const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                  const itTot = it.total || stats.totalGeneral || 0;
+                  const itComp = it.completados || 0;
+                  return `
+                    <div>
+                      <div style="display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 1px;">
+                        <span style="font-weight: bold; color: #1e293b;">${label}</span>
+                        <span style="color: ${itemColor}; font-weight: bold;">${itComp}/${itTot} (${itemPct}%)</span>
+                      </div>
+                      <div style="background-color: #f1f5f9; border-radius: 4px; height: 7px; overflow: hidden; display: flex;">
+                        <div style="background-color: ${itemColor}; height: 100%; width: ${itemPct}%;"></div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+
+            ${tipo === 'tacometro' ? `
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; text-align: center;">
+                ${itemsDesglose.slice(0, 6).map((it: any) => {
+                  const label = it.grado || it.etapa || it.nombre || '';
+                  const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                  const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                  const itAngle = -90 + (itemPct / 100) * 180;
+                  return `
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; background: #ffffff;">
+                      <div style="font-size: 8px; font-weight: bold; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</div>
+                      <div style="position: relative; width: 100px; height: 55px; margin: 2px auto; overflow: hidden;">
+                        <svg width="100" height="100" viewBox="0 0 140 140">
+                          <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
+                          <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="${itemColor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="172.78" stroke-dashoffset="${172.78 * (1 - itemPct / 100)}" />
+                          <g transform="translate(70, 80) rotate(${itAngle})">
+                            <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" stroke-width="3" stroke-linecap="round" />
+                            <circle cx="0" cy="0" r="5" fill="#0f172a" />
+                          </g>
+                        </svg>
+                      </div>
+                      <div style="font-size: 11px; font-weight: 900; color: ${itemColor};">${itemPct}%</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+
+            ${tipo === 'radar' ? `
+              <div style="text-align: center; padding: 6px;">
+                <div style="font-size: 9px; color: #64748b; margin-bottom: 6px;">Polígono de Cobertura y Cumplimiento</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; text-align: left;">
+                  ${itemsDesglose.map((it: any) => {
+                    const label = it.grado || it.etapa || it.nombre || '';
+                    const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                    const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                    return `
+                      <div style="font-size: 8px; border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 5px; display: flex; justify-content: space-between;">
+                        <span style="font-weight: bold; color: #1e293b;">${label}</span>
+                        <span style="color: ${itemColor}; font-weight: bold;">${itemPct}%</span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `}
 
         <!-- TABLA DESGLOSADA POR GRADO / NIVEL -->
-        <div style="font-weight: bold; margin-bottom: 6px; color: #0f172a; font-size: 11px;">📋 Desglose y Distribución por Grupo, Grado o Año Escolar</div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 14px;">
+        <div style="font-weight: bold; margin-bottom: 4px; color: #0f172a; font-size: 10px;">📋 Detalle Consolidado de Matrícula</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 12px;">
           <thead>
             <tr style="background-color: #f1f5f9; text-align: center; border: 1px solid #cbd5e1;">
-              <th style="padding: 5px; text-align: left; width: 28%; border: 1px solid #cbd5e1;">Grupo / Grado / Año Escolar</th>
-              <th style="padding: 5px; width: 10%; border: 1px solid #cbd5e1;">Total</th>
-              <th style="padding: 5px; width: 12%; border: 1px solid #cbd5e1;">Completados</th>
-              <th style="padding: 5px; width: 12%; border: 1px solid #cbd5e1;">En Proceso</th>
-              <th style="padding: 5px; width: 12%; border: 1px solid #cbd5e1;">Sin Iniciar</th>
-              <th style="padding: 5px; width: 26%; border: 1px solid #cbd5e1;">Gráfico de Avance</th>
+              <th style="padding: 4px; text-align: left; width: 30%; border: 1px solid #cbd5e1;">Grupo / Grado / Nivel</th>
+              <th style="padding: 4px; width: 10%; border: 1px solid #cbd5e1;">Total</th>
+              <th style="padding: 4px; width: 12%; border: 1px solid #cbd5e1;">Completados</th>
+              <th style="padding: 4px; width: 12%; border: 1px solid #cbd5e1;">En Proceso</th>
+              <th style="padding: 4px; width: 12%; border: 1px solid #cbd5e1;">Sin Iniciar</th>
+              <th style="padding: 4px; width: 24%; border: 1px solid #cbd5e1;">Avance</th>
             </tr>
           </thead>
           <tbody>
@@ -1121,78 +1373,69 @@ export const VincularEstudiante: React.FC = () => {
               const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
               return `
               <tr style="text-align: center; border: 1px solid #cbd5e1;">
-                <td style="padding: 4px; text-align: left; font-weight: bold; border: 1px solid #cbd5e1;">${g.grado}</td>
-                <td style="padding: 4px; font-weight: bold; border: 1px solid #cbd5e1;">${g.total}</td>
-                <td style="padding: 4px; border: 1px solid #cbd5e1;"><span style="background: #dcfce7; color: #166534; font-weight: bold; padding: 2px 5px; border-radius: 4px; font-size: 9.5px;">${g.completados}</span></td>
-                <td style="padding: 4px; border: 1px solid #cbd5e1;"><span style="background: #fef9c3; color: #854d0e; font-weight: bold; padding: 2px 5px; border-radius: 4px; font-size: 9.5px;">${g.enProceso}</span></td>
-                <td style="padding: 4px; border: 1px solid #cbd5e1;"><span style="background: #f1f5f9; color: #475569; font-weight: bold; padding: 2px 5px; border-radius: 4px; font-size: 9.5px;">${g.sinIniciar}</span></td>
-                <td style="padding: 4px; border: 1px solid #cbd5e1;">
-                  <div style="display: flex; align-items: center; gap: 4px;">
-                    <div style="background-color: #f1f5f9; border-radius: 4px; height: 8px; overflow: hidden; display: flex; width: 100%;">
+                <td style="padding: 3px; text-align: left; font-weight: bold; border: 1px solid #cbd5e1;">${g.grado}</td>
+                <td style="padding: 3px; font-weight: bold; border: 1px solid #cbd5e1;">${g.total}</td>
+                <td style="padding: 3px; border: 1px solid #cbd5e1;"><span style="background: #dcfce7; color: #166534; font-weight: bold; padding: 1px 3px; border-radius: 3px; font-size: 8.5px;">${g.completados}</span></td>
+                <td style="padding: 3px; border: 1px solid #cbd5e1;"><span style="background: #fef9c3; color: #854d0e; font-weight: bold; padding: 1px 3px; border-radius: 3px; font-size: 8.5px;">${g.enProceso}</span></td>
+                <td style="padding: 3px; border: 1px solid #cbd5e1;"><span style="background: #f1f5f9; color: #475569; font-weight: bold; padding: 1px 3px; border-radius: 3px; font-size: 8.5px;">${g.sinIniciar}</span></td>
+                <td style="padding: 3px; border: 1px solid #cbd5e1;">
+                  <div style="display: flex; align-items: center; gap: 3px;">
+                    <div style="background-color: #f1f5f9; border-radius: 3px; height: 6px; overflow: hidden; display: flex; width: 100%;">
                       <div style="background-color: #10b981; height: 100%; width: ${pComp}%;"></div>
                       <div style="background-color: #f59e0b; height: 100%; width: ${pProc}%;"></div>
                       <div style="background-color: #cbd5e1; height: 100%; width: ${pSin}%;"></div>
                     </div>
-                    <span style="min-width: 28px; font-weight: bold; color: #166534; font-size: 9.5px;">${g.pctCompletado}%</span>
+                    <span style="min-width: 24px; font-weight: bold; color: #166534; font-size: 8.5px;">${g.pctCompletado}%</span>
                   </div>
                 </td>
               </tr>
             `;
             }).join('')}
             <tr style="background-color: #e2e8f0; text-align: center; font-weight: bold; border: 1px solid #cbd5e1;">
-              <td style="padding: 5px; text-align: left; border: 1px solid #cbd5e1;">TOTAL CONSOLIDADO</td>
-              <td style="padding: 5px; border: 1px solid #cbd5e1;">${stats.totalGeneral}</td>
-              <td style="padding: 5px; color: #16a34a; border: 1px solid #cbd5e1;">${stats.completadosGeneral}</td>
-              <td style="padding: 5px; color: #d97706; border: 1px solid #cbd5e1;">${stats.enProcesoGeneral}</td>
-              <td style="padding: 5px; color: #475569; border: 1px solid #cbd5e1;">${stats.sinIniciarGeneral}</td>
-              <td style="padding: 5px; border: 1px solid #cbd5e1;">
-                <div style="display: flex; align-items: center; gap: 4px;">
-                  <div style="background-color: #f1f5f9; border-radius: 4px; height: 10px; overflow: hidden; display: flex; width: 100%;">
+              <td style="padding: 4px; text-align: left; border: 1px solid #cbd5e1;">TOTAL CONSOLIDADO</td>
+              <td style="padding: 4px; border: 1px solid #cbd5e1;">${stats.totalGeneral}</td>
+              <td style="padding: 4px; color: #16a34a; border: 1px solid #cbd5e1;">${stats.completadosGeneral}</td>
+              <td style="padding: 4px; color: #d97706; border: 1px solid #cbd5e1;">${stats.enProcesoGeneral}</td>
+              <td style="padding: 4px; color: #475569; border: 1px solid #cbd5e1;">${stats.sinIniciarGeneral}</td>
+              <td style="padding: 4px; border: 1px solid #cbd5e1;">
+                <div style="display: flex; align-items: center; gap: 3px;">
+                  <div style="background-color: #f1f5f9; border-radius: 3px; height: 7px; overflow: hidden; display: flex; width: 100%;">
                     <div style="background-color: #10b981; height: 100%; width: ${stats.pctGeneral}%;"></div>
                     <div style="background-color: #f59e0b; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
                     <div style="background-color: #cbd5e1; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
                   </div>
-                  <span style="min-width: 28px; font-weight: bold; color: #1e40af; font-size: 10px;">${stats.pctGeneral}%</span>
+                  <span style="min-width: 24px; font-weight: bold; color: #1e40af; font-size: 9px;">${stats.pctGeneral}%</span>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
 
-        <!-- FIRMAS Y SELLOS -->
-        <div style="display: flex; justify-content: space-around; margin-top: 20px; text-align: center;">
-          <div style="width: 40%;">
-            <div style="border-top: 1px solid #94a3b8; padding-top: 3px;">
-              <strong style="font-size: 10px;">Control de Estudios</strong><br>
-              <span style="color: #64748b; font-size: 8.5px;">Firma y Sello</span>
-            </div>
+        <!-- PIE DE PÁGINA INSTITUCIONAL CON SOLO EL LOGO DEL MINISTERIO -->
+        <div style="border-top: 1.5px solid #e2e8f0; padding-top: 8px; margin-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center;">
+            <img src="/assets/img/logoMPPE.png" style="height: 32px; width: auto;" alt="MPPE" />
           </div>
-          <div style="width: 40%;">
-            <div style="border-top: 1px solid #94a3b8; padding-top: 3px;">
-              <strong style="font-size: 10px;">Dirección del Plantel / DEP Oriente</strong><br>
-              <span style="color: #64748b; font-size: 8.5px;">Firma y Sello</span>
-            </div>
+          <div style="text-align: right; color: #94a3b8; font-size: 7.5px; line-height: 1.2;">
+            Dossier oficial de auditoría y avance de matrícula SIGAE.<br>
+            Documento de control académico generado automáticamente.
           </div>
-        </div>
-
-        <div style="text-align: center; color: #94a3b8; font-size: 7.5px; margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 4px;">
-          Dossier oficial de auditoría y avance de matrícula generado por el Sistema Integral de Gestión y Administración Escolar (SIGAE) - DEP Oriente.
         </div>
       </div>
     `;
   };
 
-  const generarReportePDFBlob = async (stats: any, nombreInstitucion: string): Promise<{ blob: Blob; nombreArchivo: string }> => {
+  const generarReportePDFBlob = async (stats: any, nombreInstitucion: string, tipo: string = 'dossier', agrupacion: string = 'grados'): Promise<{ blob: Blob; nombreArchivo: string }> => {
     const contenedor = document.createElement('div');
     contenedor.style.position = 'fixed';
     contenedor.style.left = '-9999px';
     contenedor.style.top = '0';
-    contenedor.style.width = '790px';
+    contenedor.style.width = '800px';
     contenedor.style.backgroundColor = '#ffffff';
-    contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion);
+    contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion, tipo, agrupacion);
 
     document.body.appendChild(contenedor);
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 80));
 
     const canvas = await html2canvas(contenedor, {
       scale: 1.5,
@@ -1218,7 +1461,7 @@ export const VincularEstudiante: React.FC = () => {
     
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight), undefined, 'FAST');
 
-    const nombreArchivo = `Reporte_Estadistico_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const nombreArchivo = `Reporte_${escuelaReporte.toUpperCase()}_${tipo}_${new Date().toISOString().slice(0, 10)}.pdf`;
     const blob = pdf.output('blob');
     return { blob, nombreArchivo };
   };
@@ -1231,7 +1474,7 @@ export const VincularEstudiante: React.FC = () => {
         ? 'GENERAL ESCUELAS DEP ORIENTE' 
         : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
 
-      const { blob, nombreArchivo } = await generarReportePDFBlob(stats, nombreInstitucion);
+      const { blob, nombreArchivo } = await generarReportePDFBlob(stats, nombreInstitucion, tipoGrafico, criterioAgrupacion);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1246,13 +1489,20 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
-  const enviarWhatsAppPDF = async (stats: any, nombreInstitucion: string) => {
+  const enviarWhatsAppImagen = async (
+    stats: any, 
+    nombreInstitucion: string, 
+    formato: 'png' | 'jpg' | 'jpeg' = 'png', 
+    tipo: string = tipoGrafico, 
+    agrupacion: string = criterioAgrupacion,
+    modoEnvio: 'solo_imagen' | 'imagen_y_texto' = 'imagen_y_texto'
+  ) => {
     const Swal = (window as any).Swal;
     try {
       if (Swal) {
         Swal.fire({
-          title: 'Preparando Documento PDF...',
-          text: 'Generando el informe institucional con gráficos.',
+          title: 'Generando Imagen...',
+          text: `Preparando infografía en formato ${formato.toUpperCase()} (${tipo.toUpperCase()}).`,
           allowOutsideClick: false,
           didOpen: () => {
             Swal.showLoading();
@@ -1260,63 +1510,180 @@ export const VincularEstudiante: React.FC = () => {
         });
       }
 
-      const { blob, nombreArchivo } = await generarReportePDFBlob(stats, nombreInstitucion);
-      const file = new File([blob], nombreArchivo, { type: 'application/pdf' });
-      const textoMensaje = generarTextoResumen(stats, nombreInstitucion);
+      const contenedor = document.createElement('div');
+      contenedor.style.position = 'fixed';
+      contenedor.style.left = '-9999px';
+      contenedor.style.top = '0';
+      contenedor.style.width = '800px';
+      contenedor.style.backgroundColor = '#ffffff';
+      contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion, tipo, agrupacion);
 
-      // Si el navegador soporta compartir archivos directamente (Móviles / Tablets)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          if (Swal) Swal.close();
-          await navigator.share({
-            files: [file],
-            title: `Reporte Estadístico - ${nombreInstitucion}`,
-            text: textoMensaje
-          });
+      document.body.appendChild(contenedor);
+      await new Promise(r => setTimeout(r, 80));
+
+      const canvas = await html2canvas(contenedor, {
+        scale: 1.5,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+
+      document.body.removeChild(contenedor);
+
+      const mimeType = formato === 'png' ? 'image/png' : 'image/jpeg';
+      const extension = formato === 'png' ? 'png' : 'jpg';
+      const nombreArchivo = `Reporte_${escuelaReporte.toUpperCase()}_${tipo}_${new Date().toISOString().slice(0, 10)}.${extension}`;
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          if (Swal) Swal.fire('Error', 'No se pudo generar la imagen del reporte.', 'error');
           return;
-        } catch (e) {
-          console.log('Share nativo omitido');
         }
-      }
 
-      // En PC: Descargar el PDF y abrir la app de WhatsApp
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = nombreArchivo;
-      a.click();
-      URL.revokeObjectURL(url);
+        const file = new File([blob], nombreArchivo, { type: mimeType });
 
-      const appUrl = `whatsapp://send?text=${encodeURIComponent(textoMensaje)}`;
+        // Intentar subir a Supabase Storage para obtener enlace público si incluye texto
+        let urlPublicaImagen = '';
+        if (modoEnvio === 'imagen_y_texto') {
+          try {
+            const filePath = `reportes_estadisticos/${nombreArchivo}`;
+            const { error: uploadError } = await supabase.storage.from('documentos_solicitudes').upload(filePath, file, { upsert: true });
+            if (!uploadError) {
+              const { data: urlData } = supabase.storage.from('documentos_solicitudes').getPublicUrl(filePath);
+              if (urlData?.publicUrl) {
+                urlPublicaImagen = urlData.publicUrl;
+              }
+            }
+          } catch (storageErr) {
+            console.warn('Almacenamiento remoto no disponible para preview:', storageErr);
+          }
+        }
 
-      if (Swal) {
-        Swal.fire({
-          icon: 'success',
-          title: '¡Documento PDF Listo!',
-          html: `
-            <p class="mb-2">El archivo <b>${nombreArchivo}</b> ha sido descargado.</p>
-            <p class="small text-muted mb-0">Abriendo la App de WhatsApp... Selecciona tu chat y adjunta el PDF descargado.</p>
-          `,
-          timer: 2500,
-          showConfirmButton: false
-        });
-      }
+        const textoMensaje = modoEnvio === 'solo_imagen' 
+          ? '' 
+          : generarTextoResumen(stats, nombreInstitucion, urlPublicaImagen);
 
-      setTimeout(() => {
-        window.location.href = appUrl;
-      }, 400);
+        // En Móviles / Tablets: Compartir archivo nativo directamente a WhatsApp
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            if (Swal) Swal.close();
+            await navigator.share({
+              files: [file],
+              title: `Reporte Estadístico - ${nombreInstitucion}`,
+              text: textoMensaje
+            });
+            return;
+          } catch (e) {
+            console.log('Share nativo omitido');
+          }
+        }
+
+        // Copiar automáticamente al portapapeles
+        let copiadoAlPortapapeles = false;
+        if (navigator.clipboard && navigator.clipboard.write) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            copiadoAlPortapapeles = true;
+          } catch (e) {
+            console.log('Portapapeles de imagen no soportado en este navegador', e);
+          }
+        }
+
+        // Descarga de respaldo
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombreArchivo;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        const waTextParam = textoMensaje ? `?text=${encodeURIComponent(textoMensaje)}` : '';
+        const waAppUrl = `whatsapp://send${waTextParam}`;
+        const waWebUrl = textoMensaje 
+          ? `https://web.whatsapp.com/send${waTextParam}`
+          : `https://web.whatsapp.com/`;
+
+        if (Swal) {
+          Swal.fire({
+            icon: 'success',
+            title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>¡Imagen Lista para WhatsApp!</span>',
+            html: `
+              <div class="p-2 mb-2 text-start">
+                ${copiadoAlPortapapeles ? `
+                  <div class="alert alert-success d-flex align-items-center gap-2 p-2 mb-2 small">
+                    <i class="bi bi-clipboard-check-fill fs-4 text-success flex-shrink-0"></i>
+                    <div>
+                      <strong>¡Imagen copiada al portapapeles!</strong><br>
+                      ${modoEnvio === 'solo_imagen' 
+                        ? 'Al abrirse WhatsApp, solo presiona <kbd class="bg-dark text-white px-1.5 py-0.5 rounded">Ctrl + V</kbd> en el chat para enviar <b>únicamente la imagen</b>.'
+                        : 'Al abrirse WhatsApp, presiona <kbd class="bg-dark text-white px-1.5 py-0.5 rounded">Ctrl + V</kbd> si deseas adjuntar también la foto.'
+                      }
+                    </div>
+                  </div>
+                ` : ''}
+                ${urlPublicaImagen ? `
+                  <div class="alert alert-info p-2 mb-2 small" style="font-size: 0.72rem;">
+                    <i class="bi bi-link-45deg me-1 text-primary"></i> <b>Enlace de visualización web incluido en el mensaje.</b>
+                  </div>
+                ` : ''}
+                <small class="text-muted d-block mb-1">• Archivo generado: <b>${nombreArchivo}</b></small>
+                <small class="text-muted d-block">• Abriendo WhatsApp Desktop / Web...</small>
+              </div>
+            `,
+            timer: 3800,
+            showConfirmButton: false
+          });
+        }
+
+        // Intentar abrir la app de WhatsApp Desktop y fallback a Web WhatsApp
+        setTimeout(() => {
+          const appFrame = document.createElement('iframe');
+          appFrame.style.display = 'none';
+          appFrame.src = waAppUrl;
+          document.body.appendChild(appFrame);
+
+          setTimeout(() => {
+            document.body.removeChild(appFrame);
+            window.open(waWebUrl, '_blank');
+          }, 800);
+        }, 600);
+
+      }, mimeType, formato === 'png' ? 1.0 : 0.9);
 
     } catch (err: any) {
-      console.error('Error al generar PDF para WhatsApp:', err);
-      if (Swal) Swal.fire('Error', 'No se pudo generar el documento PDF.', 'error');
+      console.error('Error al generar imagen para WhatsApp:', err);
+      if (Swal) Swal.fire('Error', 'No se pudo generar la imagen para compartir.', 'error');
     }
   };
 
-  const generarTextoResumen = (stats: any, nombreInstitucion: string) => {
+  const generarTextoResumen = (stats: any, nombreInstitucion: string, urlImagen: string = '') => {
+    let nombreEmisor = 'Administrador SIGAE';
+    try {
+      const rawUser = localStorage.getItem('usuario_sigae');
+      if (rawUser) {
+        const uObj = JSON.parse(rawUser);
+        if (uObj.nombre_completo && uObj.nombre_completo.trim()) {
+          nombreEmisor = uObj.nombre_completo.trim();
+        } else {
+          const n = (uObj.nombres || uObj.nombre || '').trim();
+          const a = (uObj.apellidos || uObj.apellido || '').trim();
+          if (n || a) nombreEmisor = `${n} ${a}`.trim();
+        }
+      }
+    } catch (e) {}
+
     let msg = `📊 *SIGAE - REPORTE DE ACTUALIZACIÓN ESTUDIANTIL*\n`;
     msg += `🏛️ *Ámbito:* ${nombreInstitucion}\n`;
     msg += `📅 *Fecha de Emisión:* ${stats.fechaHoraReporte}\n`;
-    msg += `👤 *Emitido por:* ${user?.nombre_completo || user?.cedula || 'Administrador'}\n\n`;
+    msg += `👤 *Emitido por:* ${nombreEmisor}\n\n`;
+
+    if (urlImagen) {
+      msg += `🖼️ *Ver Imagen del Reporte (HD):*\n${urlImagen}\n\n`;
+    }
+
     msg += `📈 *RESUMEN GENERAL:*\n`;
     msg += `• 👥 Total Matrícula: *${stats.totalGeneral}*\n`;
     msg += `• 🟢 Actualizados (100%): *${stats.completadosGeneral}* (${stats.pctGeneral}%)\n`;
@@ -1349,13 +1716,91 @@ export const VincularEstudiante: React.FC = () => {
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
-  const handleEnviarWhatsApp = () => {
+  const handleEnviarWhatsApp = async () => {
+    const Swal = (window as any).Swal;
     const stats = calcularEstadisticasReporte(escuelaReporte);
     const nombreInstitucion = escuelaReporte === 'ambas' 
       ? 'GENERAL ESCUELAS DEP ORIENTE' 
       : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
     
-    enviarWhatsAppTexto(stats, nombreInstitucion);
+    if (!Swal) {
+      enviarWhatsAppTexto(stats, nombreInstitucion);
+      return;
+    }
+
+    await Swal.fire({
+      title: '<span style="color: #25D366;"><i class="bi bi-whatsapp me-2"></i>Enviar por WhatsApp</span>',
+      html: `
+        <p class="text-muted small mb-3">¿Cómo deseas enviar el reporte para <b>${nombreInstitucion}</b>?</p>
+        <div class="d-grid gap-2.5 text-start">
+          <!-- OPCIÓN 1: SOLO IMAGEN VISTA ACTUAL -->
+          <button id="btn-wa-opt-solo-imagen" class="btn btn-outline-success p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-success bg-opacity-10 text-success p-2.5 rounded-circle flex-shrink-0">
+              <i class="bi bi-image-fill fs-3"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">1. Solo Imagen (Gráfica Actual: ${tipoGrafico.toUpperCase()})</div>
+              <small class="text-muted">Copia la imagen al portapapeles y abre WhatsApp listo para pegar (<kbd>Ctrl+V</kbd>) sin texto.</small>
+            </div>
+          </button>
+
+          <!-- OPCIÓN 2: SOLO IMAGEN DOSSIER COMPLETO -->
+          <button id="btn-wa-opt-solo-dossier" class="btn btn-outline-primary p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle flex-shrink-0">
+              <i class="bi bi-file-earmark-easel-fill fs-3"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">2. Solo Imagen (Dossier Completo 360°)</div>
+              <small class="text-muted">Infografía oficial completa en PNG lista para pegar (<kbd>Ctrl+V</kbd>) sin texto.</small>
+            </div>
+          </button>
+
+          <!-- OPCIÓN 3: SOLO TEXTO -->
+          <button id="btn-wa-opt-solo-texto" class="btn btn-outline-secondary p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-secondary bg-opacity-10 text-secondary p-2.5 rounded-circle flex-shrink-0">
+              <i class="bi bi-chat-left-text-fill fs-3"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">3. Solo Mensaje de Texto</div>
+              <small class="text-muted">Abre WhatsApp al instante con el resumen de matrícula y avances por grado en texto.</small>
+            </div>
+          </button>
+
+          <!-- OPCIÓN 4: IMAGEN + TEXTO COMPLETO -->
+          <button id="btn-wa-opt-imagen-texto" class="btn btn-outline-dark p-3 rounded-4 border text-start d-flex align-items-center gap-3 hover-efecto shadow-sm">
+            <div class="bg-dark bg-opacity-10 text-dark p-2.5 rounded-circle flex-shrink-0">
+              <i class="bi bi-layers-fill fs-3"></i>
+            </div>
+            <div>
+              <div class="fw-bold text-dark fs-6">4. Imagen + Texto Completo</div>
+              <small class="text-muted">Incluye texto detallado, enlace de previsualización web y la imagen en el portapapeles.</small>
+            </div>
+          </button>
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Cancelar',
+      cancelButtonColor: '#6c757d',
+      didOpen: () => {
+        document.getElementById('btn-wa-opt-solo-imagen')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', tipoGrafico, criterioAgrupacion, 'solo_imagen');
+        });
+        document.getElementById('btn-wa-opt-solo-dossier')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', 'dossier', 'grados', 'solo_imagen');
+        });
+        document.getElementById('btn-wa-opt-solo-texto')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppTexto(stats, nombreInstitucion);
+        });
+        document.getElementById('btn-wa-opt-imagen-texto')?.addEventListener('click', () => {
+          Swal.close();
+          enviarWhatsAppImagen(stats, nombreInstitucion, 'png', 'dossier', 'grados', 'imagen_y_texto');
+        });
+      }
+    });
   };
 
   const handleEnviarCorreo = () => {
@@ -1410,7 +1855,7 @@ export const VincularEstudiante: React.FC = () => {
 
         <div style="display: flex; justify-content: center;">
           <div style="background: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 12px; border: 1px solid #cbd5e1;">
-            ${generarReporteHTML(stats, nombreInstitucion)}
+            ${generarReporteHTML(stats, nombreInstitucion, tipoGrafico, criterioAgrupacion)}
           </div>
         </div>
       </body>
@@ -2290,298 +2735,348 @@ export const VincularEstudiante: React.FC = () => {
         document.body
       )}
 
-      {/* ─── MODAL ESTADÍSTICAS Y REPORTE OFICIAL ─── */}
+      {/* ─── MODAL ESTADÍSTICAS Y REPORTE OFICIAL REDISEÑADO ─── */}
       {showEstadisticasModal && createPortal(
-        <div className="modal fade show d-block" tabIndex={-1} style={{ background: 'rgba(0,0,0,0.6)', zIndex: 1060 }}>
-          <div className="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
-            <div className="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+        <div className="modal fade show d-block" tabIndex={-1} style={{ background: 'rgba(15, 23, 42, 0.75)', zIndex: 1060, backdropFilter: 'blur(4px)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable" style={{ maxWidth: '1140px' }}>
+            <div className="modal-content rounded-4 border-0 shadow-2xl overflow-hidden" style={{ background: '#f8fafc' }}>
               {(() => {
                 const stats = calcularEstadisticasReporte(escuelaReporte);
                 const nombreInstitucion = escuelaReporte === 'ambas' 
                   ? 'General Escuelas DEP Oriente' 
                   : (escuelaReporte === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar');
 
+                // Obtener conjunto de datos según criterio de agrupación seleccionado
+                let dataset: any[] = [];
+                let tituloVista = '';
+                if (criterioAgrupacion === 'niveles') {
+                  dataset = stats.desgloseEtapas || [];
+                  tituloVista = 'Desglose por Niveles / Etapas Educativas';
+                } else if (criterioAgrupacion === 'secciones') {
+                  dataset = stats.desgloseSecciones || [];
+                  tituloVista = 'Desglose por Dimensiones Censales (8 Secciones)';
+                } else if (criterioAgrupacion === 'semaforo') {
+                  dataset = [
+                    { nombre: '🟢 Nivel Óptimo (≥75%)', total: stats.semaforoOptimo?.length || 0, pct: stats.totalGeneral > 0 ? Math.round(((stats.semaforoOptimo?.reduce((a: number, c: any) => a + c.completados, 0) || 0) / stats.totalGeneral) * 100) : 0, completados: stats.semaforoOptimo?.reduce((a: number, c: any) => a + c.completados, 0) || 0, items: stats.semaforoOptimo, color: '#10b981' },
+                    { nombre: '🟡 En Progreso (40%-74%)', total: stats.semaforoEnProgreso?.length || 0, pct: stats.totalGeneral > 0 ? Math.round(((stats.semaforoEnProgreso?.reduce((a: number, c: any) => a + c.completados, 0) || 0) / stats.totalGeneral) * 100) : 0, completados: stats.semaforoEnProgreso?.reduce((a: number, c: any) => a + c.completados, 0) || 0, items: stats.semaforoEnProgreso, color: '#f59e0b' },
+                    { nombre: '🔴 Atención Prioritaria (<40%)', total: stats.semaforoAtencion?.length || 0, pct: stats.totalGeneral > 0 ? Math.round(((stats.semaforoAtencion?.reduce((a: number, c: any) => a + c.completados, 0) || 0) / stats.totalGeneral) * 100) : 0, completados: stats.semaforoAtencion?.reduce((a: number, c: any) => a + c.completados, 0) || 0, items: stats.semaforoAtencion, color: '#ef4444' }
+                  ];
+                  tituloVista = 'Desglose por Semáforo de Gestión y Priorización';
+                } else if (criterioAgrupacion === 'general') {
+                  dataset = [
+                    { nombre: 'Actualizados (100%)', total: stats.totalGeneral, completados: stats.completadosGeneral, pct: stats.pctGeneral, color: '#10b981' },
+                    { nombre: 'En Proceso', total: stats.totalGeneral, completados: stats.enProcesoGeneral, pct: stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0, color: '#f59e0b' },
+                    { nombre: 'Sin Iniciar (0%)', total: stats.totalGeneral, completados: stats.sinIniciarGeneral, pct: stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0, color: '#94a3b8' }
+                  ];
+                  tituloVista = 'Consolidado General Institucional';
+                } else {
+                  dataset = stats.desglosePorGrado || [];
+                  tituloVista = `Desglose por Grado / Año Escolar (${stats.desglosePorGrado?.length || 0} Aulas)`;
+                }
+
                 return (
                   <>
-                    <div className="modal-header text-white p-4" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)' }}>
-                      <div className="d-flex align-items-center justify-content-between w-100 flex-wrap gap-2">
-                        <div>
-                          <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                            <span className="badge bg-white text-primary fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
-                              <i className="bi bi-shield-check me-1"></i> SIGAE • Control de Avance
+                    {/* ENCABEZADO INSTITUCIONAL OFICIAL CON LOGOS */}
+                    <div className="modal-header bg-white px-4 py-3 border-bottom shadow-sm d-block" style={{ borderBottom: '3px solid #1e40af' }}>
+                      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        {/* LOGOS IZQUIERDA: ESCUELA */}
+                        <div className="d-flex align-items-center gap-2">
+                          {escuelaReporte === 'ambas' ? (
+                            <>
+                              <img src="/assets/img/logo_sb.png" alt="U.E. Santa Bárbara" style={{ height: '44px', width: 'auto' }} />
+                              <img src="/assets/img/logo_lb.png" alt="U.E. Libertador Bolívar" style={{ height: '44px', width: 'auto' }} />
+                            </>
+                          ) : escuelaReporte === 'sb' ? (
+                            <img src="/assets/img/logo_sb.png" alt="U.E. Santa Bárbara" style={{ height: '46px', width: 'auto' }} />
+                          ) : (
+                            <img src="/assets/img/logo_lb.png" alt="U.E. Libertador Bolívar" style={{ height: '46px', width: 'auto' }} />
+                          )}
+                        </div>
+
+                        {/* MEMBRETE INSTITUCIONAL CENTRAL */}
+                        <div className="text-center flex-grow-1 px-2">
+                          <span className="text-muted text-uppercase fw-bold d-block" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>
+                            República Bolivariana de Venezuela • Ministerio del Poder Popular para la Educación
+                          </span>
+                          <span className="fw-bold text-primary text-uppercase d-block" style={{ fontSize: '0.72rem' }}>
+                            Dirección Ejecutiva de Producción Oriente • Gestión Educativa
+                          </span>
+                          <h5 className="fw-bolder text-dark mb-0 mt-0.5" style={{ letterSpacing: '-0.3px', color: '#1e40af' }}>
+                            {nombreInstitucion}
+                          </h5>
+                          <div className="d-flex align-items-center justify-content-center gap-2 mt-1">
+                            <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-0.5" style={{ fontSize: '0.7rem' }}>
+                              <i className="bi bi-bar-chart-line-fill me-1"></i> Control de Avance y Reporte Estadístico Oficial
                             </span>
-                            <span className="badge bg-white bg-opacity-25 text-white">
+                            <span className="text-muted small" style={{ fontSize: '0.7rem' }}>
                               <i className="bi bi-clock-history me-1"></i> {stats.fechaHoraReporte}
                             </span>
                           </div>
-                          <h4 className="modal-title fw-bolder text-white mb-0">
-                            <i className="bi bi-bar-chart-line-fill me-2"></i> Estadísticas y Reporte de Actualización Estudiantil
-                          </h4>
                         </div>
-                        <button 
-                          type="button" 
-                          className="btn-close btn-close-white" 
-                          onClick={() => setShowEstadisticasModal(false)}
-                        ></button>
+
+                        {/* LOGO DERECHA: SIGAE Y BOTÓN CERRAR */}
+                        <div className="d-flex align-items-center gap-2.5">
+                          <img 
+                            src="/assets/img/sigae.png" 
+                            alt="Sistema SIGAE" 
+                            style={{ height: '48px', width: 'auto' }} 
+                            className="img-fluid"
+                          />
+                          <button 
+                            type="button" 
+                            className="btn-close ms-1" 
+                            onClick={() => setShowEstadisticasModal(false)}
+                            aria-label="Cerrar"
+                          ></button>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="modal-body p-4 bg-light">
-                      {/* Selector de Ámbito / Escuela y Selector de Vista */}
-                      <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 bg-white p-3 rounded-4 shadow-sm border">
-                        <div className="d-flex align-items-center gap-2">
-                          <div className="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
-                            <i className="bi bi-buildings-fill fs-4"></i>
-                          </div>
-                          <div>
-                            <span className="small text-muted fw-bold d-block">Ámbito Institucional Seleccionado:</span>
-                            <span className="fw-bolder text-dark fs-5">{nombreInstitucion}</span>
-                          </div>
-                        </div>
+                    <div className="modal-body p-3 p-md-4">
+                      {/* BARRA DE CONTROL EJECUTIVA SIGAE: INSTITUCIÓN, VISUALIZACIÓN Y DESGLOSE */}
+                      <div className="bg-white p-2.5 rounded-4 shadow-sm border mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2.5" style={{ borderColor: '#e2e8f0' }}>
                         
-                        <div className="d-flex align-items-center gap-2 flex-wrap">
-                          <div className="btn-group shadow-sm" role="group">
+                        {/* Selector de Escuela en Cápsula Azul SIGAE */}
+                        <div className="d-flex align-items-center gap-1.5">
+                          <span className="small fw-bold text-primary me-1 d-none d-md-inline" style={{ fontSize: '0.75rem' }}>
+                            <i className="bi bi-building-fill me-1"></i>Ámbito:
+                          </span>
+                          <div className="btn-group btn-group-sm p-0.5 rounded-pill bg-light border" role="group">
                             <button 
                               type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${escuelaReporte === 'ambas' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
+                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 ${escuelaReporte === 'ambas' ? 'btn-primary text-white shadow-sm' : 'text-secondary hover-primary'}`}
                               onClick={() => setEscuelaReporte('ambas')}
+                              style={{ fontSize: '0.74rem' }}
                             >
-                              <i className="bi bi-globe me-1"></i> General Escuelas DEP Oriente
+                              🌐 Todas
                             </button>
                             <button 
                               type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${escuelaReporte === 'sb' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
+                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 ${escuelaReporte === 'sb' ? 'btn-primary text-white shadow-sm' : 'text-secondary hover-primary'}`}
                               onClick={() => setEscuelaReporte('sb')}
+                              style={{ fontSize: '0.74rem' }}
                             >
-                              <i className="bi bi-building me-1"></i> UE Santa Bárbara
+                              🏫 Sta. Bárbara
                             </button>
                             <button 
                               type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${escuelaReporte === 'lb' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
+                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 ${escuelaReporte === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-secondary hover-primary'}`}
                               onClick={() => setEscuelaReporte('lb')}
+                              style={{ fontSize: '0.74rem' }}
                             >
-                              <i className="bi bi-building me-1"></i> UE Libertador Bolívar
+                              🏫 Lib. Bolívar
                             </button>
                           </div>
+                        </div>
 
-                          <div className="btn-group shadow-sm" role="group">
-                            <button 
-                              type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'ejecutivo' ? 'btn-dark' : 'btn-outline-dark'}`}
-                              onClick={() => setTabReporte('ejecutivo')}
+                        {/* Selector de Tipo de Gráfico */}
+                        <div className="d-flex align-items-center gap-1 flex-wrap">
+                          {[
+                            { id: 'dossier', label: 'Dossier 360°', icon: 'bi-grid-1x2-fill' },
+                            { id: 'torta', label: 'Torta 3D', icon: 'bi-pie-chart-fill' },
+                            { id: 'anillos', label: 'Anillos', icon: 'bi-record-circle' },
+                            { id: 'picos', label: 'Picos', icon: 'bi-graph-up' },
+                            { id: 'barras', label: 'Barras', icon: 'bi-bar-chart-steps' },
+                            { id: 'radar', label: 'Radar', icon: 'bi-bullseye' },
+                            { id: 'tacometro', label: 'Tacómetro', icon: 'bi-speedometer2' },
+                            { id: 'tabla', label: 'Tabla', icon: 'bi-table' },
+                          ].map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              className={`btn btn-sm px-2.5 py-1 rounded-3 fw-bold transition-all ${
+                                tipoGrafico === t.id 
+                                  ? 'btn-primary text-white shadow-sm' 
+                                  : 'btn-outline-primary bg-white text-primary border-0 hover-primary'
+                              }`}
+                              onClick={() => setTipoGrafico(t.id as any)}
+                              style={{ fontSize: '0.76rem', backgroundColor: tipoGrafico === t.id ? '#1e40af' : '#f8fafc', borderColor: '#dbeafe' }}
                             >
-                              <i className="bi bi-speedometer2 me-1"></i> Tablero 360°
+                              <i className={`bi ${t.icon} me-1`}></i>
+                              {t.label}
                             </button>
-                            <button 
-                              type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'barras' ? 'btn-dark' : 'btn-outline-dark'}`}
-                              onClick={() => setTabReporte('barras')}
-                            >
-                              <i className="bi bi-bar-chart-steps me-1"></i> Por Grados
-                            </button>
-                            <button 
-                              type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'secciones' ? 'btn-dark' : 'btn-outline-dark'}`}
-                              onClick={() => setTabReporte('secciones')}
-                            >
-                              <i className="bi bi-ui-checks me-1"></i> Por Secciones
-                            </button>
-                            <button 
-                              type="button" 
-                              className={`btn btn-sm px-3 fw-bold ${tabReporte === 'tabla' ? 'btn-dark' : 'btn-outline-dark'}`}
-                              onClick={() => setTabReporte('tabla')}
-                            >
-                              <i className="bi bi-table me-1"></i> Tabla
-                            </button>
+                          ))}
+                        </div>
+
+                        {/* Selector de Desglose / Agrupación */}
+                        <div className="d-flex align-items-center gap-1.5 ms-auto">
+                          <span className="small fw-bold text-muted me-1 d-none d-lg-inline" style={{ fontSize: '0.75rem' }}>
+                            <i className="bi bi-funnel-fill text-primary me-1"></i>Desglose:
+                          </span>
+                          <div className="btn-group btn-group-sm bg-light p-0.5 rounded-3 border" role="group">
+                            {[
+                              { id: 'grados', label: 'Grados' },
+                              { id: 'niveles', label: 'Niveles' },
+                              { id: 'secciones', label: 'Dimensiones' },
+                              { id: 'semaforo', label: 'Semáforo' },
+                              { id: 'general', label: 'General' },
+                            ].map((g) => (
+                              <button
+                                key={g.id}
+                                type="button"
+                                className={`btn btn-sm py-1 px-2.5 fw-bold rounded-2 border-0 ${
+                                  criterioAgrupacion === g.id 
+                                    ? 'btn-primary text-white shadow-sm' 
+                                    : 'text-secondary hover-primary'
+                                }`}
+                                onClick={() => setCriterioAgrupacion(g.id as any)}
+                                style={{ fontSize: '0.74rem', backgroundColor: criterioAgrupacion === g.id ? '#1e40af' : 'transparent' }}
+                              >
+                                {g.label}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       </div>
 
-                      {/* Tarjetas de Resumen KPI */}
-                      <div className="row g-3 mb-4">
-                        <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-primary border-4 hover-efecto">
-                            <span className="small fw-bold text-muted text-uppercase">Total Matrícula</span>
-                            <div className="d-flex align-items-center justify-content-between mt-2">
-                              <span className="fs-2 fw-bolder text-dark">{stats.totalGeneral}</span>
-                              <div className="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
-                                <i className="bi bi-people-fill fs-4"></i>
-                              </div>
+                      {/* FRANJA DE METRICAS KPIS COMPACTA Y MODERNA */}
+                      <div className="row g-2 mb-3">
+                        <div className="col-lg-3 col-6">
+                          <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
+                            <div>
+                              <span className="text-muted text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>Total Matrícula</span>
+                              <span className="fs-4 fw-bolder text-dark lh-1">{stats.totalGeneral}</span>
                             </div>
-                            <span className="small text-muted mt-1">Estudiantes vinculados</span>
+                            <div className="bg-primary bg-opacity-10 text-primary p-2 rounded-circle">
+                              <i className="bi bi-people-fill fs-5"></i>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-success border-4 hover-efecto">
-                            <span className="small fw-bold text-success text-uppercase">Actualizados (100%)</span>
-                            <div className="d-flex align-items-center justify-content-between mt-2">
-                              <span className="fs-2 fw-bolder text-success">{stats.completadosGeneral}</span>
-                              <div className="bg-success bg-opacity-10 text-success p-2.5 rounded-circle">
-                                <i className="bi bi-check-circle-fill fs-4"></i>
+                        <div className="col-lg-3 col-6">
+                          <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
+                            <div>
+                              <span className="text-success text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>Actualizados (100%)</span>
+                              <div className="d-flex align-items-baseline gap-1.5">
+                                <span className="fs-4 fw-bolder text-success lh-1">{stats.completadosGeneral}</span>
+                                <span className="badge bg-success bg-opacity-15 text-success fw-bold" style={{ fontSize: '0.7rem' }}>{stats.pctGeneral}%</span>
                               </div>
                             </div>
-                            <span className="small fw-bold text-success mt-1">{stats.pctGeneral}% de la matrícula</span>
+                            <div className="bg-success bg-opacity-10 text-success p-2 rounded-circle">
+                              <i className="bi bi-check-circle-fill fs-5"></i>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-warning border-4 hover-efecto">
-                            <span className="small fw-bold text-warning text-uppercase" style={{ color: '#ca8a04 !important' }}>En Proceso</span>
-                            <div className="d-flex align-items-center justify-content-between mt-2">
-                              <span className="fs-2 fw-bolder text-warning" style={{ color: '#ca8a04 !important' }}>{stats.enProcesoGeneral}</span>
-                              <div className="bg-warning bg-opacity-10 text-warning p-2.5 rounded-circle">
-                                <i className="bi bi-hourglass-split fs-4"></i>
+                        <div className="col-lg-3 col-6">
+                          <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
+                            <div>
+                              <span className="text-warning text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px', color: '#b45309 !important' }}>En Proceso</span>
+                              <div className="d-flex align-items-baseline gap-1.5">
+                                <span className="fs-4 fw-bolder text-warning lh-1" style={{ color: '#b45309 !important' }}>{stats.enProcesoGeneral}</span>
+                                <span className="badge bg-warning bg-opacity-15 text-warning fw-bold" style={{ fontSize: '0.7rem', color: '#b45309 !important' }}>
+                                  {stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%
+                                </span>
                               </div>
                             </div>
-                            <span className="small fw-bold text-warning mt-1" style={{ color: '#ca8a04 !important' }}>
-                              {stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado
-                            </span>
+                            <div className="bg-warning bg-opacity-10 text-warning p-2 rounded-circle">
+                              <i className="bi bi-hourglass-split fs-5"></i>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="col-md-3 col-6">
-                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 border-start border-secondary border-4 hover-efecto">
-                            <span className="small fw-bold text-secondary text-uppercase">Sin Iniciar (0%)</span>
-                            <div className="d-flex align-items-center justify-content-between mt-2">
-                              <span className="fs-2 fw-bolder text-secondary">{stats.sinIniciarGeneral}</span>
-                              <div className="bg-secondary bg-opacity-10 text-secondary p-2.5 rounded-circle">
-                                <i className="bi bi-dash-circle-fill fs-4"></i>
+                        <div className="col-lg-3 col-6">
+                          <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
+                            <div>
+                              <span className="text-secondary text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>Sin Iniciar</span>
+                              <div className="d-flex align-items-baseline gap-1.5">
+                                <span className="fs-4 fw-bolder text-secondary lh-1">{stats.sinIniciarGeneral}</span>
+                                <span className="badge bg-secondary bg-opacity-15 text-secondary fw-bold" style={{ fontSize: '0.7rem' }}>
+                                  {stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%
+                                </span>
                               </div>
                             </div>
-                            <span className="small text-muted mt-1">
-                              {stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes
-                            </span>
+                            <div className="bg-secondary bg-opacity-10 text-secondary p-2 rounded-circle">
+                              <i className="bi bi-dash-circle fs-5"></i>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* VISTA 1: TABLERO EJECUTIVO 360° */}
-                      {tabReporte === 'ejecutivo' && (
-                        <div className="animate__animated animate__fadeIn">
-                          <div className="row g-4 mb-4">
-                            {/* Gráfico 1: Tacómetro Radial de Meta */}
-                            <div className="col-lg-4 col-md-6">
-                              <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 text-center d-flex flex-column justify-content-between">
-                                <div>
-                                  <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                                    <h6 className="fw-bold text-dark mb-0">
-                                      <i className="bi bi-speedometer2 text-primary me-2"></i>
-                                      Tacómetro de Meta
-                                    </h6>
-                                    <span className="badge bg-light text-muted border">Meta: 100%</span>
-                                  </div>
+                      {/* ─── LIENZO CENTRAL DINÁMICO SEGÚN TIPO DE GRÁFICO ─── */}
 
-                                  {(() => {
-                                    const pct = stats.pctGeneral;
-                                    const needleAngle = -90 + (pct / 100) * 180;
-                                    const gaugeColor = pct >= 75 ? '#10b981' : (pct >= 40 ? '#f59e0b' : '#ef4444');
-                                    return (
-                                      <div className="py-2">
-                                        <div className="position-relative d-flex justify-content-center align-items-center" style={{ height: '120px' }}>
-                                          <svg width="200" height="120" viewBox="0 0 140 90">
-                                            <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeLinecap="round" />
-                                            <path 
-                                              d="M 15 80 A 55 55 0 0 1 125 80" 
-                                              fill="none" 
-                                              stroke={gaugeColor} 
-                                              strokeWidth="14" 
-                                              strokeLinecap="round" 
-                                              strokeDasharray="172.78" 
-                                              strokeDashoffset={172.78 * (1 - pct / 100)}
-                                              style={{ transition: 'all 0.6s ease' }}
-                                            />
-                                            <g transform={`translate(70, 80) rotate(${needleAngle})`} style={{ transition: 'transform 0.6s ease' }}>
-                                              <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" />
-                                              <circle cx="0" cy="0" r="5.5" fill="#0f172a" />
-                                            </g>
-                                          </svg>
-                                        </div>
-                                        <div className="fs-2 fw-bolder lh-1 mb-1" style={{ color: gaugeColor }}>
-                                          {stats.pctGeneral}%
-                                        </div>
-                                        <span className={`badge px-3 py-1 rounded-pill fw-bold ${pct >= 75 ? 'bg-success bg-opacity-10 text-success' : (pct >= 40 ? 'bg-warning bg-opacity-10 text-warning' : 'bg-danger bg-opacity-10 text-danger')}`}>
-                                          {pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}
-                                        </span>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                                <div className="p-2.5 rounded-3 bg-light border small text-muted">
-                                  {stats.completadosGeneral} de {stats.totalGeneral} estudiantes con ficha integral completada.
+                      {/* 1. DOSSIER 360° EJECUTIVO */}
+                      {tipoGrafico === 'dossier' && (() => {
+                        const R = 48;
+                        const C = 2 * Math.PI * R;
+                        const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
+                        const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
+                        const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
+                        const pct = stats.pctGeneral;
+                        const needleAngle = -90 + (pct / 100) * 180;
+                        const gaugeColor = pct >= 75 ? '#10b981' : (pct >= 40 ? '#f59e0b' : '#ef4444');
+
+                        return (
+                          <div className="animate__animated animate__fadeIn">
+                            <div className="row g-3 mb-3">
+                              {/* Tacómetro Radial */}
+                              <div className="col-lg-4 col-md-6">
+                                <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 text-center d-flex flex-column justify-content-between">
+                                  <div className="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                                    <span className="fw-bold text-dark small"><i className="bi bi-speedometer2 text-primary me-1"></i>Meta Global</span>
+                                    <span className="badge bg-light text-muted border">100%</span>
+                                  </div>
+                                  <div className="py-1 position-relative d-flex justify-content-center align-items-center" style={{ height: '95px' }}>
+                                    <svg width="170" height="95" viewBox="0 0 140 85">
+                                      <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="#e2e8f0" strokeWidth="12" strokeLinecap="round" />
+                                      <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke={gaugeColor} strokeWidth="12" strokeLinecap="round" strokeDasharray="172.78" strokeDashoffset={172.78 * (1 - pct / 100)} />
+                                      <g transform={`translate(70, 75) rotate(${needleAngle})`}>
+                                        <line x1="0" y1="0" x2="0" y2="-40" stroke="#1e40af" strokeWidth="3.5" strokeLinecap="round" />
+                                        <circle cx="0" cy="0" r="4.5" fill="#1e40af" />
+                                      </g>
+                                    </svg>
+                                  </div>
+                                  <div className="mt-1">
+                                    <div className="fs-3 fw-bolder lh-1" style={{ color: gaugeColor }}>{stats.pctGeneral}%</div>
+                                    <span className={`badge px-2.5 py-0.5 rounded-pill fw-bold mt-1 ${pct >= 75 ? 'bg-success bg-opacity-10 text-success' : (pct >= 40 ? 'bg-warning bg-opacity-10 text-warning' : 'bg-danger bg-opacity-10 text-danger')}`} style={{ fontSize: '0.72rem' }}>
+                                      {pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Gráfico 2: Torta / Donut 3D */}
-                            <div className="col-lg-4 col-md-6">
-                              <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 text-center d-flex flex-column justify-content-between">
-                                <div>
-                                  <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                                    <h6 className="fw-bold text-dark mb-0">
-                                      <i className="bi bi-pie-chart-fill text-primary me-2"></i>
-                                      Distribución Global
-                                    </h6>
-                                    <span className="badge bg-light text-muted border">Torta Vectorial</span>
+                              {/* Donut Concéntrico */}
+                              <div className="col-lg-4 col-md-6">
+                                <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 text-center d-flex flex-column justify-content-between">
+                                  <div className="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                                    <span className="fw-bold text-dark small"><i className="bi bi-pie-chart-fill text-primary me-1"></i>Distribución</span>
+                                    <span className="badge bg-light text-muted border">Proporción</span>
                                   </div>
-
-                                  {(() => {
-                                    const R = 55;
-                                    const C = 2 * Math.PI * R;
-                                    const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
-                                    const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
-                                    const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
-                                    const offComp = 0;
-                                    const offProc = -lenComp;
-                                    const offSin = -(lenComp + lenProc);
-
-                                    return (
-                                      <div className="py-2 position-relative d-flex justify-content-center align-items-center">
-                                        <svg width="150" height="150" viewBox="0 0 150 150" style={{ transform: 'rotate(-90deg)' }}>
-                                          <circle cx="75" cy="75" r={R} fill="none" stroke="#f1f5f9" strokeWidth="20" />
-                                          {lenComp > 0 && <circle cx="75" cy="75" r={R} fill="none" stroke="#10b981" strokeWidth="20" strokeDasharray={`${lenComp} ${C - lenComp}`} strokeDashoffset={offComp} style={{ transition: 'all 0.5s ease' }} />}
-                                          {lenProc > 0 && <circle cx="75" cy="75" r={R} fill="none" stroke="#f59e0b" strokeWidth="20" strokeDasharray={`${lenProc} ${C - lenProc}`} strokeDashoffset={offProc} style={{ transition: 'all 0.5s ease' }} />}
-                                          {lenSin > 0 && <circle cx="75" cy="75" r={R} fill="none" stroke="#94a3b8" strokeWidth="20" strokeDasharray={`${lenSin} ${C - lenSin}`} strokeDashoffset={offSin} style={{ transition: 'all 0.5s ease' }} />}
-                                        </svg>
-                                        <div className="position-absolute text-center" style={{ pointerEvents: 'none' }}>
-                                          <span className="fs-4 fw-bolder text-dark d-block lh-1">{stats.totalGeneral}</span>
-                                          <span className="small text-muted fw-bold" style={{ fontSize: '0.65rem' }}>MATRÍCULA</span>
-                                        </div>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-
-                                <div className="d-flex justify-content-around text-center border-top pt-2">
-                                  <div><span className="d-block fw-bold text-success small">{stats.completadosGeneral}</span><span className="text-muted" style={{ fontSize: '0.7rem' }}>Listos</span></div>
-                                  <div><span className="d-block fw-bold text-warning small">{stats.enProcesoGeneral}</span><span className="text-muted" style={{ fontSize: '0.7rem' }}>En Proceso</span></div>
-                                  <div><span className="d-block fw-bold text-secondary small">{stats.sinIniciarGeneral}</span><span className="text-muted" style={{ fontSize: '0.7rem' }}>Sin Iniciar</span></div>
+                                  <div className="py-1 position-relative d-flex justify-content-center align-items-center">
+                                    <svg width="115" height="115" viewBox="0 0 130 130" style={{ transform: 'rotate(-90deg)' }}>
+                                      <circle cx="65" cy="65" r={R} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+                                      {lenComp > 0 && <circle cx="65" cy="65" r={R} fill="none" stroke="#10b981" strokeWidth="16" strokeDasharray={`${lenComp} ${C - lenComp}`} strokeDashoffset={0} />}
+                                      {lenProc > 0 && <circle cx="65" cy="65" r={R} fill="none" stroke="#f59e0b" strokeWidth="16" strokeDasharray={`${lenProc} ${C - lenProc}`} strokeDashoffset={-lenComp} />}
+                                      {lenSin > 0 && <circle cx="65" cy="65" r={R} fill="none" stroke="#94a3b8" strokeWidth="16" strokeDasharray={`${lenSin} ${C - lenSin}`} strokeDashoffset={-(lenComp + lenProc)} />}
+                                    </svg>
+                                    <div className="position-absolute text-center">
+                                      <span className="fs-5 fw-bolder text-dark d-block lh-1">{stats.totalGeneral}</span>
+                                      <span className="text-muted fw-bold" style={{ fontSize: '0.62rem' }}>ALUMNOS</span>
+                                    </div>
+                                  </div>
+                                  <div className="d-flex justify-content-around text-center pt-1 border-top" style={{ fontSize: '0.72rem' }}>
+                                    <div><span className="fw-bold text-success d-block">{stats.completadosGeneral}</span><span className="text-muted">Listos</span></div>
+                                    <div><span className="fw-bold text-warning d-block" style={{ color: '#b45309 !important' }}>{stats.enProcesoGeneral}</span><span className="text-muted">Proceso</span></div>
+                                    <div><span className="fw-bold text-secondary d-block">{stats.sinIniciarGeneral}</span><span className="text-muted">Pend.</span></div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Gráfico 3: Comparativa por Etapas Educativas */}
-                            <div className="col-lg-4 col-md-12">
-                              <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 d-flex flex-column justify-content-between">
-                                <div>
-                                  <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                                    <h6 className="fw-bold text-dark mb-0">
-                                      <i className="bi bi-diagram-3-fill text-primary me-2"></i>
-                                      Avance por Etapa Educativa
-                                    </h6>
-                                    <span className="badge bg-primary bg-opacity-10 text-primary border">Nivel</span>
+                              {/* Niveles Educativos */}
+                              <div className="col-lg-4 col-md-12">
+                                <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-column justify-content-between">
+                                  <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                                    <span className="fw-bold text-dark small"><i className="bi bi-diagram-3-fill text-primary me-1"></i>Avance por Nivel</span>
+                                    <span className="badge bg-primary bg-opacity-10 text-primary border">Etapas</span>
                                   </div>
-
-                                  <div className="d-flex flex-column gap-3">
+                                  <div className="d-flex flex-column gap-2">
                                     {stats.desgloseEtapas?.map((et, idx) => (
-                                      <div key={idx} className="p-2.5 rounded-3 bg-light border">
-                                        <div className="d-flex justify-content-between align-items-center mb-1">
-                                          <span className="fw-bold text-dark small">{et.etapa}</span>
-                                          <span className="badge bg-success bg-opacity-10 text-success fw-bold">
-                                            {et.completados} de {et.total} ({et.pct}%)
-                                          </span>
+                                      <div key={idx} className="p-2 rounded-3 bg-light border">
+                                        <div className="d-flex justify-content-between align-items-center mb-1" style={{ fontSize: '0.75rem' }}>
+                                          <span className="fw-bold text-dark">{et.etapa}</span>
+                                          <span className="badge bg-success bg-opacity-10 text-success fw-bold">{et.completados}/{et.total} ({et.pct}%)</span>
                                         </div>
-                                        <div className="progress rounded-pill shadow-inner" style={{ height: '9px' }}>
+                                        <div className="progress rounded-pill shadow-inner" style={{ height: '7px' }}>
                                           <div className="progress-bar bg-success" style={{ width: `${et.pct}%` }}></div>
                                           <div className="progress-bar bg-warning" style={{ width: `${et.total > 0 ? (et.enProceso / et.total) * 100 : 0}%` }}></div>
                                           <div className="progress-bar bg-secondary bg-opacity-50" style={{ width: `${et.total > 0 ? (et.sinIniciar / et.total) * 100 : 0}%` }}></div>
@@ -2590,275 +3085,428 @@ export const VincularEstudiante: React.FC = () => {
                                     ))}
                                   </div>
                                 </div>
+                              </div>
+                            </div>
 
-                                <div className="mt-3 text-center">
-                                  <small className="text-muted" style={{ fontSize: '0.72rem' }}>
-                                    <i className="bi bi-info-circle me-1"></i> Inicial, Primaria y Media General consolidadas.
-                                  </small>
-                                </div>
+                            {/* Picos Skyline por Grado */}
+                            <div className="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                              <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                                <span className="fw-bold text-dark small"><i className="bi bi-graph-up text-primary me-1"></i>Picos de Rendimiento por Aula ({stats.desglosePorGrado.length} Grados)</span>
+                                <span className="badge bg-light text-muted border">Maternal a 5to Año</span>
+                              </div>
+                              <div style={{ height: '110px' }} className="d-flex align-items-flex-end gap-1.5 pt-3 px-1 border-bottom bg-light rounded-3">
+                                {stats.desglosePorGrado.map((g, idx) => {
+                                  const h = Math.max(g.pctCompletado, 6);
+                                  const color = g.pctCompletado >= 75 ? '#10b981' : (g.pctCompletado >= 40 ? '#f59e0b' : '#ef4444');
+                                  return (
+                                    <div key={idx} className="flex-grow-1 d-flex flex-column align-items-center justify-content-end h-100 position-relative">
+                                      <span className="fw-bold" style={{ fontSize: '0.64rem', color: color, marginBottom: '1px' }}>{g.pctCompletado}%</span>
+                                      <div className="w-100 rounded-top shadow-sm" style={{ height: `${h}%`, backgroundColor: color, maxWidth: '24px' }}></div>
+                                      <span className="text-muted text-truncate mt-1" style={{ fontSize: '0.58rem', maxWidth: '32px' }} title={g.grado}>
+                                        {g.grado.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           </div>
+                        );
+                      })()}
 
-                          {/* Fila Inferior del Tablero 360: Semáforo de Cumplimiento Institucional */}
-                          <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3">
+                      {/* 2. TORTA 3D ISOMÉTRICA CON VALORES VISIBLES */}
+                      {tipoGrafico === 'torta' && (() => {
+                        const palette = [
+                          '#00C3FF', '#8B5CF6', '#00E676', '#FF8D00', '#EC4899', '#3B82F6', 
+                          '#10B981', '#F59E0B', '#06B6D4', '#6366F1', '#14B8A6', '#84CC16'
+                        ];
+                        const darkPalette = [
+                          '#0095C2', '#6D28D9', '#00B359', '#CC7000', '#BE185D', '#1D4ED8', 
+                          '#059669', '#D97706', '#0891B2', '#4338CA', '#0D9488', '#65A30D'
+                        ];
+
+                        const totalVal = dataset.reduce((acc, it) => acc + (it.completados || it.total || it.pct || 1), 0);
+                        let accumAngle = -Math.PI / 2;
+                        const cx = 155;
+                        const cy = 95;
+                        const rx = 120;
+                        const ry = 58;
+                        const depth = 22;
+
+                        const slices = dataset.map((it, idx) => {
+                          const val = it.completados !== undefined ? (it.completados || (it.total ? 0.01 : 1)) : (it.pct || 1);
+                          const fraction = totalVal > 0 ? (val / totalVal) : (1 / dataset.length);
+                          const angleSpan = fraction * 2 * Math.PI;
+                          const startAngle = accumAngle;
+                          const endAngle = accumAngle + angleSpan;
+                          accumAngle = endAngle;
+
+                          const x1 = cx + rx * Math.cos(startAngle);
+                          const y1 = cy + ry * Math.sin(startAngle);
+                          const x2 = cx + rx * Math.cos(endAngle);
+                          const y2 = cy + ry * Math.sin(endAngle);
+                          const largeArc = angleSpan > Math.PI ? 1 : 0;
+                          const midAngle = startAngle + angleSpan / 2;
+                          const color = it.color || palette[idx % palette.length];
+                          const darkColor = darkPalette[idx % darkPalette.length];
+                          const label = it.grado || it.etapa || it.nombre || `Segmento ${idx + 1}`;
+                          const pctDisplay = it.pctCompletado ?? it.pct ?? Math.round(fraction * 100);
+
+                          return {
+                            it, idx, val, fraction, startAngle, endAngle, angleSpan,
+                            x1, y1, x2, y2, largeArc, midAngle, color, darkColor, label, pctDisplay
+                          };
+                        });
+
+                        return (
+                          <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
                             <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
-                              <h6 className="fw-bold text-dark mb-0">
-                                <i className="bi bi-traffic-light-fill text-warning me-2"></i>
-                                Semáforo de Gestión y Priorización por Grado
-                              </h6>
-                              <span className="small text-muted">Clasificación automática para llamadas y convocatorias</span>
+                              <div>
+                                <h6 className="fw-bold text-dark mb-0">
+                                  <i className="bi bi-pie-chart-fill text-primary me-2"></i>
+                                  Torta 3D Volumétrica: {tituloVista}
+                                </h6>
+                                <small className="text-muted">Proporciones volumétricas con valores proyectados por color.</small>
+                              </div>
+                              <span className="badge bg-primary bg-opacity-10 text-primary border px-3 py-1 fw-bold">{nombreInstitucion}</span>
                             </div>
 
-                            <div className="row g-3">
-                              <div className="col-md-4">
-                                <div className="p-3 rounded-4 border border-success bg-success bg-opacity-10 h-100">
-                                  <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <span className="fw-bold text-success small text-uppercase">🟢 Nivel Óptimo (≥75%)</span>
-                                    <span className="badge bg-success text-white fw-bold">{stats.semaforoOptimo?.length || 0}</span>
-                                  </div>
-                                  <div className="d-flex flex-wrap gap-1 mt-2">
-                                    {stats.semaforoOptimo?.length === 0 ? (
-                                      <span className="text-muted small">Ningún grado en este nivel aún.</span>
-                                    ) : (
-                                      stats.semaforoOptimo?.map((g, i) => (
-                                        <span key={i} className="badge bg-white text-success border border-success py-1.5 px-2">
-                                          {g.grado} ({g.pctCompletado}%)
-                                        </span>
-                                      ))
-                                    )}
-                                  </div>
+                            <div className="row align-items-center g-4">
+                              {/* SVG 3D */}
+                              <div className="col-lg-6 text-center">
+                                <div className="p-3 bg-light rounded-4 border d-flex justify-content-center align-items-center shadow-inner" style={{ minHeight: '240px' }}>
+                                  <svg width="310" height="210" viewBox="0 0 310 200">
+                                    <ellipse cx={cx} cy={cy + depth + 6} rx={rx + 3} ry={ry + 2} fill="#cbd5e1" opacity="0.6" />
+                                    <g>
+                                      {slices.map((s) => (
+                                        <path
+                                          key={`side-${s.idx}`}
+                                          d={`M ${s.x1} ${s.y1} A ${rx} ${ry} 0 ${s.largeArc} 1 ${s.x2} ${s.y2} L ${s.x2} ${s.y2 + depth} A ${rx} ${ry} 0 ${s.largeArc} 0 ${s.x1} ${s.y1 + depth} Z`}
+                                          fill={s.darkColor}
+                                          stroke={s.darkColor}
+                                          strokeWidth="0.5"
+                                        />
+                                      ))}
+                                    </g>
+                                    <g>
+                                      {slices.map((s) => (
+                                        <path
+                                          key={`top-${s.idx}`}
+                                          d={`M ${cx} ${cy} L ${s.x1} ${s.y1} A ${rx} ${ry} 0 ${s.largeArc} 1 ${s.x2} ${s.y2} Z`}
+                                          fill={s.color}
+                                          stroke="#ffffff"
+                                          strokeWidth="1.5"
+                                          style={{ cursor: 'pointer' }}
+                                        >
+                                          <title>{`${s.label}: ${s.pctDisplay}%`}</title>
+                                        </path>
+                                      ))}
+                                    </g>
+                                    {/* VALORES VISIBLES EN CADA COLOR DE LA TORTA */}
+                                    <g>
+                                      {slices.map((s) => {
+                                        const rFactor = slices.length > 8 ? 0.72 : 0.65;
+                                        const tagX = cx + (rx * rFactor) * Math.cos(s.midAngle);
+                                        const tagY = cy + (ry * rFactor) * Math.sin(s.midAngle);
+                                        return (
+                                          <g key={`tag-${s.idx}`} style={{ pointerEvents: 'none' }}>
+                                            <rect
+                                              x={tagX - 16}
+                                              y={tagY - 9}
+                                              width="32"
+                                              height="18"
+                                              rx="9"
+                                              fill="#ffffff"
+                                              stroke={s.color}
+                                              strokeWidth="1.5"
+                                              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.18))' }}
+                                            />
+                                            <text
+                                              x={tagX}
+                                              y={tagY + 4}
+                                              textAnchor="middle"
+                                              fill="#0f172a"
+                                              fontSize="9"
+                                              fontWeight="900"
+                                            >
+                                              {s.pctDisplay}%
+                                            </text>
+                                          </g>
+                                        );
+                                      })}
+                                    </g>
+                                  </svg>
                                 </div>
                               </div>
 
-                              <div className="col-md-4">
-                                <div className="p-3 rounded-4 border border-warning bg-warning bg-opacity-10 h-100">
-                                  <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <span className="fw-bold text-warning small text-uppercase" style={{ color: '#ca8a04 !important' }}>🟡 En Progreso (40% - 74%)</span>
-                                    <span className="badge bg-warning text-dark fw-bold">{stats.semaforoEnProgreso?.length || 0}</span>
-                                  </div>
-                                  <div className="d-flex flex-wrap gap-1 mt-2">
-                                    {stats.semaforoEnProgreso?.length === 0 ? (
-                                      <span className="text-muted small">Ningún grado en este rango.</span>
-                                    ) : (
-                                      stats.semaforoEnProgreso?.map((g, i) => (
-                                        <span key={i} className="badge bg-white text-dark border border-warning py-1.5 px-2">
-                                          {g.grado} ({g.pctCompletado}%)
+                              {/* LEYENDA */}
+                              <div className="col-lg-6">
+                                <div className="d-flex flex-column gap-1.5" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                                  {slices.map((s) => (
+                                    <div key={s.idx} className="p-2 rounded-3 bg-light border d-flex align-items-center justify-content-between">
+                                      <div className="d-flex align-items-center gap-2 overflow-hidden">
+                                        <div className="rounded-circle flex-shrink-0" style={{ width: '12px', height: '12px', backgroundColor: s.color }}></div>
+                                        <span className="fw-bold text-dark small text-truncate" title={s.label} style={{ fontSize: '0.78rem' }}>{s.label}</span>
+                                      </div>
+                                      <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                                        <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                          {s.it.completados !== undefined ? `${s.it.completados}/${s.it.total || stats.totalGeneral}` : ''}
+                                        </small>
+                                        <span className="badge fw-bold" style={{ backgroundColor: s.color, color: '#ffffff', fontSize: '0.72rem' }}>
+                                          {s.pctDisplay}%
                                         </span>
-                                      ))
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="col-md-4">
-                                <div className="p-3 rounded-4 border border-danger bg-danger bg-opacity-10 h-100">
-                                  <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <span className="fw-bold text-danger small text-uppercase">🔴 Atención Prioritaria (&lt;40%)</span>
-                                    <span className="badge bg-danger text-white fw-bold">{stats.semaforoAtencion?.length || 0}</span>
-                                  </div>
-                                  <div className="d-flex flex-wrap gap-1 mt-2">
-                                    {stats.semaforoAtencion?.length === 0 ? (
-                                      <span className="text-success small fw-bold"><i className="bi bi-check-all me-1"></i> ¡Excelente! Ningún grado en alerta roja.</span>
-                                    ) : (
-                                      stats.semaforoAtencion?.map((g, i) => (
-                                        <span key={i} className="badge bg-white text-danger border border-danger py-1.5 px-2">
-                                          {g.grado} ({g.pctCompletado}%)
-                                        </span>
-                                      ))
-                                    )}
-                                  </div>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
-                      {/* VISTA 2: BARRAS DETALLADAS POR GRADO */}
-                      {tabReporte === 'barras' && (
-                        <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3 animate__animated animate__fadeIn">
-                          <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                            <h6 className="fw-bold text-dark mb-0">
-                              <i className="bi bi-bar-chart-steps me-2 text-primary"></i>
-                              Desglose Detallado por Cada Grado / Año Escolar ({stats.desglosePorGrado.length} Niveles)
-                            </h6>
-                            <span className="badge bg-primary bg-opacity-10 text-primary border">{nombreInstitucion}</span>
-                          </div>
-
-                          <div className="row g-3">
-                            {stats.desglosePorGrado.length === 0 ? (
-                              <div className="col-12 text-center py-5 text-muted">
-                                No hay estudiantes registrados para el ámbito seleccionado.
-                              </div>
-                            ) : (
-                              stats.desglosePorGrado.map((g, idx) => {
-                                const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
-                                const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
-                                const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
-
+                      {/* 3. ANILLOS DONUT */}
+                      {tipoGrafico === 'anillos' && (() => {
+                        const R = 38;
+                        const C = 2 * Math.PI * R;
+                        return (
+                          <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                            <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                              <h6 className="fw-bold text-dark mb-0"><i className="bi bi-record-circle text-primary me-2"></i>Gráfica en Anillos: {tituloVista}</h6>
+                              <span className="badge bg-primary bg-opacity-10 text-primary border">{dataset.length} Categorías</span>
+                            </div>
+                            <div className="row g-2.5">
+                              {dataset.map((it, idx) => {
+                                const label = it.grado || it.etapa || it.nombre || '';
+                                const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                                const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                                const itTot = it.total || stats.totalGeneral || 0;
+                                const itComp = it.completados || 0;
+                                const itemLen = itTot > 0 ? (itComp / itTot) * C : 0;
                                 return (
-                                  <div key={idx} className="col-md-6">
-                                    <div className="p-3 rounded-4 bg-light border hover-efecto h-100">
-                                      <div className="d-flex justify-content-between align-items-center mb-2">
-                                        <div>
-                                          <span className="fw-bold text-dark d-block">{g.grado}</span>
-                                          <small className="text-muted">Matrícula: {g.total} alumnos</small>
-                                        </div>
-                                        <div className="text-end">
-                                          <span className="fs-5 fw-bolder text-primary d-block">{g.pctCompletado}%</span>
-                                          <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '0.7rem' }}>
-                                            {g.completados} listos
-                                          </span>
+                                  <div key={idx} className="col-lg-3 col-md-4 col-sm-6">
+                                    <div className="p-2.5 rounded-3 bg-light border text-center h-100">
+                                      <div className="fw-bold text-dark small text-truncate mb-1" title={label} style={{ fontSize: '0.76rem' }}>{label}</div>
+                                      <div className="position-relative d-flex justify-content-center align-items-center my-1">
+                                        <svg width="85" height="85" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                                          <circle cx="50" cy="50" r={R} fill="none" stroke="#e2e8f0" strokeWidth="12" />
+                                          <circle cx="50" cy="50" r={R} fill="none" stroke={itemColor} strokeWidth="12" strokeDasharray={`${itemLen} ${C - itemLen}`} strokeDashoffset={0} />
+                                        </svg>
+                                        <div className="position-absolute text-center">
+                                          <span className="fw-bolder" style={{ color: itemColor, fontSize: '0.85rem' }}>{itemPct}%</span>
                                         </div>
                                       </div>
-
-                                      <div className="progress rounded-pill shadow-inner mb-2" style={{ height: '11px' }}>
-                                        <div className="progress-bar bg-success" style={{ width: `${pComp}%` }} title={`Completados: ${g.completados}`}></div>
-                                        <div className="progress-bar bg-warning" style={{ width: `${pProc}%` }} title={`En Proceso: ${g.enProceso}`}></div>
-                                        <div className="progress-bar bg-secondary bg-opacity-50" style={{ width: `${pSin}%` }} title={`Sin Iniciar: ${g.sinIniciar}`}></div>
-                                      </div>
-
-                                      <div className="d-flex justify-content-between small text-muted" style={{ fontSize: '0.75rem' }}>
-                                        <span>🟢 {g.completados} completados</span>
-                                        <span>🟡 {g.enProceso} en proceso</span>
-                                        <span>⚪ {g.sinIniciar} sin iniciar</span>
-                                      </div>
+                                      <span className="badge bg-white text-muted border" style={{ fontSize: '0.68rem' }}>{itComp} / {itTot} listos</span>
                                     </div>
                                   </div>
                                 );
-                              })
-                            )}
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* 4. PICOS DE RENDIMIENTO */}
+                      {tipoGrafico === 'picos' && (
+                        <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                            <div>
+                              <h6 className="fw-bold text-dark mb-0"><i className="bi bi-graph-up text-primary me-2"></i>Picos de Rendimiento: {tituloVista}</h6>
+                              <small className="text-muted">Cimas porcentuales alcanzadas en la actualización de datos.</small>
+                            </div>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border">0% - 100%</span>
+                          </div>
+
+                          <div style={{ height: '140px' }} className="d-flex align-items-flex-end gap-1.5 pt-4 px-2 border-bottom bg-light rounded-3 mb-3">
+                            {dataset.map((it, idx) => {
+                              const label = it.grado || it.etapa || it.nombre || '';
+                              const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                              const h = Math.max(itemPct, 6);
+                              const color = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                              return (
+                                <div key={idx} className="flex-grow-1 d-flex flex-column align-items-center justify-content-end h-100 position-relative">
+                                  <span className="fw-bold" style={{ fontSize: '0.65rem', color: color, marginBottom: '2px' }}>{itemPct}%</span>
+                                  <div className="w-100 rounded-top shadow-sm" style={{ height: `${h}%`, backgroundColor: color, maxWidth: '28px' }}></div>
+                                  <span className="text-muted text-truncate mt-1" style={{ fontSize: '0.6rem', maxWidth: '36px' }} title={label}>
+                                    {label.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
 
-                      {/* VISTA 3: COBERTURA POR DIMENSIÓN / SECCIÓN */}
-                      {tabReporte === 'secciones' && (
-                        <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-3 animate__animated animate__fadeIn">
-                          <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
-                            <div>
-                              <h6 className="fw-bold text-dark mb-0">
-                                <i className="bi bi-ui-checks-grid me-2 text-primary"></i>
-                                Cobertura de Llenado por Dimensión del Formulario
-                              </h6>
-                              <small className="text-muted">Porcentaje de avance en cada una de las 8 secciones evaluadas en el censo integral.</small>
-                            </div>
-                            <span className="badge bg-dark bg-opacity-10 text-dark border">{stats.totalGeneral} Estudiantes</span>
+                      {/* 5. BARRAS COMPARATIVAS */}
+                      {tipoGrafico === 'barras' && (
+                        <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                            <h6 className="fw-bold text-dark mb-0"><i className="bi bi-bar-chart-steps text-primary me-2"></i>Barras de Avance: {tituloVista}</h6>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border">{dataset.length} Registros</span>
                           </div>
-
-                          <div className="row g-3">
-                            {stats.desgloseSecciones?.map((sec, idx) => (
-                              <div key={idx} className="col-md-6">
-                                <div className="p-3 rounded-4 bg-light border hover-efecto h-100">
-                                  <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <div className="d-flex align-items-center gap-2.5">
-                                      <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary">
-                                        <i className={`bi ${sec.icono} fs-5`}></i>
-                                      </div>
-                                      <div>
-                                        <span className="fw-bold text-dark d-block small">{sec.nombre}</span>
-                                        <small className="text-muted">{sec.completados} de {stats.totalGeneral} registros</small>
-                                      </div>
+                          <div className="row g-2.5">
+                            {dataset.map((it, idx) => {
+                              const label = it.grado || it.etapa || it.nombre || '';
+                              const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                              const itTot = it.total || stats.totalGeneral || 0;
+                              const itComp = it.completados || 0;
+                              const itemColor = itemPct >= 75 ? 'bg-success' : (itemPct >= 40 ? 'bg-warning' : 'bg-danger');
+                              return (
+                                <div key={idx} className="col-md-6">
+                                  <div className="p-2.5 rounded-3 bg-light border h-100">
+                                    <div className="d-flex justify-content-between align-items-center mb-1">
+                                      <span className="fw-bold text-dark small text-truncate" title={label} style={{ fontSize: '0.78rem' }}>{label}</span>
+                                      <span className="badge fw-bold" style={{ fontSize: '0.72rem', backgroundColor: itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444'), color: '#fff' }}>{itemPct}%</span>
                                     </div>
-                                    <span className="fs-5 fw-bolder text-primary">{sec.pct}%</span>
-                                  </div>
-
-                                  <div className="progress rounded-pill shadow-inner" style={{ height: '9px' }}>
-                                    <div 
-                                      className={`progress-bar ${sec.pct >= 75 ? 'bg-success' : (sec.pct >= 40 ? 'bg-warning' : 'bg-danger')}`} 
-                                      style={{ width: `${sec.pct}%` }}
-                                    ></div>
+                                    <div className="progress rounded-pill shadow-inner mb-1" style={{ height: '8px' }}>
+                                      <div className={`progress-bar ${itemColor}`} style={{ width: `${itemPct}%` }}></div>
+                                    </div>
+                                    <div className="d-flex justify-content-between text-muted" style={{ fontSize: '0.68rem' }}>
+                                      <span>🟢 {itComp} listos</span>
+                                      <span>Total: {itTot}</span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
 
-                      {/* VISTA 4: TABLA DETALLADA POR GRADO */}
-                      {tabReporte === 'tabla' && (
-                        <div className="bg-white rounded-4 shadow-sm border overflow-hidden animate__animated animate__fadeIn mb-3">
-                          <div className="p-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <h6 className="fw-bold text-dark mb-0">
-                              <i className="bi bi-list-task me-2 text-primary"></i>
-                              Detalle Tabular de Avance por Grupo, Grado o Año Escolar ({stats.desglosePorGrado.length} Niveles)
-                            </h6>
-                            <span className="badge bg-dark bg-opacity-10 text-dark border px-3 py-1.5 fw-bold">
-                              {nombreInstitucion}
+                      {/* 6. RADAR */}
+                      {tipoGrafico === 'radar' && (
+                        <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                            <div>
+                              <h6 className="fw-bold text-dark mb-0"><i className="bi bi-bullseye text-primary me-2"></i>Radar Multidimensional: {tituloVista}</h6>
+                              <small className="text-muted">Balance y polígono de cumplimiento en todas las áreas evaluadas.</small>
+                            </div>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border">{stats.totalGeneral} Alumnos</span>
+                          </div>
+
+                          <div className="row g-2.5">
+                            {dataset.map((it, idx) => {
+                              const label = it.grado || it.etapa || it.nombre || '';
+                              const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                              const itTot = it.total || stats.totalGeneral || 0;
+                              const itComp = it.completados || 0;
+                              return (
+                                <div key={idx} className="col-md-6">
+                                  <div className="p-2.5 rounded-3 bg-light border h-100">
+                                    <div className="d-flex align-items-center justify-content-between mb-1.5">
+                                      <div className="d-flex align-items-center gap-2">
+                                        <div className="p-1.5 rounded-circle bg-primary bg-opacity-10 text-primary">
+                                          <i className="bi bi-compass-fill" style={{ fontSize: '0.85rem' }}></i>
+                                        </div>
+                                        <div>
+                                          <span className="fw-bold text-dark d-block small" style={{ fontSize: '0.78rem' }}>{label}</span>
+                                          <small className="text-muted" style={{ fontSize: '0.68rem' }}>{itComp} de {itTot} registros</small>
+                                        </div>
+                                      </div>
+                                      <span className="fw-bolder text-primary" style={{ fontSize: '0.9rem' }}>{itemPct}%</span>
+                                    </div>
+                                    <div className="progress rounded-pill shadow-inner" style={{ height: '7px' }}>
+                                      <div className={`progress-bar ${itemPct >= 75 ? 'bg-success' : (itemPct >= 40 ? 'bg-warning' : 'bg-danger')}`} style={{ width: `${itemPct}%` }}></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 7. TACÓMETROS */}
+                      {tipoGrafico === 'tacometro' && (
+                        <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                            <h6 className="fw-bold text-dark mb-0"><i className="bi bi-speedometer2 text-primary me-2"></i>Tacómetros de Meta: {tituloVista}</h6>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border">180° Gauges</span>
+                          </div>
+                          <div className="row g-2.5">
+                            {dataset.map((it, idx) => {
+                              const label = it.grado || it.etapa || it.nombre || '';
+                              const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                              const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
+                              const needleAngle = -90 + (itemPct / 100) * 180;
+                              const itTot = it.total || stats.totalGeneral || 0;
+                              const itComp = it.completados || 0;
+                              return (
+                                <div key={idx} className="col-lg-3 col-md-4 col-sm-6">
+                                  <div className="p-2.5 rounded-3 bg-light border text-center h-100">
+                                    <div className="fw-bold text-dark small text-truncate mb-1" title={label} style={{ fontSize: '0.76rem' }}>{label}</div>
+                                    <div className="position-relative d-flex justify-content-center align-items-center my-1" style={{ height: '70px' }}>
+                                      <svg width="120" height="70" viewBox="0 0 140 85">
+                                        <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="#e2e8f0" strokeWidth="12" strokeLinecap="round" />
+                                        <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke={itemColor} strokeWidth="12" strokeLinecap="round" strokeDasharray="172.78" strokeDashoffset={172.78 * (1 - itemPct / 100)} />
+                                        <g transform={`translate(70, 75) rotate(${needleAngle})`}>
+                                          <line x1="0" y1="0" x2="0" y2="-40" stroke="#1e40af" strokeWidth="3" strokeLinecap="round" />
+                                          <circle cx="0" cy="0" r="4.5" fill="#1e40af" />
+                                        </g>
+                                      </svg>
+                                    </div>
+                                    <div className="fw-bolder" style={{ color: itemColor, fontSize: '0.9rem' }}>{itemPct}%</div>
+                                    <span className="badge bg-white text-muted border" style={{ fontSize: '0.68rem' }}>{itComp}/{itTot}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 8. TABLA */}
+                      {tipoGrafico === 'tabla' && (
+                        <div className="bg-white rounded-4 shadow-sm border overflow-hidden animate__animated animate__fadeIn mb-2">
+                          <div className="p-2.5 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span className="fw-bold text-dark small">
+                              <i className="bi bi-table me-2 text-primary"></i>
+                              Matriz Tabular Consolidada: {tituloVista}
                             </span>
+                            <span className="badge bg-dark bg-opacity-10 text-dark border px-2.5 py-1 fw-bold" style={{ fontSize: '0.72rem' }}>{nombreInstitucion}</span>
                           </div>
                           <div className="table-responsive">
-                            <table className="table table-hover align-middle mb-0">
+                            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
                               <thead className="bg-light text-muted small">
                                 <tr>
-                                  <th className="ps-4">Grupo / Grado / Año</th>
-                                  <th className="text-center">Total Estudiantes</th>
+                                  <th className="ps-3">Categoría / Grado</th>
+                                  <th className="text-center">Total</th>
                                   <th className="text-center">Actualizados (100%)</th>
                                   <th className="text-center">En Proceso</th>
-                                  <th className="text-center">Sin Iniciar (0%)</th>
-                                  <th style={{ width: '220px' }}>Progreso de Nivel</th>
+                                  <th className="text-center">Sin Iniciar</th>
+                                  <th style={{ width: '180px' }}>Progreso</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {stats.desglosePorGrado.length === 0 ? (
-                                  <tr>
-                                    <td colSpan={6} className="text-center py-4 text-muted">
-                                      No hay estudiantes registrados en el ámbito seleccionado.
+                                {stats.desglosePorGrado.map((g, idx) => (
+                                  <tr key={idx}>
+                                    <td className="ps-3 fw-bold text-dark">{g.grado}</td>
+                                    <td className="text-center fw-bold">{g.total}</td>
+                                    <td className="text-center"><span className="badge bg-success bg-opacity-10 text-success border border-success px-2 py-0.5 fw-bold">{g.completados}</span></td>
+                                    <td className="text-center"><span className="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-0.5 fw-bold" style={{ color: '#b45309 !important' }}>{g.enProceso}</span></td>
+                                    <td className="text-center"><span className="badge bg-light text-secondary border px-2 py-0.5">{g.sinIniciar}</span></td>
+                                    <td>
+                                      <div className="d-flex align-items-center gap-1.5">
+                                        <div className="progress flex-grow-1 rounded-pill" style={{ height: '7px' }}>
+                                          <div className="progress-bar bg-success" role="progressbar" style={{ width: `${g.pctCompletado}%` }}></div>
+                                        </div>
+                                        <span className="small fw-bold text-success" style={{ minWidth: '35px', fontSize: '0.75rem' }}>{g.pctCompletado}%</span>
+                                      </div>
                                     </td>
                                   </tr>
-                                ) : (
-                                  stats.desglosePorGrado.map((g, idx) => (
-                                    <tr key={idx}>
-                                      <td className="ps-4 fw-bold text-dark">{g.grado}</td>
-                                      <td className="text-center fw-bold">{g.total}</td>
-                                      <td className="text-center">
-                                        <span className="badge bg-success bg-opacity-10 text-success border border-success px-2.5 py-1 fw-bold">
-                                          {g.completados}
-                                        </span>
-                                      </td>
-                                      <td className="text-center">
-                                        <span className="badge bg-warning bg-opacity-10 text-warning border border-warning px-2.5 py-1 fw-bold" style={{ color: '#ca8a04 !important' }}>
-                                          {g.enProceso}
-                                        </span>
-                                      </td>
-                                      <td className="text-center">
-                                        <span className="badge bg-light text-secondary border px-2.5 py-1">
-                                          {g.sinIniciar}
-                                        </span>
-                                      </td>
-                                      <td>
-                                        <div className="d-flex align-items-center gap-2">
-                                          <div className="progress flex-grow-1 rounded-pill" style={{ height: '8px' }}>
-                                            <div 
-                                              className="progress-bar bg-success" 
-                                              role="progressbar" 
-                                              style={{ width: `${g.pctCompletado}%` }}
-                                            ></div>
-                                          </div>
-                                          <span className="small fw-bold text-success" style={{ minWidth: '40px' }}>
-                                            {g.pctCompletado}%
-                                          </span>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))
-                                )}
-                                <tr className="table-light fw-bold border-top border-2" style={{ fontSize: '0.95rem' }}>
-                                  <td className="ps-4 text-primary">TOTAL GENERAL CONSOLIDADO</td>
+                                ))}
+                                <tr className="table-light fw-bold border-top border-2" style={{ fontSize: '0.88rem' }}>
+                                  <td className="ps-3 text-primary">TOTAL GENERAL CONSOLIDADO</td>
                                   <td className="text-center text-dark">{stats.totalGeneral}</td>
                                   <td className="text-center text-success">{stats.completadosGeneral}</td>
-                                  <td className="text-center text-warning" style={{ color: '#ca8a04 !important' }}>{stats.enProcesoGeneral}</td>
+                                  <td className="text-center text-warning" style={{ color: '#b45309 !important' }}>{stats.enProcesoGeneral}</td>
                                   <td className="text-center text-secondary">{stats.sinIniciarGeneral}</td>
                                   <td>
-                                    <div className="d-flex align-items-center gap-2">
-                                      <div className="progress flex-grow-1 rounded-pill" style={{ height: '10px' }}>
+                                    <div className="d-flex align-items-center gap-1.5">
+                                      <div className="progress flex-grow-1 rounded-pill" style={{ height: '9px' }}>
                                         <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${stats.pctGeneral}%` }}></div>
                                       </div>
-                                      <span className="small fw-bold text-primary" style={{ minWidth: '40px' }}>
-                                        {stats.pctGeneral}%
-                                      </span>
+                                      <span className="small fw-bold text-primary" style={{ minWidth: '35px', fontSize: '0.78rem' }}>{stats.pctGeneral}%</span>
                                     </div>
                                   </td>
                                 </tr>
@@ -2869,79 +3517,84 @@ export const VincularEstudiante: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="modal-footer bg-white border-top p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                      <div className="small text-muted">
-                        <i className="bi bi-shield-lock-fill me-1 text-primary"></i>
-                        Reporte emitido con marca de tiempo: <b>{stats.fechaHoraReporte}</b>
+                    {/* PIE DEL MODAL EJECUTIVO CON SOLO EL LOGO DEL MINISTERIO */}
+                    <div className="modal-footer bg-white border-top px-4 py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                      <div className="d-flex align-items-center">
+                        <img 
+                          src="/assets/img/logoMPPE.png" 
+                          alt="Ministerio del Poder Popular para la Educación" 
+                          style={{ height: '36px', width: 'auto' }} 
+                          className="img-fluid" 
+                        />
                       </div>
 
                       <div className="d-flex gap-2 flex-wrap align-items-center">
-                        {/* GRUPO EXPORTAR / DESCARGAR */}
-                        <div className="btn-group shadow-sm" role="group">
+                        {/* Exportar */}
+                        <div className="btn-group btn-group-sm shadow-sm" role="group">
                           <button 
                             type="button" 
                             className="btn btn-danger fw-bold px-3 d-flex align-items-center gap-1.5"
                             onClick={descargarReportePDF}
                             disabled={generandoPDF}
-                            title="Descargar documento oficial en PDF"
+                            style={{ fontSize: '0.8rem' }}
                           >
                             {generandoPDF ? (
                               <>
                                 <span className="spinner-border spinner-border-sm"></span>
-                                <span>PDF...</span>
+                                <span>Generando PDF...</span>
                               </>
                             ) : (
                               <>
                                 <i className="bi bi-file-earmark-pdf-fill"></i>
-                                <span>Descargar PDF</span>
+                                <span>PDF</span>
                               </>
                             )}
                           </button>
                           <button 
                             type="button" 
-                            className="btn btn-outline-success fw-bold px-3"
+                            className="btn btn-outline-success fw-bold px-2.5"
                             onClick={exportarEstadisticasExcel}
-                            title="Descargar datos en Excel"
+                            style={{ fontSize: '0.8rem' }}
                           >
                             <i className="bi bi-file-earmark-excel-fill me-1"></i> Excel
                           </button>
                           <button 
                             type="button" 
-                            className="btn btn-outline-primary fw-bold px-3"
+                            className="btn btn-outline-primary fw-bold px-2.5"
                             onClick={imprimirReporteEstadistico}
-                            title="Imprimir reporte"
+                            style={{ fontSize: '0.8rem' }}
                           >
                             <i className="bi bi-printer-fill me-1"></i> Imprimir
                           </button>
                         </div>
 
-                        {/* GRUPO ENVIAR DIRECTO */}
-                        <div className="btn-group shadow-sm" role="group">
+                        {/* Enviar WhatsApp y Correo */}
+                        <div className="btn-group btn-group-sm shadow-sm" role="group">
                           <button 
                             type="button" 
                             className="btn btn-success fw-bold px-3 d-flex align-items-center gap-1.5"
-                            style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff' }}
+                            style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', fontSize: '0.8rem' }}
                             onClick={handleEnviarWhatsApp}
-                            title="Enviar reporte por WhatsApp (Texto o Imagen)"
                           >
                             <i className="bi bi-whatsapp"></i>
                             <span>Enviar WhatsApp</span>
                           </button>
                           <button 
                             type="button" 
-                            className="btn btn-dark fw-bold px-3 d-flex align-items-center gap-1.5"
+                            className="btn btn-dark fw-bold px-2.5 d-flex align-items-center gap-1.5"
                             onClick={handleEnviarCorreo}
-                            title="Enviar reporte por correo electrónico"
+                            style={{ fontSize: '0.8rem' }}
                           >
                             <i className="bi bi-envelope-fill"></i>
-                            <span>Enviar Correo</span>
+                            <span>Correo</span>
                           </button>
                         </div>
 
                         <button 
                           type="button" 
-                          className="btn btn-secondary rounded-pill px-4"
+                          className="btn btn-sm btn-secondary rounded-pill px-3 fw-bold"
                           onClick={() => setShowEstadisticasModal(false)}
+                          style={{ fontSize: '0.8rem' }}
                         >
                           Cerrar
                         </button>

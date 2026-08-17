@@ -112,6 +112,7 @@ export const usePermisos = () => {
       "Tarjeta: Apertura de Salones",
       "Gestión de Usuarios",
       "Vincular Estudiante",
+      "Gestión de Admisiones",
       "Roles y Privilegios",
       "Auditoría del Sistema",
       "Diseños",
@@ -121,7 +122,13 @@ export const usePermisos = () => {
       "Creador de Invitaciones",
       "Creador de Tapas",
       "Creador de Comunicados",
-      "Creador de Cumpleaños"
+      "Creador de Cumpleaños",
+      "Encuesta",
+      "Encuestas",
+      "Constructor de Encuestas",
+      "Transporte Escolar",
+      "Gestor de Expedientes",
+      "Mi Expediente"
     ];
 
     if (modulosDivididos.includes(modulo)) {
@@ -134,46 +141,48 @@ export const usePermisos = () => {
         if (activeSchool === 'lb') tieneEnSB = false;
       }
       
-      return tieneEnSB || tieneEnLB;
+      if (tieneEnSB || tieneEnLB) return true;
     }
 
     if (permisos && permisos[modulo] && permisos[modulo][accion] === true) {
       return true;
     }
 
+    const rolNorm = (user?.rol || '').trim();
+    const esDirectivoOAdmin = ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Subdirectora', 'Coordinador', 'Coordinadora', 'Administrador'].includes(rolNorm);
+    const esPersonalDocente = esDirectivoOAdmin || ['Docente', 'Docente Invitado', 'Control de Estudios', 'Secretario', 'Secretaria'].includes(rolNorm);
+
     // Bypasses por defecto para simplificar desarrollo y asegurar accesos
     if (modulo === "Mi Expediente") {
-      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
-      return rolesPermitidos.includes(user?.rol);
+      return esPersonalDocente;
     }
 
     if (modulo === "Gestor de Expedientes") {
-      const rolesAdministrativos = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
-      return rolesAdministrativos.includes(user?.rol);
+      return esDirectivoOAdmin || rolNorm === 'Docente';
+    }
+
+    if (modulo === "Gestión de Admisiones") {
+      return esPersonalDocente;
     }
 
     if (["Transporte Escolar", "Tarjeta: Gestión de Rutas", "Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Operación (Tracking)"].includes(modulo)) {
-      const rolesAdministrativos = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
-      return rolesAdministrativos.includes(user?.rol);
+      return esDirectivoOAdmin;
     }
 
     if (["Tarjeta: Visor de Recorrido", "Visor de Recorrido"].includes(modulo)) {
-      const rolesGenerales = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante'];
-      return rolesGenerales.includes(user?.rol);
+      return true;
     }
 
-    if (["Solicitud de Cupos", "Mi Perfil", "Actualización de Datos", "Verificaciones"].includes(modulo)) {
-      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador', 'Invitado', 'Representante', 'Control de Estudios', 'Secretario', 'Secretaria'];
-      return rolesPermitidos.includes(user?.rol) || !!user;
+    if (["Solicitud de Cupos", "Mi Perfil", "Métodos de Acceso", "Actualización de Datos", "Verificaciones"].includes(modulo)) {
+      return true;
     }
 
     if (modulo === "Vincular Estudiante") {
-      if (['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(user?.rol)) return true;
+      return esDirectivoOAdmin || rolNorm === 'Docente';
     }
 
     if (["Diseños", "Galería y Plantillas", "Creador de Certificados", "Creador de Flyers", "Creador de Invitaciones", "Creador de Tapas", "Creador de Comunicados", "Creador de Cumpleaños", "Encuesta", "Encuestas", "Constructor de Encuestas"].includes(modulo)) {
-      const rolesPermitidos = ['Docente', 'SuperAdmin', 'Director', 'Administrador', 'Coordinador'];
-      return rolesPermitidos.includes(user?.rol);
+      return esPersonalDocente;
     }
 
     return false;
