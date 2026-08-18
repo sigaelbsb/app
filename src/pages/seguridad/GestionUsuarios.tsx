@@ -71,6 +71,7 @@ export const GestionUsuarios = () => {
   const [formTelefono, setFormTelefono] = useState('');
   const [formEstado, setFormEstado] = useState('Activo');
   const [formPrimerIngreso, setFormPrimerIngreso] = useState('true');
+  const [formClave, setFormClave] = useState('');
 
   const Swal = (window as any).Swal;
 
@@ -297,6 +298,7 @@ export const GestionUsuarios = () => {
   // Open Form modal
   const abrirFormModal = (userToEdit: any = null) => {
     setEditingUser(userToEdit);
+    setFormClave('');
     if (userToEdit) {
       setFormCedula(userToEdit.cedula || '');
       setFormNombre(userToEdit.nombre_completo || '');
@@ -363,9 +365,35 @@ export const GestionUsuarios = () => {
 
     setLoading(true);
     try {
+      const oldCedula = editingUser ? String(editingUser.cedula || '').trim() : '';
+      const newCedula = formCedula.trim().toUpperCase();
+      const oldNombre = editingUser ? String(editingUser.nombre_completo || '').trim() : '';
+      const newNombre = formNombre.trim();
+
+      // Si la cédula cambió, verificar que no colisione con otro usuario existente
+      if (editingUser && newCedula !== oldCedula) {
+        const { data: existente } = await supabase
+          .from('usuarios')
+          .select('id_usuario, id, cedula')
+          .eq('cedula', newCedula);
+
+        if (existente && existente.length > 0) {
+          const otro = existente.find((u: any) => {
+            if (editingUser.id_usuario && u.id_usuario) return u.id_usuario !== editingUser.id_usuario;
+            if (editingUser.id && u.id) return u.id !== editingUser.id;
+            return u.cedula !== oldCedula;
+          });
+          if (otro) {
+            if (Swal) Swal.fire('Cédula ya Registrada', `Ya existe otro usuario registrado con la cédula ${newCedula}.`, 'warning');
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       const payload: any = {
-        cedula: formCedula.trim(),
-        nombre_completo: formNombre.trim(),
+        cedula: newCedula,
+        nombre_completo: newNombre,
         rol: formRol,
         id_escuela: formEscuela,
         email: formEmail.trim() || null,
@@ -374,18 +402,156 @@ export const GestionUsuarios = () => {
         primer_ingreso: formPrimerIngreso === 'true'
       };
 
+      if (formClave.trim()) {
+        payload.clave = formClave.trim();
+      }
+
       if (editingUser) {
+        // Si la clave original era la cédula anterior y no se fijó clave nueva, actualizar clave por defecto a la nueva cédula
+        if (!formClave.trim() && editingUser.clave === oldCedula) {
+          payload.clave = newCedula;
+        }
+
         let q = supabase.from('usuarios').update(payload);
         if (editingUser.id_usuario) q = q.eq('id_usuario', editingUser.id_usuario);
         else if (editingUser.id) q = q.eq('id', editingUser.id);
-        else q = q.eq('cedula', editingUser.cedula);
+        else q = q.eq('cedula', oldCedula);
 
         const { error } = await q;
         if (error) throw error;
-        if (Swal) Swal.fire('¡Actualizado!', 'Los datos del usuario han sido actualizados.', 'success');
+
+        // ─── CASCADA DE ACTUALIZACIONES: PRESERVAR VINCULACIONES DE ESTUDIANTES ───
+        const cedulaCambio = Boolean(oldCedula && newCedula !== oldCedula);
+        const nombreCambio = Boolean(oldNombre && newNombre !== oldNombre);
+
+        if (cedulaCambio || nombreCambio) {
+          const partesNombre = newNombre.split(' ');
+          const newNombresRep = partesNombre.slice(0, Math.ceil(partesNombre.length / 2)).join(' ') || newNombre;
+          const newApellidosRep = partesNombre.slice(Math.ceil(partesNombre.length / 2)).join(' ') || '';
+
+          // 1. Actualizar estudiantes_vinculaciones
+          try {
+            const { data: vinculaciones } = await supabase
+              .from('estudiantes_vinculaciones')
+              .select('*');
+
+            if (vinculaciones && vinculaciones.length > 0) {
+              const oldDigits = oldCedula.replace(/\D/g, '');
+              const matchingVincs = vinculaciones.filter((v: any) => {
+                const d = v.datos_actualizados || {};
+                const vCed = String(v.cedula_representante || d.representante_cedula || '').trim().toUpperCase();
+                const vDigits = vCed.replace(/\D/g, '');
+                const vNom = String((v.nombres_representante || d.representante_nombres || '') + ' ' + (v.apellidos_representante || d.representante_apellidos || '')).trim().toLowerCase();
+                
+                const matchCed = Boolean(oldCedula && (vCed === oldCedula.toUpperCase() || (oldDigits && vDigits === oldDigits)));
+                const matchNom = Boolean(oldNombre && vNom && vNom === oldNombre.toLowerCase());
+                return matchCed || matchNom;
+              });
+
+              for (const v of matchingVincs) {
+                const dAct = { ...(v.datos_actualizados || {}) };
+                dAct.representante_cedula = newCedula;
+                dAct.representante_nombres = newNombresRep;
+                dAct.representante_apellidos = newApellidosRep;
+                if (formEmail.trim()) dAct.representante_email = formEmail.trim();
+                if (formTelefono.trim()) dAct.representante_telefono = formTelefono.trim();
+
+                await supabase
+                  .from('estudiantes_vinculaciones')
+                  .update({
+                    cedula_representante: newCedula,
+                    nombres_representante: newNombresRep,
+                    apellidos_representante: newApellidosRep,
+                    datos_actualizados: dAct
+                  })
+                  .eq('id', v.id);
+              }
+            }
+          } catch (errVinc) {
+            console.warn("Error propagando vinculaciones en estudiantes_vinculaciones:", errVinc);
+          }
+
+          // 2. Actualizar admisiones_solicitudes
+          try {
+            await supabase
+              .from('admisiones_solicitudes')
+              .update({
+                cedula_representante: newCedula,
+                nombre_representante: newNombre
+              })
+              .eq('cedula_representante', oldCedula);
+          } catch (e) {}
+
+          // 3. Actualizar solicitudes_cupo
+          try {
+            await supabase
+              .from('solicitudes_cupo')
+              .update({
+                representante_cedula: newCedula,
+                representante_nombres: newNombre
+              })
+              .eq('representante_cedula', oldCedula);
+          } catch (e) {}
+
+          // 4. Actualizar respuestas_seguridad
+          try {
+            await supabase
+              .from('respuestas_seguridad')
+              .update({ usuario_cedula: newCedula })
+              .eq('usuario_cedula', oldCedula);
+          } catch (e) {}
+
+          // 5. Actualizar encuestas_respuestas
+          try {
+            await supabase
+              .from('encuestas_respuestas')
+              .update({
+                usuario_cedula: newCedula,
+                usuario_nombre: newNombre
+              })
+              .eq('usuario_cedula', oldCedula);
+          } catch (e) {}
+
+          // 6. Actualizar expedientes_docentes
+          try {
+            await supabase
+              .from('expedientes_docentes')
+              .update({
+                cedula: newCedula,
+                nombres: newNombre
+              })
+              .eq('cedula', oldCedula);
+          } catch (e) {}
+
+          // 7. Actualizar sesión activa en localStorage si coincide con el usuario conectado
+          try {
+            const sesionStr = localStorage.getItem('usuario_sigae');
+            if (sesionStr) {
+              const usrSesion = JSON.parse(sesionStr);
+              if (usrSesion.cedula === oldCedula || usrSesion.id_usuario === editingUser.id_usuario) {
+                usrSesion.cedula = newCedula;
+                usrSesion.nombre_completo = newNombre;
+                usrSesion.rol = formRol;
+                usrSesion.id_escuela = formEscuela;
+                usrSesion.email = formEmail.trim() || null;
+                usrSesion.telefono = formTelefono.trim() || null;
+                localStorage.setItem('usuario_sigae', JSON.stringify(usrSesion));
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (Swal) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Usuario Actualizado!',
+            html: `Los datos de <b>${newNombre}</b> (C.I. ${newCedula}) han sido actualizados y sus estudiantes vinculados permanecen correctamente sincronizados.`,
+            confirmButtonColor: '#10B981'
+          });
+        }
         auditar('Gestión de Usuarios', 'Editar Usuario', `Actualizó datos de: ${payload.cedula} (${payload.id_escuela})`);
       } else {
-        payload.clave = formCedula.trim();
+        payload.clave = formClave.trim() || newCedula;
         payload.solicito_reseteo = false;
         
         const { error } = await supabase
@@ -400,7 +566,7 @@ export const GestionUsuarios = () => {
           }
           throw error;
         }
-        if (Swal) Swal.fire('¡Usuario Creado!', `Se ha registrado al usuario.<br/><br/>Su clave temporal es: <b>${payload.cedula}</b>`, 'success');
+        if (Swal) Swal.fire('¡Usuario Creado!', `Se ha registrado al usuario.<br/><br/>Su clave temporal es: <b>${payload.clave}</b>`, 'success');
         auditar('Gestión de Usuarios', 'Nuevo Usuario', `Creó usuario: ${payload.cedula} (${payload.id_escuela})`);
       }
       
@@ -1265,17 +1431,28 @@ export const GestionUsuarios = () => {
               </div>
               <form onSubmit={guardarUsuario}>
                 <div className="modal-body p-4 bg-light text-start">
+                  {editingUser && (
+                    <div className="alert alert-info border-0 bg-info bg-opacity-10 py-2.5 px-3 rounded-3 small mb-3">
+                      <i className="bi bi-shield-check text-info me-1.5 fs-6"></i>
+                      <strong>Edición Total de Usuario:</strong> Puedes modificar la Cédula o Nombre. Las vinculaciones de estudiantes, solicitudes y expedientes asociados se actualizarán automáticamente.
+                    </div>
+                  )}
+
                   <div className="mb-3">
                     <label className="small fw-bold mb-1 text-muted">Cédula de Identidad <span className="text-danger">*</span></label>
                     <input 
                       type="text" 
                       className="form-control input-moderno m-0" 
-                      placeholder="Ej: 12345678" 
+                      placeholder="Ej: V12345678" 
                       value={formCedula} 
                       onChange={(e) => setFormCedula(e.target.value)}
-                      readOnly={!!editingUser}
+                      required
                     />
+                    <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                      Identificador y usuario principal de acceso al sistema.
+                    </small>
                   </div>
+
                   <div className="mb-3">
                     <label className="small fw-bold mb-1 text-muted">Nombre Completo <span className="text-danger">*</span></label>
                     <input 
@@ -1284,8 +1461,32 @@ export const GestionUsuarios = () => {
                       placeholder="Ej: Juan Pérez" 
                       value={formNombre} 
                       onChange={(e) => handleTituloChange(e, setFormNombre)}
+                      required
                     />
                   </div>
+
+                  <div className="mb-3">
+                    <label className="small fw-bold mb-1 text-muted">
+                      {editingUser ? 'Nueva Contraseña (Opcional)' : 'Contraseña de Acceso (Opcional)'}
+                    </label>
+                    <input 
+                      type="text" 
+                      className="form-control input-moderno m-0" 
+                      placeholder={editingUser ? "Dejar en blanco para conservar la contraseña actual" : "Por defecto será la cédula ingresada"} 
+                      value={formClave} 
+                      onChange={(e) => setFormClave(e.target.value)}
+                    />
+                    {editingUser ? (
+                      <small className="text-muted d-block mt-1" style={{ fontSize: '0.72rem' }}>
+                        <i className="bi bi-key-fill text-warning me-1"></i> Si ingresas una contraseña aquí, se reemplazará directamente la actual.
+                      </small>
+                    ) : (
+                      <small className="text-muted d-block mt-1" style={{ fontSize: '0.72rem' }}>
+                        <i className="bi bi-info-circle text-primary me-1"></i> Si no se especifica, la clave inicial será el número de cédula.
+                      </small>
+                    )}
+                  </div>
+
                   <div className="row g-2 mb-3">
                     <div className="col-6">
                       <label className="small fw-bold mb-1 text-muted">Escuela Asignada <span className="text-danger">*</span></label>
@@ -1314,6 +1515,7 @@ export const GestionUsuarios = () => {
                       </select>
                     </div>
                   </div>
+
                   <div className="row g-2 mb-3">
                     <div className="col-6">
                       <label className="small fw-bold mb-1 text-muted">Correo Electrónico</label>
@@ -1336,6 +1538,7 @@ export const GestionUsuarios = () => {
                       />
                     </div>
                   </div>
+
                   <div className="row g-2 mb-3">
                     <div className="col-6">
                       <label className="small fw-bold mb-1 text-muted">Estado de la Cuenta <span className="text-danger">*</span></label>
