@@ -626,7 +626,7 @@ export const ActualizacionDatos: React.FC = () => {
     const cargoDirectorTexto = dirData.cargoGenerico || 'Director de la Unidad Educativa';
 
     const htmlConstancia = `
-      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; min-height: 980px; box-sizing: border-box;">
+      <div style="border: 2px solid #94a3b8; border-radius: 12px; padding: 42px 48px 35px 48px; background: #ffffff; width: 800px; font-family: Arial, Helvetica, sans-serif; color: #000000; box-sizing: border-box; min-height: 1035px; display: flex; flex-direction: column; justify-content: space-between; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
         <div>
           <!-- CINTA TRICOLOR BANDERA DE VENEZUELA OFICIAL -->
           <div style="margin-bottom: 16px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column;">

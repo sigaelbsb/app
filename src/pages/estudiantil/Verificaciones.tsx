@@ -1276,8 +1276,8 @@ export const Verificaciones: React.FC = () => {
             {vistaDoc === 'constancia' && (
               <div 
                 ref={docRef}
-                className="bg-white shadow-lg rounded-4 p-4 p-md-5 mb-5 animate__animated animate__fadeIn"
-                style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box' }}
+                className="bg-white shadow-lg rounded-4 mb-5 animate__animated animate__fadeIn mx-auto"
+                style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box', minHeight: '1035px', padding: '42px 48px 35px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontFamily: 'Arial, Helvetica, sans-serif' }}
               >
                 {/* BANDERA DE VENEZUELA */}
                 <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
