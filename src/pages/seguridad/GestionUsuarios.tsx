@@ -579,6 +579,62 @@ export const GestionUsuarios = () => {
     setLoading(false);
   };
 
+  const enviarNotificacionReseteoWhatsApp = (u: any) => {
+    const nombre = toTitulo(u.nombre_completo || 'Usuario');
+    const cedula = u.cedula || '';
+    
+    // Obtener teléfono de usuario o de estudiantes vinculados
+    let telefono = u.telefono || '';
+    if (!telefono && vinculacionesMap) {
+      const ests = getEstudiantesDeUsuario(u, vinculacionesMap);
+      if (ests.length > 0) {
+        for (const est of ests) {
+          if (est.telefono_representante) {
+            telefono = est.telefono_representante;
+            break;
+          }
+        }
+      }
+    }
+
+    const mensaje = `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que su cuenta en el *Sistema Integrado de Gestión y Administración Educativa (SIGAE)* ha sido *restablecida / reseteada exitosamente*.\n\n📋 *Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar:*\n1. Ingrese a la plataforma SIGAE: https://sigaelbsb.app\n2. Inicie sesión con su cédula como usuario y contraseña.\n3. El sistema le solicitará configurar su nueva clave personal y preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`;
+
+    // Normalizar a formato E.164 Venezuela (código 58)
+    let telLimpio = String(telefono).replace(/\D/g, '');
+    if (telLimpio.startsWith('0')) {
+      telLimpio = '58' + telLimpio.slice(1);
+    } else if (telLimpio.length === 10 && telLimpio.startsWith('4')) {
+      telLimpio = '58' + telLimpio;
+    }
+
+    if (telLimpio.length >= 10) {
+      const url = `https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent(mensaje)}`;
+      window.open(url, '_blank');
+    } else {
+      if (Swal) {
+        Swal.fire({
+          title: 'Enviar Notificación por WhatsApp',
+          html: `El usuario <b>${nombre}</b> no tiene un teléfono celular registrado en su ficha.<br/><br/>Ingrese el número de WhatsApp para enviarle sus datos de acceso:`,
+          input: 'text',
+          inputPlaceholder: 'Ej: 04141234567',
+          showCancelButton: true,
+          confirmButtonColor: '#25D366',
+          confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Abrir WhatsApp',
+          cancelButtonText: 'Omitir'
+        }).then((res: any) => {
+          if (res.isConfirmed && res.value) {
+            let t = res.value.replace(/\D/g, '');
+            if (t.startsWith('0')) t = '58' + t.slice(1);
+            else if (t.length === 10 && t.startsWith('4')) t = '58' + t;
+            if (t.length >= 10) {
+              window.open(`https://api.whatsapp.com/send?phone=${t}&text=${encodeURIComponent(mensaje)}`, '_blank');
+            }
+          }
+        });
+      }
+    }
+  };
+
   const resetearClave = async (u: any) => {
     if (!Swal) return;
 
@@ -590,7 +646,7 @@ export const GestionUsuarios = () => {
 
     Swal.fire({
       title: '¿Resetear Contraseña?',
-      text: `La contraseña de ${u.nombre_completo} volverá a ser su número de cédula (${u.cedula}) y se desbloqueará su cuenta.`,
+      html: `La contraseña de <b>${u.nombre_completo}</b> volverá a ser su número de cédula (<b>${u.cedula}</b>) y se desbloqueará su cuenta.<br/><br/>¿Deseas continuar?`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#f59e0b',
@@ -605,7 +661,8 @@ export const GestionUsuarios = () => {
             primer_ingreso: true,
             intentos_fallidos: 0,
             bloqueo_hasta: null,
-            estado: 'Activo'
+            estado: 'Activo',
+            solicito_reseteo: false
           };
 
           if (u.cedula) {
@@ -618,9 +675,23 @@ export const GestionUsuarios = () => {
             await supabase.from('usuarios').update(resetData).eq('id', u.id);
           }
 
-          Swal.fire('¡Contraseña Reseteada!', 'La contraseña ha vuelto a ser la cédula.', 'success');
           auditar('Gestión de Usuarios', 'Resetear Clave', `Reinició contraseña de: ${u.cedula}`);
           await cargarUsuarios();
+
+          Swal.fire({
+            title: '¡Contraseña Reseteada!',
+            html: `La contraseña de <b>${u.nombre_completo}</b> ha sido restablecida a su cédula.<br/><br/>¿Deseas enviar la notificación con los datos de acceso por WhatsApp al usuario?`,
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonColor: '#25D366',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Enviar WhatsApp al Usuario',
+            cancelButtonText: 'Cerrar'
+          }).then((resWa: any) => {
+            if (resWa.isConfirmed) {
+              enviarNotificacionReseteoWhatsApp(u);
+            }
+          });
         } catch (e: any) {
           console.error(e);
           Swal.fire('Error', e?.message || 'No se pudo resetear la contraseña.', 'error');
@@ -799,8 +870,6 @@ export const GestionUsuarios = () => {
         try {
           const payload = {
             clave: u.cedula,
-            email: null,
-            telefono: null,
             preguntas_seguridad: null,
             intentos_fallidos: 0,
             bloqueo_hasta: null,
@@ -819,11 +888,25 @@ export const GestionUsuarios = () => {
             await supabase.from('usuarios').update(payload).eq('id', u.id);
           }
 
-          Swal.fire('¡Reseteo Aprobado!', `La cuenta de ${u.nombre_completo} ha sido restablecida exitosamente.`, 'success');
-          auditar('Gestión de Usuarios', 'Aprobar Reseteo Total', `Se borró la configuración de la cuenta de: ${u.cedula}`);
+          auditar('Gestión de Usuarios', 'Aprobar Reseteo Total', `Se aprobó reseteo de: ${u.cedula}`);
           
           setShowReseteosModal(false);
           await cargarUsuarios();
+
+          Swal.fire({
+            title: '¡Reseteo Aprobado con Éxito!',
+            html: `La cuenta de <b>${u.nombre_completo}</b> ha sido restablecida.<br/><br/>¿Deseas enviar el mensaje de notificación por WhatsApp al usuario en este momento?`,
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonColor: '#25D366',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="bi bi-whatsapp me-1"></i> Enviar WhatsApp al Usuario',
+            cancelButtonText: 'Cerrar'
+          }).then((resWa: any) => {
+            if (resWa.isConfirmed) {
+              enviarNotificacionReseteoWhatsApp(u);
+            }
+          });
         } catch (e: any) {
           console.error(e);
           Swal.fire('Error', e?.message || 'No se pudo aplicar el reseteo.', 'error');
@@ -1359,6 +1442,13 @@ export const GestionUsuarios = () => {
                                   <i className="bi bi-pencil-square"></i>
                                 </button>
                               )}
+                              <button 
+                                className="btn btn-sm btn-light text-success shadow-sm border me-1" 
+                                onClick={() => enviarNotificacionReseteoWhatsApp(u)} 
+                                title="Enviar Notificación de Acceso / Reseteo por WhatsApp"
+                              >
+                                <i className="bi bi-whatsapp"></i>
+                              </button>
                               {canDeleteU && (
                                 <button 
                                   className="btn btn-sm btn-light text-warning shadow-sm border me-1" 
