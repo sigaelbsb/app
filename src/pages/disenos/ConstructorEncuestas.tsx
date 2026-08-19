@@ -270,7 +270,7 @@ export const ConstructorEncuestas: React.FC = () => {
               },
               {
                 id: 'p2-2',
-                enunciado: '¿Pudo descargar correctamente su Constancia de Actualización de Datos?',
+                enunciado: '¿Pudo descargar correctamente su Constancia de Inscripción?',
                 tipo: 'opcion_unica',
                 obligatoria: true,
                 opciones: ['Sí, sin problemas', 'Sí, pero tuve dificultades', 'No pude descargarla']

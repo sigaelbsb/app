@@ -636,7 +636,7 @@ export const Verificaciones: React.FC = () => {
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
 
       const nombreEst = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Estudiante';
-      const tipoTexto = vistaDoc === 'constancia' ? 'Constancia_Actualizacion' : vistaDoc === 'resumen' ? 'Ficha_Integral' : 'Solicitud_Cupo';
+      const tipoTexto = vistaDoc === 'constancia' ? 'Constancia_Inscripcion' : vistaDoc === 'resumen' ? 'Ficha_Integral' : 'Solicitud_Cupo';
       const fileName = `SIGAE_${tipoTexto}_${nombreEst.replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
       if (Swal) Swal.fire('¡PDF Generado!', 'El documento oficial ha sido descargado en alta calidad.', 'success');
@@ -710,7 +710,7 @@ export const Verificaciones: React.FC = () => {
             <div>
               <h3 className="fw-bold mb-0 text-dark">Módulo de Verificaciones Oficiales</h3>
               <p className="text-muted small mb-0">
-                Consulta y validación segura de Constancias de Actualización de Datos, Fichas Integrales y Solicitudes de Cupos.
+                Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos.
               </p>
             </div>
           </div>
@@ -994,7 +994,7 @@ export const Verificaciones: React.FC = () => {
           </div>
           <h4 className="fw-bold text-danger mb-1">Documento No Encontrado</h4>
           <p className="text-muted mb-2">
-            No se localizó ninguna Constancia, Ficha ni Solicitud de Cupo para: <code>"{codigoBusqueda}"</code>.
+            No se localizó ninguna Constancia de Inscripción, Ficha ni Solicitud de Cupo para: <code>"{codigoBusqueda}"</code>.
           </p>
           <p className="text-muted small mb-4">
             Puedes probar escribiendo directamente el número de cédula o escaneando el código QR con la cámara.
@@ -1124,7 +1124,7 @@ export const Verificaciones: React.FC = () => {
                 onClick={() => setVistaDoc('constancia')}
                 className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'constancia' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
               >
-                <i className="bi bi-award-fill me-1"></i> Constancia de Actualización de Datos
+                <i className="bi bi-award-fill me-1"></i> Constancia de Inscripción
               </button>
               
               <button
@@ -1181,7 +1181,7 @@ export const Verificaciones: React.FC = () => {
           {/* ─── VISOR DE DOCUMENTO OFICIAL (RÉPLICA EXACTA) ───────────────── */}
           <div className="d-flex justify-content-center">
             
-            {/* 1. CONSTANCIA DE ACTUALIZACIÓN DE DATOS OFICIAL */}
+            {/* 1. CONSTANCIA DE INSCRIPCIÓN OFICIAL */}
             {vistaDoc === 'constancia' && (
               <div 
                 ref={docRef}
@@ -1213,13 +1213,15 @@ export const Verificaciones: React.FC = () => {
                 {/* TÍTULO DE LA CONSTANCIA */}
                 <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
                   <h2 style={{ margin: 0, fontSize: '21px', fontWeight: 'bold', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Constancia de Actualización de Datos
+                    Constancia de Inscripción
                   </h2>
                 </div>
 
-                {/* PÁRRAFO DE CERTIFICACIÓN */}
+                {/* PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN */}
                 <div style={{ fontSize: '13.5px', lineHeight: '1.95', color: '#000000', textAlign: 'justify', marginBottom: '25px' }}>
-                  Quien suscribe, <b>{dirInfo?.tituloDirector || 'Director(a) de la Institución'}</b>, titular de la cédula de identidad número <b>{dirInfo?.cedula || '17.780.095'}</b>, en calidad de {dirInfo?.cargoGenerico || 'Director'} de la Unidad Educativa, certifico que los datos reflejados en esta constancia corresponden a un estudiante que ha actualizado su información de forma exitosa. Este estudiante está autorizado para cursar el Año Escolar <b>{anoActual} – {anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
+                  Quien suscribe, <b>{dirInfo?.tituloDirector || 'Director(a) de la Institución'}</b>, titular de la Cédula de Identidad número <b>{dirInfo?.cedula || '17.780.095'}</b>, en calidad de {dirInfo?.cargoGenerico || 'Director(a)'} de la <b>{dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}</b>, por medio de la presente hace constar y certifica que el/la estudiante: <b>{nombreEstudianteCompleto}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>{cedulaEstudiante}</b>, se encuentra formalmente <b>INSCRITO(A)</b> en esta institución educativa para cursar el <b>{gradoEstudiante}</b> correspondiente al Nivel de <b>{nivelEducativo}</b>, durante el Año Escolar <b>{anoActual} – {anoProximo}</b>.
+                  <br/><br/>
+                  Constancia que se expide a petición de la parte interesada a los fines consiguientes. A continuación se detallan los datos relevantes:
                 </div>
 
                 {/* DATOS RELEVANTES DETALLADOS */}
@@ -1227,9 +1229,10 @@ export const Verificaciones: React.FC = () => {
                   <div><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
                   <div><b>Cédula de Identidad o Escolar:</b> {cedulaEstudiante}</div>
                   <div><b>Nivel Educativo:</b> {nivelEducativo}</div>
-                  <div><b>Grupo, grado o año a cursar:</b> {gradoEstudiante}</div>
+                  <div><b>Grupo, Grado o Año a Cursar:</b> {gradoEstudiante}</div>
                   <div><b>Representante Legal:</b> {representanteNombre}</div>
                   <div><b>Cédula de Identidad:</b> {representanteCedula}</div>
+                  <div><b>Año Escolar:</b> {anoActual} – {anoProximo}</div>
                   <div><b>Fecha de Emisión:</b> {new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
 
@@ -1260,7 +1263,7 @@ export const Verificaciones: React.FC = () => {
                     <img src={logoMppe} alt="MPPE" style={{ height: '40px', width: 'auto' }} />
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
-                    SIGAE - Control Estudiantil | Constancia Oficial Verificable mediante Código QR<br/>
+                    SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
                     Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoConstancia}</b>
                   </div>
                 </div>

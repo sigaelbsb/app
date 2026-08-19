@@ -500,12 +500,12 @@ export const ActualizacionDatos: React.FC = () => {
     if (!Swal) return;
 
     Swal.fire({
-      title: 'Constancia de Actualización de Datos Oficial',
+      title: 'Constancia de Inscripción Oficial',
       html: `
         <p class="text-muted small mb-3">Se generará la constancia oficial firmada digitalmente y verificable públicamente vía código QR.</p>
         <div class="d-flex flex-column gap-3">
           <button id="btn-const-pdf" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
-            <i class="bi bi-file-earmark-check-fill fs-5 me-2"></i> Descargar Constancia (PDF)
+            <i class="bi bi-file-earmark-check-fill fs-5 me-2"></i> Descargar Constancia de Inscripción (PDF)
           </button>
           <button id="btn-const-wa" class="btn btn-outline-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
             <i class="bi bi-whatsapp fs-5 me-2"></i> Enviar por WhatsApp
@@ -561,7 +561,7 @@ export const ActualizacionDatos: React.FC = () => {
     const Swal = (window as any).Swal;
     if (Swal) {
       Swal.fire({
-        title: 'Generando Constancia de Actualización de Datos...',
+        title: 'Generando Constancia de Inscripción...',
         html: '<div class="spinner-border text-success" role="status"></div><p class="mt-2 small text-muted">Aplicando firma digital cifrada y código QR de verificación pública...</p>',
         allowOutsideClick: false,
         showConfirmButton: false,
@@ -628,22 +628,25 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- TÍTULO DE LA CONSTANCIA -->
           <div style="text-align: center; margin: 28px 0 24px;">
-            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Constancia de Actualización de Datos</h2>
+            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Constancia de Inscripción</h2>
           </div>
 
-          <!-- PÁRRAFO DE CERTIFICACIÓN MODELO PRUEBA.PDF -->
+          <!-- PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN -->
           <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 25px;">
-            Quien suscribe, <b>${dirData.tituloDirector}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en calidad de ${dirData.cargoGenerico} de la Unidad Educativa, certifico que los datos reflejados en esta constancia corresponden a un estudiante que ha actualizado su información de forma exitosa. Este estudiante está autorizado para cursar el Año Escolar <b>${anoActual} – ${anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
+            Quien suscribe, <b>${dirData.tituloDirector}</b>, titular de la Cédula de Identidad número <b>${dirData.cedula}</b>, en calidad de ${dirData.cargoGenerico} de la <b>${dirData.nombreEscuela}</b>, por medio de la presente hace constar y certifica que el/la estudiante: <b>${nombreCompleto}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>${cedulaEstudiante}</b>, se encuentra formalmente <b>INSCRITO(A)</b> en esta institución educativa para cursar el <b>${gradoActual}</b> correspondiente al Nivel de <b>${nivelEducativo}</b>, durante el Año Escolar <b>${anoActual} – ${anoProximo}</b>.
+            <br/><br/>
+            Constancia que se expide a petición de la parte interesada a los fines consiguientes, en fecha <b>${fechaHoy}</b>. A continuación se detallan los datos relevantes:
           </div>
 
-          <!-- DATOS RELEVANTES DETALLADOS MODELO PRUEBA.PDF -->
+          <!-- DATOS RELEVANTES DETALLADOS -->
           <div style="font-size: 13.5px; line-height: 2.2; color: #000000; margin-left: 12px; margin-bottom: 30px;">
             <div><b>Estudiante:</b> ${nombreCompleto}</div>
             <div><b>Cédula de Identidad o Escolar:</b> ${cedulaEstudiante}</div>
             <div><b>Nivel Educativo:</b> ${nivelEducativo}</div>
-            <div><b>Grupo, grado o año a cursar:</b> ${gradoActual}</div>
+            <div><b>Grupo, Grado o Año a Cursar:</b> ${gradoActual}</div>
             <div><b>Representante Legal:</b> ${representanteNombre}</div>
             <div><b>Cédula de Identidad:</b> ${representanteCedula}</div>
+            <div><b>Año Escolar:</b> ${anoActual} – ${anoProximo}</div>
             <div><b>Fecha de Emisión:</b> ${fechaHoy}</div>
           </div>
         </div>
@@ -674,7 +677,7 @@ export const ActualizacionDatos: React.FC = () => {
               <img src="${base64Mppe}" style="height: 40px; width: auto;" />
             </div>
             <div style="text-align: right; font-size: 8.5px; color: #64748b;">
-              SIGAE - Control Estudiantil | Documento Oficial Verificable mediante Código QR<br/>
+              SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
               Cód. Autenticidad: <b style="color: #166534; font-family: monospace;">${codigoUnico}</b>
             </div>
           </div>
@@ -715,11 +718,11 @@ export const ActualizacionDatos: React.FC = () => {
       document.body.removeChild(clon);
 
       const pdfBlob = pdf.output('blob');
-      const nombreArchivo = `Constancia_Actualizacion_Datos_${nombreCompleto.replace(/\s+/g, '_')}.pdf`;
+      const nombreArchivo = `Constancia_Inscripcion_${nombreCompleto.replace(/\s+/g, '_')}.pdf`;
       const file = new File([pdfBlob], nombreArchivo, { type: "application/pdf" });
 
-      const textoMensaje = `*SIGAE - Constancia de Actualización de Datos Oficial*\n\n` +
-        `Estimad@, adjunto la Constancia de Actualización de Datos oficial del estudiante *${nombreCompleto}* en formato PDF con firma digital y código QR de verificación.\n` +
+      const textoMensaje = `*SIGAE - Constancia de Inscripción Oficial*\n\n` +
+        `Estimad@, adjunto la Constancia de Inscripción oficial del estudiante *${nombreCompleto}* en formato PDF con firma digital y código QR de verificación.\n` +
         `Plantel: ${escNombre}\n` +
         `Código de Verificación: ${codigoUnico}\n\n` +
         `Sistema SIGAE.`;
@@ -741,8 +744,8 @@ export const ActualizacionDatos: React.FC = () => {
         URL.revokeObjectURL(pdfUrl);
 
         const emailDestino = formDatos.representante_email || formDatos.padre_email || formDatos.madre_email || '';
-        const asunto = encodeURIComponent(`Constancia de Actualización de Datos - ${nombreCompleto}`);
-        const cuerpo = encodeURIComponent(`Estimad@,\n\nAdjunto la Constancia de Actualización de Datos oficial del estudiante ${nombreCompleto} (Año Escolar ${anoActual}-${anoProximo}).\n\nEl archivo PDF (${nombreArchivo}) ha sido descargado en su dispositivo.\n\nCódigo de Verificación: ${codigoUnico}\n\nAtentamente,\n${escNombre}\nSistema SIGAE.`);
+        const asunto = encodeURIComponent(`Constancia de Inscripción - ${nombreCompleto}`);
+        const cuerpo = encodeURIComponent(`Estimad@,\n\nAdjunto la Constancia de Inscripción oficial del estudiante ${nombreCompleto} (Año Escolar ${anoActual}-${anoProximo}).\n\nEl archivo PDF (${nombreArchivo}) ha sido descargado en su dispositivo.\n\nCódigo de Verificación: ${codigoUnico}\n\nAtentamente,\n${escNombre}\nSistema SIGAE.`);
         const mailtoUrl = `mailto:${emailDestino}?subject=${asunto}&body=${cuerpo}`;
 
         if (Swal) {
@@ -759,7 +762,7 @@ export const ActualizacionDatos: React.FC = () => {
       } else {
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
-            await navigator.share({ files: [file], title: `Constancia de Actualización de Datos - ${nombreCompleto}`, text: textoMensaje });
+            await navigator.share({ files: [file], title: `Constancia de Inscripción - ${nombreCompleto}`, text: textoMensaje });
             if (Swal) Swal.close();
           } catch (shareErr) {
             console.log('Web Share failed', shareErr);
@@ -783,7 +786,7 @@ export const ActualizacionDatos: React.FC = () => {
       }
     } catch (error) {
       console.error('Error generando Constancia:', error);
-      if (Swal) Swal.fire('Error', 'No se pudo generar la Constancia de Actualización de Datos.', 'error');
+      if (Swal) Swal.fire('Error', 'No se pudo generar la Constancia de Inscripción.', 'error');
     }
   };
 
@@ -4574,7 +4577,7 @@ const STEPS = [
                                 onClick={() => manejarOpcionesConstancia(est, datosFormEst)}
                               >
                                 <i className="bi bi-file-earmark-check-fill me-2 fs-5"></i>
-                                Descargar Constancia de Actualización de Datos
+                                Descargar Constancia de Inscripción
                               </button>
                             </>
                           )}

@@ -139,7 +139,7 @@ export const ValidarConstancia: React.FC = () => {
                   <i className="bi bi-patch-check-fill me-1"></i> Documento Oficial Verificado
                 </span>
               </div>
-              <h3 className="fw-bolder mb-1 text-white">Constancia de Actualización de Datos</h3>
+              <h3 className="fw-bolder mb-1 text-white">Constancia de Inscripción</h3>
               <p className="text-white-50 small mb-0">Sistema Integral de Gestión y Administración Escolar (SIGAE)</p>
             </div>
 
@@ -177,10 +177,12 @@ export const ValidarConstancia: React.FC = () => {
               </div>
 
               <div className="p-3 bg-light rounded-3 border mb-4 text-justify" style={{ lineHeight: '1.8' }}>
-                Quien suscribe, <b>{dirData.tituloDirector}</b>, titular de la cédula de identidad número <b>{dirData.cedula}</b>, en calidad de {dirData.cargoGenerico} de la Unidad Educativa, certifico que los datos reflejados en esta constancia corresponden a un estudiante que ha actualizado su información de forma exitosa. Este estudiante está autorizado para cursar el Año Escolar <b>{anoActual} – {anoProximo}</b> en nuestra institución.
+                Quien suscribe, <b>{dirData.tituloDirector}</b>, titular de la Cédula de Identidad número <b>{dirData.cedula}</b>, en calidad de {dirData.cargoGenerico} de la <b>{dirData.nombreEscuela}</b>, por medio de la presente hace constar y certifica que el/la estudiante: <b>{nombreEstudiante}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>{cedulaEstudiante}</b>, se encuentra formalmente <b>INSCRITO(A)</b> en esta institución educativa para cursar el <b>{gradoEstudiante}</b> correspondiente al Nivel de <b>{nivelEducativo}</b>, durante el Año Escolar <b>{anoActual} – {anoProximo}</b>.
+                <br/><br/>
+                Constancia que se expide a petición de la parte interesada a los fines consiguientes.
               </div>
 
-              {/* CAMPOS DEL MODELO PRUEBA.PDF */}
+              {/* CAMPOS DEL MODELO OFICIAL */}
               <div className="card border rounded-3 p-3 bg-white mb-4">
                 <div className="row g-2 font-monospace">
                   <div className="col-12 border-bottom pb-2 mb-2">
@@ -196,7 +198,7 @@ export const ValidarConstancia: React.FC = () => {
                     <b>{nivelEducativo}</b>
                   </div>
                   <div className="col-md-6">
-                    <span className="text-muted me-2">Grupo, grado o año a cursar:</span>
+                    <span className="text-muted me-2">Grupo, Grado o Año a Cursar:</span>
                     <b className="text-primary">{gradoEstudiante}</b>
                   </div>
                   <div className="col-md-6">
@@ -206,6 +208,10 @@ export const ValidarConstancia: React.FC = () => {
                   <div className="col-md-6">
                     <span className="text-muted me-2">Cédula Representante:</span>
                     <b>{representanteCedula}</b>
+                  </div>
+                  <div className="col-md-6">
+                    <span className="text-muted me-2">Año Escolar:</span>
+                    <b>{anoActual} – {anoProximo}</b>
                   </div>
                   <div className="col-md-6">
                     <span className="text-muted me-2">Fecha de Emisión:</span>

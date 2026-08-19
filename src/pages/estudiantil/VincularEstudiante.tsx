@@ -1261,7 +1261,7 @@ export const VincularEstudiante: React.FC = () => {
                 <div style="background: rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 8px;">
                   <div style="font-size: 8px; text-transform: uppercase; opacity: 0.85;">Matrícula Total</div>
                   <div style="font-size: 16px; font-weight: 900;">${stats.totalGeneral}</div>
-                  <div style="font-size: 7.5px; opacity: 0.8;">100% alumnos</div>
+                  <div style="font-size: 7.5px; opacity: 0.8;">100% estudiantes</div>
                 </div>
                 <div style="background: rgba(16,185,129,0.25); border-radius: 6px; padding: 6px 8px; border: 1px solid rgba(16,185,129,0.4);">
                   <div style="font-size: 8px; text-transform: uppercase; color: #a7f3d0; font-weight: bold;">🟢 Actualizados (100%)</div>
@@ -1301,7 +1301,7 @@ export const VincularEstudiante: React.FC = () => {
                         <span style="font-size: 20px;">${icono}</span>
                         <div>
                           <div style="font-size: 12.5px; font-weight: 800; color: #1e293b;">${et.etapa}</div>
-                          <div style="font-size: 8px; color: #64748b;">Matrícula: <strong>${et.total}</strong> alumnos</div>
+                          <div style="font-size: 8px; color: #64748b;">Matrícula: <strong>${et.total}</strong> estudiantes</div>
                         </div>
                       </div>
                       <div style="font-size: 24px; font-weight: 900; color: ${c}; line-height: 1;">
@@ -1351,7 +1351,7 @@ export const VincularEstudiante: React.FC = () => {
                 </svg>
                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
                   <div style="font-size: 13px; font-weight: 900; color: #0f172a;">${stats.totalGeneral}</div>
-                  <div style="font-size: 7px; font-weight: bold; color: #64748b;">ALUMNOS</div>
+                  <div style="font-size: 7px; font-weight: bold; color: #64748b;">ESTUDIANTES</div>
                 </div>
               </div>
               <div style="font-size: 9px; font-weight: bold; color: #166534; margin-top: 2px;">🟢 ${stats.pctGeneral}% al día</div>
@@ -1419,7 +1419,7 @@ export const VincularEstudiante: React.FC = () => {
           <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; background: #f8fafc; margin-bottom: 12px;">
             <div style="font-size: 11px; font-weight: bold; color: #0f172a; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; display: flex; justify-content: space-between;">
               <span>📊 Gráfica Seleccionada: ${tipo.toUpperCase()} (${tituloDesglose})</span>
-              <span style="color: #1e40af;">Total: ${stats.totalGeneral} Alumnos</span>
+              <span style="color: #1e40af;">Total: ${stats.totalGeneral} Estudiantes</span>
             </div>
 
             ${tipo === 'picos' ? `
@@ -2459,9 +2459,9 @@ export const VincularEstudiante: React.FC = () => {
                       <tr>
                         <th>Cédula Rep.</th>
                         <th>Nombre Representante</th>
-                        <th>Cédula Alumno</th>
-                        <th>Nombres Alumno</th>
-                        <th>Apellidos Alumno</th>
+                        <th>Cédula Estudiante</th>
+                        <th>Nombres Estudiante</th>
+                        <th>Apellidos Estudiante</th>
                         <th>Escuela</th>
                         <th>Grado</th>
                         <th>Sección</th>
@@ -2621,7 +2621,7 @@ export const VincularEstudiante: React.FC = () => {
                     </div>
                   </th>
                   <th>Representante</th>
-                  <th>Cédula Alumno</th>
+                  <th>Cédula Estudiante</th>
                   <th>Estudiante</th>
                   <th>Plantel</th>
                   <th>Grado</th>
@@ -3361,7 +3361,7 @@ export const VincularEstudiante: React.FC = () => {
                                       <div className="p-2.5 rounded-3" style={{ background: 'rgba(255, 255, 255, 0.16)', border: '1px solid rgba(255, 255, 255, 0.3)' }}>
                                         <small className="text-white text-opacity-80 text-uppercase d-block fw-bold" style={{ fontSize: '0.68rem' }}>Matrícula Total</small>
                                         <span className="fs-4 fw-bolder text-white lh-1 d-block my-1">{stats.totalGeneral}</span>
-                                        <small className="d-block text-white text-opacity-75" style={{ fontSize: '0.68rem' }}>100% alumnos</small>
+                                        <small className="d-block text-white text-opacity-75" style={{ fontSize: '0.68rem' }}>100% estudiantes</small>
                                       </div>
                                     </div>
                                     <div className="col-md-3 col-6">
@@ -3416,7 +3416,7 @@ export const VincularEstudiante: React.FC = () => {
                                               </div>
                                               <div>
                                                 <h6 className="fw-bolder text-dark mb-0">{et.etapa}</h6>
-                                                <small className="text-muted" style={{ fontSize: '0.72rem' }}>Matrícula: {et.total} alumnos</small>
+                                                <small className="text-muted" style={{ fontSize: '0.72rem' }}>Matrícula: {et.total} estudiantes</small>
                                               </div>
                                             </div>
                                             <div className="text-end">
@@ -3513,7 +3513,7 @@ export const VincularEstudiante: React.FC = () => {
                                     </svg>
                                     <div className="position-absolute text-center">
                                       <span className="fs-5 fw-bolder text-dark d-block lh-1">{stats.totalGeneral}</span>
-                                      <span className="text-muted fw-bold" style={{ fontSize: '0.62rem' }}>ALUMNOS</span>
+                                      <span className="text-muted fw-bold" style={{ fontSize: '0.62rem' }}>ESTUDIANTES</span>
                                     </div>
                                   </div>
                                   <div className="d-flex justify-content-around text-center pt-1 border-top" style={{ fontSize: '0.72rem' }}>
@@ -3843,7 +3843,7 @@ export const VincularEstudiante: React.FC = () => {
                               <h6 className="fw-bold text-dark mb-0"><i className="bi bi-bullseye text-primary me-2"></i>Radar Multidimensional: {tituloVista}</h6>
                               <small className="text-muted">Balance y polígono de cumplimiento en todas las áreas evaluadas.</small>
                             </div>
-                            <span className="badge bg-primary bg-opacity-10 text-primary border">{stats.totalGeneral} Alumnos</span>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border">{stats.totalGeneral} Estudiantes</span>
                           </div>
 
                           <div className="row g-2.5">
