@@ -3347,9 +3347,9 @@ export const VincularEstudiante: React.FC = () => {
                                         {escuelaReporte === 'ambas' ? 'Consolidado General de Ambas Escuelas' : (escuelaReporte === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar')}
                                       </h4>
                                     </div>
-                                    <div className="text-center bg-white bg-opacity-20 px-3.5 py-2 rounded-4 border border-white border-opacity-25" style={{ minWidth: '130px' }}>
+                                    <div className="text-center px-3.5 py-2 rounded-4" style={{ minWidth: '135px', background: 'rgba(255, 255, 255, 0.22)', border: '1.5px solid rgba(255, 255, 255, 0.4)' }}>
                                       <div className="display-6 fw-bolder text-white lh-1">{stats.pctGeneral}%</div>
-                                      <small className="text-white fw-bold text-uppercase d-block mt-0.5" style={{ fontSize: '0.68rem' }}>
+                                      <small className="text-white fw-bold text-uppercase d-block mt-0.5" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
                                         {escuelaReporte === 'ambas' ? 'Avance Global' : 'Total Escuela'}
                                       </small>
                                     </div>
@@ -3358,27 +3358,31 @@ export const VincularEstudiante: React.FC = () => {
                                   {/* 4 Métricas Generales de la Escuela / Consolidado */}
                                   <div className="row g-2 text-center">
                                     <div className="col-md-3 col-6">
-                                      <div className="bg-white bg-opacity-15 p-2 rounded-3">
-                                        <small className="text-white text-opacity-75 text-uppercase d-block fw-bold" style={{ fontSize: '0.65rem' }}>Matrícula Total</small>
-                                        <span className="fs-5 fw-bolder text-white">{stats.totalGeneral}</span>
+                                      <div className="p-2.5 rounded-3" style={{ background: 'rgba(255, 255, 255, 0.16)', border: '1px solid rgba(255, 255, 255, 0.3)' }}>
+                                        <small className="text-white text-opacity-80 text-uppercase d-block fw-bold" style={{ fontSize: '0.68rem' }}>Matrícula Total</small>
+                                        <span className="fs-4 fw-bolder text-white lh-1 d-block my-1">{stats.totalGeneral}</span>
+                                        <small className="d-block text-white text-opacity-75" style={{ fontSize: '0.68rem' }}>100% alumnos</small>
                                       </div>
                                     </div>
                                     <div className="col-md-3 col-6">
-                                      <div className="bg-success bg-opacity-25 p-2 rounded-3 border border-success border-opacity-25">
-                                        <small className="text-white text-uppercase d-block fw-bold" style={{ fontSize: '0.65rem' }}>🟢 Actualizados (100%)</small>
-                                        <span className="fs-5 fw-bolder text-white">{stats.completadosGeneral} <small style={{ fontSize: '0.75rem' }}>({stats.pctGeneral}%)</small></span>
+                                      <div className="p-2.5 rounded-3" style={{ background: 'rgba(16, 185, 129, 0.28)', border: '1.5px solid rgba(16, 185, 129, 0.55)' }}>
+                                        <small className="text-uppercase d-block fw-bold" style={{ fontSize: '0.68rem', color: '#a7f3d0' }}>🟢 Actualizados (100%)</small>
+                                        <span className="fs-4 fw-bolder text-white lh-1 d-block my-1">{stats.completadosGeneral}</span>
+                                        <small className="d-block fw-bold" style={{ fontSize: '0.68rem', color: '#a7f3d0' }}>{stats.pctGeneral}%</small>
                                       </div>
                                     </div>
                                     <div className="col-md-3 col-6">
-                                      <div className="bg-warning bg-opacity-25 p-2 rounded-3 border border-warning border-opacity-25">
-                                        <small className="text-white text-uppercase d-block fw-bold" style={{ fontSize: '0.65rem' }}>🟡 En Proceso</small>
-                                        <span className="fs-5 fw-bolder text-white">{stats.enProcesoGeneral} <small style={{ fontSize: '0.75rem' }}>({stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%)</small></span>
+                                      <div className="p-2.5 rounded-3" style={{ background: 'rgba(245, 158, 11, 0.28)', border: '1.5px solid rgba(245, 158, 11, 0.55)' }}>
+                                        <small className="text-uppercase d-block fw-bold" style={{ fontSize: '0.68rem', color: '#fde68a' }}>🟡 En Proceso</small>
+                                        <span className="fs-4 fw-bolder text-white lh-1 d-block my-1">{stats.enProcesoGeneral}</span>
+                                        <small className="d-block fw-bold" style={{ fontSize: '0.68rem', color: '#fde68a' }}>{stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%</small>
                                       </div>
                                     </div>
                                     <div className="col-md-3 col-6">
-                                      <div className="bg-white bg-opacity-15 p-2 rounded-3">
-                                        <small className="text-white text-opacity-75 text-uppercase d-block fw-bold" style={{ fontSize: '0.65rem' }}>⚪ Sin Iniciar</small>
-                                        <span className="fs-5 fw-bolder text-white">{stats.sinIniciarGeneral} <small style={{ fontSize: '0.75rem' }}>({stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%)</small></span>
+                                      <div className="p-2.5 rounded-3" style={{ background: 'rgba(255, 255, 255, 0.16)', border: '1px solid rgba(255, 255, 255, 0.3)' }}>
+                                        <small className="text-white text-opacity-80 text-uppercase d-block fw-bold" style={{ fontSize: '0.68rem' }}>⚪ Sin Iniciar</small>
+                                        <span className="fs-4 fw-bolder text-white lh-1 d-block my-1">{stats.sinIniciarGeneral}</span>
+                                        <small className="d-block text-white text-opacity-75" style={{ fontSize: '0.68rem' }}>{stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%</small>
                                       </div>
                                     </div>
                                   </div>
