@@ -136,6 +136,15 @@ export const VincularEstudiante: React.FC = () => {
   const [tipoGrafico, setTipoGrafico] = useState<'dossier' | 'anillos' | 'torta' | 'picos' | 'barras' | 'radar' | 'tacometro' | 'tabla'>('dossier');
   const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
 
+  // Estados para Reasignar / Transferir Representante
+  const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
+  const [estudiantesATransferir, setEstudiantesATransferir] = useState<any[]>([]);
+  const [cedulaNuevoRep, setCedulaNuevoRep] = useState<string>('');
+  const [nuevoRepEncontrado, setNuevoRepEncontrado] = useState<any | null>(null);
+  const [buscandoNuevoRep, setBuscandoNuevoRep] = useState<boolean>(false);
+  const [transferirHermanos, setTransferirHermanos] = useState<boolean>(true);
+  const [hermanosDetectados, setHermanosDetectados] = useState<any[]>([]);
+
   // Estados para Formulario Individual
   const [cedulaRepBuscar, setCedulaRepBuscar] = useState<string>('');
   const [repEncontrado, setRepEncontrado] = useState<any | null>(null);
@@ -570,6 +579,155 @@ export const VincularEstudiante: React.FC = () => {
 
   const handleToggleSeleccion = (id: string) => {
     setSeleccionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleAbrirTransferencia = (estudiantes: any[]) => {
+    if (!estudiantes || estudiantes.length === 0) return;
+    setEstudiantesATransferir(estudiantes);
+    setCedulaNuevoRep('');
+    setNuevoRepEncontrado(null);
+    setTransferirHermanos(true);
+
+    // Detectar si hay hermanitos vinculados al mismo representante anterior que no estén en la lista
+    const idsEst = estudiantes.map(e => e.id);
+    const cedulasRepAnterior = Array.from(new Set(estudiantes.map(e => e.cedula_representante).filter(Boolean)));
+    
+    if (cedulasRepAnterior.length === 1) {
+      const cedRep = cedulasRepAnterior[0];
+      const hermanitos = vinculaciones.filter(v => v.cedula_representante === cedRep && !idsEst.includes(v.id));
+      setHermanosDetectados(hermanitos);
+    } else {
+      setHermanosDetectados([]);
+    }
+
+    setShowTransferModal(true);
+  };
+
+  const buscarNuevoRepresentante = async () => {
+    if (!cedulaNuevoRep.trim()) return;
+    setBuscandoNuevoRep(true);
+    setNuevoRepEncontrado(null);
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('cedula, nombre_completo, rol, id_escuela, telefono, email')
+        .eq('cedula', cedulaNuevoRep.trim())
+        .maybeSingle();
+
+      if (error || !data) {
+        if ((window as any).Swal) {
+          (window as any).Swal.fire({
+            icon: 'warning',
+            title: 'Representante no encontrado',
+            html: `No existe ningún usuario registrado con la cédula <strong>${cedulaNuevoRep}</strong>.<br/><br/>Por favor regístrelo previamente en <strong>Gestión de Usuarios</strong> o verifique el número ingresado.`,
+            confirmButtonColor: '#3b82f6'
+          });
+        } else {
+          alert(`No existe ningún usuario con la cédula ${cedulaNuevoRep}`);
+        }
+      } else {
+        setNuevoRepEncontrado(data);
+      }
+    } catch (err: any) {
+      console.error('Error buscando nuevo representante:', err);
+    } finally {
+      setBuscandoNuevoRep(false);
+    }
+  };
+
+  const handleEjecutarTransferencia = async () => {
+    const Swal = (window as any).Swal;
+    if (!nuevoRepEncontrado) {
+      if (Swal) Swal.fire('Atención', 'Debe buscar y seleccionar al nuevo representante legal.', 'warning');
+      return;
+    }
+
+    let idsTarget = estudiantesATransferir.map(e => e.id);
+    if (transferirHermanos && hermanosDetectados.length > 0) {
+      const hermanosIds = hermanosDetectados.map(h => h.id);
+      idsTarget = Array.from(new Set([...idsTarget, ...hermanosIds]));
+    }
+
+    setLoading(true);
+    try {
+      const nuevoNombreRep = nuevoRepEncontrado.nombre_completo || `${nuevoRepEncontrado.nombres || ''} ${nuevoRepEncontrado.apellidos || ''}`.trim();
+      const partes = nuevoNombreRep.split(' ');
+      const repNombres = partes.slice(0, Math.ceil(partes.length / 2)).join(' ');
+      const repApellidos = partes.slice(Math.ceil(partes.length / 2)).join(' ');
+
+      for (const estId of idsTarget) {
+        const estActual = vinculaciones.find(v => v.id === estId) || estudiantesATransferir.find(e => e.id === estId);
+        let datosAct = estActual?.datos_actualizados;
+        if (datosAct && typeof datosAct === 'object') {
+          datosAct = {
+            ...datosAct,
+            representante_cedula: nuevoRepEncontrado.cedula,
+            representante_nombres: repNombres,
+            representante_apellidos: repApellidos,
+            representante_email: nuevoRepEncontrado.email || datosAct.representante_email || '',
+            representante_telefono: nuevoRepEncontrado.telefono || datosAct.representante_telefono || ''
+          };
+        }
+
+        const { error } = await supabase
+          .from('estudiantes_vinculaciones')
+          .update({
+            cedula_representante: nuevoRepEncontrado.cedula,
+            nombres_representante: repNombres,
+            apellidos_representante: repApellidos,
+            ...(datosAct ? { datos_actualizados: datosAct } : {})
+          })
+          .eq('id', estId);
+
+        if (error) throw error;
+      }
+
+      auditar('Vincular Estudiante', 'Transferir Representante', `Transferidos ${idsTarget.length} estudiante(s) a nuevo representante C.I. ${nuevoRepEncontrado.cedula} (${nuevoNombreRep})`);
+
+      setVinculaciones(prev => prev.map(v => {
+        if (idsTarget.includes(v.id)) {
+          let datosAct = v.datos_actualizados;
+          if (datosAct && typeof datosAct === 'object') {
+            datosAct = {
+              ...datosAct,
+              representante_cedula: nuevoRepEncontrado.cedula,
+              representante_nombres: repNombres,
+              representante_apellidos: repApellidos
+            };
+          }
+          return {
+            ...v,
+            cedula_representante: nuevoRepEncontrado.cedula,
+            nombres_representante: repNombres,
+            apellidos_representante: repApellidos,
+            datos_actualizados: datosAct
+          };
+        }
+        return v;
+      }));
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Transferencia Exitosa!',
+          text: `Se reasignaron con éxito ${idsTarget.length} estudiante(s) al representante ${nuevoNombreRep} (C.I. ${nuevoRepEncontrado.cedula}).`,
+          confirmButtonColor: '#16a34a'
+        });
+      }
+
+      setShowTransferModal(false);
+      setEstudiantesATransferir([]);
+      setNuevoRepEncontrado(null);
+      setCedulaNuevoRep('');
+      setHermanosDetectados([]);
+      setTransferirHermanos(true);
+      setSeleccionados([]);
+    } catch (err: any) {
+      console.error(err);
+      if (Swal) Swal.fire('Error', 'No se pudo completar la transferencia: ' + (err.message || 'Error de BD'), 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAbrirEdicion = (estudiante: any) => {
@@ -2289,9 +2447,23 @@ export const VincularEstudiante: React.FC = () => {
                 <span>Estadísticas</span>
               </button>
               {seleccionados.length > 0 && (
-                <button className="btn btn-danger fw-bold shadow-sm fade-in" onClick={handleEliminarMasivo} disabled={loading} title="Eliminar seleccionados">
-                  <i className="bi bi-trash-fill"></i> ({seleccionados.length})
-                </button>
+                <>
+                  <button 
+                    className="btn btn-warning fw-bold shadow-sm rounded-pill px-3 d-flex align-items-center gap-1.5 fade-in text-dark" 
+                    onClick={() => {
+                      const ests = vinculaciones.filter(v => seleccionados.includes(v.id));
+                      handleAbrirTransferencia(ests);
+                    }} 
+                    disabled={loading} 
+                    title="Reasignar representante a los estudiantes seleccionados"
+                  >
+                    <i className="bi bi-arrow-left-right"></i>
+                    <span>Reasignar ({seleccionados.length})</span>
+                  </button>
+                  <button className="btn btn-danger fw-bold shadow-sm rounded-pill px-3 fade-in" onClick={handleEliminarMasivo} disabled={loading} title="Eliminar seleccionados">
+                    <i className="bi bi-trash-fill me-1"></i> ({seleccionados.length})
+                  </button>
+                </>
               )}
               <button className="btn btn-outline-secondary fw-bold rounded-circle" style={{ width: '38px', height: '38px' }} onClick={cargarVinculaciones} disabled={loading} title="Actualizar lista">
                 <i className="bi bi-arrow-clockwise"></i>
@@ -2421,6 +2593,13 @@ export const VincularEstudiante: React.FC = () => {
                             <i className="bi bi-pie-chart-fill"></i>
                           </button>
                           <button 
+                            className="btn btn-sm btn-outline-warning text-dark" 
+                            onClick={() => handleAbrirTransferencia([item])}
+                            title="Reasignar / Cambiar Representante Legal"
+                          >
+                            <i className="bi bi-arrow-left-right text-dark"></i>
+                          </button>
+                          <button 
                             className="btn btn-sm btn-outline-primary" 
                             onClick={() => handleAbrirEdicion(item)}
                             title="Editar Estudiante"
@@ -2428,7 +2607,7 @@ export const VincularEstudiante: React.FC = () => {
                             <i className="bi bi-pencil-square"></i>
                           </button>
                           <button 
-                            className="btn btn-sm btn-outline-warning" 
+                            className="btn btn-sm btn-outline-secondary" 
                             onClick={() => handleResetearActualizacion(item)}
                             title="Resetear Datos de Actualización"
                           >
@@ -2509,12 +2688,25 @@ export const VincularEstudiante: React.FC = () => {
               <form onSubmit={handleGuardarEdicion}>
                 <div className="modal-body p-4">
                   
-                  <div className="alert alert-info border-0 bg-info bg-opacity-10 d-flex align-items-center rounded-3 p-3 mb-4">
-                    <i className="bi bi-info-circle-fill fs-4 text-info me-3"></i>
-                    <div>
-                      <small className="d-block fw-bold text-dark">Representante Actual:</small>
-                      <span className="text-secondary">{estudianteEditando.nombres_representante} {estudianteEditando.apellidos_representante} (C.I. {estudianteEditando.cedula_representante})</span>
+                  <div className="alert alert-info border-0 bg-info bg-opacity-10 d-flex align-items-center justify-content-between rounded-4 p-3 mb-4 flex-wrap gap-2">
+                    <div className="d-flex align-items-center">
+                      <i className="bi bi-info-circle-fill fs-4 text-info me-3"></i>
+                      <div>
+                        <small className="d-block fw-bold text-dark">Representante Actual:</small>
+                        <span className="text-secondary">{estudianteEditando.nombres_representante} {estudianteEditando.apellidos_representante} (C.I. {estudianteEditando.cedula_representante})</span>
+                      </div>
                     </div>
+                    <button 
+                      type="button" 
+                      className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold shadow-sm"
+                      onClick={() => {
+                        const est = estudianteEditando;
+                        setShowEditModal(false);
+                        handleAbrirTransferencia([est]);
+                      }}
+                    >
+                      <i className="bi bi-arrow-left-right me-1"></i> Cambiar Representante
+                    </button>
                   </div>
 
                   <div className="row g-3 mb-3">
@@ -3603,6 +3795,152 @@ export const VincularEstudiante: React.FC = () => {
                   </>
                 );
               })()}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal de Reasignar / Cambiar Representante Legal */}
+      {showTransferModal && createPortal(
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1070 }} tabIndex={-1}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content rounded-4 border-0 shadow-lg overflow-hidden animate__animated animate__zoomIn animate__faster">
+              <div className="modal-header bg-gradient text-white p-4" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+                <div className="d-flex align-items-center gap-3">
+                  <div className="p-3 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '54px', height: '54px' }}>
+                    <i className="bi bi-arrow-left-right fs-3"></i>
+                  </div>
+                  <div>
+                    <span className="badge bg-white text-dark fw-bold px-2.5 py-1 rounded-pill mb-1" style={{ fontSize: '0.75rem' }}>
+                      Gestión de Filiaciones
+                    </span>
+                    <h5 className="modal-title fw-bold mb-0 text-white">Reasignar / Cambiar Representante Legal</h5>
+                    <small className="text-white-50">Transfiere la representación oficial de uno o varios estudiantes de forma segura.</small>
+                  </div>
+                </div>
+                <button type="button" className="btn-close btn-close-white shadow-sm" onClick={() => setShowTransferModal(false)}></button>
+              </div>
+
+              <div className="modal-body p-4 bg-light">
+                {/* Estudiantes a transferir */}
+                <div className="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-white">
+                  <h6 className="fw-bold text-dark mb-2 d-flex align-items-center">
+                    <i className="bi bi-mortarboard-fill text-primary me-2"></i>
+                    Estudiante(s) a Reasignar ({estudiantesATransferir.length})
+                  </h6>
+                  <div className="d-flex flex-wrap gap-2">
+                    {estudiantesATransferir.map(e => (
+                      <div key={e.id} className="badge bg-light text-dark border p-2 rounded-3 d-flex align-items-center gap-2">
+                        <span className="fw-bold text-primary">{toTitulo(`${e.nombres_estudiante} ${e.apellidos_estudiante}`)}</span>
+                        <span className="text-muted small">(C.I. {e.cedula_estudiante})</span>
+                        <span className="badge bg-secondary rounded-pill">{e.grado_actual || 'Sin Grado'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {estudiantesATransferir.length > 0 && (
+                    <div className="mt-2 text-muted small">
+                      <i className="bi bi-person-fill text-secondary me-1"></i>
+                      Representante actual: <strong>{toTitulo(`${estudiantesATransferir[0]?.nombres_representante || ''} ${estudiantesATransferir[0]?.apellidos_representante || ''}`)}</strong> (C.I. {estudiantesATransferir[0]?.cedula_representante})
+                    </div>
+                  )}
+                </div>
+
+                {/* Detección de Hermanos */}
+                {hermanosDetectados.length > 0 && (
+                  <div className="card border-0 shadow-sm rounded-4 p-3 mb-3 bg-warning bg-opacity-10 border-warning border-start border-4">
+                    <div className="form-check form-switch m-0">
+                      <input 
+                        className="form-check-input fs-5 cursor-pointer" 
+                        type="checkbox" 
+                        id="switchHermanos"
+                        checked={transferirHermanos}
+                        onChange={(e) => setTransferirHermanos(e.target.checked)}
+                      />
+                      <label className="form-check-label fw-bold text-dark ms-2 cursor-pointer" htmlFor="switchHermanos">
+                        ¿Transferir también a los demás representados de este mismo representante? ({hermanosDetectados.length} adicional{hermanosDetectados.length > 1 ? 'es' : ''})
+                      </label>
+                    </div>
+                    <small className="text-muted d-block mt-1 ms-4 ps-2">
+                      Se detectaron otros estudiantes vinculados al mismo representante anterior:
+                    </small>
+                    <div className="d-flex flex-wrap gap-2 mt-2 ms-4 ps-2">
+                      {hermanosDetectados.map(h => (
+                        <span key={h.id} className={`badge ${transferirHermanos ? 'bg-warning text-dark border border-warning' : 'bg-light text-muted border'} p-2 rounded-3`}>
+                          <i className="bi bi-people-fill me-1"></i>
+                          {toTitulo(`${h.nombres_estudiante} ${h.apellidos_estudiante}`)} (C.I. {h.cedula_estudiante})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Búsqueda del Nuevo Representante */}
+                <div className="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                  <h6 className="fw-bold text-dark mb-3 d-flex align-items-center">
+                    <i className="bi bi-search text-success me-2"></i>
+                    Buscar Nuevo Representante Legal (Usuario SIGAE)
+                  </h6>
+
+                  <div className="input-group mb-3">
+                    <span className="input-group-text bg-light border-end-0">
+                      <i className="bi bi-person-vcard text-muted"></i>
+                    </span>
+                    <input 
+                      type="text" 
+                      className="form-control border-start-0" 
+                      placeholder="Ingrese la Cédula del nuevo representante (ej. 12345678)..."
+                      value={cedulaNuevoRep}
+                      onChange={(e) => setCedulaNuevoRep(e.target.value.replace(/\D/g, ''))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); buscarNuevoRepresentante(); } }}
+                    />
+                    <button 
+                      className="btn btn-primary fw-bold px-4" 
+                      type="button"
+                      onClick={buscarNuevoRepresentante}
+                      disabled={buscandoNuevoRep || !cedulaNuevoRep.trim()}
+                    >
+                      {buscandoNuevoRep ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-search me-1"></i>}
+                      Buscar
+                    </button>
+                  </div>
+
+                  {nuevoRepEncontrado && (
+                    <div className="alert alert-success border-0 rounded-4 p-3 mb-0 animate__animated animate__fadeIn">
+                      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div className="d-flex align-items-center gap-3">
+                          <div className="bg-success text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style={{ width: 44, height: 44 }}>
+                            <i className="bi bi-check-lg fs-4"></i>
+                          </div>
+                          <div>
+                            <small className="d-block fw-bold text-success text-uppercase">Representante Seleccionado</small>
+                            <h6 className="fw-bold mb-0 text-dark">{toTitulo(nuevoRepEncontrado.nombre_completo || `${nuevoRepEncontrado.nombres || ''} ${nuevoRepEncontrado.apellidos || ''}`)}</h6>
+                            <small className="text-muted">C.I. {nuevoRepEncontrado.cedula} | Rol: {nuevoRepEncontrado.rol || 'Representante'}</small>
+                          </div>
+                        </div>
+                        <span className="badge bg-success px-3 py-2 rounded-pill fw-bold">
+                          <i className="bi bi-patch-check-fill me-1"></i> Usuario Válido
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="modal-footer bg-light border-top-0 rounded-bottom-4 p-3 d-flex justify-content-between">
+                <button type="button" className="btn btn-light rounded-pill px-4 fw-bold" onClick={() => setShowTransferModal(false)}>
+                  Cancelar
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary rounded-pill px-5 fw-bold shadow-sm"
+                  onClick={handleEjecutarTransferencia}
+                  disabled={loading || !nuevoRepEncontrado}
+                >
+                  {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-arrow-left-right me-2"></i>}
+                  Confirmar Reasignación
+                </button>
+              </div>
             </div>
           </div>
         </div>,
