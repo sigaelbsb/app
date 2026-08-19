@@ -549,7 +549,6 @@ export const ActualizacionDatos: React.FC = () => {
     ).toString().toLowerCase();
     const escCodigo = rawEsc.includes('sb') ? 'sb' : 'lb';
     const escNombre = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
-    const fechaHoy = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
     const anoActual = new Date().getFullYear();
     const anoProximo = anoActual + 1;
     const nombreCompleto = `${formDatos.estudiante_nombres || datosEst.nombres_estudiante} ${formDatos.estudiante_apellidos || datosEst.apellidos_estudiante}`;
@@ -571,7 +570,6 @@ export const ActualizacionDatos: React.FC = () => {
     ).toString().toLowerCase().trim();
 
     const esFemenino = rawGen.startsWith('f') || rawGen === 'femenino' || rawGen === 'femenina' || rawGen === 'hembra' || rawGen === 'mujer';
-    const esMasculino = rawGen.startsWith('m') || rawGen === 'masculino' || rawGen === 'varon' || rawGen === 'varón' || rawGen === 'hombre';
 
     // Limpiar grado para no repetir el nivel educativo
     const gradoLimpio = (gradoActual)
@@ -625,6 +623,35 @@ export const ActualizacionDatos: React.FC = () => {
     const nombreDirectorLimpio = (dirData.tituloDirector || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '');
     const cargoDirectorTexto = dirData.cargoGenerico || 'Director';
 
+    const calcularEdad = (fechaNacStr?: string) => {
+      if (!fechaNacStr) return '';
+      const nac = new Date(fechaNacStr);
+      if (isNaN(nac.getTime())) return '';
+      const hoy = new Date();
+      let edad = hoy.getFullYear() - nac.getFullYear();
+      const m = hoy.getMonth() - nac.getMonth();
+      if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) {
+        edad--;
+      }
+      return edad > 0 && edad < 100 ? `${edad}` : '';
+    };
+
+    const dNac = formDatos as any;
+    const ciudadNac = dNac.estudiante_lugar_nacimiento || dNac.ciudad_nacimiento || dNac.ciudad_habitacion || datosEst.estudiante_lugar_nacimiento || datosEst.ciudad_nacimiento || (escCodigo === 'sb' ? 'Maturín' : 'Temblador');
+    const estadoNac = dNac.estudiante_estado_nacimiento || dNac.estado_nacimiento || dNac.estado_habitacion || datosEst.estudiante_estado_nacimiento || datosEst.estado_nacimiento || 'Monagas';
+    const edadCalculada = calcularEdad(formDatos.estudiante_fecha_nacimiento || datosEst.estudiante_fecha_nacimiento);
+    const edadTexto = edadCalculada ? `de ${edadCalculada} años de edad, ` : '';
+    const ciudadExpedicion = escCodigo === 'sb' ? 'Maturín' : 'Temblador';
+
+    const fechaHoyObj = new Date();
+    const diaExpedicion = fechaHoyObj.getDate();
+    const mesesNombres = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const mesExpedicion = mesesNombres[fechaHoyObj.getMonth()];
+    const anoExpedicion = fechaHoyObj.getFullYear();
+
+    const repParentesco = (formDatos.representante_parentesco || datosEst.representante_parentesco || '').toLowerCase();
+    const esRepFemenino = repParentesco.includes('madre') || repParentesco.includes('mama') || repParentesco.includes('abuela') || repParentesco.includes('tia');
+
     const htmlConstancia = `
       <div style="border: 2px solid #94a3b8; border-radius: 12px; padding: 42px 48px 35px 48px; background: #ffffff; width: 800px; font-family: Arial, Helvetica, sans-serif; color: #000000; box-sizing: border-box; min-height: 1035px; display: flex; flex-direction: column; justify-content: space-between; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
         <div>
@@ -651,26 +678,24 @@ export const ActualizacionDatos: React.FC = () => {
           </div>
 
           <!-- TÍTULO DE LA CONSTANCIA -->
-          <div style="text-align: center; margin: 28px 0 24px;">
-            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Constancia de Inscripción</h2>
+          <div style="text-align: center; margin: 32px 0 28px;">
+            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; letter-spacing: 0.5px;">Constancia de inscripción</h2>
           </div>
 
-          <!-- PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN -->
-          <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 25px;">
-            Quien suscribe, profesor <b>${nombreDirectorLimpio}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en mi carácter de <b>${cargoDirectorTexto}</b>, certifico que ${esFemenino ? 'la estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizada' : esMasculino ? 'el estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizado' : 'el (la) estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizado(a)'} para cursar el <b>Año Escolar ${anoActual}–${anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
-          </div>
+          <!-- PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE -->
+          <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
+            Quien suscribe, <b>Prof. ${nombreDirectorLimpio}</b>, ${cargoDirectorTexto.toLowerCase()} del <b>${dirData.nombreEscuela}</b>, que funciona en <b>${dirData.ubicacionEscuela || 'Monagas, Venezuela'}</b>, por medio de la presente hace constar que ${esFemenino ? 'la alumna:' : 'el alumno:'} <b>${nombreCompleto}</b>, natural de <b>${ciudadNac}</b>, estado <b>${estadoNac}</b>, ${edadTexto}titular de la cédula de identidad o escolar N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${gradoLimpio}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
+          </p>
 
-          <!-- DATOS RELEVANTES DETALLADOS -->
-          <div style="font-size: 13.5px; line-height: 2.2; color: #000000; margin-left: 12px; margin-bottom: 30px;">
-            <div><b>Estudiante:</b> ${nombreCompleto}</div>
-            <div><b>Cédula de Identidad o Escolar:</b> ${cedulaEstudiante}</div>
-            <div><b>Nivel Educativo:</b> ${nivelEducativo}</div>
-            <div><b>Grupo, grado o año a cursar:</b> ${gradoLimpio}</div>
-            <div><b>Representante Legal:</b> ${representanteNombre}</div>
-            <div><b>Cédula de Identidad:</b> ${representanteCedula}</div>
-            <div><b>Año Escolar:</b> ${anoActual} – ${anoProximo}</div>
-            <div><b>Fecha de Emisión:</b> ${fechaHoy}</div>
-          </div>
+          <!-- PÁRRAFO 2: REPRESENTANTE LEGAL -->
+          <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
+            Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es ${esRepFemenino ? 'la ciudadana' : 'el ciudadano'} <b>${representanteNombre}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+          </p>
+
+          <!-- PÁRRAFO 3: EXPEDICIÓN Y FECHA -->
+          <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 35px; text-indent: 35px;">
+            Constancia que se expide para los efectos y fines consiguientes en <b>${ciudadExpedicion}</b>, a los ${diaExpedicion} días del mes de ${mesExpedicion} del año ${anoExpedicion}.
+          </p>
         </div>
 
         <!-- ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD -->

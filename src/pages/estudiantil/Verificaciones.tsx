@@ -702,7 +702,6 @@ export const Verificaciones: React.FC = () => {
   ).toString().toLowerCase().trim();
 
   const esFemenino = rawGen.startsWith('f') || rawGen === 'femenino' || rawGen === 'femenina' || rawGen === 'hembra' || rawGen === 'mujer';
-  const esMasculino = rawGen.startsWith('m') || rawGen === 'masculino' || rawGen === 'varon' || rawGen === 'varón' || rawGen === 'hombre';
 
   const gradoLimpio = (gradoEstudiante)
     .replace(/\s+de\s+(Educación\s+Primaria|Educación\s+Inicial|Educación\s+Media\s+General|Media\s+General|Primaria|Inicial)/gi, '')
@@ -1302,28 +1301,35 @@ export const Verificaciones: React.FC = () => {
                 </div>
 
                 {/* TÍTULO DE LA CONSTANCIA */}
-                <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
-                  <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Constancia de Inscripción
+                <div style={{ textAlign: 'center', margin: '32px 0 28px' }}>
+                  <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
+                    Constancia de inscripción
                   </h2>
                 </div>
 
-                {/* PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN */}
-                <div style={{ fontSize: '13.5px', lineHeight: '1.95', color: '#000000', textAlign: 'justify', marginBottom: '25px' }}>
-                  Quien suscribe, profesor <b>{(dirInfo?.tituloDirector || dirInfo?.nombreCompleto || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '')}</b>, titular de la cédula de identidad número <b>{dirInfo?.cedula || '17780095'}</b>, en mi carácter de <b>{dirInfo?.cargoGenerico || 'Director'}</b>, certifico que {esFemenino ? 'la estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizada' : esMasculino ? 'el estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizado' : 'el (la) estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizado(a)'} para cursar el <b>Año Escolar ${anoActual}–${anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
-                </div>
+                {/* PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE */}
+                <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '26px', textIndent: '35px' }}>
+                  Quien suscribe, <b>Prof. {(dirInfo?.tituloDirector || dirInfo?.nombreCompleto || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '')}</b>, {(dirInfo?.cargoGenerico || 'Director').toLowerCase()} del <b>{dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}</b>, que funciona en <b>{dirInfo?.ubicacionEscuela || 'Monagas, Venezuela'}</b>, por medio de la presente hace constar que {esFemenino ? 'la alumna:' : 'el alumno:'} <b>{nombreEstudianteCompleto}</b>, natural de <b>{d.estudiante_lugar_nacimiento || d.ciudad_nacimiento || d.ciudad_habitacion || (escuelaCodigo === 'sb' ? 'Maturín' : 'Temblador')}</b>, estado <b>{d.estudiante_estado_nacimiento || d.estado_nacimiento || d.estado_habitacion || 'Monagas'}</b>, {(() => {
+                    if (!d.estudiante_fecha_nacimiento) return '';
+                    const nac = new Date(d.estudiante_fecha_nacimiento);
+                    if (isNaN(nac.getTime())) return '';
+                    const hoy = new Date();
+                    let edad = hoy.getFullYear() - nac.getFullYear();
+                    const m = hoy.getMonth() - nac.getMonth();
+                    if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+                    return edad > 0 && edad < 100 ? `de ${edad} años de edad, ` : '';
+                  })()}titular de la cédula de identidad o escolar N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{gradoLimpio}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                </p>
 
-                {/* DATOS RELEVANTES DETALLADOS */}
-                <div style={{ fontSize: '13.5px', lineHeight: '2.2', color: '#000000', marginLeft: '12px', marginBottom: '30px' }}>
-                  <div><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
-                  <div><b>Cédula de Identidad o Escolar:</b> {cedulaEstudiante}</div>
-                  <div><b>Nivel Educativo:</b> {nivelEducativo}</div>
-                  <div><b>Grupo, grado o año a cursar:</b> {gradoLimpio}</div>
-                  <div><b>Representante Legal:</b> {representanteNombre}</div>
-                  <div><b>Cédula de Identidad:</b> {representanteCedula}</div>
-                  <div><b>Año Escolar:</b> {anoActual} – {anoProximo}</div>
-                  <div><b>Fecha de Emisión:</b> {new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                </div>
+                {/* PÁRRAFO 2: REPRESENTANTE LEGAL */}
+                <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '26px', textIndent: '35px' }}>
+                  Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es {((d.representante_parentesco || '').toLowerCase().includes('madre') || (d.representante_parentesco || '').toLowerCase().includes('mama')) ? 'la ciudadana' : 'el ciudadano'} <b>{representanteNombre}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+                </p>
+
+                {/* PÁRRAFO 3: EXPEDICIÓN Y FECHA */}
+                <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '35px', textIndent: '35px' }}>
+                  Constancia que se expide para los efectos y fines consiguientes en <b>{escuelaCodigo === 'sb' ? 'Maturín' : 'Temblador'}</b>, a los {new Date().getDate()} días del mes de {['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][new Date().getMonth()]} del año {new Date().getFullYear()}.
+                </p>
 
                 {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD QUE TIENE EL CÓDIGO */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px', paddingTop: '15px', borderTop: '1.5px solid #cbd5e1' }}>
