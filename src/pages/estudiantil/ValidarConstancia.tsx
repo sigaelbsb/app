@@ -123,9 +123,6 @@ export const ValidarConstancia: React.FC = () => {
   const esFemenino = rawGen.startsWith('f') || rawGen === 'femenino' || rawGen === 'femenina' || rawGen === 'hembra' || rawGen === 'mujer';
   const esMasculino = rawGen.startsWith('m') || rawGen === 'masculino' || rawGen === 'varon' || rawGen === 'varón' || rawGen === 'hombre';
 
-  const artEstudiante = esFemenino ? 'la estudiante' : esMasculino ? 'el estudiante' : 'el/la estudiante';
-  const inscritoTexto = esFemenino ? 'INSCRITA' : esMasculino ? 'INSCRITO' : 'INSCRITO(A)';
-
   const gradoLimpio = (gradoEstudiante)
     .replace(/\s+de\s+(Educación\s+Primaria|Educación\s+Inicial|Educación\s+Media\s+General|Media\s+General|Primaria|Inicial)/gi, '')
     .replace(/\s+correspondiente\s+al\s+Nivel\s+de.*/gi, '')
@@ -204,12 +201,9 @@ export const ValidarConstancia: React.FC = () => {
 
               {/* TÍTULO */}
               <div className="text-center my-4">
-                <span className="badge bg-primary bg-opacity-10 text-primary fw-bold px-3 py-1 rounded-pill mb-2">
-                  DOCUMENTO OFICIAL DIGITAL
-                </span>
-                <h4 className="fw-bold text-dark text-uppercase mb-0" style={{ letterSpacing: '0.5px' }}>
+                <div style={{ backgroundColor: '#3b82f6', color: '#ffffff', textAlign: 'center', padding: '8px 12px', borderRadius: '4px', fontSize: '18.5px', fontWeight: 'bold', letterSpacing: '0.3px' }}>
                   Constancia de Inscripción
-                </h4>
+                </div>
               </div>
 
               {/* CÓDIGO ÚNICO */}
@@ -223,46 +217,40 @@ export const ValidarConstancia: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3 bg-light rounded-3 border mb-4 text-justify" style={{ lineHeight: '1.8' }}>
-                Quien suscribe, <b>{dirData.tituloDirector}</b>, titular de la Cédula de Identidad número <b>{dirData.cedula}</b>, en calidad de {dirData.cargoGenerico} de la <b>{dirData.nombreEscuela}</b>, por medio de la presente hace constar y certifica que {artEstudiante}: <b>{nombreEstudiante}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>{cedulaEstudiante}</b>, se encuentra formalmente <b>{inscritoTexto}</b> en esta institución educativa para cursar el <b>{gradoLimpio}</b> correspondiente al Nivel de <b>{nivelEducativo}</b>, durante el Año Escolar <b>{anoActual} – {anoProximo}</b>.
-                <br/><br/>
-                Constancia que se expide a petición de la parte interesada a los fines consiguientes.
+              <div className="p-3 bg-light rounded-3 border mb-4 text-justify" style={{ lineHeight: '1.9', fontSize: '14px' }}>
+                Quien suscribe, profesor <b>{(dirData.tituloDirector || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '')}</b>, titular de la cédula de identidad número <b>{dirData.cedula}</b>, en calidad de <b>{dirData.cargoGenerico || 'Director de la Unidad Educativa'}</b>, certifico que los datos reflejados en esta constancia corresponden a {esFemenino ? 'una estudiante que ha actualizado su información de forma exitosa. Esta estudiante' : esMasculino ? 'un estudiante que ha actualizado su información de forma exitosa. Este estudiante' : 'un(a) estudiante que ha actualizado su información de forma exitosa. Dicho(a) estudiante'} está {esFemenino ? 'autorizada' : esMasculino ? 'autorizado' : 'autorizado(a)'} para cursar el <b>Año Escolar {anoActual} – {anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
               </div>
 
-              {/* CAMPOS DEL MODELO OFICIAL */}
-              <div className="card border rounded-3 p-3 bg-white mb-4">
-                <div className="row g-2 font-monospace">
-                  <div className="col-12 border-bottom pb-2 mb-2">
-                    <span className="text-muted me-2">Estudiante:</span>
-                    <b className="text-dark fs-6">{nombreEstudiante}</b>
+              {/* CAMPOS DEL MODELO OFICIAL CON BADGES AZULES */}
+              <div className="card border rounded-3 p-3 bg-white mb-4 shadow-sm">
+                <div className="d-flex flex-column gap-2" style={{ fontSize: '13.5px' }}>
+                  <div className="d-flex flex-wrap align-items-center">
+                    <span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', minWidth: '200px' }}>Estudiante:</span>
+                    <span className="ms-2 fw-bold text-dark fs-6">{nombreEstudiante}</span>
                   </div>
-                  <div className="col-md-6">
-                    <span className="text-muted me-2">Cédula de Identidad o Escolar:</span>
-                    <b>{cedulaEstudiante}</b>
+                  <div className="d-flex flex-wrap align-items-center">
+                    <span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', minWidth: '200px' }}>Cédula de Identidad o Escolar:</span>
+                    <span className="ms-2">{cedulaEstudiante}</span>
                   </div>
-                  <div className="col-md-6">
-                    <span className="text-muted me-2">Nivel Educativo:</span>
-                    <b>{nivelEducativo}</b>
+                  <div className="d-flex flex-wrap align-items-center">
+                    <span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', minWidth: '200px' }}>Nivel Educativo:</span>
+                    <span className="ms-2">{nivelEducativo}</span>
                   </div>
-                  <div className="col-md-6">
-                    <span className="text-muted me-2">Grupo, Grado o Año a Cursar:</span>
-                    <b className="text-primary">{gradoLimpio}</b>
+                  <div className="d-flex flex-wrap align-items-center">
+                    <span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', minWidth: '200px' }}>Grupo, grado o año a cursar:</span>
+                    <span className="ms-2 fw-bold text-primary">{gradoLimpio}</span>
                   </div>
-                  <div className="col-md-6">
-                    <span className="text-muted me-2">Representante Legal:</span>
-                    <b>{representanteNombre}</b>
+                  <div className="d-flex flex-wrap align-items-center">
+                    <span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', minWidth: '200px' }}>Representante Legal:</span>
+                    <span className="ms-2">{representanteNombre}</span>
                   </div>
-                  <div className="col-md-6">
-                    <span className="text-muted me-2">Cédula Representante:</span>
-                    <b>{representanteCedula}</b>
+                  <div className="d-flex flex-wrap align-items-center">
+                    <span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', minWidth: '200px' }}>Cédula de Identidad:</span>
+                    <span className="ms-2">{representanteCedula}</span>
                   </div>
-                  <div className="col-md-6">
-                    <span className="text-muted me-2">Año Escolar:</span>
-                    <b>{anoActual} – {anoProximo}</b>
-                  </div>
-                  <div className="col-md-6">
-                    <span className="text-muted me-2">Fecha de Emisión:</span>
-                    <b>{fechaEmision}</b>
+                  <div className="d-flex flex-wrap align-items-center mt-2">
+                    <span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', minWidth: '200px' }}>Fecha de Emisión:</span>
+                    <span className="ms-2">{fechaEmision}</span>
                   </div>
                 </div>
               </div>
