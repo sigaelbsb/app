@@ -623,7 +623,7 @@ export const ActualizacionDatos: React.FC = () => {
     }
 
     const nombreDirectorLimpio = (dirData.tituloDirector || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '');
-    const cargoDirectorTexto = dirData.cargoGenerico || 'Director de la Unidad Educativa';
+    const cargoDirectorTexto = dirData.cargoGenerico || 'Director';
 
     const htmlConstancia = `
       <div style="border: 2px solid #94a3b8; border-radius: 12px; padding: 42px 48px 35px 48px; background: #ffffff; width: 800px; font-family: Arial, Helvetica, sans-serif; color: #000000; box-sizing: border-box; min-height: 1035px; display: flex; flex-direction: column; justify-content: space-between; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
@@ -657,7 +657,7 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN -->
           <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 25px;">
-            Quien suscribe, profesor <b>${nombreDirectorLimpio}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en calidad de <b>${cargoDirectorTexto}</b>, certifico que los datos reflejados en esta constancia corresponden a ${esFemenino ? 'una estudiante que ha actualizado su información de forma exitosa. Esta estudiante' : esMasculino ? 'un estudiante que ha actualizado su información de forma exitosa. Este estudiante' : 'un(a) estudiante que ha actualizado su información de forma exitosa. Dicho(a) estudiante'} está ${esFemenino ? 'autorizada' : esMasculino ? 'autorizado' : 'autorizado(a)'} para cursar el <b>Año Escolar ${anoActual} – ${anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
+            Quien suscribe, profesor <b>${nombreDirectorLimpio}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en mi calidad de <b>${cargoDirectorTexto}</b>, hago constar que ${esFemenino ? 'la estudiante cuyos datos se detallan a continuación ha culminado exitosamente su proceso de inscripción y está autorizada' : esMasculino ? 'el estudiante cuyos datos se detallan a continuación ha culminado exitosamente su proceso de inscripción y está autorizado' : 'el (la) estudiante cuyos datos se detallan a continuación ha culminado exitosamente su proceso de inscripción y está autorizado(a)'} para cursar el <b>Año Escolar ${anoActual}–${anoProximo}</b> en esta institución educativa:
           </div>
 
           <!-- DATOS RELEVANTES DETALLADOS -->
