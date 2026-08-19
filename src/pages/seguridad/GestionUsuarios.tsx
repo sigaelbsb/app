@@ -179,7 +179,8 @@ export const GestionUsuarios = () => {
             apellidos_estudiante: v.apellidos_estudiante || dAct.estudiante_apellidos || '',
             grado_actual: v.grado_actual || dAct.grado_actual || 'Sin Grado',
             seccion_actual: v.seccion_actual || dAct.seccion_actual || 'U',
-            codigo_escuela: v.codigo_escuela || 'sb'
+            codigo_escuela: v.codigo_escuela || 'sb',
+            telefono_representante: v.telefono_representante || dAct.representante_telefono || dAct.padre_telefono || dAct.madre_telefono || v.telefono || ''
           };
 
           if (cedRep) {
@@ -579,28 +580,67 @@ export const GestionUsuarios = () => {
     setLoading(false);
   };
 
-  const enviarNotificacionReseteoWhatsApp = (u: any) => {
-    const nombre = toTitulo(u.nombre_completo || 'Usuario');
-    const cedula = u.cedula || '';
-    
-    // Obtener teléfono de usuario o de estudiantes vinculados
+  const obtenerTelefonoUsuario = async (u: any): Promise<string> => {
     let telefono = u.telefono || '';
-    if (!telefono && vinculacionesMap) {
+    if (telefono && String(telefono).replace(/\D/g, '').length >= 7) return telefono.trim();
+
+    // 1. Buscar en vinculaciones en memoria
+    if (vinculacionesMap) {
       const ests = getEstudiantesDeUsuario(u, vinculacionesMap);
-      if (ests.length > 0) {
-        for (const est of ests) {
-          if (est.telefono_representante) {
-            telefono = est.telefono_representante;
-            break;
-          }
+      for (const est of ests) {
+        if (est.telefono_representante && String(est.telefono_representante).replace(/\D/g, '').length >= 7) {
+          return est.telefono_representante.trim();
         }
       }
     }
 
-    const mensaje = `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que su cuenta en el *Sistema Integrado de Gestión y Administración Educativa (SIGAE)* ha sido *restablecida / reseteada exitosamente*.\n\n📋 *Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar:*\n1. Ingrese a la plataforma SIGAE: https://sigaelbsb.app\n2. Inicie sesión con su cédula como usuario y contraseña.\n3. El sistema le solicitará configurar su nueva clave personal y preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`;
+    // 2. Buscar directamente en base de datos estudiantes_vinculaciones por cédula
+    const ced = u.cedula || '';
+    const digits = limpiarCedula(ced);
+    if (ced || digits) {
+      try {
+        const { data: vincs } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('telefono_representante, telefono, datos_actualizados')
+          .or(`cedula_representante.eq.${ced},cedula_representante.eq.${digits}`);
+
+        if (vincs && vincs.length > 0) {
+          for (const v of vincs) {
+            const d = v.datos_actualizados || {};
+            const tel = v.telefono_representante || v.telefono || d.representante_telefono || d.padre_telefono || d.madre_telefono;
+            if (tel && String(tel).replace(/\D/g, '').length >= 7) {
+              return String(tel).trim();
+            }
+          }
+        }
+      } catch (e) {}
+
+      // 3. Buscar en solicitudes_cupo
+      try {
+        const { data: sc } = await supabase
+          .from('solicitudes_cupo')
+          .select('representante_telefono')
+          .eq('representante_cedula', ced);
+        if (sc && sc.length > 0 && sc[0].representante_telefono) {
+          return sc[0].representante_telefono.trim();
+        }
+      } catch (e) {}
+    }
+
+    return '';
+  };
+
+  const enviarNotificacionReseteoWhatsApp = async (u: any, telefonoPredefinido?: string) => {
+    const nombre = toTitulo(u.nombre_completo || 'Usuario');
+    const cedula = u.cedula || '';
+    
+    let telefono = telefonoPredefinido || await obtenerTelefonoUsuario(u);
+
+    const origen = window.location.origin;
+    const mensaje = `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que su cuenta en el *Sistema Integrado de Gestión y Administración Escolar (SIGAE)* ha sido *restablecida / reseteada exitosamente*.\n\n📋 *Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar:*\n1. Ingrese a la plataforma SIGAE: ${origen}\n2. Inicie sesión con su cédula como usuario y cédula como contraseña.\n3. El sistema le solicitará configurar su nueva clave personal y preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`;
 
     // Normalizar a formato E.164 Venezuela (código 58)
-    let telLimpio = String(telefono).replace(/\D/g, '');
+    let telLimpio = String(telefono || '').replace(/\D/g, '');
     if (telLimpio.startsWith('0')) {
       telLimpio = '58' + telLimpio.slice(1);
     } else if (telLimpio.length === 10 && telLimpio.startsWith('4')) {
@@ -614,7 +654,7 @@ export const GestionUsuarios = () => {
       if (Swal) {
         Swal.fire({
           title: 'Enviar Notificación por WhatsApp',
-          html: `El usuario <b>${nombre}</b> no tiene un teléfono celular registrado en su ficha.<br/><br/>Ingrese el número de WhatsApp para enviarle sus datos de acceso:`,
+          html: `El usuario <b>${nombre}</b> (C.I. ${cedula}) no tiene un teléfono celular registrado en su ficha.<br/><br/>Ingrese el número de WhatsApp para enviarle sus datos de acceso restablecidos:`,
           input: 'text',
           inputPlaceholder: 'Ej: 04141234567',
           showCancelButton: true,
@@ -643,6 +683,9 @@ export const GestionUsuarios = () => {
       Swal.fire('Error', 'No tiene permisos para resetear la clave de usuarios de esta escuela.', 'error');
       return;
     }
+
+    // Capturar teléfono registrado antes de aplicar el reseteo
+    const telefonoPrevio = await obtenerTelefonoUsuario(u);
 
     Swal.fire({
       title: '¿Resetear Contraseña?',
@@ -689,7 +732,7 @@ export const GestionUsuarios = () => {
             cancelButtonText: 'Cerrar'
           }).then((resWa: any) => {
             if (resWa.isConfirmed) {
-              enviarNotificacionReseteoWhatsApp(u);
+              enviarNotificacionReseteoWhatsApp(u, telefonoPrevio);
             }
           });
         } catch (e: any) {
@@ -856,6 +899,9 @@ export const GestionUsuarios = () => {
       return;
     }
 
+    // Capturar teléfono registrado antes de aplicar el reseteo
+    const telefonoPrevio = await obtenerTelefonoUsuario(u);
+
     Swal.fire({
       title: '¿Aprobar Reseteo?',
       html: `Estás a punto de borrar todos los datos de seguridad de <b>${u.nombre_completo}</b>.<br/><br/>Su clave volverá a ser su cédula y deberá configurar su cuenta desde cero.`,
@@ -904,7 +950,7 @@ export const GestionUsuarios = () => {
             cancelButtonText: 'Cerrar'
           }).then((resWa: any) => {
             if (resWa.isConfirmed) {
-              enviarNotificacionReseteoWhatsApp(u);
+              enviarNotificacionReseteoWhatsApp(u, telefonoPrevio);
             }
           });
         } catch (e: any) {
