@@ -651,7 +651,9 @@ export const Verificaciones: React.FC = () => {
   const handleCompartirWhatsApp = () => {
     const nombre = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Estudiante';
     const codigo = vinculacion?.codigo_unico || solicitudCupo?.codigo_unico || codigoConstancia;
-    const link = `${window.location.origin}/validar-constancia/${encodeURIComponent(codigo)}`;
+    const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = esLocal ? 'https://sigae-hh6u.onrender.com' : window.location.origin;
+    const link = `${baseUrl}/validar-constancia/${encodeURIComponent(codigo)}`;
     const texto = `*SIGAE - Verificación Oficial de Documento*\n\n` +
       `Estudiante: *${nombre}*\n` +
       `Código de Autenticidad: *${codigo}*\n\n` +
@@ -680,7 +682,9 @@ export const Verificaciones: React.FC = () => {
   const codigoSolicitud = solicitudCupo?.codigo_unico || `SC-${escuelaCodigo.toUpperCase()}-${anoActual}-${cedulaLimpia.slice(-4) || '0001'}`;
 
   // URL del QR oficial con el código embebido
-  const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
+  const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const baseUrlVerificacion = esLocal ? 'https://sigae-hh6u.onrender.com' : window.location.origin;
+  const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
   const urlQrResumen = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`SIGAE:FI:${codigoResumen}:${nombreEstudianteCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
 
   const logoEscuela = `/assets/img/logo_${escuelaCodigo}.png`;
