@@ -133,7 +133,7 @@ export const VincularEstudiante: React.FC = () => {
   const [showEstadisticasModal, setShowEstadisticasModal] = useState<boolean>(false);
   const [escuelaReporte, setEscuelaReporte] = useState<'ambas' | 'sb' | 'lb'>('ambas');
   const [criterioAgrupacion, setCriterioAgrupacion] = useState<'general' | 'niveles' | 'grados' | 'secciones' | 'semaforo'>('grados');
-  const [tipoGrafico, setTipoGrafico] = useState<'dossier' | 'anillos' | 'torta' | 'picos' | 'barras' | 'radar' | 'tacometro' | 'tabla'>('dossier');
+  const [tipoGrafico, setTipoGrafico] = useState<'dossier' | 'resumen_niveles' | 'anillos' | 'torta' | 'picos' | 'barras' | 'radar' | 'tacometro' | 'tabla'>('dossier');
   const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
 
   // Estados para Reasignar / Transferir Representante
@@ -1234,7 +1234,141 @@ export const VincularEstudiante: React.FC = () => {
           </div>
         </div>
 
-        ${tipo === 'dossier' ? `
+        ${tipo === 'resumen_niveles' ? `
+          <!-- REPORTE SINTÉTICO EJECUTIVO POR NIVELES -->
+          <div style="background: #ffffff; border-radius: 12px; padding: 14px; border: 1.5px solid #cbd5e1; margin-bottom: 12px;">
+            ${escuelaReporte !== 'ambas' ? `
+              <!-- ESCUELA INDIVIDUAL -->
+              <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: #ffffff; padding: 16px 20px; border-radius: 10px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; font-weight: bold;">AVANCE TOTAL DE LA INSTITUCIÓN</div>
+                  <div style="font-size: 20px; font-weight: 900; margin-top: 2px;">${nombreInstitucion}</div>
+                  <div style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Matrícula Total: <strong>${stats.totalGeneral}</strong> estudiantes | Actualizados: <strong>${stats.completadosGeneral}</strong></div>
+                </div>
+                <div style="text-align: right; background: rgba(255,255,255,0.2); padding: 10px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.3);">
+                  <div style="font-size: 32px; font-weight: 900; line-height: 1;">${stats.pctGeneral}%</div>
+                  <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; margin-top: 2px;">Avance General</div>
+                </div>
+              </div>
+
+              <!-- TARJETAS POR NIVELES -->
+              <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                📊 Porcentaje de Avance por Niveles Educativos:
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                ${(stats.desgloseEtapas || []).map((et: any) => {
+                  const c = et.pct >= 75 ? '#10b981' : (et.pct >= 40 ? '#f59e0b' : '#ef4444');
+                  const bg = et.pct >= 75 ? '#f0fdf4' : (et.pct >= 40 ? '#fefce8' : '#fef2f2');
+                  const border = et.pct >= 75 ? '#bbf7d0' : (et.pct >= 40 ? '#fde68a' : '#fecaca');
+                  const icono = et.etapa.includes('Inicial') ? '🧸' : (et.etapa.includes('Primaria') ? '🎒' : '🎓');
+                  return `
+                    <div style="background: ${bg}; border: 1.5px solid ${border}; border-radius: 10px; padding: 14px; text-align: center;">
+                      <div style="font-size: 24px; margin-bottom: 4px;">${icono}</div>
+                      <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 6px;">${et.etapa}</div>
+                      <div style="font-size: 28px; font-weight: 900; color: ${c}; line-height: 1; margin-bottom: 6px;">${et.pct}%</div>
+                      <div style="background: #e2e8f0; border-radius: 6px; height: 8px; overflow: hidden; margin-bottom: 8px;">
+                        <div style="background: ${c}; width: ${et.pct}%; height: 100%;"></div>
+                      </div>
+                      <div style="font-size: 10.5px; color: #64748b; font-weight: 600;">
+                        ${et.completados} de ${et.total} estudiantes
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : `
+              <!-- AMBAS ESCUELAS CONSOLIDADO Y COMPARATIVO -->
+              <div style="background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 100%); color: #ffffff; padding: 14px 18px; border-radius: 10px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; font-weight: bold;">COMPLEJO EDUCATIVO ORIENTE • TOTAL GENERAL</div>
+                  <div style="font-size: 18px; font-weight: 900; margin-top: 2px;">CONSOLIDADO DE AMBAS INSTITUCIONES (SB + LB)</div>
+                  <div style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Matrícula Total Global: <strong>${stats.totalGeneral}</strong> | Total Actualizados: <strong>${stats.completadosGeneral}</strong></div>
+                </div>
+                <div style="text-align: right; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.3);">
+                  <div style="font-size: 28px; font-weight: 900; line-height: 1;">${stats.pctGeneral}%</div>
+                  <div style="font-size: 9.5px; font-weight: bold; text-transform: uppercase; margin-top: 2px;">Avance Global</div>
+                </div>
+              </div>
+
+              <!-- COMPARATIVO LADO A LADO DE LAS DOS ESCUELAS -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <!-- U.E. SANTA BÁRBARA -->
+                ${(() => {
+                  const statsSB = calcularEstadisticasReporte('sb');
+                  return `
+                    <div style="border: 1.5px solid #bfdbfe; background: #f8fafc; border-radius: 10px; padding: 12px;">
+                      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #3b82f6; padding-bottom: 6px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <img src="/assets/img/logo_sb.png" style="height: 28px; width: auto;" alt="SB" />
+                          <div>
+                            <div style="font-size: 12px; font-weight: 800; color: #1e40af;">U.E. SANTA BÁRBARA</div>
+                            <div style="font-size: 9.5px; color: #64748b;">Matrícula: ${statsSB.totalGeneral} alumnos</div>
+                          </div>
+                        </div>
+                        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 4px 10px; text-align: center;">
+                          <div style="font-size: 16px; font-weight: 900; color: #1e40af;">${statsSB.pctGeneral}%</div>
+                          <div style="font-size: 8px; font-weight: bold; color: #3b82f6;">TOTAL ESCUELA</div>
+                        </div>
+                      </div>
+                      <!-- NIVELES SB -->
+                      <div style="display: flex; flex-direction: column; gap: 6px;">
+                        ${(statsSB.desgloseEtapas || []).map((et: any) => {
+                          const c = et.pct >= 75 ? '#10b981' : (et.pct >= 40 ? '#f59e0b' : '#ef4444');
+                          return `
+                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between;">
+                              <div style="font-size: 11px; font-weight: 700; color: #334155;">${et.etapa}</div>
+                              <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 9.5px; color: #64748b;">${et.completados}/${et.total}</span>
+                                <span style="font-size: 12px; font-weight: 900; color: ${c}; min-width: 38px; text-align: right;">${et.pct}%</span>
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
+                    </div>
+                  `;
+                })()}
+
+                <!-- U.E. LIBERTADOR BOLÍVAR -->
+                ${(() => {
+                  const statsLB = calcularEstadisticasReporte('lb');
+                  return `
+                    <div style="border: 1.5px solid #bbf7d0; background: #f8fafc; border-radius: 10px; padding: 12px;">
+                      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #16a34a; padding-bottom: 6px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <img src="/assets/img/logo_lb.png" style="height: 28px; width: auto;" alt="LB" />
+                          <div>
+                            <div style="font-size: 12px; font-weight: 800; color: #166534;">U.E. LIBERTADOR BOLÍVAR</div>
+                            <div style="font-size: 9.5px; color: #64748b;">Matrícula: ${statsLB.totalGeneral} alumnos</div>
+                          </div>
+                        </div>
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 4px 10px; text-align: center;">
+                          <div style="font-size: 16px; font-weight: 900; color: #166534;">${statsLB.pctGeneral}%</div>
+                          <div style="font-size: 8px; font-weight: bold; color: #16a34a;">TOTAL ESCUELA</div>
+                        </div>
+                      </div>
+                      <!-- NIVELES LB -->
+                      <div style="display: flex; flex-direction: column; gap: 6px;">
+                        ${(statsLB.desgloseEtapas || []).map((et: any) => {
+                          const c = et.pct >= 75 ? '#10b981' : (et.pct >= 40 ? '#f59e0b' : '#ef4444');
+                          return `
+                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between;">
+                              <div style="font-size: 11px; font-weight: 700; color: #334155;">${et.etapa}</div>
+                              <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 9.5px; color: #64748b;">${et.completados}/${et.total}</span>
+                                <span style="font-size: 12px; font-weight: 900; color: ${c}; min-width: 38px; text-align: right;">${et.pct}%</span>
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
+                    </div>
+                  `;
+                })()}
+              </div>
+            `}
+          </div>
+        ` : (tipo === 'dossier' ? `
           <!-- VISTA DOSSIER 360° COMBINADO -->
           <div style="display: flex; align-items: stretch; gap: 10px; margin-bottom: 12px;">
             <!-- ANILLO CONCÉNTRICO -->
@@ -1509,8 +1643,9 @@ export const VincularEstudiante: React.FC = () => {
               </div>
             ` : ''}
           </div>
-        `}
+        `)}
 
+        ${tipo !== 'resumen_niveles' ? `
         <!-- TABLA DESGLOSADA POR GRADO / NIVEL -->
         <div style="font-weight: bold; margin-bottom: 4px; color: #0f172a; font-size: 10px;">📋 Detalle Consolidado de Matrícula</div>
         <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 12px;">
@@ -1568,6 +1703,7 @@ export const VincularEstudiante: React.FC = () => {
             </tr>
           </tbody>
         </table>
+        ` : ''}
 
         <!-- PIE DE PÁGINA INSTITUCIONAL CON SOLO EL LOGO DEL MINISTERIO -->
         <div style="border-top: 1.5px solid #e2e8f0; padding-top: 8px; margin-top: 12px; display: flex; align-items: center; justify-content: space-between;">
@@ -1832,6 +1968,46 @@ export const VincularEstudiante: React.FC = () => {
         }
       }
     } catch (e) {}
+
+    if (tipoGrafico === 'resumen_niveles') {
+      let msg = `📊 *SIGAE - REPORTE EJECUTIVO POR NIVELES* 📊\n`;
+      msg += `🏛️ *Ámbito:* ${nombreInstitucion}\n`;
+      msg += `📅 *Fecha:* ${stats.fechaHoraReporte}\n\n`;
+
+      if (urlImagen) {
+        msg += `🖼️ *Ver Imagen del Reporte (HD):*\n${urlImagen}\n\n`;
+      }
+
+      if (escuelaReporte !== 'ambas') {
+        msg += `📈 *AVANCE TOTAL DE LA ESCUELA:* *${stats.pctGeneral}%*\n`;
+        msg += `👥 Matrícula: ${stats.completadosGeneral} de ${stats.totalGeneral} actualizados\n\n`;
+        msg += `📋 *PORCENTAJES POR NIVEL EDUCATIVO:*\n`;
+        stats.desgloseEtapas.forEach((et: any) => {
+          msg += `• ${et.etapa}: *${et.pct}%* (${et.completados}/${et.total})\n`;
+        });
+      } else {
+        const statsSB = calcularEstadisticasReporte('sb');
+        const statsLB = calcularEstadisticasReporte('lb');
+        msg += `🌐 *AVANCE GLOBAL CONSOLIDADO (AMBAS ESCUELAS):* *${stats.pctGeneral}%*\n`;
+        msg += `👥 Matrícula Consolidada: ${stats.completadosGeneral} de ${stats.totalGeneral} actualizados\n\n`;
+        
+        msg += `🏫 *U.E. SANTA BÁRBARA:*\n`;
+        msg += `• Total Escuela: *${statsSB.pctGeneral}%* (${statsSB.completadosGeneral}/${statsSB.totalGeneral})\n`;
+        statsSB.desgloseEtapas.forEach((et: any) => {
+          msg += `  - ${et.etapa}: *${et.pct}%*\n`;
+        });
+        msg += `\n`;
+
+        msg += `🏫 *U.E. LIBERTADOR BOLÍVAR:*\n`;
+        msg += `• Total Escuela: *${statsLB.pctGeneral}%* (${statsLB.completadosGeneral}/${statsLB.totalGeneral})\n`;
+        statsLB.desgloseEtapas.forEach((et: any) => {
+          msg += `  - ${et.etapa}: *${et.pct}%*\n`;
+        });
+      }
+
+      msg += `\n🌐 _Sistema Integrado de Gestión y Administración Educativa (SIGAE)_`;
+      return msg;
+    }
 
     let msg = `📊 *SIGAE - REPORTE DE ACTUALIZACIÓN ESTUDIANTIL*\n`;
     msg += `🏛️ *Ámbito:* ${nombreInstitucion}\n`;
@@ -3064,6 +3240,7 @@ export const VincularEstudiante: React.FC = () => {
                         {/* Selector de Tipo de Gráfico */}
                         <div className="d-flex align-items-center gap-1 flex-wrap">
                           {[
+                            { id: 'resumen_niveles', label: '📊 Resumen por Niveles', icon: 'bi-diagram-3-fill' },
                             { id: 'dossier', label: 'Dossier 360°', icon: 'bi-grid-1x2-fill' },
                             { id: 'torta', label: 'Torta 3D', icon: 'bi-pie-chart-fill' },
                             { id: 'anillos', label: 'Anillos', icon: 'bi-record-circle' },
@@ -3186,6 +3363,189 @@ export const VincularEstudiante: React.FC = () => {
                       </div>
 
                       {/* ─── LIENZO CENTRAL DINÁMICO SEGÚN TIPO DE GRÁFICO ─── */}
+
+                      {/* 0. REPORTE SINTÉTICO POR NIVELES (EJECUTIVO) */}
+                      {tipoGrafico === 'resumen_niveles' && (() => {
+                        const statsSB = calcularEstadisticasReporte('sb');
+                        const statsLB = calcularEstadisticasReporte('lb');
+
+                        return (
+                          <div className="animate__animated animate__fadeIn">
+                            {escuelaReporte !== 'ambas' ? (
+                              /* VISTA INDIVIDUAL DE UNA ESCUELA */
+                              <div className="row g-3">
+                                {/* Card Principal: Total Escuela */}
+                                <div className="col-12">
+                                  <div className="card border-0 shadow-sm rounded-4 p-4 text-white overflow-hidden position-relative" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
+                                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-3 position-relative" style={{ zIndex: 2 }}>
+                                      <div>
+                                        <span className="badge bg-white text-primary fw-bold px-3 py-1.5 rounded-pill mb-2 shadow-sm text-uppercase" style={{ fontSize: '0.78rem' }}>
+                                          <i className="bi bi-building-check me-1.5"></i>Porcentaje de Avance Institucional
+                                        </span>
+                                        <h3 className="fw-bolder mb-1 text-white">
+                                          {escuelaReporte === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                                        </h3>
+                                        <p className="text-white-50 mb-0 small">
+                                          Matrícula total de <strong>{stats.totalGeneral}</strong> estudiantes vinculados • <strong>{stats.completadosGeneral}</strong> con ficha completada al 100%.
+                                        </p>
+                                      </div>
+                                      <div className="text-center bg-white bg-opacity-20 p-3 rounded-4 border border-white border-opacity-25" style={{ minWidth: '150px' }}>
+                                        <div className="display-5 fw-bolder text-white lh-1">{stats.pctGeneral}%</div>
+                                        <small className="text-white fw-bold text-uppercase d-block mt-1" style={{ fontSize: '0.72rem', letterSpacing: '0.5px' }}>Avance Total Escuela</small>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Tarjetas Ejecutivas por Niveles */}
+                                <div className="col-12">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <span className="fw-bold text-dark fs-6">
+                                      <i className="bi bi-diagram-3-fill text-primary me-2"></i>Porcentajes de Avance por Nivel Educativo
+                                    </span>
+                                    <span className="text-muted small">Vista ejecutiva directa</span>
+                                  </div>
+                                  <div className="row g-3">
+                                    {(stats.desgloseEtapas || []).map((et: any, idx: number) => {
+                                      const c = et.pct >= 75 ? 'success' : (et.pct >= 40 ? 'warning' : 'danger');
+                                      const icono = et.etapa.includes('Inicial') ? 'bi-emoji-smile-fill' : (et.etapa.includes('Primaria') ? 'bi-backpack2-fill' : 'bi-mortarboard-fill');
+                                      return (
+                                        <div key={idx} className="col-md-4">
+                                          <div className={`card border-0 shadow-sm rounded-4 p-4 h-100 bg-white border-top border-4 border-${c}`}>
+                                            <div className="d-flex align-items-center justify-content-between mb-3">
+                                              <div className={`bg-${c} bg-opacity-10 text-${c} p-3 rounded-circle d-flex align-items-center justify-content-center`} style={{ width: '48px', height: '48px' }}>
+                                                <i className={`bi ${icono} fs-4`}></i>
+                                              </div>
+                                              <span className={`badge bg-${c} bg-opacity-10 text-${c} border border-${c} px-2.5 py-1 rounded-pill fw-bold fs-6`}>
+                                                {et.pct}%
+                                              </span>
+                                            </div>
+                                            <h5 className="fw-bolder text-dark mb-1">{et.etapa}</h5>
+                                            <div className="text-muted small mb-3">
+                                              <strong>{et.completados}</strong> de <strong>{et.total}</strong> estudiantes
+                                            </div>
+                                            <div className="progress rounded-pill shadow-inner mt-auto" style={{ height: '10px' }}>
+                                              <div className={`progress-bar bg-${c}`} style={{ width: `${et.pct}%` }}></div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* VISTA COMPARATIVA / GLOBAL DE LAS DOS ESCUELAS */
+                              <div className="row g-3">
+                                {/* Card Principal: Total Complejo Ambas Escuelas */}
+                                <div className="col-12">
+                                  <div className="card border-0 shadow-sm rounded-4 p-4 text-white overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)' }}>
+                                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                                      <div>
+                                        <span className="badge bg-primary px-3 py-1.5 rounded-pill mb-2 shadow-sm text-uppercase fw-bold" style={{ fontSize: '0.78rem' }}>
+                                          <i className="bi bi-buildings-fill me-1.5"></i>Consolidado Global • Complejo Educativo
+                                        </span>
+                                        <h3 className="fw-bolder mb-1 text-white">
+                                          Avance General de Ambas Escuelas (SB + LB)
+                                        </h3>
+                                        <p className="text-white-50 mb-0 small">
+                                          Matrícula consolidada de <strong>{stats.totalGeneral}</strong> estudiantes • <strong>{stats.completadosGeneral}</strong> completados al 100%.
+                                        </p>
+                                      </div>
+                                      <div className="text-center bg-white bg-opacity-20 p-3 rounded-4 border border-white border-opacity-25" style={{ minWidth: '150px' }}>
+                                        <div className="display-5 fw-bolder text-white lh-1">{stats.pctGeneral}%</div>
+                                        <small className="text-white fw-bold text-uppercase d-block mt-1" style={{ fontSize: '0.72rem', letterSpacing: '0.5px' }}>Avance Global</small>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Columna Izquierda: U.E. Santa Bárbara */}
+                                <div className="col-md-6">
+                                  <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 border-top border-4 border-primary">
+                                    <div className="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
+                                      <div className="d-flex align-items-center gap-3">
+                                        <div className="bg-primary bg-opacity-10 text-primary p-2.5 rounded-circle">
+                                          <i className="bi bi-building fs-4"></i>
+                                        </div>
+                                        <div>
+                                          <h5 className="fw-bolder text-dark mb-0">U.E. Santa Bárbara</h5>
+                                          <small className="text-muted">Matrícula: {statsSB.totalGeneral} estudiantes</small>
+                                        </div>
+                                      </div>
+                                      <div className="text-end">
+                                        <span className="fs-3 fw-bolder text-primary lh-1 d-block">{statsSB.pctGeneral}%</span>
+                                        <span className="badge bg-primary bg-opacity-10 text-primary fw-bold" style={{ fontSize: '0.68rem' }}>TOTAL ESCUELA</span>
+                                      </div>
+                                    </div>
+
+                                    <div className="d-flex flex-column gap-3">
+                                      {(statsSB.desgloseEtapas || []).map((et: any, idx: number) => {
+                                        const c = et.pct >= 75 ? 'success' : (et.pct >= 40 ? 'warning' : 'danger');
+                                        return (
+                                          <div key={idx} className="p-2.5 rounded-3 bg-light border">
+                                            <div className="d-flex justify-content-between align-items-center mb-1.5">
+                                              <span className="fw-bold text-dark small">{et.etapa}</span>
+                                              <div className="d-flex align-items-center gap-2">
+                                                <span className="text-muted small" style={{ fontSize: '0.72rem' }}>{et.completados}/{et.total}</span>
+                                                <span className={`badge bg-${c} bg-opacity-10 text-${c} border border-${c} fw-bold`}>{et.pct}%</span>
+                                              </div>
+                                            </div>
+                                            <div className="progress rounded-pill shadow-inner" style={{ height: '7px' }}>
+                                              <div className={`progress-bar bg-${c}`} style={{ width: `${et.pct}%` }}></div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Columna Derecha: U.E. Libertador Bolívar */}
+                                <div className="col-md-6">
+                                  <div className="card border-0 shadow-sm rounded-4 p-4 bg-white h-100 border-top border-4 border-success">
+                                    <div className="d-flex align-items-center justify-content-between pb-3 mb-3 border-bottom">
+                                      <div className="d-flex align-items-center gap-3">
+                                        <div className="bg-success bg-opacity-10 text-success p-2.5 rounded-circle">
+                                          <i className="bi bi-building fs-4"></i>
+                                        </div>
+                                        <div>
+                                          <h5 className="fw-bolder text-dark mb-0">U.E. Libertador Bolívar</h5>
+                                          <small className="text-muted">Matrícula: {statsLB.totalGeneral} estudiantes</small>
+                                        </div>
+                                      </div>
+                                      <div className="text-end">
+                                        <span className="fs-3 fw-bolder text-success lh-1 d-block">{statsLB.pctGeneral}%</span>
+                                        <span className="badge bg-success bg-opacity-10 text-success fw-bold" style={{ fontSize: '0.68rem' }}>TOTAL ESCUELA</span>
+                                      </div>
+                                    </div>
+
+                                    <div className="d-flex flex-column gap-3">
+                                      {(statsLB.desgloseEtapas || []).map((et: any, idx: number) => {
+                                        const c = et.pct >= 75 ? 'success' : (et.pct >= 40 ? 'warning' : 'danger');
+                                        return (
+                                          <div key={idx} className="p-2.5 rounded-3 bg-light border">
+                                            <div className="d-flex justify-content-between align-items-center mb-1.5">
+                                              <span className="fw-bold text-dark small">{et.etapa}</span>
+                                              <div className="d-flex align-items-center gap-2">
+                                                <span className="text-muted small" style={{ fontSize: '0.72rem' }}>{et.completados}/{et.total}</span>
+                                                <span className={`badge bg-${c} bg-opacity-10 text-${c} border border-${c} fw-bold`}>{et.pct}%</span>
+                                              </div>
+                                            </div>
+                                            <div className="progress rounded-pill shadow-inner" style={{ height: '7px' }}>
+                                              <div className={`progress-bar bg-${c}`} style={{ width: `${et.pct}%` }}></div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* 1. DOSSIER 360° EJECUTIVO */}
                       {tipoGrafico === 'dossier' && (() => {
