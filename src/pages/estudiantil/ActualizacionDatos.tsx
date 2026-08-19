@@ -4280,6 +4280,35 @@ const STEPS = [
     );
   }
 
+  const abrirModeloConstancia = (esc: 'sb' | 'lb' = 'sb') => {
+    const ano = new Date().getFullYear();
+    const datosEstDemo = {
+      cedula_estudiante: '31.456.789',
+      nombres_estudiante: 'Alejandro José',
+      apellidos_estudiante: 'Pérez Silva',
+      grado_actual: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+      codigo_escuela: esc,
+      nombre_escuela: esc === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar',
+      cedula_representante: '15.987.654',
+      nombres_representante: 'Carlos Eduardo',
+      apellidos_representante: 'Pérez Mendoza',
+      codigo_unico: `CI-${esc.toUpperCase()}-31456789-${ano}`
+    };
+
+    const formDemo = {
+      estudiante_nombres: 'Alejandro José',
+      estudiante_apellidos: 'Pérez Silva',
+      estudiante_cedula: '31.456.789',
+      grado_solicitado: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+      representante_nombres: 'Carlos Eduardo',
+      representante_apellidos: 'Pérez Mendoza',
+      representante_cedula: '15.987.654',
+      codigo_unico: `CI-${esc.toUpperCase()}-31456789-${ano}`
+    } as unknown as SolicitudForm;
+
+    manejarOpcionesConstancia(datosEstDemo, formDemo);
+  };
+
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
 
@@ -4355,7 +4384,7 @@ const STEPS = [
 
             </div>
 
-            <div className="col-md-5">
+            <div className="col-md-4">
 
               <input 
 
@@ -4395,6 +4424,29 @@ const STEPS = [
 
               </button>
 
+            </div>
+
+            <div className="col-md-auto ms-md-auto mt-2 mt-md-0">
+              <div className="btn-group shadow-sm" role="group">
+                <button 
+                  type="button" 
+                  className="btn btn-outline-success fw-bold d-flex align-items-center gap-1.5"
+                  onClick={() => abrirModeloConstancia('sb')}
+                  title="Ver y descargar modelo de Constancia de Inscripción (UE Santa Bárbara)"
+                >
+                  <i className="bi bi-file-earmark-check-fill"></i>
+                  <span>Constancia SB</span>
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-outline-primary fw-bold d-flex align-items-center gap-1.5"
+                  onClick={() => abrirModeloConstancia('lb')}
+                  title="Ver y descargar modelo de Constancia de Inscripción (UE Libertador Bolívar)"
+                >
+                  <i className="bi bi-file-earmark-check-fill"></i>
+                  <span>Constancia LB</span>
+                </button>
+              </div>
             </div>
 
           </form>
