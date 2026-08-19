@@ -697,6 +697,53 @@ export const Verificaciones: React.FC = () => {
   const estatusActualizacion = vinculacion ? calcularEstatusActualizacion(vinculacion) : null;
   const estatusCupo = calcularEstatusCupo(solicitudCupo);
 
+  const cargarModeloEjemplo = async (esc: 'sb' | 'lb' = 'sb') => {
+    setCargando(true);
+    try {
+      const dir = await obtenerDatosDirectorAsync(esc);
+      const ano = new Date().getFullYear();
+      const codDemo = `CI-${esc.toUpperCase()}-31456789-${ano}`;
+      const firma = await obtenerFirmaDirectorProtegida(esc, codDemo);
+      
+      setDirInfo(dir);
+      setFirmaBase64(firma);
+
+      setVinculacion({
+        id: 'demo-sample-01',
+        cedula_estudiante: '31.456.789',
+        nombres_estudiante: 'Alejandro José',
+        apellidos_estudiante: 'Pérez Silva',
+        grado_actual: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+        seccion_actual: 'A',
+        codigo_escuela: esc,
+        nombre_escuela: esc === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar',
+        cedula_representante: '15.987.654',
+        nombres_representante: 'Carlos Eduardo',
+        apellidos_representante: 'Pérez Mendoza',
+        fecha_ultima_actualizacion: new Date().toISOString(),
+        codigo_unico: codDemo,
+        datos_actualizados: {
+          estudiante_nombres: 'Alejandro José',
+          estudiante_apellidos: 'Pérez Silva',
+          estudiante_cedula: '31.456.789',
+          grado_solicitado: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+          representante_nombres: 'Carlos Eduardo',
+          representante_apellidos: 'Pérez Mendoza',
+          representante_cedula: '15.987.654',
+          codigo_unico: codDemo
+        }
+      });
+      setSolicitudCupo(null);
+      setVistaDoc('constancia');
+      setBusquedaRealizada(true);
+      setCodigoBusqueda(codDemo);
+    } catch (e) {
+      console.error("Error al cargar modelo demo:", e);
+    } finally {
+      setCargando(false);
+    }
+  };
+
   return (
     <div className="modulo-animado p-3 p-md-4 font-sans">
       
@@ -716,7 +763,28 @@ export const Verificaciones: React.FC = () => {
           </div>
         </div>
 
-        <div className="d-flex gap-2">
+        <div className="d-flex flex-wrap gap-2 align-items-center">
+          <div className="btn-group shadow-sm" role="group">
+            <button 
+              type="button"
+              onClick={() => cargarModeloEjemplo('sb')} 
+              className="btn btn-outline-success fw-bold d-flex align-items-center gap-1.5"
+              title="Ver Modelo de Constancia Oficial de la UE Santa Bárbara"
+            >
+              <i className="bi bi-eye-fill"></i>
+              <span>Modelo SB</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => cargarModeloEjemplo('lb')} 
+              className="btn btn-outline-primary fw-bold d-flex align-items-center gap-1.5"
+              title="Ver Modelo de Constancia Oficial de la UE Libertador Bolívar"
+            >
+              <i className="bi bi-eye-fill"></i>
+              <span>Modelo LB</span>
+            </button>
+          </div>
+
           <button 
             type="button"
             onClick={abrirEscaner} 
@@ -724,7 +792,7 @@ export const Verificaciones: React.FC = () => {
             style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
           >
             <i className="bi bi-camera-fill fs-5"></i>
-            <span>Escanear QR con Cámara</span>
+            <span>Escanear QR</span>
           </button>
 
           <button 
