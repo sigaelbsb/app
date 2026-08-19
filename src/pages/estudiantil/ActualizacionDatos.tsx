@@ -657,7 +657,7 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN -->
           <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 25px;">
-            Quien suscribe, profesor <b>${nombreDirectorLimpio}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en mi calidad de <b>${cargoDirectorTexto}</b>, hago constar que ${esFemenino ? 'la estudiante cuyos datos se detallan a continuación ha culminado exitosamente su proceso de inscripción y está autorizada' : esMasculino ? 'el estudiante cuyos datos se detallan a continuación ha culminado exitosamente su proceso de inscripción y está autorizado' : 'el (la) estudiante cuyos datos se detallan a continuación ha culminado exitosamente su proceso de inscripción y está autorizado(a)'} para cursar el <b>Año Escolar ${anoActual}–${anoProximo}</b> en esta institución educativa:
+            Quien suscribe, profesor <b>${nombreDirectorLimpio}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en mi carácter de <b>${cargoDirectorTexto}</b>, certifico que ${esFemenino ? 'la estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizada' : esMasculino ? 'el estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizado' : 'el (la) estudiante cuyos datos se reflejan en esta constancia ha actualizado su información de forma exitosa y está autorizado(a)'} para cursar el <b>Año Escolar ${anoActual}–${anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
           </div>
 
           <!-- DATOS RELEVANTES DETALLADOS -->
