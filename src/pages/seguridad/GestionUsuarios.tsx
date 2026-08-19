@@ -1735,6 +1735,7 @@ export const GestionUsuarios = () => {
                     <thead className="bg-light text-muted small">
                       <tr>
                         <th className="ps-3 py-3">Usuario</th>
+                        <th>Teléfono</th>
                         <th>Escuela</th>
                         <th>Rol</th>
                         <th className="text-center pe-3">Acción</th>
@@ -1743,31 +1744,57 @@ export const GestionUsuarios = () => {
                     <tbody>
                       {solicitudesReseteo.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="text-center py-4 text-muted">
+                          <td colSpan={5} className="text-center py-4 text-muted">
                             <i className="bi bi-check-circle fs-2 text-success d-block mb-2"></i>
                             No hay solicitudes de reseteo pendientes.
                           </td>
                         </tr>
                       ) : (
-                        solicitudesReseteo.map(u => (
-                          <tr key={u.id_usuario || u.id || u.cedula} className="align-middle">
-                            <td className="ps-3">
-                              <div className="fw-bold text-dark">{u.nombre_completo}</div>
-                              <div className="small text-muted">{u.cedula}</div>
-                            </td>
-                            <td>
-                              {u.id_escuela === 'lb' && <span className="badge bg-primary bg-opacity-10 text-primary border border-primary">LB</span>}
-                              {u.id_escuela === 'sb' && <span className="badge bg-success bg-opacity-10 text-success border border-success">SB</span>}
-                              {u.id_escuela === 'ambas' && <span className="badge bg-dark bg-opacity-10 text-dark border border-dark">Ambas</span>}
-                            </td>
-                            <td><span className="badge bg-light text-dark border">{u.rol}</span></td>
-                            <td className="text-center">
-                              <button className="btn btn-sm btn-success fw-bold shadow-sm" onClick={() => aprobarReseteo(u)}>
-                                <i className="bi bi-check2-circle me-1"></i>Aprobar
-                              </button>
-                            </td>
-                          </tr>
-                        ))
+                        solicitudesReseteo.map(u => {
+                          const ests = getEstudiantesDeUsuario(u, vinculacionesMap);
+                          const telVinc = ests.find(e => e.telefono_representante)?.telefono_representante;
+                          const telefonoMostrar = u.telefono || telVinc || '';
+
+                          return (
+                            <tr key={u.id_usuario || u.id || u.cedula} className="align-middle">
+                              <td className="ps-3">
+                                <div className="fw-bold text-dark">{toTitulo(u.nombre_completo)}</div>
+                                <div className="small text-muted">{u.cedula}</div>
+                              </td>
+                              <td>
+                                {telefonoMostrar ? (
+                                  <span className="badge bg-light text-dark border">
+                                    <i className="bi bi-telephone me-1 text-success"></i>{telefonoMostrar}
+                                  </span>
+                                ) : (
+                                  <span className="badge bg-light text-muted border">Sin registrar</span>
+                                )}
+                              </td>
+                              <td>
+                                {u.id_escuela === 'lb' && <span className="badge bg-primary bg-opacity-10 text-primary border border-primary">LB</span>}
+                                {u.id_escuela === 'sb' && <span className="badge bg-success bg-opacity-10 text-success border border-success">SB</span>}
+                                {u.id_escuela === 'ambas' && <span className="badge bg-dark bg-opacity-10 text-dark border border-dark">Ambas</span>}
+                              </td>
+                              <td><span className="badge bg-light text-dark border">{u.rol}</span></td>
+                              <td className="text-center pe-3 text-nowrap">
+                                <button 
+                                  className="btn btn-sm btn-outline-success shadow-sm me-2 fw-bold" 
+                                  onClick={() => enviarNotificacionReseteoWhatsApp(u)}
+                                  title="Enviar mensaje por WhatsApp con los datos de acceso"
+                                >
+                                  <i className="bi bi-whatsapp me-1"></i>WhatsApp
+                                </button>
+                                <button 
+                                  className="btn btn-sm btn-success fw-bold shadow-sm" 
+                                  onClick={() => aprobarReseteo(u)}
+                                  title="Aprobar reseteo oficial"
+                                >
+                                  <i className="bi bi-check2-circle me-1"></i>Aprobar
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
