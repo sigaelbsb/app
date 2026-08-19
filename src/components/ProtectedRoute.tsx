@@ -23,8 +23,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ modulo, accion =
     );
   }
 
-  // SuperAdmin siempre tiene acceso completo
-  if (user?.rol === 'SuperAdmin') {
+  // Directivos y Administradores siempre tienen acceso directo a los módulos
+  const esDirectivo = ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Coordinador', 'Administrador'].includes(user?.rol);
+  if (user?.rol === 'SuperAdmin' || esDirectivo) {
     return <>{children}</>;
   }
 

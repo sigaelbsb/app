@@ -1,50 +1,72 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 
-let cachePermisos: any = null;
-let cacheFullPermisos: any = null;
-let cacheUserRol: string | null = null;
-let cacheEscuela: string | null = null;
+const getInitialUser = () => {
+  try {
+    const stored = localStorage.getItem('usuario_sigae');
+    return stored ? JSON.parse(stored) : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const getInitialCache = (key: string) => {
+  try {
+    const cached = localStorage.getItem(key);
+    return cached ? JSON.parse(cached) : null;
+  } catch (e) {
+    return null;
+  }
+};
 
 export const usePermisos = () => {
-  const [permisos, setPermisos] = useState<any>(cachePermisos);
-  const [fullPermisos, setFullPermisos] = useState<any>(cacheFullPermisos);
-  const [loading, setLoading] = useState(!cachePermisos);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(getInitialUser);
+  const [fullPermisos, setFullPermisos] = useState<any>(() => getInitialCache('sigae_cache_full_permisos'));
+  const [permisos, setPermisos] = useState<any>(() => getInitialCache('sigae_cache_permisos'));
+  const [loading, setLoading] = useState<boolean>(() => {
+    const initialUser = getInitialUser();
+    if (!initialUser) return false;
+    if (['SuperAdmin', 'Director', 'Directora'].includes(initialUser.rol)) return false;
+    const cached = getInitialCache('sigae_cache_full_permisos');
+    return !cached;
+  });
 
   useEffect(() => {
-    const stored = localStorage.getItem('usuario_sigae');
-    if (!stored) {
-      cachePermisos = null;
-      cacheFullPermisos = null;
-      cacheUserRol = null;
-      cacheEscuela = null;
+    const usr = getInitialUser();
+    if (!usr) {
+      setUser(null);
       setPermisos(null);
       setFullPermisos(null);
       setLoading(false);
       return;
     }
-    const usr = JSON.parse(stored);
     setUser(usr);
 
     const currentEsc = localStorage.getItem('sigae_escuela_codigo') || usr.id_escuela || 'sb';
 
-    if (cachePermisos && cacheFullPermisos && cacheUserRol === usr.rol && cacheEscuela === currentEsc) {
-      setPermisos(cachePermisos);
-      setFullPermisos(cacheFullPermisos);
-      setLoading(false);
-      return;
-    }
-
     const fetchPermisos = async () => {
       try {
-        const { data, error } = await supabase
+        // Si el rol no existe en la tabla de roles pero es directivo, fallback a Administrador
+        let targetRol = usr.rol;
+        let { data, error } = await supabase
           .from('roles')
           .select('permisos')
-          .eq('nombre', usr.rol)
+          .eq('nombre', targetRol)
           .maybeSingle();
 
-        if (error) throw error;
+        if (!data && ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Coordinador'].includes(usr.rol)) {
+          const fallback = await supabase
+            .from('roles')
+            .select('permisos')
+            .eq('nombre', 'Administrador')
+            .maybeSingle();
+          if (fallback.data) {
+            data = fallback.data;
+          }
+        }
+
+        if (error && !data) throw error;
+
         if (data) {
           let parsed: any = {};
           if (typeof data.permisos === 'string') {
@@ -52,59 +74,39 @@ export const usePermisos = () => {
           } else {
             parsed = data.permisos || {};
           }
-          cacheFullPermisos = parsed;
-          cacheUserRol = usr.rol;
-          cacheEscuela = currentEsc;
+
           setFullPermisos(parsed);
+          localStorage.setItem('sigae_cache_full_permisos', JSON.stringify(parsed));
 
-          let esc = currentEsc;
-
-          // Verificar si el usuario tiene acceso a la escuela seleccionada
-          const tieneAcceso = (cod: string) => {
-            if (usr.rol === 'SuperAdmin') return true;
-            const privs = parsed[cod];
-            if (!privs) return false;
-            if (privs.hasOwnProperty('__acceso_plantel__')) {
-              return privs['__acceso_plantel__']?.ver === true;
-            }
-            for (let mod in privs) {
-              if (privs[mod] && (privs[mod].ver === true || privs[mod] === true)) return true;
-            }
-            return false;
-          };
-
-          if (usr.rol !== 'SuperAdmin' && !tieneAcceso(esc)) {
-            const otherEsc = esc === 'sb' ? 'lb' : 'sb';
-            if (tieneAcceso(otherEsc)) {
-              esc = otherEsc;
-              localStorage.setItem('sigae_escuela_codigo', otherEsc);
-              localStorage.setItem('sigae_escuela_activa', otherEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
-              usr.id_escuela = otherEsc;
-              usr.nombre_escuela = otherEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
-              localStorage.setItem('usuario_sigae', JSON.stringify(usr));
-              window.location.reload();
-              return;
-            }
-          }
-
-          const escPerms = parsed[esc] || parsed || {};
-          cachePermisos = escPerms;
+          const escPerms = parsed[currentEsc] || parsed || {};
           setPermisos(escPerms);
+          localStorage.setItem('sigae_cache_permisos', JSON.stringify(escPerms));
         }
       } catch (e) {
         console.error("Error fetching permissions:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchPermisos();
   }, []);
 
+  const esDirectivo = useMemo(() => {
+    const rol = (user?.rol || '').trim();
+    return ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Subdirectora'].includes(rol);
+  }, [user]);
+
   const tieneAccesoEscuela = useCallback((escuelaCodigo: string) => {
     if (!user) return false;
-    if (user.rol === 'SuperAdmin') return true;
+    if (user.rol === 'SuperAdmin' || esDirectivo) return true;
     
-    if (!fullPermisos) return false;
+    // Si el usuario tiene una escuela fija asignada y es invitado/docente en un solo plantel
+    if (user.id_escuela && user.id_escuela !== 'ambas' && user.id_escuela !== 'todas') {
+      if (user.id_escuela === escuelaCodigo) return true;
+    }
+
+    if (!fullPermisos) return true; // Si no hay permisos cargados, no bloquear por defecto
     const privsEscuela = fullPermisos[escuelaCodigo];
     if (!privsEscuela) return false;
     
@@ -112,27 +114,25 @@ export const usePermisos = () => {
       return privsEscuela['__acceso_plantel__']?.ver === true;
     }
     
-    // Retrocompatibilidad: buscar si tiene al menos un módulo activo
     for (let mod in privsEscuela) {
       if (privsEscuela[mod] && (privsEscuela[mod].ver === true || privsEscuela[mod] === true)) {
         return true;
       }
     }
     return false;
-  }, [user, fullPermisos]);
+  }, [user, fullPermisos, esDirectivo]);
 
   const tienePermiso = useCallback((modulo: string, accion: string = 'ver') => {
     if (!user || !user.rol) return false;
-    if (user.rol === 'SuperAdmin') return true;
+    if (user.rol === 'SuperAdmin' || esDirectivo) return true;
 
-    // Módulos básicos de autogestión de cuenta permitidos a cualquier usuario autenticado
+    // Autogestión básica de cuenta disponible a todo usuario autenticado
     if (modulo === "Mi Perfil" || modulo === "Métodos de Acceso") {
       return true;
     }
 
     const activeSchool = localStorage.getItem('sigae_escuela_codigo') || user.id_escuela || 'sb';
 
-    // Si el rol no tiene acceso al plantel activo, no puede ver ningún módulo de ese plantel
     if (!tieneAccesoEscuela(activeSchool)) {
       return false;
     }
@@ -141,7 +141,7 @@ export const usePermisos = () => {
     if (!escPerms) return false;
 
     // 1. Verificación directa del módulo en la matriz de la escuela activa
-    const checkModulo = (modName: string) => {
+    const checkVal = (modName: string) => {
       const val = escPerms[modName];
       if (val === undefined) return undefined;
       if (typeof val === 'boolean') return val;
@@ -154,7 +154,7 @@ export const usePermisos = () => {
       return false;
     };
 
-    const directResult = checkModulo(modulo);
+    const directResult = checkVal(modulo);
     if (directResult !== undefined) {
       return directResult;
     }
@@ -167,6 +167,7 @@ export const usePermisos = () => {
       "Cerebro de Sigma": ["Cerebro Sigma"],
       "Cerebro Sigma": ["Cerebro de Sigma"],
       "Galería y Plantillas": ["Diseños"],
+      "Creador de Certificados": ["Diseños"],
       "Creador de Flyers": ["Diseños"],
       "Creador de Invitaciones": ["Diseños"],
       "Creador de Tapas": ["Diseños"],
@@ -176,7 +177,7 @@ export const usePermisos = () => {
 
     if (aliasMap[modulo]) {
       for (const alias of aliasMap[modulo]) {
-        const aliasRes = checkModulo(alias);
+        const aliasRes = checkVal(alias);
         if (aliasRes !== undefined) return aliasRes;
       }
     }
@@ -193,13 +194,12 @@ export const usePermisos = () => {
       }
     }
 
-    // Por defecto, si no está en la matriz de permisos otorgados, el acceso es DENEGADO
     return false;
-  }, [user, fullPermisos, permisos, tieneAccesoEscuela]);
+  }, [user, fullPermisos, permisos, tieneAccesoEscuela, esDirectivo]);
 
   const tienePermisoEnEscuela = useCallback((escuelaCodigo: string, modulo: string, accion: string = 'ver') => {
     if (!user) return false;
-    if (user.rol === 'SuperAdmin') return true;
+    if (user.rol === 'SuperAdmin' || esDirectivo) return true;
     if (!tieneAccesoEscuela(escuelaCodigo)) return false;
 
     if (!fullPermisos || !fullPermisos[escuelaCodigo]) return false;
@@ -214,7 +214,7 @@ export const usePermisos = () => {
       return val[accion] === true;
     }
     return false;
-  }, [user, fullPermisos, tieneAccesoEscuela]);
+  }, [user, fullPermisos, tieneAccesoEscuela, esDirectivo]);
 
   return { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, fullPermisos, permisos, loading, user };
 };
