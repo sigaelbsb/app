@@ -630,7 +630,7 @@ export const GestionUsuarios = () => {
     return '';
   };
 
-  const enviarNotificacionReseteoWhatsApp = async (u: any, telefonoPredefinido?: string) => {
+  const enviarNotificacionReseteoWhatsApp = async (u: any, telefonoPredefinido?: string, esTotal: boolean = false) => {
     const nombre = toTitulo(u.nombre_completo || 'Usuario');
     const cedula = u.cedula || '';
     
@@ -638,7 +638,10 @@ export const GestionUsuarios = () => {
 
     const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const linkPlataforma = esLocal ? 'https://sigae-hh6u.onrender.com' : window.location.origin;
-    const mensaje = `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que su cuenta en el *Sistema Integrado de Gestión y Administración Escolar (SIGAE)* ha sido *restablecida / reseteada exitosamente*.\n\n📋 *Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar:*\n1. Ingrese a la plataforma SIGAE: ${linkPlataforma}\n2. Inicie sesión con su cédula como usuario y cédula como contraseña.\n3. El sistema le solicitará configurar su nueva clave personal y preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`;
+    
+    const mensaje = esTotal 
+      ? `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que se ha procesado y aprobado el *RESETEO TOTAL* de su cuenta en el *Sistema Integrado de Gestión y Administración Escolar (SIGAE)*.\n\nSu perfil ha sido reiniciado a estado inicial (primer ingreso), por lo que sus preguntas secretas y contraseña anterior fueron restablecidas.\n\n📋 *Nuevas Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar y Configurar su Cuenta:*\n1. Ingrese a la plataforma SIGAE: ${linkPlataforma}\n2. Inicie sesión colocando su cédula en Usuario y su misma cédula en Contraseña.\n3. El Asistente de Primer Ingreso le solicitará definir su nueva contraseña personal y configurar sus preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`
+      : `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que su contraseña en el *Sistema Integrado de Gestión y Administración Escolar (SIGAE)* ha sido *restablecida exitosamente*.\n\n📋 *Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar:*\n1. Ingrese a la plataforma SIGAE: ${linkPlataforma}\n2. Inicie sesión con su cédula como usuario y contraseña.\n3. El sistema le solicitará configurar su nueva clave personal y preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`;
 
     // Normalizar a formato E.164 Venezuela (código 58)
     let telLimpio = String(telefono || '').replace(/\D/g, '');
@@ -951,7 +954,7 @@ export const GestionUsuarios = () => {
             cancelButtonText: 'Cerrar'
           }).then((resWa: any) => {
             if (resWa.isConfirmed) {
-              enviarNotificacionReseteoWhatsApp(u, telefonoPrevio);
+              enviarNotificacionReseteoWhatsApp(u, telefonoPrevio, true);
             }
           });
         } catch (e: any) {
@@ -1780,7 +1783,7 @@ export const GestionUsuarios = () => {
                               <td className="text-center pe-3 text-nowrap">
                                 <button 
                                   className="btn btn-sm btn-outline-success shadow-sm me-2 fw-bold" 
-                                  onClick={() => enviarNotificacionReseteoWhatsApp(u)}
+                                  onClick={() => enviarNotificacionReseteoWhatsApp(u, undefined, true)}
                                   title="Enviar mensaje por WhatsApp con los datos de acceso"
                                 >
                                   <i className="bi bi-whatsapp me-1"></i>WhatsApp
