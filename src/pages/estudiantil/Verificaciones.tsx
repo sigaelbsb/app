@@ -1301,25 +1301,28 @@ export const Verificaciones: React.FC = () => {
                   </div>
                 </div>
 
-                {/* TÍTULO DE LA CONSTANCIA CON FONDO AZUL */}
-                <div style={{ backgroundColor: '#3b82f6', color: '#ffffff', textAlign: 'center', padding: '7px 12px', borderRadius: '4px', fontSize: '18.5px', fontWeight: 'bold', margin: '18px 0 22px', letterSpacing: '0.3px' }}>
-                  Constancia de Inscripción
+                {/* TÍTULO DE LA CONSTANCIA */}
+                <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
+                  <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Constancia de Inscripción
+                  </h2>
                 </div>
 
                 {/* PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN */}
-                <div style={{ fontSize: '13.5px', lineHeight: '1.95', color: '#000000', textAlign: 'justify', marginBottom: '20px' }}>
+                <div style={{ fontSize: '13.5px', lineHeight: '1.95', color: '#000000', textAlign: 'justify', marginBottom: '25px' }}>
                   Quien suscribe, profesor <b>{(dirInfo?.tituloDirector || dirInfo?.nombreCompleto || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '')}</b>, titular de la cédula de identidad número <b>{dirInfo?.cedula || '17780095'}</b>, en calidad de <b>{dirInfo?.cargoGenerico || 'Director de la Unidad Educativa'}</b>, certifico que los datos reflejados en esta constancia corresponden a {esFemenino ? 'una estudiante que ha actualizado su información de forma exitosa. Esta estudiante' : esMasculino ? 'un estudiante que ha actualizado su información de forma exitosa. Este estudiante' : 'un(a) estudiante que ha actualizado su información de forma exitosa. Dicho(a) estudiante'} está {esFemenino ? 'autorizada' : esMasculino ? 'autorizado' : 'autorizado(a)'} para cursar el <b>Año Escolar {anoActual} – {anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
                 </div>
 
                 {/* DATOS RELEVANTES DETALLADOS */}
-                <div style={{ fontSize: '13.5px', lineHeight: '2.1', color: '#000000', margin: '20px 0 25px' }}>
-                  <div style={{ marginBottom: '6px' }}><span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', display: 'inline-block', minWidth: '195px' }}>Estudiante:</span> <span style={{ marginLeft: '12px', fontSize: '13.5px' }}>{nombreEstudianteCompleto}</span></div>
-                  <div style={{ marginBottom: '6px' }}><span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', display: 'inline-block', minWidth: '195px' }}>Cédula de Identidad o Escolar:</span> <span style={{ marginLeft: '12px', fontSize: '13.5px' }}>{cedulaEstudiante}</span></div>
-                  <div style={{ marginBottom: '6px' }}><span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', display: 'inline-block', minWidth: '195px' }}>Nivel Educativo:</span> <span style={{ marginLeft: '12px', fontSize: '13.5px' }}>{nivelEducativo}</span></div>
-                  <div style={{ marginBottom: '6px' }}><span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', display: 'inline-block', minWidth: '195px' }}>Grupo, grado o año a cursar:</span> <span style={{ marginLeft: '12px', fontSize: '13.5px' }}>{gradoLimpio}</span></div>
-                  <div style={{ marginBottom: '6px' }}><span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', display: 'inline-block', minWidth: '195px' }}>Representante Legal:</span> <span style={{ marginLeft: '12px', fontSize: '13.5px' }}>{representanteNombre}</span></div>
-                  <div style={{ marginBottom: '14px' }}><span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', display: 'inline-block', minWidth: '195px' }}>Cédula de Identidad:</span> <span style={{ marginLeft: '12px', fontSize: '13.5px' }}>{representanteCedula}</span></div>
-                  <div style={{ marginTop: '14px' }}><span style={{ backgroundColor: '#93c5fd', color: '#000000', fontWeight: 'bold', padding: '2px 8px', borderRadius: '3px', display: 'inline-block', minWidth: '195px' }}>Fecha de Emisión:</span> <span style={{ marginLeft: '12px', fontSize: '13.5px' }}>{new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span></div>
+                <div style={{ fontSize: '13.5px', lineHeight: '2.2', color: '#000000', marginLeft: '12px', marginBottom: '30px' }}>
+                  <div><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
+                  <div><b>Cédula de Identidad o Escolar:</b> {cedulaEstudiante}</div>
+                  <div><b>Nivel Educativo:</b> {nivelEducativo}</div>
+                  <div><b>Grupo, grado o año a cursar:</b> {gradoLimpio}</div>
+                  <div><b>Representante Legal:</b> {representanteNombre}</div>
+                  <div><b>Cédula de Identidad:</b> {representanteCedula}</div>
+                  <div><b>Año Escolar:</b> {anoActual} – {anoProximo}</div>
+                  <div><b>Fecha de Emisión:</b> {new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                 </div>
 
                 {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD QUE TIENE EL CÓDIGO */}

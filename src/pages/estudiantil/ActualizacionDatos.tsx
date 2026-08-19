@@ -650,25 +650,26 @@ export const ActualizacionDatos: React.FC = () => {
             </div>
           </div>
 
-          <!-- TÍTULO DE LA CONSTANCIA CON FONDO AZUL -->
-          <div style="background-color: #3b82f6; color: #ffffff; text-align: center; padding: 7px 12px; border-radius: 4px; font-size: 18.5px; font-weight: bold; margin: 18px 0 22px; letter-spacing: 0.3px;">
-            Constancia de Inscripción
+          <!-- TÍTULO DE LA CONSTANCIA -->
+          <div style="text-align: center; margin: 28px 0 24px;">
+            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Constancia de Inscripción</h2>
           </div>
 
           <!-- PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN -->
-          <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 20px;">
+          <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 25px;">
             Quien suscribe, profesor <b>${nombreDirectorLimpio}</b>, titular de la cédula de identidad número <b>${dirData.cedula}</b>, en calidad de <b>${cargoDirectorTexto}</b>, certifico que los datos reflejados en esta constancia corresponden a ${esFemenino ? 'una estudiante que ha actualizado su información de forma exitosa. Esta estudiante' : esMasculino ? 'un estudiante que ha actualizado su información de forma exitosa. Este estudiante' : 'un(a) estudiante que ha actualizado su información de forma exitosa. Dicho(a) estudiante'} está ${esFemenino ? 'autorizada' : esMasculino ? 'autorizado' : 'autorizado(a)'} para cursar el <b>Año Escolar ${anoActual} – ${anoProximo}</b> en nuestra institución. A continuación se detallan los datos relevantes:
           </div>
 
           <!-- DATOS RELEVANTES DETALLADOS -->
-          <div style="font-size: 13.5px; line-height: 2.1; color: #000000; margin: 20px 0 25px;">
-            <div style="margin-bottom: 6px;"><span style="background-color: #93c5fd; color: #000000; font-weight: bold; padding: 2px 8px; border-radius: 3px; display: inline-block; min-width: 195px;">Estudiante:</span> <span style="margin-left: 12px; font-size: 13.5px;">${nombreCompleto}</span></div>
-            <div style="margin-bottom: 6px;"><span style="background-color: #93c5fd; color: #000000; font-weight: bold; padding: 2px 8px; border-radius: 3px; display: inline-block; min-width: 195px;">Cédula de Identidad o Escolar:</span> <span style="margin-left: 12px; font-size: 13.5px;">${cedulaEstudiante}</span></div>
-            <div style="margin-bottom: 6px;"><span style="background-color: #93c5fd; color: #000000; font-weight: bold; padding: 2px 8px; border-radius: 3px; display: inline-block; min-width: 195px;">Nivel Educativo:</span> <span style="margin-left: 12px; font-size: 13.5px;">${nivelEducativo}</span></div>
-            <div style="margin-bottom: 6px;"><span style="background-color: #93c5fd; color: #000000; font-weight: bold; padding: 2px 8px; border-radius: 3px; display: inline-block; min-width: 195px;">Grupo, grado o año a cursar:</span> <span style="margin-left: 12px; font-size: 13.5px;">${gradoLimpio}</span></div>
-            <div style="margin-bottom: 6px;"><span style="background-color: #93c5fd; color: #000000; font-weight: bold; padding: 2px 8px; border-radius: 3px; display: inline-block; min-width: 195px;">Representante Legal:</span> <span style="margin-left: 12px; font-size: 13.5px;">${representanteNombre}</span></div>
-            <div style="margin-bottom: 14px;"><span style="background-color: #93c5fd; color: #000000; font-weight: bold; padding: 2px 8px; border-radius: 3px; display: inline-block; min-width: 195px;">Cédula de Identidad:</span> <span style="margin-left: 12px; font-size: 13.5px;">${representanteCedula}</span></div>
-            <div style="margin-top: 14px;"><span style="background-color: #93c5fd; color: #000000; font-weight: bold; padding: 2px 8px; border-radius: 3px; display: inline-block; min-width: 195px;">Fecha de Emisión:</span> <span style="margin-left: 12px; font-size: 13.5px;">${fechaHoy}</span></div>
+          <div style="font-size: 13.5px; line-height: 2.2; color: #000000; margin-left: 12px; margin-bottom: 30px;">
+            <div><b>Estudiante:</b> ${nombreCompleto}</div>
+            <div><b>Cédula de Identidad o Escolar:</b> ${cedulaEstudiante}</div>
+            <div><b>Nivel Educativo:</b> ${nivelEducativo}</div>
+            <div><b>Grupo, grado o año a cursar:</b> ${gradoLimpio}</div>
+            <div><b>Representante Legal:</b> ${representanteNombre}</div>
+            <div><b>Cédula de Identidad:</b> ${representanteCedula}</div>
+            <div><b>Año Escolar:</b> ${anoActual} – ${anoProximo}</div>
+            <div><b>Fecha de Emisión:</b> ${fechaHoy}</div>
           </div>
         </div>
 
