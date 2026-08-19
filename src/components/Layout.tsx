@@ -526,10 +526,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     }
   };
 
-  // Inactivity tracking (20 minutes)
+  // Inactivity tracking (30 minutes with mobile visibility & file picker awareness)
   useEffect(() => {
-    const TIEMPO_INACTIVIDAD = 20 * 60 * 1000; // 20 minutos
-    const TIEMPO_ADVERTENCIA = 30 * 1000; // 30 segundos
+    const TIEMPO_INACTIVIDAD = 30 * 60 * 1000; // 30 minutos
+    const TIEMPO_ADVERTENCIA = 60 * 1000; // 60 segundos de advertencia
     
     let lastActivityTime = Date.now();
     let isWarningActive = false;
@@ -541,8 +541,23 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Al regresar a la pestaña (por ejemplo, después de buscar fotos en la galería o cámara), refrescar actividad
+        actualizarActividad();
+      }
+    };
+
+    const handleResetInactivity = () => {
+      isWarningActive = false;
+      lastActivityTime = Date.now();
+    };
+
     const checkInactividad = () => {
       if (isWarningActive) return;
+      // No disparar alerta si el usuario tiene la pestaña en segundo plano (p. ej. eligiendo archivos en galería)
+      if (document.visibilityState === 'hidden') return;
+
       const timeSinceLastActivity = Date.now() - lastActivityTime;
       
       if (timeSinceLastActivity >= TIEMPO_INACTIVIDAD - TIEMPO_ADVERTENCIA) {
@@ -553,13 +568,13 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
     const mostrarAdvertencia = () => {
       const Swal = (window as any).Swal;
-      let contador = 30;
+      let contador = 60;
       let intervalContador: any;
 
       if (Swal) {
         Swal.fire({
           title: '¿Sigues ahí?',
-          html: 'Tu sesión se bloqueará por inactividad en <b>30</b> segundos.',
+          html: 'Tu sesión se bloqueará por inactividad en <b>60</b> segundos.',
           icon: 'warning',
           showCancelButton: true,
           confirmButtonText: 'Sí, mantener activa',
@@ -569,8 +584,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           allowOutsideClick: false,
           allowEscapeKey: false,
           didOpen: () => {
-            const b = Swal.getHtmlContainer().querySelector('b');
+            const b = Swal.getHtmlContainer()?.querySelector('b');
             intervalContador = setInterval(() => {
+              // Si la pestaña está oculta, pausar el conteo
+              if (document.visibilityState === 'hidden') return;
               contador--;
               if (b) b.textContent = String(contador);
               if (contador <= 0) {
@@ -580,7 +597,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             }, 1000);
           },
           willClose: () => {
-            clearInterval(intervalContador);
+            if (intervalContador) clearInterval(intervalContador);
           }
         }).then((result: any) => {
           if (result.isConfirmed) {
@@ -601,8 +618,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       }
     };
 
-    const eventos = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    const eventos = ['mousedown', 'mousemove', 'keypress', 'keydown', 'scroll', 'touchstart', 'touchend', 'input', 'change', 'focus'];
     eventos.forEach(evt => window.addEventListener(evt, actualizarActividad));
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('reset-inactivity-timer', handleResetInactivity);
 
     // Check inactividad cada 10 segundos
     checkInterval = setInterval(checkInactividad, 10000);
@@ -610,6 +629,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     return () => {
       clearInterval(checkInterval);
       eventos.forEach(evt => window.removeEventListener(evt, actualizarActividad));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('reset-inactivity-timer', handleResetInactivity);
     };
   }, [navigate, onLogout]);
 

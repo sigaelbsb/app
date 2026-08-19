@@ -1263,37 +1263,31 @@ export const ActualizacionDatos: React.FC = () => {
 
 
   const cargarMisRepresentados = async (cedulaConsulta: string) => {
-
     setLoading(true);
-
     try {
-
       const { data, error } = await supabase
-
         .from('estudiantes_vinculaciones')
-
         .select('*')
-
         .eq('cedula_representante', cedulaConsulta)
-
         .order('created_at', { ascending: false });
 
-
-
       if (error) throw error;
-
       setMisRepresentados(data || []);
 
+      // Auto-restaurar estudiante y paso si la sesión se recargó o hubo pausa
+      const savedEstId = sessionStorage.getItem('sigae_act_draft_estudiante_id');
+      const savedStep = sessionStorage.getItem('sigae_act_draft_step');
+      if (savedEstId && data && data.length > 0) {
+        const estGuardado = data.find((e: any) => String(e.id) === savedEstId);
+        if (estGuardado) {
+          abrirFichaEstudiante(estGuardado, savedStep ? parseInt(savedStep, 10) : 1);
+        }
+      }
     } catch (err: any) {
-
       console.error('Error al cargar representados:', err);
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
 
@@ -1469,9 +1463,11 @@ export const ActualizacionDatos: React.FC = () => {
 
 
 
-  const abrirFichaEstudiante = (est: any) => {
-
+  const abrirFichaEstudiante = (est: any, targetStep?: number) => {
     setEstudianteSeleccionado(est);
+    const initialStep = targetStep || 1;
+    sessionStorage.setItem('sigae_act_draft_estudiante_id', String(est.id));
+    sessionStorage.setItem('sigae_act_draft_step', String(initialStep));
 
     const tipoDocDefecto = (est.datos_actualizados && est.datos_actualizados.estudiante_tipo_documento)
       ? est.datos_actualizados.estudiante_tipo_documento
@@ -1480,59 +1476,42 @@ export const ActualizacionDatos: React.FC = () => {
         : 'Cédula de Identidad';
 
     if (est.datos_actualizados && Object.keys(est.datos_actualizados).length > 0) {
-
       setForm({ ...defaultForm(), ...est.datos_actualizados,
-
         estudiante_tipo_documento: tipoDocDefecto,
-
         estudiante_nombres: est.nombres_estudiante,
-
         estudiante_apellidos: est.apellidos_estudiante,
-
         estudiante_cedula: est.cedula_estudiante,
-
         grado_solicitado: est.grado_actual,
-
         representante_nombres: est.nombres_representante,
-
         representante_apellidos: est.apellidos_representante,
-
         representante_cedula: est.cedula_representante,
-
         tiene_otros_inscritos: misRepresentados.length > 1
-
        });
-
     } else {
-
       setForm({
-
         ...defaultForm(),
-
         estudiante_tipo_documento: tipoDocDefecto,
-
         estudiante_nombres: est.nombres_estudiante,
-
         estudiante_apellidos: est.apellidos_estudiante,
-
         estudiante_cedula: est.cedula_estudiante,
-
         grado_solicitado: est.grado_actual,
-
         representante_nombres: est.nombres_representante,
-
         representante_apellidos: est.apellidos_representante,
-
         representante_cedula: est.cedula_representante,
-
         tiene_otros_inscritos: misRepresentados.length > 1
-
       });
-
     }
 
-    setStep(1);
+    setStep(initialStep);
   };
+
+  // Mantener el paso actual guardado en la sesión ante cualquier recarga o cambio de app
+  useEffect(() => {
+    if (estudianteSeleccionado) {
+      sessionStorage.setItem('sigae_act_draft_estudiante_id', String(estudianteSeleccionado.id));
+      sessionStorage.setItem('sigae_act_draft_step', String(step));
+    }
+  }, [step, estudianteSeleccionado]);
 
   // ─── LÓGICA DE COMPRESIÓN Y CARGA DE CONSTANCIAS ────────────────────────────
   const [uploadingCultura, setUploadingCultura] = useState(false);
@@ -1622,6 +1601,7 @@ export const ActualizacionDatos: React.FC = () => {
   };
 
   const handleSubirDocumento = async (e: React.ChangeEvent<HTMLInputElement>, tipo: TipoDocumento) => {
+    window.dispatchEvent(new Event('reset-inactivity-timer'));
     const fileOriginal = e.target.files?.[0];
     if (!fileOriginal || !estudianteSeleccionado) return;
     if (fileOriginal.size > 8 * 1024 * 1024) {
@@ -1641,6 +1621,7 @@ export const ActualizacionDatos: React.FC = () => {
       if (error) throw error;
       const { data } = supabase.storage.from('documentos_solicitudes').getPublicUrl(filePath);
       updateForm(`${tipo}_url` as keyof SolicitudForm, data.publicUrl);
+      window.dispatchEvent(new Event('reset-inactivity-timer'));
       if (Swal) Swal.fire({ icon: 'success', title: 'Documento cargado', text: 'Documento optimizado y guardado correctamente.', timer: 2000, showConfirmButton: false });
     } catch (err: any) {
       console.error('Error al subir documento:', err);
@@ -1954,10 +1935,13 @@ export const ActualizacionDatos: React.FC = () => {
         else if (!/^\d{6,10}$/.test(form.madre_cedula)) faltantes.push('Cédula de la Madre (inválida, solo 6-10 dígitos)');
         if (!form.madre_lugar_nacimiento) faltantes.push('Lugar de Nacimiento de la Madre');
         
-        if (!form.foto_cedula_madre_url) faltantes.push('Foto Cédula de la Madre');
-
-        if (form.madre_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.madre_email)) faltantes.push('Correo de la Madre (formato inválido)');
-        if (form.madre_telefono && !/^\d{11}$/.test(form.madre_telefono.replace(/\D/g, ''))) faltantes.push('Teléfono de la Madre (formato inválido)');
+        // Solo exigir foto, dirección y datos de contacto si la madre se encuentra con vida
+        if (form.madre_vive !== 'No') {
+          if (!form.foto_cedula_madre_url) faltantes.push('Foto Cédula de la Madre');
+          if (!form.madre_direccion) faltantes.push('Dirección de Habitación de la Madre');
+          if (form.madre_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.madre_email)) faltantes.push('Correo de la Madre (formato inválido)');
+          if (form.madre_telefono && !/^\d{11}$/.test(form.madre_telefono.replace(/\D/g, ''))) faltantes.push('Teléfono de la Madre (formato inválido)');
+        }
 
         if (form.estudiante_reconocido_por_padre !== 'No') {
           if (!form.padre_nombres) faltantes.push('Nombres del Padre');
@@ -1966,10 +1950,13 @@ export const ActualizacionDatos: React.FC = () => {
           else if (!/^\d{6,10}$/.test(form.padre_cedula)) faltantes.push('Cédula del Padre (inválida, solo 6-10 dígitos)');
           if (!form.padre_lugar_nacimiento) faltantes.push('Lugar de Nacimiento del Padre');
           
-          if (!form.foto_cedula_padre_url) faltantes.push('Foto Cédula del Padre');
-
-          if (form.padre_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.padre_email)) faltantes.push('Correo del Padre (formato inválido)');
-          if (form.padre_telefono && !/^\d{11}$/.test(form.padre_telefono.replace(/\D/g, ''))) faltantes.push('Teléfono del Padre (formato inválido)');
+          // Solo exigir foto, dirección y datos de contacto si el padre se encuentra con vida
+          if (form.padre_vive !== 'No') {
+            if (!form.foto_cedula_padre_url) faltantes.push('Foto Cédula del Padre');
+            if (!form.padre_direccion) faltantes.push('Dirección de Habitación del Padre');
+            if (form.padre_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.padre_email)) faltantes.push('Correo del Padre (formato inválido)');
+            if (form.padre_telefono && !/^\d{11}$/.test(form.padre_telefono.replace(/\D/g, ''))) faltantes.push('Teléfono del Padre (formato inválido)');
+          }
         }
         break;
 
@@ -2173,7 +2160,7 @@ const STEPS = [
         </div>
 
         <div className="col-md-6">
-          <label className="form-label fw-semibold">¿Trabajador o Jubilado PDVSA? <span className="text-danger">*</span></label>
+          <label className="form-label fw-semibold">¿Es Trabajador Activo, Jubilado o Sobreviviente de PDVSA? <span className="text-danger">*</span></label>
           <div className="d-flex gap-3 mt-2">
             {['Sí', 'No'].map(op => {
               const esComunidad = form.representante_parentesco === 'Comunidad' || form.parentesco === 'Comunidad';
@@ -4254,8 +4241,39 @@ const STEPS = [
 
 
 
-  return (
+  if (user?.rol === 'Invitado' || user?.rol === 'Visitante') {
+    return (
+      <div className="container py-5 text-center animate__animated animate__fadeIn">
+        <div className="card border-0 shadow-sm rounded-4 p-5 mx-auto bg-white" style={{ maxWidth: '640px' }}>
+          <div className="bg-warning bg-opacity-10 text-warning rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-3 mx-auto" style={{ width: '80px', height: '80px' }}>
+            <i className="bi bi-shield-lock-fill fs-1 text-warning"></i>
+          </div>
+          <h4 className="fw-bolder text-dark mb-2">Acceso Reservado para Representantes</h4>
+          <p className="text-muted mb-4">
+            El módulo de <strong>Actualización de Ficha Integral</strong> y emisión de constancias está reservado exclusivamente para <strong>Representantes Legales debidamente registrados</strong> y <strong>Personal Directivo</strong>.
+          </p>
+          <div className="alert alert-info border-0 rounded-3 text-start small mb-4">
+            <i className="bi bi-info-circle-fill me-2"></i>
+            Si eres representante legal de un estudiante del plantel, por favor cierra la sesión de visitante e ingresa con tu propia <strong>Cédula de Identidad de Representante</strong> y tu contraseña institucional.
+          </div>
+          <div className="d-flex justify-content-center gap-2">
+            <button 
+              className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm" 
+              onClick={() => {
+                localStorage.removeItem('sesion_sigae');
+                localStorage.removeItem('usuario_sigae');
+                window.location.href = '/login';
+              }}
+            >
+              <i className="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión como Representante
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
+  return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
 
       {/* Encabezado Principal */}

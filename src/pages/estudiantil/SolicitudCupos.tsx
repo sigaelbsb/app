@@ -290,6 +290,28 @@ export const SolicitudCupos = () => {
   const [solicitudGuardada, setSolicitudGuardada] = useState<SolicitudDB | null>(null);
   const [editingId, setEditingId] = useState<string | number | null>(null);
   
+  // Auto-guardar progreso de la solicitud en sessionStorage ante recargas o segundo plano
+  useEffect(() => {
+    if (step > 1 && !solicitudGuardada && activeTab === 'nueva_solicitud') {
+      sessionStorage.setItem('sigae_cupo_draft_step', String(step));
+      sessionStorage.setItem('sigae_cupo_draft_form', JSON.stringify(form));
+    }
+  }, [step, form, solicitudGuardada, activeTab]);
+
+  // Restaurar borrador de solicitud
+  useEffect(() => {
+    const savedStep = sessionStorage.getItem('sigae_cupo_draft_step');
+    const savedForm = sessionStorage.getItem('sigae_cupo_draft_form');
+    if (savedStep && savedForm && !editingId) {
+      try {
+        const parsedForm = JSON.parse(savedForm);
+        setForm(parsedForm);
+        setStep(parseInt(savedStep, 10));
+        setActiveTab('nueva_solicitud');
+      } catch (e) {}
+    }
+  }, []);
+
   // Estados para rutas y paradas en la solicitud
   const [rutasTransporteDB, setRutasTransporteDB] = useState<any[]>([]);
   const [paradasTransporteDB, setParadasTransporteDB] = useState<any[]>([]);
@@ -1024,6 +1046,8 @@ export const SolicitudCupos = () => {
       await cargarDatos();
 
       // Limpiar el autoguardado tras el envío exitoso
+      sessionStorage.removeItem('sigae_cupo_draft_step');
+      sessionStorage.removeItem('sigae_cupo_draft_form');
       if (user) {
         localStorage.removeItem(`sigae_borrador_cupo_${escCodigo}_${user.cedula}`);
         localStorage.removeItem(`sigae_borrador_step_${escCodigo}_${user.cedula}`);
@@ -2716,11 +2740,13 @@ export const SolicitudCupos = () => {
   // ─── PASO 7: DOCUMENTOS ADJUNTOS ─────────────────────────────────────────────
   const renderStep7 = () => {
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, key: keyof typeof documentos) => {
+      window.dispatchEvent(new Event('reset-inactivity-timer'));
       const file = e.target.files?.[0];
       if (!file) return;
       try {
         const compressed = await compressImage(file, 1600, 1600, 0.82);
         setDocumentos(prev => ({ ...prev, [key]: compressed }));
+        window.dispatchEvent(new Event('reset-inactivity-timer'));
       } catch (error) {
         console.error(error);
         if (Swal) Swal.fire('Error', 'No se pudo procesar la imagen seleccionada.', 'error');

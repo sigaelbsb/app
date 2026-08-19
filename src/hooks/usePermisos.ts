@@ -173,7 +173,12 @@ export const usePermisos = () => {
       return true;
     }
 
-    if (["Solicitud de Cupos", "Mi Perfil", "Métodos de Acceso", "Actualización de Datos", "Verificaciones"].includes(modulo)) {
+    if (modulo === "Actualización de Datos") {
+      if (rolNorm === 'Invitado' || rolNorm === 'Visitante') return false;
+      return true;
+    }
+
+    if (["Solicitud de Cupos", "Mi Perfil", "Métodos de Acceso", "Verificaciones"].includes(modulo)) {
       return true;
     }
 

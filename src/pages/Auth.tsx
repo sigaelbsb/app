@@ -215,6 +215,25 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         .maybeSingle();
 
       if (error || !data) {
+        // Verificar si la cédula ingresada corresponde a un estudiante registrado
+        try {
+          const cedulaLimpia = cedula.trim().replace(/\D/g, '');
+          const { data: estData } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('nombres_estudiante, apellidos_estudiante, cedula_representante, nombres_representante')
+            .or(`cedula_estudiante.eq.${cedula},cedula_estudiante.eq.${cedulaLimpia},cedula_estudiante.eq.CE-${cedulaLimpia}`)
+            .limit(1)
+            .maybeSingle();
+
+          if (estData) {
+            const nomEst = `${estData.nombres_estudiante || ''} ${estData.apellidos_estudiante || ''}`.trim();
+            const repInfo = estData.cedula_representante ? ` (Cédula de Representante vinculada: ${estData.cedula_representante})` : '';
+            setErrorMsg(`Esta cédula corresponde al estudiante "${nomEst}". Para actualizar la ficha integral o descargar constancias, el representante legal debe ingresar con su propia Cédula de Identidad${repInfo}.`);
+            setLoading(false);
+            return;
+          }
+        } catch (err) {}
+
         // No existe -> Invitado (verificar mantenimiento e inhabilitación de invitados antes)
         try {
           const targetSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
