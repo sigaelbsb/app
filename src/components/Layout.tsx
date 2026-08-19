@@ -919,7 +919,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             </div>
 
             {/* SELECTOR RAPIDO DE ESCUELA PARA ADMINISTRADORES/CON ACCESO DUAL */}
-            {(['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(usuario.rol) || (tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb'))) && (
+            {((usuario.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(usuario.rol) || usuario.id_escuela === 'ambas' || usuario.id_escuela === 'todas') && tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb')) && (
               <div className="dropdown me-3 d-none d-sm-block">
                 <button 
                   className="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold d-flex align-items-center gap-2 shadow-sm bg-white hover-efecto" 

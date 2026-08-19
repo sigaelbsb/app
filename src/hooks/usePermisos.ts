@@ -42,11 +42,21 @@ export const usePermisos = () => {
     }
     setUser(usr);
 
-    const currentEsc = localStorage.getItem('sigae_escuela_codigo') || usr.id_escuela || 'sb';
+    const userEsc = (usr.id_escuela || '').trim().toLowerCase();
+    let currentEsc = localStorage.getItem('sigae_escuela_codigo') || userEsc || 'sb';
+    
+    // Aislamiento estricto: si el usuario pertenece a una única escuela, forzarla
+    if ((userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
+      currentEsc = userEsc;
+      localStorage.setItem('sigae_escuela_codigo', userEsc);
+      localStorage.setItem('sigae_escuela_activa', userEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+      usr.id_escuela = userEsc;
+      usr.nombre_escuela = userEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+      localStorage.setItem('usuario_sigae', JSON.stringify(usr));
+    }
 
     const fetchPermisos = async () => {
       try {
-        // Si el rol no existe en la tabla de roles pero es directivo, fallback a Administrador
         let targetRol = usr.rol;
         let { data, error } = await supabase
           .from('roles')
@@ -99,14 +109,35 @@ export const usePermisos = () => {
 
   const tieneAccesoEscuela = useCallback((escuelaCodigo: string) => {
     if (!user) return false;
-    if (user.rol === 'SuperAdmin' || esDirectivo) return true;
     
-    // Si el usuario tiene una escuela fija asignada y es invitado/docente en un solo plantel
-    if (user.id_escuela && user.id_escuela !== 'ambas' && user.id_escuela !== 'todas') {
-      if (user.id_escuela === escuelaCodigo) return true;
+    // SuperAdmin siempre tiene acceso global
+    if (user.rol === 'SuperAdmin') return true;
+
+    // AISLAMIENTO ESTRICTO POR PLANTEL ASIGNADO:
+    // Si el usuario pertenece a 'sb', NO PUEDE ver 'lb'. Si pertenece a 'lb', NO PUEDE ver 'sb'.
+    const userEsc = (user.id_escuela || '').trim().toLowerCase();
+    if (userEsc === 'sb' || userEsc === 'lb') {
+      return userEsc === escuelaCodigo.toLowerCase();
     }
 
-    if (!fullPermisos) return true; // Si no hay permisos cargados, no bloquear por defecto
+    // Directivos con rol general y acceso dual ('ambas' / 'todas')
+    if (esDirectivo && (!userEsc || userEsc === 'ambas' || userEsc === 'todas')) {
+      return true;
+    }
+
+    // Representantes o usuarios especiales con asignación dual 'ambas'
+    if (userEsc === 'ambas' || userEsc === 'todas') {
+      if (!fullPermisos) return true;
+      const privsEscuela = fullPermisos[escuelaCodigo];
+      if (!privsEscuela) return false;
+      if (privsEscuela.hasOwnProperty('__acceso_plantel__')) {
+        return privsEscuela['__acceso_plantel__']?.ver === true;
+      }
+      return true;
+    }
+
+    // Para cualquier otro caso, verificar permisos por plantel
+    if (!fullPermisos) return false;
     const privsEscuela = fullPermisos[escuelaCodigo];
     if (!privsEscuela) return false;
     
@@ -133,6 +164,7 @@ export const usePermisos = () => {
 
     const activeSchool = localStorage.getItem('sigae_escuela_codigo') || user.id_escuela || 'sb';
 
+    // Aislamiento de escuela: si el usuario no tiene acceso a este plantel, denegar inmediatamente
     if (!tieneAccesoEscuela(activeSchool)) {
       return false;
     }
