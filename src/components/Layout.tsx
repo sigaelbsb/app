@@ -215,19 +215,28 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             const { data, error } = await query;
             if (error) throw error;
             let list: any[] = [];
+            const esAdminODirectivo = ['SuperAdmin', 'Director', 'Directora', 'Administrador', 'Subdirector', 'Coordinador'].includes(usr.rol || '');
+
             if (data) {
-              list = data.map((d: any) => ({
-                id: String(d.id),
-                titulo: d.titulo,
-                cuerpo: d.cuerpo,
-                fecha: d.creado_en,
-                tipo: d.tipo || 'transporte',
-                leido: leidasIds.includes(String(d.id))
-              }));
+              list = data
+                .filter((d: any) => {
+                  const esSeg = d.tipo === 'seguridad' || d.tipo === 'alerta' || (d.titulo && d.titulo.toLowerCase().includes('reseteo'));
+                  // Si es notificación de seguridad o reseteo, SOLO mostrar a administradores y directivos
+                  if (esSeg && !esAdminODirectivo) return false;
+                  return true;
+                })
+                .map((d: any) => ({
+                  id: String(d.id),
+                  titulo: d.titulo,
+                  cuerpo: d.cuerpo,
+                  fecha: d.creado_en,
+                  tipo: d.tipo || 'transporte',
+                  leido: leidasIds.includes(String(d.id))
+                }));
             }
 
             // Si es un rol directivo o administrativo, verificar solicitudes de reseteo pendientes
-            if (['SuperAdmin', 'Director', 'Administrador', 'Subdirector', 'Coordinador'].includes(usr.rol)) {
+            if (esAdminODirectivo) {
               try {
                 const { data: resets } = await supabase
                   .from('usuarios')
@@ -275,93 +284,96 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   }, []);
 
   useEffect(() => {
-    const usrStr = localStorage.getItem('usuario_sigae');
-    if (!usrStr) return;
-    let escCodigo = 'sb';
-    try {
-      escCodigo = JSON.parse(usrStr).id_escuela || 'sb';
-    } catch(e) {}
+    const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+    
+    // Solicitar permiso de notificaciones push nativas
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    const playBusChime = (tipo = 'parada') => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (tipo === 'parada') {
+          const osc1 = audioCtx.createOscillator();
+          const gain1 = audioCtx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+          gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
+          gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+          osc1.connect(gain1);
+          gain1.connect(audioCtx.destination);
+          osc1.start();
+          osc1.stop(audioCtx.currentTime + 0.5);
+
+          setTimeout(() => {
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+            gain2.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start();
+            osc2.stop(audioCtx.currentTime + 0.6);
+          }, 150);
+        } else {
+          // Tono de llegada a destino
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+            setTimeout(() => {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+              gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start();
+              osc.stop(audioCtx.currentTime + 0.4);
+            }, idx * 120);
+          });
+        }
+      } catch (e) {}
+    };
 
     const playAlertSound = () => {
       try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const now = ctx.currentTime;
-        const notes = [
-          { freq: 587.33, start: 0, dur: 0.15 },
-          { freq: 880.00, start: 0.12, dur: 0.22 },
-          { freq: 1174.66, start: 0.24, dur: 0.40 }
-        ];
-        notes.forEach(({ freq, start, dur }) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + start);
-          gain.gain.setValueAtTime(0, now + start);
-          gain.gain.linearRampToValueAtTime(0.3, now + start + 0.03);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now + start);
-          osc.stop(now + start + dur + 0.05);
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        [600, 800, 600, 800].forEach((freq, idx) => {
+          setTimeout(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+          }, idx * 120);
         });
       } catch (e) {}
     };
 
-    const playBusChime = (tipo: 'parada' | 'llegada') => {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const now = ctx.currentTime;
-        if (tipo === 'llegada') {
-          const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-          notes.forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq, now + i * 0.18);
-            gain.gain.setValueAtTime(0, now + i * 0.18);
-            gain.gain.linearRampToValueAtTime(0.28, now + i * 0.18 + 0.04);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.18 + 0.35);
-            osc.start(now + i * 0.18);
-            osc.stop(now + i * 0.18 + 0.36);
+    const sendSystemNotification = (title: string, body: string, iconType = 'bus-parada') => {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const iconMap: Record<string, string> = {
+          'bus-parada': '/assets/img/bus_parada.png',
+          'bus-tramo': '/assets/img/bus_tramo.png',
+          'bus-llegada': '/assets/img/bus_llegada.png',
+          'seguridad': '/assets/img/sigae.png'
+        };
+        try {
+          new Notification(title, {
+            body: body,
+            icon: iconMap[iconType] || '/assets/img/sigae.png',
+            badge: '/assets/img/sigae.png'
           });
-        } else {
-          [880, 1100].forEach((freq, i) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now + i * 0.22);
-            gain.gain.setValueAtTime(0, now + i * 0.22);
-            gain.gain.linearRampToValueAtTime(0.22, now + i * 0.22 + 0.03);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.3);
-            osc.start(now + i * 0.22);
-            osc.stop(now + i * 0.22 + 0.31);
-          });
-        }
-      } catch (e) {}
-    };
-
-    const sendSystemNotification = (titulo: string, cuerpo: string, tag: string = 'general') => {
-      if (!('Notification' in window) || Notification.permission !== 'granted') return;
-      const opciones: any = {
-        body: cuerpo,
-        icon: '/assets/img/pdvsa.svg',
-        badge: '/assets/img/pdvsa.svg',
-        tag,
-        renotify: true,
-        vibrate: [200, 100, 200],
-        silent: false,
-      };
-      try {
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then((reg) => reg.showNotification(titulo, opciones)).catch(() => {
-            try { new Notification(titulo, opciones); } catch(err) {}
-          });
-        } else {
-          new Notification(titulo, opciones);
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     };
 
     const channel = supabase.channel('global_notifications_realtime')
@@ -374,6 +386,13 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           if (!isSuperAdmin && row.escuela_codigo && row.escuela_codigo !== 'todas' && row.escuela_codigo !== escCodigo) return;
 
           const isSeguridad = row.tipo === 'seguridad' || row.tipo === 'alerta' || (row.titulo && row.titulo.toLowerCase().includes('reseteo'));
+          const esAdminODirectivo = ['SuperAdmin', 'Director', 'Directora', 'Administrador', 'Subdirector', 'Coordinador'].includes(usuario?.rol || '');
+
+          // SEGURIDAD ESTRICTA: Las notificaciones de reseteo/seguridad son EXCLUSIVAS de administradores y directivos
+          if (isSeguridad && !esAdminODirectivo) {
+            return;
+          }
+
           const isEnd = (row.titulo || '').toLowerCase().includes('finalizada') || (row.titulo || '').toLowerCase().includes('destino') || (row.titulo || '').toLowerCase().includes('alcanzado');
           
           if (isSeguridad) {
@@ -430,7 +449,14 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         const u = payload.new;
         if (u && u.solicito_reseteo === true) {
           const rol = usuario?.rol || '';
-          if (['SuperAdmin', 'Director', 'Administrador', 'Subdirector', 'Coordinador'].includes(rol)) {
+          const esDirectivo = ['SuperAdmin', 'Director', 'Directora', 'Administrador', 'Subdirector', 'Coordinador'].includes(rol);
+          if (!esDirectivo) return;
+
+          // Aislamiento por escuela: solo alertar si coincide con la escuela activa o es SuperAdmin
+          const isSuperAdmin = rol === 'SuperAdmin';
+          if (!isSuperAdmin && u.id_escuela && u.id_escuela !== 'ambas' && u.id_escuela !== escCodigo) {
+            return;
+          }
             playAlertSound();
             const Swal = (window as any).Swal;
             if (Swal) {
@@ -466,7 +492,6 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               }, ...prev].slice(0, 30);
             });
           }
-        }
       })
       .subscribe();
 
