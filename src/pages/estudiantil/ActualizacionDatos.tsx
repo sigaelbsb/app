@@ -936,7 +936,7 @@ export const ActualizacionDatos: React.FC = () => {
             ${campo('Acta de la Partida de Nacimiento', formDatos.estudiante_acta_nacimiento || 'No informado')}
             ${campoB('Grado / Año que cursa', formDatos.grado_solicitado || datosEst.grado_actual || 'No informado')}
             ${campoB('Sección asignada', datosEst.seccion_actual || 'No informado')}
-            ${campo('Parentesco con Trabajador PDVSA', formDatos.parentesco || 'No informado')}
+            ${campo(formDatos.representante_trabaja_pdvsa === 'Sí' ? 'Parentesco con Trabajador PDVSA' : 'Parentesco con Representante Legal', formDatos.parentesco || 'No informado')}
             ${campo('¿Con quién vive el estudiante?', conQuienVive)}
             ${campo('¿Reconocido por el padre?', formDatos.estudiante_reconocido_por_padre || 'Sí')}
           </div>
@@ -1880,7 +1880,7 @@ export const ActualizacionDatos: React.FC = () => {
         if (!form.foto_partida_nacimiento_url) faltantes.push('Foto Partida de Nacimiento');
 
         if (!form.estudiante_sexo) faltantes.push('Género');
-        if (!form.parentesco) faltantes.push('Parentesco con el Trabajador/a');
+        if (!form.parentesco) faltantes.push(form.representante_trabaja_pdvsa === 'Sí' ? 'Parentesco con el Trabajador/a' : 'Parentesco con el Representante Legal');
         if (conQuienViveArr.length === 0) faltantes.push('¿Con quién vive el estudiante?');
         if (!form.estudiante_reconocido_por_padre) faltantes.push('¿Reconocido por el padre?');
         if (!form.estado_habitacion) faltantes.push('Estado de Habitación');
@@ -2531,7 +2531,9 @@ const STEPS = [
         </div>
 
         <div className="col-md-6">
-          <label className="form-label fw-semibold">Parentesco con el Trabajador/a <span className="text-danger">*</span></label>
+          <label className="form-label fw-semibold">
+            {form.representante_trabaja_pdvsa === 'Sí' ? 'Parentesco con el Trabajador/a' : 'Parentesco con el Representante Legal'} <span className="text-danger">*</span>
+          </label>
           <select className="form-select input-moderno" value={form.parentesco}
             onChange={(e) => {
               const val = e.target.value;
@@ -4028,7 +4030,7 @@ const STEPS = [
           <Row label="Género" value={form.estudiante_sexo} />
           <Row label="Fecha de Nacimiento" value={form.estudiante_fecha_nacimiento} />
           <Row label="Grado / Año" value={form.grado_solicitado} />
-          <Row label="Parentesco con Trabajador" value={form.parentesco} />
+          <Row label={form.representante_trabaja_pdvsa === 'Sí' ? 'Parentesco con el Trabajador/a' : 'Parentesco con el Representante'} value={form.parentesco} />
           <Row label="Vive con" value={conQuienVive} />
           <Row label="Reconocido por el Padre" value={form.estudiante_reconocido_por_padre} />
           {/* Documentos fotográficos */}
