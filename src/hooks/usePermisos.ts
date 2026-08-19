@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 let cachePermisos: any = null;
 let cacheFullPermisos: any = null;
 let cacheUserRol: string | null = null;
+let cacheEscuela: string | null = null;
 
 export const usePermisos = () => {
   const [permisos, setPermisos] = useState<any>(cachePermisos);
@@ -17,6 +18,7 @@ export const usePermisos = () => {
       cachePermisos = null;
       cacheFullPermisos = null;
       cacheUserRol = null;
+      cacheEscuela = null;
       setPermisos(null);
       setFullPermisos(null);
       setLoading(false);
@@ -25,7 +27,9 @@ export const usePermisos = () => {
     const usr = JSON.parse(stored);
     setUser(usr);
 
-    if (cachePermisos && cacheFullPermisos && cacheUserRol === usr.rol) {
+    const currentEsc = localStorage.getItem('sigae_escuela_codigo') || usr.id_escuela || 'sb';
+
+    if (cachePermisos && cacheFullPermisos && cacheUserRol === usr.rol && cacheEscuela === currentEsc) {
       setPermisos(cachePermisos);
       setFullPermisos(cacheFullPermisos);
       setLoading(false);
@@ -50,13 +54,14 @@ export const usePermisos = () => {
           }
           cacheFullPermisos = parsed;
           cacheUserRol = usr.rol;
+          cacheEscuela = currentEsc;
           setFullPermisos(parsed);
 
-          let esc = usr.id_escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb';
+          let esc = currentEsc;
 
           // Verificar si el usuario tiene acceso a la escuela seleccionada
           const tieneAcceso = (cod: string) => {
-            if (usr.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(usr.rol)) return true;
+            if (usr.rol === 'SuperAdmin') return true;
             const privs = parsed[cod];
             if (!privs) return false;
             if (privs.hasOwnProperty('__acceso_plantel__')) {
@@ -95,129 +100,121 @@ export const usePermisos = () => {
     fetchPermisos();
   }, []);
 
-  const tienePermiso = (modulo: string, accion: string = 'ver') => {
-    if (user?.rol === 'SuperAdmin') return true;
-
-    // Módulos divididos por escuelas: permitir si tiene acceso en al menos una
-    const modulosDivididos = [
-      "Perfil de la Escuela",
-      "Espacios Escolares",
-      "Gestión de Registros",
-      "Cargos Institucionales",
-      "Tarjeta: Asignar Personal",
-      "Cadena Supervisoria",
-      "Función: Estructurar Cadena",
-      "Función: Imprimir Organigrama",
-      "Grados y Salones",
-      "Tarjeta: Apertura de Salones",
-      "Gestión de Usuarios",
-      "Vincular Estudiante",
-      "Gestión de Admisiones",
-      "Roles y Privilegios",
-      "Auditoría del Sistema",
-      "Diseños",
-      "Galería y Plantillas",
-      "Creador de Certificados",
-      "Creador de Flyers",
-      "Creador de Invitaciones",
-      "Creador de Tapas",
-      "Creador de Comunicados",
-      "Creador de Cumpleaños",
-      "Encuesta",
-      "Encuestas",
-      "Constructor de Encuestas",
-      "Transporte Escolar",
-      "Gestor de Expedientes",
-      "Mi Expediente"
-    ];
-
-    if (modulosDivididos.includes(modulo)) {
-      let tieneEnSB = fullPermisos?.sb?.[modulo]?.[accion] === true;
-      let tieneEnLB = fullPermisos?.lb?.[modulo]?.[accion] === true;
-      
-      if (user?.rol === 'Invitado' || user?.rol === 'Docente') {
-        const activeSchool = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-        if (activeSchool === 'sb') tieneEnLB = false;
-        if (activeSchool === 'lb') tieneEnSB = false;
-      }
-      
-      if (tieneEnSB || tieneEnLB) return true;
-    }
-
-    if (permisos && permisos[modulo] && permisos[modulo][accion] === true) {
-      return true;
-    }
-
-    const rolNorm = (user?.rol || '').trim();
-    const esDirectivoOAdmin = ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Subdirectora', 'Coordinador', 'Coordinadora', 'Administrador'].includes(rolNorm);
-    const esPersonalDocente = esDirectivoOAdmin || ['Docente', 'Docente Invitado', 'Control de Estudios', 'Secretario', 'Secretaria'].includes(rolNorm);
-
-    // Bypasses por defecto para simplificar desarrollo y asegurar accesos
-    if (modulo === "Mi Expediente") {
-      return esPersonalDocente;
-    }
-
-    if (modulo === "Gestor de Expedientes") {
-      return esDirectivoOAdmin || rolNorm === 'Docente';
-    }
-
-    if (modulo === "Gestión de Admisiones") {
-      return esPersonalDocente;
-    }
-
-    if (["Transporte Escolar", "Tarjeta: Gestión de Rutas", "Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Operación (Tracking)"].includes(modulo)) {
-      return esDirectivoOAdmin;
-    }
-
-    if (["Tarjeta: Visor de Recorrido", "Visor de Recorrido"].includes(modulo)) {
-      return true;
-    }
-
-    if (modulo === "Actualización de Datos") {
-      if (rolNorm === 'Invitado' || rolNorm === 'Visitante') return false;
-      return true;
-    }
-
-    if (["Solicitud de Cupos", "Mi Perfil", "Métodos de Acceso", "Verificaciones"].includes(modulo)) {
-      return true;
-    }
-
-    if (modulo === "Vincular Estudiante") {
-      return esDirectivoOAdmin || rolNorm === 'Docente';
-    }
-
-    if (["Diseños", "Galería y Plantillas", "Creador de Certificados", "Creador de Flyers", "Creador de Invitaciones", "Creador de Tapas", "Creador de Comunicados", "Creador de Cumpleaños", "Encuesta", "Encuestas", "Constructor de Encuestas"].includes(modulo)) {
-      return esPersonalDocente;
-    }
-
-    return false;
-  };
-
-  const tieneAccesoEscuela = (escuelaCodigo: string) => {
-    if (user?.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(user?.rol)) return true;
-    if ((user?.rol === 'Invitado' || user?.rol === 'Docente') && localStorage.getItem('sigae_escuela_codigo') !== escuelaCodigo) return false;
+  const tieneAccesoEscuela = useCallback((escuelaCodigo: string) => {
+    if (!user) return false;
+    if (user.rol === 'SuperAdmin') return true;
     
     if (!fullPermisos) return false;
     const privsEscuela = fullPermisos[escuelaCodigo];
     if (!privsEscuela) return false;
+    
     if (privsEscuela.hasOwnProperty('__acceso_plantel__')) {
       return privsEscuela['__acceso_plantel__']?.ver === true;
     }
-    // retrocompatibilidad
+    
+    // Retrocompatibilidad: buscar si tiene al menos un módulo activo
     for (let mod in privsEscuela) {
-      if (privsEscuela[mod] && privsEscuela[mod].ver === true) return true;
-      if (privsEscuela[mod] === true) return true;
+      if (privsEscuela[mod] && (privsEscuela[mod].ver === true || privsEscuela[mod] === true)) {
+        return true;
+      }
     }
     return false;
-  };
+  }, [user, fullPermisos]);
 
-  const tienePermisoEnEscuela = (escuelaCodigo: string, modulo: string, accion: string = 'ver') => {
-    if (user?.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(user?.rol)) return true;
+  const tienePermiso = useCallback((modulo: string, accion: string = 'ver') => {
+    if (!user || !user.rol) return false;
+    if (user.rol === 'SuperAdmin') return true;
+
+    // Módulos básicos de autogestión de cuenta permitidos a cualquier usuario autenticado
+    if (modulo === "Mi Perfil" || modulo === "Métodos de Acceso") {
+      return true;
+    }
+
+    const activeSchool = localStorage.getItem('sigae_escuela_codigo') || user.id_escuela || 'sb';
+
+    // Si el rol no tiene acceso al plantel activo, no puede ver ningún módulo de ese plantel
+    if (!tieneAccesoEscuela(activeSchool)) {
+      return false;
+    }
+
+    const escPerms = fullPermisos?.[activeSchool] || permisos;
+    if (!escPerms) return false;
+
+    // 1. Verificación directa del módulo en la matriz de la escuela activa
+    const checkModulo = (modName: string) => {
+      const val = escPerms[modName];
+      if (val === undefined) return undefined;
+      if (typeof val === 'boolean') return val;
+      if (typeof val === 'object' && val !== null) {
+        if (accion === 'ver') {
+          return val.ver === true || val.crear === true || val.modificar === true || val.eliminar === true;
+        }
+        return val[accion] === true;
+      }
+      return false;
+    };
+
+    const directResult = checkModulo(modulo);
+    if (directResult !== undefined) {
+      return directResult;
+    }
+
+    // 2. Mapeo de alias o variantes de nombres comunes
+    const aliasMap: Record<string, string[]> = {
+      "Encuestas": ["Encuesta", "Constructor de Encuestas"],
+      "Encuesta": ["Encuestas", "Constructor de Encuestas"],
+      "Constructor de Encuestas": ["Encuesta", "Encuestas"],
+      "Cerebro de Sigma": ["Cerebro Sigma"],
+      "Cerebro Sigma": ["Cerebro de Sigma"],
+      "Galería y Plantillas": ["Diseños"],
+      "Creador de Flyers": ["Diseños"],
+      "Creador de Invitaciones": ["Diseños"],
+      "Creador de Tapas": ["Diseños"],
+      "Creador de Comunicados": ["Diseños"],
+      "Creador de Cumpleaños": ["Diseños"]
+    };
+
+    if (aliasMap[modulo]) {
+      for (const alias of aliasMap[modulo]) {
+        const aliasRes = checkModulo(alias);
+        if (aliasRes !== undefined) return aliasRes;
+      }
+    }
+
+    // 3. Verificación a nivel raíz si la estructura guardada fue plana
+    if (fullPermisos && fullPermisos[modulo] !== undefined) {
+      const val = fullPermisos[modulo];
+      if (typeof val === 'boolean') return val;
+      if (typeof val === 'object' && val !== null) {
+        if (accion === 'ver') {
+          return val.ver === true || val.crear === true;
+        }
+        return val[accion] === true;
+      }
+    }
+
+    // Por defecto, si no está en la matriz de permisos otorgados, el acceso es DENEGADO
+    return false;
+  }, [user, fullPermisos, permisos, tieneAccesoEscuela]);
+
+  const tienePermisoEnEscuela = useCallback((escuelaCodigo: string, modulo: string, accion: string = 'ver') => {
+    if (!user) return false;
+    if (user.rol === 'SuperAdmin') return true;
+    if (!tieneAccesoEscuela(escuelaCodigo)) return false;
+
     if (!fullPermisos || !fullPermisos[escuelaCodigo]) return false;
     const escPerms = fullPermisos[escuelaCodigo];
-    if (!escPerms[modulo]) return false;
-    return escPerms[modulo][accion] === true;
-  };
+    const val = escPerms[modulo];
+    if (val === undefined) return false;
+    if (typeof val === 'boolean') return val;
+    if (typeof val === 'object' && val !== null) {
+      if (accion === 'ver') {
+        return val.ver === true || val.crear === true;
+      }
+      return val[accion] === true;
+    }
+    return false;
+  }, [user, fullPermisos, tieneAccesoEscuela]);
 
   return { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, fullPermisos, permisos, loading, user };
 };
