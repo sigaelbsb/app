@@ -558,6 +558,30 @@ export const ActualizacionDatos: React.FC = () => {
     const representanteNombre = `${formDatos.representante_nombres || datosEst.nombres_representante || ''} ${formDatos.representante_apellidos || datosEst.apellidos_representante || ''}`.trim() || 'Representante Legal';
     const representanteCedula = formDatos.representante_cedula || datosEst.cedula_representante || 'No registrado';
 
+    // Determinar género del estudiante (el/la estudiante, INSCRITO/INSCRITA)
+    const rawGen = (
+      formDatos.estudiante_sexo ||
+      (datosEst as any)?.estudiante_sexo ||
+      (datosEst as any)?.estudiante_genero ||
+      (datosEst as any)?.sexo ||
+      (datosEst as any)?.genero ||
+      (datosEst as any)?.datos_actualizados?.estudiante_sexo ||
+      (datosEst as any)?.datos_actualizados?.estudiante_genero ||
+      ''
+    ).toString().toLowerCase().trim();
+
+    const esFemenino = rawGen.startsWith('f') || rawGen === 'femenino' || rawGen === 'femenina' || rawGen === 'hembra' || rawGen === 'mujer';
+    const esMasculino = rawGen.startsWith('m') || rawGen === 'masculino' || rawGen === 'varon' || rawGen === 'varón' || rawGen === 'hombre';
+
+    const artEstudiante = esFemenino ? 'la estudiante' : esMasculino ? 'el estudiante' : 'el/la estudiante';
+    const inscritoTexto = esFemenino ? 'INSCRITA' : esMasculino ? 'INSCRITO' : 'INSCRITO(A)';
+
+    // Limpiar grado para no repetir el nivel educativo
+    const gradoLimpio = (gradoActual)
+      .replace(/\s+de\s+(Educación\s+Primaria|Educación\s+Inicial|Educación\s+Media\s+General|Media\s+General|Primaria|Inicial)/gi, '')
+      .replace(/\s+correspondiente\s+al\s+Nivel\s+de.*/gi, '')
+      .trim();
+
     const Swal = (window as any).Swal;
     if (Swal) {
       Swal.fire({
@@ -571,7 +595,6 @@ export const ActualizacionDatos: React.FC = () => {
     const cedulaLimpia = (cedulaEstudiante).toString().replace(/\D/g, '');
     const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `CI-${escCodigo.toUpperCase()}-${cedulaLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoActual}`;
     
-    // URL Pública para que cualquier teléfono la escanee y abra la constancia verificada sin login
     const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = esLocal ? 'https://sigae-hh6u.onrender.com' : window.location.origin;
     const urlVerificacionPublica = `${baseUrl}/validar-constancia/${encodeURIComponent(codigoUnico)}`;
@@ -590,7 +613,7 @@ export const ActualizacionDatos: React.FC = () => {
         obtenerFirmaDirectorProtegida(escCodigo, codigoUnico)
       ]);
     } catch (e) {
-      console.error('Error preloading assets for Constancia', e);
+      console.warn('Error precargando imágenes para constancia oficial', e);
     }
 
     const dirData = await obtenerDatosDirectorAsync(escCodigo);
@@ -603,10 +626,9 @@ export const ActualizacionDatos: React.FC = () => {
     }
 
     const htmlConstancia = `
-      <div style="border: 2px solid #94a3b8; border-radius: 12px; padding: 35px 45px; background: #ffffff; width: 800px; font-family: Arial, Helvetica, sans-serif; color: #000000; box-sizing: border-box; min-height: 980px; display: flex; flex-direction: column; justify-content: space-between; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
-        
+      <div style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; min-height: 980px; box-sizing: border-box;">
         <div>
-          <!-- BANDERA DE VENEZUELA -->
+          <!-- CINTA TRICOLOR BANDERA DE VENEZUELA OFICIAL -->
           <div style="margin-bottom: 16px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column;">
             <div style="height: 6px; background-color: #facc15;"></div>
             <div style="height: 8px; background-color: #2563eb; display: flex; justify-content: center; align-items: center; gap: 4px; color: #ffffff; font-size: 7px; line-height: 1;">
@@ -635,7 +657,7 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN -->
           <div style="font-size: 13.5px; line-height: 1.95; color: #000000; text-align: justify; margin-bottom: 25px;">
-            Quien suscribe, <b>${dirData.tituloDirector}</b>, titular de la Cédula de Identidad número <b>${dirData.cedula}</b>, en calidad de ${dirData.cargoGenerico} de la <b>${dirData.nombreEscuela}</b>, por medio de la presente hace constar y certifica que el/la estudiante: <b>${nombreCompleto}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>${cedulaEstudiante}</b>, se encuentra formalmente <b>INSCRITO(A)</b> en esta institución educativa para cursar el <b>${gradoActual}</b> correspondiente al Nivel de <b>${nivelEducativo}</b>, durante el Año Escolar <b>${anoActual} – ${anoProximo}</b>.
+            Quien suscribe, <b>${dirData.tituloDirector}</b>, titular de la Cédula de Identidad número <b>${dirData.cedula}</b>, en calidad de ${dirData.cargoGenerico} de la <b>${dirData.nombreEscuela}</b>, por medio de la presente hace constar y certifica que ${artEstudiante}: <b>${nombreCompleto}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>${cedulaEstudiante}</b>, se encuentra formalmente <b>${inscritoTexto}</b> en esta institución educativa para cursar el <b>${gradoLimpio}</b> correspondiente al Nivel de <b>${nivelEducativo}</b>, durante el Año Escolar <b>${anoActual} – ${anoProximo}</b>.
             <br/><br/>
             Constancia que se expide a petición de la parte interesada a los fines consiguientes, en fecha <b>${fechaHoy}</b>. A continuación se detallan los datos relevantes:
           </div>
@@ -645,7 +667,7 @@ export const ActualizacionDatos: React.FC = () => {
             <div><b>Estudiante:</b> ${nombreCompleto}</div>
             <div><b>Cédula de Identidad o Escolar:</b> ${cedulaEstudiante}</div>
             <div><b>Nivel Educativo:</b> ${nivelEducativo}</div>
-            <div><b>Grupo, Grado o Año a Cursar:</b> ${gradoActual}</div>
+            <div><b>Grupo, Grado o Año a Cursar:</b> ${gradoLimpio}</div>
             <div><b>Representante Legal:</b> ${representanteNombre}</div>
             <div><b>Cédula de Identidad:</b> ${representanteCedula}</div>
             <div><b>Año Escolar:</b> ${anoActual} – ${anoProximo}</div>

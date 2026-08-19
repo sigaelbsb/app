@@ -690,6 +690,28 @@ export const Verificaciones: React.FC = () => {
   const logoEscuela = `/assets/img/logo_${escuelaCodigo}.png`;
   const logoMppe = '/assets/img/logoMPPE.png';
 
+  const rawGen = (
+    d.estudiante_sexo ||
+    d.estudiante_genero ||
+    vinculacion?.datos_actualizados?.estudiante_sexo ||
+    vinculacion?.datos_actualizados?.estudiante_genero ||
+    (vinculacion as any)?.sexo ||
+    (solicitudCupo as any)?.datos_actualizados?.estudiante_sexo ||
+    (solicitudCupo as any)?.estudiante_sexo ||
+    ''
+  ).toString().toLowerCase().trim();
+
+  const esFemenino = rawGen.startsWith('f') || rawGen === 'femenino' || rawGen === 'femenina' || rawGen === 'hembra' || rawGen === 'mujer';
+  const esMasculino = rawGen.startsWith('m') || rawGen === 'masculino' || rawGen === 'varon' || rawGen === 'varón' || rawGen === 'hombre';
+
+  const artEstudiante = esFemenino ? 'la estudiante' : esMasculino ? 'el estudiante' : 'el/la estudiante';
+  const inscritoTexto = esFemenino ? 'INSCRITA' : esMasculino ? 'INSCRITO' : 'INSCRITO(A)';
+
+  const gradoLimpio = (gradoEstudiante)
+    .replace(/\s+de\s+(Educación\s+Primaria|Educación\s+Inicial|Educación\s+Media\s+General|Media\s+General|Primaria|Inicial)/gi, '')
+    .replace(/\s+correspondiente\s+al\s+Nivel\s+de.*/gi, '')
+    .trim();
+
   let nivelEducativo = 'Educación Primaria';
   const gLower = gradoEstudiante.toLowerCase();
   if (gLower.includes('maternal') || gLower.includes('preescolar') || gLower.includes('inicial') || gLower.includes('grupo')) {
@@ -1291,7 +1313,7 @@ export const Verificaciones: React.FC = () => {
 
                 {/* PÁRRAFO DE CERTIFICACIÓN OFICIAL DE INSCRIPCIÓN */}
                 <div style={{ fontSize: '13.5px', lineHeight: '1.95', color: '#000000', textAlign: 'justify', marginBottom: '25px' }}>
-                  Quien suscribe, <b>{dirInfo?.tituloDirector || 'Director(a) de la Institución'}</b>, titular de la Cédula de Identidad número <b>{dirInfo?.cedula || '17.780.095'}</b>, en calidad de {dirInfo?.cargoGenerico || 'Director(a)'} de la <b>{dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}</b>, por medio de la presente hace constar y certifica que el/la estudiante: <b>{nombreEstudianteCompleto}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>{cedulaEstudiante}</b>, se encuentra formalmente <b>INSCRITO(A)</b> en esta institución educativa para cursar el <b>{gradoEstudiante}</b> correspondiente al Nivel de <b>{nivelEducativo}</b>, durante el Año Escolar <b>{anoActual} – {anoProximo}</b>.
+                  Quien suscribe, <b>{dirInfo?.tituloDirector || 'Director(a) de la Institución'}</b>, titular de la Cédula de Identidad número <b>{dirInfo?.cedula || '17.780.095'}</b>, en calidad de {dirInfo?.cargoGenerico || 'Director(a)'} de la <b>{dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}</b>, por medio de la presente hace constar y certifica que {artEstudiante}: <b>{nombreEstudianteCompleto}</b>, titular de la Cédula de Identidad o Cédula Escolar Nº <b>{cedulaEstudiante}</b>, se encuentra formalmente <b>{inscritoTexto}</b> en esta institución educativa para cursar el <b>{gradoLimpio}</b> correspondiente al Nivel de <b>{nivelEducativo}</b>, durante el Año Escolar <b>{anoActual} – {anoProximo}</b>.
                   <br/><br/>
                   Constancia que se expide a petición de la parte interesada a los fines consiguientes. A continuación se detallan los datos relevantes:
                 </div>
@@ -1301,7 +1323,7 @@ export const Verificaciones: React.FC = () => {
                   <div><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
                   <div><b>Cédula de Identidad o Escolar:</b> {cedulaEstudiante}</div>
                   <div><b>Nivel Educativo:</b> {nivelEducativo}</div>
-                  <div><b>Grupo, Grado o Año a Cursar:</b> {gradoEstudiante}</div>
+                  <div><b>Grupo, Grado o Año a Cursar:</b> {gradoLimpio}</div>
                   <div><b>Representante Legal:</b> {representanteNombre}</div>
                   <div><b>Cédula de Identidad:</b> {representanteCedula}</div>
                   <div><b>Año Escolar:</b> {anoActual} – {anoProximo}</div>
