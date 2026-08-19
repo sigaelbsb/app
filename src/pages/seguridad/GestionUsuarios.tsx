@@ -636,8 +636,9 @@ export const GestionUsuarios = () => {
     
     let telefono = telefonoPredefinido || await obtenerTelefonoUsuario(u);
 
-    const origen = window.location.origin;
-    const mensaje = `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que su cuenta en el *Sistema Integrado de Gestión y Administración Escolar (SIGAE)* ha sido *restablecida / reseteada exitosamente*.\n\n📋 *Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar:*\n1. Ingrese a la plataforma SIGAE: ${origen}\n2. Inicie sesión con su cédula como usuario y cédula como contraseña.\n3. El sistema le solicitará configurar su nueva clave personal y preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`;
+    const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const linkPlataforma = esLocal ? 'https://sigaelbsb.app' : window.location.origin;
+    const mensaje = `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que su cuenta en el *Sistema Integrado de Gestión y Administración Escolar (SIGAE)* ha sido *restablecida / reseteada exitosamente*.\n\n📋 *Credenciales de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Temporal:* ${cedula} (Su número de cédula)\n\n👉 *Pasos para Ingresar:*\n1. Ingrese a la plataforma SIGAE: ${linkPlataforma}\n2. Inicie sesión con su cédula como usuario y cédula como contraseña.\n3. El sistema le solicitará configurar su nueva clave personal y preguntas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`;
 
     // Normalizar a formato E.164 Venezuela (código 58)
     let telLimpio = String(telefono || '').replace(/\D/g, '');
