@@ -784,11 +784,14 @@ export const ActualizacionDatos: React.FC = () => {
     try {
       const clon = document.createElement('div');
       clon.style.width = '800px';
+      clon.style.minWidth = '800px';
+      clon.style.maxWidth = '800px';
       clon.style.position = 'fixed';
-      clon.style.left = '0';
+      clon.style.left = '-9999px';
       clon.style.top = '0';
       clon.style.zIndex = '-99999';
       clon.style.pointerEvents = 'none';
+      clon.style.boxSizing = 'border-box';
       clon.style.background = '#ffffff';
       clon.innerHTML = htmlConstancia;
 
@@ -797,18 +800,38 @@ export const ActualizacionDatos: React.FC = () => {
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter', compress: true });
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
       const canvas = await html2canvas(clon, {
-        scale: 2.0,
+        scale: 2.2,
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
         allowTaint: true,
-        imageTimeout: 4000
+        imageTimeout: 4000,
+        windowWidth: 1024,
+        width: 800
       });
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      const canvasAspect = canvas.width / canvas.height;
+      const marginX = 8;
+      const marginY = 8;
+      const printableWidth = pdfWidth - (marginX * 2);
+      const printableHeight = pdfHeight - (marginY * 2);
+
+      let finalWidth = printableWidth;
+      let finalHeight = finalWidth / canvasAspect;
+
+      if (finalHeight > printableHeight) {
+        finalHeight = printableHeight;
+        finalWidth = finalHeight * canvasAspect;
+      }
+
+      const posX = (pdfWidth - finalWidth) / 2;
+      const posY = (pdfHeight - finalHeight) / 2;
+
+      pdf.addImage(imgData, 'JPEG', posX, posY, finalWidth, finalHeight, undefined, 'FAST');
 
       document.body.removeChild(clon);
 
@@ -1229,17 +1252,21 @@ export const ActualizacionDatos: React.FC = () => {
         compress: true
       });
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
       for (let i = 0; i < paginas.length; i++) {
         if (i > 0) pdf.addPage();
 
         const clon = document.createElement('div');
         clon.style.width = '800px';
+        clon.style.minWidth = '800px';
+        clon.style.maxWidth = '800px';
         clon.style.position = 'fixed';
-        clon.style.left = '0';
+        clon.style.left = '-9999px';
         clon.style.top = '0';
         clon.style.zIndex = '-99999';
         clon.style.pointerEvents = 'none';
+        clon.style.boxSizing = 'border-box';
         clon.style.fontFamily = "'Inter', 'Segoe UI', Roboto, sans-serif";
         clon.style.fontSize = '11px';
         clon.style.lineHeight = '1.45';
@@ -1254,16 +1281,35 @@ export const ActualizacionDatos: React.FC = () => {
         await new Promise(res => setTimeout(res, 200));
 
         const canvas = await html2canvas(clon, { 
-          scale: 2.0, 
+          scale: 2.2, 
           backgroundColor: '#ffffff', 
           logging: false, 
-          useCORS: true,
+          useCORS: true, 
           allowTaint: true,
-          imageTimeout: 4000
+          imageTimeout: 4000,
+          windowWidth: 1024,
+          width: 800
         });
-        const imgData = canvas.toDataURL('image/jpeg', 0.92);
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+        const canvasAspect = canvas.width / canvas.height;
+        const marginX = 8;
+        const marginY = 8;
+        const printableWidth = pdfWidth - (marginX * 2);
+        const printableHeight = pdfHeight - (marginY * 2);
+
+        let finalWidth = printableWidth;
+        let finalHeight = finalWidth / canvasAspect;
+
+        if (finalHeight > printableHeight) {
+          finalHeight = printableHeight;
+          finalWidth = finalHeight * canvasAspect;
+        }
+
+        const posX = (pdfWidth - finalWidth) / 2;
+        const posY = (pdfHeight - finalHeight) / 2;
+
+        pdf.addImage(imgData, 'JPEG', posX, posY, finalWidth, finalHeight, undefined, 'FAST');
 
         document.body.removeChild(clon);
       }

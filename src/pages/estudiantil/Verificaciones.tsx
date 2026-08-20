@@ -621,30 +621,91 @@ export const Verificaciones: React.FC = () => {
   const handleDescargarPdf = async () => {
     if (!docRef.current) return;
     setGenerandoPdf(true);
+    let clon: HTMLElement | null = null;
     try {
-      const canvas = await html2canvas(docRef.current, {
-        scale: 2.8,
+      // Clonar el contenedor a un sandbox aislado con ancho fijo de 800px
+      // Esto evita que en teléfonos móviles o pantallas pequeñas se capture un layout colapsado verticalmente
+      clon = docRef.current.cloneNode(true) as HTMLElement;
+      clon.style.width = '800px';
+      clon.style.minWidth = '800px';
+      clon.style.maxWidth = '800px';
+      clon.style.position = 'fixed';
+      clon.style.left = '-9999px';
+      clon.style.top = '0';
+      clon.style.zIndex = '-99999';
+      clon.style.boxSizing = 'border-box';
+      clon.style.background = '#ffffff';
+
+      // Forzar grillas Bootstrap col-md-6 y col-md-4 a columnas fijas de escritorio en el clon
+      clon.querySelectorAll('.col-md-6').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.width = '50%';
+        h.style.flex = '0 0 50%';
+        h.style.maxWidth = '50%';
+        h.style.boxSizing = 'border-box';
+      });
+      clon.querySelectorAll('.col-md-4').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.width = '33.333%';
+        h.style.flex = '0 0 33.333%';
+        h.style.maxWidth = '33.333%';
+        h.style.boxSizing = 'border-box';
+      });
+      clon.querySelectorAll('.row').forEach((el) => {
+        const h = el as HTMLElement;
+        h.style.display = 'flex';
+        h.style.flexWrap = 'wrap';
+      });
+
+      document.body.appendChild(clon);
+      await new Promise(res => setTimeout(res, 200));
+
+      const canvas = await html2canvas(clon, {
+        scale: 2.2,
         backgroundColor: '#ffffff',
         logging: false,
         useCORS: true,
-        allowTaint: true
+        allowTaint: true,
+        windowWidth: 1024,
+        width: 800
       });
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter', compress: true });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const imgData = canvas.toDataURL('image/png');
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(imgHeight, 279), undefined, 'FAST');
+      const pdfWidth = pdf.internal.pageSize.getWidth(); // 215.9 mm
+      const pdfHeight = pdf.internal.pageSize.getHeight(); // 279.4 mm
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      const canvasAspect = canvas.width / canvas.height;
+      const marginX = 8;
+      const marginY = 8;
+      const printableWidth = pdfWidth - (marginX * 2);
+      const printableHeight = pdfHeight - (marginY * 2);
+
+      let finalWidth = printableWidth;
+      let finalHeight = finalWidth / canvasAspect;
+
+      if (finalHeight > printableHeight) {
+        finalHeight = printableHeight;
+        finalWidth = finalHeight * canvasAspect;
+      }
+
+      const posX = (pdfWidth - finalWidth) / 2;
+      const posY = (pdfHeight - finalHeight) / 2;
+
+      pdf.addImage(imgData, 'JPEG', posX, posY, finalWidth, finalHeight, undefined, 'FAST');
 
       const nombreEst = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Estudiante';
       const tipoTexto = vistaDoc === 'constancia' ? 'Constancia_Inscripcion' : vistaDoc === 'resumen' ? 'Ficha_Integral' : 'Solicitud_Cupo';
       const fileName = `SIGAE_${tipoTexto}_${nombreEst.replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
-      if (Swal) Swal.fire('¡PDF Generado!', 'El documento oficial ha sido descargado en alta calidad.', 'success');
+      if (Swal) Swal.fire('¡PDF Generado!', 'El documento oficial ha sido descargado en proporción y alta calidad.', 'success');
     } catch (e) {
       console.error('Error al generar PDF', e);
       if (Swal) Swal.fire('Error', 'No se pudo generar el documento PDF.', 'error');
     } finally {
+      if (clon && clon.parentNode) {
+        clon.parentNode.removeChild(clon);
+      }
       setGenerandoPdf(false);
     }
   };
