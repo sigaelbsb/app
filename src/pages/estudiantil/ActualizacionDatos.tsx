@@ -3794,12 +3794,15 @@ const STEPS = [
               {form.habilidad_cultura_orquesta === 'Sí' && (
                 <div className="mt-3 animate__animated animate__fadeIn">
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <div className="card-header bg-primary-subtle d-flex align-items-center gap-2 py-2">
-                      <i className="bi bi-music-note-beamed text-primary fs-5"></i>
-                      <div>
-                        <div className="fw-bold small text-dark">Constancia de Orquesta</div>
-                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Opcional (Foto o PDF)</div>
+                    <div className="card-header bg-primary-subtle d-flex align-items-center justify-content-between py-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="bi bi-music-note-beamed text-primary fs-5"></i>
+                        <div>
+                          <div className="fw-bold small text-dark">Constancia de Orquesta</div>
+                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>Opcional (No obligatoria para continuar)</div>
+                        </div>
                       </div>
+                      <span className="badge bg-secondary bg-opacity-25 text-dark fw-bold px-2.5 py-1 rounded-pill" style={{ fontSize: '0.68rem' }}>Opcional</span>
                     </div>
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
                       {form.constancia_cultura_url ? (
@@ -3830,8 +3833,8 @@ const STEPS = [
                             <><span className="spinner-border spinner-border-sm text-primary"></span><span className="small text-muted">Subiendo constancia...</span></>
                           ) : (
                             <><i className="bi bi-cloud-arrow-up fs-2 text-primary"></i>
-                              <span className="small fw-semibold text-dark text-center">Constancia de Orquesta</span>
-                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen o PDF</span></>
+                              <span className="small fw-semibold text-dark text-center">Constancia de Orquesta (Opcional)</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen o PDF (Opcional)</span></>
                           )}
                           <input type="file" accept="image/*,application/pdf" className="d-none" disabled={uploadingCultura}
                             onChange={(e) => handleSubirDocumento(e, 'constancia_cultura')} />
@@ -3878,12 +3881,15 @@ const STEPS = [
               {form.habilidad_danza_academia === 'Sí' && (
                 <div className="mt-3 animate__animated animate__fadeIn">
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <div className="card-header bg-info-subtle d-flex align-items-center gap-2 py-2">
-                      <i className="bi bi-activity text-info fs-5"></i>
-                      <div>
-                        <div className="fw-bold small text-dark">Constancia de Academia de Danza</div>
-                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Opcional (Foto o PDF)</div>
+                    <div className="card-header bg-info-subtle d-flex align-items-center justify-content-between py-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="bi bi-activity text-info fs-5"></i>
+                        <div>
+                          <div className="fw-bold small text-dark">Constancia de Academia de Danza</div>
+                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>Opcional (No obligatoria para continuar)</div>
+                        </div>
                       </div>
+                      <span className="badge bg-secondary bg-opacity-25 text-dark fw-bold px-2.5 py-1 rounded-pill" style={{ fontSize: '0.68rem' }}>Opcional</span>
                     </div>
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
                       {form.constancia_danza_url ? (
@@ -3914,8 +3920,8 @@ const STEPS = [
                             <><span className="spinner-border spinner-border-sm text-info"></span><span className="small text-muted">Subiendo constancia...</span></>
                           ) : (
                             <><i className="bi bi-cloud-arrow-up fs-2 text-info"></i>
-                              <span className="small fw-semibold text-dark text-center">Constancia de Danza</span>
-                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen o PDF</span></>
+                              <span className="small fw-semibold text-dark text-center">Constancia de Danza (Opcional)</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen o PDF (Opcional)</span></>
                           )}
                           <input type="file" accept="image/*,application/pdf" className="d-none" disabled={uploadingDanza}
                             onChange={(e) => handleSubirDocumento(e, 'constancia_danza')} />
@@ -3967,12 +3973,15 @@ const STEPS = [
               {form.habilidad_deporte_academia === 'Sí' && (
                 <div className="mt-3 animate__animated animate__fadeIn">
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
-                    <div className="card-header bg-warning-subtle d-flex align-items-center gap-2 py-2">
-                      <i className="bi bi-trophy text-warning fs-5"></i>
-                      <div>
-                        <div className="fw-bold small text-dark">Constancia de Club Deportivo</div>
-                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Opcional (Foto o PDF)</div>
+                    <div className="card-header bg-warning-subtle d-flex align-items-center justify-content-between py-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <i className="bi bi-trophy text-warning fs-5"></i>
+                        <div>
+                          <div className="fw-bold small text-dark">Constancia de Club Deportivo</div>
+                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>Opcional (No obligatoria para continuar)</div>
+                        </div>
                       </div>
+                      <span className="badge bg-secondary bg-opacity-25 text-dark fw-bold px-2.5 py-1 rounded-pill" style={{ fontSize: '0.68rem' }}>Opcional</span>
                     </div>
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
                       {form.constancia_deporte_url ? (
@@ -4003,8 +4012,8 @@ const STEPS = [
                             <><span className="spinner-border spinner-border-sm text-warning"></span><span className="small text-muted">Subiendo constancia...</span></>
                           ) : (
                             <><i className="bi bi-cloud-arrow-up fs-2 text-warning"></i>
-                              <span className="small fw-semibold text-dark text-center">Constancia Deportiva</span>
-                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen o PDF</span></>
+                              <span className="small fw-semibold text-dark text-center">Constancia Deportiva (Opcional)</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen o PDF (Opcional)</span></>
                           )}
                           <input type="file" accept="image/*,application/pdf" className="d-none" disabled={uploadingDeporte}
                             onChange={(e) => handleSubirDocumento(e, 'constancia_deporte')} />
