@@ -153,9 +153,6 @@ export const ValidarConstancia: React.FC = () => {
   const mesExpedicion = mesesNombres[fechaBase.getMonth()];
   const anoExpedicion = fechaBase.getFullYear();
 
-  const repParentesco = (d.representante_parentesco || '').toLowerCase();
-  const esRepFemenino = repParentesco.includes('madre') || repParentesco.includes('mama') || repParentesco.includes('abuela') || repParentesco.includes('tia');
-
   const rawGen = (
     d.estudiante_sexo ||
     d.estudiante_genero ||
@@ -285,10 +282,10 @@ export const ValidarConstancia: React.FC = () => {
               {/* CUERPO OFICIAL EN TRES PÁRRAFOS */}
               <div className="p-4 bg-white rounded-3 border mb-4 text-justify" style={{ lineHeight: '2.1', fontSize: '14.5px', color: '#000000' }}>
                 <p className="mb-4" style={{ textIndent: '30px' }}>
-                  Quien suscribe, <b>Prof. {toTitulo(nombreDirectorLimpio)}</b>, {cargoDirectorTexto.toLowerCase()} del <b>{toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>{toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudiante)}</b>, natural de <b>{toTitulo(ciudadNac)}</b>, estado <b>{toTitulo(estadoNac)}</b>, {edadTexto}titular de la {tipoCedulaTexto} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                  Quien suscribe, <b>Prof. {toTitulo(nombreDirectorLimpio)}</b>, {cargoDirectorTexto.toLowerCase()} de la <b>{toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>{toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudiante)}</b>, natural de <b>{toTitulo(ciudadNac)}</b>, estado <b>{toTitulo(estadoNac)}</b>, {edadTexto}titular de la {tipoCedulaTexto} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
                 </p>
                 <p className="mb-4" style={{ textIndent: '30px' }}>
-                  Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es {esRepFemenino ? 'la ciudadana' : 'el ciudadano'} <b>{toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+                  Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>{toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
                 </p>
                 <p className="mb-0" style={{ textIndent: '30px' }}>
                   Constancia que se expide para los efectos y fines consiguientes en <b>{toTitulo(ciudadExpedicion)}</b>, a los {diaExpedicion} días del mes de {mesExpedicion} del año {anoExpedicion}.

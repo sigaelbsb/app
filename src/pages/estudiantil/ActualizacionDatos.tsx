@@ -680,9 +680,6 @@ export const ActualizacionDatos: React.FC = () => {
     const mesExpedicion = mesesNombres[fechaHoyObj.getMonth()];
     const anoExpedicion = fechaHoyObj.getFullYear();
 
-    const repParentesco = (formDatos.representante_parentesco || datosEst.representante_parentesco || '').toLowerCase();
-    const esRepFemenino = repParentesco.includes('madre') || repParentesco.includes('mama') || repParentesco.includes('abuela') || repParentesco.includes('tia');
-
     const determinarTipoCedula = (tipoDoc?: string, numCedula?: string) => {
       if (tipoDoc) {
         const tLower = tipoDoc.toLowerCase();
@@ -730,12 +727,12 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
-            Quien suscribe, <b>Prof. ${toTitulo(nombreDirectorLimpio)}</b>, ${cargoDirectorTexto.toLowerCase()} del <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
+            Quien suscribe, <b>Prof. ${toTitulo(nombreDirectorLimpio)}</b>, ${cargoDirectorTexto.toLowerCase()} de la <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
           </p>
 
           <!-- PÁRRAFO 2: REPRESENTANTE LEGAL -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
-            Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es ${esRepFemenino ? 'la ciudadana' : 'el ciudadano'} <b>${toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+            Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>${toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
           </p>
 
           <!-- PÁRRAFO 3: EXPEDICIÓN Y FECHA -->
