@@ -125,11 +125,27 @@ export const ValidarConstancia: React.FC = () => {
     return edad > 0 && edad < 100 ? `${edad}` : '';
   };
 
-  const ciudadNac = d.estudiante_lugar_nacimiento || d.ciudad_nacimiento || d.ciudad_habitacion || (escCodigo === 'sb' ? 'Maturín' : 'Temblador');
-  const estadoNac = d.estudiante_estado_nacimiento || d.estado_nacimiento || d.estado_habitacion || 'Monagas';
+  const ciudadNac = (
+    d.estudiante_municipio_nacimiento ||
+    d.estudiante_lugar_nacimiento ||
+    d.municipio_nacimiento ||
+    d.lugar_nacimiento ||
+    d.ciudad_nacimiento ||
+    datosDocumento?.estudiante_municipio_nacimiento ||
+    datosDocumento?.estudiante_lugar_nacimiento ||
+    (escCodigo === 'sb' ? 'El Tejero' : 'Miraflores')
+  ).toString().trim();
+
+  const estadoNac = (
+    d.estudiante_estado_nacimiento ||
+    d.estado_nacimiento ||
+    datosDocumento?.estudiante_estado_nacimiento ||
+    'Monagas'
+  ).toString().trim();
+
   const edadCalculada = calcularEdad(d.estudiante_fecha_nacimiento);
   const edadTexto = edadCalculada ? `de ${edadCalculada} años de edad, ` : '';
-  const ciudadExpedicion = escCodigo === 'sb' ? 'Maturín' : 'Temblador';
+  const ciudadExpedicion = escCodigo === 'sb' ? 'El Tejero' : 'Miraflores';
 
   const fechaBase = datosDocumento?.fecha_ultima_actualizacion ? new Date(datosDocumento.fecha_ultima_actualizacion) : new Date();
   const diaExpedicion = fechaBase.getDate();

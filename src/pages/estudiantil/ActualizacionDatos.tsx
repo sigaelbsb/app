@@ -636,12 +636,43 @@ export const ActualizacionDatos: React.FC = () => {
       return edad > 0 && edad < 100 ? `${edad}` : '';
     };
 
-    const dNac = formDatos as any;
-    const ciudadNac = dNac.estudiante_lugar_nacimiento || dNac.ciudad_nacimiento || dNac.ciudad_habitacion || datosEst.estudiante_lugar_nacimiento || datosEst.ciudad_nacimiento || (escCodigo === 'sb' ? 'Maturín' : 'Temblador');
-    const estadoNac = dNac.estudiante_estado_nacimiento || dNac.estado_nacimiento || dNac.estado_habitacion || datosEst.estudiante_estado_nacimiento || datosEst.estado_nacimiento || 'Monagas';
+    const dNac = (formDatos || {}) as any;
+    const dEst = (datosEst || {}) as any;
+    const dEstActual = (datosEst?.datos_actualizados || {}) as any;
+
+    const ciudadNac = (
+      formDatos.estudiante_municipio_nacimiento ||
+      formDatos.estudiante_lugar_nacimiento ||
+      dNac.estudiante_municipio_nacimiento ||
+      dNac.estudiante_lugar_nacimiento ||
+      dNac.municipio_nacimiento ||
+      dNac.lugar_nacimiento ||
+      dEstActual.estudiante_municipio_nacimiento ||
+      dEstActual.estudiante_lugar_nacimiento ||
+      dEstActual.municipio_nacimiento ||
+      dEstActual.lugar_nacimiento ||
+      dEst.estudiante_municipio_nacimiento ||
+      dEst.estudiante_lugar_nacimiento ||
+      dEst.municipio_nacimiento ||
+      dEst.lugar_nacimiento ||
+      dEst.ciudad_nacimiento ||
+      (escCodigo === 'sb' ? 'El Tejero' : 'Miraflores')
+    ).toString().trim();
+
+    const estadoNac = (
+      formDatos.estudiante_estado_nacimiento ||
+      dNac.estudiante_estado_nacimiento ||
+      dNac.estado_nacimiento ||
+      dEstActual.estudiante_estado_nacimiento ||
+      dEstActual.estado_nacimiento ||
+      dEst.estudiante_estado_nacimiento ||
+      dEst.estado_nacimiento ||
+      'Monagas'
+    ).toString().trim();
+
     const edadCalculada = calcularEdad(formDatos.estudiante_fecha_nacimiento || datosEst.estudiante_fecha_nacimiento);
     const edadTexto = edadCalculada ? `de ${edadCalculada} años de edad, ` : '';
-    const ciudadExpedicion = escCodigo === 'sb' ? 'Maturín' : 'Temblador';
+    const ciudadExpedicion = escCodigo === 'sb' ? 'El Tejero' : 'Miraflores';
 
     const fechaHoyObj = new Date();
     const diaExpedicion = fechaHoyObj.getDate();
