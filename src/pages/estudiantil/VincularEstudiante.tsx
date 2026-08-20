@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -8,6 +8,7 @@ import { auditar } from '../../lib/audit';
 import * as XLSX from 'xlsx';
 
 import { toTitulo } from '../../lib/formatters';
+import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida } from '../../utils/firmasSeguras';
 
 const handleTituloChange = (
   e: React.ChangeEvent<HTMLInputElement>,
@@ -136,6 +137,15 @@ export const VincularEstudiante: React.FC = () => {
   const [tipoGrafico, setTipoGrafico] = useState<'dossier' | 'resumen_niveles' | 'anillos' | 'torta' | 'picos' | 'barras' | 'radar' | 'tacometro' | 'tabla'>('dossier');
   const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
 
+  // Estados para Visor / Descarga de Constancia y Resumen
+  const [showDocModal, setShowDocModal] = useState<boolean>(false);
+  const [estudianteDoc, setEstudianteDoc] = useState<any | null>(null);
+  const [vistaDocEstudiante, setVistaDocEstudiante] = useState<'constancia' | 'resumen'>('constancia');
+  const [docDirInfo, setDocDirInfo] = useState<any>(null);
+  const [docFirmaBase64, setDocFirmaBase64] = useState<string>('');
+  const [generandoDocPdf, setGenerandoDocPdf] = useState<boolean>(false);
+  const docRef = useRef<HTMLDivElement>(null);
+
   // Estados para Reasignar / Transferir Representante
   const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
   const [estudiantesATransferir, setEstudiantesATransferir] = useState<any[]>([]);
@@ -226,6 +236,124 @@ export const VincularEstudiante: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAbrirDocumentosEstudiante = async (est: any, tipoInicial: 'constancia' | 'resumen' = 'constancia') => {
+    setEstudianteDoc(est);
+    setVistaDocEstudiante(tipoInicial);
+    setShowDocModal(true);
+    const esc = (est.codigo_escuela || 'lb').toLowerCase();
+    try {
+      const dir = await obtenerDatosDirectorAsync(esc);
+      const firma = await obtenerFirmaDirectorProtegida(esc);
+      setDocDirInfo(dir);
+      setDocFirmaBase64(firma);
+    } catch (e) {
+      console.warn('Error cargando firma y director:', e);
+    }
+  };
+
+  const handleDescargarDocPdf = async () => {
+    if (!docRef.current || !estudianteDoc) return;
+    setGenerandoDocPdf(true);
+    let clon: HTMLElement | null = null;
+    try {
+      clon = docRef.current.cloneNode(true) as HTMLElement;
+      clon.style.width = '800px';
+      clon.style.minWidth = '800px';
+      clon.style.maxWidth = '800px';
+      clon.style.position = 'fixed';
+      clon.style.left = '-9999px';
+      clon.style.top = '0';
+      clon.style.margin = '0';
+      clon.style.boxShadow = 'none';
+      clon.style.border = 'none';
+      clon.style.borderRadius = '0';
+      clon.style.background = '#ffffff';
+
+      const elementosResponsive = clon.querySelectorAll('.col-md-6, .col-md-4, .col-md-3, .col-md-8, .col-md-12');
+      elementosResponsive.forEach((el) => {
+        const hEl = el as HTMLElement;
+        if (hEl.classList.contains('col-md-6')) {
+          hEl.style.width = '50%';
+          hEl.style.float = 'left';
+          hEl.style.display = 'inline-block';
+        } else if (hEl.classList.contains('col-md-4')) {
+          hEl.style.width = '33.333%';
+          hEl.style.float = 'left';
+          hEl.style.display = 'inline-block';
+        }
+      });
+
+      document.body.appendChild(clon);
+      await new Promise(resolve => setTimeout(resolve, 80));
+
+      const canvas = await html2canvas(clon, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 1024,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'letter');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight > pdfHeight - 20) {
+        const factor = (pdfHeight - 20) / imgHeight;
+        const finalW = imgWidth * factor;
+        const finalH = imgHeight * factor;
+        const posX = (pdfWidth - finalW) / 2;
+        pdf.addImage(imgData, 'PNG', posX, 10, finalW, finalH, undefined, 'FAST');
+      } else {
+        pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight, undefined, 'FAST');
+      }
+
+      const cedulaEst = (estudianteDoc.cedula_estudiante || '').replace(/\D/g, '') || '0000';
+      const esc = (estudianteDoc.codigo_escuela || 'lb').toUpperCase();
+      const nombreDoc = vistaDocEstudiante === 'constancia'
+        ? `Constancia_Inscripcion_${esc}_${cedulaEst}.pdf`
+        : `Resumen_Ficha_Integral_${esc}_${cedulaEst}.pdf`;
+
+      pdf.save(nombreDoc);
+    } catch (err) {
+      console.error('Error generando PDF del documento:', err);
+    } finally {
+      if (clon && clon.parentNode) {
+        clon.parentNode.removeChild(clon);
+      }
+      setGenerandoDocPdf(false);
+    }
+  };
+
+  const handleCompartirDocWhatsApp = () => {
+    if (!estudianteDoc) return;
+    const cedulaEst = estudianteDoc.cedula_estudiante || 'No posee';
+    const esc = (estudianteDoc.codigo_escuela || 'lb').toUpperCase();
+    const ano = new Date().getFullYear();
+    const codigoConst = estudianteDoc.codigo_unico || `CI-${esc}-${cedulaEst.replace(/\D/g, '') || '0000'}-${ano}`;
+    const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'https://sigae-hh6u.onrender.com'
+      : window.location.origin;
+    const link = `${baseUrl}/validar-constancia/${encodeURIComponent(codigoConst)}`;
+    const nombre = toTitulo(`${estudianteDoc.nombres_estudiante} ${estudianteDoc.apellidos_estudiante}`);
+    const escuela = esc === 'SB' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+
+    const texto = 
+      `🏛️ *SISTEMA DE GESTIÓN ACADÉMICA Y ESCOLAR (SIGAE)*\n` +
+      `📄 *${vistaDocEstudiante === 'constancia' ? 'Constancia Oficial de Inscripción' : 'Resumen de Actualización (Ficha Integral)'}*\n\n` +
+      `🎓 *Estudiante:* ${nombre}\n` +
+      `🆔 *Cédula/Escolar:* ${cedulaEst}\n` +
+      `🏫 *Plantel:* ${escuela}\n` +
+      `📅 *Año Escolar:* ${ano} - ${ano + 1}\n` +
+      `🔐 *Código de Verificación:* ${codigoConst}\n\n` +
+      `🔗 *Verificar Documento en Línea:*\n${link}`;
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
   // 1. Buscar Representante en tabla usuarios
@@ -2720,7 +2848,14 @@ export const VincularEstudiante: React.FC = () => {
                       <td className="text-end">
                         <div className="btn-group shadow-sm">
                           <button 
-                            className="btn btn-sm btn-outline-info rounded-start-pill" 
+                            className="btn btn-sm btn-outline-success rounded-start-pill" 
+                            onClick={() => handleAbrirDocumentosEstudiante(item, 'constancia')}
+                            title="Ver Constancia de Inscripción o Resumen de Actualización"
+                          >
+                            <i className="bi bi-file-earmark-text-fill"></i>
+                          </button>
+                          <button 
+                            className="btn btn-sm btn-outline-info" 
                             onClick={() => handleAbrirAvance(item)}
                             title="Ver Avance de Actualización"
                           >
@@ -3034,23 +3169,37 @@ export const VincularEstudiante: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="modal-footer bg-white border-top d-flex justify-content-between p-3">
+                    <div className="modal-footer bg-white border-top d-flex justify-content-between flex-wrap gap-2 p-3">
                       <button 
                         type="button" 
-                        className="btn btn-outline-danger fw-bold rounded-pill px-4"
+                        className="btn btn-outline-danger fw-bold rounded-pill px-3"
                         onClick={() => handleResetearActualizacion(estudianteAvanceModal)}
                         disabled={loading}
                         title="Restablece la ficha integral a blanco para que el representante la vuelva a llenar"
                       >
-                        <i className="bi bi-arrow-counterclockwise me-1"></i> Resetear Datos de Actualización
+                        <i className="bi bi-arrow-counterclockwise me-1"></i> Resetear Datos
                       </button>
-                      <button 
-                        type="button" 
-                        className="btn btn-primary fw-bold rounded-pill px-4 shadow-sm"
-                        onClick={() => setShowAvanceModal(false)}
-                      >
-                        Cerrar
-                      </button>
+                      <div className="d-flex gap-2">
+                        <button 
+                          type="button" 
+                          className="btn btn-success fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center gap-1.5"
+                          onClick={() => {
+                            const est = estudianteAvanceModal;
+                            setShowAvanceModal(false);
+                            handleAbrirDocumentosEstudiante(est, 'constancia');
+                          }}
+                        >
+                          <i className="bi bi-file-earmark-text-fill"></i>
+                          <span>Ver Constancia / Resumen</span>
+                        </button>
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary fw-bold rounded-pill px-4"
+                          onClick={() => setShowAvanceModal(false)}
+                        >
+                          Cerrar
+                        </button>
+                      </div>
                     </div>
                   </>
                 );
@@ -4211,6 +4360,420 @@ export const VincularEstudiante: React.FC = () => {
                   Confirmar Reasignación
                 </button>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ─── MODAL VISOR Y DESCARGA DE CONSTANCIA / RESUMEN ─── */}
+      {showDocModal && estudianteDoc && createPortal(
+        <div className="modal fade show d-block" tabIndex={-1} style={{ background: 'rgba(15, 23, 42, 0.75)', zIndex: 1075, backdropFilter: 'blur(5px)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable" style={{ maxWidth: '920px' }}>
+            <div className="modal-content rounded-4 border-0 shadow-2xl overflow-hidden" style={{ background: '#f8fafc' }}>
+              {(() => {
+                const d = estudianteDoc.datos_actualizados || {};
+                const nombreEstudianteCompleto = `${estudianteDoc.nombres_estudiante || d.estudiante_nombres || ''} ${estudianteDoc.apellidos_estudiante || d.estudiante_apellidos || ''}`.trim() || 'Estudiante';
+                const cedulaEstudiante = estudianteDoc.cedula_estudiante || d.estudiante_cedula || 'No posee';
+                const gradoEstudiante = estudianteDoc.grado_actual || d.grado_solicitado || 'Grado asignado';
+                const representanteNombre = `${d.representante_nombres || estudianteDoc.nombres_representante || ''} ${d.representante_apellidos || estudianteDoc.apellidos_representante || ''}`.trim() || 'Representante Legal';
+                const representanteCedula = d.representante_cedula || estudianteDoc.cedula_representante || 'No registrada';
+
+                const anoActual = new Date().getFullYear();
+                const anoProximo = anoActual + 1;
+                const cedulaLimpia = cedulaEstudiante.replace(/\D/g, '') || '0000';
+                const escuelaCodigo = (estudianteDoc.codigo_escuela || 'lb').toLowerCase();
+
+                const codigoConstancia = estudianteDoc.codigo_unico || `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+                const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+
+                const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const baseUrlVerificacion = esLocal ? 'https://sigae-hh6u.onrender.com' : window.location.origin;
+                const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
+                const urlQrResumen = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`SIGAE:FI:${codigoResumen}:${nombreEstudianteCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
+
+                const logoEscuela = `/assets/img/logo_${escuelaCodigo}.png`;
+                const logoMppe = '/assets/img/logoMPPE.png';
+
+                const rawGen = (
+                  d.estudiante_sexo ||
+                  d.estudiante_genero ||
+                  estudianteDoc?.datos_actualizados?.estudiante_sexo ||
+                  estudianteDoc?.datos_actualizados?.estudiante_genero ||
+                  (estudianteDoc as any)?.sexo ||
+                  ''
+                ).toString().toLowerCase().trim();
+
+                const esFemenino = rawGen.startsWith('f') || rawGen === 'femenino' || rawGen === 'femenina' || rawGen === 'hembra' || rawGen === 'mujer';
+
+                const gradoLimpio = (gradoEstudiante)
+                  .replace(/\s+de\s+(Educación\s+Primaria|Educación\s+Inicial|Educación\s+Media\s+General|Media\s+General|Primaria|Inicial)/gi, '')
+                  .replace(/\s+correspondiente\s+al\s+Nivel\s+de.*/gi, '')
+                  .trim();
+
+                let nivelEducativo = 'Educación Primaria';
+                const gLower = (gradoEstudiante).toLowerCase();
+                if (gLower.includes('maternal') || gLower.includes('preescolar') || gLower.includes('inicial') || gLower.includes('grupo')) {
+                  nivelEducativo = 'Educación Inicial';
+                } else if (gLower.includes('año') || gLower.includes('media') || gLower.includes('bachillerato')) {
+                  nivelEducativo = 'Educación Media General';
+                }
+
+                const dirData = docDirInfo || {
+                  nombreCompleto: escuelaCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño',
+                  cedula: escuelaCodigo === 'sb' ? '16.808.608' : '17.780.095',
+                  cargo: escuelaCodigo === 'sb' ? 'Directora de la Unidad Educativa Santa Bárbara' : 'Director de la Unidad Educativa Libertador Bolívar',
+                  cargoGenerico: escuelaCodigo === 'sb' ? 'Directora' : 'Director',
+                  ubicacionEscuela: escuelaCodigo === 'sb' ? 'El Tejero, estado Monagas' : 'Miraflores, estado Monagas',
+                  nombreEscuela: escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar',
+                };
+
+                const esDirectora = escuelaCodigo === 'sb' || (dirData.cargoGenerico || '').toLowerCase().includes('directora') || (dirData.cargo || '').toLowerCase().includes('directora');
+                const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+                const nombreDirectorLimpio = (dirData.nombreCompleto || (escuelaCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+                  .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+                  .trim();
+                const tituloDirectorTexto = `${prefijoDirector} ${toTitulo(nombreDirectorLimpio)}`;
+
+                const ciudadExpedicion = escuelaCodigo === 'sb' ? 'El Tejero' : 'Miraflores';
+                const fechaHoy = new Date();
+                const diaExpedicion = fechaHoy.getDate();
+                const mesExpedicion = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][fechaHoy.getMonth()];
+                const anoExpedicion = fechaHoy.getFullYear();
+
+                return (
+                  <>
+                    {/* ENCABEZADO MODAL */}
+                    <div className="modal-header bg-gradient text-white p-3 p-md-4" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)' }}>
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="p-3 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center" style={{ width: '50px', height: '50px' }}>
+                          <i className="bi bi-file-earmark-pdf-fill fs-3"></i>
+                        </div>
+                        <div>
+                          <div className="d-flex align-items-center gap-2 mb-1">
+                            <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-2.5 py-1 rounded-pill`} style={{ fontSize: '0.72rem' }}>
+                              {escuelaCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                            </span>
+                            <span className="badge bg-white text-dark fw-bold px-2 py-0.5 rounded-pill" style={{ fontSize: '0.72rem' }}>
+                              {cedulaEstudiante}
+                            </span>
+                          </div>
+                          <h5 className="modal-title fw-bold mb-0 text-white">{toTitulo(nombreEstudianteCompleto)}</h5>
+                        </div>
+                      </div>
+                      <button type="button" className="btn-close btn-close-white shadow-sm" onClick={() => setShowDocModal(false)}></button>
+                    </div>
+
+                    {/* SELECTOR DE TIPO DE DOCUMENTO Y BARRA DE HERRAMIENTAS */}
+                    <div className="bg-white border-bottom p-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                      {/* Pestañas de Documento */}
+                      <div className="btn-group p-1 bg-light rounded-pill border shadow-sm">
+                        <button
+                          type="button"
+                          className={`btn rounded-pill px-3 py-1.5 fw-bold btn-sm ${vistaDocEstudiante === 'constancia' ? 'btn-primary shadow-sm' : 'btn-light text-muted'}`}
+                          onClick={() => setVistaDocEstudiante('constancia')}
+                        >
+                          <i className="bi bi-file-earmark-check-fill me-1.5"></i>
+                          Constancia de Inscripción
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn rounded-pill px-3 py-1.5 fw-bold btn-sm ${vistaDocEstudiante === 'resumen' ? 'btn-success shadow-sm' : 'btn-light text-muted'}`}
+                          onClick={() => setVistaDocEstudiante('resumen')}
+                        >
+                          <i className="bi bi-person-vcard-fill me-1.5"></i>
+                          Resumen Ficha Integral
+                        </button>
+                      </div>
+
+                      {/* Botones de Acción */}
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-primary fw-bold rounded-pill px-3 shadow-sm btn-sm d-flex align-items-center gap-1.5"
+                          onClick={handleDescargarDocPdf}
+                          disabled={generandoDocPdf}
+                        >
+                          {generandoDocPdf ? (
+                            <span className="spinner-border spinner-border-sm"></span>
+                          ) : (
+                            <i className="bi bi-download"></i>
+                          )}
+                          <span>Descargar PDF</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-outline-success fw-bold rounded-pill px-3 shadow-sm btn-sm d-flex align-items-center gap-1.5"
+                          onClick={handleCompartirDocWhatsApp}
+                        >
+                          <i className="bi bi-whatsapp"></i>
+                          <span>Compartir</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary fw-bold rounded-pill px-3 shadow-sm btn-sm d-flex align-items-center gap-1.5"
+                          onClick={() => window.open(`/validar-constancia/${encodeURIComponent(codigoConstancia)}`, '_blank')}
+                          title="Abrir enlace de verificación pública en línea"
+                        >
+                          <i className="bi bi-shield-check"></i>
+                          <span>Validar QR</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* CUERPO DEL MODAL CON EL DOCUMENTO RÉPLICA */}
+                    <div className="modal-body p-3 p-md-4 bg-light d-flex justify-content-center overflow-auto">
+                      {/* 1. CONSTANCIA DE INSCRIPCIÓN OFICIAL */}
+                      {vistaDocEstudiante === 'constancia' && (
+                        <div 
+                          ref={docRef}
+                          className="bg-white shadow rounded-4 p-4 p-md-5 animate__animated animate__fadeIn mx-auto"
+                          style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box', minHeight: '1035px', padding: '42px 48px 35px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontFamily: 'Arial, Helvetica, sans-serif' }}
+                        >
+                          {/* BANDERA DE VENEZUELA */}
+                          <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
+                            <div style={{ height: '8px', backgroundColor: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7px', lineHeight: '1' }}>
+                              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                            </div>
+                            <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
+                          </div>
+
+                          {/* ENCABEZADO INSTITUCIONAL */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '25px', position: 'relative' }}>
+                            <img src={logoEscuela} alt="Escuela" style={{ height: '70px', width: 'auto', position: 'absolute', left: 0 }} />
+                            <div style={{ textAlign: 'center', width: '100%' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 'bold', lineHeight: '1.45', textTransform: 'uppercase', color: '#000000' }}>
+                                República Bolivariana de Venezuela<br/>
+                                Ministerio del Poder Popular para la Educación<br/>
+                                {dirData.nombreEscuela}<br/>
+                                <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>{dirData.ubicacionEscuela}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* TÍTULO DE LA CONSTANCIA */}
+                          <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
+                            <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
+                              Constancia de Inscripción
+                            </h2>
+                          </div>
+
+                          {/* PÁRRAFO 1: CERTIFICACIÓN */}
+                          <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}>
+                            Quien suscribe, <b>{tituloDirectorTexto}</b>, {dirData.cargoGenerico.toLowerCase()} de la <b>{toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>{toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudianteCompleto)}</b>, natural de <b>{toTitulo(d.estudiante_municipio_nacimiento || d.estudiante_lugar_nacimiento || d.municipio_nacimiento || d.lugar_nacimiento || d.ciudad_nacimiento || (escuelaCodigo === 'sb' ? 'El Tejero' : 'Miraflores'))}</b>, estado <b>{toTitulo(d.estudiante_estado_nacimiento || d.estado_nacimiento || 'Monagas')}</b>, {(() => {
+                              if (!d.estudiante_fecha_nacimiento) return '';
+                              const nac = new Date(d.estudiante_fecha_nacimiento);
+                              if (isNaN(nac.getTime())) return '';
+                              const hoy = new Date();
+                              let edad = hoy.getFullYear() - nac.getFullYear();
+                              const m = hoy.getMonth() - nac.getMonth();
+                              if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+                              return edad > 0 && edad < 100 ? `de ${edad} años de edad, ` : '';
+                            })()}titular de la {(() => {
+                              const tipoDoc = d.estudiante_tipo_documento || (estudianteDoc as any)?.estudiante_tipo_documento;
+                              if (tipoDoc) {
+                                const tLower = tipoDoc.toLowerCase();
+                                if (tLower.includes('escolar')) return 'cédula escolar';
+                                if (tLower.includes('identidad')) return 'cédula de identidad';
+                              }
+                              const clean = (cedulaEstudiante || '').toString().trim().toUpperCase();
+                              if (clean.startsWith('CE') || clean.startsWith('CE-') || clean.replace(/\D/g, '').length >= 10) {
+                                return 'cédula escolar';
+                              }
+                              return 'cédula de identidad';
+                            })()} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                          </p>
+
+                          {/* PÁRRAFO 2: REPRESENTANTE */}
+                          <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}>
+                            Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>{toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+                          </p>
+
+                          {/* PÁRRAFO 3: FECHA Y EXPEDICIÓN */}
+                          <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '28px', textIndent: '35px' }}>
+                            Constancia que se expide para los efectos y fines consiguientes en <b>{toTitulo(ciudadExpedicion)}</b>, a los {diaExpedicion} días del mes de {mesExpedicion} del año {anoExpedicion}.
+                          </p>
+
+                          {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px', paddingTop: '15px', borderTop: '1.5px solid #cbd5e1' }}>
+                            <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', margin: '0 auto' }}>
+                              <p style={{ margin: '0 0 4px', fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
+                              {docFirmaBase64 ? (
+                                <img src={docFirmaBase64} alt="Firma Director" style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
+                              ) : (
+                                <img src={`/assets/img/firma_director_${escuelaCodigo}.png`} alt="Firma Director" style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
+                              )}
+                              <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>{tituloDirectorTexto}</div>
+                              <div style={{ fontSize: '12px', color: '#333333' }}>C.I.: {dirData.cedula}</div>
+                              <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>{dirData.cargo}</div>
+                            </div>
+
+                            <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
+                              <img src={urlQrConstancia} alt="QR Verificación" style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} />
+                              <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>VERIFICACIÓN QR</span>
+                              <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>{codigoConstancia}</span>
+                            </div>
+                          </div>
+
+                          {/* PIE DE PÁGINA */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={logoMppe} alt="MPPE" style={{ height: '40px', width: 'auto' }} />
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
+                              SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
+                              Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoConstancia}</b>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 2. RESUMEN DE ACTUALIZACIÓN (FICHA INTEGRAL) */}
+                      {vistaDocEstudiante === 'resumen' && (
+                        <div 
+                          ref={docRef}
+                          className="bg-white shadow rounded-4 p-4 p-md-5 mb-4 animate__animated animate__fadeIn mx-auto"
+                          style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box' }}
+                        >
+                          {/* BANDERA DE VENEZUELA */}
+                          <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
+                            <div style={{ height: '8px', backgroundColor: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7px', lineHeight: '1' }}>
+                              <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                            </div>
+                            <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
+                          </div>
+
+                          {/* ENCABEZADO INSTITUCIONAL */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '20px', position: 'relative' }}>
+                            <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto', position: 'absolute', left: 0 }} />
+                            <div style={{ textAlign: 'center', width: '100%' }}>
+                              <div style={{ fontSize: '13.5px', fontWeight: 'bold', lineHeight: '1.4', textTransform: 'uppercase', color: '#000000' }}>
+                                República Bolivariana de Venezuela<br/>
+                                Ministerio del Poder Popular para la Educación<br/>
+                                {dirData.nombreEscuela}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* TÍTULO DEL RESUMEN */}
+                          <div style={{ textAlign: 'center', margin: '15px 0 20px' }}>
+                            <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 'bold', color: '#166534', textTransform: 'uppercase' }}>
+                              Resumen de Actualización de Datos (Ficha Integral)
+                            </h2>
+                            <span className="badge bg-success px-3 py-1 rounded-pill mt-1 fw-bold">
+                              Año Escolar {anoActual} – {anoProximo}
+                            </span>
+                          </div>
+
+                          {/* BLOQUES DE DATOS */}
+                          <div className="d-flex flex-column gap-3 mb-4">
+                            {/* BLOQUE 1: REPRESENTANTE LEGAL */}
+                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                              <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                                <i className="bi bi-person-badge me-1 text-success"></i> 1. Representante Legal
+                              </h6>
+                              <div className="row g-2 small font-monospace">
+                                <div className="col-md-6"><b>Nombre:</b> {representanteNombre}</div>
+                                <div className="col-md-6"><b>Cédula:</b> {representanteCedula}</div>
+                                <div className="col-md-6"><b>Teléfono:</b> {d.representante_telefono || 'No registrado'}</div>
+                                <div className="col-md-6"><b>Correo:</b> {d.representante_email || 'No registrado'}</div>
+                                <div className="col-md-6"><b>Vínculo / Parentesco:</b> {d.representante_parentesco || 'Representante Legal'}</div>
+                                <div className="col-md-6"><b>¿Trabaja en PDVSA?:</b> {d.representante_trabaja_pdvsa || 'No'}</div>
+                              </div>
+                            </div>
+
+                            {/* BLOQUE 2: IDENTIFICACIÓN DEL ESTUDIANTE */}
+                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                              <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                                <i className="bi bi-mortarboard me-1 text-success"></i> 2. Identificación del Estudiante
+                              </h6>
+                              <div className="row g-2 small font-monospace">
+                                <div className="col-md-6"><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
+                                <div className="col-md-6"><b>Cédula:</b> {cedulaEstudiante}</div>
+                                <div className="col-md-6"><b>Fecha Nacimiento:</b> {d.estudiante_fecha_nacimiento || 'No registrada'}</div>
+                                <div className="col-md-6"><b>Género:</b> {d.estudiante_genero || d.estudiante_sexo || 'No informado'}</div>
+                                <div className="col-md-6"><b>Grado Actual:</b> <b className="text-primary">{gradoEstudiante}</b></div>
+                                <div className="col-md-6"><b>Sección:</b> {estudianteDoc?.seccion_actual || d.seccion_actual || 'A'}</div>
+                              </div>
+                            </div>
+
+                            {/* BLOQUE 3: SALUD Y ANTROPOMETRÍA */}
+                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                              <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                                <i className="bi bi-heart-pulse me-1 text-danger"></i> 3. Salud y Antropometría
+                              </h6>
+                              <div className="row g-2 small font-monospace">
+                                <div className="col-md-4"><b>Tipo de Sangre:</b> {d.salud_tipo_sangre || d.estudiante_grupo_sanguineo || 'No informado'}</div>
+                                <div className="col-md-4"><b>Estatura (cm):</b> {d.salud_estatura || d.estatura_cm || '—'}</div>
+                                <div className="col-md-4"><b>Peso (kg):</b> {d.salud_peso || d.peso_kg || '—'}</div>
+                                <div className="col-md-6"><b>Talla Camisa / Pantalón:</b> {d.salud_talla_camisa || d.talla_franela || '—'} / {d.salud_talla_pantalon || d.talla_pantalon || '—'}</div>
+                                <div className="col-md-6"><b>Calzado:</b> {d.salud_talla_calzado || d.talla_calzado || '—'}</div>
+                                <div className="col-12"><b>Alergias / Padecimientos:</b> {d.salud_alergias || d.alergias || 'Ninguna manifestada'}</div>
+                              </div>
+                            </div>
+
+                            {/* BLOQUE 4: UBICACIÓN DOMICILIARIA */}
+                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px' }}>
+                              <h6 className="fw-bold text-dark border-bottom pb-1 mb-2 small text-uppercase">
+                                <i className="bi bi-geo-alt me-1 text-primary"></i> 4. Ubicación Domiciliaria
+                              </h6>
+                              <div className="row g-2 small font-monospace">
+                                <div className="col-12"><b>Dirección de Habitación:</b> {d.direccion_vivienda || d.direccion_habitacion || 'Santa Bárbara / Miraflores, Monagas'}</div>
+                                <div className="col-md-6"><b>Punto de Referencia:</b> {d.direccion_punto_referencia || d.punto_referencia || 'No indicado'}</div>
+                                <div className="col-md-6"><b>Sector:</b> {d.direccion_sector || d.sector_comunidad || 'Comunidad'}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* PIE DE PÁGINA CON QR */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1.5px solid #cbd5e1', paddingTop: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={logoMppe} alt="MPPE" style={{ height: '38px', width: 'auto' }} />
+                            </div>
+                            <div style={{ textAlign: 'center', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '8px', background: '#ffffff' }}>
+                              <img src={urlQrResumen} alt="QR Resumen" style={{ height: '55px', width: '55px', display: 'block', margin: '0 auto' }} />
+                              <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace' }}>RESUMEN VALIDADO</span>
+                              <span style={{ fontSize: '6.5px', color: '#334155', fontFamily: 'monospace', display: 'block' }}>{codigoResumen}</span>
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
+                              SIGAE - Ficha Integral de Actualización<br/>
+                              Cód. Resumen: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoResumen}</b>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* PIE DEL MODAL */}
+                    <div className="modal-footer bg-white border-top p-3 d-flex justify-content-between">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary fw-bold rounded-pill px-4"
+                        onClick={() => setShowDocModal(false)}
+                      >
+                        Cerrar Visor
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center gap-1.5"
+                        onClick={handleDescargarDocPdf}
+                        disabled={generandoDocPdf}
+                      >
+                        {generandoDocPdf ? (
+                          <span className="spinner-border spinner-border-sm"></span>
+                        ) : (
+                          <i className="bi bi-file-earmark-pdf-fill"></i>
+                        )}
+                        <span>Descargar Comprobante en PDF</span>
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>,
