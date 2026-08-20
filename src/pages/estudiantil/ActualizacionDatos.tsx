@@ -652,6 +652,21 @@ export const ActualizacionDatos: React.FC = () => {
     const repParentesco = (formDatos.representante_parentesco || datosEst.representante_parentesco || '').toLowerCase();
     const esRepFemenino = repParentesco.includes('madre') || repParentesco.includes('mama') || repParentesco.includes('abuela') || repParentesco.includes('tia');
 
+    const determinarTipoCedula = (tipoDoc?: string, numCedula?: string) => {
+      if (tipoDoc) {
+        const tLower = tipoDoc.toLowerCase();
+        if (tLower.includes('escolar')) return 'cédula escolar';
+        if (tLower.includes('identidad')) return 'cédula de identidad';
+      }
+      const clean = (numCedula || '').toString().trim().toUpperCase();
+      if (clean.startsWith('CE') || clean.startsWith('CE-') || clean.replace(/\D/g, '').length >= 10) {
+        return 'cédula escolar';
+      }
+      return 'cédula de identidad';
+    };
+
+    const tipoCedulaTexto = determinarTipoCedula(formDatos.estudiante_tipo_documento || (datosEst as any)?.estudiante_tipo_documento, cedulaEstudiante);
+
     const htmlConstancia = `
       <div style="border: 2px solid #94a3b8; border-radius: 12px; padding: 42px 48px 35px 48px; background: #ffffff; width: 800px; font-family: Arial, Helvetica, sans-serif; color: #000000; box-sizing: border-box; min-height: 1035px; display: flex; flex-direction: column; justify-content: space-between; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
         <div>
@@ -679,22 +694,22 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- TÍTULO DE LA CONSTANCIA -->
           <div style="text-align: center; margin: 32px 0 28px;">
-            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; letter-spacing: 0.5px;">Constancia de inscripción</h2>
+            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; letter-spacing: 0.5px;">Constancia de Inscripción</h2>
           </div>
 
           <!-- PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
-            Quien suscribe, <b>Prof. ${nombreDirectorLimpio}</b>, ${cargoDirectorTexto.toLowerCase()} del <b>${dirData.nombreEscuela}</b>, que funciona en <b>${dirData.ubicacionEscuela || 'Monagas, Venezuela'}</b>, por medio de la presente hace constar que ${esFemenino ? 'la alumna:' : 'el alumno:'} <b>${nombreCompleto}</b>, natural de <b>${ciudadNac}</b>, estado <b>${estadoNac}</b>, ${edadTexto}titular de la cédula de identidad o escolar N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${gradoLimpio}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
+            Quien suscribe, <b>Prof. ${toTitulo(nombreDirectorLimpio)}</b>, ${cargoDirectorTexto.toLowerCase()} del <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
           </p>
 
           <!-- PÁRRAFO 2: REPRESENTANTE LEGAL -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
-            Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es ${esRepFemenino ? 'la ciudadana' : 'el ciudadano'} <b>${representanteNombre}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+            Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es ${esRepFemenino ? 'la ciudadana' : 'el ciudadano'} <b>${toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
           </p>
 
           <!-- PÁRRAFO 3: EXPEDICIÓN Y FECHA -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 35px; text-indent: 35px;">
-            Constancia que se expide para los efectos y fines consiguientes en <b>${ciudadExpedicion}</b>, a los ${diaExpedicion} días del mes de ${mesExpedicion} del año ${anoExpedicion}.
+            Constancia que se expide para los efectos y fines consiguientes en <b>${toTitulo(ciudadExpedicion)}</b>, a los ${diaExpedicion} días del mes de ${mesExpedicion} del año ${anoExpedicion}.
           </p>
         </div>
 

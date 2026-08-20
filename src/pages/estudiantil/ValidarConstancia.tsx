@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { obtenerDatosDirector } from '../../utils/firmasSeguras';
+import { toTitulo } from '../../lib/formatters';
 
 export const ValidarConstancia: React.FC = () => {
   const { codigo } = useParams<{ codigo: string }>();
@@ -26,27 +27,31 @@ export const ValidarConstancia: React.FC = () => {
           setDatosDocumento({
             nombres_estudiante: 'Alejandro José',
             apellidos_estudiante: 'Pérez Silva',
-            cedula_estudiante: 'V-31.456.789',
-            grado_actual: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+            cedula_estudiante: '31.456.789',
+            grado_actual: '1.er Año',
             seccion_actual: 'A',
             codigo_escuela: esc,
             fecha_ultima_actualizacion: new Date().toISOString(),
             datos_actualizados: {
               representante_nombres: 'Carlos Eduardo',
               representante_apellidos: 'Pérez Mendoza',
-              representante_cedula: 'V-15.987.654',
-              codigo_unico: `CI-${esc.toUpperCase()}-31456789-2026`
+              representante_cedula: '15.987.654',
+              codigo_unico: codigoLimpio,
+              estudiante_sexo: 'masculino',
+              estudiante_lugar_nacimiento: esc === 'sb' ? 'Maturín' : 'Temblador',
+              estudiante_estado_nacimiento: 'Monagas',
+              estudiante_fecha_nacimiento: '2012-05-15'
             }
           });
           setLoading(false);
           return;
         }
 
-        const { data, error: dbError } = await supabase
+        const { data, error: err } = await supabase
           .from('estudiantes_vinculaciones')
           .select('*');
 
-        if (dbError) throw dbError;
+        if (err) throw err;
 
         const encontrado = (data || []).find((item: any) => {
           const d = item.datos_actualizados || {};
@@ -165,6 +170,21 @@ export const ValidarConstancia: React.FC = () => {
   const nombreDirectorLimpio = (dirData.tituloDirector || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '');
   const cargoDirectorTexto = dirData.cargoGenerico || 'Director';
 
+  const determinarTipoCedula = (tipoDoc?: string, numCedula?: string) => {
+    if (tipoDoc) {
+      const tLower = tipoDoc.toLowerCase();
+      if (tLower.includes('escolar')) return 'cédula escolar';
+      if (tLower.includes('identidad')) return 'cédula de identidad';
+    }
+    const clean = (numCedula || '').toString().trim().toUpperCase();
+    if (clean.startsWith('CE') || clean.startsWith('CE-') || clean.replace(/\D/g, '').length >= 10) {
+      return 'cédula escolar';
+    }
+    return 'cédula de identidad';
+  };
+
+  const tipoCedulaTexto = determinarTipoCedula(d.estudiante_tipo_documento || datosDocumento?.estudiante_tipo_documento, cedulaEstudiante);
+
   return (
     <div className="min-vh-100 bg-light d-flex flex-column justify-content-between p-3 p-md-4 font-sans">
       <div className="container" style={{ maxWidth: '850px' }}>
@@ -231,7 +251,7 @@ export const ValidarConstancia: React.FC = () => {
                   DOCUMENTO OFICIAL DIGITAL
                 </span>
                 <h4 className="fw-bold text-dark mb-0" style={{ letterSpacing: '0.5px' }}>
-                  Constancia de inscripción
+                  Constancia de Inscripción
                 </h4>
               </div>
 
@@ -249,13 +269,13 @@ export const ValidarConstancia: React.FC = () => {
               {/* CUERPO OFICIAL EN TRES PÁRRAFOS */}
               <div className="p-4 bg-white rounded-3 border mb-4 text-justify" style={{ lineHeight: '2.1', fontSize: '14.5px', color: '#000000' }}>
                 <p className="mb-4" style={{ textIndent: '30px' }}>
-                  Quien suscribe, <b>Prof. {nombreDirectorLimpio}</b>, {cargoDirectorTexto.toLowerCase()} del <b>{dirData.nombreEscuela}</b>, que funciona en <b>{dirData.ubicacionEscuela || 'Monagas, Venezuela'}</b>, por medio de la presente hace constar que {esFemenino ? 'la alumna:' : 'el alumno:'} <b>{nombreEstudiante}</b>, natural de <b>{ciudadNac}</b>, estado <b>{estadoNac}</b>, {edadTexto}titular de la cédula de identidad o escolar N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{gradoLimpio}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                  Quien suscribe, <b>Prof. {toTitulo(nombreDirectorLimpio)}</b>, {cargoDirectorTexto.toLowerCase()} del <b>{toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>{toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudiante)}</b>, natural de <b>{toTitulo(ciudadNac)}</b>, estado <b>{toTitulo(estadoNac)}</b>, {edadTexto}titular de la {tipoCedulaTexto} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
                 </p>
                 <p className="mb-4" style={{ textIndent: '30px' }}>
-                  Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es {esRepFemenino ? 'la ciudadana' : 'el ciudadano'} <b>{representanteNombre}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+                  Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es {esRepFemenino ? 'la ciudadana' : 'el ciudadano'} <b>{toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
                 </p>
                 <p className="mb-0" style={{ textIndent: '30px' }}>
-                  Constancia que se expide para los efectos y fines consiguientes en <b>{ciudadExpedicion}</b>, a los {diaExpedicion} días del mes de {mesExpedicion} del año {anoExpedicion}.
+                  Constancia que se expide para los efectos y fines consiguientes en <b>{toTitulo(ciudadExpedicion)}</b>, a los {diaExpedicion} días del mes de {mesExpedicion} del año {anoExpedicion}.
                 </p>
               </div>
 

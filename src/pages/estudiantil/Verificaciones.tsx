@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import jsQR from 'jsqr';
 import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida } from '../../utils/firmasSeguras';
+import { toTitulo } from '../../lib/formatters';
 
 interface VinculacionData {
   id?: string;
@@ -1303,13 +1304,13 @@ export const Verificaciones: React.FC = () => {
                 {/* TÍTULO DE LA CONSTANCIA */}
                 <div style={{ textAlign: 'center', margin: '32px 0 28px' }}>
                   <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
-                    Constancia de inscripción
+                    Constancia de Inscripción
                   </h2>
                 </div>
 
                 {/* PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE */}
                 <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '26px', textIndent: '35px' }}>
-                  Quien suscribe, <b>Prof. {(dirInfo?.tituloDirector || dirInfo?.nombreCompleto || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '')}</b>, {(dirInfo?.cargoGenerico || 'Director').toLowerCase()} del <b>{dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}</b>, que funciona en <b>{dirInfo?.ubicacionEscuela || 'Monagas, Venezuela'}</b>, por medio de la presente hace constar que {esFemenino ? 'la alumna:' : 'el alumno:'} <b>{nombreEstudianteCompleto}</b>, natural de <b>{d.estudiante_lugar_nacimiento || d.ciudad_nacimiento || d.ciudad_habitacion || (escuelaCodigo === 'sb' ? 'Maturín' : 'Temblador')}</b>, estado <b>{d.estudiante_estado_nacimiento || d.estado_nacimiento || d.estado_habitacion || 'Monagas'}</b>, {(() => {
+                  Quien suscribe, <b>Prof. {toTitulo((dirInfo?.tituloDirector || dirInfo?.nombreCompleto || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, ''))}</b>, {(dirInfo?.cargoGenerico || 'Director').toLowerCase()} del <b>{toTitulo(dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar'))}</b>, que funciona en <b>{toTitulo(dirInfo?.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudianteCompleto)}</b>, natural de <b>{toTitulo(d.estudiante_lugar_nacimiento || d.ciudad_nacimiento || d.ciudad_habitacion || (escuelaCodigo === 'sb' ? 'Maturín' : 'Temblador'))}</b>, estado <b>{toTitulo(d.estudiante_estado_nacimiento || d.estado_nacimiento || d.estado_habitacion || 'Monagas')}</b>, {(() => {
                     if (!d.estudiante_fecha_nacimiento) return '';
                     const nac = new Date(d.estudiante_fecha_nacimiento);
                     if (isNaN(nac.getTime())) return '';
@@ -1318,17 +1319,29 @@ export const Verificaciones: React.FC = () => {
                     const m = hoy.getMonth() - nac.getMonth();
                     if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
                     return edad > 0 && edad < 100 ? `de ${edad} años de edad, ` : '';
-                  })()}titular de la cédula de identidad o escolar N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{gradoLimpio}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                  })()}titular de la {(() => {
+                    const tipoDoc = d.estudiante_tipo_documento || (vinculacion as any)?.estudiante_tipo_documento;
+                    if (tipoDoc) {
+                      const tLower = tipoDoc.toLowerCase();
+                      if (tLower.includes('escolar')) return 'cédula escolar';
+                      if (tLower.includes('identidad')) return 'cédula de identidad';
+                    }
+                    const clean = (cedulaEstudiante || '').toString().trim().toUpperCase();
+                    if (clean.startsWith('CE') || clean.startsWith('CE-') || clean.replace(/\D/g, '').length >= 10) {
+                      return 'cédula escolar';
+                    }
+                    return 'cédula de identidad';
+                  })()} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
                 </p>
 
                 {/* PÁRRAFO 2: REPRESENTANTE LEGAL */}
                 <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '26px', textIndent: '35px' }}>
-                  Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es {((d.representante_parentesco || '').toLowerCase().includes('madre') || (d.representante_parentesco || '').toLowerCase().includes('mama')) ? 'la ciudadana' : 'el ciudadano'} <b>{representanteNombre}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+                  Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es {((d.representante_parentesco || '').toLowerCase().includes('madre') || (d.representante_parentesco || '').toLowerCase().includes('mama')) ? 'la ciudadana' : 'el ciudadano'} <b>{toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
                 </p>
 
                 {/* PÁRRAFO 3: EXPEDICIÓN Y FECHA */}
                 <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '35px', textIndent: '35px' }}>
-                  Constancia que se expide para los efectos y fines consiguientes en <b>{escuelaCodigo === 'sb' ? 'Maturín' : 'Temblador'}</b>, a los {new Date().getDate()} días del mes de {['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][new Date().getMonth()]} del año {new Date().getFullYear()}.
+                  Constancia que se expide para los efectos y fines consiguientes en <b>{toTitulo(escuelaCodigo === 'sb' ? 'Maturín' : 'Temblador')}</b>, a los {new Date().getDate()} días del mes de {['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][new Date().getMonth()]} del año {new Date().getFullYear()}.
                 </p>
 
                 {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD QUE TIENE EL CÓDIGO */}
