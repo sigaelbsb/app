@@ -751,8 +751,8 @@ export const ActualizacionDatos: React.FC = () => {
           <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1.5px solid #cbd5e1;">
             <div style="text-align: center; flex: 1; max-width: 440px; margin: 0 auto;">
               <p style="margin: 0 0 4px; font-size: 13.5px; font-weight: bold; color: #000000;">Atentamente</p>
-              <img src="${base64FirmaProtegida}" style="height: 105px; width: auto; display: block; margin: 0 auto 5px;" />
-              <div style="font-size: 13.5px; font-weight: bold; color: #000000;">${dirData.nombreCompleto}</div>
+              <img src="${base64FirmaProtegida || `/assets/img/firma_director_${escCodigo}.png`}" style="height: 105px; width: auto; display: block; margin: 0 auto 5px;" />
+              <div style="font-size: 13.5px; font-weight: bold; color: #000000;">${tituloDirectorTexto}</div>
               <div style="font-size: 12px; color: #333333;">C.I.: ${dirData.cedula}</div>
               <div style="font-size: 12.5px; font-weight: bold; color: #000000;">${dirData.cargo}</div>
             </div>

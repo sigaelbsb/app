@@ -738,6 +738,24 @@ export const Verificaciones: React.FC = () => {
   const cedulaLimpia = cedulaEstudiante.replace(/\D/g, '') || '0000';
   const escuelaCodigo = (vinculacion?.codigo_escuela || solicitudCupo?.codigo_escuela || (codigoBusqueda.toUpperCase().includes('SB') ? 'sb' : 'lb')).toLowerCase();
 
+  // Sincronizar datos y firma del Director correspondiente a la escuela
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      try {
+        const dir = await obtenerDatosDirectorAsync(escuelaCodigo);
+        const firma = await obtenerFirmaDirectorProtegida(escuelaCodigo);
+        if (activo) {
+          setDirInfo(dir);
+          setFirmaBase64(firma);
+        }
+      } catch (e) {
+        console.error('Error sincronizando director y firma:', e);
+      }
+    })();
+    return () => { activo = false; };
+  }, [escuelaCodigo]);
+
   // Códigos correspondientes
   const codigoConstancia = vinculacion?.codigo_unico || `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
   const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
@@ -1419,11 +1437,20 @@ export const Verificaciones: React.FC = () => {
                     {firmaBase64 ? (
                       <img src={firmaBase64} alt="Firma Director" style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
                     ) : (
-                      <div style={{ height: '70px', borderBottom: '1.5px solid #000', width: '200px', margin: '0 auto 5px' }}></div>
+                      <img src={`/assets/img/firma_director_${escuelaCodigo}.png`} alt="Firma Director" style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
                     )}
-                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>{dirInfo?.nombreCompleto || 'Dirección del Plantel'}</div>
-                    <div style={{ fontSize: '12px', color: '#333333' }}>C.I.: {dirInfo?.cedula}</div>
-                    <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>{dirInfo?.cargo || 'Director(a)'}</div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>
+                      {(() => {
+                        const esDirectora = escuelaCodigo === 'sb' || (dirInfo?.cargoGenerico || '').toLowerCase().includes('directora');
+                        const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+                        const nombreDirectorBase = (dirInfo?.nombreCompleto || (escuelaCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+                          .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+                          .trim();
+                        return `${prefijoDirector} ${toTitulo(nombreDirectorBase)}`;
+                      })()}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#333333' }}>C.I.: {dirInfo?.cedula || (escuelaCodigo === 'sb' ? '16.808.608' : '17.780.095')}</div>
+                    <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>{dirInfo?.cargo || (escuelaCodigo === 'sb' ? 'Directora de la Unidad Educativa Santa Bárbara' : 'Director de la Unidad Educativa Libertador Bolívar')}</div>
                   </div>
 
                   <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
