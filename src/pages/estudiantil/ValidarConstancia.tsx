@@ -180,8 +180,13 @@ export const ValidarConstancia: React.FC = () => {
 
   const anoActual = new Date().getFullYear();
   const anoProximo = anoActual + 1;
-  const nombreDirectorLimpio = (dirData.tituloDirector || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '');
-  const cargoDirectorTexto = dirData.cargoGenerico || 'Director';
+  const esDirectora = escCodigo === 'sb' || (dirData?.cargoGenerico || '').toLowerCase().includes('directora') || (dirData?.cargo || '').toLowerCase().includes('directora');
+  const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+  const nombreDirectorBase = (dirData.nombreCompleto || (escCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+    .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+    .trim();
+  const tituloDirectorTexto = `${prefijoDirector} ${toTitulo(nombreDirectorBase)}`;
+  const cargoDirectorTexto = dirData.cargoGenerico || (esDirectora ? 'Directora' : 'Director');
 
   const determinarTipoCedula = (tipoDoc?: string, numCedula?: string) => {
     if (tipoDoc) {
@@ -282,7 +287,7 @@ export const ValidarConstancia: React.FC = () => {
               {/* CUERPO OFICIAL EN TRES PÁRRAFOS */}
               <div className="p-4 bg-white rounded-3 border mb-4 text-justify" style={{ lineHeight: '2.1', fontSize: '14.5px', color: '#000000' }}>
                 <p className="mb-4" style={{ textIndent: '30px' }}>
-                  Quien suscribe, <b>Prof. {toTitulo(nombreDirectorLimpio)}</b>, {cargoDirectorTexto.toLowerCase()} de la <b>{toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>{toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudiante)}</b>, natural de <b>{toTitulo(ciudadNac)}</b>, estado <b>{toTitulo(estadoNac)}</b>, {edadTexto}titular de la {tipoCedulaTexto} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                  Quien suscribe, <b>{tituloDirectorTexto}</b>, {cargoDirectorTexto.toLowerCase()} de la <b>{toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>{toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudiante)}</b>, natural de <b>{toTitulo(ciudadNac)}</b>, estado <b>{toTitulo(estadoNac)}</b>, {edadTexto}titular de la {tipoCedulaTexto} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
                 </p>
                 <p className="mb-4" style={{ textIndent: '30px' }}>
                   Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>{toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.

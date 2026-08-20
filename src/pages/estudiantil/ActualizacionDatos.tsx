@@ -620,8 +620,13 @@ export const ActualizacionDatos: React.FC = () => {
       nivelEducativo = 'Educación Media General';
     }
 
-    const nombreDirectorLimpio = (dirData.tituloDirector || 'José Vicente Millán Montaño').replace(/^(Prof\.|Profesor|Lic\.|Lcdo\.)\s*/i, '');
-    const cargoDirectorTexto = dirData.cargoGenerico || 'Director';
+    const esDirectora = escCodigo === 'sb' || (dirData?.cargoGenerico || '').toLowerCase().includes('directora') || (dirData?.cargo || '').toLowerCase().includes('directora');
+    const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+    const nombreDirectorBase = (dirData.nombreCompleto || (escCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+      .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+      .trim();
+    const tituloDirectorTexto = `${prefijoDirector} ${toTitulo(nombreDirectorBase)}`;
+    const cargoDirectorTexto = dirData.cargoGenerico || (esDirectora ? 'Directora' : 'Director');
 
     const calcularEdad = (fechaNacStr?: string) => {
       if (!fechaNacStr) return '';
@@ -727,7 +732,7 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
-            Quien suscribe, <b>Prof. ${toTitulo(nombreDirectorLimpio)}</b>, ${cargoDirectorTexto.toLowerCase()} de la <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
+            Quien suscribe, <b>${tituloDirectorTexto}</b>, ${cargoDirectorTexto.toLowerCase()} de la <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
           </p>
 
           <!-- PÁRRAFO 2: REPRESENTANTE LEGAL -->
