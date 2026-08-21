@@ -334,6 +334,29 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
               return;
             }
           }
+
+          // Verificar si el rol del usuario está inhabilitado en la institución seleccionada
+          if (data.rol && !['SuperAdmin', 'Director', 'Directora'].includes(data.rol)) {
+            const { data: roleData } = await supabase
+              .from('roles')
+              .select('permisos')
+              .eq('nombre', data.rol)
+              .maybeSingle();
+
+            if (roleData && roleData.permisos) {
+              const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
+              const escPerms = parsed[activeSchool] || {};
+              const isRoleBlocked = escPerms.hasOwnProperty('__acceso_plantel__')
+                ? (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)
+                : false;
+
+              if (isRoleBlocked) {
+                setErrorMsg(`El acceso para el rol "${data.rol}" en ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
+                setLoading(false);
+                return;
+              }
+            }
+          }
         } catch (err) {}
 
         // Existe -> Pedir clave
@@ -467,11 +490,10 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       }
 
       const tieneAcceso = (cod: string) => {
-        if (['SuperAdmin', 'Administrador', 'Director', 'Coordinador'].includes(userData.rol)) return true;
         const privs = rolePerms[cod];
         if (!privs) return false;
         if (privs.hasOwnProperty('__acceso_plantel__')) {
-          return privs['__acceso_plantel__']?.ver === true;
+          return privs['__acceso_plantel__']?.ver === true || privs['__acceso_plantel__'] === true;
         }
         for (let mod in privs) {
           if (privs[mod] && (privs[mod].ver === true || privs[mod] === true)) return true;
@@ -480,13 +502,19 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       };
 
       const selectedSchoolCode = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
-      if (tieneAcceso(selectedSchoolCode)) {
-        return selectedSchoolCode;
+      
+      // Si el usuario pertenece exclusivamente a una escuela, validar esa escuela
+      const userSchool = (userData.id_escuela || '').trim().toLowerCase();
+      if (userSchool === 'sb' || userSchool === 'lb') {
+        if (tieneAcceso(userSchool)) {
+          return userSchool as 'sb' | 'lb';
+        }
+        return null;
       }
 
-      const otherSchool = selectedSchoolCode === 'sb' ? 'lb' : 'sb';
-      if (tieneAcceso(otherSchool)) {
-        return otherSchool;
+      // Si seleccionó un plantel en el selector, validar estrictamente ese plantel
+      if (tieneAcceso(selectedSchoolCode)) {
+        return selectedSchoolCode;
       }
 
       return null;
@@ -743,7 +771,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       // Verify school access
       const resolvedSchool = await verifySchoolAccess(data);
       if (!resolvedSchool) {
-        setErrorMsg('Su usuario no cuenta con accesos configurados para ningún plantel.');
+        const activeSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+        const schoolNombre = activeSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+        setErrorMsg(`El acceso para el rol "${data.rol}" en ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
         setLoading(false);
         return;
       }

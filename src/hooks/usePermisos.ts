@@ -91,6 +91,19 @@ export const usePermisos = () => {
           const escPerms = parsed[currentEsc] || parsed || {};
           setPermisos(escPerms);
           localStorage.setItem('sigae_cache_permisos', JSON.stringify(escPerms));
+
+          // Verificación de bloqueo de rol en tiempo real para sesiones activas:
+          if (!['SuperAdmin', 'Director', 'Directora'].includes(usr.rol)) {
+            if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
+              console.warn("Rol suspendido para este plantel. Cerrando sesión...");
+              localStorage.removeItem('sesion_sigae');
+              localStorage.removeItem('usuario_sigae');
+              localStorage.removeItem('sigae_cache_permisos');
+              localStorage.removeItem('sigae_cache_full_permisos');
+              window.location.href = '/';
+              return;
+            }
+          }
         }
       } catch (e) {
         console.error("Error fetching permissions:", e);
@@ -113,11 +126,23 @@ export const usePermisos = () => {
     // SuperAdmin siempre tiene acceso global
     if (user.rol === 'SuperAdmin') return true;
 
+    const privsEscuela = fullPermisos ? fullPermisos[escuelaCodigo] : null;
+
+    // Si el rol está bloqueado explícitamente en este plantel, denegar
+    if (privsEscuela && privsEscuela.hasOwnProperty('__acceso_plantel__')) {
+      if (privsEscuela['__acceso_plantel__']?.ver === false || privsEscuela['__acceso_plantel__'] === false) {
+        return false;
+      }
+    }
+
     // AISLAMIENTO ESTRICTO POR PLANTEL ASIGNADO:
-    // Si el usuario pertenece a 'sb', NO PUEDE ver 'lb'. Si pertenece a 'lb', NO PUEDE ver 'sb'.
     const userEsc = (user.id_escuela || '').trim().toLowerCase();
     if (userEsc === 'sb' || userEsc === 'lb') {
-      return userEsc === escuelaCodigo.toLowerCase();
+      if (userEsc !== escuelaCodigo.toLowerCase()) return false;
+      if (privsEscuela && privsEscuela.hasOwnProperty('__acceso_plantel__')) {
+        return privsEscuela['__acceso_plantel__']?.ver === true;
+      }
+      return true;
     }
 
     // Directivos con rol general y acceso dual ('ambas' / 'todas')
@@ -127,9 +152,7 @@ export const usePermisos = () => {
 
     // Representantes o usuarios especiales con asignación dual 'ambas'
     if (userEsc === 'ambas' || userEsc === 'todas') {
-      if (!fullPermisos) return true;
-      const privsEscuela = fullPermisos[escuelaCodigo];
-      if (!privsEscuela) return false;
+      if (!privsEscuela) return true;
       if (privsEscuela.hasOwnProperty('__acceso_plantel__')) {
         return privsEscuela['__acceso_plantel__']?.ver === true;
       }
@@ -137,8 +160,6 @@ export const usePermisos = () => {
     }
 
     // Para cualquier otro caso, verificar permisos por plantel
-    if (!fullPermisos) return false;
-    const privsEscuela = fullPermisos[escuelaCodigo];
     if (!privsEscuela) return false;
     
     if (privsEscuela.hasOwnProperty('__acceso_plantel__')) {
