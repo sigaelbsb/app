@@ -336,7 +336,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           }
 
           // Verificar si el rol del usuario está inhabilitado en la institución seleccionada
-          if (data.rol && !['SuperAdmin', 'Director', 'Directora'].includes(data.rol)) {
+          if (data.rol && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(data.rol)) {
             const { data: roleData } = await supabase
               .from('roles')
               .select('permisos')
@@ -467,7 +467,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
   };
 
   const verifySchoolAccess = async (userData: any): Promise<'sb' | 'lb' | null> => {
-    if (userData.rol === 'SuperAdmin') {
+    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(userData.rol)) {
       return school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
     }
 

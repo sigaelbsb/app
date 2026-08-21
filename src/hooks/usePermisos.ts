@@ -45,8 +45,9 @@ export const usePermisos = () => {
     const userEsc = (usr.id_escuela || '').trim().toLowerCase();
     let currentEsc = localStorage.getItem('sigae_escuela_codigo') || userEsc || 'sb';
     
-    // Aislamiento estricto: si el usuario pertenece a una única escuela, forzarla
-    if ((userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
+    const isDirectivoRol = ['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora', 'Subdirector', 'Subdirectora'].includes((usr.rol || '').trim());
+    // Aislamiento estricto: solo para roles no directivos asignados a una escuela fija
+    if (!isDirectivoRol && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
       currentEsc = userEsc;
       localStorage.setItem('sigae_escuela_codigo', userEsc);
       localStorage.setItem('sigae_escuela_activa', userEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
@@ -64,7 +65,7 @@ export const usePermisos = () => {
           .eq('nombre', targetRol)
           .maybeSingle();
 
-        if (!data && ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Coordinador'].includes(usr.rol)) {
+        if (!data && ['SuperAdmin', 'Administrador', 'Director', 'Directora', 'Subdirector', 'Coordinador'].includes(usr.rol)) {
           const fallback = await supabase
             .from('roles')
             .select('permisos')
@@ -93,7 +94,7 @@ export const usePermisos = () => {
           localStorage.setItem('sigae_cache_permisos', JSON.stringify(escPerms));
 
           // Verificación de bloqueo de rol en tiempo real para sesiones activas:
-          if (!['SuperAdmin', 'Director', 'Directora'].includes(usr.rol)) {
+          if (!['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(usr.rol)) {
             if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
               console.warn("Rol suspendido para este plantel. Cerrando sesión...");
               localStorage.removeItem('sesion_sigae');
@@ -117,14 +118,17 @@ export const usePermisos = () => {
 
   const esDirectivo = useMemo(() => {
     const rol = (user?.rol || '').trim();
-    return ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Subdirectora'].includes(rol);
+    return ['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora', 'Subdirector', 'Subdirectora'].includes(rol);
   }, [user]);
 
   const tieneAccesoEscuela = useCallback((escuelaCodigo: string) => {
     if (!user) return false;
     
-    // SuperAdmin siempre tiene acceso global
-    if (user.rol === 'SuperAdmin') return true;
+    // SuperAdmin, Administrador y Directores siempre tienen acceso a ambas escuelas
+    const rolTrim = (user.rol || '').trim();
+    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(rolTrim)) {
+      return true;
+    }
 
     const privsEscuela = fullPermisos ? fullPermisos[escuelaCodigo] : null;
 
@@ -135,6 +139,11 @@ export const usePermisos = () => {
       }
     }
 
+    // Directivos generales
+    if (esDirectivo) {
+      return true;
+    }
+
     // AISLAMIENTO ESTRICTO POR PLANTEL ASIGNADO:
     const userEsc = (user.id_escuela || '').trim().toLowerCase();
     if (userEsc === 'sb' || userEsc === 'lb') {
@@ -142,11 +151,6 @@ export const usePermisos = () => {
       if (privsEscuela && privsEscuela.hasOwnProperty('__acceso_plantel__')) {
         return privsEscuela['__acceso_plantel__']?.ver === true;
       }
-      return true;
-    }
-
-    // Directivos con rol general y acceso dual ('ambas' / 'todas')
-    if (esDirectivo && (!userEsc || userEsc === 'ambas' || userEsc === 'todas')) {
       return true;
     }
 
