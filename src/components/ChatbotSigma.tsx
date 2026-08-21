@@ -787,8 +787,8 @@ export const ChatbotSigma = () => {
     if (v === 'preguntas de seguridad') return '/categoria/Seguridad y Accesos/Preguntas de Seguridad';
     if (v === 'auditoría del sistema' || v === 'auditoria del sistema') return '/categoria/Seguridad y Accesos/Auditoría del Sistema';
     if (v === 'perfil de la escuela') return '/categoria/Dirección y Sistema/Perfil de la Escuela';
-    if (v === 'espacios escolares') return '/categoria/Dirección y Sistema/Espacios Escolares';
     if (v === 'configuración del sistema' || v === 'configuracion del sistema') return '/categoria/Dirección y Sistema/Configuración del Sistema';
+    if (v === 'espacios escolares' || v === 'ambientes escolares' || v === 'salones' || v === 'grados y salones') return '/categoria/Control de Estudios/Grados y Salones';
     if (v === 'división territorial' || v === 'division territorial') return '/categoria/Dirección y Sistema/División Territorial';
     if (v === 'cerebro de sigma') return '/categoria/Dirección y Sistema/Cerebro de Sigma';
     if (v === 'vincular estudiante' || v === 'vincular') return '/categoria/Gestión Estudiantil/Vincular Estudiante';

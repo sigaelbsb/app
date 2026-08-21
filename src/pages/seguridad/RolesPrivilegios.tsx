@@ -7,7 +7,6 @@ import { usePermisos } from '../../hooks/usePermisos';
 const ESTRUCTURA_ACCESOS = {
   "Dirección y Sistema": {
     "Perfil de la Escuela": [],
-    "Espacios Escolares": [],
     "Gestión de Registros": [],
     "División Territorial": [],
     "Configuración del Sistema": ["Tarjeta: Períodos Escolares", "Tarjeta: Lapsos Académicos", "Tarjeta: Niveles Educativos"],
@@ -22,7 +21,14 @@ const ESTRUCTURA_ACCESOS = {
     "Estructura Empresa": ["Diccionario: Nómina", "Diccionario: Parentesco", "Diccionario: Condición", "Diccionario: Negocio/Filial", "Diccionario: Organización/Gerencia", "Diccionario: Localidad", "Diccionario: Condición Neuro", "Diccionario: Condición Médica", "Diccionario: Alergias"]
   },
   "Control de Estudios": {
-    "Grados y Salones": ["Tarjeta: Configurar Grados", "Tarjeta: Configurar Secciones", "Tarjeta: Apertura de Salones"]
+    "Grados y Salones": [
+      "Tarjeta: Ambientes y Espacios Físicos",
+      "Tarjeta: Apertura de Salones",
+      "Tarjeta: Configurar Grados",
+      "Tarjeta: Configurar Secciones",
+      "Tarjeta: Docentes Guías y Matrícula",
+      "Tarjeta: Capacidad y Reportes"
+    ]
   },
   "Gestión Estudiantil": {
     "Gestión de Admisiones": ["Tarjeta: Baremo y Clasificación", "Tarjeta: Auditoría Uno por Uno", "Tarjeta: Formalización de Matrícula", "Función: Enviar WhatsApp", "Función: Exportar Excel"], 

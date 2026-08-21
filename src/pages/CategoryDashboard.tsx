@@ -6,7 +6,6 @@ export const ModulosSistema = {
     icono: "bi-bank", color: "#FF8D00", desc: "Gestión institucional, calendario y configuración.", 
     items: [
       { vista: "Perfil de la Escuela", icono: "bi-building" }, 
-      { vista: "Espacios Escolares", icono: "bi-door-open" },
       { vista: "Configuración del Sistema", icono: "bi-sliders" },
       { vista: "Cerebro de Sigma", icono: "bi-robot" },
       { vista: "Calendario Escolar", icono: "bi-calendar-range" },
@@ -138,7 +137,6 @@ export const CategoryDashboard = () => {
       decodedCategory === "Diseños" ||
       (decodedCategory === "Dirección y Sistema" && 
         (vista === "Perfil de la Escuela" || 
-         vista === "Espacios Escolares" || 
          vista === "Configuración del Sistema" || 
          vista === "División Territorial" ||
          vista === "Cerebro de Sigma" ||

@@ -11,7 +11,6 @@ import { RolesPrivilegios } from './pages/seguridad/RolesPrivilegios';
 import { PreguntasSeguridad } from './pages/seguridad/PreguntasSeguridad';
 import { AuditoriaSistema } from './pages/seguridad/AuditoriaSistema';
 import { PerfilEscuela } from './pages/direccion/PerfilEscuela';
-import { EspaciosEscolares } from './pages/direccion/EspaciosEscolares';
 import { ConfiguracionSistema } from './pages/direccion/ConfiguracionSistema';
 import { DivisionTerritorial } from './pages/direccion/DivisionTerritorial';
 import { CerebroSigma } from './pages/direccion/CerebroSigma';
@@ -145,7 +144,6 @@ function App() {
             <Route path="categoria/Seguridad y Accesos/Preguntas de Seguridad" element={<ProtectedRoute modulo="Preguntas de Seguridad"><PreguntasSeguridad /></ProtectedRoute>} />
             <Route path="categoria/Seguridad y Accesos/Auditoría del Sistema" element={<ProtectedRoute modulo="Auditoría del Sistema"><AuditoriaSistema /></ProtectedRoute>} />
             <Route path="categoria/Dirección y Sistema/Perfil de la Escuela" element={<ProtectedRoute modulo="Perfil de la Escuela"><PerfilEscuela /></ProtectedRoute>} />
-            <Route path="categoria/Dirección y Sistema/Espacios Escolares" element={<ProtectedRoute modulo="Espacios Escolares"><EspaciosEscolares /></ProtectedRoute>} />
             <Route path="categoria/Dirección y Sistema/Configuración del Sistema" element={<ProtectedRoute modulo="Configuración del Sistema"><ConfiguracionSistema /></ProtectedRoute>} />
             <Route path="categoria/Dirección y Sistema/División Territorial" element={<ProtectedRoute modulo="División Territorial"><DivisionTerritorial /></ProtectedRoute>} />
             <Route path="categoria/Dirección y Sistema/Cerebro de Sigma" element={<ProtectedRoute modulo="Cerebro de Sigma"><CerebroSigma /></ProtectedRoute>} />
