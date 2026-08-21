@@ -76,10 +76,30 @@ export const ConstructorEncuestas: React.FC = () => {
   const rolUsuario = (user?.rol || 'Docente').trim();
   const esAdminOGestor = ['SuperAdmin', 'Director', 'Directora', 'Subdirector', 'Subdirectora', 'Coordinador', 'Coordinadora', 'Administrador'].includes(rolUsuario);
 
-  const canCrearEncuestas = esAdminOGestor || tienePermiso('Función: Crear Encuestas', 'crear') || tienePermiso('Constructor de Encuestas', 'crear');
-  const canVerEstadisticas = esAdminOGestor || tienePermiso('Función: Ver Respuestas', 'ver') || tienePermiso('Constructor de Encuestas', 'ver');
-  const canExportarResultados = esAdminOGestor || tienePermiso('Función: Exportar Resultados', 'exportar');
-  const canEliminarEncuestas = esAdminOGestor || tienePermiso('Función: Eliminar Encuestas', 'eliminar');
+  const canCrearEncuestas = esAdminOGestor || 
+    tienePermiso('Función: Crear y Editar Encuestas', 'crear') || 
+    tienePermiso('Función: Crear o Editar Encuestas', 'crear') || 
+    tienePermiso('Función: Crear Encuestas', 'crear') || 
+    tienePermiso('Constructor de Encuestas', 'crear');
+
+  const canResponder = esAdminOGestor || 
+    tienePermiso('Función: Responder Encuestas', 'ver') || 
+    tienePermiso('Función: Responder Encuestas', 'crear') || 
+    tienePermiso('Encuesta', 'ver') || 
+    tienePermiso('Constructor de Encuestas', 'ver');
+
+  const canVerEstadisticas = esAdminOGestor || 
+    tienePermiso('Función: Ver Respuestas y Estadísticas', 'ver') || 
+    tienePermiso('Función: Ver Respuestas', 'ver') || 
+    tienePermiso('Constructor de Encuestas', 'ver');
+
+  const canExportarResultados = esAdminOGestor || 
+    tienePermiso('Función: Exportar Resultados', 'exportar') ||
+    tienePermiso('Función: Exportar Resultados', 'ver');
+
+  const canEliminarEncuestas = esAdminOGestor || 
+    tienePermiso('Función: Eliminar Encuestas', 'eliminar');
+
   const isSoloRespondiente = !canCrearEncuestas && !canVerEstadisticas;
 
   // Estados de Vistas
@@ -387,6 +407,10 @@ export const ConstructorEncuestas: React.FC = () => {
   };
 
   const handleAbrirResponder = async (enc: Encuesta) => {
+    if (!canResponder) {
+      if (Swal) Swal.fire('Acceso Restringido', 'No posees privilegios para responder encuestas en el sistema.', 'warning');
+      return;
+    }
     setEncuestaActiva(enc);
     setRespuestasForm({});
     setYaRespondio(false);

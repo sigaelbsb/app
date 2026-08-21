@@ -52,8 +52,13 @@ const ESTRUCTURA_ACCESOS = {
     "Creador de Tapas": [],
     "Creador de Comunicados": [],
     "Creador de Cumpleaños": [],
-    "Encuesta": ["Función: Crear Encuestas", "Función: Ver Respuestas", "Función: Exportar Resultados", "Función: Eliminar Encuestas"],
-    "Constructor de Encuestas": []
+    "Encuesta": [
+      "Función: Crear y Editar Encuestas",
+      "Función: Responder Encuestas",
+      "Función: Ver Respuestas y Estadísticas",
+      "Función: Exportar Resultados",
+      "Función: Eliminar Encuestas"
+    ]
   },
   "Servicios y Bienestar": {
     "Transporte Escolar": ["Tarjeta: Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Tarjeta: Visor de Recorrido", "Función: Control Coordinación"]
@@ -134,7 +139,7 @@ export const RolesPrivilegios = () => {
     setLoading(false);
   };
 
-  const seleccionarRol = (r: any) => {
+  const seleccionarRol = async (r: any) => {
     setRolSeleccionado(r);
 
     let lbPriv: any = {};
@@ -145,14 +150,24 @@ export const RolesPrivilegios = () => {
 
     // Map boolean values
     const mapBooleans = (raw: any, dest: any) => {
-      // Check Acceso Plantel
-      dest['__acceso_plantel__'] = !!(raw['__acceso_plantel__']?.ver);
+      // Check Acceso Plantel (default true if raw has any permissions or is explicitly true)
+      dest['__acceso_plantel__'] = raw.hasOwnProperty('__acceso_plantel__') 
+        ? !!(raw['__acceso_plantel__']?.ver || raw['__acceso_plantel__'] === true)
+        : (Object.keys(raw).length > 0);
 
       for (const [_cat, submods] of Object.entries(ESTRUCTURA_ACCESOS)) {
         for (const [subName, subcards] of Object.entries(submods)) {
-          dest[subName] = !!(raw[subName]?.ver);
+          dest[subName] = !!(raw[subName]?.ver || raw[subName] === true);
           subcards.forEach(card => {
-            dest[card] = !!(raw[card]?.ver);
+            let val = !!(raw[card]?.ver || raw[card] === true);
+            // Compatibilidad hacia atrás para nombres antiguos de encuestas:
+            if (!val && card === "Función: Crear y Editar Encuestas") {
+              val = !!(raw["Función: Crear Encuestas"]?.ver || raw["Función: Crear Encuestas"] === true);
+            }
+            if (!val && card === "Función: Ver Respuestas y Estadísticas") {
+              val = !!(raw["Función: Ver Respuestas"]?.ver || raw["Función: Ver Respuestas"] === true);
+            }
+            dest[card] = val;
           });
         }
       }
@@ -160,6 +175,34 @@ export const RolesPrivilegios = () => {
 
     mapBooleans(rawLb, lbPriv);
     mapBooleans(rawSb, sbPriv);
+
+    // Sincronización especial para el rol 'Invitado' con ajustes_globales
+    if (r.nombre === 'Invitado') {
+      try {
+        const { data: ajustes } = await supabase
+          .from('ajustes_globales')
+          .select('clave, valor')
+          .in('clave', ['bloquear_invitados_sb', 'bloquear_invitados_lb', 'bloquear_invitados']);
+        
+        if (ajustes) {
+          const guestSB = ajustes.find(x => x.clave === 'bloquear_invitados_sb');
+          const guestLB = ajustes.find(x => x.clave === 'bloquear_invitados_lb');
+          const guestGlobal = ajustes.find(x => x.clave === 'bloquear_invitados');
+
+          if (guestSB) {
+            sbPriv['__acceso_plantel__'] = guestSB.valor !== 'true';
+          } else if (guestGlobal) {
+            sbPriv['__acceso_plantel__'] = guestGlobal.valor !== 'true';
+          }
+
+          if (guestLB) {
+            lbPriv['__acceso_plantel__'] = guestLB.valor !== 'true';
+          } else if (guestGlobal) {
+            lbPriv['__acceso_plantel__'] = guestGlobal.valor !== 'true';
+          }
+        }
+      } catch (err) {}
+    }
 
     setPermisosState({ lb: lbPriv, sb: sbPriv });
   };
@@ -257,6 +300,12 @@ export const RolesPrivilegios = () => {
             subcards.forEach(card => {
               if (raw[card]) {
                 dest[card] = { ...SUPER_PODERES };
+                if (card === "Función: Crear y Editar Encuestas") {
+                  dest["Función: Crear Encuestas"] = { ...SUPER_PODERES };
+                }
+                if (card === "Función: Ver Respuestas y Estadísticas") {
+                  dest["Función: Ver Respuestas"] = { ...SUPER_PODERES };
+                }
               }
             });
           }
@@ -276,7 +325,22 @@ export const RolesPrivilegios = () => {
 
       if (error) throw error;
 
-      auditar('Roles y Privilegios', 'Actualizar Privilegios', `Accesos simplificados actualizados para: ${rolSeleccionado.nombre}`);
+      // Si el rol es 'Invitado', sincronizar directamente con ajustes_globales para compatibilidad inmediata con Auth
+      if (rolSeleccionado.nombre === 'Invitado') {
+        const isSbBlocked = !permisosState.sb['__acceso_plantel__'];
+        const isLbBlocked = !permisosState.lb['__acceso_plantel__'];
+        const isGlobalBlocked = isSbBlocked && isLbBlocked;
+
+        await supabase
+          .from('ajustes_globales')
+          .upsert([
+            { clave: 'bloquear_invitados_sb', valor: String(isSbBlocked), actualizado_en: new Date().toISOString() },
+            { clave: 'bloquear_invitados_lb', valor: String(isLbBlocked), actualizado_en: new Date().toISOString() },
+            { clave: 'bloquear_invitados', valor: String(isGlobalBlocked), actualizado_en: new Date().toISOString() }
+          ], { onConflict: 'clave' });
+      }
+
+      auditar('Roles y Privilegios', 'Actualizar Privilegios', `Accesos y estado por plantel actualizados para rol: ${rolSeleccionado.nombre}`);
 
       if (Swal) {
         Swal.fire('¡Éxito!', 'Los accesos y privilegios se han guardado correctamente.', 'success').then(() => {
@@ -305,6 +369,153 @@ export const RolesPrivilegios = () => {
       if (Swal) Swal.fire('Error', 'No se pudieron guardar los privilegios.', 'error');
     }
     setLoading(false);
+  };
+
+  const handleToggleEstadoRolEscuelaDirecto = async (e: React.MouseEvent, rolObj: any, escuela: 'sb' | 'lb', forzarEstado?: boolean) => {
+    e.stopPropagation();
+
+    if (!canEditAny) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No posee permisos para editar el estado de roles.', 'error');
+      return;
+    }
+
+    const escuelaNombre = escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const rawEsc = rolObj.privilegios?.[escuela] || {};
+    const estadoActual = rawEsc.hasOwnProperty('__acceso_plantel__')
+      ? !!(rawEsc['__acceso_plantel__']?.ver || rawEsc['__acceso_plantel__'] === true)
+      : (Object.keys(rawEsc).length > 0);
+
+    const nuevoEstado = forzarEstado !== undefined ? forzarEstado : !estadoActual;
+
+    setLoading(true);
+    try {
+      const currentPrivs = JSON.parse(JSON.stringify(rolObj.privilegios || {}));
+      if (!currentPrivs[escuela]) currentPrivs[escuela] = {};
+      currentPrivs[escuela]['__acceso_plantel__'] = { ver: nuevoEstado };
+
+      const { error } = await supabase
+        .from('roles')
+        .update({ permisos: currentPrivs })
+        .eq('nombre', rolObj.nombre);
+
+      if (error) throw error;
+
+      // Si es el rol Invitado, sincronizar también en ajustes_globales para Auth
+      if (rolObj.nombre === 'Invitado') {
+        const clave = escuela === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
+        const otherEsc = escuela === 'sb' ? 'lb' : 'sb';
+        const otherVal = !currentPrivs[otherEsc]?.['__acceso_plantel__']?.ver;
+        const isThisBlocked = !nuevoEstado;
+        const isGlobalBlocked = isThisBlocked && otherVal;
+
+        await supabase
+          .from('ajustes_globales')
+          .upsert([
+            { clave, valor: String(isThisBlocked), actualizado_en: new Date().toISOString() },
+            { clave: 'bloquear_invitados', valor: String(isGlobalBlocked), actualizado_en: new Date().toISOString() }
+          ], { onConflict: 'clave' });
+      }
+
+      auditar(
+        'Roles y Privilegios', 
+        nuevoEstado ? 'Habilitar Rol en Plantel' : 'Bloquear Rol en Plantel',
+        `Se cambió el acceso del rol "${rolObj.nombre}" en ${escuelaNombre} a: ${nuevoEstado ? 'PERMITIDO' : 'BLOQUEADO'}`
+      );
+
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: nuevoEstado ? 'success' : 'warning',
+          title: `${rolObj.nombre} en ${escuela === 'sb' ? 'Santa Bárbara' : 'Libertador B.'}: ${nuevoEstado ? 'HABILITADO' : 'BLOQUEADO'}`,
+          showConfirmButton: false,
+          timer: 2000
+        });
+      }
+
+      await cargarRoles();
+    } catch (err) {
+      console.error(err);
+      if (Swal) Swal.fire('Error', 'No se pudo actualizar el estado del rol.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleAmbasEscuelasDirecto = async (e: React.MouseEvent, rolObj: any) => {
+    e.stopPropagation();
+
+    if (!canEditAny) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No posee permisos para editar roles.', 'error');
+      return;
+    }
+
+    const rawSb = rolObj.privilegios?.sb || {};
+    const rawLb = rolObj.privilegios?.lb || {};
+
+    const sbActivo = rawSb.hasOwnProperty('__acceso_plantel__')
+      ? !!(rawSb['__acceso_plantel__']?.ver || rawSb['__acceso_plantel__'] === true)
+      : (Object.keys(rawSb).length > 0);
+
+    const lbActivo = rawLb.hasOwnProperty('__acceso_plantel__')
+      ? !!(rawLb['__acceso_plantel__']?.ver || rawLb['__acceso_plantel__'] === true)
+      : (Object.keys(rawLb).length > 0);
+
+    // Si ambas están activas -> desactivar ambas. En caso contrario -> activar ambas
+    const nuevoEstado = !(sbActivo && lbActivo);
+
+    setLoading(true);
+    try {
+      const currentPrivs = JSON.parse(JSON.stringify(rolObj.privilegios || {}));
+      if (!currentPrivs.sb) currentPrivs.sb = {};
+      if (!currentPrivs.lb) currentPrivs.lb = {};
+
+      currentPrivs.sb['__acceso_plantel__'] = { ver: nuevoEstado };
+      currentPrivs.lb['__acceso_plantel__'] = { ver: nuevoEstado };
+
+      const { error } = await supabase
+        .from('roles')
+        .update({ permisos: currentPrivs })
+        .eq('nombre', rolObj.nombre);
+
+      if (error) throw error;
+
+      // Si es el rol Invitado, sincronizar también en ajustes_globales para Auth
+      if (rolObj.nombre === 'Invitado') {
+        const isBlocked = !nuevoEstado;
+        await supabase
+          .from('ajustes_globales')
+          .upsert([
+            { clave: 'bloquear_invitados_sb', valor: String(isBlocked), actualizado_en: new Date().toISOString() },
+            { clave: 'bloquear_invitados_lb', valor: String(isBlocked), actualizado_en: new Date().toISOString() },
+            { clave: 'bloquear_invitados', valor: String(isBlocked), actualizado_en: new Date().toISOString() }
+          ], { onConflict: 'clave' });
+      }
+
+      auditar(
+        'Roles y Privilegios', 
+        nuevoEstado ? 'Habilitar Rol en Ambas Escuelas' : 'Bloquear Rol en Ambas Escuelas',
+        `Se cambió el acceso del rol "${rolObj.nombre}" en AMBAS escuelas a: ${nuevoEstado ? 'HABILITADO' : 'BLOQUEADO'}`
+      );
+
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: nuevoEstado ? 'success' : 'warning',
+          title: `${rolObj.nombre} en AMBAS escuelas: ${nuevoEstado ? 'HABILITADO' : 'BLOQUEADO'}`,
+          showConfirmButton: false,
+          timer: 2000
+        });
+      }
+
+      await cargarRoles();
+    } catch (err) {
+      console.error(err);
+      if (Swal) Swal.fire('Error', 'No se pudo actualizar el estado del rol.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const crearRol = () => {
@@ -456,10 +667,13 @@ export const RolesPrivilegios = () => {
 
       <div className="row g-4 animate__animated animate__fadeInUp align-items-start mt-2">
         {/* Left Side List */}
-        <div className="col-md-4 col-xl-3">
+        <div className="col-md-5 col-xl-4">
           <div className="card border-0 shadow-sm rounded-4">
             <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-              <h5 className="mb-0 fw-bold text-dark fs-6">Niveles de Acceso</h5>
+              <div>
+                <h5 className="mb-0 fw-bold text-dark fs-6">Niveles de Acceso y Estado</h5>
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Activa o desactiva el ingreso por escuela</small>
+              </div>
               <button 
                 className="btn btn-sm text-white fw-bold shadow-sm hover-efecto" 
                 style={{ backgroundColor: '#0ea5e9' }}
@@ -469,7 +683,7 @@ export const RolesPrivilegios = () => {
                 <i className="bi bi-plus-lg"></i>
               </button>
             </div>
-            <div className="card-body p-0" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <div className="card-body p-0" style={{ maxHeight: '560px', overflowY: 'auto' }}>
               <div className="list-group list-group-flush p-2">
                 {roles.length === 0 ? (
                   <div className="p-4 text-center text-muted">
@@ -478,18 +692,103 @@ export const RolesPrivilegios = () => {
                 ) : (
                   roles.map(r => {
                     const esActivo = rolSeleccionado && rolSeleccionado.nombre === r.nombre;
+                    const rawSb = r.privilegios?.sb || {};
+                    const rawLb = r.privilegios?.lb || {};
+
+                    const sbActivo = rawSb.hasOwnProperty('__acceso_plantel__')
+                      ? !!(rawSb['__acceso_plantel__']?.ver || rawSb['__acceso_plantel__'] === true)
+                      : (Object.keys(rawSb).length > 0);
+
+                    const lbActivo = rawLb.hasOwnProperty('__acceso_plantel__')
+                      ? !!(rawLb['__acceso_plantel__']?.ver || rawLb['__acceso_plantel__'] === true)
+                      : (Object.keys(rawLb).length > 0);
+
+                    const ambasActivas = sbActivo && lbActivo;
+                    const ambasBloqueadas = !sbActivo && !lbActivo;
+
                     return (
-                      <a 
+                      <div 
                         key={r.nombre}
-                        href="#" 
-                        onClick={(e) => { e.preventDefault(); seleccionarRol(r); }}
-                        className={`list-group-item list-group-item-action p-3 border d-flex align-items-center mb-2 rounded-3 hover-efecto ${esActivo ? 'bg-light border-primary' : 'border-transparent'}`}
+                        onClick={() => seleccionarRol(r)}
+                        className={`p-3 border d-flex flex-column gap-2 mb-2 rounded-3 hover-efecto cursor-pointer transition-all ${esActivo ? 'bg-light border-primary shadow-sm' : 'bg-white border-light'}`}
+                        style={{ cursor: 'pointer' }}
                       >
-                        <div className="bg-white shadow-sm p-2 rounded-circle me-3 border">
-                          <i className="bi bi-person-badge text-primary fs-5"></i>
+                        {/* Cabecera del Rol */}
+                        <div className="d-flex align-items-center justify-content-between">
+                          <div className="d-flex align-items-center">
+                            <div className={`p-2 rounded-circle me-2.5 border shadow-sm ${esActivo ? 'bg-primary text-white' : 'bg-white text-primary'}`}>
+                              <i className="bi bi-person-badge fs-5"></i>
+                            </div>
+                            <div>
+                              <div className="fw-bold text-dark fs-6 mb-0">{r.nombre}</div>
+                              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                                {ambasActivas ? '● Activo en ambas escuelas' : ambasBloqueadas ? '● Bloqueado globalmente' : '● Acceso parcial'}
+                              </small>
+                            </div>
+                          </div>
+                          {esActivo && (
+                            <span className="badge bg-primary bg-opacity-10 text-primary fw-bold" style={{ fontSize: '0.7rem' }}>
+                              Seleccionado
+                            </span>
+                          )}
                         </div>
-                        <div className="fw-bold text-dark">{r.nombre}</div>
-                      </a>
+
+                        {/* Fila de Controles de Activación / Desactivación en Escuelas */}
+                        <div className="d-flex align-items-center justify-content-between pt-2 border-top border-light gap-1">
+                          {/* Toggle SB */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleEstadoRolEscuelaDirecto(e, r, 'sb')}
+                            className={`btn btn-xs rounded-pill px-2 py-1 fw-bold d-flex align-items-center gap-1 border transition-all ${
+                              sbActivo 
+                                ? 'btn-success text-white shadow-xs' 
+                                : 'btn-light border-danger text-danger bg-danger bg-opacity-10'
+                            }`}
+                            style={{ fontSize: '0.68rem' }}
+                            title={sbActivo ? 'Acceso PERMITIDO a Santa Bárbara (Click para Bloquear)' : 'Acceso BLOQUEADO a Santa Bárbara (Click para Activar)'}
+                            disabled={!canEditRolesSB}
+                          >
+                            <i className={`bi ${sbActivo ? 'bi-check-circle-fill' : 'bi-slash-circle-fill'}`}></i>
+                            <span>SB: {sbActivo ? 'Activo' : 'Bloqueado'}</span>
+                          </button>
+
+                          {/* Toggle LB */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleEstadoRolEscuelaDirecto(e, r, 'lb')}
+                            className={`btn btn-xs rounded-pill px-2 py-1 fw-bold d-flex align-items-center gap-1 border transition-all ${
+                              lbActivo 
+                                ? 'btn-primary text-white shadow-xs' 
+                                : 'btn-light border-danger text-danger bg-danger bg-opacity-10'
+                            }`}
+                            style={{ fontSize: '0.68rem' }}
+                            title={lbActivo ? 'Acceso PERMITIDO a Libertador Bolívar (Click para Bloquear)' : 'Acceso BLOQUEADO a Libertador Bolívar (Click para Activar)'}
+                            disabled={!canEditRolesLB}
+                          >
+                            <i className={`bi ${lbActivo ? 'bi-check-circle-fill' : 'bi-slash-circle-fill'}`}></i>
+                            <span>LB: {lbActivo ? 'Activo' : 'Bloqueado'}</span>
+                          </button>
+
+                          {/* Toggle Ambas Escuelas */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleAmbasEscuelasDirecto(e, r)}
+                            className={`btn btn-xs rounded-pill px-2 py-1 fw-bold d-flex align-items-center gap-1 border transition-all ${
+                              ambasActivas
+                                ? 'btn-dark text-white'
+                                : ambasBloqueadas
+                                  ? 'btn-outline-secondary text-muted'
+                                  : 'btn-outline-warning text-dark'
+                            }`}
+                            style={{ fontSize: '0.67rem' }}
+                            title={ambasActivas ? 'Activo en Ambas (Click para Bloquear en Ambas)' : 'Click para Activar en Ambas Escuelas'}
+                            disabled={!canEditAny}
+                          >
+                            <i className="bi bi-buildings"></i>
+                            <span>{ambasActivas ? 'Ambas ON' : ambasBloqueadas ? 'Ambas OFF' : 'Ambas'}</span>
+                          </button>
+                        </div>
+                      </div>
                     );
                   })
                 )}
@@ -499,7 +798,7 @@ export const RolesPrivilegios = () => {
         </div>
 
         {/* Right Side Matrix */}
-        <div className="col-md-8 col-xl-9">
+        <div className="col-md-7 col-xl-8">
           {rolSeleccionado ? (
             <div className="card border-0 shadow-sm rounded-4">
               <div className="card-header bg-white border-bottom p-4 rounded-top-4">
@@ -549,81 +848,103 @@ export const RolesPrivilegios = () => {
                         </div>
                         
                         <div className="card-body p-3 bg-light">
-                          {/* Acceso plantel check */}
-                          <div className="alert d-flex align-items-center justify-content-between mb-3 border border-2 border-white shadow-sm rounded-4 bg-light">
-                            <div>
-                              <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-door-open-fill text-primary me-2"></i>Acceso al Plantel (Inicio)</h6>
-                              <small className="text-muted" style={{ fontSize: '0.75rem' }}>Permite ver esta escuela en la pantalla principal.</small>
-                            </div>
-                            <div className="form-check form-switch m-0 fs-5">
-                              <input 
-                                className="form-check-input" 
-                                type="checkbox"
-                                checked={!!permisosState.lb['__acceso_plantel__']}
-                                onChange={() => handleCheckboxChange('lb', '__acceso_plantel__', false)}
-                                disabled={!canEditRolesLB}
-                              />
-                            </div>
-                          </div>
- 
-                          {/* Módulos */}
-                          {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
-                            <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
-                              <div className="card-header text-white py-2 rounded-top-4 bg-primary">
-                                <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
-                                  <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
-                                </h6>
-                              </div>
-                              <div className="card-body p-2 bg-white rounded-bottom-4">
-                                <div className="row g-2">
-                                  {Object.entries(submods).map(([subName, subcards]) => (
-                                    <div key={subName} className="col-12">
-                                      <div className="p-2 border rounded-2 border-light">
-                                        <div className="d-flex justify-content-between align-items-center">
-                                          <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
-                                            <i className="bi bi-box me-2 text-primary"></i>{subName}
-                                          </div>
-                                          <div className="form-check form-switch m-0">
-                                            <input 
-                                              className="form-check-input" 
-                                              type="checkbox"
-                                              checked={!!permisosState.lb[subName]}
-                                              onChange={() => handleCheckboxChange('lb', subName, true, undefined, subcards)}
-                                              disabled={!canEditRolesLB}
-                                            />
-                                          </div>
-                                        </div>
- 
-                                        {subcards.length > 0 && (
-                                          <div className="row g-1 mt-2 ps-3 border-start ms-1 border-primary border-opacity-25 animate__animated animate__fadeIn">
-                                            {subcards.map(card => (
-                                              <div key={card} className="col-12">
-                                                <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
-                                                  <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
-                                                    <i className="bi bi-window-stack me-1 text-secondary"></i>
-                                                    {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
-                                                  </span>
-                                                  <div className="form-check form-switch m-0">
-                                                    <input 
-                                                      className="form-check-input" 
-                                                      type="checkbox"
-                                                      checked={!!permisosState.lb[card]}
-                                                      onChange={() => handleCheckboxChange('lb', card, false, subName)}
-                                                      disabled={!canEditRolesLB}
-                                                    />
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
+                          {/* Tarjeta Maestra de Activación / Bloqueo del Rol en este Plantel */}
+                          <div className={`card border shadow-sm rounded-4 mb-3 p-3 transition-all ${permisosState.lb['__acceso_plantel__'] ? 'border-success bg-white' : 'border-danger bg-danger bg-opacity-10'}`}>
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                              <div className="d-flex align-items-center gap-3">
+                                <div className={`p-2.5 rounded-circle ${permisosState.lb['__acceso_plantel__'] ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-20 text-danger'}`}>
+                                  <i className={`bi ${permisosState.lb['__acceso_plantel__'] ? 'bi-shield-check' : 'bi-shield-slash-fill'} fs-4`}></i>
+                                </div>
+                                <div>
+                                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                                    <h6 className="mb-0 fw-bold text-dark">
+                                      Estado en U.E. Libertador Bolívar
+                                    </h6>
+                                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${permisosState.lb['__acceso_plantel__'] ? 'bg-success text-white' : 'bg-danger text-white'}`} style={{ fontSize: '0.72rem' }}>
+                                      {permisosState.lb['__acceso_plantel__'] ? '● ROL HABILITADO' : '● ROL BLOQUEADO'}
+                                    </span>
+                                  </div>
+                                  <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.78rem' }}>
+                                    {permisosState.lb['__acceso_plantel__']
+                                      ? `El rol "${rolSeleccionado?.nombre}" tiene permitido el acceso a este plantel.`
+                                      : `Acceso restringido: Los usuarios con rol "${rolSeleccionado?.nombre}" no podrán operar en este plantel.`}
+                                  </small>
                                 </div>
                               </div>
+                              <div className="form-check form-switch fs-4 m-0">
+                                <input 
+                                  className="form-check-input hover-mano" 
+                                  type="checkbox"
+                                  role="switch"
+                                  checked={!!permisosState.lb['__acceso_plantel__']}
+                                  onChange={() => handleCheckboxChange('lb', '__acceso_plantel__', false)}
+                                  disabled={!canEditRolesLB}
+                                  title={permisosState.lb['__acceso_plantel__'] ? 'Click para bloquear este rol en este plantel' : 'Click para activar este rol en este plantel'}
+                                />
+                              </div>
                             </div>
-                          ))}
+                          </div>
+
+                          {/* Contenedor de Módulos (Atenuado si el rol está bloqueado) */}
+                          <div style={{ opacity: permisosState.lb['__acceso_plantel__'] ? 1 : 0.55, transition: 'opacity 0.2s ease-in-out' }}>
+                            {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
+                              <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
+                                <div className="card-header text-white py-2 rounded-top-4 bg-primary">
+                                  <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
+                                    <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
+                                  </h6>
+                                </div>
+                                <div className="card-body p-2 bg-white rounded-bottom-4">
+                                  <div className="row g-2">
+                                    {Object.entries(submods).map(([subName, subcards]) => (
+                                      <div key={subName} className="col-12">
+                                        <div className="p-2 border rounded-2 border-light">
+                                          <div className="d-flex justify-content-between align-items-center">
+                                            <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
+                                              <i className="bi bi-box me-2 text-primary"></i>{subName}
+                                            </div>
+                                            <div className="form-check form-switch m-0">
+                                              <input 
+                                                className="form-check-input" 
+                                                type="checkbox"
+                                                checked={!!permisosState.lb[subName]}
+                                                onChange={() => handleCheckboxChange('lb', subName, true, undefined, subcards)}
+                                                disabled={!canEditRolesLB || !permisosState.lb['__acceso_plantel__']}
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {subcards.length > 0 && (
+                                            <div className="row g-1 mt-2 ps-3 border-start ms-1 border-primary border-opacity-25 animate__animated animate__fadeIn">
+                                              {subcards.map(card => (
+                                                <div key={card} className="col-12">
+                                                  <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
+                                                    <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
+                                                      <i className="bi bi-window-stack me-1 text-secondary"></i>
+                                                      {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
+                                                    </span>
+                                                    <div className="form-check form-switch m-0">
+                                                      <input 
+                                                        className="form-check-input" 
+                                                        type="checkbox"
+                                                        checked={!!permisosState.lb[card]}
+                                                        onChange={() => handleCheckboxChange('lb', card, false, subName)}
+                                                        disabled={!canEditRolesLB || !permisosState.lb['__acceso_plantel__']}
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -643,88 +964,110 @@ export const RolesPrivilegios = () => {
                               checked={isTodosMarcados('sb')}
                               onChange={(e) => handleToggleTodos('sb', e.target.checked)}
                               style={{ cursor: 'pointer' }}
-                              disabled={!canEditRolesSB}
+                              disabled={!canEditRolesSB || !permisosState.sb['__acceso_plantel__']}
                             />
                             <label className="form-check-label small fw-bold text-dark ms-1 mt-1" htmlFor="chk-marcar-todos-sb" style={{ cursor: 'pointer' }}>Otorgar Todo</label>
                           </div>
                         </div>
                         
                         <div className="card-body p-3 bg-light">
-                          {/* Acceso plantel check */}
-                          <div className="alert d-flex align-items-center justify-content-between mb-3 border border-2 border-white shadow-sm rounded-4 bg-light">
-                            <div>
-                              <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-door-open-fill text-success me-2"></i>Acceso al Plantel (Inicio)</h6>
-                              <small className="text-muted" style={{ fontSize: '0.75rem' }}>Permite ver esta escuela en la pantalla principal.</small>
-                            </div>
-                            <div className="form-check form-switch m-0 fs-5">
-                              <input 
-                                className="form-check-input" 
-                                type="checkbox"
-                                checked={!!permisosState.sb['__acceso_plantel__']}
-                                onChange={() => handleCheckboxChange('sb', '__acceso_plantel__', false)}
-                                disabled={!canEditRolesSB}
-                              />
-                            </div>
-                          </div>
- 
-                          {/* Módulos */}
-                          {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
-                            <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
-                              <div className="card-header text-white py-2 rounded-top-4 bg-success">
-                                <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
-                                  <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
-                                </h6>
-                              </div>
-                              <div className="card-body p-2 bg-white rounded-bottom-4">
-                                <div className="row g-2">
-                                  {Object.entries(submods).map(([subName, subcards]) => (
-                                    <div key={subName} className="col-12">
-                                      <div className="p-2 border rounded-2 border-light">
-                                        <div className="d-flex justify-content-between align-items-center">
-                                          <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
-                                            <i className="bi bi-box me-2 text-success"></i>{subName}
-                                          </div>
-                                          <div className="form-check form-switch m-0">
-                                            <input 
-                                              className="form-check-input" 
-                                              type="checkbox"
-                                              checked={!!permisosState.sb[subName]}
-                                              onChange={() => handleCheckboxChange('sb', subName, true, undefined, subcards)}
-                                              disabled={!canEditRolesSB}
-                                            />
-                                          </div>
-                                        </div>
- 
-                                        {subcards.length > 0 && (
-                                          <div className="row g-1 mt-2 ps-3 border-start ms-1 border-success border-opacity-25 animate__animated animate__fadeIn">
-                                            {subcards.map(card => (
-                                              <div key={card} className="col-12">
-                                                <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
-                                                  <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
-                                                    <i className="bi bi-window-stack me-1 text-secondary"></i>
-                                                    {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
-                                                  </span>
-                                                  <div className="form-check form-switch m-0">
-                                                    <input 
-                                                      className="form-check-input" 
-                                                      type="checkbox"
-                                                      checked={!!permisosState.sb[card]}
-                                                      onChange={() => handleCheckboxChange('sb', card, false, subName)}
-                                                      disabled={!canEditRolesSB}
-                                                    />
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
+                          {/* Tarjeta Maestra de Activación / Bloqueo del Rol en este Plantel */}
+                          <div className={`card border shadow-sm rounded-4 mb-3 p-3 transition-all ${permisosState.sb['__acceso_plantel__'] ? 'border-success bg-white' : 'border-danger bg-danger bg-opacity-10'}`}>
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                              <div className="d-flex align-items-center gap-3">
+                                <div className={`p-2.5 rounded-circle ${permisosState.sb['__acceso_plantel__'] ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-20 text-danger'}`}>
+                                  <i className={`bi ${permisosState.sb['__acceso_plantel__'] ? 'bi-shield-check' : 'bi-shield-slash-fill'} fs-4`}></i>
+                                </div>
+                                <div>
+                                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                                    <h6 className="mb-0 fw-bold text-dark">
+                                      Estado en U.E. Santa Bárbara
+                                    </h6>
+                                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${permisosState.sb['__acceso_plantel__'] ? 'bg-success text-white' : 'bg-danger text-white'}`} style={{ fontSize: '0.72rem' }}>
+                                      {permisosState.sb['__acceso_plantel__'] ? '● ROL HABILITADO' : '● ROL BLOQUEADO'}
+                                    </span>
+                                  </div>
+                                  <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.78rem' }}>
+                                    {permisosState.sb['__acceso_plantel__']
+                                      ? `El rol "${rolSeleccionado?.nombre}" tiene permitido el acceso a este plantel.`
+                                      : `Acceso restringido: Los usuarios con rol "${rolSeleccionado?.nombre}" no podrán operar en este plantel.`}
+                                  </small>
                                 </div>
                               </div>
+                              <div className="form-check form-switch fs-4 m-0">
+                                <input 
+                                  className="form-check-input hover-mano" 
+                                  type="checkbox"
+                                  role="switch"
+                                  checked={!!permisosState.sb['__acceso_plantel__']}
+                                  onChange={() => handleCheckboxChange('sb', '__acceso_plantel__', false)}
+                                  disabled={!canEditRolesSB}
+                                  title={permisosState.sb['__acceso_plantel__'] ? 'Click para bloquear este rol en este plantel' : 'Click para activar este rol en este plantel'}
+                                />
+                              </div>
                             </div>
-                          ))}
+                          </div>
+
+                          {/* Contenedor de Módulos (Atenuado si el rol está bloqueado) */}
+                          <div style={{ opacity: permisosState.sb['__acceso_plantel__'] ? 1 : 0.55, transition: 'opacity 0.2s ease-in-out' }}>
+                            {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
+                              <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
+                                <div className="card-header text-white py-2 rounded-top-4 bg-success">
+                                  <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
+                                    <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
+                                  </h6>
+                                </div>
+                                <div className="card-body p-2 bg-white rounded-bottom-4">
+                                  <div className="row g-2">
+                                    {Object.entries(submods).map(([subName, subcards]) => (
+                                      <div key={subName} className="col-12">
+                                        <div className="p-2 border rounded-2 border-light">
+                                          <div className="d-flex justify-content-between align-items-center">
+                                            <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
+                                              <i className="bi bi-box me-2 text-success"></i>{subName}
+                                            </div>
+                                            <div className="form-check form-switch m-0">
+                                              <input 
+                                                className="form-check-input" 
+                                                type="checkbox"
+                                                checked={!!permisosState.sb[subName]}
+                                                onChange={() => handleCheckboxChange('sb', subName, true, undefined, subcards)}
+                                                disabled={!canEditRolesSB || !permisosState.sb['__acceso_plantel__']}
+                                              />
+                                            </div>
+                                          </div>
+
+                                          {subcards.length > 0 && (
+                                            <div className="row g-1 mt-2 ps-3 border-start ms-1 border-success border-opacity-25 animate__animated animate__fadeIn">
+                                              {subcards.map(card => (
+                                                <div key={card} className="col-12">
+                                                  <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
+                                                    <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
+                                                      <i className="bi bi-window-stack me-1 text-secondary"></i>
+                                                      {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
+                                                    </span>
+                                                    <div className="form-check form-switch m-0">
+                                                      <input 
+                                                        className="form-check-input" 
+                                                        type="checkbox"
+                                                        checked={!!permisosState.sb[card]}
+                                                        onChange={() => handleCheckboxChange('sb', card, false, subName)}
+                                                        disabled={!canEditRolesSB || !permisosState.sb['__acceso_plantel__']}
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>

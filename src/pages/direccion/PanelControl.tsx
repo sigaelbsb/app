@@ -11,8 +11,6 @@ export const PanelControl = () => {
 
   const [mantenimientoSB, setMantenimientoSB] = useState<boolean>(false);
   const [mantenimientoLB, setMantenimientoLB] = useState<boolean>(false);
-  const [bloquearInvitadosSB, setBloquearInvitadosSB] = useState<boolean>(false);
-  const [bloquearInvitadosLB, setBloquearInvitadosLB] = useState<boolean>(false);
   const [fechaInicioCupos, setFechaInicioCupos] = useState<string>('');
   const [fechaFinCupos, setFechaFinCupos] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -47,16 +45,6 @@ export const PanelControl = () => {
 
         setMantenimientoSB(isSbActive);
         setMantenimientoLB(isLbActive);
-
-        const guestsGlobal = data.find(x => x.clave === 'bloquear_invitados');
-        const guestsSB = data.find(x => x.clave === 'bloquear_invitados_sb');
-        const guestsLB = data.find(x => x.clave === 'bloquear_invitados_lb');
-
-        const isGuestSbBlocked = guestsSB ? (guestsSB.valor === 'true') : (guestsGlobal?.valor === 'true');
-        const isGuestLbBlocked = guestsLB ? (guestsLB.valor === 'true') : (guestsGlobal?.valor === 'true');
-
-        setBloquearInvitadosSB(isGuestSbBlocked);
-        setBloquearInvitadosLB(isGuestLbBlocked);
 
         const inicioCupo = data.find(x => x.clave === 'fecha_inicio_cupos');
         if (inicioCupo) setFechaInicioCupos(inicioCupo.valor || '');
@@ -201,132 +189,6 @@ export const PanelControl = () => {
       );
       
       window.dispatchEvent(new Event('sigae-maintenance-changed'));
-    } catch (e) {
-      console.error(e);
-      Swal.fire('Error', 'No se pudo guardar la configuración.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleToggleSchoolInvitados = async (escuela: 'sb' | 'lb', newValue: boolean) => {
-    if (!canModify) {
-      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
-      return;
-    }
-
-    if (!Swal) return;
-
-    const escuelaNombre = escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
-    const actionText = newValue ? 'bloquear' : 'desbloquear';
-
-    const confirmResult = await Swal.fire({
-      title: `¿Confirmar acción para ${escuelaNombre}?`,
-      text: `¿Estás seguro de que deseas ${actionText} el registro e ingreso de invitados y visitantes en ${escuelaNombre}?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: `Sí, ${actionText}`,
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: newValue ? '#e67e22' : '#3085d6',
-      cancelButtonColor: '#6c757d'
-    });
-
-    if (!confirmResult.isConfirmed) return;
-
-    setSaving(true);
-    try {
-      const clave = escuela === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
-      const otherVal = escuela === 'sb' ? bloquearInvitadosLB : bloquearInvitadosSB;
-      const globalVal = newValue || otherVal;
-
-      const { error } = await supabase
-        .from('ajustes_globales')
-        .upsert([
-          { clave, valor: String(newValue), actualizado_en: new Date().toISOString() },
-          { clave: 'bloquear_invitados', valor: String(globalVal), actualizado_en: new Date().toISOString() }
-        ], { onConflict: 'clave' });
-
-      if (error) throw error;
-
-      if (escuela === 'sb') {
-        setBloquearInvitadosSB(newValue);
-      } else {
-        setBloquearInvitadosLB(newValue);
-      }
-
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: `Visitantes en ${escuelaNombre}: ${newValue ? 'BLOQUEADOS' : 'PERMITIDOS'}`,
-        showConfirmButton: false,
-        timer: 2500
-      });
-
-      auditar(
-        'Panel de Control', 
-        newValue ? 'Bloquear Invitados' : 'Desbloquear Invitados', 
-        `Se cambió el estado del acceso a visitantes en ${escuelaNombre} a: ${newValue ? 'BLOQUEADO' : 'PERMITIDO'}`
-      );
-    } catch (e) {
-      console.error(e);
-      Swal.fire('Error', 'No se pudo guardar la configuración.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleToggleBothInvitados = async (newValue: boolean) => {
-    if (!canModify) {
-      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
-      return;
-    }
-
-    if (!Swal) return;
-
-    const actionText = newValue ? 'bloquear' : 'desbloquear';
-    const confirmResult = await Swal.fire({
-      title: `¿${newValue ? 'Bloquear' : 'Permitir'} Visitantes en AMBAS Escuelas?`,
-      text: `¿Estás seguro de que deseas ${actionText} el registro e ingreso de visitantes en la U.E. Santa Bárbara y U.E. Libertador Bolívar simultáneamente?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: `Sí, ${actionText} en ambas`,
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: newValue ? '#e67e22' : '#3085d6',
-      cancelButtonColor: '#6c757d'
-    });
-
-    if (!confirmResult.isConfirmed) return;
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('ajustes_globales')
-        .upsert([
-          { clave: 'bloquear_invitados_sb', valor: String(newValue), actualizado_en: new Date().toISOString() },
-          { clave: 'bloquear_invitados_lb', valor: String(newValue), actualizado_en: new Date().toISOString() },
-          { clave: 'bloquear_invitados', valor: String(newValue), actualizado_en: new Date().toISOString() }
-        ], { onConflict: 'clave' });
-
-      if (error) throw error;
-
-      setBloquearInvitadosSB(newValue);
-      setBloquearInvitadosLB(newValue);
-
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: `Visitantes en ambas escuelas: ${newValue ? 'BLOQUEADOS' : 'PERMITIDOS'}`,
-        showConfirmButton: false,
-        timer: 2500
-      });
-
-      auditar(
-        'Panel de Control', 
-        newValue ? 'Bloquear Invitados Global' : 'Desbloquear Invitados Global', 
-        `Se cambió el estado del acceso a visitantes en AMBAS escuelas a: ${newValue ? 'BLOQUEADO' : 'PERMITIDO'}`
-      );
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo guardar la configuración.', 'error');
@@ -537,8 +399,8 @@ export const PanelControl = () => {
       ) : (
         <div className="row g-4 animate__animated animate__fadeIn">
           {/* Card Mantenimiento */}
-          <div className="col-lg-6 col-12">
-            <div className="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white">
+          <div className="col-12">
+            <div className="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white border-start border-danger border-4">
               <div className="d-flex align-items-center mb-3">
                 <div className={`p-3 rounded-circle me-3 ${(mantenimientoSB || mantenimientoLB) ? 'bg-danger bg-opacity-10 text-danger' : 'bg-success bg-opacity-10 text-success'}`}>
                   <i className={`bi ${(mantenimientoSB || mantenimientoLB) ? 'bi-cone-striped' : 'bi-check-circle-fill'} fs-3`}></i>
@@ -563,52 +425,56 @@ export const PanelControl = () => {
               </p>
 
               {/* Controles por Escuela */}
-              <div className="d-flex flex-column gap-2 mb-3">
+              <div className="row g-3 mb-3">
                 {/* U.E. Santa Bárbara */}
-                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${mantenimientoSB ? 'bg-danger bg-opacity-10 border-danger' : 'bg-light border'}`}>
-                  <div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-primary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>SB</span>
-                      <h6 className="fw-bold mb-0 text-dark">U.E. Santa Bárbara</h6>
+                <div className="col-md-6 col-12">
+                  <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${mantenimientoSB ? 'bg-danger bg-opacity-10 border-danger' : 'bg-light border'}`}>
+                    <div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-primary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>SB</span>
+                        <h6 className="fw-bold mb-0 text-dark">U.E. Santa Bárbara</h6>
+                      </div>
+                      <small className={mantenimientoSB ? 'text-danger fw-bold' : 'text-success fw-bold'}>
+                        {mantenimientoSB ? '● En Mantenimiento (Acceso Restringido)' : '● Sistema Operativo'}
+                      </small>
                     </div>
-                    <small className={mantenimientoSB ? 'text-danger fw-bold' : 'text-success fw-bold'}>
-                      {mantenimientoSB ? '● En Mantenimiento (Acceso Restringido)' : '● Sistema Operativo'}
-                    </small>
-                  </div>
-                  <div className="form-check form-switch fs-4 mb-0">
-                    <input
-                      className="form-check-input hover-mano"
-                      type="checkbox"
-                      role="switch"
-                      id="switchMantenimientoSB"
-                      checked={mantenimientoSB}
-                      disabled={saving || !canModify}
-                      onChange={(e) => handleToggleSchoolMantenimiento('sb', e.target.checked)}
-                    />
+                    <div className="form-check form-switch fs-4 mb-0">
+                      <input
+                        className="form-check-input hover-mano"
+                        type="checkbox"
+                        role="switch"
+                        id="switchMantenimientoSB"
+                        checked={mantenimientoSB}
+                        disabled={saving || !canModify}
+                        onChange={(e) => handleToggleSchoolMantenimiento('sb', e.target.checked)}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* U.E. Libertador Bolívar */}
-                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${mantenimientoLB ? 'bg-danger bg-opacity-10 border-danger' : 'bg-light border'}`}>
-                  <div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-secondary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>LB</span>
-                      <h6 className="fw-bold mb-0 text-dark">U.E. Libertador Bolívar</h6>
+                <div className="col-md-6 col-12">
+                  <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${mantenimientoLB ? 'bg-danger bg-opacity-10 border-danger' : 'bg-light border'}`}>
+                    <div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-secondary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>LB</span>
+                        <h6 className="fw-bold mb-0 text-dark">U.E. Libertador Bolívar</h6>
+                      </div>
+                      <small className={mantenimientoLB ? 'text-danger fw-bold' : 'text-success fw-bold'}>
+                        {mantenimientoLB ? '● En Mantenimiento (Acceso Restringido)' : '● Sistema Operativo'}
+                      </small>
                     </div>
-                    <small className={mantenimientoLB ? 'text-danger fw-bold' : 'text-success fw-bold'}>
-                      {mantenimientoLB ? '● En Mantenimiento (Acceso Restringido)' : '● Sistema Operativo'}
-                    </small>
-                  </div>
-                  <div className="form-check form-switch fs-4 mb-0">
-                    <input
-                      className="form-check-input hover-mano"
-                      type="checkbox"
-                      role="switch"
-                      id="switchMantenimientoLB"
-                      checked={mantenimientoLB}
-                      disabled={saving || !canModify}
-                      onChange={(e) => handleToggleSchoolMantenimiento('lb', e.target.checked)}
-                    />
+                    <div className="form-check form-switch fs-4 mb-0">
+                      <input
+                        className="form-check-input hover-mano"
+                        type="checkbox"
+                        role="switch"
+                        id="switchMantenimientoLB"
+                        checked={mantenimientoLB}
+                        disabled={saving || !canModify}
+                        onChange={(e) => handleToggleSchoolMantenimiento('lb', e.target.checked)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -632,107 +498,6 @@ export const PanelControl = () => {
                   title="Restablecer ambas escuelas a sistema operativo"
                 >
                   <i className="bi bi-check-circle me-1"></i> Restablecer Ambas
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Card Bloquear Invitados */}
-          <div className="col-lg-6 col-12">
-            <div className="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white">
-              <div className="d-flex align-items-center mb-3">
-                <div className={`p-3 rounded-circle me-3 ${(bloquearInvitadosSB || bloquearInvitadosLB) ? 'bg-warning bg-opacity-10 text-warning' : 'bg-success bg-opacity-10 text-success'}`}>
-                  <i className={`bi ${(bloquearInvitadosSB || bloquearInvitadosLB) ? 'bi-person-x-fill' : 'bi-person-check-fill'} fs-3`}></i>
-                </div>
-                <div>
-                  <h4 className="fw-bold mb-1 text-dark">Control de Visitantes</h4>
-                  <div className="d-flex flex-wrap gap-2 mt-1">
-                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${bloquearInvitadosSB ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '0.75rem' }}>
-                      <i className="bi bi-building me-1"></i> Santa Bárbara: {bloquearInvitadosSB ? 'BLOQUEADO' : 'PERMITIDO'}
-                    </span>
-                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${bloquearInvitadosLB ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '0.75rem' }}>
-                      <i className="bi bi-building me-1"></i> Libertador Bolívar: {bloquearInvitadosLB ? 'BLOQUEADO' : 'PERMITIDO'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <hr className="my-3 text-muted opacity-25" />
-
-              <p className="text-muted small mb-3">
-                Permite deshabilitar temporalmente el módulo de registro e ingreso de <strong>Invitados/Visitantes</strong> por institución o globalmente en la pantalla de inicio de sesión durante jornadas especiales o auditorías.
-              </p>
-
-              {/* Controles por Escuela */}
-              <div className="d-flex flex-column gap-2 mb-3">
-                {/* U.E. Santa Bárbara */}
-                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${bloquearInvitadosSB ? 'bg-warning bg-opacity-10 border-warning' : 'bg-light border'}`}>
-                  <div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-primary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>SB</span>
-                      <h6 className="fw-bold mb-0 text-dark">U.E. Santa Bárbara</h6>
-                    </div>
-                    <small className={bloquearInvitadosSB ? 'text-warning fw-bold' : 'text-success fw-bold'}>
-                      {bloquearInvitadosSB ? '● Registro e Ingreso Bloqueado' : '● Ingreso de Visitantes Permitido'}
-                    </small>
-                  </div>
-                  <div className="form-check form-switch fs-4 mb-0">
-                    <input
-                      className="form-check-input hover-mano"
-                      type="checkbox"
-                      role="switch"
-                      id="switchBloquearInvitadosSB"
-                      checked={bloquearInvitadosSB}
-                      disabled={saving || !canModify}
-                      onChange={(e) => handleToggleSchoolInvitados('sb', e.target.checked)}
-                    />
-                  </div>
-                </div>
-
-                {/* U.E. Libertador Bolívar */}
-                <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${bloquearInvitadosLB ? 'bg-warning bg-opacity-10 border-warning' : 'bg-light border'}`}>
-                  <div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-secondary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>LB</span>
-                      <h6 className="fw-bold mb-0 text-dark">U.E. Libertador Bolívar</h6>
-                    </div>
-                    <small className={bloquearInvitadosLB ? 'text-warning fw-bold' : 'text-success fw-bold'}>
-                      {bloquearInvitadosLB ? '● Registro e Ingreso Bloqueado' : '● Ingreso de Visitantes Permitido'}
-                    </small>
-                  </div>
-                  <div className="form-check form-switch fs-4 mb-0">
-                    <input
-                      className="form-check-input hover-mano"
-                      type="checkbox"
-                      role="switch"
-                      id="switchBloquearInvitadosLB"
-                      checked={bloquearInvitadosLB}
-                      disabled={saving || !canModify}
-                      onChange={(e) => handleToggleSchoolInvitados('lb', e.target.checked)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Botones de acción para ambas escuelas */}
-              <div className="d-flex gap-2 pt-1">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-warning w-50 rounded-pill fw-bold py-2 text-dark"
-                  disabled={saving || !canModify || (bloquearInvitadosSB && bloquearInvitadosLB)}
-                  onClick={() => handleToggleBothInvitados(true)}
-                  title="Bloquear visitantes en ambas escuelas a la vez"
-                >
-                  <i className="bi bi-person-x-fill me-1"></i> Bloquear en Ambas
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-success w-50 rounded-pill fw-bold py-2"
-                  disabled={saving || !canModify || (!bloquearInvitadosSB && !bloquearInvitadosLB)}
-                  onClick={() => handleToggleBothInvitados(false)}
-                  title="Permitir visitantes en ambas escuelas"
-                >
-                  <i className="bi bi-person-check-fill me-1"></i> Permitir en Ambas
                 </button>
               </div>
             </div>
