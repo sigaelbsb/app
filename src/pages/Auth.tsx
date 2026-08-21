@@ -258,7 +258,23 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           const guestKey = targetSchool === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
           const guestSchool = ajustes?.find(x => x.clave === guestKey);
           const guestGlobal = ajustes?.find(x => x.clave === 'bloquear_invitados');
-          const isGuestBlocked = guestSchool ? (guestSchool.valor === 'true') : (guestGlobal?.valor === 'true');
+          let isGuestBlocked = guestSchool ? (guestSchool.valor === 'true') : (guestGlobal?.valor === 'true');
+
+          if (!isGuestBlocked) {
+            const { data: invRole } = await supabase
+              .from('roles')
+              .select('permisos')
+              .eq('nombre', 'Invitado')
+              .maybeSingle();
+
+            if (invRole && invRole.permisos) {
+              const parsed = typeof invRole.permisos === 'string' ? JSON.parse(invRole.permisos) : invRole.permisos;
+              const escPerms = parsed[targetSchool] || {};
+              if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
+                isGuestBlocked = true;
+              }
+            }
+          }
 
           if (isGuestBlocked) {
             setErrorMsg(`El registro e ingreso de invitados y visitantes para ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
@@ -1096,9 +1112,198 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     return fuerza;
   };
 
+  const handleSimularIngresoRol = async () => {
+    const Swal = (window as any).Swal;
+    if (!Swal) return;
+
+    try {
+      setLoading(true);
+      const { data: rolesData } = await supabase
+        .from('roles')
+        .select('nombre')
+        .order('nombre', { ascending: true });
+
+      setLoading(false);
+      let listaRoles = (rolesData || []).map(r => r.nombre);
+      if (listaRoles.length === 0) {
+        listaRoles = ['Docente', 'Representante', 'Invitado', 'Administrador', 'Director', 'Coordinador'];
+      }
+
+      const optionsHtml = listaRoles.map(r => `<option value="${r}">${r}</option>`).join('');
+      const defaultSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+
+      const { value: formValues } = await Swal.fire({
+        title: `<div class="d-flex align-items-center justify-content-center gap-2 text-dark"><i class="bi bi-person-bounding-box text-warning"></i> <span>Simulador de Acceso por Rol</span></div>`,
+        html: `
+          <div class="text-start mb-3">
+            <p class="text-muted small mb-3">
+              Selecciona el rol y la institución para <strong>emular todo el ciclo de ingreso</strong> y probar el sistema exactamente como dicho usuario.
+            </p>
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-dark"><i class="bi bi-person-badge me-1"></i>Rol a simular:</label>
+              <select id="swal-sim-rol" class="form-select rounded-3 py-2">
+                ${optionsHtml}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold small text-dark"><i class="bi bi-building me-1"></i>Institución de destino:</label>
+              <select id="swal-sim-escuela" class="form-select rounded-3 py-2">
+                <option value="sb" ${defaultSchool === 'sb' ? 'selected' : ''}>U.E. Santa Bárbara</option>
+                <option value="lb" ${defaultSchool === 'lb' ? 'selected' : ''}>U.E. Libertador Bolívar</option>
+              </select>
+            </div>
+            <div class="alert alert-warning text-start small mb-0 py-2 border-0 rounded-3">
+              <i class="bi bi-shield-check me-1"></i> Al ingresar, contarás con la barra superior de retorno seguro para volver a tu usuario administrador con 1 clic.
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="bi bi-door-open-fill me-1"></i> Simular Ingreso',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#64748b',
+        preConfirm: () => {
+          const rolEl = document.getElementById('swal-sim-rol') as HTMLSelectElement;
+          const escEl = document.getElementById('swal-sim-escuela') as HTMLSelectElement;
+          return {
+            rol: rolEl ? rolEl.value : 'Docente',
+            escuela: escEl ? (escEl.value as 'sb' | 'lb') : defaultSchool
+          };
+        }
+      });
+
+      if (!formValues) return;
+
+      const targetRol = formValues.rol;
+      const targetEsc = formValues.escuela;
+      const targetEscNombre = targetEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+
+      // 1. Validar si el rol seleccionado se encuentra bloqueado para esta institución
+      let estaBloqueado = false;
+      let motivoBloqueo = '';
+
+      if (targetRol === 'Invitado') {
+        const guestKey = targetEsc === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
+        const { data: ajustes } = await supabase
+          .from('ajustes_globales')
+          .select('clave, valor')
+          .in('clave', [guestKey, 'bloquear_invitados']);
+
+        const guestSchool = ajustes?.find(x => x.clave === guestKey);
+        const guestGlobal = ajustes?.find(x => x.clave === 'bloquear_invitados');
+        if (guestSchool?.valor === 'true' || guestGlobal?.valor === 'true') {
+          estaBloqueado = true;
+          motivoBloqueo = `El acceso e ingreso de visitantes/invitados para ${targetEscNombre} se encuentra inhabilitado por la dirección.`;
+        }
+      }
+
+      if (!estaBloqueado) {
+        const { data: roleData } = await supabase
+          .from('roles')
+          .select('permisos')
+          .eq('nombre', targetRol)
+          .maybeSingle();
+
+        if (roleData && roleData.permisos) {
+          const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
+          const escPerms = parsed[targetEsc] || {};
+          if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
+            estaBloqueado = true;
+            motivoBloqueo = `El acceso para el rol "${targetRol}" en ${targetEscNombre} está temporalmente inhabilitado por la dirección.`;
+          }
+        }
+      }
+
+      if (estaBloqueado) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso Inhabilitado',
+          html: `
+            <div class="text-start small text-dark mb-0">
+              <p class="mb-2 fw-bold text-danger">⚠️ Simulación de Bloqueo:</p>
+              <p class="mb-0 text-muted">${motivoBloqueo}</p>
+            </div>
+          `,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#dc3545'
+        });
+        return;
+      }
+
+      // Si el rol es Invitado y no está bloqueado, simular el paso al formulario de registro de visitante
+      if (targetRol === 'Invitado') {
+        setSchool(targetEsc);
+        localStorage.setItem('sigae_escuela_codigo', targetEsc);
+        localStorage.setItem('sigae_escuela_activa', targetEscNombre);
+        setView('login');
+        setLoginStep('invitado');
+        setCedula('V-99999999');
+        setInvNombres('Visitante');
+        setInvApellidos('Invitado');
+        setInvMotivo('Visita institucional / Prueba');
+        return;
+      }
+
+      const fakeAdmin = {
+        id: 'admin_emulador',
+        nombre: 'Administrador Principal',
+        cedula: '00000000',
+        rol: 'SuperAdmin'
+      };
+
+      const originalSaved = localStorage.getItem('sigae_usuario_original_admin');
+      if (!originalSaved) {
+        localStorage.setItem('sigae_usuario_original_admin', JSON.stringify(fakeAdmin));
+      }
+
+      const usuarioSimulado = {
+        id: `sim_${targetRol.toLowerCase()}`,
+        nombre: `Usuario Simulado (${targetRol})`,
+        cedula: 'V-99999999',
+        rol: targetRol,
+        id_escuela: targetEsc,
+        nombre_escuela: targetEscNombre,
+        es_emulacion: true,
+        rol_real: 'Administrador'
+      };
+
+      localStorage.setItem('sesion_sigae', 'activa');
+      localStorage.setItem('usuario_sigae', JSON.stringify(usuarioSimulado));
+      localStorage.setItem('sigae_escuela_codigo', targetEsc);
+      localStorage.setItem('sigae_escuela_activa', targetEscNombre);
+      sessionStorage.setItem('sigae_emulacion_activa', 'true');
+
+      localStorage.removeItem('sigae_cache_permisos');
+      localStorage.removeItem('sigae_cache_full_permisos');
+
+      if (typeof onLogin === 'function') {
+        onLogin(usuarioSimulado);
+      } else {
+        window.location.href = '/';
+      }
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
+  };
+
   return (
-    <div id="vista-login" className="contenedor-login contenedor-login-estilo flex-column min-vh-100" style={{ display: 'flex' }}>
+    <div id="vista-login" className="contenedor-login contenedor-login-estilo flex-column min-vh-100 position-relative" style={{ display: 'flex' }}>
       <div className="bg-login-dark-overlay"></div>
+
+      {/* Botón flotante superior de simulación de acceso */}
+      <div className="position-absolute top-0 end-0 p-3" style={{ zIndex: 1050 }}>
+        <button
+          type="button"
+          onClick={handleSimularIngresoRol}
+          className="btn btn-sm btn-outline-warning rounded-pill px-3 py-1.5 fw-bold shadow-sm d-flex align-items-center gap-1.5 hover-efecto"
+          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', borderColor: 'rgba(245,158,11,0.6)', color: '#fbbf24' }}
+          title="Emular y probar acceso de cualquier rol del sistema"
+        >
+          <i className="bi bi-person-bounding-box fs-6"></i>
+          <span>Emular Acceso por Rol</span>
+        </button>
+      </div>
 
       <div className="m-auto w-100 d-flex justify-content-center align-items-center py-4 px-3">
         

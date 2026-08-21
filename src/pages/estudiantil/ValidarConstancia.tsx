@@ -47,47 +47,82 @@ export const ValidarConstancia: React.FC = () => {
           return;
         }
 
+        const cleanUpper = codigoLimpio.toUpperCase();
+        let cedulaBuscada = '';
+
+        // Si viene con formato de constancia / ficha (ej: CI-LB-17780095-2026, FI-SB-32145678-2026)
+        const partes = cleanUpper.split('-');
+        if (partes.length >= 3 && (cleanUpper.startsWith('CI-') || cleanUpper.startsWith('FI-') || cleanUpper.startsWith('RES-'))) {
+          const segCedula = partes[2].replace(/\D/g, '');
+          if (segCedula.length >= 4) {
+            cedulaBuscada = segCedula;
+          }
+        }
+        if (!cedulaBuscada) {
+          const matchNums = cleanUpper.match(/\d{5,9}/);
+          if (matchNums) {
+            cedulaBuscada = matchNums[0];
+          }
+        }
+
         const { data, error: err } = await supabase
           .from('estudiantes_vinculaciones')
           .select('*');
 
         if (err) throw err;
 
-        const encontrado = (data || []).find((item: any) => {
+        let encontrado = (data || []).find((item: any) => {
           const d = item.datos_actualizados || {};
-          const cedulaEst = (item.cedula_estudiante || d.estudiante_cedula || '').toString().replace(/\D/g, '');
-          const codUnico = d.codigo_unico || item.codigo_unico || '';
-          
-          return (
-            codUnico === codigoLimpio ||
-            codigoLimpio.includes(cedulaEst) ||
-            item.cedula_estudiante === codigoLimpio ||
-            item.id.toString() === codigoLimpio
-          );
+          const codUnico = (d.codigo_unico || item.codigo_unico || '').toString().trim().toUpperCase();
+          const cedulaEstDigitos = (item.cedula_estudiante || d.estudiante_cedula || '').toString().replace(/\D/g, '');
+
+          // 1. Coincidencia exacta por código único guardado
+          if (codUnico && codUnico === cleanUpper) return true;
+
+          // 2. Coincidencia por ID de fila
+          if (item.id && String(item.id) === codigoLimpio) return true;
+
+          // 3. Coincidencia exacta por cédula del estudiante
+          if (cedulaBuscada && cedulaEstDigitos && cedulaEstDigitos === cedulaBuscada) {
+            return true;
+          }
+
+          return false;
         });
+
+        // Si no se encontró en vinculaciones regulares y parece solicitud de cupo (ej: SC-LB-2026-0042)
+        if (!encontrado && (cleanUpper.startsWith('SC-') || !cedulaBuscada)) {
+          const { data: cupos } = await supabase.from('solicitud_cupos').select('*');
+          const cupoMatch = (cupos || []).find((c: any) => {
+            const codCupo = (c.codigo_unico || '').toString().trim().toUpperCase();
+            if (codCupo && codCupo === cleanUpper) return true;
+            const cedCupo = (c.estudiante_cedula || '').replace(/\D/g, '');
+            if (cedulaBuscada && cedCupo && cedCupo === cedulaBuscada) return true;
+            return false;
+          });
+
+          if (cupoMatch) {
+            encontrado = {
+              ...cupoMatch,
+              nombres_estudiante: cupoMatch.estudiante_nombres,
+              apellidos_estudiante: cupoMatch.estudiante_apellidos,
+              cedula_estudiante: cupoMatch.estudiante_cedula,
+              grado_actual: cupoMatch.grado_solicitado,
+              codigo_escuela: cupoMatch.codigo_escuela || (cleanUpper.includes('SB') ? 'sb' : 'lb'),
+              datos_actualizados: {
+                representante_nombres: cupoMatch.representante_nombres,
+                representante_apellidos: cupoMatch.representante_apellidos,
+                representante_cedula: cupoMatch.representante_cedula,
+                codigo_unico: cupoMatch.codigo_unico
+              }
+            };
+          }
+        }
 
         if (encontrado) {
           setDatosDocumento(encontrado);
         } else {
-          const matchCedula = codigoLimpio.match(/\d+/);
-          if (matchCedula) {
-            setDatosDocumento({
-              nombres_estudiante: 'Estudiante Registrado',
-              apellidos_estudiante: 'Sistema SIGAE',
-              cedula_estudiante: matchCedula[0],
-              grado_actual: 'Grado Asignado',
-              seccion_actual: 'A',
-              codigo_escuela: codigoLimpio.toLowerCase().includes('sb') ? 'sb' : 'lb',
-              fecha_ultima_actualizacion: new Date().toISOString(),
-              datos_actualizados: {
-                representante_nombres: 'Representante Validado',
-                representante_cedula: 'V-00000000',
-                codigo_unico: codigoLimpio
-              }
-            });
-          } else {
-            setError('No se encontró ningún documento oficial registrado con este código de verificación.');
-          }
+          setError('No se encontró ningún documento oficial registrado con este código de verificación.');
         }
       } catch (err: any) {
         console.error('Error al validar documento:', err);

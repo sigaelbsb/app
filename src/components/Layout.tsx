@@ -507,8 +507,47 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     navigate('/login');
   };
 
+  const esModoEmulacion = !!(usuario?.es_emulacion || localStorage.getItem('sigae_usuario_original_admin'));
+
   const handleLogout = () => {
     const Swal = (window as any).Swal;
+
+    // Flujo especial si está en Modo Emulación
+    if (esModoEmulacion) {
+      if (Swal) {
+        Swal.fire({
+          title: `<div class="d-flex align-items-center justify-content-center gap-2"><i class="bi bi-person-bounding-box text-warning"></i> <span>Cierre de Sesión (Emulación)</span></div>`,
+          html: `
+            <p class="text-muted small mb-3">
+              Actualmente te encuentras emulando el rol <strong>${usuario.rol}</strong>.
+            </p>
+            <p class="fw-semibold text-dark small mb-0">¿Cómo deseas proceder?</p>
+          `,
+          icon: 'question',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: '<i class="bi bi-arrow-counterclockwise me-1"></i> Restaurar mi Administrador',
+          denyButtonText: '<i class="bi bi-door-open me-1"></i> Simular Cierre Real (Ir a Login)',
+          cancelButtonText: 'Seguir en Emulación',
+          confirmButtonColor: '#0ea5e9',
+          denyButtonColor: '#dc3545',
+          cancelButtonColor: '#6c757d'
+        }).then((result: any) => {
+          if (result.isConfirmed) {
+            handleSalirEmulacion();
+          } else if (result.isDenied) {
+            // Simular cierre de sesión real hacia el login
+            localStorage.removeItem('sesion_sigae');
+            localStorage.removeItem('usuario_sigae');
+            sessionStorage.removeItem('sigae_emulacion_activa');
+            onLogout();
+            navigate('/login');
+          }
+        });
+        return;
+      }
+    }
+
     if (Swal) {
       Swal.fire({
         title: 'Cierre de Sesión',
@@ -549,6 +588,25 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         navigate('/login');
       }
     }
+  };
+
+  const handleSalirEmulacion = () => {
+    const originalStr = localStorage.getItem('sigae_usuario_original_admin');
+    if (originalStr) {
+      try {
+        const originalUser = JSON.parse(originalStr);
+        localStorage.setItem('usuario_sigae', JSON.stringify(originalUser));
+        if (originalUser.id_escuela && originalUser.id_escuela !== 'ambas' && originalUser.id_escuela !== 'todas') {
+          localStorage.setItem('sigae_escuela_codigo', originalUser.id_escuela);
+          localStorage.setItem('sigae_escuela_activa', originalUser.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+        }
+      } catch (e) {}
+    }
+    localStorage.removeItem('sigae_usuario_original_admin');
+    sessionStorage.removeItem('sigae_emulacion_activa');
+    localStorage.removeItem('sigae_cache_permisos');
+    localStorage.removeItem('sigae_cache_full_permisos');
+    window.location.href = '/categoria/Seguridad%20y%20Accesos/Roles%20y%20Privilegios';
   };
 
   // Inactivity tracking (30 minutes with mobile visibility & file picker awareness)
@@ -768,6 +826,54 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       </aside>
 
       <main id="contenido-principal" className="d-flex flex-column min-vh-100">
+        {/* BANNER FLOTANTE DE MODO EMULACIÓN */}
+        {esModoEmulacion && (
+          <div 
+            className="w-100 px-3 px-md-4 py-2 text-white shadow d-flex align-items-center justify-content-between flex-wrap gap-2 animate__animated animate__fadeInDown"
+            style={{ 
+              background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+              position: 'sticky',
+              top: 0,
+              zIndex: 1060,
+              borderBottom: '2px solid rgba(255,255,255,0.2)'
+            }}
+          >
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge bg-dark text-warning p-2 rounded-circle shadow-sm">
+                <i className="bi bi-person-bounding-box fs-6"></i>
+              </span>
+              <div>
+                <span className="fw-bold text-white small me-2" style={{ letterSpacing: '0.5px' }}>
+                  MODO EMULACIÓN ACTIVO:
+                </span>
+                <span className="badge bg-white text-dark fw-bold px-2.5 py-1 me-1 shadow-sm">
+                  <i className="bi bi-person-badge-fill text-warning me-1"></i>
+                  Visualizando como: {usuario.rol}
+                </span>
+                <span className="badge bg-dark bg-opacity-25 text-white fw-semibold px-2 py-1">
+                  <i className="bi bi-building me-1"></i>
+                  {escuelaNombre}
+                </span>
+                <span className="d-none d-lg-inline ms-2 text-white-50 small">
+                  (Sesión real de administrador segura)
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={handleSalirEmulacion}
+                className="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-bold shadow-sm d-flex align-items-center gap-2 hover-efecto"
+                style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+              >
+                <i className="bi bi-box-arrow-left text-warning"></i>
+                <span>Salir de Emulación y Restaurar Administrador</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <header className="glass-header shadow-sm d-flex align-items-center px-4 bg-white auth-header">
           <div className="d-flex align-items-center d-lg-none me-3">
             <button id="btn-menu-movil" onClick={toggleMobileSidebar} className="btn-movil position-relative" title="Abrir Menú de Categorías">
@@ -787,6 +893,20 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                 <i className="bi bi-clock-history me-1"></i> Fase Actual: <span className={lapsoEscolar.includes('Fuera') || lapsoEscolar === 'Error' ? 'text-danger fw-bold' : (lapsoEscolar === 'Cargando...' ? 'text-muted' : 'text-success fw-bold')}>{lapsoEscolar}</span>
               </span>
             </div>
+
+            {/* BOTON RAPIDO EMULAR ROL EN NAVBAR */}
+            {!esModoEmulacion && (usuario.rol === 'SuperAdmin' || usuario.rol === 'Administrador' || tienePermiso('Función: Emulación de Roles', 'ver')) && (
+              <button 
+                type="button" 
+                onClick={() => navigate('/categoria/Seguridad%20y%20Accesos/Roles%20y%20Privilegios')}
+                className="btn btn-sm rounded-pill px-3 fw-bold me-3 d-none d-md-inline-flex align-items-center gap-1.5 shadow-sm text-dark hover-efecto"
+                style={{ backgroundColor: '#fef3c7', borderColor: '#fde68a' }}
+                title="Probar y Emular Roles del Sistema"
+              >
+                <i className="bi bi-person-bounding-box text-warning fs-6"></i>
+                <span>Emular Rol</span>
+              </button>
+            )}
 
             {!isStandalone && (
               <button 

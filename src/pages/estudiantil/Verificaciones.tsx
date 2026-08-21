@@ -278,58 +278,88 @@ export const Verificaciones: React.FC = () => {
     setVinculacion(null);
     setSolicitudCupo(null);
 
-    // Extraer dígitos de cédula
-    const partesGuion = raw.split('-');
-    let posibleCedula = '';
-    for (const p of partesGuion) {
-      const nums = p.replace(/\D/g, '');
-      if (nums.length >= 5 && nums.length <= 9) {
-        posibleCedula = nums;
-        break;
+    const cleanUpper = raw.replace(/['"%;]/g, '').trim().toUpperCase();
+
+    // Extraer cédula de estudiante si viene en formato CI-LB-17780095-2026 o FI-SB-32145678-2026
+    let cedulaEstudianteBuscada = '';
+    const partes = cleanUpper.split('-');
+    if (partes.length >= 3 && (cleanUpper.startsWith('CI-') || cleanUpper.startsWith('FI-') || cleanUpper.startsWith('RES-'))) {
+      const segCedula = partes[2].replace(/\D/g, '');
+      if (segCedula.length >= 4) {
+        cedulaEstudianteBuscada = segCedula;
       }
     }
-    const soloNumeros = raw.replace(/\D/g, '');
-    const cleanTerm = raw.replace(/['"%;]/g, '').trim();
+
+    if (!cedulaEstudianteBuscada) {
+      const matchNums = cleanUpper.match(/\d{5,9}/);
+      if (matchNums) {
+        cedulaEstudianteBuscada = matchNums[0];
+      }
+    }
+
+    const soloNumeros = cleanUpper.replace(/\D/g, '');
 
     try {
-      // ─── 1. CONSULTAR ESTUDIANTES_VINCULACIONES ──────────────────────────────
       let vincEncontrada: VinculacionData | null = null;
+      let cupoEncontrado: SolicitudCupoData | null = null;
 
-      // a) Búsqueda por codigo_unico exacto o parcial
-      const { data: vByCode } = await supabase
-        .from('estudiantes_vinculaciones')
-        .select('*')
-        .ilike('codigo_unico', `%${cleanTerm}%`)
-        .limit(1);
+      // ─── CASO A: SOLICITUD DE CUPO (SC-LB-2026-0042) ───
+      if (cleanUpper.startsWith('SC-')) {
+        const { data: cuposList } = await supabase.from('solicitud_cupos').select('*');
+        if (cuposList && cuposList.length > 0) {
+          cupoEncontrado = cuposList.find((c: any) => {
+            const cod = (c.codigo_unico || '').toString().trim().toUpperCase();
+            return cod === cleanUpper;
+          }) || null;
+        }
 
-      if (vByCode && vByCode.length > 0) {
-        vincEncontrada = vByCode[0];
-      }
-
-      // b) Búsqueda por cédula del estudiante si se extrajo del código
-      const cedulaABuscar = posibleCedula || (soloNumeros.length >= 4 && soloNumeros.length <= 10 ? soloNumeros : '');
-      if (!vincEncontrada && cedulaABuscar) {
-        const { data: vByCedula } = await supabase
-          .from('estudiantes_vinculaciones')
-          .select('*')
-          .or(`cedula_estudiante.ilike.%${cedulaABuscar}%,cedula_representante.ilike.%${cedulaABuscar}%`)
-          .limit(1);
-
-        if (vByCedula && vByCedula.length > 0) {
-          vincEncontrada = vByCedula[0];
+        if (!cupoEncontrado) {
+          const { data: cuposFallback } = await supabase.from('solicitudes_cupos').select('*');
+          if (cuposFallback && cuposFallback.length > 0) {
+            cupoEncontrado = cuposFallback.find((c: any) => {
+              const cod = (c.codigo_unico || '').toString().trim().toUpperCase();
+              return cod === cleanUpper;
+            }) || null;
+          }
         }
       }
 
-      // c) Búsqueda por nombres si no es código numérico
-      if (!vincEncontrada && cleanTerm.length >= 3 && !soloNumeros) {
-        const { data: vByName } = await supabase
-          .from('estudiantes_vinculaciones')
-          .select('*')
-          .or(`nombres_estudiante.ilike.%${cleanTerm}%,apellidos_estudiante.ilike.%${cleanTerm}%`)
-          .limit(1);
+      // ─── CASO B: VINCULACIÓN REGULAR / CONSTANCIA / FICHA ───
+      const { data: todasVinculaciones } = await supabase
+        .from('estudiantes_vinculaciones')
+        .select('*');
 
-        if (vByName && vByName.length > 0) {
-          vincEncontrada = vByName[0];
+      if (todasVinculaciones && todasVinculaciones.length > 0) {
+        vincEncontrada = todasVinculaciones.find((item: any) => {
+          const d = item.datos_actualizados || {};
+          const codUnico = (d.codigo_unico || item.codigo_unico || '').toString().trim().toUpperCase();
+          const cedEstDigitos = (item.cedula_estudiante || d.estudiante_cedula || '').toString().replace(/\D/g, '');
+
+          // 1. Coincidencia exacta por código único
+          if (codUnico && codUnico === cleanUpper) return true;
+
+          // 2. Coincidencia por ID
+          if (item.id && String(item.id) === cleanUpper) return true;
+
+          // 3. Coincidencia EXACTA por cédula del estudiante
+          if (cedulaEstudianteBuscada && cedEstDigitos && cedEstDigitos === cedulaEstudianteBuscada) {
+            return true;
+          }
+
+          // 4. Si el término buscado es solo números y coincide con la cédula del estudiante
+          if (soloNumeros && soloNumeros.length >= 5 && cedEstDigitos === soloNumeros) {
+            return true;
+          }
+
+          return false;
+        }) || null;
+
+        // Fallback por nombre solo si no era código formal con prefijo ni cédula
+        if (!vincEncontrada && !cedulaEstudianteBuscada && !cleanUpper.startsWith('CI-') && !cleanUpper.startsWith('FI-') && cleanUpper.length >= 3) {
+          vincEncontrada = todasVinculaciones.find((item: any) => {
+            const nomEst = `${item.nombres_estudiante || ''} ${item.apellidos_estudiante || ''}`.toUpperCase();
+            return nomEst.includes(cleanUpper);
+          }) || null;
         }
       }
 
@@ -337,102 +367,41 @@ export const Verificaciones: React.FC = () => {
         setVinculacion(vincEncontrada);
       }
 
-      // ─── 2. CONSULTAR SOLICITUD_CUPOS (Y FALLBACK) ───────────────────────────
-      let cupoEncontrado: SolicitudCupoData | null = null;
-
-      const consultarCupos = async (tabla: string) => {
-        // a) Por código único
-        const { data: cByCode } = await supabase
-          .from(tabla)
-          .select('*')
-          .ilike('codigo_unico', `%${cleanTerm}%`)
-          .limit(1);
-
-        if (cByCode && cByCode.length > 0) return cByCode[0];
-
-        // b) Por cédula extraída
-        if (cedulaABuscar) {
-          const { data: cByCedula } = await supabase
-            .from(tabla)
-            .select('*')
-            .or(`estudiante_cedula.ilike.%${cedulaABuscar}%,representante_cedula.ilike.%${cedulaABuscar}%`)
-            .limit(1);
-
-          if (cByCedula && cByCedula.length > 0) return cByCedula[0];
-        }
-
-        // c) Por nombres
-        if (cleanTerm.length >= 3 && !soloNumeros) {
-          const { data: cByName } = await supabase
-            .from(tabla)
-            .select('*')
-            .or(`estudiante_nombres.ilike.%${cleanTerm}%,estudiante_apellidos.ilike.%${cleanTerm}%`)
-            .limit(1);
-
-          if (cByName && cByName.length > 0) return cByName[0];
-        }
-
-        return null;
-      };
-
-      try {
-        cupoEncontrado = await consultarCupos('solicitud_cupos');
-      } catch (e) {}
-
+      // ─── CASO C: CONSULTAR SOLICITUD DE CUPO SI AÚN NO SE HA ENCONTRADO ───
       if (!cupoEncontrado) {
-        try {
-          cupoEncontrado = await consultarCupos('solicitudes_cupos');
-        } catch (e) {}
+        const consultarCupos = async (tabla: string) => {
+          const { data: cList } = await supabase.from(tabla).select('*');
+          if (!cList) return null;
+          return cList.find((c: any) => {
+            const cod = (c.codigo_unico || '').toString().trim().toUpperCase();
+            if (cod && cod === cleanUpper) return true;
+            const cedCupo = (c.estudiante_cedula || '').replace(/\D/g, '');
+            if (cedulaEstudianteBuscada && cedCupo && cedCupo === cedulaEstudianteBuscada) return true;
+            return false;
+          }) || null;
+        };
+
+        try { cupoEncontrado = await consultarCupos('solicitud_cupos'); } catch (e) {}
+        if (!cupoEncontrado) {
+          try { cupoEncontrado = await consultarCupos('solicitudes_cupos'); } catch (e) {}
+        }
       }
 
       if (cupoEncontrado) {
         setSolicitudCupo(cupoEncontrado);
       }
 
-      // ─── 3. BÚSQUEDA CRUZADA POR CÉDULA PARA ASOCIAR AMBOS REGISTROS ────────
-      if (cupoEncontrado && !vincEncontrada && cupoEncontrado.estudiante_cedula) {
-        const cLim = cupoEncontrado.estudiante_cedula.replace(/\D/g, '');
-        if (cLim.length >= 4) {
-          const { data: cruzado } = await supabase
-            .from('estudiantes_vinculaciones')
-            .select('*')
-            .ilike('cedula_estudiante', `%${cLim}%`)
-            .limit(1);
-          if (cruzado && cruzado.length > 0) {
-            vincEncontrada = cruzado[0];
-            setVinculacion(vincEncontrada);
-          }
-        }
-      }
-
-      if (vincEncontrada && !cupoEncontrado && vincEncontrada.cedula_estudiante) {
-        const cLim = vincEncontrada.cedula_estudiante.replace(/\D/g, '');
-        if (cLim.length >= 4) {
-          try {
-            const { data: cruzadoCupo } = await supabase
-              .from('solicitud_cupos')
-              .select('*')
-              .ilike('estudiante_cedula', `%${cLim}%`)
-              .limit(1);
-            if (cruzadoCupo && cruzadoCupo.length > 0) {
-              cupoEncontrado = cruzadoCupo[0];
-              setSolicitudCupo(cupoEncontrado);
-            }
-          } catch (e) {}
-        }
-      }
-
       // ─── 4. CARGAR FIRMA DIGITAL Y DATOS DE DIRECCIÓN ───────────────────────
-      const escuelaFinal = vincEncontrada?.codigo_escuela || cupoEncontrado?.codigo_escuela || (cleanTerm.toUpperCase().includes('SB') ? 'sb' : 'lb');
+      const escuelaFinal = vincEncontrada?.codigo_escuela || cupoEncontrado?.codigo_escuela || (cleanUpper.includes('SB') ? 'sb' : 'lb');
       const dir = await obtenerDatosDirectorAsync(escuelaFinal);
       const firma = await obtenerFirmaDirectorProtegida(escuelaFinal);
       setDirInfo(dir);
       setFirmaBase64(firma);
 
       // Determinar pestaña según el prefijo o datos
-      if (cleanTerm.toUpperCase().startsWith('SC-') || (!vincEncontrada && cupoEncontrado)) {
+      if (cleanUpper.startsWith('SC-') || (!vincEncontrada && cupoEncontrado)) {
         setVistaDoc('cupo');
-      } else if (cleanTerm.toUpperCase().startsWith('FI-') || cleanTerm.toUpperCase().startsWith('RES-')) {
+      } else if (cleanUpper.startsWith('FI-') || cleanUpper.startsWith('RES-')) {
         setVistaDoc('resumen');
       } else {
         setVistaDoc('constancia');
@@ -1417,7 +1386,7 @@ export const Verificaciones: React.FC = () => {
                       return 'cédula escolar';
                     }
                     return 'cédula de identidad';
-                  })()} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
+                  })()} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
                 </p>
 
                 {/* PÁRRAFO 2: REPRESENTANTE LEGAL */}

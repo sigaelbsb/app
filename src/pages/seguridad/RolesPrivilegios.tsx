@@ -67,7 +67,9 @@ const ESTRUCTURA_ACCESOS = {
     "Mi Perfil": [], 
     "Métodos de Acceso": [], 
     "Gestión de Usuarios": [], 
-    "Roles y Privilegios": [], 
+    "Roles y Privilegios": [
+      "Función: Emulación de Roles"
+    ], 
     "Preguntas de Seguridad": [], 
     "Auditoría del Sistema": []
   }
@@ -77,7 +79,7 @@ const SUPER_PODERES = { ver: true, crear: true, eliminar: true, modificar: true,
 
 export const RolesPrivilegios = () => {
   const navigate = useNavigate();
-  const { tienePermisoEnEscuela, loading: permLoading } = usePermisos();
+  const { tienePermisoEnEscuela, tienePermiso, user, loading: permLoading } = usePermisos();
 
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +100,9 @@ export const RolesPrivilegios = () => {
 
   const canDeleteRolesSB = tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'eliminar');
   const canDeleteRolesLB = tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'eliminar');
+
+  // Capacidad de emulación de roles
+  const canEmulate = user?.rol === 'SuperAdmin' || user?.rol === 'Administrador' || tienePermiso('Función: Emulación de Roles', 'ver') || tienePermiso('Roles y Privilegios', 'ver');
 
   const Swal = (window as any).Swal;
 
@@ -518,6 +523,79 @@ export const RolesPrivilegios = () => {
     }
   };
 
+  const handleIniciarEmulacion = async (e: React.MouseEvent, rolObjetivo: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (!user) return;
+
+    const currentSchool = (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+
+    if (Swal) {
+      const { value: formValues } = await Swal.fire({
+        title: `<div class="d-flex align-items-center justify-content-center gap-2 text-dark"><i class="bi bi-person-bounding-box text-warning"></i> <span>Emular Rol: ${rolObjetivo}</span></div>`,
+        html: `
+          <div class="text-start mb-3">
+            <p class="text-muted small">
+              Vas a ingresar en <strong>Modo Emulación</strong> para visualizar y navegar el sistema exactamente como lo experimenta un usuario con rol <strong>${rolObjetivo}</strong>.
+            </p>
+            <label class="form-label fw-bold small text-dark"><i class="bi bi-building me-1"></i>Selecciona la Institución para la prueba:</label>
+            <select id="swal-escuela-emulacion" class="form-select rounded-3 py-2">
+              <option value="sb" ${currentSchool === 'sb' ? 'selected' : ''}>U.E. Santa Bárbara</option>
+              <option value="lb" ${currentSchool === 'lb' ? 'selected' : ''}>U.E. Libertador Bolívar</option>
+            </select>
+          </div>
+          <div class="alert alert-warning text-start small mb-0 py-2 border-0 rounded-3">
+            <i class="bi bi-shield-check me-1"></i> Tu sesión real de administrador se mantendrá a salvo y podrás regresar en cualquier momento pulsando el botón flotante en la barra superior.
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="bi bi-play-circle-fill me-1"></i> Iniciar Emulación',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#64748b',
+        preConfirm: () => {
+          const selectEl = document.getElementById('swal-escuela-emulacion') as HTMLSelectElement;
+          return {
+            escuela: selectEl ? (selectEl.value as 'sb' | 'lb') : currentSchool
+          };
+        }
+      });
+
+      if (!formValues) return;
+
+      const targetEscuela = formValues.escuela;
+      const targetEscuelaNombre = targetEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+
+      const yaEmulando = localStorage.getItem('sigae_usuario_original_admin');
+      if (!yaEmulando) {
+        localStorage.setItem('sigae_usuario_original_admin', JSON.stringify(user));
+      }
+
+      const usuarioEmulado = {
+        ...user,
+        rol: rolObjetivo,
+        id_escuela: targetEscuela,
+        nombre_escuela: targetEscuelaNombre,
+        es_emulacion: true,
+        rol_real: user.rol,
+        nombre_real: user.nombre
+      };
+
+      localStorage.setItem('usuario_sigae', JSON.stringify(usuarioEmulado));
+      localStorage.setItem('sigae_escuela_codigo', targetEscuela);
+      localStorage.setItem('sigae_escuela_activa', targetEscuelaNombre);
+      sessionStorage.setItem('sigae_emulacion_activa', 'true');
+
+      localStorage.removeItem('sigae_cache_permisos');
+      localStorage.removeItem('sigae_cache_full_permisos');
+
+      auditar('Roles y Privilegios', 'Iniciar Emulación de Rol', `El usuario ${user.nombre} (${user.rol}) inició emulación del rol: "${rolObjetivo}" en ${targetEscuelaNombre}`);
+
+      window.location.href = '/';
+    }
+  };
+
   const crearRol = () => {
     if (!Swal) return;
 
@@ -726,11 +804,25 @@ export const RolesPrivilegios = () => {
                               </small>
                             </div>
                           </div>
-                          {esActivo && (
-                            <span className="badge bg-primary bg-opacity-10 text-primary fw-bold" style={{ fontSize: '0.7rem' }}>
-                              Seleccionado
-                            </span>
-                          )}
+                          <div className="d-flex align-items-center gap-1">
+                            {canEmulate && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleIniciarEmulacion(e, r.nombre)}
+                                className="btn btn-xs rounded-pill px-2 py-0.5 fw-bold d-flex align-items-center gap-1 shadow-xs hover-efecto"
+                                style={{ backgroundColor: '#fef3c7', borderColor: '#fde68a', color: '#92400e', fontSize: '0.68rem' }}
+                                title={`Emular y probar vista del rol ${r.nombre}`}
+                              >
+                                <i className="bi bi-person-bounding-box text-warning"></i>
+                                <span>Emular</span>
+                              </button>
+                            )}
+                            {esActivo && (
+                              <span className="badge bg-primary bg-opacity-10 text-primary fw-bold" style={{ fontSize: '0.7rem' }}>
+                                Seleccionado
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Fila de Controles de Activación / Desactivación en Escuelas */}
@@ -807,7 +899,18 @@ export const RolesPrivilegios = () => {
                     <h4 className="mb-0 fw-bold text-dark">{rolSeleccionado.nombre}</h4>
                     <small className="text-muted">Activa o desactiva los submódulos a los que este rol puede acceder.</small>
                   </div>
-                  <div>
+                  <div className="d-flex align-items-center flex-wrap gap-2">
+                    {canEmulate && (
+                      <button 
+                        type="button"
+                        className="btn btn-warning btn-sm fw-bold px-3 rounded-pill shadow-sm hover-efecto text-dark" 
+                        style={{ backgroundColor: '#f59e0b', borderColor: '#d97706' }}
+                        onClick={(e) => handleIniciarEmulacion(e, rolSeleccionado.nombre)}
+                        title="Probar cómo ve la aplicación este rol"
+                      >
+                        <i className="bi bi-person-bounding-box me-1.5"></i>Probar / Emular este Rol
+                      </button>
+                    )}
                     <button 
                       className="btn btn-outline-danger btn-sm rounded-pill fw-bold px-3 shadow-sm" 
                       onClick={eliminarRolActual}
@@ -815,7 +918,7 @@ export const RolesPrivilegios = () => {
                       <i className="bi bi-trash3-fill me-1"></i>Borrar Rol
                     </button>
                     <button 
-                      className="btn btn-primary btn-sm fw-bold px-4 rounded-pill shadow-sm hover-efecto ms-2" 
+                      className="btn btn-primary btn-sm fw-bold px-4 rounded-pill shadow-sm hover-efecto" 
                       style={{ backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' }}
                       onClick={guardarPrivilegios}
                     >
