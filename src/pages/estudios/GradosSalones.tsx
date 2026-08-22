@@ -53,6 +53,8 @@ interface EstudianteVinculado {
   seccion_actual: string;
   codigo_escuela: string;
   cedula_representante?: string;
+  nombres_representante?: string;
+  apellidos_representante?: string;
   estado?: string;
   created_at?: string;
 }
@@ -106,6 +108,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
   // Selected Salon for Matrícula & Docente Guía view
   const [salonSeleccionadoId, setSalonSeleccionadoId] = useState<string>('');
+  const [seleccionadosMatricula, setSeleccionadosMatricula] = useState<string[]>([]);
 
   // Permissions Checks
   const hasAccessSB_Esp = tienePermisoEnEscuela('sb', 'Grados y Salones', 'ver') || tienePermisoEnEscuela('sb', 'Tarjeta: Ambientes y Espacios Físicos', 'ver') || tienePermisoEnEscuela('sb', 'Tarjeta: Apertura de Salones', 'ver');
@@ -1239,6 +1242,364 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     });
   };
 
+  // ──────────────────────────────────────────────────────────
+  // VINCULACIÓN MASIVA DE ESTUDIANTES AL SALÓN
+  // ──────────────────────────────────────────────────────────
+  const abrirModalVincularEstudiantesMasivo = (salon: SalonItem) => {
+    if (!Swal) return;
+
+    // 1. Filtrar estudiantes que pertenecen a la misma escuela y grado/año
+    const estudiantesDelGrado = estudiantes.filter(e => 
+      e.codigo_escuela === salon.id_escuela &&
+      (e.grado_actual || '').toLowerCase().trim() === (salon.grado_anio || '').toLowerCase().trim()
+    );
+
+    const inscritosEnEsteSalon = estudiantesDelGrado.filter(e => 
+      (e.seccion_actual || '').toUpperCase() === (salon.seccion || '').toUpperCase()
+    );
+
+    const candidatos = estudiantesDelGrado.filter(e => 
+      (e.seccion_actual || '').toUpperCase() !== (salon.seccion || '').toUpperCase()
+    ).sort((a, b) => (a.apellidos_estudiante || '').localeCompare(b.apellidos_estudiante || ''));
+
+    const espacioSalon = espacios.find(e => e.id === salon.id_espacio);
+    const capTotal = espacioSalon ? espacioSalon.capacidad : 35;
+    const vacantes = Math.max(0, capTotal - inscritosEnEsteSalon.length);
+    const nombrePlantel = salon.id_escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+
+    if (candidatos.length === 0) {
+      Swal.fire({
+        title: 'Sin Estudiantes Pendientes',
+        html: `
+          <div class="text-start">
+            <p class="mb-2">Todos los estudiantes registrados para <b>${salon.grado_anio}</b> en <b>${nombrePlantel}</b> ya se encuentran asignados a este salón (${inscritosEnEsteSalon.length} estudiantes).</p>
+            <p class="small text-muted mb-0">No hay estudiantes sin sección ni en otras secciones para vincular.</p>
+          </div>
+        `,
+        icon: 'info',
+        confirmButtonColor: '#00BCD4'
+      });
+      return;
+    }
+
+    const htmlModal = `
+      <div class="text-start" style="font-size: 13px;">
+        <!-- Cabecera Informativa -->
+        <div class="p-3 mb-3 rounded-4 border bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <span class="badge ${salon.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'} rounded-pill mb-1">${nombrePlantel}</span>
+            <div class="fw-bold fs-6 text-dark">${salon.nombre_salon} (Sección "${salon.seccion}")</div>
+            <div class="small text-muted">Grado/Año: ${salon.grado_anio} | Ambiente: ${espacioSalon?.nombre || 'General'}</div>
+          </div>
+          <div class="text-end">
+            <div class="small text-muted">Capacidad: <b>${capTotal} cupos</b></div>
+            <div class="small text-muted">Inscritos: <b class="text-primary">${inscritosEnEsteSalon.length}</b></div>
+            <div class="fw-bold ${vacantes > 0 ? 'text-success' : 'text-danger'}">Vacantes: ${vacantes} libres</div>
+          </div>
+        </div>
+
+        <!-- Barra de Búsqueda y Filtros -->
+        <div class="row g-2 mb-2 align-items-center">
+          <div class="col-12 col-md-7">
+            <input type="text" id="swal-search-cand" class="form-control form-control-sm border-info rounded-pill" placeholder="🔍 Buscar por cédula o nombre..." />
+          </div>
+          <div class="col-12 col-md-5 text-end">
+            <div class="btn-group btn-group-sm w-100" role="group">
+              <button type="button" id="btn-filtro-sin-sec" class="btn btn-outline-primary active rounded-start-pill py-1">Sin Sección</button>
+              <button type="button" id="btn-filtro-todos" class="btn btn-outline-primary rounded-end-pill py-1">Todos (${candidatos.length})</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Indicador de Selección -->
+        <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+          <div class="form-check m-0">
+            <input class="form-check-input" type="checkbox" id="swal-check-all-cand">
+            <label class="form-check-label fw-bold text-dark cursor-pointer" for="swal-check-all-cand">
+              Seleccionar Visibles
+            </label>
+          </div>
+          <div id="swal-counter-badge" class="badge bg-primary text-white rounded-pill px-3 py-1">
+            0 seleccionados
+          </div>
+        </div>
+
+        <!-- Tabla de Estudiantes Candidatos -->
+        <div class="table-responsive border rounded-3 bg-white" style="max-height: 280px; overflow-y: auto;">
+          <table class="table table-sm table-hover align-middle mb-0" id="tabla-candidatos">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th style="width: 35px;" class="text-center">#</th>
+                <th>Estudiante</th>
+                <th class="text-center">Cédula / C.E.</th>
+                <th class="text-center">Estado Actual</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-candidatos">
+              <!-- Renderizado dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    Swal.fire({
+      title: `Vincular Estudiantes Masivamente`,
+      html: htmlModal,
+      width: '750px',
+      showCancelButton: true,
+      confirmButtonText: `<i class="bi bi-person-check-fill me-1"></i> Asignar a Sección "${salon.seccion}"`,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#00BCD4',
+      cancelButtonColor: '#64748b',
+      didOpen: () => {
+        const searchInput = document.getElementById('swal-search-cand') as HTMLInputElement;
+        const checkAll = document.getElementById('swal-check-all-cand') as HTMLInputElement;
+        const counterBadge = document.getElementById('swal-counter-badge') as HTMLElement;
+        const tbody = document.getElementById('tbody-candidatos') as HTMLElement;
+        const btnSinSec = document.getElementById('btn-filtro-sin-sec') as HTMLButtonElement;
+        const btnTodos = document.getElementById('btn-filtro-todos') as HTMLButtonElement;
+
+        let filtroTipo: 'sin_seccion' | 'todos' = 'sin_seccion';
+        let textoBusqueda = '';
+        const seleccionadosSet = new Set<string>();
+
+        // Preseleccionar por defecto los "Sin Sección" hasta el límite de vacantes
+        const sinSecIniciales = candidatos.filter(c => !c.seccion_actual || c.seccion_actual.toLowerCase().includes('sin') || c.seccion_actual.trim() === '');
+        sinSecIniciales.slice(0, vacantes > 0 ? vacantes : sinSecIniciales.length).forEach(c => seleccionadosSet.add(c.id || c.cedula_estudiante));
+
+        const renderizarTabla = () => {
+          const lista = candidatos.filter(c => {
+            const isSinSec = !c.seccion_actual || c.seccion_actual.toLowerCase().includes('sin') || c.seccion_actual.trim() === '';
+            if (filtroTipo === 'sin_seccion' && !isSinSec) return false;
+
+            if (textoBusqueda) {
+              const q = textoBusqueda.toLowerCase();
+              const nom = `${c.nombres_estudiante || ''} ${c.apellidos_estudiante || ''}`.toLowerCase();
+              const ci = (c.cedula_estudiante || '').toLowerCase();
+              return nom.includes(q) || ci.includes(q);
+            }
+            return true;
+          });
+
+          if (lista.length === 0) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="4" class="text-center py-4 text-muted">
+                  <i class="bi bi-inbox fs-3 d-block mb-1"></i>
+                  No se encontraron estudiantes con los filtros aplicados.
+                </td>
+              </tr>
+            `;
+          } else {
+            tbody.innerHTML = lista.map((c) => {
+              const rowId = c.id || c.cedula_estudiante;
+              const isChecked = seleccionadosSet.has(rowId);
+              const isSinSec = !c.seccion_actual || c.seccion_actual.toLowerCase().includes('sin') || c.seccion_actual.trim() === '';
+              
+              return `
+                <tr class="${isChecked ? 'table-info' : ''}">
+                  <td class="text-center">
+                    <input type="checkbox" class="form-check-input chk-cand" id="chk-${rowId}" value="${rowId}" ${isChecked ? 'checked' : ''} />
+                  </td>
+                  <td>
+                    <div class="fw-bold text-dark">${c.apellidos_estudiante}, ${c.nombres_estudiante}</div>
+                    <div class="small text-muted">Rep: ${c.nombres_representante || c.cedula_representante || 'N/A'}</div>
+                  </td>
+                  <td class="text-center font-monospace">${c.cedula_estudiante}</td>
+                  <td class="text-center">
+                    <span class="badge ${isSinSec ? 'bg-warning text-dark' : 'bg-secondary text-white'} rounded-pill">
+                      ${isSinSec ? 'Sin Asignar' : `Sección "${c.seccion_actual}"`}
+                    </span>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          }
+
+          // Asignar listeners a cada checkbox
+          document.querySelectorAll('.chk-cand').forEach((chk: any) => {
+            chk.addEventListener('change', (e: any) => {
+              const val = e.target.value;
+              if (e.target.checked) {
+                seleccionadosSet.add(val);
+              } else {
+                seleccionadosSet.delete(val);
+              }
+              actualizarContador();
+            });
+          });
+
+          actualizarContador();
+        };
+
+        const actualizarContador = () => {
+          const count = seleccionadosSet.size;
+          if (counterBadge) {
+            if (count > vacantes && vacantes > 0) {
+              counterBadge.className = 'badge bg-danger text-white rounded-pill px-3 py-1';
+              counterBadge.innerHTML = `⚠️ ${count} seleccionados (Sobrecupo +${count - vacantes})`;
+            } else {
+              counterBadge.className = 'badge bg-primary text-white rounded-pill px-3 py-1';
+              counterBadge.innerHTML = `✓ ${count} seleccionados (de ${vacantes} vacantes)`;
+            }
+          }
+
+          const visibleChecks = document.querySelectorAll('.chk-cand');
+          if (checkAll && visibleChecks.length > 0) {
+            const allChecked = Array.from(visibleChecks).every((el: any) => el.checked);
+            checkAll.checked = allChecked;
+          }
+        };
+
+        if (searchInput) {
+          searchInput.addEventListener('input', (e: any) => {
+            textoBusqueda = e.target.value;
+            renderizarTabla();
+          });
+        }
+
+        if (btnSinSec && btnTodos) {
+          btnSinSec.addEventListener('click', () => {
+            filtroTipo = 'sin_seccion';
+            btnSinSec.classList.add('active');
+            btnTodos.classList.remove('active');
+            renderizarTabla();
+          });
+          btnTodos.addEventListener('click', () => {
+            filtroTipo = 'todos';
+            btnTodos.classList.add('active');
+            btnSinSec.classList.remove('active');
+            renderizarTabla();
+          });
+        }
+
+        if (checkAll) {
+          checkAll.addEventListener('change', (e: any) => {
+            const isChecked = e.target.checked;
+            document.querySelectorAll('.chk-cand').forEach((chk: any) => {
+              chk.checked = isChecked;
+              if (isChecked) {
+                seleccionadosSet.add(chk.value);
+              } else {
+                seleccionadosSet.delete(chk.value);
+              }
+            });
+            renderizarTabla();
+          });
+        }
+
+        renderizarTabla();
+        (window as any).__swal_seleccionados_cand__ = seleccionadosSet;
+      },
+      preConfirm: () => {
+        const seleccionadosSet = (window as any).__swal_seleccionados_cand__ as Set<string>;
+        const ids = seleccionadosSet ? Array.from(seleccionadosSet) : [];
+        if (ids.length === 0) {
+          Swal.showValidationMessage('Debe seleccionar al menos un estudiante para vincular');
+          return false;
+        }
+        return ids;
+      }
+    }).then(async (result: any) => {
+      if (result.isConfirmed && result.value) {
+        const ids: string[] = result.value;
+        setLoading(true);
+        try {
+          // Actualizar estudiantes por ID o Cédula
+          const { error } = await supabase
+            .from('estudiantes_vinculaciones')
+            .update({
+              seccion_actual: salon.seccion
+            })
+            .or(`id.in.(${ids.join(',')}),cedula_estudiante.in.(${ids.join(',')})`);
+
+          if (error) throw error;
+
+          auditar('Control de Estudios', 'Vincular Estudiantes Masivo', `Asignó ${ids.length} estudiantes a la sección "${salon.seccion}" de ${salon.nombre_salon}`);
+          Swal.fire({
+            icon: 'success',
+            title: '¡Estudiantes Vinculados!',
+            text: `Se han asignado exitosamente ${ids.length} estudiantes al salón ${salon.nombre_salon}.`,
+            confirmButtonColor: '#00BCD4'
+          });
+          cargarDatosCompletos(true);
+        } catch (e: any) {
+          console.error("Error al vincular estudiantes masivamente:", e);
+          Swal.fire('Error', e?.message || 'Falla al vincular estudiantes al salón.', 'error');
+          setLoading(false);
+        }
+      }
+    });
+  };
+
+  // Desvincular estudiante individual
+  const handleDesvincularEstudiante = (est: EstudianteVinculado, salon: SalonItem) => {
+    if (!Swal) return;
+    Swal.fire({
+      title: '¿Desvincular del Salón?',
+      text: `El estudiante ${est.nombres_estudiante} ${est.apellidos_estudiante} quedará en estado "Sin Asignar".`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Sí, desvincular',
+      cancelButtonText: 'Cancelar'
+    }).then(async (res: any) => {
+      if (res.isConfirmed) {
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from('estudiantes_vinculaciones')
+            .update({ seccion_actual: 'Sin Asignar' })
+            .eq('cedula_estudiante', est.cedula_estudiante);
+
+          if (error) throw error;
+          auditar('Control de Estudios', 'Desvincular Estudiante', `Desvinculó a ${est.nombres_estudiante} ${est.apellidos_estudiante} del salón ${salon.nombre_salon}`);
+          Swal.fire('Desvinculado', 'El estudiante ha sido desvinculado del salón.', 'success');
+          cargarDatosCompletos(true);
+        } catch (err: any) {
+          console.error(err);
+          Swal.fire('Error', 'No se pudo desvincular al estudiante.', 'error');
+          setLoading(false);
+        }
+      }
+    });
+  };
+
+  // Desvinculación masiva de estudiantes del salón
+  const handleDesvincularMasivo = (salon: SalonItem) => {
+    if (seleccionadosMatricula.length === 0 || !Swal) return;
+    Swal.fire({
+      title: `¿Desvincular ${seleccionadosMatricula.length} estudiantes?`,
+      text: `Los estudiantes seleccionados serán removidos del salón ${salon.nombre_salon} y volverán al estado "Sin Asignar".`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: `Sí, desvincular (${seleccionadosMatricula.length})`,
+      cancelButtonText: 'Cancelar'
+    }).then(async (res: any) => {
+      if (res.isConfirmed) {
+        setLoading(true);
+        try {
+          const { error } = await supabase
+            .from('estudiantes_vinculaciones')
+            .update({ seccion_actual: 'Sin Asignar' })
+            .or(`id.in.(${seleccionadosMatricula.join(',')}),cedula_estudiante.in.(${seleccionadosMatricula.join(',')})`);
+
+          if (error) throw error;
+          auditar('Control de Estudios', 'Desvinculación Masiva', `Desvinculó ${seleccionadosMatricula.length} estudiantes del salón ${salon.nombre_salon}`);
+          setSeleccionadosMatricula([]);
+          Swal.fire('¡Desvinculados!', `${seleccionadosMatricula.length} estudiantes han sido desvinculados exitosamente.`, 'success');
+          cargarDatosCompletos(true);
+        } catch (e: any) {
+          console.error(e);
+          Swal.fire('Error', 'No se pudieron desvincular los estudiantes seleccionados.', 'error');
+          setLoading(false);
+        }
+      }
+    });
+  };
+
   // Reporte Global de Capacidad Instalada
   const generarReporteCapacidadGlobalPDF = () => {
     if (!html2pdf) return;
@@ -2236,8 +2597,15 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                         <h4 className="fw-bold text-dark m-0 d-inline align-middle">{salonActivo.nombre_salon}</h4>
                       </div>
 
-                      {/* Botones de Descarga */}
-                      <div className="d-flex align-items-center gap-2">
+                      {/* Botones de Acción y Descarga */}
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        <button 
+                          className="btn btn-sm btn-info text-white rounded-pill fw-bold shadow-sm hover-efecto"
+                          onClick={() => abrirModalVincularEstudiantesMasivo(salonActivo)}
+                          title="Asignar y vincular estudiantes masivamente a este salón"
+                        >
+                          <i className="bi bi-person-plus-fill me-1"></i>Vincular Estudiantes
+                        </button>
                         <button 
                           className="btn btn-sm btn-outline-success rounded-pill fw-bold shadow-sm hover-efecto"
                           onClick={() => exportarListadoMatriculaExcel(salonActivo)}
@@ -2250,7 +2618,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                           onClick={() => exportarListadoMatriculaPDF(salonActivo)}
                           title="Descargar listado oficial en PDF"
                         >
-                          <i className="bi bi-file-earmark-pdf-fill me-1"></i>Descargar Listado Oficial PDF
+                          <i className="bi bi-file-earmark-pdf-fill me-1"></i>Descargar PDF
                         </button>
                       </div>
                     </div>
@@ -2290,7 +2658,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   </div>
 
                   <div className="card-body p-0">
-                    <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
+                    <div className="p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                       <h6 className="fw-bold text-dark m-0">Nómina de Estudiantes ({estudiantesSalonActivo.length})</h6>
                       <input 
                         type="text" 
@@ -2302,49 +2670,116 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                       />
                     </div>
 
+                    {/* Barra de Acciones Masivas en Nómina */}
+                    {seleccionadosMatricula.length > 0 && (
+                      <div className="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center flex-wrap gap-2 m-3 py-2 px-3 rounded-4 animate__animated animate__fadeIn">
+                        <span className="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold fs-6">
+                          <i className="bi bi-check2-square me-1"></i> {seleccionadosMatricula.length} estudiantes seleccionados
+                        </span>
+                        <div className="d-flex align-items-center gap-2">
+                          <button 
+                            className="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm"
+                            onClick={() => handleDesvincularMasivo(salonActivo)}
+                          >
+                            <i className="bi bi-person-dash-fill me-1"></i> Desvincular del Salón ({seleccionadosMatricula.length})
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="table-responsive" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                       <table className="table table-hover align-middle mb-0">
                         <thead className="table-light">
                           <tr>
-                            <th style={{ width: '40px' }} className="text-center">#</th>
+                            <th style={{ width: '40px' }} className="text-center">
+                              <input 
+                                type="checkbox" 
+                                className="form-check-input"
+                                checked={estudiantesSalonActivo.length > 0 && estudiantesSalonActivo.every(e => seleccionadosMatricula.includes(e.id || e.cedula_estudiante))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const ids = estudiantesSalonActivo.map(x => x.id || x.cedula_estudiante);
+                                    setSeleccionadosMatricula(Array.from(new Set([...seleccionadosMatricula, ...ids])));
+                                  } else {
+                                    const idsActuales = estudiantesSalonActivo.map(x => x.id || x.cedula_estudiante);
+                                    setSeleccionadosMatricula(seleccionadosMatricula.filter(id => !idsActuales.includes(id)));
+                                  }
+                                }}
+                              />
+                            </th>
+                            <th style={{ width: '35px' }} className="text-center">#</th>
                             <th>Nombres y Apellidos</th>
                             <th>Cédula / C.E.</th>
                             <th>C.I. Representante</th>
                             <th className="text-center">Estatus</th>
-                            <th className="text-end pe-4">Acción</th>
+                            <th className="text-end pe-4">Acciones</th>
                           </tr>
                         </thead>
                         <tbody>
                           {estudiantesSalonActivo.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="text-center py-5 text-muted">
+                              <td colSpan={7} className="text-center py-5 text-muted">
                                 <i className="bi bi-person-x fs-2 d-block mb-2"></i>
                                 No hay estudiantes inscritos o vinculados en este salón.
+                                <div className="mt-2">
+                                  <button 
+                                    className="btn btn-sm btn-info text-white rounded-pill px-3 fw-bold"
+                                    onClick={() => abrirModalVincularEstudiantesMasivo(salonActivo)}
+                                  >
+                                    <i className="bi bi-person-plus-fill me-1"></i>Vincular Estudiantes Ahora
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ) : (
-                            estudiantesSalonActivo.map((est, idx) => (
-                              <tr key={est.cedula_estudiante}>
-                                <td className="text-center fw-bold text-muted">{idx + 1}</td>
-                                <td>
-                                  <div className="fw-bold text-dark">{est.apellidos_estudiante}, {est.nombres_estudiante}</div>
-                                </td>
-                                <td><span className="badge bg-light text-dark border">C.I. {est.cedula_estudiante}</span></td>
-                                <td><span className="small text-muted">{est.cedula_representante || 'Sin asignar'}</span></td>
-                                <td className="text-center">
-                                  <span className="badge bg-success text-white rounded-pill px-2 py-1">Activo</span>
-                                </td>
-                                <td className="text-end pe-4">
-                                  <button 
-                                    className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold"
-                                    onClick={() => handleReasignarEstudiante(est)}
-                                    title="Mover a otra sección"
-                                  >
-                                    <i className="bi bi-arrow-left-right me-1"></i>Mover
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
+                            estudiantesSalonActivo.map((est, idx) => {
+                              const rowId = est.id || est.cedula_estudiante;
+                              const isChecked = seleccionadosMatricula.includes(rowId);
+
+                              return (
+                                <tr key={est.cedula_estudiante} className={isChecked ? 'table-info' : ''}>
+                                  <td className="text-center">
+                                    <input 
+                                      type="checkbox" 
+                                      className="form-check-input"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setSeleccionadosMatricula(prev => 
+                                          prev.includes(rowId) ? prev.filter(x => x !== rowId) : [...prev, rowId]
+                                        );
+                                      }}
+                                    />
+                                  </td>
+                                  <td className="text-center fw-bold text-muted">{idx + 1}</td>
+                                  <td>
+                                    <div className="fw-bold text-dark">{est.apellidos_estudiante}, {est.nombres_estudiante}</div>
+                                  </td>
+                                  <td><span className="badge bg-light text-dark border">C.I. {est.cedula_estudiante}</span></td>
+                                  <td><span className="small text-muted">{est.cedula_representante || 'Sin asignar'}</span></td>
+                                  <td className="text-center">
+                                    <span className="badge bg-success text-white rounded-pill px-2 py-1">Activo</span>
+                                  </td>
+                                  <td className="text-end pe-4">
+                                    <div className="btn-group btn-group-sm">
+                                      <button 
+                                        className="btn btn-outline-primary"
+                                        onClick={() => handleReasignarEstudiante(est)}
+                                        title="Mover a otra sección"
+                                      >
+                                        <i className="bi bi-arrow-left-right me-1"></i>Mover
+                                      </button>
+                                      <button 
+                                        className="btn btn-outline-danger"
+                                        onClick={() => handleDesvincularEstudiante(est, salonActivo)}
+                                        title="Desvincular de este salón"
+                                      >
+                                        <i className="bi bi-person-dash"></i>
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                       </table>
