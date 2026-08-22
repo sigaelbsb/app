@@ -341,29 +341,29 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
     setLoading(true);
     try {
+      const payload = {
+        nombre: formEspacio.nombre.trim(),
+        tipo: formEspacio.tipo,
+        capacidad: Number(formEspacio.capacidad) || 0,
+        id_escuela: formEspacio.id_escuela
+      };
+
       if (editandoEspacioId) {
-        const { error } = await supabase.from('espacios').update({
-          nombre: formEspacio.nombre.trim(),
-          tipo: formEspacio.tipo,
-          capacidad: Number(formEspacio.capacidad) || 0,
-          id_escuela: formEspacio.id_escuela,
-          ubicacion: formEspacio.ubicacion.trim(),
-          descripcion: formEspacio.descripcion.trim()
-        }).eq('id', editandoEspacioId);
+        const { error } = await supabase
+          .from('espacios')
+          .update(payload)
+          .eq('id', editandoEspacioId);
         if (error) throw error;
-        auditar('Espacios Escolares', 'Modificar', `Actualizó espacio físico ${formEspacio.nombre}`);
+        auditar('Espacios Escolares', 'Modificar', `Actualizó espacio físico ${payload.nombre}`);
         if (Swal) Swal.fire('¡Actualizado!', 'El espacio físico fue modificado exitosamente.', 'success');
       } else {
-        const { error } = await supabase.from('espacios').insert([{
-          nombre: formEspacio.nombre.trim(),
-          tipo: formEspacio.tipo,
-          capacidad: Number(formEspacio.capacidad) || 0,
-          id_escuela: formEspacio.id_escuela,
-          ubicacion: formEspacio.ubicacion.trim(),
-          descripcion: formEspacio.descripcion.trim()
-        }]);
+        const payloadInsert = {
+          ...payload,
+          id: 'ESP-' + new Date().getTime()
+        };
+        const { error } = await supabase.from('espacios').insert([payloadInsert]);
         if (error) throw error;
-        auditar('Espacios Escolares', 'Crear', `Registró nuevo espacio ${formEspacio.nombre}`);
+        auditar('Espacios Escolares', 'Crear', `Registró nuevo espacio ${payload.nombre}`);
         if (Swal) Swal.fire('¡Registrado!', 'Espacio escolar creado correctamente.', 'success');
       }
 
@@ -371,22 +371,107 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       setEditandoEspacioId(null);
       cargarDatosCompletos(true);
     } catch (err: any) {
-      console.error(err);
-      if (Swal) Swal.fire('Error', 'No se pudo guardar el espacio físico.', 'error');
+      console.error("Error al guardar espacio:", err);
+      if (Swal) Swal.fire('Error', err?.message || 'No se pudo guardar el espacio físico.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleEditarEspacio = (espacio: EspacioItem) => {
-    setEditandoEspacioId(espacio.id);
-    setFormEspacio({
-      nombre: espacio.nombre || '',
-      tipo: espacio.tipo || 'Aula de Clases',
-      capacidad: espacio.capacidad || 35,
-      id_escuela: espacio.id_escuela || 'sb',
-      ubicacion: espacio.ubicacion || '',
-      descripcion: espacio.descripcion || ''
+    if (!Swal) {
+      setEditandoEspacioId(espacio.id);
+      setFormEspacio({
+        nombre: espacio.nombre || '',
+        tipo: espacio.tipo || 'Aula de Clases',
+        capacidad: espacio.capacidad || 35,
+        id_escuela: espacio.id_escuela || 'sb',
+        ubicacion: '',
+        descripcion: ''
+      });
+      return;
+    }
+
+    const tipos = [
+      'Aula de Clases', 'Aula Clásica', 'Laboratorio', 'Cancha Deportiva',
+      'Biblioteca', 'Comedor / Cantina', 'Auditorio', 'Área Administrativa',
+      'Baños / Sanitarios', 'Otro'
+    ];
+
+    let optTipos = '';
+    tipos.forEach(t => {
+      optTipos += `<option value="${t}" ${espacio.tipo === t ? 'selected' : ''}>${t}</option>`;
+    });
+
+    let optEsc = `
+      <option value="sb" ${espacio.id_escuela === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
+      <option value="lb" ${espacio.id_escuela === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
+    `;
+
+    Swal.fire({
+      title: 'Editar Espacio / Ambiente Físico',
+      html: `
+        <div class="text-start">
+          <label class="small fw-bold text-muted mb-1"><i class="bi bi-building me-1"></i>Plantel / Escuela</label>
+          <select id="edit-esp-escuela" class="swal2-input m-0 mb-3 w-100">${optEsc}</select>
+
+          <label class="small fw-bold text-muted mb-1"><i class="bi bi-tag me-1"></i>Nombre del Espacio</label>
+          <input id="edit-esp-nombre" class="swal2-input m-0 mb-3 w-100" value="${espacio.nombre || ''}" placeholder="Ej: 1er Grado A, Lab. Ciencias..." />
+
+          <div class="row g-2 mb-3">
+            <div class="col-7">
+              <label class="small fw-bold text-muted mb-1"><i class="bi bi-door-open me-1"></i>Tipo de Ambiente</label>
+              <select id="edit-esp-tipo" class="swal2-input m-0 w-100">${optTipos}</select>
+            </div>
+            <div class="col-5">
+              <label class="small fw-bold text-muted mb-1"><i class="bi bi-people me-1"></i>Capacidad</label>
+              <input id="edit-esp-capacidad" type="number" min="1" max="1000" class="swal2-input m-0 w-100" value="${espacio.capacidad || 35}" />
+            </div>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar Cambios',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#00BCD4',
+      preConfirm: () => {
+        const esc = (document.getElementById('edit-esp-escuela') as HTMLSelectElement)?.value;
+        const nom = (document.getElementById('edit-esp-nombre') as HTMLInputElement)?.value;
+        const tip = (document.getElementById('edit-esp-tipo') as HTMLSelectElement)?.value;
+        const cap = Number((document.getElementById('edit-esp-capacidad') as HTMLInputElement)?.value) || 0;
+
+        if (!nom || !nom.trim()) {
+          Swal.showValidationMessage('El nombre del espacio es obligatorio');
+          return false;
+        }
+
+        if (cap <= 0) {
+          Swal.showValidationMessage('La capacidad debe ser mayor a 0');
+          return false;
+        }
+
+        return {
+          nombre: nom.trim(),
+          tipo: tip,
+          capacidad: cap,
+          id_escuela: esc
+        };
+      }
+    }).then(async (result: any) => {
+      if (result.isConfirmed && result.value) {
+        setLoading(true);
+        try {
+          const { error } = await supabase.from('espacios').update(result.value).eq('id', espacio.id);
+          if (error) throw error;
+          auditar('Espacios Escolares', 'Modificar', `Actualizó espacio físico ${result.value.nombre}`);
+          Swal.fire('¡Actualizado!', 'El espacio físico fue modificado exitosamente.', 'success');
+          cargarDatosCompletos(true);
+        } catch (err: any) {
+          console.error("Error al actualizar espacio:", err);
+          Swal.fire('Error', err?.message || 'No se pudo guardar el espacio físico.', 'error');
+          setLoading(false);
+        }
+      }
     });
   };
 
@@ -453,14 +538,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       if (result.isConfirmed && result.value) {
         setLoading(true);
         try {
-          const { error } = await supabase.from('espacios').insert([{
+          const payload = {
+            id: 'ESP-' + new Date().getTime(),
             nombre: result.value.nombre,
             tipo: espacio.tipo,
             capacidad: result.value.capacidad,
-            id_escuela: result.value.id_escuela,
-            ubicacion: espacio.ubicacion || '',
-            descripcion: espacio.descripcion || ''
-          }]);
+            id_escuela: result.value.id_escuela
+          };
+          const { error } = await supabase.from('espacios').insert([payload]);
           if (error) throw error;
           auditar('Espacios Escolares', 'Duplicar', `Duplicó ${espacio.nombre} como ${result.value.nombre}`);
           Swal.fire('¡Duplicado!', 'El ambiente escolar fue duplicado exitosamente.', 'success');
@@ -533,13 +618,13 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         setLoading(true);
         try {
           const espaciosADuplicar = espacios.filter(e => seleccionadosEspacios.includes(e.id));
-          const nuevosRegistros = espaciosADuplicar.map(e => ({
+          const timestampBase = new Date().getTime();
+          const nuevosRegistros = espaciosADuplicar.map((e, idx) => ({
+            id: `ESP-${timestampBase}-${idx}`,
             nombre: `${e.nombre}${result.value.sufijo}`,
             tipo: e.tipo,
             capacidad: e.capacidad,
-            id_escuela: result.value.escuelaOpt === 'conservar' ? e.id_escuela : result.value.escuelaOpt,
-            ubicacion: e.ubicacion || '',
-            descripcion: e.descripcion || ''
+            id_escuela: result.value.escuelaOpt === 'conservar' ? e.id_escuela : result.value.escuelaOpt
           }));
 
           const { error } = await supabase.from('espacios').insert(nuevosRegistros);
