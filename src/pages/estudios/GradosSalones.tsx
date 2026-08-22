@@ -591,10 +591,45 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       optNiveles += `<option value="${n.valor}" ${salonExistente?.nivel_educativo === n.valor ? 'selected' : ''}>${n.valor}</option>`;
     });
 
-    let optGrados = '<option value="">Seleccione Grado / Año...</option>';
-    grados.forEach(g => {
-      optGrados += `<option value="${g.valor}" ${salonExistente?.grado_anio === g.valor ? 'selected' : ''}>${g.valor}</option>`;
-    });
+    const gradoCorrespondeANivel = (gradoNombre: string, nivelNombre: string): boolean => {
+      if (!nivelNombre) return true;
+      const g = (gradoNombre || '').toLowerCase().trim();
+      const n = (nivelNombre || '').toLowerCase().trim();
+
+      // INICIAL / PREESCOLAR / MATERNAL (Grupos, Salas, Maternal)
+      if (n.includes('inicial') || n.includes('preescolar') || n.includes('maternal') || n.includes('infantil')) {
+        return g.includes('grupo') || g.includes('maternal') || g.includes('lactante') || g.includes('sala') || g.includes('preescolar') || g.includes('inicial');
+      }
+
+      // PRIMARIA / BASICA (Grados 1ro al 6to)
+      if (n.includes('primaria') || n.includes('básica') || n.includes('basica')) {
+        return (g.includes('grado') || g.includes('1er') || g.includes('2do') || g.includes('3er') || g.includes('4to') || g.includes('5to') || g.includes('6to')) && !g.includes('año') && !g.includes('ano') && !g.includes('grupo');
+      }
+
+      // MEDIA GENERAL / TECNICA / BACHILLERATO (Años 1ro al 6to)
+      if (n.includes('media') || n.includes('bachillerato') || n.includes('técnica') || n.includes('tecnica') || n.includes('secundaria')) {
+        return g.includes('año') || g.includes('ano') || g.includes('mención') || g.includes('mencion') || g.includes('semestre') || g.includes('técnico') || g.includes('tecnico');
+      }
+
+      return true;
+    };
+
+    const obtenerOpcionesGrados = (nivelSel: string, gradoSeleccionadoValor?: string) => {
+      let filtrados = grados.filter(g => gradoCorrespondeANivel(g.valor, nivelSel));
+      if (filtrados.length === 0) {
+        filtrados = grados;
+      }
+      filtrados.sort((a, b) => obtenerPesoJerarquico(a.valor) - obtenerPesoJerarquico(b.valor));
+
+      let html = '<option value="">Seleccione Grado / Grupo / Año...</option>';
+      filtrados.forEach(g => {
+        const isSelected = (gradoSeleccionadoValor ? gradoSeleccionadoValor === g.valor : salonExistente?.grado_anio === g.valor);
+        html += `<option value="${g.valor}" ${isSelected ? 'selected' : ''}>${g.valor}</option>`;
+      });
+      return html;
+    };
+
+    let optGrados = obtenerOpcionesGrados(salonExistente?.nivel_educativo || '', salonExistente?.grado_anio);
 
     let optSecc = '<option value="">Seleccione Sección...</option>';
     secciones.forEach(s => {
@@ -676,11 +711,32 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       confirmButtonColor: '#00BCD4',
       didOpen: () => {
         const escSel = document.getElementById('modal-escuela') as HTMLSelectElement;
-        const espSel = document.getElementById('modal-espacio') as HTMLSelectElement;
-        const espInfo = document.getElementById('modal-espacios-info') as HTMLElement;
+        const nivelSel = document.getElementById('modal-nivel') as HTMLSelectElement;
         const gradoSel = document.getElementById('modal-grado') as HTMLSelectElement;
         const seccSel = document.getElementById('modal-seccion') as HTMLSelectElement;
+        const espSel = document.getElementById('modal-espacio') as HTMLSelectElement;
+        const espInfo = document.getElementById('modal-espacios-info') as HTMLElement;
         const nomInput = document.getElementById('modal-nombre') as HTMLInputElement;
+
+        const autoActualizarNombre = () => {
+          if (!salonExistente && gradoSel && gradoSel.value && seccSel && seccSel.value) {
+            nomInput.value = `${gradoSel.value} "${seccSel.value}"`;
+          }
+        };
+
+        const refrescarGrados = (nivelVal: string, gradoValPre?: string) => {
+          if (gradoSel) {
+            gradoSel.innerHTML = obtenerOpcionesGrados(nivelVal, gradoValPre);
+          }
+          autoActualizarNombre();
+        };
+
+        if (nivelSel) {
+          nivelSel.addEventListener('change', () => {
+            refrescarGrados(nivelSel.value);
+          });
+          refrescarGrados(nivelSel.value, salonExistente?.grado_anio);
+        }
 
         const refrescarEspacios = (escId: string, preselectId?: string) => {
           const res = obtenerOpcionesEspacios(escId, preselectId);
@@ -701,11 +757,6 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           refrescarEspacios(escSel.value, salonExistente?.id_espacio);
         }
 
-        const autoActualizarNombre = () => {
-          if (!salonExistente && gradoSel.value && seccSel.value) {
-            nomInput.value = `${gradoSel.value} "${seccSel.value}"`;
-          }
-        };
         gradoSel.addEventListener('change', autoActualizarNombre);
         seccSel.addEventListener('change', autoActualizarNombre);
       },
