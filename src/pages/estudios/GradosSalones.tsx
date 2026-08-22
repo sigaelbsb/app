@@ -88,6 +88,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const [searchEspacios, setSearchEspacios] = useState<string>('');
   const [searchSalones, setSearchSalones] = useState<string>('');
   const [searchEstudiantes, setSearchEstudiantes] = useState<string>('');
+  const [searchReportes, setSearchReportes] = useState<string>('');
   const [paginaActualEspacios, setPaginaActualEspacios] = useState<number>(1);
   const itemsPorPaginaEspacios = 8;
 
@@ -1633,14 +1634,18 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     });
   };
 
-  // Reporte Global de Capacidad Instalada
-  const generarReporteCapacidadGlobalPDF = () => {
+  // Reporte de Capacidad Instalada (Global o por Escuela)
+  const generarReporteCapacidadGlobalPDF = (targetEscuela: string = escuelaFiltro) => {
     if (!html2pdf) return;
 
     const fechaHoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const anoActual = new Date().getFullYear();
 
-    const rowsEspaciosHtml = espacios.map((esp, idx) => {
+    const espaciosFiltradosReporte = targetEscuela === 'todas'
+      ? espacios
+      : espacios.filter(e => e.id_escuela === targetEscuela);
+
+    const rowsEspaciosHtml = espaciosFiltradosReporte.map((esp, idx) => {
       const salAsoc = salones.find(s => s.id_espacio === esp.id);
       const estCount = salAsoc ? estudiantes.filter(e => e.codigo_escuela === esp.id_escuela && (e.grado_actual || '').toLowerCase() === (salAsoc.grado_anio || '').toLowerCase() && (e.seccion_actual || '').toUpperCase() === (salAsoc.seccion || '').toUpperCase()).length : 0;
       const vacantes = Math.max(0, esp.capacidad - estCount);
@@ -1661,32 +1666,55 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       `;
     }).join('');
 
+    const tituloInforme = targetEscuela === 'sb'
+      ? 'INFORME OFICIAL DE CAPACIDAD INSTALADA - U.E. "SANTA BÁRBARA"'
+      : targetEscuela === 'lb'
+      ? 'INFORME OFICIAL DE CAPACIDAD INSTALADA - U.E. "LIBERTADOR BOLÍVAR"'
+      : 'INFORME OFICIAL DE CAPACIDAD INSTALADA E INFRAESTRUCTURA';
+
+    const subtituloInforme = targetEscuela === 'sb'
+      ? `Plantel: U.E. "Santa Bárbara" | Año Escolar ${anoActual}-${anoActual + 1} | Fecha: ${fechaHoy}`
+      : targetEscuela === 'lb'
+      ? `Plantel: U.E. "Libertador Bolívar" | Año Escolar ${anoActual}-${anoActual + 1} | Fecha: ${fechaHoy}`
+      : `Consolidado Institucional: U.E. Santa Bárbara & U.E. Libertador Bolívar | Año Escolar ${anoActual}-${anoActual + 1} | Fecha: ${fechaHoy}`;
+
+    const nombreArchivo = targetEscuela === 'sb'
+      ? `Reporte_Capacidad_Santa_Barbara_${new Date().toISOString().slice(0, 10)}.pdf`
+      : targetEscuela === 'lb'
+      ? `Reporte_Capacidad_Libertador_Bolivar_${new Date().toISOString().slice(0, 10)}.pdf`
+      : `Reporte_Capacidad_Consolidado_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+    const capTarget = targetEscuela === 'sb' ? capTotalSB : targetEscuela === 'lb' ? capTotalLB : capTotalGlobal;
+    const matTarget = targetEscuela === 'sb' ? matTotalSB : targetEscuela === 'lb' ? matTotalLB : matTotalGlobal;
+    const vacTarget = Math.max(0, capTarget - matTarget);
+    const pctTarget = capTarget > 0 ? Math.round((matTarget / capTarget) * 100) : 0;
+
     const templateHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 25px 30px; background: #fff;">
         <div style="text-align: center; border-bottom: 2px solid #059669; padding-bottom: 10px; margin-bottom: 15px;">
           <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">República Bolivariana de Venezuela</div>
           <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #64748b;">Ministerio del Poder Popular para la Educación</div>
-          <div style="font-size: 15px; font-weight: 800; color: #065f46; margin-top: 3px;">INFORME OFICIAL DE CAPACIDAD INSTALADA E INFRAESTRUCTURA</div>
-          <div style="font-size: 11px; color: #64748b;">Consolidado Institucional: U.E. Santa Bárbara & U.E. Libertador Bolívar | Año Escolar ${anoActual}-${anoActual + 1} | Fecha: ${fechaHoy}</div>
+          <div style="font-size: 15px; font-weight: 800; color: #065f46; margin-top: 3px;">${tituloInforme}</div>
+          <div style="font-size: 11px; color: #64748b;">${subtituloInforme}</div>
         </div>
 
         <!-- Indicadores Resumen -->
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; text-align: center;">
           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px;">
-            <div style="font-size: 9px; color: #166534; font-weight: bold; text-transform: uppercase;">Capacidad Total</div>
-            <div style="font-size: 18px; font-weight: 800; color: #15803d;">${capTotalGlobal} Cupos</div>
+            <div style="font-size: 9px; color: #166534; font-weight: bold; text-transform: uppercase;">Capacidad Instalada</div>
+            <div style="font-size: 18px; font-weight: 800; color: #15803d;">${capTarget} Cupos</div>
           </div>
           <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px;">
             <div style="font-size: 9px; color: #1e40af; font-weight: bold; text-transform: uppercase;">Matrícula Activa</div>
-            <div style="font-size: 18px; font-weight: 800; color: #1d4ed8;">${matTotalGlobal} Estudiantes</div>
+            <div style="font-size: 18px; font-weight: 800; color: #1d4ed8;">${matTarget} Estudiantes</div>
           </div>
           <div style="background: #ecfeff; border: 1px solid #a5f3fc; border-radius: 8px; padding: 8px;">
-            <div style="font-size: 9px; color: #155e75; font-weight: bold; text-transform: uppercase;">Santa Bárbara</div>
-            <div style="font-size: 14px; font-weight: 800; color: #0891b2;">Cap: ${capTotalSB} | Mat: ${matTotalSB}</div>
+            <div style="font-size: 9px; color: #155e75; font-weight: bold; text-transform: uppercase;">Vacantes Libres</div>
+            <div style="font-size: 18px; font-weight: 800; color: #0891b2;">${vacTarget} Cupos</div>
           </div>
           <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 8px;">
-            <div style="font-size: 9px; color: #9d174d; font-weight: bold; text-transform: uppercase;">Libertador Bolívar</div>
-            <div style="font-size: 14px; font-weight: 800; color: #be185d;">Cap: ${capTotalLB} | Mat: ${matTotalLB}</div>
+            <div style="font-size: 9px; color: #9d174d; font-weight: bold; text-transform: uppercase;">% Ocupación General</div>
+            <div style="font-size: 18px; font-weight: 800; color: #be185d;">${pctTarget}%</div>
           </div>
         </div>
 
@@ -1729,7 +1757,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
     const opt = {
       margin: 8,
-      filename: `Reporte_Capacidad_Instalada_${new Date().toISOString().slice(0, 10)}.pdf`,
+      filename: nombreArchivo,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 3, useCORS: true },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'landscape' }
@@ -1738,7 +1766,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     if (Swal) {
       Swal.fire({
         title: 'Generando Informe...',
-        html: 'Preparando el informe consolidado de infraestructura...',
+        html: 'Preparando el informe oficial de infraestructura...',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
@@ -1746,7 +1774,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
     html2pdf().set(opt).from(element).save().then(() => {
       if (Swal) Swal.close();
-      auditar('Control de Estudios', 'Reporte Capacidad', `Generó informe consolidado de capacidad`);
+      auditar('Control de Estudios', 'Reporte Capacidad', `Generó informe de capacidad (${targetEscuela})`);
     }).catch((err: any) => {
       console.error(err);
       if (Swal) {
@@ -2874,59 +2902,193 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       {/* ────────────────────────────────────────────────────────── */}
       {activeTab === 'reportes' && (
         <div className="animate__animated animate__fadeIn">
-          {/* Header de Reportes */}
+          {/* Header de Reportes y Filtro por Plantel */}
           <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
             <div>
-              <h4 className="fw-bold text-dark m-0">Informe Consolidado de Infraestructura y Capacidad</h4>
-              <p className="text-muted small m-0">Supervisión de cupos instalados vs. matrícula ocupada por plantel.</p>
-            </div>
-            <button 
-              className="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-efecto"
-              onClick={generarReporteCapacidadGlobalPDF}
-            >
-              <i className="bi bi-file-earmark-pdf-fill me-2"></i>Descargar Informe Consolidado (PDF)
-            </button>
-          </div>
-
-          {/* Tarjetas Comparativas de Métricas */}
-          <div className="row g-4 mb-4">
-            <div className="col-12 col-md-4">
-              <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
-                <span className="small fw-bold opacity-75">Capacidad Total Global</span>
-                <h2 className="fw-bold m-0 mt-1">{capTotalGlobal} Cupos</h2>
-                <div className="small opacity-90 mt-2">
-                  <i className="bi bi-check-circle me-1"></i>{matTotalGlobal} Estudiantes Inscritos ({capTotalGlobal > 0 ? Math.round((matTotalGlobal / capTotalGlobal) * 100) : 0}% ocupación)
-                </div>
-              </div>
+              <h4 className="fw-bold text-dark m-0">
+                <i className="bi bi-bar-chart-line-fill text-success me-2"></i>Informe de Infraestructura y Capacidad Instalada
+              </h4>
+              <p className="text-muted small m-0">Supervisión de cupos instalados vs. matrícula ocupada por plantel escolar.</p>
             </div>
 
-            <div className="col-12 col-md-4">
-              <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
-                <span className="small fw-bold opacity-75">U.E. Santa Bárbara</span>
-                <h2 className="fw-bold m-0 mt-1">{capTotalSB} Cupos</h2>
-                <div className="small opacity-90 mt-2">
-                  <i className="bi bi-people-fill me-1"></i>{matTotalSB} Estudiantes Inscritos ({capTotalSB > 0 ? Math.round((matTotalSB / capTotalSB) * 100) : 0}% ocupación)
-                </div>
-              </div>
-            </div>
-
-            <div className="col-12 col-md-4">
-              <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
-                <span className="small fw-bold opacity-75">U.E. Libertador Bolívar</span>
-                <h2 className="fw-bold m-0 mt-1">{capTotalLB} Cupos</h2>
-                <div className="small opacity-90 mt-2">
-                  <i className="bi bi-people-fill me-1"></i>{matTotalLB} Estudiantes Inscritos ({capTotalLB > 0 ? Math.round((matTotalLB / capTotalLB) * 100) : 0}% ocupación)
-                </div>
-              </div>
+            {/* Botones de Descarga PDF */}
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <button 
+                className="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-efecto"
+                onClick={() => generarReporteCapacidadGlobalPDF(escuelaFiltro)}
+                title="Descargar informe oficial en PDF según el filtro activo"
+              >
+                <i className="bi bi-file-earmark-pdf-fill me-2"></i>
+                Descargar Informe {escuelaFiltro === 'todas' ? 'Consolidado' : escuelaFiltro === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'} (PDF)
+              </button>
             </div>
           </div>
 
-          {/* Tabla de Capacidad por Salón */}
+          {/* Selector / Pills de Filtro por Escuela */}
+          <div className="card bg-white shadow-sm border-0 rounded-4 p-3 mb-4">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+              <div className="d-flex align-items-center gap-2">
+                <span className="small fw-bold text-muted text-uppercase">
+                  <i className="bi bi-building me-1"></i>Filtrar Plantel:
+                </span>
+                <div className="btn-group shadow-sm rounded-pill p-1 bg-light border" role="group">
+                  <button 
+                    type="button" 
+                    className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaFiltro === 'todas' ? 'btn-success text-white shadow-sm' : 'btn-light text-dark'}`}
+                    onClick={() => setEscuelaFiltro('todas')}
+                  >
+                    Todas las Escuelas ({espacios.length} Ambientes)
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaFiltro === 'sb' ? 'btn-info text-dark shadow-sm' : 'btn-light text-dark'}`}
+                    onClick={() => setEscuelaFiltro('sb')}
+                  >
+                    U.E. Santa Bárbara ({espacios.filter(e => e.id_escuela === 'sb').length} Ambientes)
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaFiltro === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
+                    onClick={() => setEscuelaFiltro('lb')}
+                  >
+                    U.E. Libertador Bolívar ({espacios.filter(e => e.id_escuela === 'lb').length} Ambientes)
+                  </button>
+                </div>
+              </div>
+
+              {/* Botones de Descarga Directa por Plantel */}
+              <div className="btn-group btn-group-sm">
+                <button 
+                  className="btn btn-outline-info rounded-start-pill fw-bold"
+                  onClick={() => generarReporteCapacidadGlobalPDF('sb')}
+                  title="Descargar solo informe de Santa Bárbara"
+                >
+                  <i className="bi bi-download me-1"></i>PDF Santa Bárbara
+                </button>
+                <button 
+                  className="btn btn-outline-primary rounded-end-pill fw-bold"
+                  onClick={() => generarReporteCapacidadGlobalPDF('lb')}
+                  title="Descargar solo informe de Libertador Bolívar"
+                >
+                  <i className="bi bi-download me-1"></i>PDF Libertador Bolívar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Tarjetas Comparativas de Métricas Dinámicas */}
+          {escuelaFiltro === 'todas' ? (
+            <div className="row g-4 mb-4">
+              <div className="col-12 col-md-4">
+                <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+                  <span className="small fw-bold opacity-75">Capacidad Total Global</span>
+                  <h2 className="fw-bold m-0 mt-1">{capTotalGlobal} Cupos</h2>
+                  <div className="small opacity-90 mt-2">
+                    <i className="bi bi-check-circle me-1"></i>{matTotalGlobal} Estudiantes Inscritos ({capTotalGlobal > 0 ? Math.round((matTotalGlobal / capTotalGlobal) * 100) : 0}% ocupación)
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-12 col-md-4">
+                <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
+                  <span className="small fw-bold opacity-75">U.E. Santa Bárbara</span>
+                  <h2 className="fw-bold m-0 mt-1">{capTotalSB} Cupos</h2>
+                  <div className="small opacity-90 mt-2">
+                    <i className="bi bi-people-fill me-1"></i>{matTotalSB} Estudiantes Inscritos ({capTotalSB > 0 ? Math.round((matTotalSB / capTotalSB) * 100) : 0}% ocupación)
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-12 col-md-4">
+                <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+                  <span className="small fw-bold opacity-75">U.E. Libertador Bolívar</span>
+                  <h2 className="fw-bold m-0 mt-1">{capTotalLB} Cupos</h2>
+                  <div className="small opacity-90 mt-2">
+                    <i className="bi bi-people-fill me-1"></i>{matTotalLB} Estudiantes Inscritos ({capTotalLB > 0 ? Math.round((matTotalLB / capTotalLB) * 100) : 0}% ocupación)
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : escuelaFiltro === 'sb' ? (
+            <div className="row g-3 mb-4">
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
+                  <span className="small fw-bold opacity-75">Capacidad Santa Bárbara</span>
+                  <h3 className="fw-bold m-0 mt-1">{capTotalSB} Cupos</h3>
+                  <div className="small opacity-90 mt-1">{espacios.filter(e => e.id_escuela === 'sb').length} Ambientes Físicos</div>
+                </div>
+              </div>
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+                  <span className="small fw-bold opacity-75">Matrícula Activa SB</span>
+                  <h3 className="fw-bold m-0 mt-1">{matTotalSB} Estudiantes</h3>
+                  <div className="small opacity-90 mt-1">{salones.filter(s => s.id_escuela === 'sb').length} Salones Aperturados</div>
+                </div>
+              </div>
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
+                  <span className="small fw-bold opacity-75">Vacantes Disponibles</span>
+                  <h3 className="fw-bold m-0 mt-1">{Math.max(0, capTotalSB - matTotalSB)} Cupos</h3>
+                  <div className="small opacity-90 mt-1">Disponibilidad en Santa Bárbara</div>
+                </div>
+              </div>
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' }}>
+                  <span className="small fw-bold opacity-75">% Ocupación General</span>
+                  <h3 className="fw-bold m-0 mt-1">{capTotalSB > 0 ? Math.round((matTotalSB / capTotalSB) * 100) : 0}%</h3>
+                  <div className="small opacity-90 mt-1">Uso de infraestructura instalada</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="row g-3 mb-4">
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+                  <span className="small fw-bold opacity-75">Capacidad Libertador Bolívar</span>
+                  <h3 className="fw-bold m-0 mt-1">{capTotalLB} Cupos</h3>
+                  <div className="small opacity-90 mt-1">{espacios.filter(e => e.id_escuela === 'lb').length} Ambientes Físicos</div>
+                </div>
+              </div>
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+                  <span className="small fw-bold opacity-75">Matrícula Activa LB</span>
+                  <h3 className="fw-bold m-0 mt-1">{matTotalLB} Estudiantes</h3>
+                  <div className="small opacity-90 mt-1">{salones.filter(s => s.id_escuela === 'lb').length} Salones Aperturados</div>
+                </div>
+              </div>
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
+                  <span className="small fw-bold opacity-75">Vacantes Disponibles</span>
+                  <h3 className="fw-bold m-0 mt-1">{Math.max(0, capTotalLB - matTotalLB)} Cupos</h3>
+                  <div className="small opacity-90 mt-1">Disponibilidad en Libertador Bolívar</div>
+                </div>
+              </div>
+              <div className="col-12 col-md-3">
+                <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)' }}>
+                  <span className="small fw-bold opacity-75">% Ocupación General</span>
+                  <h3 className="fw-bold m-0 mt-1">{capTotalLB > 0 ? Math.round((matTotalLB / capTotalLB) * 100) : 0}%</h3>
+                  <div className="small opacity-90 mt-1">Uso de infraestructura instalada</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tabla de Capacidad por Ambiente y Salón */}
           <div className="card bg-white shadow-sm border-0 rounded-4 overflow-hidden">
-            <div className="card-header bg-white border-bottom p-4">
+            <div className="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
               <h5 className="fw-bold text-dark m-0">
                 <i className="bi bi-table text-primary me-2"></i>Desglose de Ocupación por Ambiente y Salón
               </h5>
+              <div className="d-flex align-items-center gap-2">
+                <input 
+                  type="text" 
+                  className="form-control form-control-sm border-info rounded-pill"
+                  placeholder="🔍 Buscar ambiente, tipo o salón..."
+                  value={searchReportes}
+                  onChange={(e) => setSearchReportes(e.target.value)}
+                  style={{ maxWidth: '260px' }}
+                />
+              </div>
             </div>
             <div className="card-body p-0">
               <div className="table-responsive">
@@ -2944,50 +3106,78 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                     </tr>
                   </thead>
                   <tbody>
-                    {espacios.map(esp => {
-                      const sal = salones.find(s => s.id_espacio === esp.id);
-                      const estCount = sal ? estudiantes.filter(e => e.codigo_escuela === esp.id_escuela && (e.grado_actual || '').toLowerCase() === (sal.grado_anio || '').toLowerCase() && (e.seccion_actual || '').toUpperCase() === (sal.seccion || '').toUpperCase()).length : 0;
-                      const vacantes = Math.max(0, esp.capacidad - estCount);
-                      const pct = esp.capacidad > 0 ? Math.round((estCount / esp.capacidad) * 100) : 0;
+                    {(() => {
+                      const espaciosFiltradosTabla = espacios.filter(esp => {
+                        const matchEscuela = escuelaFiltro === 'todas' || esp.id_escuela === escuelaFiltro;
+                        if (!matchEscuela) return false;
 
-                      return (
-                        <tr key={esp.id}>
-                          <td>
-                            <span className={`badge rounded-pill ${esp.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
-                              {esp.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
-                            </span>
-                          </td>
-                          <td><span className="fw-bold text-dark">{esp.nombre}</span></td>
-                          <td><span className="badge bg-light text-dark border">{esp.tipo}</span></td>
-                          <td>
-                            {sal ? (
-                              <span className="badge bg-primary text-white rounded-pill px-3 py-1">
-                                {sal.nombre_salon}
+                        if (searchReportes) {
+                          const q = searchReportes.toLowerCase();
+                          const nom = (esp.nombre || '').toLowerCase();
+                          const tip = (esp.tipo || '').toLowerCase();
+                          const sal = salones.find(s => s.id_espacio === esp.id);
+                          const salNom = (sal?.nombre_salon || '').toLowerCase();
+                          return nom.includes(q) || tip.includes(q) || salNom.includes(q);
+                        }
+                        return true;
+                      });
+
+                      if (espaciosFiltradosTabla.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={8} className="text-center py-5 text-muted">
+                              <i className="bi bi-inbox fs-2 d-block mb-2"></i>
+                              No se encontraron ambientes escolares con los filtros aplicados.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return espaciosFiltradosTabla.map(esp => {
+                        const sal = salones.find(s => s.id_espacio === esp.id);
+                        const estCount = sal ? estudiantes.filter(e => e.codigo_escuela === esp.id_escuela && (e.grado_actual || '').toLowerCase() === (sal.grado_anio || '').toLowerCase() && (e.seccion_actual || '').toUpperCase() === (sal.seccion || '').toUpperCase()).length : 0;
+                        const vacantes = Math.max(0, esp.capacidad - estCount);
+                        const pct = esp.capacidad > 0 ? Math.round((estCount / esp.capacidad) * 100) : 0;
+
+                        return (
+                          <tr key={esp.id}>
+                            <td>
+                              <span className={`badge rounded-pill ${esp.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
+                                {esp.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
                               </span>
-                            ) : (
-                              <span className="badge bg-secondary text-white rounded-pill px-2 py-1">
-                                Disponible
-                              </span>
-                            )}
-                          </td>
-                          <td className="text-center fw-bold">{esp.capacidad}</td>
-                          <td className="text-center fw-bold text-primary">{estCount}</td>
-                          <td className="text-center fw-bold text-success">{vacantes}</td>
-                          <td className="text-center">
-                            <div className="d-flex align-items-center justify-content-center gap-2">
-                              <div className="progress flex-grow-1" style={{ height: '8px', maxWidth: '80px' }}>
-                                <div 
-                                  className={`progress-bar ${pct > 90 ? 'bg-danger' : pct > 75 ? 'bg-warning' : 'bg-success'}`} 
-                                  role="progressbar" 
-                                  style={{ width: `${Math.min(100, pct)}%` }}
-                                ></div>
+                            </td>
+                            <td><span className="fw-bold text-dark">{esp.nombre}</span></td>
+                            <td><span className="badge bg-light text-dark border">{esp.tipo}</span></td>
+                            <td>
+                              {sal ? (
+                                <span className="badge bg-primary text-white rounded-pill px-3 py-1">
+                                  {sal.nombre_salon}
+                                </span>
+                              ) : (
+                                <span className="badge bg-secondary text-white rounded-pill px-2 py-1">
+                                  Disponible
+                                </span>
+                              )}
+                            </td>
+                            <td className="text-center fw-bold">{esp.capacidad}</td>
+                            <td className="text-center fw-bold text-primary">{estCount}</td>
+                            <td className="text-center fw-bold text-success">{vacantes}</td>
+                            <td className="text-center">
+                              <div className="d-flex align-items-center justify-content-center gap-2">
+                                <div className="progress flex-grow-1" style={{ height: '8px', maxWidth: '80px' }}>
+                                  <div 
+                                    className={`progress-bar ${pct > 90 ? 'bg-danger' : pct > 75 ? 'bg-warning' : 'bg-success'}`} 
+                                    role="progressbar" 
+                                    style={{ width: `${Math.min(100, pct)}%` }}
+                                  ></div>
+                                </div>
+                                <span className="small fw-bold">{pct}%</span>
                               </div>
-                              <span className="small fw-bold">{pct}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
