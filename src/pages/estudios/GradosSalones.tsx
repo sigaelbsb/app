@@ -568,14 +568,23 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       return;
     }
 
-    const espaciosDisponibles = espacios.filter(e => {
-      return e.id_escuela === 'sb' ? canSalonesSB : canSalonesLB;
-    });
+    const escuelaInicial = salonExistente 
+      ? salonExistente.id_escuela 
+      : (escuelasAutorizadas.length === 1 ? escuelasAutorizadas[0] : (escuelaFiltro !== 'todas' ? escuelaFiltro : 'sb'));
 
-    let optEscuelas = `
-      <option value="sb" ${salonExistente?.id_escuela === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
-      <option value="lb" ${salonExistente?.id_escuela === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
-    `;
+    let optEscuelas = '';
+    if (escuelasAutorizadas.includes('sb')) {
+      optEscuelas += `<option value="sb" ${escuelaInicial === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>`;
+    }
+    if (escuelasAutorizadas.includes('lb')) {
+      optEscuelas += `<option value="lb" ${escuelaInicial === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>`;
+    }
+    if (!optEscuelas) {
+      optEscuelas = `
+        <option value="sb" ${escuelaInicial === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
+        <option value="lb" ${escuelaInicial === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
+      `;
+    }
 
     let optNiveles = '<option value="">Seleccione Nivel...</option>';
     niveles.forEach(n => {
@@ -592,11 +601,41 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       optSecc += `<option value="${s.valor}" ${salonExistente?.seccion === s.valor ? 'selected' : ''}>${s.valor}</option>`;
     });
 
-    let optEspacios = '<option value="">Seleccione Espacio Físico...</option>';
-    espaciosDisponibles.forEach(esp => {
-      const escTag = esp.id_escuela === 'sb' ? '[SB]' : '[LB]';
-      optEspacios += `<option value="${esp.id}" ${salonExistente?.id_espacio === esp.id ? 'selected' : ''}>${escTag} ${esp.nombre} (${esp.tipo} - Cap: ${esp.capacidad})</option>`;
-    });
+    const obtenerOpcionesEspacios = (idEsc: string, espacioSeleccionadoId?: string) => {
+      const todosEscuela = espacios.filter(e => e.id_escuela === idEsc);
+      
+      // Espacios ocupados por otros salones
+      const ocupadosPorOtros = new Set(
+        salones
+          .filter(s => s.id_salon !== salonExistente?.id_salon && s.id_espacio)
+          .map(s => s.id_espacio)
+      );
+
+      // Espacios libres (descontando los ocupados)
+      const disponibles = todosEscuela.filter(e => !ocupadosPorOtros.has(e.id));
+      disponibles.sort((a, b) => obtenerPesoJerarquico(a.nombre, a.tipo) - obtenerPesoJerarquico(b.nombre, b.tipo));
+
+      if (disponibles.length === 0) {
+        return {
+          html: `<option value="" disabled selected>⚠️ Sin espacios disponibles (${todosEscuela.length} espacios registrados en este plantel, todos ocupados)</option>`,
+          totalDisponibles: 0,
+          totalEscuela: todosEscuela.length
+        };
+      }
+
+      let html = `<option value="">-- Seleccione Espacio Disponible (${disponibles.length} libres) --</option>`;
+      disponibles.forEach(esp => {
+        const isCurrent = salonExistente?.id_espacio === esp.id;
+        const selected = (espacioSeleccionadoId ? espacioSeleccionadoId === esp.id : isCurrent) ? 'selected' : '';
+        html += `<option value="${esp.id}" ${selected}>🏛️ ${esp.nombre} [${esp.tipo} - Capacidad: ${esp.capacidad} cupos] ${isCurrent ? '(Asignado Actual)' : ''}</option>`;
+      });
+
+      return {
+        html,
+        totalDisponibles: disponibles.length,
+        totalEscuela: todosEscuela.length
+      };
+    };
 
     const htmlModal = `
       <div class="text-start">
@@ -618,8 +657,11 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           </div>
         </div>
 
-        <label class="small fw-bold text-muted mb-1"><i class="bi bi-door-open me-1"></i>Ambiente / Espacio Físico</label>
-        <select id="modal-espacio" class="swal2-input m-0 mb-3 w-100">${optEspacios}</select>
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="small fw-bold text-muted m-0"><i class="bi bi-door-open me-1"></i>Espacio Físico Disponible</label>
+          <div id="modal-espacios-info"></div>
+        </div>
+        <select id="modal-espacio" class="swal2-input m-0 mb-3 w-100"></select>
 
         <label class="small fw-bold text-muted mb-1"><i class="bi bi-input-cursor-text me-1"></i>Nombre del Salón (Auto-generado o Personalizado)</label>
         <input id="modal-nombre" class="swal2-input m-0 w-100" placeholder="Ej: 1er Grado 'A'" value="${salonExistente ? salonExistente.nombre_salon : ''}" />
@@ -633,9 +675,31 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       confirmButtonText: salonExistente ? 'Actualizar Salón' : 'Aperturar Salón',
       confirmButtonColor: '#00BCD4',
       didOpen: () => {
+        const escSel = document.getElementById('modal-escuela') as HTMLSelectElement;
+        const espSel = document.getElementById('modal-espacio') as HTMLSelectElement;
+        const espInfo = document.getElementById('modal-espacios-info') as HTMLElement;
         const gradoSel = document.getElementById('modal-grado') as HTMLSelectElement;
         const seccSel = document.getElementById('modal-seccion') as HTMLSelectElement;
         const nomInput = document.getElementById('modal-nombre') as HTMLInputElement;
+
+        const refrescarEspacios = (escId: string, preselectId?: string) => {
+          const res = obtenerOpcionesEspacios(escId, preselectId);
+          if (espSel) espSel.innerHTML = res.html;
+          if (espInfo) {
+            if (res.totalDisponibles > 0) {
+              espInfo.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 rounded-pill" style="font-size: 11px;"><i class="bi bi-check-circle-fill me-1"></i>${res.totalDisponibles} de ${res.totalEscuela} libres</span>`;
+            } else {
+              espInfo.innerHTML = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5 rounded-pill" style="font-size: 11px;"><i class="bi bi-exclamation-triangle-fill me-1"></i>0 de ${res.totalEscuela} libres</span>`;
+            }
+          }
+        };
+
+        if (escSel) {
+          escSel.addEventListener('change', () => {
+            refrescarEspacios(escSel.value);
+          });
+          refrescarEspacios(escSel.value, salonExistente?.id_espacio);
+        }
 
         const autoActualizarNombre = () => {
           if (!salonExistente && gradoSel.value && seccSel.value) {
@@ -653,8 +717,13 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         const espacio = (document.getElementById('modal-espacio') as HTMLSelectElement).value;
         const nombre = (document.getElementById('modal-nombre') as HTMLInputElement).value;
 
-        if (!nivel || !grado || !seccion || !espacio || !nombre.trim()) {
+        if (!nivel || !grado || !seccion || !nombre.trim()) {
           Swal.showValidationMessage('Todos los campos son obligatorios');
+          return false;
+        }
+
+        if (!espacio || espacio === '') {
+          Swal.showValidationMessage('Debe seleccionar un espacio físico disponible para este plantel');
           return false;
         }
 
