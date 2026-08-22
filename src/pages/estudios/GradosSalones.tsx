@@ -150,15 +150,42 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const cargarDatosCompletos = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const [nivRes, graRes, secRes, espRes, salRes, docRes, estRes] = await Promise.all([
+      // 1. Cargar datos básicos de configuración en paralelo
+      const [nivRes, graRes, secRes, espRes, salRes, docRes] = await Promise.all([
         supabase.from('conf_niveles').select('*').order('valor', { ascending: true }),
         supabase.from('conf_grados').select('*').order('orden', { ascending: true }),
         supabase.from('conf_secciones').select('*').order('valor', { ascending: true }),
         supabase.from('espacios').select('*'),
         supabase.from('salones').select('*'),
-        supabase.from('usuarios').select('cedula, nombre_completo, id_escuela, telefono, email').eq('rol', 'Docente').eq('estado', 'Activo').order('nombre_completo', { ascending: true }),
-        supabase.from('estudiantes_vinculaciones').select('*').eq('estado', 'Activo')
+        supabase.from('usuarios').select('cedula, nombre_completo, id_escuela, telefono, email').eq('rol', 'Docente').eq('estado', 'Activo').order('nombre_completo', { ascending: true })
       ]);
+
+      // 2. Cargar la totalidad de estudiantes vinculados paginando para evitar el límite de 1000 registros de Supabase
+      let todosEstudiantes: EstudianteVinculado[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: estData, error: estErr } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('*')
+          .eq('estado', 'Activo')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (estErr) throw estErr;
+
+        if (estData && estData.length > 0) {
+          todosEstudiantes = [...todosEstudiantes, ...estData];
+          if (estData.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
 
       if (nivRes.data) setNiveles(nivRes.data);
       if (graRes.data) setGrados(graRes.data);
@@ -171,7 +198,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         }
       }
       if (docRes.data) setDocentes(docRes.data);
-      if (estRes.data) setEstudiantes(estRes.data);
+      setEstudiantes(todosEstudiantes);
     } catch (e: any) {
       console.error("Error al cargar datos del módulo unificado:", e);
       if (Swal) Swal.fire('Error', 'Falla de conexión al cargar datos escolares.', 'error');
