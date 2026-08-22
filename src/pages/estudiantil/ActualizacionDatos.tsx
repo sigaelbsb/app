@@ -8,7 +8,7 @@ import { jsPDF } from 'jspdf';
 
 import { auditar } from '../../lib/audit';
 import { toTitulo } from '../../lib/formatters';
-import { obtenerFirmaDirectorProtegida, obtenerDatosDirectorAsync } from '../../utils/firmasSeguras';
+import { obtenerFirmaDirectorProtegida, obtenerDatosDirectorAsync, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 
 
 
@@ -536,18 +536,7 @@ export const ActualizacionDatos: React.FC = () => {
   };
 
   const generarConstanciaInscripcion = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp' | 'email') => {
-    const rawEsc = (
-      datosEst.codigo_escuela || 
-      datosEst.escuela_codigo || 
-      datosEst.id_escuela || 
-      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('santa') ? 'sb' : '') ||
-      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('libertador') ? 'lb' : '') ||
-      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('sb') ? 'sb' : '') ||
-      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('lb') ? 'lb' : '') ||
-      localStorage.getItem('sigae_escuela_codigo') || 
-      'lb'
-    ).toString().toLowerCase();
-    const escCodigo = rawEsc.includes('sb') ? 'sb' : 'lb';
+    const escCodigo = resolverEscuelaEstudiante(datosEst, formDatos);
     const escNombre = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
     const anoActual = new Date().getFullYear();
     const anoProximo = anoActual + 1;
@@ -909,18 +898,7 @@ export const ActualizacionDatos: React.FC = () => {
   };
 
   const generarImpresionResumen = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp' | 'email') => {
-    const rawEsc = (
-      datosEst.codigo_escuela || 
-      datosEst.escuela_codigo || 
-      datosEst.id_escuela || 
-      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('santa') ? 'sb' : '') ||
-      (datosEst.nombre_escuela && datosEst.nombre_escuela.toLowerCase().includes('libertador') ? 'lb' : '') ||
-      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('sb') ? 'sb' : '') ||
-      (formDatos.codigo_unico && formDatos.codigo_unico.toLowerCase().includes('lb') ? 'lb' : '') ||
-      localStorage.getItem('sigae_escuela_codigo') || 
-      'lb'
-    ).toString().toLowerCase();
-    const escCodigo = rawEsc.includes('sb') ? 'sb' : 'lb';
+    const escCodigo = resolverEscuelaEstudiante(datosEst, formDatos);
     const escNombre = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
     const fechaHoy = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
     const anoActual = new Date().getFullYear();
@@ -1525,26 +1503,26 @@ export const ActualizacionDatos: React.FC = () => {
 
 
 
-      const [rutasTransRes, paradasTransRes] = await Promise.all([
-
-        supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }),
-
-        supabase.from('transporte_paradas').select('*').eq('escuela_codigo', escCodigo).order('nombre_parada', { ascending: true })
-
-      ]);
-
-      setRutasTransporteDB(rutasTransRes.data || []);
-
-      setParadasTransporteDB(paradasTransRes.data || []);
-
-
+      const escuelaInicial = resolverEscuelaEstudiante(null);
+      await cargarTransporteParaEscuela(escuelaInicial);
 
     } catch (e) {
-
       console.error('Error cargando catálogos:', e);
-
     }
+  };
 
+  const cargarTransporteParaEscuela = async (escTarget?: string) => {
+    const esc = (escTarget || 'sb').toLowerCase();
+    try {
+      const [rutasTransRes, paradasTransRes] = await Promise.all([
+        supabase.from('transporte_rutas').select('*').eq('escuela_codigo', esc).order('nombre', { ascending: true }),
+        supabase.from('transporte_paradas').select('*').eq('escuela_codigo', esc).order('nombre_parada', { ascending: true })
+      ]);
+      setRutasTransporteDB(rutasTransRes.data || []);
+      setParadasTransporteDB(paradasTransRes.data || []);
+    } catch (e) {
+      console.error('Error cargando transporte para escuela:', esc, e);
+    }
   };
 
 
@@ -1612,6 +1590,12 @@ export const ActualizacionDatos: React.FC = () => {
     const initialStep = targetStep || 1;
     sessionStorage.setItem('sigae_act_draft_estudiante_id', String(est.id));
     sessionStorage.setItem('sigae_act_draft_step', String(initialStep));
+
+    // Cargar rutas y paradas específicas de la escuela de este estudiante
+    const escEst = resolverEscuelaEstudiante(est, est.datos_actualizados);
+    cargarTransporteParaEscuela(escEst);
+    setSelectedRutaObj(null);
+    setSelectedParadaObj(null);
 
     const tipoDocDefecto = (est.datos_actualizados && est.datos_actualizados.estudiante_tipo_documento)
       ? est.datos_actualizados.estudiante_tipo_documento
@@ -1785,8 +1769,10 @@ export const ActualizacionDatos: React.FC = () => {
     setSavingStatus('saving');
     const timer = setTimeout(async () => {
       try {
+        const escEst = resolverEscuelaEstudiante(estudianteSeleccionado, form);
         const payload = {
-          datos_actualizados: form,
+          datos_actualizados: { ...form, codigo_escuela: escEst },
+          codigo_escuela: escEst,
           fecha_ultima_actualizacion: new Date().toISOString()
         };
         const { error } = await supabase
@@ -1817,13 +1803,14 @@ export const ActualizacionDatos: React.FC = () => {
     try {
 
       const nowIso = new Date().toISOString();
-      const escKey = (estudianteSeleccionado.codigo_escuela || 'sb').toUpperCase();
+      const escKey = resolverEscuelaEstudiante(estudianteSeleccionado, form).toUpperCase();
       const cedLimpia = (estudianteSeleccionado.cedula_estudiante || form.estudiante_cedula || '').replace(/\D/g, '');
       const anoAct = new Date().getFullYear();
       const codigoGenerado = form.codigo_unico || estudianteSeleccionado.codigo_unico || `CI-${escKey}-${cedLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoAct}`;
 
       const payload = {
-        datos_actualizados: { ...form, codigo_unico: codigoGenerado },
+        datos_actualizados: { ...form, codigo_unico: codigoGenerado, codigo_escuela: escKey.toLowerCase() },
+        codigo_escuela: escKey.toLowerCase(),
         fecha_ultima_actualizacion: nowIso
       };
 
@@ -4699,13 +4686,14 @@ const STEPS = [
                 }
 
                 const datosFormEst = est.datos_actualizados || {};
+                const escEst = resolverEscuelaEstudiante(est, datosFormEst);
 
                 return (
                   <div className="col-md-6 col-xl-4" key={est.id}>
                     <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden hover-shadow transition-all">
                       <div className="card-header border-0 p-4 pb-0 bg-transparent d-flex justify-content-between align-items-start">
-                        <span className={`badge ${est.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-3 py-2 rounded-pill`}>
-                          {est.codigo_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
+                        <span className={`badge ${escEst === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-3 py-2 rounded-pill`}>
+                          {escEst === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
                         </span>
 
                         {estadoFicha === 'actualizado' && (

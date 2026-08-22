@@ -49,6 +49,65 @@ export const obtenerDatosDirectorAsync = async (escCodigo: string): Promise<Dato
   return DIRECTORES_MAP[key] || DIRECTORES_MAP['lb'];
 };
 
+export const resolverEscuelaEstudiante = (est: any, form?: any): 'sb' | 'lb' => {
+  if (!est && !form) return 'sb';
+
+  const candidates = [
+    est?.codigo_escuela,
+    est?.escuela_codigo,
+    est?.id_escuela,
+    form?.codigo_escuela,
+    form?.escuela_codigo,
+    form?.id_escuela,
+    est?.datos_actualizados?.codigo_escuela,
+    est?.datos_actualizados?.escuela_codigo,
+    est?.datos_actualizados?.id_escuela,
+    est?.nombre_escuela,
+    form?.nombre_escuela,
+    est?.datos_actualizados?.nombre_escuela,
+    est?.codigo_unico,
+    form?.codigo_unico,
+    est?.datos_actualizados?.codigo_unico,
+  ];
+
+  for (const c of candidates) {
+    if (!c) continue;
+    const str = String(c).toLowerCase().trim();
+    if (
+      str === 'sb' ||
+      str.startsWith('sb-') ||
+      str.startsWith('sb_') ||
+      str.includes('santa') ||
+      str.includes('barbara') ||
+      str.includes('bárbara') ||
+      str.includes('tejero') ||
+      str.includes('ci-sb') ||
+      str.includes('fi-sb') ||
+      str.includes('sol-sb')
+    ) {
+      return 'sb';
+    }
+    if (
+      str === 'lb' ||
+      str.startsWith('lb-') ||
+      str.startsWith('lb_') ||
+      str.includes('libertador') ||
+      str.includes('bolivar') ||
+      str.includes('bolívar') ||
+      str.includes('miraflores') ||
+      str.includes('ci-lb') ||
+      str.includes('fi-lb') ||
+      str.includes('sol-lb')
+    ) {
+      return 'lb';
+    }
+  }
+
+  const savedEsc = (typeof window !== 'undefined' ? localStorage.getItem('sigae_escuela_codigo') || '' : '').toLowerCase().trim();
+  if (savedEsc.includes('lb') || savedEsc.includes('libertador')) return 'lb';
+  return 'sb';
+};
+
 const RUTA_FIRMAS: Record<string, string> = {
   sb: '/assets/img/firma_director_sb.png',
   lb: '/assets/img/firma_director_lb.png',

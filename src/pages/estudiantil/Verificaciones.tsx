@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import jsQR from 'jsqr';
-import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida } from '../../utils/firmasSeguras';
+import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 import { toTitulo } from '../../lib/formatters';
 
 interface VinculacionData {
@@ -392,7 +392,7 @@ export const Verificaciones: React.FC = () => {
       }
 
       // ─── 4. CARGAR FIRMA DIGITAL Y DATOS DE DIRECCIÓN ───────────────────────
-      const escuelaFinal = vincEncontrada?.codigo_escuela || cupoEncontrado?.codigo_escuela || (cleanUpper.includes('SB') ? 'sb' : 'lb');
+      const escuelaFinal = resolverEscuelaEstudiante(vincEncontrada || cupoEncontrado, { codigo_unico: cleanUpper });
       const dir = await obtenerDatosDirectorAsync(escuelaFinal);
       const firma = await obtenerFirmaDirectorProtegida(escuelaFinal);
       setDirInfo(dir);
@@ -705,7 +705,7 @@ export const Verificaciones: React.FC = () => {
   const anoActual = new Date().getFullYear();
   const anoProximo = anoActual + 1;
   const cedulaLimpia = cedulaEstudiante.replace(/\D/g, '') || '0000';
-  const escuelaCodigo = (vinculacion?.codigo_escuela || solicitudCupo?.codigo_escuela || (codigoBusqueda.toUpperCase().includes('SB') ? 'sb' : 'lb')).toLowerCase();
+  const escuelaCodigo = resolverEscuelaEstudiante(vinculacion || solicitudCupo, { codigo_unico: codigoBusqueda });
 
   // Sincronizar datos y firma del Director correspondiente a la escuela
   useEffect(() => {

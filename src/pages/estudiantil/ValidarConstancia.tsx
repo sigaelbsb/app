@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { obtenerDatosDirector } from '../../utils/firmasSeguras';
+import { obtenerDatosDirector, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 import { toTitulo } from '../../lib/formatters';
 
 export const ValidarConstancia: React.FC = () => {
@@ -135,7 +135,7 @@ export const ValidarConstancia: React.FC = () => {
     consultarDocumento();
   }, [codigo]);
 
-  const escCodigo = datosDocumento?.codigo_escuela || 'lb';
+  const escCodigo = resolverEscuelaEstudiante(datosDocumento);
   const dirData = obtenerDatosDirector(escCodigo);
   const logoEscuela = `/assets/img/logo_${escCodigo}.png`;
   const logoMppe = '/assets/img/logoMPPE.png';

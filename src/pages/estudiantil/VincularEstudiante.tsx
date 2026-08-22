@@ -8,7 +8,7 @@ import { auditar } from '../../lib/audit';
 import * as XLSX from 'xlsx';
 
 import { toTitulo } from '../../lib/formatters';
-import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida } from '../../utils/firmasSeguras';
+import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 
 const handleTituloChange = (
   e: React.ChangeEvent<HTMLInputElement>,
@@ -242,7 +242,7 @@ export const VincularEstudiante: React.FC = () => {
     setEstudianteDoc(est);
     setVistaDocEstudiante(tipoInicial);
     setShowDocModal(true);
-    const esc = (est.codigo_escuela || 'lb').toLowerCase();
+    const esc = resolverEscuelaEstudiante(est);
     try {
       const dir = await obtenerDatosDirectorAsync(esc);
       const firma = await obtenerFirmaDirectorProtegida(esc);
@@ -314,7 +314,7 @@ export const VincularEstudiante: React.FC = () => {
       }
 
       const cedulaEst = (estudianteDoc.cedula_estudiante || '').replace(/\D/g, '') || '0000';
-      const esc = (estudianteDoc.codigo_escuela || 'lb').toUpperCase();
+      const esc = resolverEscuelaEstudiante(estudianteDoc).toUpperCase();
       const nombreDoc = vistaDocEstudiante === 'constancia'
         ? `Constancia_Inscripcion_${esc}_${cedulaEst}.pdf`
         : `Resumen_Ficha_Integral_${esc}_${cedulaEst}.pdf`;
@@ -333,7 +333,7 @@ export const VincularEstudiante: React.FC = () => {
   const handleCompartirDocWhatsApp = () => {
     if (!estudianteDoc) return;
     const cedulaEst = estudianteDoc.cedula_estudiante || 'No posee';
-    const esc = (estudianteDoc.codigo_escuela || 'lb').toUpperCase();
+    const esc = resolverEscuelaEstudiante(estudianteDoc).toUpperCase();
     const ano = new Date().getFullYear();
     const codigoConst = estudianteDoc.codigo_unico || `CI-${esc}-${cedulaEst.replace(/\D/g, '') || '0000'}-${ano}`;
     const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -4382,7 +4382,7 @@ export const VincularEstudiante: React.FC = () => {
                 const anoActual = new Date().getFullYear();
                 const anoProximo = anoActual + 1;
                 const cedulaLimpia = cedulaEstudiante.replace(/\D/g, '') || '0000';
-                const escuelaCodigo = (estudianteDoc.codigo_escuela || 'lb').toLowerCase();
+                const escuelaCodigo = resolverEscuelaEstudiante(estudianteDoc);
 
                 const codigoConstancia = estudianteDoc.codigo_unico || `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
                 const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;

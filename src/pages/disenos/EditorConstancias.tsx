@@ -2,19 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
+import { resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 
 declare const Swal: any;
 declare const html2pdf: any;
-
-export interface FirmanteConfig {
-  id: string;
-  nombre: string;
-  titulo: string; // Ej: Prof., Lcda., Dr., Ing.
-  cargo: string;  // Ej: Director(a) General, Coordinador(a) de Control de Estudios
-  cedula: string; // Ej: V-12.345.678
-  firma_digital_url?: string;
-  mostrar_firma_digital: boolean;
-}
 
 export interface PlantillaConstancia {
   id: string;
@@ -23,38 +14,39 @@ export interface PlantillaConstancia {
   id_escuela: string; // 'sb', 'lb', 'todas'
   titulo_documento: string;
   
-  // Estructura Gráfica
+  // Encabezado y Membrete
+  mostrar_bandera_venezuela: boolean;
+  logo_escuela_url: string;
+  membrete_linea1: string;
+  membrete_linea2: string;
+  membrete_nombre_escuela: string;
+  membrete_ubicacion: string;
+  
+  // Redacción de Párrafos
+  parrafo_certificacion: string;
+  parrafo_representante: string;
+  parrafo_expedicion: string;
+  ciudad_expedicion: string;
+  
+  // Firmante / Dirección
+  titulo_director: string; // Profa. / Prof.
+  nombre_director: string; // Elika Dayana Chaviel Rondón / José Vicente Millán Montaño
+  cedula_director: string; // 16.808.608 / 17.780.095
+  cargo_director: string;  // Directora de la Unidad Educativa Santa Bárbara
+  cargo_generico: string;  // Directora / Director
+  firma_digital_url: string; // /assets/img/firma_director_sb.png
+  mostrar_firma_digital: boolean;
+  
+  // Sello y QR
+  sello_humedo_url?: string;
+  mostrar_sello_humedo: boolean;
+  mostrar_codigo_qr: boolean;
+  logo_mppe_url: string;
+  
+  // Estilos
   fuente_familia: string;
   tamano_fuente: number;
   interlineado: number;
-  estilo_marco: 'clasico_doble' | 'diplomatico' | 'simple' | 'sin_marco';
-  color_acento: string;
-  mostrar_marca_agua: boolean;
-  opacidad_marca_agua: number;
-  logo_izquierdo_url: string;
-  logo_derecho_url: string;
-  
-  // Textos del Membrete
-  membrete_linea1: string;
-  membrete_linea2: string;
-  membrete_linea3: string;
-  membrete_codigo_dea: string;
-  membrete_rif: string;
-  
-  // Redacción del Documento
-  cuerpo_texto: string;
-  clausula_cierre: string;
-  pie_pagina: string;
-  
-  // Gestión de Firmantes y Sellos
-  disposicion_firmas: 'una_centrada' | 'dos_columnas' | 'tres_columnas';
-  firmantes: FirmanteConfig[];
-  sello_humedo_url?: string;
-  mostrar_sello_humedo: boolean;
-  
-  // Verificación y Seguridad
-  mostrar_codigo_qr: boolean;
-  mostrar_codigo_seguridad: boolean;
   
   created_at?: string;
   updated_at?: string;
@@ -66,196 +58,124 @@ const PLANTILLAS_PREDETERMINADAS: PlantillaConstancia[] = [
     codigo_tipo: 'inscripcion',
     nombre: 'Constancia de Inscripción Oficial (U.E. Santa Bárbara)',
     id_escuela: 'sb',
-    titulo_documento: 'CONSTANCIA DE INSCRIPCIÓN',
-    fuente_familia: "'Times New Roman', serif",
-    tamano_fuente: 12,
-    interlineado: 1.5,
-    estilo_marco: 'clasico_doble',
-    color_acento: '#0284c7',
-    mostrar_marca_agua: true,
-    opacidad_marca_agua: 0.08,
-    logo_izquierdo_url: '/assets/img/logo_mppe.png',
-    logo_derecho_url: '/assets/img/logo_sb.png',
-    membrete_linea1: 'REPÚBLICA BOLIVARIANA DE VENEZUELA',
-    membrete_linea2: 'MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN',
-    membrete_linea3: 'UNIDAD EDUCATIVA "SANTA BÁRBARA"',
-    membrete_codigo_dea: 'COD. DEA: OD05280702',
-    membrete_rif: 'RIF: J-00000000-0',
-    cuerpo_texto: `Quien suscribe, la Dirección de la Unidad Educativa "Santa Bárbara", por medio de la presente hace constar que el/la estudiante {nombre_estudiante}, titular de la Cédula de Identidad / C.E. N.° {cedula_estudiante}, se encuentra formalmente INSCRITO(A) en esta institución educativa para cursar el {grado_actual}, Sección "{seccion_actual}", correspondiente al Año Escolar {periodo_escolar}.\n\nAsimismo, se deja constancia que el/la representante legal es {nombre_representante}, titular de la Cédula de Identidad N.° {cedula_representante}, quien ha consignado los recaudos exigidos y formalizado la matrícula en el sistema de gestión académica.`,
-    clausula_cierre: `Constancia que se expide a petición de la parte interesada en Ciudad Guayana, a los {fecha_hoy_letras}.`,
-    pie_pagina: `U.E. "Santa Bárbara" | Dirección: Av. Principal, Ciudad Guayana, Edo. Bolívar | Correo: uesantabarbara@sigae.edu.ve`,
-    disposicion_firmas: 'dos_columnas',
-    firmantes: [
-      {
-        id: 'f1',
-        titulo: 'Prof.',
-        nombre: 'Luis Velásquez',
-        cargo: 'Director General',
-        cedula: 'V-17.242.954',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      },
-      {
-        id: 'f2',
-        titulo: 'Lcda.',
-        nombre: 'Coordinación Académica',
-        cargo: 'Control de Estudios y Evaluación',
-        cedula: 'V-15.000.000',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      }
-    ],
+    titulo_documento: 'Constancia de Inscripción',
+    mostrar_bandera_venezuela: true,
+    logo_escuela_url: '/assets/img/logo_sb.png',
+    membrete_linea1: 'República Bolivariana de Venezuela',
+    membrete_linea2: 'Ministerio del Poder Popular para la Educación',
+    membrete_nombre_escuela: 'Unidad Educativa Santa Bárbara',
+    membrete_ubicacion: 'El Tejero, estado Monagas',
+    parrafo_certificacion: `Quien suscribe, <b>{titulo_director} {nombre_director}</b>, {cargo_generico} de la <b>{nombre_escuela}</b>, que funciona en <b>{ubicacion_escuela}</b>, por medio de la presente hace constar que el/la estudiante: <b>{nombre_estudiante}</b>, natural de <b>{lugar_nacimiento}</b>, estado <b>{estado_nacimiento}</b>, titular de la {tipo_cedula} N.° <b>{cedula_estudiante}</b>, fue inscrito/a para cursar el <b>{grado_actual}</b> de <b>{nivel_educativo}</b> en este instituto durante el año escolar <b>{periodo_escolar}</b>.`,
+    parrafo_representante: `Asimismo, se deja constancia que el representante legal del/de la estudiante es <b>{nombre_representante}</b>, titular de la cédula de identidad N.° <b>{cedula_representante}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.`,
+    parrafo_expedicion: `Constancia que se expide para los efectos y fines consiguientes en <b>{ciudad_expedicion}</b>, a los {dia_expedicion} días del mes de {mes_expedicion} del año {ano_expedicion}.`,
+    ciudad_expedicion: 'El Tejero',
+    titulo_director: 'Profa.',
+    nombre_director: 'Elika Dayana Chaviel Rondón',
+    cedula_director: '16.808.608',
+    cargo_director: 'Directora de la Unidad Educativa Santa Bárbara',
+    cargo_generico: 'Directora',
+    firma_digital_url: '/assets/img/firma_director_sb.png',
+    mostrar_firma_digital: true,
     sello_humedo_url: '',
-    mostrar_sello_humedo: true,
+    mostrar_sello_humedo: false,
     mostrar_codigo_qr: true,
-    mostrar_codigo_seguridad: true
+    logo_mppe_url: '/assets/img/logoMPPE.png',
+    fuente_familia: 'Arial, Helvetica, sans-serif',
+    tamano_fuente: 14.5,
+    interlineado: 2.15
   },
   {
     id: 'CONST-INSC-LB',
     codigo_tipo: 'inscripcion',
     nombre: 'Constancia de Inscripción Oficial (U.E. Libertador Bolívar)',
     id_escuela: 'lb',
-    titulo_documento: 'CONSTANCIA DE INSCRIPCIÓN',
-    fuente_familia: "'Times New Roman', serif",
-    tamano_fuente: 12,
-    interlineado: 1.5,
-    estilo_marco: 'clasico_doble',
-    color_acento: '#4f46e5',
-    mostrar_marca_agua: true,
-    opacidad_marca_agua: 0.08,
-    logo_izquierdo_url: '/assets/img/logo_mppe.png',
-    logo_derecho_url: '/assets/img/logo_lb.png',
-    membrete_linea1: 'REPÚBLICA BOLIVARIANA DE VENEZUELA',
-    membrete_linea2: 'MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN',
-    membrete_linea3: 'UNIDAD EDUCATIVA "LIBERTADOR BOLÍVAR"',
-    membrete_codigo_dea: 'COD. DEA: OD05280703',
-    membrete_rif: 'RIF: J-00000000-0',
-    cuerpo_texto: `Quien suscribe, la Dirección de la Unidad Educativa "Libertador Bolívar", por medio de la presente hace constar que el/la estudiante {nombre_estudiante}, titular de la Cédula de Identidad / C.E. N.° {cedula_estudiante}, se encuentra formalmente INSCRITO(A) en esta institución educativa para cursar el {grado_actual}, Sección "{seccion_actual}", correspondiente al Año Escolar {periodo_escolar}.\n\nAsimismo, se deja constancia que el/la representante legal es {nombre_representante}, titular de la Cédula de Identidad N.° {cedula_representante}, quien ha consignado los recaudos exigidos y formalizado la matrícula en el sistema de gestión académica.`,
-    clausula_cierre: `Constancia que se expide a petición de la parte interesada en Ciudad Guayana, a los {fecha_hoy_letras}.`,
-    pie_pagina: `U.E. "Libertador Bolívar" | Dirección: Av. Guayana, Puerto Ordaz, Edo. Bolívar | Correo: uelibertadorbolivar@sigae.edu.ve`,
-    disposicion_firmas: 'dos_columnas',
-    firmantes: [
-      {
-        id: 'f1',
-        titulo: 'Prof.',
-        nombre: 'Luis Velásquez',
-        cargo: 'Director General',
-        cedula: 'V-17.242.954',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      },
-      {
-        id: 'f2',
-        titulo: 'Lcda.',
-        nombre: 'Coordinación Académica',
-        cargo: 'Control de Estudios y Evaluación',
-        cedula: 'V-15.000.000',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      }
-    ],
+    titulo_documento: 'Constancia de Inscripción',
+    mostrar_bandera_venezuela: true,
+    logo_escuela_url: '/assets/img/logo_lb.png',
+    membrete_linea1: 'República Bolivariana de Venezuela',
+    membrete_linea2: 'Ministerio del Poder Popular para la Educación',
+    membrete_nombre_escuela: 'Unidad Educativa Libertador Bolívar',
+    membrete_ubicacion: 'Miraflores, estado Monagas',
+    parrafo_certificacion: `Quien suscribe, <b>{titulo_director} {nombre_director}</b>, {cargo_generico} de la <b>{nombre_escuela}</b>, que funciona en <b>{ubicacion_escuela}</b>, por medio de la presente hace constar que el/la estudiante: <b>{nombre_estudiante}</b>, natural de <b>{lugar_nacimiento}</b>, estado <b>{estado_nacimiento}</b>, titular de la {tipo_cedula} N.° <b>{cedula_estudiante}</b>, fue inscrito/a para cursar el <b>{grado_actual}</b> de <b>{nivel_educativo}</b> en este instituto durante el año escolar <b>{periodo_escolar}</b>.`,
+    parrafo_representante: `Asimismo, se deja constancia que el representante legal del/de la estudiante es <b>{nombre_representante}</b>, titular de la cédula de identidad N.° <b>{cedula_representante}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.`,
+    parrafo_expedicion: `Constancia que se expide para los efectos y fines consiguientes en <b>{ciudad_expedicion}</b>, a los {dia_expedicion} días del mes de {mes_expedicion} del año {ano_expedicion}.`,
+    ciudad_expedicion: 'Miraflores',
+    titulo_director: 'Prof.',
+    nombre_director: 'José Vicente Millán Montaño',
+    cedula_director: '17.780.095',
+    cargo_director: 'Director de la Unidad Educativa Libertador Bolívar',
+    cargo_generico: 'Director',
+    firma_digital_url: '/assets/img/firma_director_lb.png',
+    mostrar_firma_digital: true,
     sello_humedo_url: '',
-    mostrar_sello_humedo: true,
+    mostrar_sello_humedo: false,
     mostrar_codigo_qr: true,
-    mostrar_codigo_seguridad: true
+    logo_mppe_url: '/assets/img/logoMPPE.png',
+    fuente_familia: 'Arial, Helvetica, sans-serif',
+    tamano_fuente: 14.5,
+    interlineado: 2.15
   },
   {
     id: 'CONST-ESTUDIO-GEN',
     codigo_tipo: 'estudio',
     nombre: 'Constancia de Estudio Regular',
     id_escuela: 'todas',
-    titulo_documento: 'CONSTANCIA DE ESTUDIO',
-    fuente_familia: "'Times New Roman', serif",
-    tamano_fuente: 12,
-    interlineado: 1.5,
-    estilo_marco: 'diplomatico',
-    color_acento: '#059669',
-    mostrar_marca_agua: true,
-    opacidad_marca_agua: 0.07,
-    logo_izquierdo_url: '/assets/img/logo_mppe.png',
-    logo_derecho_url: '/assets/img/logo_sb.png',
-    membrete_linea1: 'REPÚBLICA BOLIVARIANA DE VENEZUELA',
-    membrete_linea2: 'MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN',
-    membrete_linea3: '{nombre_escuela}',
-    membrete_codigo_dea: '{codigo_dea}',
-    membrete_rif: 'RIF: J-00000000-0',
-    cuerpo_texto: `Por medio de la presente se hace constar que el/la estudiante {nombre_estudiante}, titular de la Cédula de Identidad / C.E. N.° {cedula_estudiante}, es estudiante regular de este plantel y se encuentra cursando activamente el {grado_actual}, Sección "{seccion_actual}", en el nivel de {nivel_educativo}, durante el Año Escolar {periodo_escolar}.\n\nSe deja constancia de su intachable asistencia y rendimiento académico en las actividades regulares correspondientes a su programa formativo.`,
-    clausula_cierre: `Constancia que se expide a solicitud de la parte interesada a los fines consiguientes, a los {fecha_hoy_letras}.`,
-    pie_pagina: `Documento Académico Oficial emitido por el Sistema Integral de Gestión y Administración Escolar (SIGAE).`,
-    disposicion_firmas: 'dos_columnas',
-    firmantes: [
-      {
-        id: 'f1',
-        titulo: 'Prof.',
-        nombre: 'Luis Velásquez',
-        cargo: 'Director General',
-        cedula: 'V-17.242.954',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      },
-      {
-        id: 'f2',
-        titulo: 'Prof.',
-        nombre: 'Control de Estudios',
-        cargo: 'Coordinación de Evaluación',
-        cedula: 'V-18.000.000',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      }
-    ],
+    titulo_documento: 'Constancia de Estudio',
+    mostrar_bandera_venezuela: true,
+    logo_escuela_url: '/assets/img/logo_sb.png',
+    membrete_linea1: 'República Bolivariana de Venezuela',
+    membrete_linea2: 'Ministerio del Poder Popular para la Educación',
+    membrete_nombre_escuela: '{nombre_escuela}',
+    membrete_ubicacion: '{ubicacion_escuela}',
+    parrafo_certificacion: `Quien suscribe, la Dirección de la <b>{nombre_escuela}</b>, hace constar por medio de la presente que el/la estudiante: <b>{nombre_estudiante}</b>, titular de la {tipo_cedula} N.° <b>{cedula_estudiante}</b>, es estudiante regular y se encuentra cursando activamente el <b>{grado_actual}</b> de <b>{nivel_educativo}</b> durante el año escolar <b>{periodo_escolar}</b>.`,
+    parrafo_representante: `Se deja constancia de su intachable rendimiento escolar y asistencia en las actividades académicas programadas por la institución.`,
+    parrafo_expedicion: `Constancia que se expide a solicitud de la parte interesada a los fines consiguientes en <b>{ciudad_expedicion}</b>, a los {dia_expedicion} días del mes de {mes_expedicion} del año {ano_expedicion}.`,
+    ciudad_expedicion: 'El Tejero',
+    titulo_director: 'Profa.',
+    nombre_director: 'Elika Dayana Chaviel Rondón',
+    cedula_director: '16.808.608',
+    cargo_director: 'Directora General',
+    cargo_generico: 'Directora',
+    firma_digital_url: '/assets/img/firma_director_sb.png',
+    mostrar_firma_digital: true,
     sello_humedo_url: '',
-    mostrar_sello_humedo: true,
+    mostrar_sello_humedo: false,
     mostrar_codigo_qr: true,
-    mostrar_codigo_seguridad: true
+    logo_mppe_url: '/assets/img/logoMPPE.png',
+    fuente_familia: 'Arial, Helvetica, sans-serif',
+    tamano_fuente: 14.5,
+    interlineado: 2.15
   },
   {
     id: 'CONST-CONDUCTA-GEN',
     codigo_tipo: 'conducta',
-    nombre: 'Constancia de Buena Conducta y Convivencia',
+    nombre: 'Constancia de Buena Conducta',
     id_escuela: 'todas',
-    titulo_documento: 'CONSTANCIA DE BUENA CONDUCTA',
-    fuente_familia: "'Times New Roman', serif",
-    tamano_fuente: 12,
-    interlineado: 1.5,
-    estilo_marco: 'clasico_doble',
-    color_acento: '#d97706',
-    mostrar_marca_agua: true,
-    opacidad_marca_agua: 0.08,
-    logo_izquierdo_url: '/assets/img/logo_mppe.png',
-    logo_derecho_url: '/assets/img/logo_sb.png',
-    membrete_linea1: 'REPÚBLICA BOLIVARIANA DE VENEZUELA',
-    membrete_linea2: 'MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN',
-    membrete_linea3: '{nombre_escuela}',
-    membrete_codigo_dea: '{codigo_dea}',
-    membrete_rif: 'RIF: J-00000000-0',
-    cuerpo_texto: `Quien suscribe, la Dirección de {nombre_escuela}, hace constar que el/la estudiante {nombre_estudiante}, titular de la Cédula de Identidad / C.E. N.° {cedula_estudiante}, quien cursa el {grado_actual}, Sección "{seccion_actual}", durante su permanencia en nuestra institución ha demostrado una EXCELENTE CONDUCTA, alto sentido de responsabilidad, respeto por las normas de convivencia escolar y valores éticos intachables.`,
-    clausula_cierre: `Constancia que se expide a solicitud de la parte interesada en Ciudad Guayana, a los {fecha_hoy_letras}.`,
-    pie_pagina: `Documento expedido de conformidad con las normativas vigentes del Ministerio del Poder Popular para la Educación.`,
-    disposicion_firmas: 'dos_columnas',
-    firmantes: [
-      {
-        id: 'f1',
-        titulo: 'Prof.',
-        nombre: 'Luis Velásquez',
-        cargo: 'Director General',
-        cedula: 'V-17.242.954',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      },
-      {
-        id: 'f2',
-        titulo: 'Lcda.',
-        nombre: 'Orientación y Convivencia',
-        cargo: 'Departamento de Bienestar Estudiantil',
-        cedula: 'V-16.000.000',
-        firma_digital_url: '',
-        mostrar_firma_digital: true
-      }
-    ],
+    titulo_documento: 'Constancia de Buena Conducta',
+    mostrar_bandera_venezuela: true,
+    logo_escuela_url: '/assets/img/logo_lb.png',
+    membrete_linea1: 'República Bolivariana de Venezuela',
+    membrete_linea2: 'Ministerio del Poder Popular para la Educación',
+    membrete_nombre_escuela: '{nombre_escuela}',
+    membrete_ubicacion: '{ubicacion_escuela}',
+    parrafo_certificacion: `Quien suscribe, la Dirección de la <b>{nombre_escuela}</b>, hace constar por medio de la presente que el/la estudiante: <b>{nombre_estudiante}</b>, titular de la {tipo_cedula} N.° <b>{cedula_estudiante}</b>, quien cursa el <b>{grado_actual}</b> de <b>{nivel_educativo}</b>, ha observado durante su permanencia en nuestra institución una <b>EXCELENTE CONDUCTA</b>, demostrando respeto por las normas de convivencia y valores ciudadanos.`,
+    parrafo_representante: `Asimismo, se deja constancia de su intachable colaboración en las actividades comunitarias y formativas de la institución.`,
+    parrafo_expedicion: `Constancia que se expide a solicitud de la parte interesada en <b>{ciudad_expedicion}</b>, a los {dia_expedicion} días del mes de {mes_expedicion} del año {ano_expedicion}.`,
+    ciudad_expedicion: 'Miraflores',
+    titulo_director: 'Prof.',
+    nombre_director: 'José Vicente Millán Montaño',
+    cedula_director: '17.780.095',
+    cargo_director: 'Director General',
+    cargo_generico: 'Director',
+    firma_digital_url: '/assets/img/firma_director_lb.png',
+    mostrar_firma_digital: true,
     sello_humedo_url: '',
-    mostrar_sello_humedo: true,
+    mostrar_sello_humedo: false,
     mostrar_codigo_qr: true,
-    mostrar_codigo_seguridad: true
+    logo_mppe_url: '/assets/img/logoMPPE.png',
+    fuente_familia: 'Arial, Helvetica, sans-serif',
+    tamano_fuente: 14.5,
+    interlineado: 2.15
   }
 ];
 
@@ -266,7 +186,7 @@ export const EditorConstancias: React.FC = () => {
   const [plantillaEdicion, setPlantillaEdicion] = useState<PlantillaConstancia>(PLANTILLAS_PREDETERMINADAS[0]);
   
   // Pestañas del Editor
-  const [tabEditor, setTabEditor] = useState<'grafica' | 'redaccion' | 'firmas' | 'seguridad'>('grafica');
+  const [tabEditor, setTabEditor] = useState<'grafica' | 'redaccion' | 'firmas' | 'seguridad'>('firmas');
   
   // Datos para el Probador en Vivo
   const [estudiantesMuestra, setEstudiantesMuestra] = useState<any[]>([]);
@@ -288,7 +208,6 @@ export const EditorConstancias: React.FC = () => {
 
   const cargarDatos = async () => {
     try {
-      // 1. Cargar plantillas desde localStorage o Supabase
       const guardadas = localStorage.getItem('sigae_plantillas_constancias');
       if (guardadas) {
         try {
@@ -303,7 +222,6 @@ export const EditorConstancias: React.FC = () => {
         }
       }
 
-      // 2. Cargar estudiantes reales de la base de datos para el simulador
       let allEsts: any[] = [];
       let page = 0;
       const limit = 1000;
@@ -335,7 +253,6 @@ export const EditorConstancias: React.FC = () => {
     }
   };
 
-  // Cambiar plantilla activa
   const seleccionarPlantilla = (id: string) => {
     const pl = plantillas.find(p => p.id === id);
     if (pl) {
@@ -344,7 +261,6 @@ export const EditorConstancias: React.FC = () => {
     }
   };
 
-  // Crear nueva plantilla
   const handleCrearNuevaPlantilla = () => {
     if (!Swal) return;
     Swal.fire({
@@ -352,14 +268,14 @@ export const EditorConstancias: React.FC = () => {
       html: `
         <div class="text-start">
           <label class="small fw-bold text-muted mb-1">Nombre de la Plantilla:</label>
-          <input id="swal-new-nom" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: Constancia de Prosecución, Carta de Traslado..." />
+          <input id="swal-new-nom" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: Constancia de Prosecución..." />
           
           <label class="small fw-bold text-muted mb-1">Título Oficial del Documento:</label>
-          <input id="swal-new-tit" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: CONSTANCIA DE PROSECUCIÓN ACADÉMICA" />
+          <input id="swal-new-tit" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: Constancia de Prosecución" />
           
           <label class="small fw-bold text-muted mb-1">Plantel / Escuela:</label>
           <select id="swal-new-esc" class="swal2-input m-0 w-100">
-            <option value="todas">Ambas Escuelas (Plantilla Global)</option>
+            <option value="todas">Ambas Escuelas (Global)</option>
             <option value="sb">U.E. Santa Bárbara</option>
             <option value="lb">U.E. Libertador Bolívar</option>
           </select>
@@ -395,12 +311,11 @@ export const EditorConstancias: React.FC = () => {
         setPlantillaActivaId(nueva.id);
         setPlantillaEdicion(nueva);
         localStorage.setItem('sigae_plantillas_constancias', JSON.stringify(nuevasPlantillas));
-        Swal.fire('¡Plantilla Creada!', 'Ya puedes personalizar sus gráficos, textos y firmas.', 'success');
+        Swal.fire('¡Plantilla Creada!', 'Ya puedes personalizar sus firmantes, redacción y estructura.', 'success');
       }
     });
   };
 
-  // Guardar Cambios de la Plantilla
   const handleGuardarPlantilla = async () => {
     setGuardando(true);
     try {
@@ -408,15 +323,14 @@ export const EditorConstancias: React.FC = () => {
       setPlantillas(actualizadas);
       localStorage.setItem('sigae_plantillas_constancias', JSON.stringify(actualizadas));
 
-      // Guardar también en tabla o configuración global de Supabase si existe
       try {
         await supabase.from('ajustes_globales').upsert({
           clave: 'plantilla_' + plantillaEdicion.id,
           valor: JSON.stringify(plantillaEdicion),
-          descripcion: 'Configuración visual de plantilla ' + plantillaEdicion.nombre
+          descripcion: 'Configuración de plantilla ' + plantillaEdicion.nombre
         }, { onConflict: 'clave' });
       } catch (errDb) {
-        console.warn("Aviso al guardar en BD:", errDb);
+        console.warn("Aviso guardado BD:", errDb);
       }
 
       auditar('Diseños', 'Modificar Plantilla', `Actualizó la plantilla de constancia: ${plantillaEdicion.nombre}`);
@@ -424,7 +338,7 @@ export const EditorConstancias: React.FC = () => {
         Swal.fire({
           icon: 'success',
           title: '¡Plantilla Guardada!',
-          text: 'Los cambios visuales, firmantes y redacción se aplicaron exitosamente a todo el sistema.',
+          text: 'Los cambios de redacción, firmantes y estructura se aplicaron exitosamente.',
           confirmButtonColor: '#00BCD4'
         });
       }
@@ -436,12 +350,11 @@ export const EditorConstancias: React.FC = () => {
     }
   };
 
-  // Restaurar Valores Predeterminados
   const handleRestaurarPredeterminados = () => {
     if (!Swal) return;
     Swal.fire({
-      title: '¿Restaurar Plantillas de Fábrica?',
-      text: 'Se restablecerán los diseños, membretes y textos predeterminados oficiales del MPPE.',
+      title: '¿Restaurar Formatos Originales?',
+      text: 'Se restablecerán las constancias oficiales idénticas a las emitidas por Control de Estudios.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -453,21 +366,19 @@ export const EditorConstancias: React.FC = () => {
         setPlantillaActivaId(PLANTILLAS_PREDETERMINADAS[0].id);
         setPlantillaEdicion(PLANTILLAS_PREDETERMINADAS[0]);
         localStorage.setItem('sigae_plantillas_constancias', JSON.stringify(PLANTILLAS_PREDETERMINADAS));
-        Swal.fire('Restaurado', 'Las plantillas han vuelto a sus valores predeterminados oficiales.', 'success');
+        Swal.fire('Restaurado', 'Se han restablecido los formatos oficiales originales de Santa Bárbara y Libertador Bolívar.', 'success');
       }
     });
   };
 
-  // Inserción de Tags / Variables Inteligentes en el Editor
-  const insertarTagEnCuerpo = (tag: string) => {
+  const insertarTagEnCertificacion = (tag: string) => {
     setPlantillaEdicion(prev => ({
       ...prev,
-      cuerpo_texto: (prev.cuerpo_texto || '') + ' ' + tag + ' '
+      parrafo_certificacion: (prev.parrafo_certificacion || '') + ' ' + tag + ' '
     }));
   };
 
-  // Manejo de carga de archivos (Firmas, Logos, Sellos)
-  const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>, tipo: 'logo_izq' | 'logo_der' | 'sello' | 'firma', firmanteIdx?: number) => {
+  const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>, tipo: 'logo_escuela' | 'firma' | 'sello' | 'logo_mppe') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -479,18 +390,14 @@ export const EditorConstancias: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
       const base64 = uploadEvent.target?.result as string;
-      if (tipo === 'logo_izq') {
-        setPlantillaEdicion(prev => ({ ...prev, logo_izquierdo_url: base64 }));
-      } else if (tipo === 'logo_der') {
-        setPlantillaEdicion(prev => ({ ...prev, logo_derecho_url: base64 }));
+      if (tipo === 'logo_escuela') {
+        setPlantillaEdicion(prev => ({ ...prev, logo_escuela_url: base64 }));
+      } else if (tipo === 'firma') {
+        setPlantillaEdicion(prev => ({ ...prev, firma_digital_url: base64 }));
       } else if (tipo === 'sello') {
-        setPlantillaEdicion(prev => ({ ...prev, sello_humedo_url: base64 }));
-      } else if (tipo === 'firma' && firmanteIdx !== undefined) {
-        setPlantillaEdicion(prev => {
-          const nuevosFirmantes = [...prev.firmantes];
-          nuevosFirmantes[firmanteIdx].firma_digital_url = base64;
-          return { ...prev, firmantes: nuevosFirmantes };
-        });
+        setPlantillaEdicion(prev => ({ ...prev, sello_humedo_url: base64, mostrar_sello_humedo: true }));
+      } else if (tipo === 'logo_mppe') {
+        setPlantillaEdicion(prev => ({ ...prev, logo_mppe_url: base64 }));
       }
     };
     reader.readAsDataURL(file);
@@ -498,6 +405,7 @@ export const EditorConstancias: React.FC = () => {
 
   // ──────────────────────────────────────────────────────────
   // GENERACIÓN DE TEXTO CON VARIABLES REEMPLAZADAS EN VIVO
+  // (Réplica Exacta del Motor de VincularEstudiante / Verificaciones)
   // ──────────────────────────────────────────────────────────
   const textoProcesado = useMemo(() => {
     const est = estudianteSeleccionado || {
@@ -512,46 +420,91 @@ export const EditorConstancias: React.FC = () => {
       cedula_representante: '14567890'
     };
 
-    const nombreEscuelaTexto = est.codigo_escuela === 'lb' || plantillaEdicion.id_escuela === 'lb'
-      ? 'Unidad Educativa "Libertador Bolívar"'
-      : 'Unidad Educativa "Santa Bárbara"';
+    const escuelaCodigo = resolverEscuelaEstudiante(est, { id_escuela: plantillaEdicion.id_escuela });
+    const esSantaBarbara = escuelaCodigo === 'sb';
 
-    const codigoDeaTexto = est.codigo_escuela === 'lb' || plantillaEdicion.id_escuela === 'lb'
-      ? 'OD05280703'
-      : 'OD05280702';
+    const nombreEscuelaTexto = esSantaBarbara ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
+    const ubicacionEscuelaTexto = esSantaBarbara ? 'El Tejero, estado Monagas' : 'Miraflores, estado Monagas';
+    const ciudadExpedicionTexto = esSantaBarbara ? 'El Tejero' : 'Miraflores';
 
-    const ano = new Date().getFullYear();
-    const periodo = `${ano}-${ano + 1}`;
+    const anoActual = new Date().getFullYear();
+    const anoProximo = anoActual + 1;
     const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    const diaNum = new Date().getDate();
-    const mesNom = meses[new Date().getMonth()];
-    const fechaLetras = `${diaNum} días del mes de ${mesNom} de ${ano}`;
+    const diaExpedicion = new Date().getDate();
+    const mesExpedicion = meses[new Date().getMonth()];
+    const anoExpedicion = anoActual;
 
-    let cuerpo = plantillaEdicion.cuerpo_texto || '';
-    cuerpo = cuerpo.replace(/\{nombre_estudiante\}/g, `<b>${est.nombres_estudiante || ''} ${est.apellidos_estudiante || ''}</b>`);
-    cuerpo = cuerpo.replace(/\{cedula_estudiante\}/g, `<b>${est.cedula_estudiante || 'N/A'}</b>`);
-    cuerpo = cuerpo.replace(/\{grado_actual\}/g, `<b>${est.grado_actual || '1er Grado'}</b>`);
-    cuerpo = cuerpo.replace(/\{seccion_actual\}/g, `<b>${est.seccion_actual || 'A'}</b>`);
-    cuerpo = cuerpo.replace(/\{nivel_educativo\}/g, `<b>${est.nivel_educativo || 'Educación Primaria'}</b>`);
-    cuerpo = cuerpo.replace(/\{nombre_escuela\}/g, `<b>${nombreEscuelaTexto}</b>`);
-    cuerpo = cuerpo.replace(/\{codigo_dea\}/g, `<b>${codigoDeaTexto}</b>`);
-    cuerpo = cuerpo.replace(/\{periodo_escolar\}/g, `<b>${periodo}</b>`);
-    cuerpo = cuerpo.replace(/\{nombre_representante\}/g, `<b>${est.nombres_representante || ''} ${est.apellidos_representante || ''}</b>`);
-    cuerpo = cuerpo.replace(/\{cedula_representante\}/g, `<b>${est.cedula_representante || 'N/A'}</b>`);
-    cuerpo = cuerpo.replace(/\{fecha_hoy_letras\}/g, `<b>${fechaLetras}</b>`);
+    const cedulaLimpia = (est.cedula_estudiante || '0000').toString().replace(/\D/g, '');
+    const codigoConstancia = `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
 
-    let clausula = plantillaEdicion.clausula_cierre || '';
-    clausula = clausula.replace(/\{fecha_hoy_letras\}/g, `<b>${fechaLetras}</b>`);
-    clausula = clausula.replace(/\{nombre_escuela\}/g, `<b>${nombreEscuelaTexto}</b>`);
+    const esLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const baseUrlVerificacion = esLocal ? 'https://sigae-hh6u.onrender.com' : (typeof window !== 'undefined' ? window.location.origin : '');
+    const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
 
-    let membrete3 = plantillaEdicion.membrete_linea3 || '';
-    membrete3 = membrete3.replace(/\{nombre_escuela\}/g, nombreEscuelaTexto.toUpperCase());
+    // Tipo de documento (cédula escolar vs cédula de identidad)
+    const cedStr = (est.cedula_estudiante || '').toString().trim().toUpperCase();
+    const tipoCedulaTexto = cedStr.startsWith('CE') || cedStr.startsWith('CE-') || cedStr.replace(/\D/g, '').length >= 10
+      ? 'cédula escolar'
+      : 'cédula de identidad';
+
+    const gradoLimpio = (est.grado_actual || '1er Grado')
+      .replace(/\s+de\s+(Educación\s+Primaria|Educación\s+Inicial|Educación\s+Media\s+General|Media\s+General|Primaria|Inicial)/gi, '')
+      .replace(/\s+correspondiente\s+al\s+Nivel\s+de.*/gi, '')
+      .trim();
+
+    let nivelEducativo = 'Educación Primaria';
+    const gLower = (est.grado_actual || '').toLowerCase();
+    if (gLower.includes('maternal') || gLower.includes('preescolar') || gLower.includes('inicial') || gLower.includes('grupo')) {
+      nivelEducativo = 'Educación Inicial';
+    } else if (gLower.includes('año') || gLower.includes('media') || gLower.includes('bachillerato')) {
+      nivelEducativo = 'Educación Media General';
+    }
+
+    const lugarNac = est.estudiante_municipio_nacimiento || est.estudiante_lugar_nacimiento || (esSantaBarbara ? 'El Tejero' : 'Miraflores');
+    const estadoNac = est.estudiante_estado_nacimiento || 'Monagas';
+    const nombreCompletoEstudiante = `${est.nombres_estudiante || ''} ${est.apellidos_estudiante || ''}`.trim();
+    const nombreCompletoRepresentante = `${est.nombres_representante || ''} ${est.apellidos_representante || ''}`.trim() || 'No registrado';
+
+    // Reemplazo en Párrafo 1
+    let p1 = plantillaEdicion.parrafo_certificacion || '';
+    p1 = p1.replace(/\{titulo_director\}/g, plantillaEdicion.titulo_director);
+    p1 = p1.replace(/\{nombre_director\}/g, plantillaEdicion.nombre_director);
+    p1 = p1.replace(/\{cargo_generico\}/g, plantillaEdicion.cargo_generico.toLowerCase());
+    p1 = p1.replace(/\{nombre_escuela\}/g, nombreEscuelaTexto);
+    p1 = p1.replace(/\{ubicacion_escuela\}/g, ubicacionEscuelaTexto);
+    p1 = p1.replace(/\{nombre_estudiante\}/g, nombreCompletoEstudiante);
+    p1 = p1.replace(/\{lugar_nacimiento\}/g, lugarNac);
+    p1 = p1.replace(/\{estado_nacimiento\}/g, estadoNac);
+    p1 = p1.replace(/\{tipo_cedula\}/g, tipoCedulaTexto);
+    p1 = p1.replace(/\{cedula_estudiante\}/g, est.cedula_estudiante || 'No registrada');
+    p1 = p1.replace(/\{grado_actual\}/g, gradoLimpio);
+    p1 = p1.replace(/\{nivel_educativo\}/g, nivelEducativo);
+    p1 = p1.replace(/\{periodo_escolar\}/g, `${anoActual}-${anoProximo}`);
+
+    // Reemplazo en Párrafo 2
+    let p2 = plantillaEdicion.parrafo_representante || '';
+    p2 = p2.replace(/\{nombre_representante\}/g, nombreCompletoRepresentante);
+    p2 = p2.replace(/\{cedula_representante\}/g, est.cedula_representante || 'No registrada');
+
+    // Reemplazo en Párrafo 3
+    let p3 = plantillaEdicion.parrafo_expedicion || '';
+    p3 = p3.replace(/\{ciudad_expedicion\}/g, plantillaEdicion.ciudad_expedicion || ciudadExpedicionTexto);
+    p3 = p3.replace(/\{dia_expedicion\}/g, diaExpedicion.toString());
+    p3 = p3.replace(/\{mes_expedicion\}/g, mesExpedicion);
+    p3 = p3.replace(/\{ano_expedicion\}/g, anoExpedicion.toString());
+
+    // Membrete
+    const membreteEscuela = plantillaEdicion.membrete_nombre_escuela.replace(/\{nombre_escuela\}/g, nombreEscuelaTexto);
+    const membreteUbicacion = plantillaEdicion.membrete_ubicacion.replace(/\{ubicacion_escuela\}/g, ubicacionEscuelaTexto);
 
     return {
-      cuerpo,
-      clausula,
-      membrete3,
-      codigoConstancia: `CI-${est.codigo_escuela ? est.codigo_escuela.toUpperCase() : 'SB'}-${est.cedula_estudiante}-${ano}`
+      p1,
+      p2,
+      p3,
+      membreteEscuela,
+      membreteUbicacion,
+      codigoConstancia,
+      urlQrConstancia
     };
   }, [plantillaEdicion, estudianteSeleccionado]);
 
@@ -566,8 +519,8 @@ export const EditorConstancias: React.FC = () => {
     if (!element) return;
 
     const opt = {
-      margin: 6,
-      filename: `Constancia_Prueba_${plantillaEdicion.codigo_tipo}_${new Date().toISOString().slice(0, 10)}.pdf`,
+      margin: 8,
+      filename: `Constancia_Inscripcion_Oficial_${plantillaEdicion.id_escuela.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 3, useCORS: true },
       jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
@@ -575,7 +528,7 @@ export const EditorConstancias: React.FC = () => {
 
     if (Swal) {
       Swal.fire({
-        title: 'Generando PDF de Prueba...',
+        title: 'Generando PDF Oficial...',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
@@ -593,7 +546,6 @@ export const EditorConstancias: React.FC = () => {
     });
   };
 
-  // Filtrado de estudiantes muestra en el buscador
   const estudiantesFiltradosMuestra = useMemo(() => {
     if (!searchEstudianteMuestra.trim()) return estudiantesMuestra.slice(0, 10);
     const q = searchEstudianteMuestra.toLowerCase();
@@ -617,7 +569,7 @@ export const EditorConstancias: React.FC = () => {
                     <i className="bi bi-palette-fill text-primary me-1"></i> MÓDULO DE DISEÑOS
                   </span>
                   <span className="badge bg-info text-white px-3 py-2 fw-bold shadow-sm rounded-pill">
-                    ESTUDIO EDITORIAL Y DOCUMENTAL
+                    FORMATO OFICIAL CONSOLIDADO
                   </span>
                 </div>
                 
@@ -625,9 +577,9 @@ export const EditorConstancias: React.FC = () => {
                   <button 
                     className="btn btn-sm btn-outline-light rounded-pill px-3 fw-bold"
                     onClick={handleRestaurarPredeterminados}
-                    title="Restaurar a las plantillas predeterminadas del MPPE"
+                    title="Restaurar a las constancias oficiales consolidadas"
                   >
-                    <i className="bi bi-arrow-counterclockwise me-1"></i>Restaurar Fábrica
+                    <i className="bi bi-arrow-counterclockwise me-1"></i>Restaurar Formatos Originales
                   </button>
                   <button 
                     className="btn btn-sm btn-info text-white rounded-pill px-4 fw-bold shadow hover-efecto"
@@ -644,7 +596,7 @@ export const EditorConstancias: React.FC = () => {
                 Editor y Diseñador de Constancias Oficiales
               </h2>
               <p className="text-white-50 m-0 fs-6" style={{ maxWidth: '850px' }}>
-                Personaliza la estructura gráfica, textos, variables inteligentes, sellos y firmas digitales de todas las constancias emitidas por la institución con previsualización en vivo.
+                Ajusta las firmas digitales, nombres de directores, membretes y textos de las constancias oficiales manteniendo el formato institucional original del sistema.
               </p>
             </div>
           </div>
@@ -681,562 +633,322 @@ export const EditorConstancias: React.FC = () => {
             <button 
               className="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm"
               onClick={handleDescargarPdfPrueba}
-              title="Descargar prueba de la hoja en PDF"
+              title="Descargar prueba de la constancia oficial en PDF"
             >
-              <i className="bi bi-file-earmark-pdf-fill me-1"></i>Descargar PDF de Muestra
+              <i className="bi bi-file-earmark-pdf-fill me-1"></i>Descargar PDF Oficial
             </button>
           </div>
         </div>
       </div>
 
-      {/* Área de Trabajo Dividida: Editor (Izquierda) + Vista Previa A4 (Derecha) */}
+      {/* Área de Trabajo: Editor (Izquierda) + Vista Previa Oficial (Derecha) */}
       <div className="row g-4">
         {/* PANEL IZQUIERDO: CONTROLES DEL EDITOR */}
-        <div className="col-12 col-xl-6">
+        <div className="col-12 col-xl-5">
           <div className="card bg-white shadow-sm border-0 rounded-4 overflow-hidden h-100">
-            {/* Navegación de Pestañas del Editor */}
+            {/* Pestañas del Editor */}
             <div className="card-header bg-white border-bottom p-3">
               <div className="btn-group w-100 shadow-sm rounded-pill p-1 bg-light border" role="group">
                 <button 
                   type="button" 
-                  className={`btn btn-sm rounded-pill fw-bold ${tabEditor === 'grafica' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
-                  onClick={() => setTabEditor('grafica')}
+                  className={`btn btn-sm rounded-pill fw-bold ${tabEditor === 'firmas' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
+                  onClick={() => setTabEditor('firmas')}
                 >
-                  <i className="bi bi-brush me-1"></i> 1. Estructura Gráfica
+                  <i className="bi bi-pen-fill me-1"></i> 1. Firmas & Dirección
                 </button>
                 <button 
                   type="button" 
                   className={`btn btn-sm rounded-pill fw-bold ${tabEditor === 'redaccion' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
                   onClick={() => setTabEditor('redaccion')}
                 >
-                  <i className="bi bi-textarea-t me-1"></i> 2. Redacción & Tags
+                  <i className="bi bi-textarea-t me-1"></i> 2. Textos & Párrafos
                 </button>
                 <button 
                   type="button" 
-                  className={`btn btn-sm rounded-pill fw-bold ${tabEditor === 'firmas' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
-                  onClick={() => setTabEditor('firmas')}
+                  className={`btn btn-sm rounded-pill fw-bold ${tabEditor === 'grafica' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
+                  onClick={() => setTabEditor('grafica')}
                 >
-                  <i className="bi bi-pen-fill me-1"></i> 3. Firmas & Sello
-                </button>
-                <button 
-                  type="button" 
-                  className={`btn btn-sm rounded-pill fw-bold ${tabEditor === 'seguridad' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
-                  onClick={() => setTabEditor('seguridad')}
-                >
-                  <i className="bi bi-qr-code-scan me-1"></i> 4. Seguridad QR
+                  <i className="bi bi-building me-1"></i> 3. Membrete & Logos
                 </button>
               </div>
             </div>
 
             <div className="card-body p-4" style={{ maxHeight: '720px', overflowY: 'auto' }}>
-              {/* PESTAÑA 1: ESTRUCTURA GRÁFICA */}
-              {tabEditor === 'grafica' && (
+              {/* PESTAÑA 1: FIRMAS Y DIRECCIÓN */}
+              {tabEditor === 'firmas' && (
                 <div className="animate__animated animate__fadeIn">
-                  <h6 className="fw-bold text-dark mb-3">
-                    <i className="bi bi-aspect-ratio text-primary me-2"></i>Identidad Visual y Membrete Oficial
+                  <h6 className="fw-bold text-dark mb-2">
+                    <i className="bi bi-person-badge-fill text-primary me-2"></i>Datos del Director(a) Firmante
                   </h6>
+                  <p className="small text-muted mb-3">
+                    Configura el nombre del directivo, cédula y sube su firma digitalizada oficial en formato PNG transparente.
+                  </p>
 
-                  <div className="mb-3">
-                    <label className="small fw-bold text-muted mb-1">Nombre de la Plantilla:</label>
-                    <input 
-                      type="text" 
-                      className="form-control form-control-sm border-info rounded-pill"
-                      value={plantillaEdicion.nombre}
-                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, nombre: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="row g-3 mb-3">
-                    <div className="col-12 col-md-6">
-                      <label className="small fw-bold text-muted mb-1">Plantel / Escuela Asignada:</label>
-                      <select 
-                        className="form-select form-select-sm border-info rounded-pill"
-                        value={plantillaEdicion.id_escuela}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, id_escuela: e.target.value })}
-                      >
-                        <option value="todas">Ambas Escuelas (Global)</option>
-                        <option value="sb">U.E. Santa Bárbara</option>
-                        <option value="lb">U.E. Libertador Bolívar</option>
-                      </select>
-                    </div>
-                    <div className="col-12 col-md-6">
-                      <label className="small fw-bold text-muted mb-1">Título del Documento:</label>
+                  <div className="row g-2 mb-3">
+                    <div className="col-4">
+                      <label className="small fw-bold text-muted">Prefijo/Título:</label>
                       <input 
                         type="text" 
-                        className="form-control form-control-sm border-info rounded-pill fw-bold"
-                        value={plantillaEdicion.titulo_documento}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, titulo_documento: e.target.value })}
+                        className="form-control form-control-sm"
+                        placeholder="Prof. / Profa."
+                        value={plantillaEdicion.titulo_director}
+                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, titulo_director: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-8">
+                      <label className="small fw-bold text-muted">Nombre Completo del Director:</label>
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm fw-bold"
+                        value={plantillaEdicion.nombre_director}
+                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, nombre_director: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-6">
+                      <label className="small fw-bold text-muted">Cédula de Identidad:</label>
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm font-monospace"
+                        placeholder="17.780.095"
+                        value={plantillaEdicion.cedula_director}
+                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, cedula_director: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-6">
+                      <label className="small fw-bold text-muted">Cargo Genérico:</label>
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm"
+                        placeholder="Director / Directora"
+                        value={plantillaEdicion.cargo_generico}
+                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, cargo_generico: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-12">
+                      <label className="small fw-bold text-muted">Cargo Institucional Completo:</label>
+                      <input 
+                        type="text" 
+                        className="form-control form-control-sm"
+                        placeholder="Director de la Unidad Educativa..."
+                        value={plantillaEdicion.cargo_director}
+                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, cargo_director: e.target.value })}
                       />
                     </div>
                   </div>
 
                   <hr className="text-muted" />
 
-                  {/* Logos Oficiales */}
-                  <h6 className="fw-bold text-dark mb-2">Logotipos del Encabezado</h6>
-                  <div className="row g-3 mb-4">
-                    <div className="col-12 col-md-6">
-                      <div className="p-3 border rounded-3 bg-light text-center">
-                        <span className="small fw-bold text-muted d-block mb-2">Logo Izquierdo (Ministerio/Nacional)</span>
-                        <img 
-                          src={plantillaEdicion.logo_izquierdo_url || '/assets/img/logo_mppe.png'} 
-                          alt="Logo Izquierdo" 
-                          style={{ maxHeight: '55px', maxWidth: '100%' }}
-                          className="mb-2"
-                        />
-                        <div>
-                          <label className="btn btn-xs btn-outline-primary rounded-pill px-3 cursor-pointer">
-                            <i className="bi bi-upload me-1"></i>Cambiar Logo Izq.
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="d-none" 
-                              onChange={(e) => handleUploadImage(e, 'logo_izq')} 
-                            />
-                          </label>
-                        </div>
+                  {/* Imagen de la Firma Digital */}
+                  <h6 className="fw-bold text-dark mb-2">Firma Digitalizada del Director</h6>
+                  <div className="p-3 border rounded-3 bg-light d-flex justify-content-between align-items-center mb-3">
+                    <div className="d-flex align-items-center gap-3">
+                      <img 
+                        src={plantillaEdicion.firma_digital_url || `/assets/img/firma_director_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
+                        alt="Firma Director" 
+                        style={{ height: '55px', maxWidth: '160px', objectFit: 'contain' }}
+                        className="border rounded p-1 bg-white"
+                      />
+                      <div>
+                        <span className="small fw-bold text-dark d-block">Firma Actual</span>
+                        <span className="text-muted" style={{ fontSize: '11px' }}>PNG con fondo transparente</span>
                       </div>
                     </div>
-
-                    <div className="col-12 col-md-6">
-                      <div className="p-3 border rounded-3 bg-light text-center">
-                        <span className="small fw-bold text-muted d-block mb-2">Logo Derecho (Escuela)</span>
-                        <img 
-                          src={plantillaEdicion.logo_derecho_url || '/assets/img/logo_sb.png'} 
-                          alt="Logo Derecho" 
-                          style={{ maxHeight: '55px', maxWidth: '100%' }}
-                          className="mb-2"
-                        />
-                        <div>
-                          <label className="btn btn-xs btn-outline-primary rounded-pill px-3 cursor-pointer">
-                            <i className="bi bi-upload me-1"></i>Cambiar Logo Der.
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="d-none" 
-                              onChange={(e) => handleUploadImage(e, 'logo_der')} 
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    </div>
+                    <label className="btn btn-sm btn-outline-primary rounded-pill px-3 cursor-pointer m-0">
+                      <i className="bi bi-upload me-1"></i>Cambiar Firma
+                      <input 
+                        type="file" 
+                        accept="image/png,image/jpeg" 
+                        className="d-none" 
+                        onChange={(e) => handleUploadImage(e, 'firma')} 
+                      />
+                    </label>
                   </div>
 
-                  {/* Textos del Membrete */}
-                  <h6 className="fw-bold text-dark mb-2">Líneas del Membrete Oficial</h6>
+                  <div className="form-check form-switch mb-3">
+                    <input 
+                      className="form-check-input" 
+                      type="checkbox" 
+                      id="sw-mostrar-firma"
+                      checked={plantillaEdicion.mostrar_firma_digital}
+                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, mostrar_firma_digital: e.target.checked })}
+                    />
+                    <label className="form-check-label small fw-bold text-dark cursor-pointer" htmlFor="sw-mostrar-firma">
+                      Estampar Firma Digitalizada en la Constancia
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* PESTAÑA 2: TEXTOS Y PÁRRAFOS */}
+              {tabEditor === 'redaccion' && (
+                <div className="animate__animated animate__fadeIn">
+                  <h6 className="fw-bold text-dark mb-2">
+                    <i className="bi bi-textarea-t text-primary me-2"></i>Redacción Oficial de los Párrafos
+                  </h6>
+                  <p className="small text-muted mb-3">
+                    Personaliza la redacción manteniendo las etiquetas dinámicas para la sustitución automática de datos:
+                  </p>
+
+                  <div className="d-flex flex-wrap gap-1 mb-3 p-2 bg-light border rounded-3">
+                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCertificacion('{nombre_estudiante}')}>
+                      + {`{nombre_estudiante}`}
+                    </button>
+                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCertificacion('{cedula_estudiante}')}>
+                      + {`{cedula_estudiante}`}
+                    </button>
+                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCertificacion('{grado_actual}')}>
+                      + {`{grado_actual}`}
+                    </button>
+                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCertificacion('{periodo_escolar}')}>
+                      + {`{periodo_escolar}`}
+                    </button>
+                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCertificacion('{nombre_representante}')}>
+                      + {`{nombre_representante}`}
+                    </button>
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="small fw-bold text-muted mb-1">Título del Documento:</label>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm fw-bold"
+                      value={plantillaEdicion.titulo_documento}
+                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, titulo_documento: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="small fw-bold text-muted mb-1">Párrafo 1: Certificación del Estudiante:</label>
+                    <textarea 
+                      className="form-control form-control-sm font-monospace"
+                      rows={6}
+                      value={plantillaEdicion.parrafo_certificacion}
+                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, parrafo_certificacion: e.target.value })}
+                      style={{ fontSize: '12.5px', lineHeight: '1.5' }}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="small fw-bold text-muted mb-1">Párrafo 2: Representante Legal:</label>
+                    <textarea 
+                      className="form-control form-control-sm font-monospace"
+                      rows={3}
+                      value={plantillaEdicion.parrafo_representante}
+                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, parrafo_representante: e.target.value })}
+                      style={{ fontSize: '12.5px' }}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="small fw-bold text-muted mb-1">Párrafo 3: Expedición y Fecha:</label>
+                    <textarea 
+                      className="form-control form-control-sm font-monospace"
+                      rows={2}
+                      value={plantillaEdicion.parrafo_expedicion}
+                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, parrafo_expedicion: e.target.value })}
+                      style={{ fontSize: '12.5px' }}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="small fw-bold text-muted mb-1">Ciudad de Expedición:</label>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm"
+                      placeholder="El Tejero / Miraflores"
+                      value={plantillaEdicion.ciudad_expedicion}
+                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, ciudad_expedicion: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* PESTAÑA 3: MEMBRETE Y LOGOS */}
+              {tabEditor === 'grafica' && (
+                <div className="animate__animated animate__fadeIn">
+                  <h6 className="fw-bold text-dark mb-2">
+                    <i className="bi bi-building text-primary me-2"></i>Membrete y Logotipos Oficiales
+                  </h6>
+                  <p className="small text-muted mb-3">
+                    Configuración del encabezado oficial y logotipo institucional del plantel:
+                  </p>
+
+                  <div className="form-check form-switch mb-3">
+                    <input 
+                      className="form-check-input" 
+                      type="checkbox" 
+                      id="sw-bandera"
+                      checked={plantillaEdicion.mostrar_bandera_venezuela}
+                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, mostrar_bandera_venezuela: e.target.checked })}
+                    />
+                    <label className="form-check-label small fw-bold text-dark cursor-pointer" htmlFor="sw-bandera">
+                      Mostrar Bandera Tricolor de Venezuela con 8 Estrellas
+                    </label>
+                  </div>
+
+                  {/* Logo Escuela */}
+                  <div className="p-3 border rounded-3 bg-light d-flex justify-content-between align-items-center mb-3">
+                    <div className="d-flex align-items-center gap-3">
+                      <img 
+                        src={plantillaEdicion.logo_escuela_url || `/assets/img/logo_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
+                        alt="Logo Escuela" 
+                        style={{ height: '55px', maxWidth: '80px', objectFit: 'contain' }}
+                        className="border rounded p-1 bg-white"
+                      />
+                      <div>
+                        <span className="small fw-bold text-dark d-block">Escudo del Plantel</span>
+                        <span className="text-muted" style={{ fontSize: '11px' }}>Logo izquierdo oficial</span>
+                      </div>
+                    </div>
+                    <label className="btn btn-sm btn-outline-primary rounded-pill px-3 cursor-pointer m-0">
+                      <i className="bi bi-upload me-1"></i>Cambiar Escudo
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="d-none" 
+                        onChange={(e) => handleUploadImage(e, 'logo_escuela')} 
+                      />
+                    </label>
+                  </div>
+
+                  {/* Líneas de Membrete */}
                   <div className="row g-2 mb-3">
                     <div className="col-12">
+                      <label className="small text-muted">Línea 1:</label>
                       <input 
                         type="text" 
                         className="form-control form-control-sm"
-                        placeholder="Línea 1 (República...)"
                         value={plantillaEdicion.membrete_linea1}
                         onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, membrete_linea1: e.target.value })}
                       />
                     </div>
                     <div className="col-12">
+                      <label className="small text-muted">Línea 2:</label>
                       <input 
                         type="text" 
                         className="form-control form-control-sm"
-                        placeholder="Línea 2 (Ministerio...)"
                         value={plantillaEdicion.membrete_linea2}
                         onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, membrete_linea2: e.target.value })}
                       />
                     </div>
                     <div className="col-12">
+                      <label className="small text-muted">Nombre de la Escuela:</label>
                       <input 
                         type="text" 
-                        className="form-control form-control-sm font-monospace fw-bold"
-                        placeholder="Línea 3 (Nombre de la Escuela o {nombre_escuela})"
-                        value={plantillaEdicion.membrete_linea3}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, membrete_linea3: e.target.value })}
+                        className="form-control form-control-sm fw-bold"
+                        value={plantillaEdicion.membrete_nombre_escuela}
+                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, membrete_nombre_escuela: e.target.value })}
                       />
                     </div>
-                    <div className="col-6">
-                      <input 
-                        type="text" 
-                        className="form-control form-control-sm"
-                        placeholder="Código DEA"
-                        value={plantillaEdicion.membrete_codigo_dea}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, membrete_codigo_dea: e.target.value })}
-                      />
-                    </div>
-                    <div className="col-6">
-                      <input 
-                        type="text" 
-                        className="form-control form-control-sm"
-                        placeholder="RIF Institucional"
-                        value={plantillaEdicion.membrete_rif}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, membrete_rif: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <hr className="text-muted" />
-
-                  {/* Estilo de Marco y Marca de Agua */}
-                  <h6 className="fw-bold text-dark mb-2">Bordes, Tipografía y Marca de Agua</h6>
-                  <div className="row g-3 mb-3">
-                    <div className="col-12 col-md-6">
-                      <label className="small fw-bold text-muted mb-1">Estilo de Borde / Marco:</label>
-                      <select 
-                        className="form-select form-select-sm border-info rounded-pill"
-                        value={plantillaEdicion.estilo_marco}
-                        onChange={(e: any) => setPlantillaEdicion({ ...plantillaEdicion, estilo_marco: e.target.value })}
-                      >
-                        <option value="clasico_doble">Marco Clásico Doble Línea</option>
-                        <option value="diplomatico">Marco Diplomático Formal</option>
-                        <option value="simple">Borde Simple Sutil</option>
-                        <option value="sin_marco">Sin Borde (Limpio)</option>
-                      </select>
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <label className="small fw-bold text-muted mb-1">Color de Acento / Marco:</label>
-                      <input 
-                        type="color" 
-                        className="form-control form-control-color w-100 rounded-pill"
-                        value={plantillaEdicion.color_acento}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, color_acento: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <label className="small fw-bold text-muted mb-1">Tipografía Principal:</label>
-                      <select 
-                        className="form-select form-select-sm border-info rounded-pill"
-                        value={plantillaEdicion.fuente_familia}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, fuente_familia: e.target.value })}
-                      >
-                        <option value="'Times New Roman', serif">Times New Roman (Clásico Oficial)</option>
-                        <option value="Georgia, serif">Georgia (Elegante Formal)</option>
-                        <option value="'Segoe UI', Arial, sans-serif">Segoe UI / Arial (Moderno Limpio)</option>
-                        <option value="'Garamond', serif">Garamond (Editorial Diplomático)</option>
-                      </select>
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <label className="small fw-bold text-muted mb-1">Interlineado:</label>
-                      <select 
-                        className="form-select form-select-sm border-info rounded-pill"
-                        value={plantillaEdicion.interlineado}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, interlineado: Number(e.target.value) })}
-                      >
-                        <option value="1.2">1.2 (Compacto)</option>
-                        <option value="1.5">1.5 (Estándar Formal)</option>
-                        <option value="1.8">1.8 (Espacioso)</option>
-                      </select>
-                    </div>
-
                     <div className="col-12">
-                      <div className="p-3 border rounded-3 bg-light">
-                        <div className="form-check form-switch mb-2">
-                          <input 
-                            className="form-check-input" 
-                            type="checkbox" 
-                            id="switch-marca-agua"
-                            checked={plantillaEdicion.mostrar_marca_agua}
-                            onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, mostrar_marca_agua: e.target.checked })}
-                          />
-                          <label className="form-check-label fw-bold text-dark cursor-pointer" htmlFor="switch-marca-agua">
-                            Mostrar Marca de Agua del Escudo al Centro
-                          </label>
-                        </div>
-                        {plantillaEdicion.mostrar_marca_agua && (
-                          <div>
-                            <label className="small text-muted mb-1">
-                              Opacidad de Marca de Agua: {Math.round(plantillaEdicion.opacidad_marca_agua * 100)}%
-                            </label>
-                            <input 
-                              type="range" 
-                              className="form-range" 
-                              min="0.03" 
-                              max="0.25" 
-                              step="0.01"
-                              value={plantillaEdicion.opacidad_marca_agua}
-                              onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, opacidad_marca_agua: Number(e.target.value) })}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* PESTAÑA 2: REDACCIÓN & VARIABLES INTELIGENTES */}
-              {tabEditor === 'redaccion' && (
-                <div className="animate__animated animate__fadeIn">
-                  <h6 className="fw-bold text-dark mb-2">
-                    <i className="bi bi-code-square text-primary me-2"></i>Variables Dinámicas Insertables
-                  </h6>
-                  <p className="small text-muted mb-3">
-                    Haga clic en cualquiera de estos botones para insertar la etiqueta inteligente en la posición deseada del texto:
-                  </p>
-
-                  <div className="d-flex flex-wrap gap-1 mb-4 p-2 bg-light border rounded-3">
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{nombre_estudiante}')}>
-                      + {`{nombre_estudiante}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{cedula_estudiante}')}>
-                      + {`{cedula_estudiante}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{grado_actual}')}>
-                      + {`{grado_actual}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{seccion_actual}')}>
-                      + {`{seccion_actual}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{nivel_educativo}')}>
-                      + {`{nivel_educativo}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{nombre_escuela}')}>
-                      + {`{nombre_escuela}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{periodo_escolar}')}>
-                      + {`{periodo_escolar}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{nombre_representante}')}>
-                      + {`{nombre_representante}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{cedula_representante}')}>
-                      + {`{cedula_representante}`}
-                    </button>
-                    <button type="button" className="btn btn-xs btn-white border shadow-sm rounded-pill fw-bold text-primary" onClick={() => insertarTagEnCuerpo('{fecha_hoy_letras}')}>
-                      + {`{fecha_hoy_letras}`}
-                    </button>
-                  </div>
-
-                  {/* Redacción del Cuerpo Principal */}
-                  <div className="mb-3">
-                    <label className="small fw-bold text-muted mb-1">Cuerpo Principal de la Constancia:</label>
-                    <textarea 
-                      className="form-control form-control-sm font-monospace"
-                      rows={9}
-                      value={plantillaEdicion.cuerpo_texto}
-                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, cuerpo_texto: e.target.value })}
-                      style={{ fontSize: '13px', lineHeight: '1.6' }}
-                    />
-                  </div>
-
-                  {/* Cláusula de Cierre y Fecha */}
-                  <div className="mb-3">
-                    <label className="small fw-bold text-muted mb-1">Cláusula de Cierre y Lugar/Fecha:</label>
-                    <textarea 
-                      className="form-control form-control-sm font-monospace"
-                      rows={3}
-                      value={plantillaEdicion.clausula_cierre}
-                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, clausula_cierre: e.target.value })}
-                      style={{ fontSize: '13px' }}
-                    />
-                  </div>
-
-                  {/* Pie de Página Institucional */}
-                  <div className="mb-3">
-                    <label className="small fw-bold text-muted mb-1">Pie de Página (Dirección, Teléfono, Correo):</label>
-                    <input 
-                      type="text" 
-                      className="form-control form-control-sm"
-                      value={plantillaEdicion.pie_pagina}
-                      onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, pie_pagina: e.target.value })}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* PESTAÑA 3: FIRMANTES, FIRMAS DIGITALES Y SELLO HÚMEDO */}
-              {tabEditor === 'firmas' && (
-                <div className="animate__animated animate__fadeIn">
-                  <h6 className="fw-bold text-dark mb-2">
-                    <i className="bi bi-pen-fill text-primary me-2"></i>Gestión de Firmantes y Sellos
-                  </h6>
-                  <p className="small text-muted mb-3">
-                    Configura los directivos firmantes, carga sus firmas digitalizadas transparentes y el sello húmedo oficial.
-                  </p>
-
-                  <div className="row g-3 mb-4">
-                    <div className="col-12 col-md-6">
-                      <label className="small fw-bold text-muted mb-1">Disposición de las Firmas:</label>
-                      <select 
-                        className="form-select form-select-sm border-info rounded-pill"
-                        value={plantillaEdicion.disposicion_firmas}
-                        onChange={(e: any) => setPlantillaEdicion({ ...plantillaEdicion, disposicion_firmas: e.target.value })}
-                      >
-                        <option value="una_centrada">1 Firma Centrada (Director)</option>
-                        <option value="dos_columnas">2 Firmas en Columnas (Director y Control de Estudios)</option>
-                        <option value="tres_columnas">3 Firmas (Director, Control Estudios, Docente Guía)</option>
-                      </select>
-                    </div>
-
-                    <div className="col-12 col-md-6">
-                      <div className="p-2 border rounded-3 bg-light d-flex justify-content-between align-items-center">
-                        <div>
-                          <span className="small fw-bold text-dark d-block">Sello Húmedo Oficial</span>
-                          <span className="text-muted" style={{ fontSize: '11px' }}>Sello redondo institucional</span>
-                        </div>
-                        <label className="btn btn-xs btn-outline-primary rounded-pill px-3 cursor-pointer m-0">
-                          <i className="bi bi-upload me-1"></i>Subir Sello
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="d-none" 
-                            onChange={(e) => handleUploadImage(e, 'sello')} 
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Listado de Firmantes */}
-                  <h6 className="fw-bold text-dark mb-2">Firmantes Configurados ({plantillaEdicion.firmantes.length})</h6>
-                  {plantillaEdicion.firmantes.map((firm, idx) => (
-                    <div key={firm.id} className="card p-3 border rounded-4 bg-light mb-3">
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <span className="badge bg-primary rounded-pill px-3 py-1 fw-bold">
-                          Firmante #{idx + 1}
-                        </span>
-                        <div className="form-check form-switch m-0">
-                          <input 
-                            className="form-check-input" 
-                            type="checkbox" 
-                            id={`sw-firma-${idx}`}
-                            checked={firm.mostrar_firma_digital}
-                            onChange={(e) => {
-                              const nuevos = [...plantillaEdicion.firmantes];
-                              nuevos[idx].mostrar_firma_digital = e.target.checked;
-                              setPlantillaEdicion({ ...plantillaEdicion, firmantes: nuevos });
-                            }}
-                          />
-                          <label className="form-check-label small fw-bold text-muted cursor-pointer" htmlFor={`sw-firma-${idx}`}>
-                            Mostrar Firma Digitalizada
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="row g-2 mb-2">
-                        <div className="col-3">
-                          <label className="small text-muted">Título:</label>
-                          <input 
-                            type="text" 
-                            className="form-control form-control-sm"
-                            placeholder="Prof. / Lcda."
-                            value={firm.titulo}
-                            onChange={(e) => {
-                              const nuevos = [...plantillaEdicion.firmantes];
-                              nuevos[idx].titulo = e.target.value;
-                              setPlantillaEdicion({ ...plantillaEdicion, firmantes: nuevos });
-                            }}
-                          />
-                        </div>
-                        <div className="col-9">
-                          <label className="small text-muted">Nombre y Apellido:</label>
-                          <input 
-                            type="text" 
-                            className="form-control form-control-sm fw-bold"
-                            value={firm.nombre}
-                            onChange={(e) => {
-                              const nuevos = [...plantillaEdicion.firmantes];
-                              nuevos[idx].nombre = e.target.value;
-                              setPlantillaEdicion({ ...plantillaEdicion, firmantes: nuevos });
-                            }}
-                          />
-                        </div>
-                        <div className="col-6">
-                          <label className="small text-muted">Cargo Oficial:</label>
-                          <input 
-                            type="text" 
-                            className="form-control form-control-sm"
-                            value={firm.cargo}
-                            onChange={(e) => {
-                              const nuevos = [...plantillaEdicion.firmantes];
-                              nuevos[idx].cargo = e.target.value;
-                              setPlantillaEdicion({ ...plantillaEdicion, firmantes: nuevos });
-                            }}
-                          />
-                        </div>
-                        <div className="col-6">
-                          <label className="small text-muted">Cédula de Identidad:</label>
-                          <input 
-                            type="text" 
-                            className="form-control form-control-sm font-monospace"
-                            value={firm.cedula}
-                            onChange={(e) => {
-                              const nuevos = [...plantillaEdicion.firmantes];
-                              nuevos[idx].cedula = e.target.value;
-                              setPlantillaEdicion({ ...plantillaEdicion, firmantes: nuevos });
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Vista / Carga de la Firma Digitalizada */}
-                      <div className="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
-                        <div className="d-flex align-items-center gap-2">
-                          {firm.firma_digital_url ? (
-                            <img src={firm.firma_digital_url} alt="Firma" style={{ height: '40px' }} className="border rounded p-1 bg-white" />
-                          ) : (
-                            <span className="small text-muted fst-italic">Sin imagen de firma cargada</span>
-                          )}
-                        </div>
-                        <label className="btn btn-xs btn-outline-info rounded-pill px-3 cursor-pointer m-0">
-                          <i className="bi bi-image me-1"></i>Subir Firma PNG
-                          <input 
-                            type="file" 
-                            accept="image/png,image/jpeg" 
-                            className="d-none" 
-                            onChange={(e) => handleUploadImage(e, 'firma', idx)} 
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* PESTAÑA 4: SEGURIDAD Y CÓDIGO QR */}
-              {tabEditor === 'seguridad' && (
-                <div className="animate__animated animate__fadeIn">
-                  <h6 className="fw-bold text-dark mb-2">
-                    <i className="bi bi-shield-check text-primary me-2"></i>Seguridad y Validación Electrónica
-                  </h6>
-                  <p className="small text-muted mb-3">
-                    Configuración de códigos QR de verificación pública para constancias emitidas.
-                  </p>
-
-                  <div className="p-3 border rounded-4 bg-light mb-3">
-                    <div className="form-check form-switch mb-2">
+                      <label className="small text-muted">Ubicación Institucional:</label>
                       <input 
-                        className="form-check-input" 
-                        type="checkbox" 
-                        id="switch-qr"
-                        checked={plantillaEdicion.mostrar_codigo_qr}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, mostrar_codigo_qr: e.target.checked })}
+                        type="text" 
+                        className="form-control form-control-sm"
+                        value={plantillaEdicion.membrete_ubicacion}
+                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, membrete_ubicacion: e.target.value })}
                       />
-                      <label className="form-check-label fw-bold text-dark cursor-pointer" htmlFor="switch-qr">
-                        Incluir Código QR de Validación Pública Oficial
-                      </label>
                     </div>
-                    <p className="small text-muted m-0">
-                      Al ser escaneado por instituciones externas (bancos, consulados, ministerios), redirige automáticamente a la página pública de verificación de autenticidad del SIGAE.
-                    </p>
-                  </div>
-
-                  <div className="p-3 border rounded-4 bg-light">
-                    <div className="form-check form-switch mb-2">
-                      <input 
-                        className="form-check-input" 
-                        type="checkbox" 
-                        id="switch-hash"
-                        checked={plantillaEdicion.mostrar_codigo_seguridad}
-                        onChange={(e) => setPlantillaEdicion({ ...plantillaEdicion, mostrar_codigo_seguridad: e.target.checked })}
-                      />
-                      <label className="form-check-label fw-bold text-dark cursor-pointer" htmlFor="switch-hash">
-                        Mostrar Hash / Serial Único de Control
-                      </label>
-                    </div>
-                    <p className="small text-muted m-0">
-                      Estampa un código alfanumérico único para auditoría e identificación rápida en secretaría.
-                    </p>
                   </div>
                 </div>
               )}
@@ -1244,17 +956,17 @@ export const EditorConstancias: React.FC = () => {
           </div>
         </div>
 
-        {/* PANEL DERECHO: PROBADOR EN VIVO (LIVE A4 PREVIEW) */}
-        <div className="col-12 col-xl-6">
+        {/* PANEL DERECHO: VISTA PREVIA EXACTA (RÉPLICA OFICIAL) */}
+        <div className="col-12 col-xl-7">
           <div className="card bg-white shadow-sm border-0 rounded-4 overflow-hidden h-100">
             <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
               <div className="d-flex align-items-center gap-2">
                 <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-1.5 rounded-pill fw-bold">
-                  <i className="bi bi-eye-fill me-1"></i> Vista Previa en Vivo (A4)
+                  <i className="bi bi-check-circle-fill me-1"></i> Formato Réplica Oficial Idéntico
                 </span>
               </div>
 
-              {/* Selector de Estudiante Real para Probar */}
+              {/* Selector de Estudiante de Prueba */}
               <div className="d-flex align-items-center gap-2">
                 <div className="dropdown">
                   <button 
@@ -1299,182 +1011,140 @@ export const EditorConstancias: React.FC = () => {
               </div>
             </div>
 
-            {/* Hoja A4 Renderizada */}
-            <div className="card-body p-4 bg-secondary-subtle d-flex justify-content-center align-items-start" style={{ maxHeight: '720px', overflowY: 'auto' }}>
+            {/* Hoja de la Constancia (RÉPLICA EXACTA DE VINCULAR ESTUDIANTE) */}
+            <div className="card-body p-4 bg-light d-flex justify-content-center align-items-start overflow-auto" style={{ maxHeight: '720px' }}>
               <div 
                 ref={previewRef}
-                className="bg-white shadow-lg position-relative transition-all"
+                className="bg-white shadow rounded-4 animate__animated animate__fadeIn mx-auto"
                 style={{
-                  width: '100%',
-                  maxWidth: '595px', // Formato A4
-                  minHeight: '842px',
-                  padding: '35px 40px',
-                  fontFamily: plantillaEdicion.fuente_familia,
-                  fontSize: `${plantillaEdicion.tamano_fuente}px`,
-                  lineHeight: plantillaEdicion.interlineado,
-                  color: '#1e293b',
+                  width: '800px',
+                  maxWidth: '100%',
+                  border: '2px solid #94a3b8',
+                  color: '#000000',
+                  boxSizing: 'border-box',
+                  minHeight: '1035px',
+                  padding: '42px 48px 35px 48px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  fontFamily: plantillaEdicion.fuente_familia || 'Arial, Helvetica, sans-serif',
                   transform: `scale(${zoomPreview / 100})`,
-                  transformOrigin: 'top center',
-                  border: plantillaEdicion.estilo_marco === 'clasico_doble' 
-                    ? `4px double ${plantillaEdicion.color_acento}`
-                    : plantillaEdicion.estilo_marco === 'diplomatico'
-                    ? `2px solid ${plantillaEdicion.color_acento}`
-                    : plantillaEdicion.estilo_marco === 'simple'
-                    ? '1px solid #cbd5e1'
-                    : 'none'
+                  transformOrigin: 'top center'
                 }}
               >
-                {/* Marca de Agua de Fondo */}
-                {plantillaEdicion.mostrar_marca_agua && (
-                  <div 
-                    className="position-absolute top-50 start-50 translate-middle pointer-events-none text-center"
-                    style={{
-                      opacity: plantillaEdicion.opacidad_marca_agua,
-                      zIndex: 0,
-                      width: '320px'
-                    }}
-                  >
-                    <img 
-                      src={plantillaEdicion.logo_derecho_url || '/assets/img/logo_sb.png'} 
-                      alt="Marca de agua" 
-                      style={{ width: '100%', filter: 'grayscale(100%)' }}
-                    />
-                  </div>
-                )}
+                <div>
+                  {/* BANDERA DE VENEZUELA */}
+                  {plantillaEdicion.mostrar_bandera_venezuela && (
+                    <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
+                      <div style={{ height: '8px', backgroundColor: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7px', lineHeight: '1' }}>
+                        <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                      </div>
+                      <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
+                    </div>
+                  )}
 
-                <div className="position-relative" style={{ zIndex: 1 }}>
-                  {/* Encabezado con Membrete y Logos */}
-                  <div className="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom" style={{ borderColor: plantillaEdicion.color_acento }}>
+                  {/* ENCABEZADO INSTITUCIONAL */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '25px', position: 'relative' }}>
                     <img 
-                      src={plantillaEdicion.logo_izquierdo_url || '/assets/img/logo_mppe.png'} 
-                      alt="Logo MPPE" 
-                      style={{ height: '48px', maxWidth: '85px', objectFit: 'contain' }}
+                      src={plantillaEdicion.logo_escuela_url || `/assets/img/logo_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
+                      alt="Escuela" 
+                      style={{ height: '70px', width: 'auto', position: 'absolute', left: 0 }} 
                     />
-                    
-                    <div className="text-center px-2 flex-grow-1">
-                      <div style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', color: '#475569', lineHeight: '1.2' }}>
-                        {plantillaEdicion.membrete_linea1}
-                      </div>
-                      <div style={{ fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', color: '#475569', lineHeight: '1.2' }}>
-                        {plantillaEdicion.membrete_linea2}
-                      </div>
-                      <div style={{ fontSize: '12px', fontWeight: '800', textTransform: 'uppercase', color: plantillaEdicion.color_acento, marginTop: '2px', lineHeight: '1.2' }}>
-                        {textoProcesado.membrete3}
-                      </div>
-                      <div style={{ fontSize: '8.5px', color: '#64748b', marginTop: '1px' }}>
-                        {plantillaEdicion.membrete_codigo_dea} | {plantillaEdicion.membrete_rif}
+                    <div style={{ textAlign: 'center', width: '100%' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', lineHeight: '1.45', textTransform: 'uppercase', color: '#000000' }}>
+                        {plantillaEdicion.membrete_linea1}<br/>
+                        {plantillaEdicion.membrete_linea2}<br/>
+                        {textoProcesado.membreteEscuela}<br/>
+                        <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>
+                          {textoProcesado.membreteUbicacion}
+                        </span>
                       </div>
                     </div>
-
-                    <img 
-                      src={plantillaEdicion.logo_derecho_url || '/assets/img/logo_sb.png'} 
-                      alt="Logo Escuela" 
-                      style={{ height: '48px', maxWidth: '85px', objectFit: 'contain' }}
-                    />
                   </div>
 
-                  {/* Título Principal del Documento */}
-                  <div className="text-center my-4">
-                    <h4 
-                      className="m-0 fw-bold text-uppercase d-inline-block px-3 py-1"
-                      style={{
-                        letterSpacing: '1.5px',
-                        borderBottom: `2px solid ${plantillaEdicion.color_acento}`,
-                        color: '#0f172a'
-                      }}
-                    >
+                  {/* TÍTULO DE LA CONSTANCIA */}
+                  <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
+                    <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
                       {plantillaEdicion.titulo_documento}
-                    </h4>
+                    </h2>
                   </div>
 
-                  {/* Cuerpo del Documento con Justificación */}
-                  <div 
-                    className="mb-4 text-justify"
-                    style={{ textAlign: 'justify', textJustify: 'inter-word' }}
-                    dangerouslySetInnerHTML={{ __html: textoProcesado.cuerpo.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>') }}
+                  {/* PÁRRAFO 1: CERTIFICACIÓN */}
+                  <p 
+                    style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}
+                    dangerouslySetInnerHTML={{ __html: textoProcesado.p1 }}
                   />
 
-                  {/* Cláusula de Cierre */}
-                  <div 
-                    className="mb-5 text-justify"
-                    style={{ textAlign: 'justify' }}
-                    dangerouslySetInnerHTML={{ __html: textoProcesado.clausula }}
+                  {/* PÁRRAFO 2: REPRESENTANTE */}
+                  <p 
+                    style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}
+                    dangerouslySetInnerHTML={{ __html: textoProcesado.p2 }}
                   />
 
-                  {/* Bloque de Firmas y Sello */}
-                  <div className="mt-5 pt-3">
-                    <div className={`row align-items-end ${plantillaEdicion.disposicion_firmas === 'una_centrada' ? 'justify-content-center' : 'justify-content-between'}`}>
-                      {plantillaEdicion.firmantes.map((firm, idx) => (
-                        <div 
-                          key={firm.id} 
-                          className={`text-center ${plantillaEdicion.disposicion_firmas === 'una_centrada' ? 'col-8' : plantillaEdicion.disposicion_firmas === 'tres_columnas' ? 'col-4' : 'col-5'}`}
-                        >
-                          <div className="position-relative d-inline-block w-100" style={{ minHeight: '60px' }}>
-                            {/* Firma Digitalizada si está activa */}
-                            {firm.mostrar_firma_digital && firm.firma_digital_url && (
-                              <img 
-                                src={firm.firma_digital_url} 
-                                alt="Firma" 
-                                className="position-absolute start-50 translate-middle-x"
-                                style={{ bottom: '5px', maxHeight: '55px', zIndex: 2 }}
-                              />
-                            )}
-                            
-                            {/* Sello Húmedo si está en la primera firma */}
-                            {idx === 0 && plantillaEdicion.mostrar_sello_humedo && plantillaEdicion.sello_humedo_url && (
-                              <img 
-                                src={plantillaEdicion.sello_humedo_url} 
-                                alt="Sello" 
-                                className="position-absolute end-0"
-                                style={{ bottom: '-10px', maxHeight: '65px', opacity: 0.85, zIndex: 1 }}
-                              />
-                            )}
-                          </div>
+                  {/* PÁRRAFO 3: FECHA Y EXPEDICIÓN */}
+                  <p 
+                    style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '28px', textIndent: '35px' }}
+                    dangerouslySetInnerHTML={{ __html: textoProcesado.p3 }}
+                  />
+                </div>
 
-                          <div style={{ borderTop: '1px solid #1e293b', paddingTop: '4px' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 'bold' }}>{firm.titulo} {firm.nombre}</div>
-                            <div style={{ fontSize: '9.5px', color: '#475569' }}>{firm.cargo}</div>
-                            <div style={{ fontSize: '9px', color: '#64748b' }}>{firm.cedula}</div>
-                          </div>
-                        </div>
-                      ))}
+                <div>
+                  {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px', paddingTop: '15px', borderTop: '1.5px solid #cbd5e1' }}>
+                    <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', margin: '0 auto' }}>
+                      <p style={{ margin: '0 0 4px', fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
+                      
+                      {plantillaEdicion.mostrar_firma_digital && (
+                        <img 
+                          src={plantillaEdicion.firma_digital_url || `/assets/img/firma_director_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
+                          alt="Firma Director" 
+                          style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} 
+                        />
+                      )}
+                      
+                      <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>
+                        {plantillaEdicion.titulo_director} {plantillaEdicion.nombre_director}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#333333' }}>
+                        C.I.: {plantillaEdicion.cedula_director}
+                      </div>
+                      <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>
+                        {plantillaEdicion.cargo_director}
+                      </div>
                     </div>
+
+                    {plantillaEdicion.mostrar_codigo_qr && (
+                      <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
+                        <img 
+                          src={textoProcesado.urlQrConstancia} 
+                          alt="QR Verificación" 
+                          style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} 
+                        />
+                        <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>
+                          VERIFICACIÓN QR
+                        </span>
+                        <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>
+                          {textoProcesado.codigoConstancia}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Sección de Validación QR y Hash al Pie */}
-                  {(plantillaEdicion.mostrar_codigo_qr || plantillaEdicion.mostrar_codigo_seguridad) && (
-                    <div className="d-flex justify-content-between align-items-center mt-5 pt-3 border-top" style={{ fontSize: '8.5px', color: '#64748b' }}>
-                      <div className="d-flex align-items-center gap-2">
-                        {plantillaEdicion.mostrar_codigo_qr && (
-                          <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`https://sigae.app/validar-constancia/${textoProcesado.codigoConstancia}`)}&bgcolor=ffffff&color=0f172a&margin=1`}
-                            alt="Código QR Oficial" 
-                            style={{ width: '42px', height: '42px' }}
-                            className="border p-0.5 rounded"
-                          />
-                        )}
-                        <div>
-                          <div className="fw-bold text-dark">DOCUMENTO OFICIAL VERIFICABLE EN LÍNEA</div>
-                          <div>Escanee el código QR para validar la autenticidad en el portal oficial SIGAE.</div>
-                          {plantillaEdicion.mostrar_codigo_seguridad && (
-                            <div className="font-monospace text-primary fw-bold mt-0.5">SERIAL: {textoProcesado.codigoConstancia}</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="text-end">
-                        <div>Válido para el Año Escolar en Curso</div>
-                        <div className="fw-bold text-dark">SIGAE v1.0.2</div>
-                      </div>
+                  {/* PIE DE PÁGINA */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <img 
+                        src={plantillaEdicion.logo_mppe_url || '/assets/img/logoMPPE.png'} 
+                        alt="MPPE" 
+                        style={{ height: '40px', width: 'auto' }} 
+                      />
                     </div>
-                  )}
-
-                  {/* Pie de Página Institucional */}
-                  {plantillaEdicion.pie_pagina && (
-                    <div className="text-center mt-3 pt-2 text-muted" style={{ fontSize: '8px', borderTop: '1px dashed #e2e8f0' }}>
-                      {plantillaEdicion.pie_pagina}
+                    <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
+                      SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
+                      Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{textoProcesado.codigoConstancia}</b>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
