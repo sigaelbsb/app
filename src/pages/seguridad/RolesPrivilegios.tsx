@@ -52,6 +52,11 @@ const ESTRUCTURA_ACCESOS = {
   },
   "Diseños": {
     "Galería y Plantillas": [],
+    "Editor de Constancias": [
+      "Función: Diseñar Plantillas",
+      "Función: Cargar Firmas y Sellos",
+      "Función: Descargar PDF"
+    ],
     "Creador de Certificados": [],
     "Creador de Flyers": [],
     "Creador de Invitaciones": [],

@@ -32,6 +32,7 @@ import { Verificaciones } from './pages/estudiantil/Verificaciones';
 import { TransporteEscolar } from './pages/transporte/TransporteEscolar';
 import { EstudioDiseno } from './pages/disenos/EstudioDiseno';
 import { ConstructorEncuestas } from './pages/disenos/ConstructorEncuestas';
+import { EditorConstancias } from './pages/disenos/EditorConstancias';
 import { InstallPwaModal } from './components/InstallPwaModal';
 import './componentes.css';
 import './principal.css';
@@ -163,6 +164,7 @@ function App() {
             <Route path="categoria/Gestión Estudiantil/Verificaciones" element={<ProtectedRoute modulo="Verificaciones"><Verificaciones /></ProtectedRoute>} />
             <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<ProtectedRoute modulo="Transporte Escolar"><TransporteEscolar /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Galería y Plantillas" element={<ProtectedRoute modulo="Galería y Plantillas"><EstudioDiseno herramientaInicial="galeria" /></ProtectedRoute>} />
+            <Route path="categoria/Diseños/Editor de Constancias" element={<ProtectedRoute modulo="Editor de Constancias"><EditorConstancias /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Creador de Certificados" element={<ProtectedRoute modulo="Creador de Certificados"><EstudioDiseno herramientaInicial="certificados" /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Creador de Flyers" element={<ProtectedRoute modulo="Creador de Flyers"><EstudioDiseno herramientaInicial="flyers" /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Creador de Invitaciones" element={<ProtectedRoute modulo="Creador de Invitaciones"><EstudioDiseno herramientaInicial="invitaciones" /></ProtectedRoute>} />

@@ -62,6 +62,7 @@ export const ModulosSistema = {
     icono: "bi-palette-fill", color: "#EC4899", desc: "Estudio de diseño creativo, certificados, flyers, comunicados, cumpleaños y encuestas.", 
     items: [
       { vista: "Galería y Plantillas", icono: "bi-grid-1x2-fill" },
+      { vista: "Editor de Constancias", icono: "bi-file-earmark-richtext-fill" },
       { vista: "Creador de Certificados", icono: "bi-patch-check-fill" },
       { vista: "Creador de Flyers", icono: "bi-file-earmark-image-fill" },
       { vista: "Creador de Invitaciones", icono: "bi-envelope-paper-heart-fill" },
