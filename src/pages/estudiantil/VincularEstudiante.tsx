@@ -953,16 +953,66 @@ export const VincularEstudiante: React.FC = () => {
     e.preventDefault();
     if (!estudianteEditando) return;
 
+    const nuevaCedula = (estudianteEditando.cedula_estudiante || '').trim().toUpperCase();
+    if (!nuevaCedula) {
+      const msg = 'La cédula o identificador escolar del estudiante no puede estar vacío.';
+      if ((window as any).Swal) (window as any).Swal.fire('Atención', msg, 'warning');
+      else alert(msg);
+      return;
+    }
+
     setLoading(true);
     try {
+      const cedulaAnterior = vinculaciones.find(v => v.id === estudianteEditando.id)?.cedula_estudiante || estudianteEditando.cedula_estudiante;
+
+      // 1. Validar que la nueva cédula no esté duplicada en otro registro diferente
+      if (nuevaCedula !== cedulaAnterior) {
+        const { data: existente } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('id, nombres_estudiante, apellidos_estudiante')
+          .eq('cedula_estudiante', nuevaCedula)
+          .neq('id', estudianteEditando.id)
+          .maybeSingle();
+
+        if (existente) {
+          const nombreDup = `${existente.nombres_estudiante || ''} ${existente.apellidos_estudiante || ''}`.trim();
+          const msg = `Ya existe otro estudiante registrado con la cédula "${nuevaCedula}" (${nombreDup}). Por favor verifique el número ingresado.`;
+          if ((window as any).Swal) {
+            (window as any).Swal.fire('Cédula Duplicada', msg, 'error');
+          } else {
+            alert(msg);
+          }
+          setLoading(false);
+          return;
+        }
+      }
+
       const escuelaFinal = (estudianteEditando.codigo_escuela || 'sb').toLowerCase();
-      const payload = {
+      
+      // 2. Sincronizar datos_actualizados si existen
+      let datosActualizadosMod = estudianteEditando.datos_actualizados;
+      if (datosActualizadosMod && typeof datosActualizadosMod === 'object') {
+        datosActualizadosMod = {
+          ...datosActualizadosMod,
+          estudiante_cedula: nuevaCedula,
+          cedula_estudiante: nuevaCedula,
+          estudiante_nombres: toTitulo(estudianteEditando.nombres_estudiante.trim()),
+          estudiante_apellidos: toTitulo(estudianteEditando.apellidos_estudiante.trim())
+        };
+      }
+
+      const payload: any = {
+        cedula_estudiante: nuevaCedula,
         nombres_estudiante: toTitulo(estudianteEditando.nombres_estudiante.trim()),
         apellidos_estudiante: toTitulo(estudianteEditando.apellidos_estudiante.trim()),
         grado_actual: estudianteEditando.grado_actual,
         seccion_actual: estudianteEditando.seccion_actual,
         codigo_escuela: escuelaFinal
       };
+
+      if (datosActualizadosMod) {
+        payload.datos_actualizados = datosActualizadosMod;
+      }
 
       const { error } = await supabase
         .from('estudiantes_vinculaciones')
@@ -971,13 +1021,30 @@ export const VincularEstudiante: React.FC = () => {
 
       if (error) throw error;
 
-      if ((window as any).Swal) {
-        (window as any).Swal.fire('¡Actualizado!', 'Los datos del estudiante han sido modificados exitosamente.', 'success');
-      } else {
-        alert('Estudiante actualizado exitosamente');
+      // 3. Propagar cambio de cédula a solicitudes de admisión si corresponde
+      if (nuevaCedula !== cedulaAnterior && cedulaAnterior) {
+        try {
+          await supabase
+            .from('solicitud_cupos')
+            .update({ estudiante_cedula: nuevaCedula })
+            .eq('estudiante_cedula', cedulaAnterior);
+        } catch (errSol) {
+          console.warn('Aviso: no fue necesario actualizar solicitud_cupos:', errSol);
+        }
       }
 
-      auditar('Vincular Estudiante', 'Editar Estudiante', `Modificó vinculación del estudiante ID ${estudianteEditando.id}`);
+      if ((window as any).Swal) {
+        (window as any).Swal.fire({
+          icon: 'success',
+          title: '¡Estudiante Actualizado!',
+          text: `Los datos del estudiante (C.I. ${nuevaCedula}) se modificaron exitosamente.`,
+          confirmButtonColor: '#0284c7'
+        });
+      } else {
+        alert(`Estudiante actualizado exitosamente (C.I. ${nuevaCedula})`);
+      }
+
+      auditar('Vincular Estudiante', 'Editar Estudiante', `Modificó datos del estudiante ID ${estudianteEditando.id}. C.I. Anterior: ${cedulaAnterior} -> C.I. Nueva: ${nuevaCedula}`);
       
       setVinculaciones(prev => prev.map(v => v.id === estudianteEditando.id ? { ...v, ...payload } : v));
       setShowEditModal(false);
@@ -2992,11 +3059,28 @@ export const VincularEstudiante: React.FC = () => {
 
                   <div className="row g-3 mb-3">
                     <div className="col-md-6">
-                      <label className="form-label fw-bold text-secondary small">Cédula del Estudiante (Inmutable)</label>
-                      <input type="text" className="form-control bg-light" value={estudianteEditando.cedula_estudiante} readOnly disabled />
+                      <label className="form-label fw-bold text-secondary small d-flex justify-content-between align-items-center mb-1">
+                        <span><i className="bi bi-person-vcard text-primary me-1"></i> Cédula / Identificador Escolar</span>
+                        <span className="badge bg-primary bg-opacity-10 text-primary border px-2 py-0.5 rounded-pill" style={{ fontSize: '10px' }}>
+                          <i className="bi bi-pencil-fill me-1"></i>Modificable por Admin
+                        </span>
+                      </label>
+                      <input 
+                        type="text" 
+                        className="form-control fw-bold text-dark font-monospace" 
+                        placeholder="Ej. V-12345678 o CE12345678"
+                        required
+                        value={estudianteEditando.cedula_estudiante || ''} 
+                        onChange={(e) => setEstudianteEditando({ ...estudianteEditando, cedula_estudiante: e.target.value.toUpperCase().trim() })} 
+                      />
+                      <small className="text-muted extra-small d-block mt-1">
+                        <i className="bi bi-info-circle me-1"></i>Puedes corregir o actualizar la cédula de identidad o código escolar del estudiante.
+                      </small>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label fw-bold text-secondary small">Plantel / Institución Educativa</label>
+                      <label className="form-label fw-bold text-secondary small mb-1">
+                        <i className="bi bi-building text-primary me-1"></i> Plantel / Institución Educativa
+                      </label>
                       <select 
                         className="form-select fw-bold"
                         value={estudianteEditando.codigo_escuela || 'sb'}
