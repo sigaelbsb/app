@@ -33,6 +33,7 @@ export const ModulosSistema = {
     icono: "bi-mortarboard-fill", color: "#8B5CF6", desc: "Inscripciones, expedientes y actualización de datos.", 
     items: [
       { vista: "Gestión de Admisiones", icono: "bi-ui-checks" },
+      { vista: "Mensajes de Admisión", icono: "bi-chat-heart-fill" },
       { vista: "Vincular Estudiante", icono: "bi-person-plus-fill" },
       { vista: "Expediente Estudiantil", icono: "bi-person-vcard" },
       { vista: "Actualización de Datos", icono: "bi-arrow-repeat" },
@@ -63,6 +64,7 @@ export const ModulosSistema = {
     items: [
       { vista: "Galería y Plantillas", icono: "bi-grid-1x2-fill" },
       { vista: "Editor de Constancias", icono: "bi-file-earmark-richtext-fill" },
+      { vista: "Carnet Estudiantil", icono: "bi-person-badge-fill" },
       { vista: "Creador de Certificados", icono: "bi-patch-check-fill" },
       { vista: "Creador de Flyers", icono: "bi-file-earmark-image-fill" },
       { vista: "Creador de Invitaciones", icono: "bi-envelope-paper-heart-fill" },

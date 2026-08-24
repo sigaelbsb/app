@@ -25,6 +25,7 @@ import { MiExpediente } from './pages/docente/MiExpediente';
 import { GestorExpedientes } from './pages/docente/GestorExpedientes';
 import { SolicitudCupos } from './pages/estudiantil/SolicitudCupos';
 import { GestionAdmisiones } from './pages/estudiantil/GestionAdmisiones';
+import { RedactorMensajesAdmision } from './pages/estudiantil/RedactorMensajesAdmision';
 import { VincularEstudiante } from './pages/estudiantil/VincularEstudiante';
 import { ValidarConstancia } from './pages/estudiantil/ValidarConstancia';
 import { ActualizacionDatos } from './pages/estudiantil/ActualizacionDatos';
@@ -159,12 +160,16 @@ function App() {
             <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<ProtectedRoute modulo="Gestor de Expedientes"><GestorExpedientes /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<ProtectedRoute modulo="Solicitud de Cupos"><SolicitudCupos /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Gestión de Admisiones" element={<ProtectedRoute modulo="Gestión de Admisiones"><GestionAdmisiones /></ProtectedRoute>} />
+            <Route path="categoria/Gestión Estudiantil/Mensajes de Admisión" element={<ProtectedRoute modulo="Gestión de Admisiones"><RedactorMensajesAdmision /></ProtectedRoute>} />
+            <Route path="categoria/Gestión Estudiantil/Redactor de Mensajes" element={<ProtectedRoute modulo="Gestión de Admisiones"><RedactorMensajesAdmision /></ProtectedRoute>} />
+            <Route path="redactor-mensajes-admision" element={<ProtectedRoute modulo="Gestión de Admisiones"><RedactorMensajesAdmision /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Vincular Estudiante" element={<ProtectedRoute modulo="Vincular Estudiante"><VincularEstudiante /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Actualización de Datos" element={<ProtectedRoute modulo="Actualización de Datos"><ActualizacionDatos /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Verificaciones" element={<ProtectedRoute modulo="Verificaciones"><Verificaciones /></ProtectedRoute>} />
             <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<ProtectedRoute modulo="Transporte Escolar"><TransporteEscolar /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Galería y Plantillas" element={<ProtectedRoute modulo="Galería y Plantillas"><EstudioDiseno herramientaInicial="galeria" /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Editor de Constancias" element={<ProtectedRoute modulo="Editor de Constancias"><EditorConstancias /></ProtectedRoute>} />
+            <Route path="categoria/Diseños/Carnet Estudiantil" element={<ProtectedRoute modulo="Editor de Constancias"><EditorConstancias /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Creador de Certificados" element={<ProtectedRoute modulo="Creador de Certificados"><EstudioDiseno herramientaInicial="certificados" /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Creador de Flyers" element={<ProtectedRoute modulo="Creador de Flyers"><EstudioDiseno herramientaInicial="flyers" /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Creador de Invitaciones" element={<ProtectedRoute modulo="Creador de Invitaciones"><EstudioDiseno herramientaInicial="invitaciones" /></ProtectedRoute>} />

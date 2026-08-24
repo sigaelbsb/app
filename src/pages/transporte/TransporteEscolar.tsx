@@ -818,9 +818,11 @@ export const TransporteEscolar = () => {
                 Generado: ${fechaHoy}<br>
                 Sistema Integral de Gestión y Administración Escolar (SIGAE)
             </div>
+        <div style="margin-top: 15px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column;">
+            <div style="height: 4px; background-color: #facc15;"></div>
+            <div style="height: 6px; background-color: #003893; display: flex; justify-content: center; align-items: center; gap: 3px; color: #ffffff; font-size: 5px; line-height: 1;"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
+            <div style="height: 4px; background-color: #cf142b;"></div>
         </div>
-        
-        <div style="height: 6px; background: linear-gradient(90deg, #facc15 0%, #facc15 33.3%, #2563eb 33.3%, #2563eb 66.6%, #dc2626 66.6%, #dc2626 100%); margin-top: 15px; border-radius: 3px;"></div>
       `;
 
       clon.innerHTML = htmlImagen;
@@ -1199,9 +1201,11 @@ export const TransporteEscolar = () => {
                 <div style="text-align: right; font-size: 11px; color: #94a3b8; font-weight: 600;">
                     Generado: ${fechaHoy}<br>
                     Sistema Integral de Gestión y Administración Escolar (SIGAE)
-                </div>
+            <div style="margin-top: 15px; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column;">
+                <div style="height: 4px; background-color: #facc15;"></div>
+                <div style="height: 6px; background-color: #003893; display: flex; justify-content: center; align-items: center; gap: 3px; color: #ffffff; font-size: 5px; line-height: 1;"><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span></div>
+                <div style="height: 4px; background-color: #cf142b;"></div>
             </div>
-            <div style="height: 6px; background: linear-gradient(90deg, #facc15 0%, #facc15 33.3%, #2563eb 33.3%, #2563eb 66.6%, #dc2626 66.6%, #dc2626 100%); margin-top: 15px; border-radius: 3px;"></div>
           `;
 
           clon.innerHTML = htmlImagen;

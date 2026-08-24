@@ -11,6 +11,8 @@ export const PanelControl = () => {
 
   const [mantenimientoSB, setMantenimientoSB] = useState<boolean>(false);
   const [mantenimientoLB, setMantenimientoLB] = useState<boolean>(false);
+  const [carnetSB, setCarnetSB] = useState<boolean>(true);
+  const [carnetLB, setCarnetLB] = useState<boolean>(true);
   const [fechaInicioCupos, setFechaInicioCupos] = useState<string>('');
   const [fechaFinCupos, setFechaFinCupos] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -45,6 +47,19 @@ export const PanelControl = () => {
 
         setMantenimientoSB(isSbActive);
         setMantenimientoLB(isLbActive);
+
+        const cGlobal = data.find(x => x.clave === 'carnet_activo' || x.clave === 'carnet_activo_global');
+        const cSB = data.find(x => x.clave === 'carnet_activo_sb');
+        const cLB = data.find(x => x.clave === 'carnet_activo_lb');
+
+        const isCarnetSbActive = cSB ? (cSB.valor === 'true') : (cGlobal ? cGlobal.valor === 'true' : true);
+        const isCarnetLbActive = cLB ? (cLB.valor === 'true') : (cGlobal ? cGlobal.valor === 'true' : true);
+
+        setCarnetSB(isCarnetSbActive);
+        setCarnetLB(isCarnetLbActive);
+        localStorage.setItem('sigae_carnet_activo_sb', isCarnetSbActive ? 'true' : 'false');
+        localStorage.setItem('sigae_carnet_activo_lb', isCarnetLbActive ? 'true' : 'false');
+        localStorage.setItem('sigae_carnet_activo', (isCarnetSbActive && isCarnetLbActive) ? 'true' : 'false');
 
         const inicioCupo = data.find(x => x.clave === 'fecha_inicio_cupos');
         if (inicioCupo) setFechaInicioCupos(inicioCupo.valor || '');
@@ -192,6 +207,114 @@ export const PanelControl = () => {
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo guardar la configuración.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleSchoolCarnet = async (escuela: 'sb' | 'lb', newValue: boolean) => {
+    if (!canModify) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
+      return;
+    }
+
+    if (!Swal) return;
+
+    const escuelaNombre = escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const actionText = newValue ? 'activar y mostrar' : 'ocultar';
+
+    const confirmResult = await Swal.fire({
+      title: `¿${newValue ? 'Mostrar' : 'Ocultar'} Carnets en ${escuelaNombre}?`,
+      text: `¿Deseas ${actionText} la emisión y descarga del carnet estudiantil para todos los representantes de ${escuelaNombre}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: `Sí, ${actionText}`,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: newValue ? '#198754' : '#dc3545'
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    setSaving(true);
+    try {
+      const clave = escuela === 'sb' ? 'carnet_activo_sb' : 'carnet_activo_lb';
+      const otherVal = escuela === 'sb' ? carnetLB : carnetSB;
+      const globalVal = newValue && otherVal;
+
+      await supabase.from('ajustes_globales').upsert([
+        { clave, valor: String(newValue), descripcion: `Estado de emisión carnet (${escuela})`, actualizado_en: new Date().toISOString() },
+        { clave: 'carnet_activo', valor: String(globalVal), descripcion: 'Estado global carnet', actualizado_en: new Date().toISOString() }
+      ], { onConflict: 'clave' });
+
+      localStorage.setItem(`sigae_${clave}`, newValue ? 'true' : 'false');
+      localStorage.setItem('sigae_carnet_activo', globalVal ? 'true' : 'false');
+
+      if (escuela === 'sb') setCarnetSB(newValue);
+      else setCarnetLB(newValue);
+
+      Swal.fire({
+        icon: 'success',
+        title: `Carnets en ${escuelaNombre}: ${newValue ? 'ACTIVADOS' : 'OCULTADOS'}`,
+        text: `Los carnets han sido ${newValue ? 'habilitados para descarga' : 'ocultados de la vista de todos los representantes'} de ${escuelaNombre}.`
+      });
+
+      auditar('Panel de Control', 'Emisión de Carnets', `Cambió estado de carnets en ${escuelaNombre} a: ${newValue ? 'ACTIVO' : 'OCULTO'}`);
+    } catch (err: any) {
+      console.error('Error toggling carnet:', err);
+      Swal.fire('Error', 'No se pudo actualizar el estado de los carnets.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleBothCarnet = async (newValue: boolean) => {
+    if (!canModify) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar los ajustes del sistema.', 'error');
+      return;
+    }
+
+    if (!Swal) return;
+
+    const actionText = newValue ? 'activar y mostrar' : 'ocultar';
+
+    const confirmResult = await Swal.fire({
+      title: `¿${newValue ? 'Mostrar' : 'Ocultar'} Carnets en AMBAS Escuelas?`,
+      text: `¿Deseas ${actionText} la emisión del carnet estudiantil para todos los representantes de ambas instituciones?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: `Sí, ${actionText} en ambas`,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: newValue ? '#198754' : '#dc3545'
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    setSaving(true);
+    try {
+      const nowIso = new Date().toISOString();
+      await supabase.from('ajustes_globales').upsert([
+        { clave: 'carnet_activo_sb', valor: String(newValue), descripcion: 'Estado emisión carnet SB', actualizado_en: nowIso },
+        { clave: 'carnet_activo_lb', valor: String(newValue), descripcion: 'Estado emisión carnet LB', actualizado_en: nowIso },
+        { clave: 'carnet_activo', valor: String(newValue), descripcion: 'Estado global emisión carnet', actualizado_en: nowIso }
+      ], { onConflict: 'clave' });
+
+      localStorage.setItem('sigae_carnet_activo_sb', newValue ? 'true' : 'false');
+      localStorage.setItem('sigae_carnet_activo_lb', newValue ? 'true' : 'false');
+      localStorage.setItem('sigae_carnet_activo', newValue ? 'true' : 'false');
+
+      setCarnetSB(newValue);
+      setCarnetLB(newValue);
+
+      Swal.fire({
+        icon: 'success',
+        title: `Carnets en AMBAS Escuelas: ${newValue ? 'ACTIVADOS' : 'OCULTADOS'}`,
+        text: `Los carnets han sido ${newValue ? 'habilitados para todos los representantes' : 'ocultados de la interfaz para todos los representantes'}.`
+      });
+
+      auditar('Panel de Control', 'Emisión de Carnets', `Cambió estado de carnets en ambas escuelas a: ${newValue ? 'ACTIVO' : 'OCULTO'}`);
+    } catch (err: any) {
+      console.error('Error toggling both carnets:', err);
+      Swal.fire('Error', 'No se pudo actualizar el estado de los carnets.', 'error');
     } finally {
       setSaving(false);
     }
@@ -498,6 +621,111 @@ export const PanelControl = () => {
                   title="Restablecer ambas escuelas a sistema operativo"
                 >
                   <i className="bi bi-check-circle me-1"></i> Restablecer Ambas
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Emisión y Visibilidad del Carnet Estudiantil */}
+          <div className="col-12">
+            <div className="card border-0 shadow-sm rounded-4 h-100 p-4 bg-white border-start border-warning border-4">
+              <div className="d-flex align-items-center mb-3">
+                <div className={`p-3 rounded-circle me-3 ${(carnetSB || carnetLB) ? 'bg-warning bg-opacity-10 text-dark' : 'bg-secondary bg-opacity-10 text-muted'}`}>
+                  <i className="bi bi-person-badge-fill fs-3 text-warning"></i>
+                </div>
+                <div>
+                  <h4 className="fw-bold mb-1 text-dark">Emisión y Visibilidad del Carnet Estudiantil</h4>
+                  <div className="d-flex flex-wrap gap-2 mt-1">
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${carnetSB ? 'bg-success text-white' : 'bg-secondary text-white'}`} style={{ fontSize: '0.75rem' }}>
+                      <i className="bi bi-building me-1"></i> Santa Bárbara: {carnetSB ? 'VISIBLE / ACTIVO' : 'OCULTO'}
+                    </span>
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${carnetLB ? 'bg-success text-white' : 'bg-secondary text-white'}`} style={{ fontSize: '0.75rem' }}>
+                      <i className="bi bi-building me-1"></i> Libertador Bolívar: {carnetLB ? 'VISIBLE / ACTIVO' : 'OCULTO'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <hr className="my-3 text-muted opacity-25" />
+
+              <p className="text-muted small mb-3">
+                Control maestro administrativo para mostrar u ocultar el botón de <strong>Descarga del Carnet Estudiantil</strong> a todos los representantes y estudiantes en el sistema. Al desactivarlo, los carnets quedarán completamente ocultos de la vista pública.
+              </p>
+
+              {/* Controles por Escuela */}
+              <div className="row g-3 mb-3">
+                {/* U.E. Santa Bárbara */}
+                <div className="col-md-6 col-12">
+                  <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${carnetSB ? 'bg-success bg-opacity-10 border-success' : 'bg-light border'}`}>
+                    <div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-primary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>SB</span>
+                        <h6 className="fw-bold mb-0 text-dark">U.E. Santa Bárbara</h6>
+                      </div>
+                      <small className={carnetSB ? 'text-success fw-bold' : 'text-muted fw-bold'}>
+                        {carnetSB ? '● Carnets Visibles para Representantes' : '● Carnets Ocultos en el Sistema'}
+                      </small>
+                    </div>
+                    <div className="form-check form-switch fs-4 mb-0">
+                      <input
+                        className="form-check-input hover-mano"
+                        type="checkbox"
+                        role="switch"
+                        id="switchCarnetSB"
+                        checked={carnetSB}
+                        disabled={saving || !canModify}
+                        onChange={(e) => handleToggleSchoolCarnet('sb', e.target.checked)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* U.E. Libertador Bolívar */}
+                <div className="col-md-6 col-12">
+                  <div className={`d-flex align-items-center justify-content-between p-3 rounded-3 border transition-all ${carnetLB ? 'bg-primary bg-opacity-10 border-primary' : 'bg-light border'}`}>
+                    <div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-success px-2 py-0.5" style={{ fontSize: '0.7rem' }}>LB</span>
+                        <h6 className="fw-bold mb-0 text-dark">U.E. Libertador Bolívar</h6>
+                      </div>
+                      <small className={carnetLB ? 'text-primary fw-bold' : 'text-muted fw-bold'}>
+                        {carnetLB ? '● Carnets Visibles para Representantes' : '● Carnets Ocultos en el Sistema'}
+                      </small>
+                    </div>
+                    <div className="form-check form-switch fs-4 mb-0">
+                      <input
+                        className="form-check-input hover-mano"
+                        type="checkbox"
+                        role="switch"
+                        id="switchCarnetLB"
+                        checked={carnetLB}
+                        disabled={saving || !canModify}
+                        onChange={(e) => handleToggleSchoolCarnet('lb', e.target.checked)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones de acción para ambas escuelas */}
+              <div className="d-flex gap-2 pt-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-success w-50 rounded-pill fw-bold py-2"
+                  disabled={saving || !canModify || (carnetSB && carnetLB)}
+                  onClick={() => handleToggleBothCarnet(true)}
+                  title="Habilitar carnets en ambas escuelas"
+                >
+                  <i className="bi bi-eye-fill me-1"></i> Mostrar en Ambas Escuelas
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-danger w-50 rounded-pill fw-bold py-2"
+                  disabled={saving || !canModify || (!carnetSB && !carnetLB)}
+                  onClick={() => handleToggleBothCarnet(false)}
+                  title="Ocultar carnets en ambas escuelas"
+                >
+                  <i className="bi bi-eye-slash-fill me-1"></i> Ocultar en Ambas Escuelas
                 </button>
               </div>
             </div>

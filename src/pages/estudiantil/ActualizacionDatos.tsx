@@ -9,6 +9,7 @@ import { jsPDF } from 'jspdf';
 import { auditar } from '../../lib/audit';
 import { toTitulo } from '../../lib/formatters';
 import { obtenerFirmaDirectorProtegida, obtenerDatosDirectorAsync, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
+import { mostrarModalCarnetEstudiantil, esCarnetActivo, toggleCarnetActivo, cargarAjustesCarnetBD } from '../../utils/generadorCarnet';
 
 
 
@@ -331,10 +332,23 @@ export const ActualizacionDatos: React.FC = () => {
 
   
 
-  const [step, setStep] = useState(2);
+  const [step, setStep] = useState(1);
 
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [savingStatus, setSavingStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [carnetActivoGlobal, setCarnetActivoGlobal] = useState<boolean>(esCarnetActivo());
+
+  const handleToggleCarnetGlobal = async () => {
+    const nuevo = await toggleCarnetActivo();
+    setCarnetActivoGlobal(nuevo);
+    if ((window as any).Swal) {
+      const Toast = (window as any).Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+      Toast.fire({
+        icon: nuevo ? 'success' : 'warning',
+        title: `Emisión de Carnets ${nuevo ? 'ACTIVADA' : 'DESACTIVADA'} para el sistema`
+      });
+    }
+  };
 
 
 
@@ -391,9 +405,10 @@ export const ActualizacionDatos: React.FC = () => {
 
 
   useEffect(() => {
+    cargarCatalogos();
+    cargarAjustesCarnetBD().then(() => setCarnetActivoGlobal(esCarnetActivo()));
     if (user?.cedula) {
       cargarMisRepresentados(user.cedula);
-      cargarCatalogos();
     }
   }, [user]);
 
@@ -1395,16 +1410,6 @@ export const ActualizacionDatos: React.FC = () => {
 
       if (error) throw error;
       setMisRepresentados(data || []);
-
-      // Auto-restaurar estudiante y paso si la sesión se recargó o hubo pausa
-      const savedEstId = sessionStorage.getItem('sigae_act_draft_estudiante_id');
-      const savedStep = sessionStorage.getItem('sigae_act_draft_step');
-      if (savedEstId && data && data.length > 0) {
-        const estGuardado = data.find((e: any) => String(e.id) === savedEstId);
-        if (estGuardado) {
-          abrirFichaEstudiante(estGuardado, savedStep ? parseInt(savedStep, 10) : 1);
-        }
-      }
     } catch (err: any) {
       console.error('Error al cargar representados:', err);
     } finally {
@@ -4444,6 +4449,47 @@ const STEPS = [
     manejarOpcionesConstancia(datosEstDemo, formDemo);
   };
 
+  const abrirModeloCarnet = (esc: 'sb' | 'lb' = 'sb') => {
+    const ano = new Date().getFullYear();
+    const datosEstDemo = {
+      cedula_estudiante: '31.456.789',
+      nombres_estudiante: 'Alejandro José',
+      apellidos_estudiante: 'Pérez Silva',
+      grado_actual: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+      seccion_actual: 'A',
+      codigo_escuela: esc,
+      nombre_escuela: esc === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar',
+      cedula_representante: '15.987.654',
+      nombres_representante: 'Carlos Eduardo',
+      apellidos_representante: 'Pérez Mendoza',
+      telefono_representante: '0414-1234567',
+      contacto_emergencia_telefono: '0424-7654321',
+      estudiante_grupo_sanguineo: 'O+',
+      estudiante_alergias: 'Ninguna conocida',
+      direccion_habitacion: 'Sector Centro, Calle Bolívar #12',
+      codigo_unico: `CR-${esc.toUpperCase()}-31456789-${ano}`
+    };
+
+    const formDemo = {
+      estudiante_nombres: 'Alejandro José',
+      estudiante_apellidos: 'Pérez Silva',
+      estudiante_cedula: '31.456.789',
+      grado_solicitado: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+      seccion_actual: 'A',
+      representante_nombres: 'Carlos Eduardo',
+      representante_apellidos: 'Pérez Mendoza',
+      representante_cedula: '15.987.654',
+      representante_telefono: '0414-1234567',
+      contacto_emergencia_telefono: '0424-7654321',
+      estudiante_grupo_sanguineo: 'O+',
+      estudiante_alergias: 'Ninguna conocida',
+      direccion_habitacion: 'Sector Centro, Calle Bolívar #12',
+      codigo_unico: `CR-${esc.toUpperCase()}-31456789-${ano}`
+    } as unknown as SolicitudForm;
+
+    mostrarModalCarnetEstudiantil(datosEstDemo, formDemo);
+  };
+
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
 
@@ -4488,14 +4534,32 @@ const STEPS = [
           {estudianteSeleccionado && (
             <div className="mt-4 mt-md-0 d-flex gap-2 align-items-center flex-wrap">
               {estudianteSeleccionado.fecha_ultima_actualizacion && form.estado_habitacion && form.direccion_habitacion && form.estudiante_grupo_sanguineo && (
-                <button
-                  className="btn btn-success rounded-pill px-4 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2"
-                  onClick={() => manejarOpcionesResumen(estudianteSeleccionado, form)}
-                >
-                  <i className="bi bi-file-earmark-pdf-fill fs-5"></i> Descargar Resumen
-                </button>
+                <>
+                  <button
+                    className="btn btn-warning text-dark rounded-pill px-3.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-1.5"
+                    onClick={() => mostrarModalCarnetEstudiantil(estudianteSeleccionado, form)}
+                    title="Descargar Carnet Estudiantil oficial con QR y firma digital"
+                  >
+                    <i className="bi bi-person-badge-fill fs-5"></i>
+                    <span>Descargar Carnet</span>
+                  </button>
+                  <button
+                    className="btn btn-success rounded-pill px-3.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-1.5"
+                    onClick={() => manejarOpcionesResumen(estudianteSeleccionado, form)}
+                  >
+                    <i className="bi bi-file-earmark-pdf-fill fs-5"></i>
+                    <span>Descargar Resumen</span>
+                  </button>
+                </>
               )}
-              <button className="btn btn-outline-light rounded-pill px-4 fw-bold shadow-sm hover-efecto" onClick={() => setEstudianteSeleccionado(null)}>
+              <button
+                className="btn btn-outline-light rounded-pill px-4 fw-bold shadow-sm hover-efecto"
+                onClick={() => {
+                  sessionStorage.removeItem('sigae_act_draft_estudiante_id');
+                  sessionStorage.removeItem('sigae_act_draft_step');
+                  setEstudianteSeleccionado(null);
+                }}
+              >
                 <i className="bi bi-arrow-left me-2"></i>Volver a Mis Representados
               </button>
             </div>
@@ -4561,7 +4625,7 @@ const STEPS = [
 
             </div>
 
-            <div className="col-md-auto ms-md-auto mt-2 mt-md-0">
+            <div className="col-md-auto ms-md-auto mt-2 mt-md-0 d-flex flex-wrap gap-2">
               <div className="btn-group shadow-sm" role="group">
                 <button 
                   type="button" 
@@ -4580,6 +4644,27 @@ const STEPS = [
                 >
                   <i className="bi bi-file-earmark-check-fill"></i>
                   <span>Constancia LB</span>
+                </button>
+              </div>
+
+              <div className="btn-group shadow-sm" role="group">
+                <button 
+                  type="button" 
+                  className="btn btn-warning text-dark fw-bold d-flex align-items-center gap-1.5"
+                  onClick={() => abrirModeloCarnet('sb')}
+                  title="Ver y descargar modelo de Carnet Estudiantil (UE Santa Bárbara)"
+                >
+                  <i className="bi bi-person-badge-fill"></i>
+                  <span>Carnet SB</span>
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-dark text-warning fw-bold d-flex align-items-center gap-1.5"
+                  onClick={() => abrirModeloCarnet('lb')}
+                  title="Ver y descargar modelo de Carnet Estudiantil (UE Libertador Bolívar)"
+                >
+                  <i className="bi bi-person-badge-fill"></i>
+                  <span>Carnet LB</span>
                 </button>
               </div>
             </div>
@@ -4620,18 +4705,25 @@ const STEPS = [
       )}
 
       {!estudianteSeleccionado ? (
-
         <div>
-
-          <h4 className="fw-bolder text-dark mb-4 d-flex align-items-center">
-
-            <i className="bi bi-people-fill text-primary me-3 fs-3"></i>
-
-            Mis Representados
-
-            <span className="badge bg-primary rounded-pill ms-3 fs-6 px-3">{misRepresentados.length}</span>
-
-          </h4>
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+            <h4 className="fw-bolder text-dark m-0 d-flex align-items-center">
+              <i className="bi bi-people-fill text-primary me-3 fs-3"></i>
+              Mis Representados
+              <span className="badge bg-primary rounded-pill ms-3 fs-6 px-3">{misRepresentados.length}</span>
+            </h4>
+            {esAdmin && (
+              <button
+                type="button"
+                className={`btn btn-sm ${carnetActivoGlobal ? 'btn-outline-success' : 'btn-outline-danger'} rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5`}
+                onClick={handleToggleCarnetGlobal}
+                title="Configuración de Administrador: Activar o desactivar la emisión de carnets estudiantiles en el sistema"
+              >
+                <i className={`bi ${carnetActivoGlobal ? 'bi-toggle-on fs-5 text-success' : 'bi-toggle-off fs-5 text-danger'}`}></i>
+                <span>{carnetActivoGlobal ? 'Carnets: Habilitados' : 'Carnets: Desactivados'}</span>
+              </button>
+            )}
+          </div>
 
 
 
@@ -4685,69 +4777,74 @@ const STEPS = [
                   estadoFicha = 'en_proceso';
                 }
 
-                const datosFormEst = est.datos_actualizados || {};
-                const escEst = resolverEscuelaEstudiante(est, datosFormEst);
+                const escEst = resolverEscuelaEstudiante(est, d);
+                const datosFormEst = d && Object.keys(d).length > 0 ? d : est;
 
                 return (
-                  <div className="col-md-6 col-xl-4" key={est.id}>
-                    <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden hover-shadow transition-all">
-                      <div className="card-header border-0 p-4 pb-0 bg-transparent d-flex justify-content-between align-items-start">
-                        <span className={`badge ${escEst === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-3 py-2 rounded-pill`}>
-                          {escEst === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
-                        </span>
-
-                        {estadoFicha === 'actualizado' && (
-                          <span className="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 rounded-pill">
-                            <i className="bi bi-check-circle-fill me-1"></i>Actualizado
-                          </span>
-                        )}
-                        {estadoFicha === 'desactualizado' && (
-                          <span className="badge bg-danger bg-opacity-10 text-danger border border-danger px-3 py-2 rounded-pill" title={`Hace ${diasTranscurridos} días (supera 3 meses)`}>
-                            <i className="bi bi-exclamation-octagon-fill text-danger me-1"></i>Desactualizado
-                          </span>
-                        )}
-                        {estadoFicha === 'en_proceso' && (
-                          <span className="badge bg-warning bg-opacity-10 text-dark border border-warning px-3 py-2 rounded-pill" title="La ficha aún tiene campos incompletos por actualizar">
-                            <i className="bi bi-hourglass-split text-warning me-1"></i>En Proceso
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="card-body p-4">
-                        <div className="d-flex align-items-center mb-3">
-                          <div className="bg-light text-primary rounded-circle p-3 me-3 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '60px', height: '60px' }}>
-                            <i className="bi bi-mortarboard-fill fs-3"></i>
+                  <div className="col-12 col-md-6 col-lg-4" key={est.id}>
+                    <div className="card h-100 border-0 shadow-sm rounded-4 overflow-hidden position-relative hover-shadow transition-all bg-white d-flex flex-column justify-content-between">
+                      {/* Header de la tarjeta con Badge de Estado */}
+                      <div>
+                        <div className="p-4 pb-0 d-flex justify-content-between align-items-start">
+                          <div>
+                            <span className="badge bg-light text-dark border px-3 py-1.5 rounded-pill fw-bold mb-2">
+                              {est.grado_actual || d.grado_solicitado || 'Sin Grado'}
+                            </span>
+                            <h5 className="fw-bolder text-dark mb-1">
+                              {est.nombres_estudiante} {est.apellidos_estudiante}
+                            </h5>
+                            <p className="text-muted small mb-0 font-monospace">
+                              C.I / C.E: {est.cedula_estudiante || 'Sin Cédula'}
+                            </p>
                           </div>
                           <div>
-                            <h5 className="fw-bolder text-dark mb-1">{est.nombres_estudiante}</h5>
-                            <h6 className="fw-bold text-secondary mb-0">{est.apellidos_estudiante}</h6>
+                            {estadoFicha === 'actualizado' && (
+                              <span className="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 rounded-pill fw-bold">
+                                <i className="bi bi-check-circle-fill me-1"></i>Actualizado
+                              </span>
+                            )}
+                            {estadoFicha === 'en_proceso' && (
+                              <span className="badge bg-warning bg-opacity-10 text-warning border border-warning px-3 py-2 rounded-pill fw-bold text-dark">
+                                <i className="bi bi-clock-history me-1"></i>En Proceso
+                              </span>
+                            )}
+                            {estadoFicha === 'desactualizado' && (
+                              <span className="badge bg-danger bg-opacity-10 text-danger border border-danger px-3 py-2 rounded-pill fw-bold">
+                                <i className="bi bi-exclamation-triangle-fill me-1"></i>Desactualizado
+                              </span>
+                            )}
                           </div>
                         </div>
 
-                        <div className="bg-light rounded-3 p-3 mb-4">
-                          <div className="row g-2 text-center">
-                            <div className="col-6 border-end">
-                              <small className="text-muted d-block text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Cédula / C. Escolar</small>
-                              <span className="fw-bolder text-dark fs-6">{est.cedula_estudiante}</span>
+                        {/* Contenido / Detalles */}
+                        <div className="p-4 pt-3">
+                          <div className="p-3 bg-light rounded-3 small">
+                            <div className="d-flex justify-content-between mb-2">
+                              <span className="text-muted">Representante:</span>
+                              <span className="fw-bold text-dark">{est.nombres_representante}</span>
                             </div>
-                            <div className="col-6">
-                              <small className="text-muted d-block text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Grado & Sección</small>
-                              <span className="fw-bolder text-primary fs-6">{est.grado_actual} "{est.seccion_actual}"</span>
+                            <div className="d-flex justify-content-between mb-2">
+                              <span className="text-muted">Plantel Asignado:</span>
+                              <span className="fw-bold text-dark">
+                                {escEst === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between">
+                              <span className="text-muted">Última Actualización:</span>
+                              <span className="fw-bold text-dark">
+                                {fechaUltima ? fechaUltima.toLocaleDateString('es-VE') : 'Nunca'}
+                              </span>
                             </div>
                           </div>
                         </div>
+                      </div>
 
-                        {fechaUltima && (
-                          <small className={`d-block text-center mb-3 ${estadoFicha === 'desactualizado' ? 'text-danger fw-bold' : 'text-muted'}`}>
-                            <i className="bi bi-clock-history me-1"></i>Última actualización: {fechaUltima.toLocaleDateString()}
-                            {estadoFicha === 'desactualizado' && ` (hace ${Math.floor(diasTranscurridos / 30)} meses)`}
-                          </small>
-                        )}
-
+                      {/* Footer de Acciones */}
+                      <div className="p-4 pt-0">
                         <div className="d-flex flex-column gap-2">
-                          <button 
+                          <button
                             className="btn btn-primary w-100 py-2.5 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
-                            onClick={() => abrirFichaEstudiante(est)}
+                            onClick={() => abrirFichaEstudiante(est, 1)}
                           >
                             <i className="bi bi-pencil-square me-2 fs-5"></i>
                             {estadoFicha === 'actualizado' ? 'Editar Ficha Integral' : 'Completar Ficha Integral'}
@@ -4755,6 +4852,16 @@ const STEPS = [
 
                           {estadoFicha === 'actualizado' && (
                             <>
+                              {(esCarnetActivo(escEst) || esAdmin) && (
+                                <button
+                                  className="btn btn-warning w-100 py-2 fw-bold text-dark rounded-3 shadow-sm d-flex align-items-center justify-content-center hover-efecto"
+                                  onClick={() => mostrarModalCarnetEstudiantil(est, datosFormEst)}
+                                  title="Descargar Carnet Estudiantil en PDF o Imagen"
+                                >
+                                  <i className="bi bi-person-badge-fill me-2 fs-5 text-dark"></i>
+                                  Descargar Carnet Estudiantil
+                                </button>
+                              )}
                               <button
                                 className="btn btn-outline-success w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
                                 onClick={() => manejarOpcionesResumen(est, datosFormEst)}

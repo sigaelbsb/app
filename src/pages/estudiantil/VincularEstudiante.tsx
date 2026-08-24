@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 
 import { toTitulo } from '../../lib/formatters';
 import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
+import { mostrarModalCarnetEstudiantil } from '../../utils/generadorCarnet';
 
 const handleTituloChange = (
   e: React.ChangeEvent<HTMLInputElement>,
@@ -833,6 +834,17 @@ export const VincularEstudiante: React.FC = () => {
         }
         return v;
       }));
+
+      // Si el nuevo representante tiene ahora estudiantes en ambas escuelas, asegurar id_escuela = 'ambas'
+      try {
+        const todosDelNuevoRep = vinculaciones.filter(v => v.cedula_representante === nuevoRepEncontrado.cedula || idsTarget.includes(v.id));
+        const escuelasRep = Array.from(new Set(todosDelNuevoRep.map((e: any) => (e?.codigo_escuela || '').trim().toLowerCase()).filter(Boolean)));
+        if (escuelasRep.includes('sb') && escuelasRep.includes('lb')) {
+          await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', nuevoRepEncontrado.cedula);
+        }
+      } catch (errSyncRep) {
+        console.warn('Error sincronizando id_escuela del representante:', errSyncRep);
+      }
 
       if (Swal) {
         Swal.fire({
@@ -4487,7 +4499,21 @@ export const VincularEstudiante: React.FC = () => {
                       </div>
 
                       {/* Botones de Acción */}
-                      <div className="d-flex gap-2">
+                      <div className="d-flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          className="btn btn-warning text-dark fw-bold rounded-pill px-3 shadow-sm btn-sm d-flex align-items-center gap-1.5 hover-efecto"
+                          onClick={() => {
+                            if (estudianteDoc) {
+                              mostrarModalCarnetEstudiantil(estudianteDoc);
+                            }
+                          }}
+                          title="Emitir y descargar Carnet Estudiantil oficial"
+                        >
+                          <i className="bi bi-person-badge-fill"></i>
+                          <span>Carnet Estudiantil</span>
+                        </button>
+
                         <button
                           type="button"
                           className="btn btn-primary fw-bold rounded-pill px-3 shadow-sm btn-sm d-flex align-items-center gap-1.5"
@@ -4749,7 +4775,7 @@ export const VincularEstudiante: React.FC = () => {
                     </div>
 
                     {/* PIE DEL MODAL */}
-                    <div className="modal-footer bg-white border-top p-3 d-flex justify-content-between">
+                    <div className="modal-footer bg-white border-top p-3 d-flex justify-content-between flex-wrap gap-2">
                       <button
                         type="button"
                         className="btn btn-outline-secondary fw-bold rounded-pill px-4"
@@ -4757,19 +4783,30 @@ export const VincularEstudiante: React.FC = () => {
                       >
                         Cerrar Visor
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center gap-1.5"
-                        onClick={handleDescargarDocPdf}
-                        disabled={generandoDocPdf}
-                      >
-                        {generandoDocPdf ? (
-                          <span className="spinner-border spinner-border-sm"></span>
-                        ) : (
-                          <i className="bi bi-file-earmark-pdf-fill"></i>
-                        )}
-                        <span>Descargar Comprobante en PDF</span>
-                      </button>
+                      <div className="d-flex align-items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-warning text-dark fw-bold rounded-pill px-3 shadow-sm d-flex align-items-center gap-1.5"
+                          onClick={() => mostrarModalCarnetEstudiantil(estudianteDoc, estudianteDoc?.datos_actualizados)}
+                          title="Ver y emitir Carnet Estudiantil"
+                        >
+                          <i className="bi bi-person-badge-fill"></i>
+                          <span>Carnet Estudiantil</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center gap-1.5"
+                          onClick={handleDescargarDocPdf}
+                          disabled={generandoDocPdf}
+                        >
+                          {generandoDocPdf ? (
+                            <span className="spinner-border spinner-border-sm"></span>
+                          ) : (
+                            <i className="bi bi-file-earmark-pdf-fill"></i>
+                          )}
+                          <span>Descargar Comprobante en PDF</span>
+                        </button>
+                      </div>
                     </div>
                   </>
                 );

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import * as XLSX from 'xlsx';
+import { buscarPlantillaAdmision, renderizarMensajeAdmision, generarEnlaceWhatsAppAdmision } from '../../utils/plantillasAdmision';
 
 const Swal = (window as any).Swal;
 
@@ -55,6 +57,20 @@ export interface SolicitudAdmision {
   doc_foto_estudiante?: string;
   doc_partida_nacimiento?: string;
   doc_cedula_estudiante?: string;
+  doc_partida_trabajador?: string;
+  doc_partida_nexo?: string;
+  foto_partida_nacimiento_url?: string;
+  foto_cedula_estudiante_url?: string;
+  foto_carnet_url?: string;
+  foto_informe_medico_url?: string;
+  foto_carnet_conapdis_url?: string;
+  foto_cedula_madre_url?: string;
+  foto_cedula_padre_url?: string;
+  constancia_cultura_url?: string;
+  constancia_danza_url?: string;
+  constancia_deporte_url?: string;
+  documentos_adjuntos?: any;
+  datos_actualizados?: any;
   estado: string; // 'Pendiente' | 'Aprobado' | 'Rechazado' | 'En Evaluación' | 'Formalizado' | 'Borrador'
   aptitud?: 'Apto' | 'No Apto' | 'En Evaluación' | string;
   prioridad_manual?: number | null;
@@ -65,6 +81,75 @@ export interface SolicitudAdmision {
   creado_por?: string;
   created_at?: string;
 }
+
+export interface DocumentoAdjuntoItem {
+  id: string;
+  tipo: string;
+  titulo: string;
+  subtitulo?: string;
+  url: string;
+  icono: string;
+  color: string;
+}
+
+export const obtenerDocumentosSolicitud = (sol?: SolicitudAdmision | null): DocumentoAdjuntoItem[] => {
+  if (!sol) return [];
+  const list: DocumentoAdjuntoItem[] = [];
+
+  const addDoc = (tipo: string, titulo: string, url?: string | null, icono = 'bi-file-earmark-text', color = '#2563eb', subtitulo?: string) => {
+    if (url && typeof url === 'string' && url.trim().length > 5) {
+      const cleanUrl = url.trim();
+      if (!list.some(d => d.url === cleanUrl)) {
+        list.push({ id: `${tipo}-${list.length}`, tipo, titulo, subtitulo, url: cleanUrl, icono, color });
+      }
+    }
+  };
+
+  // 1. Partida de Nacimiento del Estudiante
+  addDoc('partida', 'Partida de Nacimiento del Estudiante', sol.doc_partida_nacimiento || sol.foto_partida_nacimiento_url, 'bi-file-earmark-person-fill', '#16a34a', 'Requisito Principal');
+  
+  // 2. Cédula del Estudiante
+  addDoc('cedula_estudiante', 'Cédula de Identidad / Escolar', sol.doc_cedula_estudiante || sol.foto_cedula_estudiante_url, 'bi-card-heading', '#0284c7', 'Identificación Estudiante');
+
+  // 3. Foto tipo carnet
+  addDoc('foto_estudiante', 'Foto tipo Carnet', sol.doc_foto_estudiante || sol.foto_carnet_url, 'bi-person-bounding-box', '#8b5cf6', 'Fotografía Aspirante');
+
+  // 4. Ficha / Constancia del Trabajador
+  addDoc('ficha_trabajador', 'Ficha / Constancia del Trabajador', sol.doc_ficha, 'bi-building-fill', '#d97706', 'Vínculo Laboral PDVSA/Filial');
+
+  // 5. Partida de Nacimiento del Trabajador (Sobrino/Hermano)
+  addDoc('partida_trabajador', 'Partida de Nacimiento del Trabajador', sol.doc_partida_trabajador, 'bi-file-earmark-medical-fill', '#b45309', 'Nexo Familiar Trabajador');
+
+  // 6. Partida de Nacimiento de Padre/Madre (Nexo)
+  addDoc('partida_nexo', 'Partida de Nacimiento de Padre/Madre (Nexo)', sol.doc_partida_nexo, 'bi-diagram-3-fill', '#c026d3', 'Comprobante de Filiación');
+
+  // 7. Informes médicos / Neurodivergencia
+  addDoc('informe_medico', 'Informe Médico / Diagnóstico', sol.foto_informe_medico_url, 'bi-heart-pulse-fill', '#dc2626', 'Salud y Bienestar');
+
+  // 8. Carnet CONAPDIS
+  addDoc('conapdis', 'Certificado / Carnet CONAPDIS', sol.foto_carnet_conapdis_url, 'bi-person-wheelchair', '#ea580c', 'Discapacidad / Inclusión');
+
+  // 9. Cédulas Padre / Madre
+  addDoc('cedula_madre', 'Cédula de la Madre', sol.foto_cedula_madre_url, 'bi-gender-female', '#db2777', 'Documento Progenitor');
+  addDoc('cedula_padre', 'Cédula del Padre', sol.foto_cedula_padre_url, 'bi-gender-male', '#2563eb', 'Documento Progenitor');
+
+  // 10. Talentos / Constancias
+  addDoc('cultura', 'Constancia Cultural / Música', sol.constancia_cultura_url, 'bi-music-note-beamed', '#4f46e5', 'Actividades Extracurriculares');
+  addDoc('danza', 'Constancia de Danza / Teatro', sol.constancia_danza_url, 'bi-stars', '#7c3aed', 'Actividades Extracurriculares');
+  addDoc('deporte', 'Constancia Deportiva', sol.constancia_deporte_url, 'bi-trophy-fill', '#059669', 'Actividades Extracurriculares');
+
+  // 11. Extraer de JSON datos_actualizados o documentos_adjuntos si existen
+  if (sol.datos_actualizados && typeof sol.datos_actualizados === 'object') {
+    const d = sol.datos_actualizados;
+    addDoc('partida', 'Partida de Nacimiento', d.foto_partida_nacimiento_url || d.doc_partida_nacimiento, 'bi-file-earmark-person-fill', '#16a34a');
+    addDoc('cedula_estudiante', 'Cédula Estudiante', d.foto_cedula_estudiante_url || d.doc_cedula_estudiante, 'bi-card-heading', '#0284c7');
+    addDoc('foto_estudiante', 'Foto Carnet', d.foto_carnet_url || d.doc_foto_estudiante, 'bi-person-bounding-box', '#8b5cf6');
+    addDoc('informe_medico', 'Informe Médico', d.foto_informe_medico_url, 'bi-heart-pulse-fill', '#dc2626');
+    addDoc('conapdis', 'Carnet CONAPDIS', d.foto_carnet_conapdis_url, 'bi-person-wheelchair', '#ea580c');
+  }
+
+  return list;
+};
 
 export interface BaremoResult {
   nivel: number; // 0 (VIP) a 8
@@ -343,6 +428,7 @@ export const calcularBaremoPrioridad = (
 
 export const GestionAdmisiones: React.FC = () => {
   const { tienePermiso, loading: permLoading } = usePermisos();
+  const navigate = useNavigate();
   const hasAccess = tienePermiso('Gestión de Admisiones', 'ver');
 
   const [solicitudes, setSolicitudes] = useState<SolicitudAdmision[]>([]);
@@ -380,6 +466,40 @@ export const GestionAdmisiones: React.FC = () => {
   // ── MODAL CONSTANCIA / RESUMEN IMPRIMIBLE ──────────────────────────────────────
   const [solicitudConstancia, setSolicitudConstancia] = useState<SolicitudAdmision | null>(null);
   const [modalConstanciaAbierto, setModalConstanciaAbierto] = useState<boolean>(false);
+
+  // ── VISOR INTERACTIVO DE DOCUMENTOS Y RECAUDOS ─────────────────────────────────
+  const [solicitudVisorDocs, setSolicitudVisorDocs] = useState<SolicitudAdmision | null>(null);
+  const [docVisorActivoIndex, setDocVisorActivoIndex] = useState<number>(0);
+  const [modalVisorDocsAbierto, setModalVisorDocsAbierto] = useState<boolean>(false);
+  const [zoomNivel, setZoomNivel] = useState<number>(1);
+  const [rotacionNivel, setRotacionNivel] = useState<number>(0);
+
+  const abrirVisorDocumentos = (sol: SolicitudAdmision, indexInicial = 0) => {
+    const docs = obtenerDocumentosSolicitud(sol);
+    if (docs.length === 0) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin Documentos Adjuntos',
+          text: 'Esta solicitud no posee archivos o imágenes de recaudos adjuntas en el sistema.',
+          confirmButtonText: 'Entendido'
+        });
+      }
+      return;
+    }
+    setSolicitudVisorDocs(sol);
+    setDocVisorActivoIndex(Math.max(0, Math.min(indexInicial, docs.length - 1)));
+    setZoomNivel(1);
+    setRotacionNivel(0);
+    setModalVisorDocsAbierto(true);
+  };
+
+  const cerrarVisorDocumentos = () => {
+    setModalVisorDocsAbierto(false);
+    setSolicitudVisorDocs(null);
+    setZoomNivel(1);
+    setRotacionNivel(0);
+  };
 
   // ── ESTADOS DE FILTROS ──────────────────────────────────────────────────────────
   const [filtroEscuela, setFiltroEscuela] = useState<string>('todas');
@@ -812,35 +932,12 @@ export const GestionAdmisiones: React.FC = () => {
 
     const nombreEscuela = NOMBRE_ESCUELA_MAP[sol.codigo_escuela] || 'U.E. Santa Bárbara / U.E. Libertador Bolívar';
     const estado = sol.estado || 'Pendiente';
-    const aptitud = sol.aptitud || 'En Evaluación';
 
-    let dictamenTexto = '';
-    if (estado === 'Formalizado') {
-      dictamenTexto = `🎉 *¡MATRÍCULA FORMALIZADA!*\nEl estudiante ha sido inscrito formalmente. Ya se encuentra habilitado el acceso al portal oficial SIGAE (Usuario: Cédula / Contraseña inicial: Cédula) para completar la ficha socioeconómica y descargar las constancias.`;
-    } else if (estado === 'Aprobado') {
-      dictamenTexto = `✅ *ESTATUS: ADMITIDO / APROBADO*\n🎉 *¡Felicitaciones!* La solicitud ha sido admitida satisfactoriamente.\nPuede consignar los recaudos físicos en la sede de la institución escolar para formalizar la inscripción.`;
-    } else if (estado === 'Rechazado') {
-      dictamenTexto = `❌ *ESTATUS: NO ADMITIDO*\nGracias por participar en el proceso de admisiones.\n${sol.observaciones ? `*Observación:* ${sol.observaciones}` : ''}`;
-    } else if (aptitud === 'No Apto') {
-      dictamenTexto = `⚠️ *ESTATUS: EN REVISIÓN DE RECAUDOS*\nEl expediente presenta observaciones o recaudos pendientes por consignar.\n${sol.observaciones ? `*Observación:* ${sol.observaciones}` : ''}`;
-    } else {
-      dictamenTexto = `⏳ *ESTATUS: EN EVALUACIÓN*\nEl expediente se encuentra en proceso de revisión por parte del Comité de Admisiones.`;
-    }
+    // Obtener plantilla personalizada del redactor o predeterminada
+    const plantilla = buscarPlantillaAdmision(sol.codigo_escuela, estado, 'whatsapp');
+    const msg = renderizarMensajeAdmision(plantilla.cuerpo_mensaje, sol, nombreEscuela);
 
-    let msg = `🏛️ *SIGAE - GESTIÓN DE ADMISIONES ESCOLARES*\n`;
-    msg += `📍 *${nombreEscuela}*\n\n`;
-    msg += `Estimado(a) Representante *${nomRep}*:\n\n`;
-    msg += `Un cordial saludo del Comité de Admisiones. A continuación, el reporte oficial sobre la solicitud de cupo escolar:\n\n`;
-    msg += `📋 *DATOS DEL ASPIRANTE:*\n`;
-    msg += `• 👤 *Estudiante:* ${nomEst}\n`;
-    msg += `• 🆔 *Cédula/Identificador:* ${sol.estudiante_cedula || 'En trámite'}\n`;
-    msg += `• 📚 *Grado Solicitado:* ${sol.grado_solicitado}\n`;
-    msg += `• 🔖 *Código de Solicitud:* *${sol.codigo_unico}*\n\n`;
-    msg += `📊 *RESULTADO OFICIAL:*\n${dictamenTexto}\n\n`;
-    msg += `🌐 *Portal Web SIGAE:*\nPuede ingresar a la plataforma oficial para validar el estado de la matrícula y consultar el cronograma institucional.\n\n`;
-    msg += `_Comité de Admisiones y Gestión Estudiantil_`;
-
-    const waUrl = `https://api.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(msg)}`;
+    const waUrl = generarEnlaceWhatsAppAdmision(telRaw, msg);
     window.open(waUrl, '_blank');
   };
 
@@ -1041,7 +1138,7 @@ export const GestionAdmisiones: React.FC = () => {
       // 1. Crear o Asegurar Usuario en tabla `usuarios`
       const { data: usuarioExistente } = await supabase
         .from('usuarios')
-        .select('cedula, rol')
+        .select('cedula, rol, id_escuela')
         .eq('cedula', cedRep)
         .maybeSingle();
 
@@ -1064,6 +1161,8 @@ export const GestionAdmisiones: React.FC = () => {
         if (errUsuario) {
           console.warn('Nota al crear usuario:', errUsuario.message);
         }
+      } else if (usuarioExistente.id_escuela && usuarioExistente.id_escuela !== sol.codigo_escuela && usuarioExistente.id_escuela !== 'ambas') {
+        await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', cedRep);
       }
 
       // 2. Vincular Estudiante en `estudiantes_vinculaciones`
@@ -1524,6 +1623,14 @@ export const GestionAdmisiones: React.FC = () => {
         </div>
 
         <div className="d-flex gap-2 flex-wrap">
+          <button
+            className="btn btn-outline-primary btn-sm fw-bold shadow-sm d-flex align-items-center gap-1.5"
+            onClick={() => navigate('/categoria/Gestión%20Estudiantil/Mensajes%20de%20Admisión')}
+            title="Configurar y redactar mensajes oficiales de aprobación y rechazo de admisión"
+          >
+            <i className="bi bi-chat-heart-fill text-primary"></i>
+            <span>Redactor de Mensajes</span>
+          </button>
           <button className="btn btn-outline-secondary btn-sm shadow-sm" onClick={cargarSolicitudes} title="Recargar registros">
             <i className="bi bi-arrow-clockwise me-1"></i> Actualizar
           </button>
@@ -1909,6 +2016,22 @@ export const GestionAdmisiones: React.FC = () => {
                           <td>
                             <div className="fw-bold text-dark">{nomEst}</div>
                             <div className="text-muted extra-small">C.I: {sol.estudiante_cedula || 'En trámite'}</div>
+                            {(() => {
+                              const docsSol = obtenerDocumentosSolicitud(sol);
+                              return docsSol.length > 0 ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-link p-0 text-decoration-none fw-bold extra-small mt-0.5 d-inline-flex align-items-center gap-1 text-primary"
+                                  onClick={() => abrirVisorDocumentos(sol, 0)}
+                                  title="Ver documentos adjuntos"
+                                >
+                                  <i className="bi bi-paperclip fs-6 text-danger"></i>
+                                  <span>{docsSol.length} {docsSol.length === 1 ? 'recaudo' : 'recaudos'}</span>
+                                </button>
+                              ) : (
+                                <span className="text-muted extra-small d-block">Sin adjuntos</span>
+                              );
+                            })()}
                           </td>
                           <td>
                             <span className="badge bg-secondary-subtle text-secondary border">
@@ -1929,6 +2052,24 @@ export const GestionAdmisiones: React.FC = () => {
                           <td className="text-center">{renderBadgeEstado(sol.estado)}</td>
                           <td className="text-end">
                             <div className="btn-group btn-group-sm">
+                              {(() => {
+                                const docsSol = obtenerDocumentosSolicitud(sol);
+                                return (
+                                  <button
+                                    className={`btn ${docsSol.length > 0 ? 'btn-outline-danger' : 'btn-outline-secondary'}`}
+                                    onClick={() => abrirVisorDocumentos(sol, 0)}
+                                    title={docsSol.length > 0 ? `Ver ${docsSol.length} documento(s) adjunto(s)` : 'Sin documentos adjuntos'}
+                                    disabled={docsSol.length === 0}
+                                  >
+                                    <i className="bi bi-file-earmark-pdf"></i>
+                                    {docsSol.length > 0 && (
+                                      <span className="badge bg-danger ms-1 px-1 py-0.2" style={{ fontSize: '9px' }}>
+                                        {docsSol.length}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })()}
                               <button
                                 className="btn btn-outline-primary"
                                 onClick={() => cambiarVistaUnoAUno(idx)}
@@ -2422,38 +2563,78 @@ export const GestionAdmisiones: React.FC = () => {
                     </div>
 
                     {/* 3. DOCUMENTOS ADJUNTOS */}
-                    <div className="card border-0 shadow-sm rounded-3 bg-white">
-                      <div className="card-header bg-white py-2.5 border-bottom fw-bold text-dark small d-flex align-items-center gap-2">
-                        <i className="bi bi-file-earmark-pdf-fill text-danger"></i> Recaudos y Documentos Adjuntos
-                      </div>
-                      <div className="card-body p-3">
-                        <div className="d-flex flex-wrap gap-2">
-                          {solicitudUnoAUno.doc_ficha && (
-                            <a href={solicitudUnoAUno.doc_ficha} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary">
-                              <i className="bi bi-file-earmark-person me-1"></i> Ficha Trabajador
-                            </a>
-                          )}
-                          {solicitudUnoAUno.doc_foto_estudiante && (
-                            <a href={solicitudUnoAUno.doc_foto_estudiante} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary">
-                              <i className="bi bi-image me-1"></i> Foto Estudiante
-                            </a>
-                          )}
-                          {solicitudUnoAUno.doc_partida_nacimiento && (
-                            <a href={solicitudUnoAUno.doc_partida_nacimiento} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary">
-                              <i className="bi bi-file-earmark-text me-1"></i> Partida Nacimiento
-                            </a>
-                          )}
-                          {solicitudUnoAUno.doc_cedula_estudiante && (
-                            <a href={solicitudUnoAUno.doc_cedula_estudiante} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary">
-                              <i className="bi bi-card-heading me-1"></i> Cédula Identidad
-                            </a>
-                          )}
-                          {!solicitudUnoAUno.doc_ficha && !solicitudUnoAUno.doc_foto_estudiante && !solicitudUnoAUno.doc_partida_nacimiento && !solicitudUnoAUno.doc_cedula_estudiante && (
-                            <span className="text-muted small">No hay archivos adjuntos en esta solicitud.</span>
-                          )}
+                    {(() => {
+                      const docsUnoAUno = obtenerDocumentosSolicitud(solicitudUnoAUno);
+                      return (
+                        <div className="card border-0 shadow-sm rounded-3 bg-white mb-3">
+                          <div className="card-header bg-white py-2.5 border-bottom fw-bold text-dark small d-flex align-items-center justify-content-between">
+                            <div className="d-flex align-items-center gap-2">
+                              <i className="bi bi-file-earmark-pdf-fill text-danger fs-5"></i>
+                              <span>Recaudos y Documentos Adjuntos</span>
+                            </div>
+                            <span className={`badge ${docsUnoAUno.length > 0 ? 'bg-primary' : 'bg-secondary'} rounded-pill px-2.5 py-1`}>
+                              {docsUnoAUno.length} {docsUnoAUno.length === 1 ? 'documento' : 'documentos'}
+                            </span>
+                          </div>
+
+                          <div className="card-body p-3">
+                            {docsUnoAUno.length === 0 ? (
+                              <div className="text-center py-4 text-muted bg-light rounded-3 border">
+                                <i className="bi bi-file-earmark-x fs-2 d-block mb-1 text-secondary"></i>
+                                <span className="small">No se han registrado documentos digitales adjuntos para esta solicitud.</span>
+                              </div>
+                            ) : (
+                              <div className="row g-2.5">
+                                {docsUnoAUno.map((doc, dIdx) => (
+                                  <div key={doc.id} className="col-12 col-md-6">
+                                    <div className="p-3 bg-light border rounded-3 d-flex flex-column justify-content-between h-100 shadow-xs hover-shadow transition-all">
+                                      <div className="d-flex align-items-center gap-2.5 mb-2.5">
+                                        <div
+                                          className="p-2.5 rounded-3 text-white d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm"
+                                          style={{ backgroundColor: doc.color, width: '42px', height: '42px' }}
+                                        >
+                                          <i className={`bi ${doc.icono} fs-4`}></i>
+                                        </div>
+                                        <div className="overflow-hidden">
+                                          <strong className="d-block text-dark text-truncate small" title={doc.titulo}>
+                                            {doc.titulo}
+                                          </strong>
+                                          {doc.subtitulo && (
+                                            <span className="badge bg-white text-muted border extra-small mt-0.5">
+                                              {doc.subtitulo}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="d-flex gap-2 pt-1 border-top border-secondary-subtle">
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-primary w-100 rounded-pill fw-bold d-flex align-items-center justify-content-center gap-1.5 shadow-sm"
+                                          onClick={() => abrirVisorDocumentos(solicitudUnoAUno, dIdx)}
+                                        >
+                                          <i className="bi bi-eye-fill"></i>
+                                          <span>Ver / Inspeccionar</span>
+                                        </button>
+                                        <a
+                                          href={doc.url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="btn btn-sm btn-outline-secondary rounded-pill px-2.5 d-flex align-items-center justify-content-center flex-shrink-0"
+                                          title="Abrir en pestaña nueva o descargar"
+                                        >
+                                          <i className="bi bi-box-arrow-up-right"></i>
+                                        </a>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </>
                 )}
               </div>
@@ -3241,6 +3422,79 @@ export const GestionAdmisiones: React.FC = () => {
                   </div>
                 </div>
 
+                {/* RECAUDOS Y DOCUMENTOS ADJUNTOS EN MODAL DETALLE */}
+                {(() => {
+                  const docsDetalle = obtenerDocumentosSolicitud(solicitudSeleccionada);
+                  return (
+                    <div className="card mb-3 border-light bg-light">
+                      <div className="card-body">
+                        <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                          <h6 className="fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+                            <i className="bi bi-file-earmark-pdf-fill text-danger"></i>
+                            <span>Recaudos y Documentos Consignados</span>
+                          </h6>
+                          <span className={`badge ${docsDetalle.length > 0 ? 'bg-success' : 'bg-secondary'} rounded-pill`}>
+                            {docsDetalle.length} {docsDetalle.length === 1 ? 'Archivo' : 'Archivos'}
+                          </span>
+                        </div>
+
+                        {docsDetalle.length === 0 ? (
+                          <div className="p-3 text-center text-muted bg-white rounded border">
+                            <i className="bi bi-file-earmark-x fs-3 d-block mb-1 text-secondary"></i>
+                            <span className="small">No se han registrado documentos digitales adjuntos para esta solicitud.</span>
+                          </div>
+                        ) : (
+                          <div className="row g-2">
+                            {docsDetalle.map((doc, dIdx) => (
+                              <div key={doc.id} className="col-12 col-md-6">
+                                <div className="p-2.5 bg-white border rounded-3 d-flex align-items-center justify-content-between gap-2 shadow-xs hover-shadow transition-all">
+                                  <div className="d-flex align-items-center gap-2 overflow-hidden">
+                                    <div
+                                      className="p-2 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                                      style={{ backgroundColor: doc.color, width: '36px', height: '36px' }}
+                                    >
+                                      <i className={`bi ${doc.icono} fs-5`}></i>
+                                    </div>
+                                    <div className="text-truncate">
+                                      <strong className="d-block text-dark text-truncate small" title={doc.titulo}>
+                                        {doc.titulo}
+                                      </strong>
+                                      {doc.subtitulo && (
+                                        <small className="text-muted extra-small d-block">{doc.subtitulo}</small>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="d-flex gap-1 flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-primary rounded-pill px-2.5 py-1 fw-bold d-flex align-items-center gap-1"
+                                      style={{ fontSize: '11px' }}
+                                      onClick={() => abrirVisorDocumentos(solicitudSeleccionada, dIdx)}
+                                      title="Visualizar documento en pantalla completa"
+                                    >
+                                      <i className="bi bi-eye-fill"></i> Ver
+                                    </button>
+                                    <a
+                                      href={doc.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1"
+                                      style={{ fontSize: '11px' }}
+                                      title="Abrir en pestaña nueva o descargar"
+                                    >
+                                      <i className="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="card border-primary">
                   <div className="card-header bg-primary-subtle fw-bold text-primary">
                     <i className="bi bi-sliders me-2"></i>Gestión de Estatus y Aptitud
@@ -3421,6 +3675,210 @@ export const GestionAdmisiones: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── MODAL VISOR INTERACTIVO DE DOCUMENTOS Y RECAUDOS ─────────────────── */}
+      {modalVisorDocsAbierto && solicitudVisorDocs && (() => {
+        const docs = obtenerDocumentosSolicitud(solicitudVisorDocs);
+        const docActual = docs[docVisorActivoIndex] || docs[0];
+        const esPdf = docActual?.url?.toLowerCase().includes('.pdf');
+
+        return (
+          <div
+            className="modal fade show d-block animate__animated animate__fadeIn"
+            tabIndex={-1}
+            style={{ backgroundColor: 'rgba(15, 23, 42, 0.90)', zIndex: 1085, backdropFilter: 'blur(5px)' }}
+          >
+            <div className="modal-dialog modal-xl modal-dialog-centered" style={{ maxWidth: '94vw', height: '94vh', margin: '3vh auto' }}>
+              <div className="modal-content border-0 shadow-2xl rounded-4 h-100 d-flex flex-column overflow-hidden bg-dark text-white">
+                {/* Header Visor */}
+                <div className="modal-header py-2.5 px-4 bg-black bg-opacity-60 border-bottom border-secondary d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                    <span className="p-2 rounded-circle text-white shadow-sm flex-shrink-0" style={{ backgroundColor: docActual?.color || '#2563eb' }}>
+                      <i className={`bi ${docActual?.icono || 'bi-file-earmark'} fs-5`}></i>
+                    </span>
+                    <div className="overflow-hidden">
+                      <h5 className="modal-title fw-bold text-white mb-0 text-truncate" style={{ fontSize: '16px' }}>
+                        {docActual?.titulo || 'Documento Adjunto'}
+                      </h5>
+                      <small className="text-secondary extra-small d-block text-truncate">
+                        Aspirante: <span className="text-info fw-bold">{nombreCompleto(solicitudVisorDocs.estudiante_nombres, solicitudVisorDocs.estudiante_apellidos)}</span> | C.I: {solicitudVisorDocs.estudiante_cedula || 'En trámite'} | Código: <span className="font-monospace text-warning">{solicitudVisorDocs.codigo_unico}</span>
+                      </small>
+                    </div>
+                  </div>
+
+                  {/* Controles de Vista y Acciones */}
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="badge bg-secondary px-3 py-1.5 rounded-pill fw-bold" style={{ fontSize: '12px' }}>
+                      Doc {docVisorActivoIndex + 1} de {docs.length}
+                    </span>
+
+                    {!esPdf && (
+                      <div className="btn-group btn-group-sm bg-secondary bg-opacity-25 rounded-pill p-1">
+                        <button
+                          type="button"
+                          className="btn btn-dark btn-sm rounded-pill text-white"
+                          onClick={() => setZoomNivel(z => Math.max(0.5, z - 0.25))}
+                          title="Reducir Zoom"
+                        >
+                          <i className="bi bi-zoom-out"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-dark btn-sm text-white px-2"
+                          onClick={() => setZoomNivel(1)}
+                          title="Restablecer Zoom"
+                        >
+                          {Math.round(zoomNivel * 100)}%
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-dark btn-sm rounded-pill text-white"
+                          onClick={() => setZoomNivel(z => Math.min(3, z + 0.25))}
+                          title="Aumentar Zoom"
+                        >
+                          <i className="bi bi-zoom-in"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-dark btn-sm rounded-pill text-white ms-1"
+                          onClick={() => setRotacionNivel(r => (r + 90) % 360)}
+                          title="Girar 90 grados"
+                        >
+                          <i className="bi bi-arrow-clockwise"></i>
+                        </button>
+                      </div>
+                    )}
+
+                    <a
+                      href={docActual?.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-sm btn-outline-light rounded-pill px-3 fw-bold d-flex align-items-center gap-1"
+                    >
+                      <i className="bi bi-box-arrow-up-right"></i> Abrir / Descargar
+                    </a>
+
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-close btn-close-white ms-2"
+                      onClick={cerrarVisorDocumentos}
+                      aria-label="Cerrar visor"
+                    ></button>
+                  </div>
+                </div>
+
+                {/* Body del Visor con soporte de imagen y PDF */}
+                <div
+                  className="modal-body p-0 flex-grow-1 position-relative d-flex align-items-center justify-content-center overflow-auto"
+                  style={{ backgroundColor: '#0B0F19' }}
+                >
+                  {/* Botón Navegar Anterior */}
+                  {docs.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-dark btn-lg position-absolute top-50 start-0 translate-middle-y ms-3 rounded-circle shadow-lg text-white border border-secondary"
+                      style={{ width: '48px', height: '48px', zIndex: 10, opacity: docVisorActivoIndex === 0 ? 0.4 : 0.9 }}
+                      disabled={docVisorActivoIndex === 0}
+                      onClick={() => {
+                        setDocVisorActivoIndex(i => Math.max(0, i - 1));
+                        setZoomNivel(1);
+                        setRotacionNivel(0);
+                      }}
+                      title="Documento Anterior"
+                    >
+                      <i className="bi bi-chevron-left fs-5"></i>
+                    </button>
+                  )}
+
+                  {/* Renderizado de Documento */}
+                  <div className="w-100 h-100 d-flex align-items-center justify-content-center p-3 text-center">
+                    {esPdf ? (
+                      <iframe
+                        src={docActual?.url}
+                        title={docActual?.titulo}
+                        className="w-100 h-100 rounded-3 border-0"
+                        style={{ minHeight: '65vh' }}
+                      />
+                    ) : (
+                      <div
+                        className="d-inline-block transition-all"
+                        style={{
+                          transform: `scale(${zoomNivel}) rotate(${rotacionNivel}deg)`,
+                          transformOrigin: 'center center',
+                          maxWidth: '100%',
+                          maxHeight: '100%'
+                        }}
+                      >
+                        <img
+                          src={docActual?.url}
+                          alt={docActual?.titulo}
+                          className="img-fluid rounded-3 shadow-lg"
+                          style={{ maxHeight: '72vh', objectFit: 'contain' }}
+                          onError={(e) => {
+                            (e.target as any).src = 'https://placehold.co/800x600/1e293b/ffffff?text=Documento+No+Disponible';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botón Navegar Siguiente */}
+                  {docs.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-dark btn-lg position-absolute top-50 end-0 translate-middle-y me-3 rounded-circle shadow-lg text-white border border-secondary"
+                      style={{ width: '48px', height: '48px', zIndex: 10, opacity: docVisorActivoIndex >= docs.length - 1 ? 0.4 : 0.9 }}
+                      disabled={docVisorActivoIndex >= docs.length - 1}
+                      onClick={() => {
+                        setDocVisorActivoIndex(i => Math.min(docs.length - 1, i + 1));
+                        setZoomNivel(1);
+                        setRotacionNivel(0);
+                      }}
+                      title="Documento Siguiente"
+                    >
+                      <i className="bi bi-chevron-right fs-5"></i>
+                    </button>
+                  )}
+                </div>
+
+                {/* Footer del Visor: Tira de miniaturas de todos los documentos */}
+                <div className="modal-footer py-2 px-4 bg-black bg-opacity-75 border-top border-secondary d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-2 overflow-auto py-1" style={{ maxWidth: '75vw' }}>
+                    {docs.map((doc, idx) => {
+                      const esSeleccionado = idx === docVisorActivoIndex;
+                      return (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          className={`btn btn-sm d-flex align-items-center gap-1.5 rounded-pill px-3 py-1.5 text-nowrap transition-all ${
+                            esSeleccionado ? 'btn-primary shadow-sm fw-bold border-2 border-white' : 'btn-outline-secondary text-white'
+                          }`}
+                          onClick={() => {
+                            setDocVisorActivoIndex(idx);
+                            setZoomNivel(1);
+                            setRotacionNivel(0);
+                          }}
+                        >
+                          <i className={`bi ${doc.icono}`}></i>
+                          <span style={{ fontSize: '11.5px' }}>{doc.titulo}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm rounded-pill px-4"
+                    onClick={cerrarVisorDocumentos}
+                  >
+                    Cerrar Visor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

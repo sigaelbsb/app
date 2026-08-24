@@ -20,11 +20,17 @@ const handleTituloChange = (
 
 export const GestionUsuarios = () => {
   const navigate = useNavigate();
-  const { tienePermisoEnEscuela, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, user, loading: permLoading } = usePermisos();
 
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolesDisponibles, setRolesDisponibles] = useState<string[]>([]);
+
+  // Permiso de emulación de usuarios
+  const canEmular = user && (
+    ['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora', 'Subdirector', 'Subdirectora'].includes(user.rol) ||
+    tienePermiso('Función: Emulación de Roles', 'ver')
+  );
 
   // Permisos por escuela para el módulo
   const canUsersSB = tienePermisoEnEscuela('sb', 'Gestión de Usuarios', 'ver');
@@ -41,7 +47,7 @@ export const GestionUsuarios = () => {
   // Filtering & Pagination
   const [filtroEscuela, setFiltroEscuela] = useState('TODAS');
   const [filtroRol, setFiltroRol] = useState('TODOS');
-  const [filtroEstudiantes, setFiltroEstudiantes] = useState<'TODOS' | 'CON_ESTUDIANTES' | 'SIN_ESTUDIANTES'>('TODOS');
+  const [filtroEstudiantes, setFiltroEstudiantes] = useState<'TODOS' | 'CON_ESTUDIANTES' | 'SIN_ESTUDIANTES' | 'AMBAS_ESCUELAS'>('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 10;
@@ -131,6 +137,19 @@ export const GestionUsuarios = () => {
     return Object.values(unicos);
   };
 
+  const getEscuelaDeUsuario = (u: any, vMap: Record<string, any[]>) => {
+    if (!u) return 'sb';
+    if (u.id_escuela === 'ambas') return 'ambas';
+    const listaEst = getEstudiantesDeUsuario(u, vMap);
+    if (listaEst && listaEst.length > 0) {
+      const escuelas = Array.from(new Set(listaEst.map((e: any) => (e.codigo_escuela || '').trim().toLowerCase()).filter(Boolean)));
+      if (escuelas.includes('sb') && escuelas.includes('lb')) {
+        return 'ambas';
+      }
+    }
+    return u.id_escuela || 'sb';
+  };
+
   const cargarUsuarios = async () => {
     setLoading(true);
     try {
@@ -140,7 +159,6 @@ export const GestionUsuarios = () => {
         .order('nombre_completo', { ascending: true });
 
       if (error) throw error;
-      setUsuarios(data || []);
 
       // Cargar vinculaciones de estudiantes por representante (idéntico a VincularEstudiante.tsx)
       try {
@@ -206,8 +224,39 @@ export const GestionUsuarios = () => {
         });
 
         setVinculacionesMap(vMap);
+
+        // Auto-sincronizar representantes que tienen estudiantes en ambas escuelas
+        const usuariosParaActualizarAmbas: string[] = [];
+        const usuariosNormalizados = (data || []).map(usr => {
+          const lista = getEstudiantesDeUsuario(usr, vMap);
+          const escuelasEst = Array.from(new Set(lista.map((e: any) => (e.codigo_escuela || '').trim().toLowerCase()).filter(Boolean)));
+          if (escuelasEst.includes('sb') && escuelasEst.includes('lb')) {
+            if (usr.id_escuela !== 'ambas') {
+              usuariosParaActualizarAmbas.push(usr.cedula);
+              return { ...usr, id_escuela: 'ambas' };
+            }
+          }
+          return usr;
+        });
+
+        setUsuarios(usuariosNormalizados);
+
+        if (usuariosParaActualizarAmbas.length > 0) {
+          (async () => {
+            try {
+              for (const ced of usuariosParaActualizarAmbas) {
+                if (ced) {
+                  await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', ced);
+                }
+              }
+            } catch (errSync) {
+              console.warn("Auto-sync id_escuela ambas:", errSync);
+            }
+          })();
+        }
       } catch (errVinc) {
         console.error("Error al procesar vinculaciones:", errVinc);
+        setUsuarios(data || []);
       }
 
       // Cargar solicitudes de reseteo con filtro de permisos por escuela
@@ -252,11 +301,12 @@ export const GestionUsuarios = () => {
 
   // Filter logic
   const usuariosFiltrados = usuarios.filter(u => {
+    const escEfectiva = getEscuelaDeUsuario(u, vinculacionesMap);
+
     // Restringir visibilidad según permisos por escuela
-    const targetEsc = u.id_escuela;
-    if (targetEsc === 'sb' && !canUsersSB) return false;
-    if (targetEsc === 'lb' && !canUsersLB) return false;
-    if (targetEsc === 'ambas' && (!canUsersSB || !canUsersLB)) return false;
+    if (escEfectiva === 'sb' && !canUsersSB) return false;
+    if (escEfectiva === 'lb' && !canUsersLB) return false;
+    if (escEfectiva === 'ambas' && (!canUsersSB && !canUsersLB)) return false;
 
     const txt = searchQuery.toLowerCase();
     const coincideTexto = 
@@ -266,7 +316,11 @@ export const GestionUsuarios = () => {
     
     let coincideEscuela = true;
     if (filtroEscuela !== 'TODAS') {
-      coincideEscuela = (u.id_escuela === filtroEscuela);
+      if (filtroEscuela === 'ambas') {
+        coincideEscuela = (escEfectiva === 'ambas');
+      } else {
+        coincideEscuela = (escEfectiva === filtroEscuela || escEfectiva === 'ambas');
+      }
     }
     
     let coincideRol = true;
@@ -280,6 +334,8 @@ export const GestionUsuarios = () => {
       coincideEstudiantes = (listaEst.length > 0);
     } else if (filtroEstudiantes === 'SIN_ESTUDIANTES') {
       coincideEstudiantes = (listaEst.length === 0);
+    } else if (filtroEstudiantes === 'AMBAS_ESCUELAS') {
+      coincideEstudiantes = (escEfectiva === 'ambas');
     }
     
     return coincideTexto && coincideEscuela && coincideRol && coincideEstudiantes;
@@ -301,9 +357,10 @@ export const GestionUsuarios = () => {
     setEditingUser(userToEdit);
     setFormClave('');
     if (userToEdit) {
+      const escEfectiva = getEscuelaDeUsuario(userToEdit, vinculacionesMap);
       setFormCedula(userToEdit.cedula || '');
       setFormNombre(userToEdit.nombre_completo || '');
-      setFormEscuela(userToEdit.id_escuela || 'sb');
+      setFormEscuela(escEfectiva);
       setFormRol(userToEdit.rol || '');
       setFormEmail(userToEdit.email || '');
       setFormTelefono(formatPhoneNumber(userToEdit.telefono || ''));
@@ -966,6 +1023,138 @@ export const GestionUsuarios = () => {
     });
   };
 
+  // Emulación de Usuario Específico
+  const iniciarEmulacionUsuario = async (u: any) => {
+    if (!Swal) return;
+
+    if (!canEmular) {
+      Swal.fire('Acceso Restringido', 'No cuentas con privilegios para emular sesiones de usuarios.', 'warning');
+      return;
+    }
+
+    const activeUserStr = localStorage.getItem('usuario_sigae');
+    let adminUser = user;
+    if (!adminUser && activeUserStr) {
+      try { adminUser = JSON.parse(activeUserStr); } catch (e) {}
+    }
+
+    const escEfectiva = getEscuelaDeUsuario(u, vinculacionesMap);
+
+    if (escEfectiva === 'ambas') {
+      const activeSchool = (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
+      const { value: selectedSchool } = await Swal.fire({
+        title: `<div class="d-flex align-items-center justify-content-center gap-2"><i class="bi bi-person-bounding-box text-warning"></i> <span>Emular Usuario</span></div>`,
+        html: `
+          <p class="text-muted small mb-3">
+            Estás a punto de iniciar sesión como: <strong>${toTitulo(u.nombre_completo)}</strong> (C.I: ${u.cedula}, Rol: ${u.rol}).
+          </p>
+          <div class="text-start bg-light p-3 rounded-3 border mb-2">
+            <label class="form-label small fw-bold text-dark mb-1"><i class="bi bi-building me-1 text-primary"></i>Seleccionar Plantel para la Emulación:</label>
+            <select id="swal-select-escuela-emulacion" class="form-select form-select-sm">
+              <option value="sb" ${activeSchool === 'sb' ? 'selected' : ''}>U.E. Santa Bárbara</option>
+              <option value="lb" ${activeSchool === 'lb' ? 'selected' : ''}>U.E. Libertador Bolívar</option>
+            </select>
+          </div>
+          <p class="text-muted mb-0" style="font-size: 0.78rem;">
+            Tu sesión real de administrador se mantendrá a salvo y podrás restaurarla en cualquier momento desde la barra superior.
+          </p>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Emulación',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0066FF',
+        cancelButtonColor: '#6c757d',
+        preConfirm: () => {
+          const el = document.getElementById('swal-select-escuela-emulacion') as HTMLSelectElement;
+          return el ? el.value : activeSchool;
+        }
+      });
+
+      if (!selectedSchool) return;
+      ejecutarEmulacion(u, selectedSchool as 'sb' | 'lb', adminUser);
+    } else {
+      const targetSchool = (escEfectiva === 'lb' ? 'lb' : 'sb') as 'sb' | 'lb';
+      const targetSchoolNombre = targetSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+
+      const result = await Swal.fire({
+        title: `<div class="d-flex align-items-center justify-content-center gap-2"><i class="bi bi-person-bounding-box text-warning"></i> <span>Emular Usuario</span></div>`,
+        html: `
+          <p class="text-muted small mb-2">
+            ¿Deseas iniciar sesión temporalmente como <strong>${toTitulo(u.nombre_completo)}</strong>?
+          </p>
+          <div class="text-start bg-light p-3 rounded-3 border mb-3">
+            <div class="d-flex justify-content-between mb-1 small">
+              <span class="text-muted">Cédula:</span>
+              <span class="fw-bold text-dark">${u.cedula}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-1 small">
+              <span class="text-muted">Rol asignado:</span>
+              <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">${u.rol}</span>
+            </div>
+            <div class="d-flex justify-content-between small">
+              <span class="text-muted">Institución:</span>
+              <span class="fw-bold text-dark">${targetSchoolNombre}</span>
+            </div>
+          </div>
+          <p class="text-muted mb-0" style="font-size: 0.78rem;">
+            Podrás ver sus expedientes, estudiantes vinculados y accesos exactos. Tu sesión de administrador estará respaldada.
+          </p>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: '<i class="bi bi-box-arrow-in-right me-1"></i> Iniciar Emulación',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0066FF',
+        cancelButtonColor: '#6c757d'
+      });
+
+      if (result.isConfirmed) {
+        ejecutarEmulacion(u, targetSchool, adminUser);
+      }
+    }
+  };
+
+  const ejecutarEmulacion = (u: any, targetEscuela: 'sb' | 'lb', adminUser: any) => {
+    const targetEscuelaNombre = targetEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+
+    const yaEmulando = localStorage.getItem('sigae_usuario_original_admin');
+    if (!yaEmulando && adminUser) {
+      localStorage.setItem('sigae_usuario_original_admin', JSON.stringify(adminUser));
+    }
+
+    const usuarioEmulado = {
+      id: u.id_usuario || u.id || u.cedula,
+      id_usuario: u.id_usuario || u.id || u.cedula,
+      nombre: u.nombre_completo,
+      nombre_completo: u.nombre_completo,
+      cedula: u.cedula,
+      rol: u.rol,
+      cargo: u.cargo || '',
+      id_escuela: targetEscuela,
+      nombre_escuela: targetEscuelaNombre,
+      email: u.email || '',
+      telefono: u.telefono || '',
+      es_emulacion: true,
+      tipo_emulacion: 'usuario',
+      usuario_emulado_nombre: u.nombre_completo,
+      usuario_emulado_cedula: u.cedula,
+      rol_real: adminUser?.rol_real || adminUser?.rol || 'Administrador',
+      nombre_real: adminUser?.nombre_real || adminUser?.nombre || adminUser?.nombre_completo || 'Administrador'
+    };
+
+    localStorage.setItem('usuario_sigae', JSON.stringify(usuarioEmulado));
+    localStorage.setItem('sigae_escuela_codigo', targetEscuela);
+    localStorage.setItem('sigae_escuela_activa', targetEscuelaNombre);
+    sessionStorage.setItem('sigae_emulacion_activa', 'true');
+
+    localStorage.removeItem('sigae_cache_permisos');
+    localStorage.removeItem('sigae_cache_full_permisos');
+
+    auditar('Gestión de Usuarios', 'Iniciar Emulación de Usuario', `El usuario ${adminUser?.nombre || 'Admin'} (${adminUser?.rol || 'Admin'}) inició emulación del usuario "${u.nombre_completo}" (${u.cedula} - ${u.rol}) en ${targetEscuelaNombre}`);
+
+    window.location.href = '/';
+  };
+
   // Carga Masiva logic
   const descargarPlantillaExcel = () => {
     const wsData = [
@@ -1276,9 +1465,10 @@ export const GestionUsuarios = () => {
                   value={filtroEscuela}
                   onChange={(e) => { setFiltroEscuela(e.target.value); setPaginaActual(1); }}
                 >
-                  {canUsersSB && canUsersLB && <option value="TODAS">Ambas Escuelas</option>}
-                  {canUsersLB && <option value="lb">UE Libertador Bolívar</option>}
-                  {canUsersSB && <option value="sb">UE Santa Bárbara</option>}
+                  {canUsersSB && canUsersLB && <option value="TODAS">Todos los Planteles</option>}
+                  {canUsersSB && canUsersLB && <option value="ambas">🏢 Ambas Escuelas (SB + LB)</option>}
+                  {canUsersLB && <option value="lb">Solo UE Libertador Bolívar</option>}
+                  {canUsersSB && <option value="sb">Solo UE Santa Bárbara</option>}
                 </select>
               </div>
               <div className="col-md-2">
@@ -1303,6 +1493,7 @@ export const GestionUsuarios = () => {
                 >
                   <option value="TODOS">Todos ({usuarios.length})</option>
                   <option value="CON_ESTUDIANTES">🟢 Con Estudiantes ({usuarios.filter(u => getEstudiantesDeUsuario(u, vinculacionesMap).length > 0).length})</option>
+                  <option value="AMBAS_ESCUELAS">🏢 En Ambas Escuelas ({usuarios.filter(u => getEscuelaDeUsuario(u, vinculacionesMap) === 'ambas').length})</option>
                   <option value="SIN_ESTUDIANTES">⚪ Sin Estudiantes ({usuarios.filter(u => getEstudiantesDeUsuario(u, vinculacionesMap).length === 0).length})</option>
                 </select>
               </div>
@@ -1359,6 +1550,99 @@ export const GestionUsuarios = () => {
                 )}
               </div>
             </div>
+
+            {/* Barra de Filtro Rápido - Representantes en Ambas Escuelas */}
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-3 border-top mt-3">
+              <div className="d-flex align-items-center flex-wrap gap-2">
+                <span className="small fw-bold text-muted me-1">
+                  <i className="bi bi-funnel-fill text-success me-1"></i>Filtros Rápidos:
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (filtroEstudiantes === 'AMBAS_ESCUELAS' || filtroEscuela === 'ambas') {
+                      setFiltroEstudiantes('TODOS');
+                      setFiltroEscuela('TODAS');
+                    } else {
+                      setFiltroEstudiantes('AMBAS_ESCUELAS');
+                      setFiltroEscuela('ambas');
+                      setFiltroRol('TODOS');
+                    }
+                    setPaginaActual(1);
+                  }}
+                  className={`btn btn-sm rounded-pill fw-bold px-3 shadow-sm hover-efecto d-inline-flex align-items-center gap-1.5 ${
+                    filtroEstudiantes === 'AMBAS_ESCUELAS' || filtroEscuela === 'ambas'
+                      ? 'btn-dark text-warning border-warning'
+                      : 'btn-outline-dark bg-light'
+                  }`}
+                  title="Filtrar solo representantes con estudiantes en ambas instituciones (SB y LB)"
+                >
+                  <i className="bi bi-buildings-fill text-warning"></i>
+                  <span>Representantes de Ambas Escuelas</span>
+                  <span className="badge bg-warning text-dark rounded-pill ms-1 fw-bold">
+                    {usuarios.filter(u => getEscuelaDeUsuario(u, vinculacionesMap) === 'ambas').length}
+                  </span>
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (filtroEstudiantes === 'CON_ESTUDIANTES') {
+                      setFiltroEstudiantes('TODOS');
+                    } else {
+                      setFiltroEstudiantes('CON_ESTUDIANTES');
+                      if (filtroEscuela === 'ambas') setFiltroEscuela('TODAS');
+                    }
+                    setPaginaActual(1);
+                  }}
+                  className={`btn btn-sm rounded-pill fw-bold px-3 shadow-sm hover-efecto d-inline-flex align-items-center gap-1.5 ${
+                    filtroEstudiantes === 'CON_ESTUDIANTES'
+                      ? 'btn-success text-white'
+                      : 'btn-outline-success bg-light'
+                  }`}
+                >
+                  <i className="bi bi-mortarboard-fill"></i>
+                  <span>Con Estudiantes</span>
+                  <span className="badge bg-white text-success rounded-pill ms-1 fw-bold">
+                    {usuarios.filter(u => getEstudiantesDeUsuario(u, vinculacionesMap).length > 0).length}
+                  </span>
+                </button>
+
+                {(filtroEscuela !== 'TODAS' || filtroRol !== 'TODOS' || filtroEstudiantes !== 'TODOS' || searchQuery) && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setFiltroEscuela('TODAS');
+                      setFiltroRol('TODOS');
+                      setFiltroEstudiantes('TODOS');
+                      setSearchQuery('');
+                      setPaginaActual(1);
+                    }}
+                    className="btn btn-sm btn-link text-danger text-decoration-none fw-bold p-0 ms-2"
+                  >
+                    <i className="bi bi-x-circle me-1"></i>Limpiar Filtros
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {(filtroEstudiantes === 'AMBAS_ESCUELAS' || filtroEscuela === 'ambas') && (
+              <div className="alert alert-warning border-0 bg-warning bg-opacity-10 py-2 px-3 rounded-3 small d-flex align-items-center justify-content-between mt-3 mb-0">
+                <div className="d-flex align-items-center gap-2">
+                  <i className="bi bi-buildings-fill text-warning fs-5"></i>
+                  <span>
+                    Filtrando <strong>Representantes con Estudiantes en Ambas Escuelas (SB y LB)</strong> ({usuariosFiltrados.length} encontrados).
+                  </span>
+                </div>
+                <button 
+                  type="button" 
+                  className="btn btn-xs btn-outline-dark rounded-pill px-2.5 py-0.5"
+                  onClick={() => { setFiltroEstudiantes('TODOS'); setFiltroEscuela('TODAS'); setPaginaActual(1); }}
+                >
+                  <i className="bi bi-x-circle me-1"></i>Quitar Filtro
+                </button>
+              </div>
+            )}
           </div>
           
           <div className="card-body p-0">
@@ -1421,10 +1705,11 @@ export const GestionUsuarios = () => {
                       </tr>
                     ) : (
                       usuariosPaginados.map(u => {
-                        const canEditU = u.id_escuela === 'ambas' ? (canCreateSB && canCreateLB) : (u.id_escuela === 'sb' ? canCreateSB : canCreateLB);
-                        const canDeleteU = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
-                        const uid = u.id_usuario || u.id || u.cedula;
                         const listaEst = getEstudiantesDeUsuario(u, vinculacionesMap);
+                        const escEfectiva = getEscuelaDeUsuario(u, vinculacionesMap);
+                        const canEditU = escEfectiva === 'ambas' ? (canCreateSB && canCreateLB) : (escEfectiva === 'sb' ? canCreateSB : canCreateLB);
+                        const canDeleteU = escEfectiva === 'ambas' ? (canDeleteSB && canDeleteLB) : (escEfectiva === 'sb' ? canDeleteSB : canDeleteLB);
+                        const uid = u.id_usuario || u.id || u.cedula;
 
                         return (
                           <tr key={uid} className={`align-middle hover-efecto ${selectedUsers.includes(uid) ? 'table-danger bg-opacity-10' : ''}`}>
@@ -1447,9 +1732,9 @@ export const GestionUsuarios = () => {
                             </td>
                             <td className="fw-bold">{u.cedula}</td>
                             <td>
-                              {u.id_escuela === 'lb' && <span className="badge bg-primary bg-opacity-10 text-primary border border-primary"><i className="bi bi-building me-1"></i>LB</span>}
-                              {u.id_escuela === 'sb' && <span className="badge bg-success bg-opacity-10 text-success border border-success"><i className="bi bi-building me-1"></i>SB</span>}
-                              {u.id_escuela === 'ambas' && <span className="badge bg-dark bg-opacity-10 text-dark border border-dark"><i className="bi bi-buildings me-1"></i>Ambas</span>}
+                              {escEfectiva === 'lb' && <span className="badge bg-primary bg-opacity-10 text-primary border border-primary"><i className="bi bi-building me-1"></i>LB</span>}
+                              {escEfectiva === 'sb' && <span className="badge bg-success bg-opacity-10 text-success border border-success"><i className="bi bi-building me-1"></i>SB</span>}
+                              {escEfectiva === 'ambas' && <span className="badge bg-dark bg-opacity-10 text-dark border border-dark"><i className="bi bi-buildings me-1"></i>Ambas</span>}
                             </td>
                             <td>
                               <div className="fw-bold text-dark">{toTitulo(u.nombre_completo)}</div>
@@ -1483,6 +1768,16 @@ export const GestionUsuarios = () => {
                               )}
                             </td>
                             <td className="text-end pe-4 text-nowrap">
+                              {canEmular && (
+                                <button 
+                                  className="btn btn-sm btn-light text-dark shadow-sm border me-1 hover-efecto" 
+                                  onClick={() => iniciarEmulacionUsuario(u)} 
+                                  title={`Emular a ${toTitulo(u.nombre_completo)} (${u.rol})`}
+                                  style={{ backgroundColor: '#fef3c7', borderColor: '#fde68a' }}
+                                >
+                                  <i className="bi bi-person-bounding-box text-warning"></i>
+                                </button>
+                              )}
                               {canEditU && (
                                 <button 
                                   className="btn btn-sm btn-light text-primary shadow-sm border me-1" 

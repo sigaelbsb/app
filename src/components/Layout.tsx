@@ -591,6 +591,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   };
 
   const handleSalirEmulacion = () => {
+    const isUserEmulation = usuario?.tipo_emulacion === 'usuario';
     const originalStr = localStorage.getItem('sigae_usuario_original_admin');
     if (originalStr) {
       try {
@@ -606,7 +607,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     sessionStorage.removeItem('sigae_emulacion_activa');
     localStorage.removeItem('sigae_cache_permisos');
     localStorage.removeItem('sigae_cache_full_permisos');
-    window.location.href = '/categoria/Seguridad%20y%20Accesos/Roles%20y%20Privilegios';
+    if (isUserEmulation) {
+      window.location.href = '/categoria/Seguridad%20y%20Accesos/Gestión%20de%20Usuarios';
+    } else {
+      window.location.href = '/categoria/Seguridad%20y%20Accesos/Roles%20y%20Privilegios';
+    }
   };
 
   // Inactivity tracking (30 minutes with mobile visibility & file picker awareness)
@@ -848,7 +853,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                 </span>
                 <span className="badge bg-white text-dark fw-bold px-2.5 py-1 me-1 shadow-sm">
                   <i className="bi bi-person-badge-fill text-warning me-1"></i>
-                  Visualizando como: {usuario.rol}
+                  {usuario?.tipo_emulacion === 'usuario' 
+                    ? `Visualizando como: ${usuario.nombre || usuario.nombre_completo} (${usuario.rol})`
+                    : `Visualizando como: ${usuario.rol}`
+                  }
                 </span>
                 <span className="badge bg-dark bg-opacity-25 text-white fw-semibold px-2 py-1">
                   <i className="bi bi-building me-1"></i>

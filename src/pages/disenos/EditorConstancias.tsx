@@ -3,6 +3,16 @@ import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
 import { resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
+import { 
+  obtenerPlantillaCarnet, 
+  guardarPlantillaCarnet, 
+  prepararDatosCarnet, 
+  renderCarnetContainerHTML,
+  descargarCarnetPDF,
+  esCarnetActivo,
+  toggleCarnetActivo
+} from '../../utils/generadorCarnet';
+import type { DatosCarnetProcesados } from '../../utils/generadorCarnet';
 
 declare const Swal: any;
 declare const html2pdf: any;
@@ -176,6 +186,68 @@ const PLANTILLAS_PREDETERMINADAS: PlantillaConstancia[] = [
     fuente_familia: 'Arial, Helvetica, sans-serif',
     tamano_fuente: 14.5,
     interlineado: 2.15
+  },
+  {
+    id: 'CARNET-ESTUDIANTIL-SB',
+    codigo_tipo: 'carnet',
+    nombre: 'Carnet Estudiantil Oficial (U.E. Santa Bárbara)',
+    id_escuela: 'sb',
+    titulo_documento: 'Carnet Estudiantil',
+    mostrar_bandera_venezuela: true,
+    logo_escuela_url: '/assets/img/logo_sb.png',
+    membrete_linea1: 'República Bolivariana de Venezuela',
+    membrete_linea2: 'Ministerio del Poder Popular para la Educación',
+    membrete_nombre_escuela: 'Unidad Educativa Santa Bárbara',
+    membrete_ubicacion: 'El Tejero, estado Monagas',
+    parrafo_certificacion: 'Este carnet es personal e intransferible. Acredita a <b>{nombre_estudiante}</b> (C.I. {cedula_estudiante}) como estudiante regular de la <b>{nombre_escuela}</b> para el Año Escolar <b>{periodo_escolar}</b>.',
+    parrafo_representante: 'En caso de emergencia o extravío, favor contactar al representante legal <b>{nombre_representante}</b> al teléfono <b>{telefono_representante}</b>.',
+    parrafo_expedicion: 'Válido durante el Año Escolar {periodo_escolar}.',
+    ciudad_expedicion: 'El Tejero',
+    titulo_director: 'Profa.',
+    nombre_director: 'Elika Dayana Chaviel Rondón',
+    cedula_director: '16.808.608',
+    cargo_director: 'Directora de la Unidad Educativa Santa Bárbara',
+    cargo_generico: 'Directora',
+    firma_digital_url: '/assets/img/firma_director_sb.png',
+    mostrar_firma_digital: true,
+    sello_humedo_url: '',
+    mostrar_sello_humedo: false,
+    mostrar_codigo_qr: true,
+    logo_mppe_url: '/assets/img/logoMPPE.png',
+    fuente_familia: 'Arial, Helvetica, sans-serif',
+    tamano_fuente: 12,
+    interlineado: 1.5
+  },
+  {
+    id: 'CARNET-ESTUDIANTIL-LB',
+    codigo_tipo: 'carnet',
+    nombre: 'Carnet Estudiantil Oficial (U.E. Libertador Bolívar)',
+    id_escuela: 'lb',
+    titulo_documento: 'Carnet Estudiantil',
+    mostrar_bandera_venezuela: true,
+    logo_escuela_url: '/assets/img/logo_lb.png',
+    membrete_linea1: 'República Bolivariana de Venezuela',
+    membrete_linea2: 'Ministerio del Poder Popular para la Educación',
+    membrete_nombre_escuela: 'Unidad Educativa Libertador Bolívar',
+    membrete_ubicacion: 'Miraflores, estado Monagas',
+    parrafo_certificacion: 'Este carnet es personal e intransferible. Acredita a <b>{nombre_estudiante}</b> (C.I. {cedula_estudiante}) como estudiante regular de la <b>{nombre_escuela}</b> para el Año Escolar <b>{periodo_escolar}</b>.',
+    parrafo_representante: 'En caso de emergencia o extravío, favor contactar al representante legal <b>{nombre_representante}</b> al teléfono <b>{telefono_representante}</b>.',
+    parrafo_expedicion: 'Válido durante el Año Escolar {periodo_escolar}.',
+    ciudad_expedicion: 'Miraflores',
+    titulo_director: 'Prof.',
+    nombre_director: 'José Vicente Millán Montaño',
+    cedula_director: '17.780.095',
+    cargo_director: 'Director de la Unidad Educativa Libertador Bolívar',
+    cargo_generico: 'Director',
+    firma_digital_url: '/assets/img/firma_director_lb.png',
+    mostrar_firma_digital: true,
+    sello_humedo_url: '',
+    mostrar_sello_humedo: false,
+    mostrar_codigo_qr: true,
+    logo_mppe_url: '/assets/img/logoMPPE.png',
+    fuente_familia: 'Arial, Helvetica, sans-serif',
+    tamano_fuente: 12,
+    interlineado: 1.5
   }
 ];
 
@@ -185,6 +257,9 @@ export const EditorConstancias: React.FC = () => {
   const [plantillaActivaId, setPlantillaActivaId] = useState<string>(PLANTILLAS_PREDETERMINADAS[0].id);
   const [plantillaEdicion, setPlantillaEdicion] = useState<PlantillaConstancia>(PLANTILLAS_PREDETERMINADAS[0]);
   
+  // Categoría de filtro de plantillas
+  const [filtroTipoPlantilla, setFiltroTipoPlantilla] = useState<'TODAS' | 'CONSTANCIAS' | 'CARNETS'>('TODAS');
+
   // Pestañas del Editor
   const [tabEditor, setTabEditor] = useState<'grafica' | 'redaccion' | 'firmas' | 'seguridad'>('firmas');
   
@@ -193,6 +268,27 @@ export const EditorConstancias: React.FC = () => {
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<any | null>(null);
   const [searchEstudianteMuestra, setSearchEstudianteMuestra] = useState<string>('');
   
+  // Estado para el Carnet en vivo
+  const [datosCarnetPrueba, setDatosCarnetPrueba] = useState<DatosCarnetProcesados | null>(null);
+  const [carnetActivo, setCarnetActivoState] = useState<boolean>(esCarnetActivo());
+
+  useEffect(() => {
+    setCarnetActivoState(esCarnetActivo(plantillaEdicion?.id_escuela));
+  }, [plantillaEdicion?.id_escuela]);
+
+  const handleToggleCarnetEstado = async () => {
+    const escTarget = plantillaEdicion?.codigo_tipo === 'carnet' ? (plantillaEdicion.id_escuela || 'global') : 'global';
+    const nuevo = await toggleCarnetActivo(escTarget);
+    setCarnetActivoState(nuevo);
+    if (Swal) {
+      const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+      Toast.fire({
+        icon: nuevo ? 'success' : 'warning',
+        title: `Emisión de Carnets ${nuevo ? 'ACTIVADA' : 'DESACTIVADA'} para el sistema`
+      });
+    }
+  };
+
   // Estados de carga y guardado
   const [guardando, setGuardando] = useState<boolean>(false);
   const [zoomPreview, setZoomPreview] = useState<number>(100);
@@ -206,21 +302,62 @@ export const EditorConstancias: React.FC = () => {
     cargarDatos();
   }, []);
 
+  // Efecto para actualizar el Carnet en tiempo real cuando se edita
+  useEffect(() => {
+    if (plantillaEdicion.codigo_tipo === 'carnet') {
+      const cargarCarnet = async () => {
+        try {
+          const escKey = (plantillaEdicion.id_escuela === 'todas' ? 'sb' : plantillaEdicion.id_escuela) as 'sb' | 'lb';
+          const cfg = obtenerPlantillaCarnet(escKey);
+          // Sobrescribir con lo que se está editando en vivo
+          cfg.titulo_carnet = plantillaEdicion.titulo_documento || cfg.titulo_carnet;
+          cfg.subtitulo_carnet = plantillaEdicion.membrete_nombre_escuela || cfg.subtitulo_carnet;
+          cfg.mostrar_bandera = plantillaEdicion.mostrar_bandera_venezuela;
+          cfg.mostrar_firma_director = plantillaEdicion.mostrar_firma_digital;
+          cfg.mostrar_qr = plantillaEdicion.mostrar_codigo_qr;
+          if (plantillaEdicion.parrafo_certificacion) cfg.leyenda_reverso = plantillaEdicion.parrafo_certificacion;
+          if (plantillaEdicion.parrafo_expedicion) cfg.texto_validez = plantillaEdicion.parrafo_expedicion;
+
+          const d = await prepararDatosCarnet(estudianteSeleccionado, {
+            id_escuela: escKey,
+            codigo_escuela: escKey,
+            nombre_escuela: plantillaEdicion.membrete_nombre_escuela
+          });
+          d.config = cfg;
+          d.nombreDirector = `${plantillaEdicion.titulo_director} ${plantillaEdicion.nombre_director}`;
+          d.cargoDirector = plantillaEdicion.cargo_director;
+          if (plantillaEdicion.firma_digital_url) d.base64FirmaDirector = plantillaEdicion.firma_digital_url;
+          setDatosCarnetPrueba(d);
+        } catch (e) {
+          console.warn('Error preparando carnet en vivo:', e);
+        }
+      };
+      cargarCarnet();
+    }
+  }, [plantillaEdicion, estudianteSeleccionado]);
+
   const cargarDatos = async () => {
     try {
       const guardadas = localStorage.getItem('sigae_plantillas_constancias');
+      let plantillasFinales = PLANTILLAS_PREDETERMINADAS;
       if (guardadas) {
         try {
           const parsed = JSON.parse(guardadas);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setPlantillas(parsed);
-            setPlantillaActivaId(parsed[0].id);
-            setPlantillaEdicion(parsed[0]);
+            // MERGE automático de plantillas nuevas (Carnets y Constancias)
+            const idsExistentes = new Set(parsed.map((p: any) => p.id));
+            const faltantes = PLANTILLAS_PREDETERMINADAS.filter(p => !idsExistentes.has(p.id));
+            plantillasFinales = [...parsed, ...faltantes];
           }
         } catch (err) {
           console.error("Error parseando plantillas locales:", err);
         }
       }
+
+      setPlantillas(plantillasFinales);
+      setPlantillaActivaId(plantillasFinales[0].id);
+      setPlantillaEdicion(plantillasFinales[0]);
+      localStorage.setItem('sigae_plantillas_constancias', JSON.stringify(plantillasFinales));
 
       let allEsts: any[] = [];
       let page = 0;
@@ -264,14 +401,23 @@ export const EditorConstancias: React.FC = () => {
   const handleCrearNuevaPlantilla = () => {
     if (!Swal) return;
     Swal.fire({
-      title: 'Crear Nueva Plantilla de Constancia',
+      title: 'Crear Nueva Plantilla',
       html: `
         <div class="text-start">
+          <label class="small fw-bold text-muted mb-1">Tipo de Formato:</label>
+          <select id="swal-new-tipo" class="swal2-input m-0 mb-3 w-100">
+            <option value="inscripcion">Constancia de Inscripción</option>
+            <option value="estudio">Constancia de Estudio</option>
+            <option value="carnet">Carnet Estudiantil</option>
+            <option value="conducta">Constancia de Buena Conducta</option>
+            <option value="personalizada">Formato Personalizado</option>
+          </select>
+
           <label class="small fw-bold text-muted mb-1">Nombre de la Plantilla:</label>
-          <input id="swal-new-nom" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: Constancia de Prosecución..." />
+          <input id="swal-new-nom" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: Carnet Escolar 2026..." />
           
           <label class="small fw-bold text-muted mb-1">Título Oficial del Documento:</label>
-          <input id="swal-new-tit" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: Constancia de Prosecución" />
+          <input id="swal-new-tit" class="swal2-input m-0 mb-3 w-100" placeholder="Ej: CARNET ESTUDIANTIL" />
           
           <label class="small fw-bold text-muted mb-1">Plantel / Escuela:</label>
           <select id="swal-new-esc" class="swal2-input m-0 w-100">
@@ -285,6 +431,7 @@ export const EditorConstancias: React.FC = () => {
       confirmButtonText: 'Crear Plantilla',
       confirmButtonColor: '#00BCD4',
       preConfirm: () => {
+        const tipo = (document.getElementById('swal-new-tipo') as HTMLSelectElement).value;
         const nom = (document.getElementById('swal-new-nom') as HTMLInputElement).value;
         const tit = (document.getElementById('swal-new-tit') as HTMLInputElement).value;
         const esc = (document.getElementById('swal-new-esc') as HTMLSelectElement).value;
@@ -292,15 +439,15 @@ export const EditorConstancias: React.FC = () => {
           Swal.showValidationMessage('El nombre y título son obligatorios');
           return false;
         }
-        return { nom: nom.trim(), tit: tit.trim(), esc };
+        return { tipo, nom: nom.trim(), tit: tit.trim(), esc };
       }
     }).then((res: any) => {
       if (res.isConfirmed && res.value) {
-        const base = PLANTILLAS_PREDETERMINADAS[0];
+        const base = PLANTILLAS_PREDETERMINADAS.find(p => p.codigo_tipo === res.value.tipo) || PLANTILLAS_PREDETERMINADAS[0];
         const nueva: PlantillaConstancia = {
           ...JSON.parse(JSON.stringify(base)),
-          id: 'CONST-CUSTOM-' + new Date().getTime(),
-          codigo_tipo: 'personalizada',
+          id: (res.value.tipo === 'carnet' ? 'CARNET-CUSTOM-' : 'CONST-CUSTOM-') + new Date().getTime(),
+          codigo_tipo: res.value.tipo,
           nombre: res.value.nom,
           titulo_documento: res.value.tit,
           id_escuela: res.value.esc
@@ -323,6 +470,29 @@ export const EditorConstancias: React.FC = () => {
       setPlantillas(actualizadas);
       localStorage.setItem('sigae_plantillas_constancias', JSON.stringify(actualizadas));
 
+      // Si es plantilla de carnet, guardar en la configuración del generador de carnet
+      if (plantillaEdicion.codigo_tipo === 'carnet') {
+        const escKey = (plantillaEdicion.id_escuela === 'todas' ? 'sb' : plantillaEdicion.id_escuela) as 'sb' | 'lb';
+        const cfg = obtenerPlantillaCarnet(escKey);
+        cfg.titulo_carnet = plantillaEdicion.titulo_documento || cfg.titulo_carnet;
+        cfg.subtitulo_carnet = plantillaEdicion.membrete_nombre_escuela || cfg.subtitulo_carnet;
+        cfg.mostrar_bandera = plantillaEdicion.mostrar_bandera_venezuela;
+        cfg.mostrar_firma_director = plantillaEdicion.mostrar_firma_digital;
+        cfg.mostrar_qr = plantillaEdicion.mostrar_codigo_qr;
+        if (plantillaEdicion.parrafo_certificacion) cfg.leyenda_reverso = plantillaEdicion.parrafo_certificacion;
+        if (plantillaEdicion.parrafo_expedicion) cfg.texto_validez = plantillaEdicion.parrafo_expedicion;
+        guardarPlantillaCarnet(cfg);
+
+        if (plantillaEdicion.id_escuela === 'todas') {
+          const cfgLb = obtenerPlantillaCarnet('lb');
+          cfgLb.titulo_carnet = cfg.titulo_carnet;
+          cfgLb.mostrar_bandera = cfg.mostrar_bandera;
+          cfgLb.mostrar_firma_director = cfg.mostrar_firma_director;
+          cfgLb.mostrar_qr = cfg.mostrar_qr;
+          guardarPlantillaCarnet(cfgLb);
+        }
+      }
+
       try {
         await supabase.from('ajustes_globales').upsert({
           clave: 'plantilla_' + plantillaEdicion.id,
@@ -333,12 +503,12 @@ export const EditorConstancias: React.FC = () => {
         console.warn("Aviso guardado BD:", errDb);
       }
 
-      auditar('Diseños', 'Modificar Plantilla', `Actualizó la plantilla de constancia: ${plantillaEdicion.nombre}`);
+      auditar('Diseños', 'Modificar Plantilla', `Actualizó la plantilla: ${plantillaEdicion.nombre}`);
       if (Swal) {
         Swal.fire({
           icon: 'success',
           title: '¡Plantilla Guardada!',
-          text: 'Los cambios de redacción, firmantes y estructura se aplicaron exitosamente.',
+          text: 'Los cambios se aplicaron exitosamente en todo el sistema.',
           confirmButtonColor: '#00BCD4'
         });
       }
@@ -510,6 +680,15 @@ export const EditorConstancias: React.FC = () => {
 
   // Descarga de PDF de Prueba
   const handleDescargarPdfPrueba = () => {
+    if (plantillaEdicion.codigo_tipo === 'carnet') {
+      if (datosCarnetPrueba) {
+        descargarCarnetPDF(datosCarnetPrueba);
+      } else {
+        if (Swal) Swal.fire('Aviso', 'Cargando datos del carnet...', 'info');
+      }
+      return;
+    }
+
     if (!html2pdf) {
       if (Swal) Swal.fire('Aviso', 'El motor PDF está cargando.', 'info');
       return;
@@ -546,6 +725,16 @@ export const EditorConstancias: React.FC = () => {
     });
   };
 
+  const plantillasFiltradas = useMemo(() => {
+    if (filtroTipoPlantilla === 'CONSTANCIAS') {
+      return plantillas.filter(p => p.codigo_tipo !== 'carnet');
+    }
+    if (filtroTipoPlantilla === 'CARNETS') {
+      return plantillas.filter(p => p.codigo_tipo === 'carnet');
+    }
+    return plantillas;
+  }, [plantillas, filtroTipoPlantilla]);
+
   const estudiantesFiltradosMuestra = useMemo(() => {
     if (!searchEstudianteMuestra.trim()) return estudiantesMuestra.slice(0, 10);
     const q = searchEstudianteMuestra.toLowerCase();
@@ -569,7 +758,7 @@ export const EditorConstancias: React.FC = () => {
                     <i className="bi bi-palette-fill text-primary me-1"></i> MÓDULO DE DISEÑOS
                   </span>
                   <span className="badge bg-info text-white px-3 py-2 fw-bold shadow-sm rounded-pill">
-                    FORMATO OFICIAL CONSOLIDADO
+                    FORMATOS OFICIALES Y CARNETS
                   </span>
                 </div>
                 
@@ -577,7 +766,7 @@ export const EditorConstancias: React.FC = () => {
                   <button 
                     className="btn btn-sm btn-outline-light rounded-pill px-3 fw-bold"
                     onClick={handleRestaurarPredeterminados}
-                    title="Restaurar a las constancias oficiales consolidadas"
+                    title="Restaurar a las constancias y carnets oficiales consolidados"
                   >
                     <i className="bi bi-arrow-counterclockwise me-1"></i>Restaurar Formatos Originales
                   </button>
@@ -593,10 +782,10 @@ export const EditorConstancias: React.FC = () => {
               </div>
 
               <h2 className="display-6 fw-bold m-0 mb-2">
-                Editor y Diseñador de Constancias Oficiales
+                Editor y Diseñador de Constancias & Carnets Oficiales
               </h2>
               <p className="text-white-50 m-0 fs-6" style={{ maxWidth: '850px' }}>
-                Ajusta las firmas digitales, nombres de directores, membretes y textos de las constancias oficiales manteniendo el formato institucional original del sistema.
+                Ajusta las firmas digitales, nombres de directores, membretes, colores y textos de las constancias y carnets estudiantiles oficiales con bandera de Venezuela de 8 estrellas y códigos QR.
               </p>
             </div>
           </div>
@@ -605,8 +794,46 @@ export const EditorConstancias: React.FC = () => {
 
       {/* Selector de Plantilla y Herramientas Superiores */}
       <div className="card bg-white shadow-sm border-0 rounded-4 p-3 mb-4">
+        {/* Filtros Rápidos de Tipo */}
+        <div className="d-flex align-items-center gap-2 mb-3 border-bottom pb-3 flex-wrap">
+          <span className="small fw-bold text-muted me-2">
+            <i className="bi bi-funnel-fill text-primary me-1"></i>Filtrar Formatos:
+          </span>
+          <button
+            type="button"
+            className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroTipoPlantilla === 'TODAS' ? 'btn-dark shadow-sm' : 'btn-outline-secondary'}`}
+            onClick={() => setFiltroTipoPlantilla('TODAS')}
+          >
+            Todos ({plantillas.length})
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroTipoPlantilla === 'CONSTANCIAS' ? 'btn-primary shadow-sm' : 'btn-outline-primary'}`}
+            onClick={() => {
+              setFiltroTipoPlantilla('CONSTANCIAS');
+              const firstConst = plantillas.find(p => p.codigo_tipo !== 'carnet');
+              if (firstConst && plantillaEdicion.codigo_tipo === 'carnet') seleccionarPlantilla(firstConst.id);
+            }}
+          >
+            <i className="bi bi-file-earmark-text-fill me-1"></i>
+            Constancias Oficiales ({plantillas.filter(p => p.codigo_tipo !== 'carnet').length})
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroTipoPlantilla === 'CARNETS' ? 'btn-warning text-dark shadow-sm' : 'btn-outline-warning text-dark'}`}
+            onClick={() => {
+              setFiltroTipoPlantilla('CARNETS');
+              const firstCarnet = plantillas.find(p => p.codigo_tipo === 'carnet');
+              if (firstCarnet) seleccionarPlantilla(firstCarnet.id);
+            }}
+          >
+            <i className="bi bi-person-badge-fill me-1"></i>
+            Carnets Estudiantiles ({plantillas.filter(p => p.codigo_tipo === 'carnet').length})
+          </button>
+        </div>
+
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '600px' }}>
+          <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '650px' }}>
             <label className="small fw-bold text-muted text-nowrap m-0">
               <i className="bi bi-file-earmark-text-fill text-primary me-1"></i>Plantilla Activa:
             </label>
@@ -615,15 +842,25 @@ export const EditorConstancias: React.FC = () => {
               value={plantillaActivaId}
               onChange={(e) => seleccionarPlantilla(e.target.value)}
             >
-              {plantillas.map(p => (
+              {plantillasFiltradas.map(p => (
                 <option key={p.id} value={p.id}>
+                  {p.codigo_tipo === 'carnet' ? '🪪 ' : '📄 '}
                   {p.nombre} ({p.id_escuela === 'todas' ? 'Ambas Escuelas' : p.id_escuela.toUpperCase()})
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center flex-wrap gap-2">
+            <button 
+              type="button"
+              className={`btn btn-sm ${carnetActivo ? 'btn-success' : 'btn-outline-danger'} rounded-pill px-3 fw-bold shadow-sm d-flex align-items-center gap-1.5`}
+              onClick={handleToggleCarnetEstado}
+              title="Haz clic para activar o desactivar la emisión y descarga del Carnet Estudiantil en el sistema"
+            >
+              <i className={`bi ${carnetActivo ? 'bi-toggle-on fs-5' : 'bi-toggle-off fs-5'}`}></i>
+              <span>{carnetActivo ? 'Carnet: Activo' : 'Carnet: Inactivo'}</span>
+            </button>
             <button 
               className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold"
               onClick={handleCrearNuevaPlantilla}
@@ -631,11 +868,12 @@ export const EditorConstancias: React.FC = () => {
               <i className="bi bi-plus-lg me-1"></i>Crear Nueva Plantilla
             </button>
             <button 
-              className="btn btn-sm btn-success rounded-pill px-3 fw-bold shadow-sm"
+              className={`btn btn-sm ${plantillaEdicion.codigo_tipo === 'carnet' ? 'btn-warning text-dark' : 'btn-success'} rounded-pill px-3 fw-bold shadow-sm`}
               onClick={handleDescargarPdfPrueba}
-              title="Descargar prueba de la constancia oficial en PDF"
+              title={plantillaEdicion.codigo_tipo === 'carnet' ? 'Descargar Carnet Estudiantil en PDF' : 'Descargar prueba de la constancia oficial en PDF'}
             >
-              <i className="bi bi-file-earmark-pdf-fill me-1"></i>Descargar PDF Oficial
+              <i className={`bi ${plantillaEdicion.codigo_tipo === 'carnet' ? 'bi-person-badge-fill' : 'bi-file-earmark-pdf-fill'} me-1`}></i>
+              {plantillaEdicion.codigo_tipo === 'carnet' ? 'Descargar PDF Carnet' : 'Descargar PDF Oficial'}
             </button>
           </div>
         </div>
@@ -1011,142 +1249,165 @@ export const EditorConstancias: React.FC = () => {
               </div>
             </div>
 
-            {/* Hoja de la Constancia (RÉPLICA EXACTA DE VINCULAR ESTUDIANTE) */}
+            {/* Hoja de la Constancia o Carnet Estudiantil */}
             <div className="card-body p-4 bg-light d-flex justify-content-center align-items-start overflow-auto" style={{ maxHeight: '720px' }}>
-              <div 
-                ref={previewRef}
-                className="bg-white shadow rounded-4 animate__animated animate__fadeIn mx-auto"
-                style={{
-                  width: '800px',
-                  maxWidth: '100%',
-                  border: '2px solid #94a3b8',
-                  color: '#000000',
-                  boxSizing: 'border-box',
-                  minHeight: '1035px',
-                  padding: '42px 48px 35px 48px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  fontFamily: plantillaEdicion.fuente_familia || 'Arial, Helvetica, sans-serif',
-                  transform: `scale(${zoomPreview / 100})`,
-                  transformOrigin: 'top center'
-                }}
-              >
-                <div>
-                  {/* BANDERA DE VENEZUELA */}
-                  {plantillaEdicion.mostrar_bandera_venezuela && (
-                    <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
-                      <div style={{ height: '8px', backgroundColor: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7px', lineHeight: '1' }}>
-                        <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
-                      </div>
-                      <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
+              {plantillaEdicion.codigo_tipo === 'carnet' ? (
+                <div className="d-flex flex-column align-items-center w-100 animate__animated animate__fadeIn">
+                  <div className="alert alert-warning py-2 px-4 rounded-pill small fw-bold mb-3 d-flex align-items-center gap-2 shadow-sm">
+                    <i className="bi bi-person-badge-fill text-dark"></i>
+                    <span>Vista Previa Oficial del Carnet Estudiantil (Anverso y Reverso CR-80)</span>
+                  </div>
+                  {datosCarnetPrueba ? (
+                    <div 
+                      style={{
+                        transform: `scale(${zoomPreview / 100})`,
+                        transformOrigin: 'top center'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: renderCarnetContainerHTML(datosCarnetPrueba) }}
+                    />
+                  ) : (
+                    <div className="text-center py-5">
+                      <div className="spinner-border text-warning" role="status"></div>
+                      <p className="mt-2 small text-muted">Cargando vista previa del carnet...</p>
                     </div>
                   )}
-
-                  {/* ENCABEZADO INSTITUCIONAL */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '25px', position: 'relative' }}>
-                    <img 
-                      src={plantillaEdicion.logo_escuela_url || `/assets/img/logo_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
-                      alt="Escuela" 
-                      style={{ height: '70px', width: 'auto', position: 'absolute', left: 0 }} 
-                    />
-                    <div style={{ textAlign: 'center', width: '100%' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 'bold', lineHeight: '1.45', textTransform: 'uppercase', color: '#000000' }}>
-                        {plantillaEdicion.membrete_linea1}<br/>
-                        {plantillaEdicion.membrete_linea2}<br/>
-                        {textoProcesado.membreteEscuela}<br/>
-                        <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>
-                          {textoProcesado.membreteUbicacion}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* TÍTULO DE LA CONSTANCIA */}
-                  <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
-                    <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
-                      {plantillaEdicion.titulo_documento}
-                    </h2>
-                  </div>
-
-                  {/* PÁRRAFO 1: CERTIFICACIÓN */}
-                  <p 
-                    style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}
-                    dangerouslySetInnerHTML={{ __html: textoProcesado.p1 }}
-                  />
-
-                  {/* PÁRRAFO 2: REPRESENTANTE */}
-                  <p 
-                    style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}
-                    dangerouslySetInnerHTML={{ __html: textoProcesado.p2 }}
-                  />
-
-                  {/* PÁRRAFO 3: FECHA Y EXPEDICIÓN */}
-                  <p 
-                    style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '28px', textIndent: '35px' }}
-                    dangerouslySetInnerHTML={{ __html: textoProcesado.p3 }}
-                  />
                 </div>
-
-                <div>
-                  {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px', paddingTop: '15px', borderTop: '1.5px solid #cbd5e1' }}>
-                    <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', margin: '0 auto' }}>
-                      <p style={{ margin: '0 0 4px', fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
-                      
-                      {plantillaEdicion.mostrar_firma_digital && (
-                        <img 
-                          src={plantillaEdicion.firma_digital_url || `/assets/img/firma_director_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
-                          alt="Firma Director" 
-                          style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} 
-                        />
-                      )}
-                      
-                      <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>
-                        {plantillaEdicion.titulo_director} {plantillaEdicion.nombre_director}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#333333' }}>
-                        C.I.: {plantillaEdicion.cedula_director}
-                      </div>
-                      <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>
-                        {plantillaEdicion.cargo_director}
-                      </div>
-                    </div>
-
-                    {plantillaEdicion.mostrar_codigo_qr && (
-                      <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
-                        <img 
-                          src={textoProcesado.urlQrConstancia} 
-                          alt="QR Verificación" 
-                          style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} 
-                        />
-                        <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>
-                          VERIFICACIÓN QR
-                        </span>
-                        <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>
-                          {textoProcesado.codigoConstancia}
-                        </span>
+              ) : (
+                <div 
+                  ref={previewRef}
+                  className="bg-white shadow rounded-4 animate__animated animate__fadeIn mx-auto"
+                  style={{
+                    width: '800px',
+                    maxWidth: '100%',
+                    border: '2px solid #94a3b8',
+                    color: '#000000',
+                    boxSizing: 'border-box',
+                    minHeight: '1035px',
+                    padding: '42px 48px 35px 48px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    fontFamily: plantillaEdicion.fuente_familia || 'Arial, Helvetica, sans-serif',
+                    transform: `scale(${zoomPreview / 100})`,
+                    transformOrigin: 'top center'
+                  }}
+                >
+                  <div>
+                    {/* BANDERA DE VENEZUELA CON 8 ESTRELLAS */}
+                    {plantillaEdicion.mostrar_bandera_venezuela && (
+                      <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
+                        <div style={{ height: '9px', backgroundColor: '#003893', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7.5px', lineHeight: '1', fontWeight: 'bold', userSelect: 'none' }}>
+                          <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                        </div>
+                        <div style={{ height: '6px', backgroundColor: '#cf142b' }}></div>
                       </div>
                     )}
+
+                    {/* ENCABEZADO INSTITUCIONAL */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '25px', position: 'relative' }}>
+                      <img 
+                        src={plantillaEdicion.logo_escuela_url || `/assets/img/logo_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
+                        alt="Escuela" 
+                        style={{ height: '70px', width: 'auto', position: 'absolute', left: 0 }} 
+                      />
+                      <div style={{ textAlign: 'center', width: '100%' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 'bold', lineHeight: '1.45', textTransform: 'uppercase', color: '#000000' }}>
+                          {plantillaEdicion.membrete_linea1}<br/>
+                          {plantillaEdicion.membrete_linea2}<br/>
+                          {textoProcesado.membreteEscuela}<br/>
+                          <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>
+                            {textoProcesado.membreteUbicacion}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TÍTULO DE LA CONSTANCIA */}
+                    <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
+                      <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
+                        {plantillaEdicion.titulo_documento}
+                      </h2>
+                    </div>
+
+                    {/* PÁRRAFO 1: CERTIFICACIÓN */}
+                    <p 
+                      style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}
+                      dangerouslySetInnerHTML={{ __html: textoProcesado.p1 }}
+                    />
+
+                    {/* PÁRRAFO 2: REPRESENTANTE */}
+                    <p 
+                      style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '24px', textIndent: '35px' }}
+                      dangerouslySetInnerHTML={{ __html: textoProcesado.p2 }}
+                    />
+
+                    {/* PÁRRAFO 3: FECHA Y EXPEDICIÓN */}
+                    <p 
+                      style={{ fontSize: `${plantillaEdicion.tamano_fuente || 14.5}px`, lineHeight: plantillaEdicion.interlineado || 2.15, color: '#000000', textAlign: 'justify', marginBottom: '28px', textIndent: '35px' }}
+                      dangerouslySetInnerHTML={{ __html: textoProcesado.p3 }}
+                    />
                   </div>
 
-                  {/* PIE DE PÁGINA */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '15px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img 
-                        src={plantillaEdicion.logo_mppe_url || '/assets/img/logoMPPE.png'} 
-                        alt="MPPE" 
-                        style={{ height: '40px', width: 'auto' }} 
-                      />
+                  <div>
+                    {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px', paddingTop: '15px', borderTop: '1.5px solid #cbd5e1' }}>
+                      <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', margin: '0 auto' }}>
+                        <p style={{ margin: '0 0 4px', fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
+                        
+                        {plantillaEdicion.mostrar_firma_digital && (
+                          <img 
+                            src={plantillaEdicion.firma_digital_url || `/assets/img/firma_director_${plantillaEdicion.id_escuela === 'sb' ? 'sb' : 'lb'}.png`} 
+                            alt="Firma Director" 
+                            style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} 
+                          />
+                        )}
+                        
+                        <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>
+                          {plantillaEdicion.titulo_director} {plantillaEdicion.nombre_director}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#333333' }}>
+                          C.I.: {plantillaEdicion.cedula_director}
+                        </div>
+                        <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>
+                          {plantillaEdicion.cargo_director}
+                        </div>
+                      </div>
+
+                      {plantillaEdicion.mostrar_codigo_qr && (
+                        <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
+                          <img 
+                            src={textoProcesado.urlQrConstancia} 
+                            alt="QR Verificación" 
+                            style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} 
+                          />
+                          <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>
+                            VERIFICACIÓN QR
+                          </span>
+                          <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>
+                            {textoProcesado.codigoConstancia}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
-                      SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
-                      Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{textoProcesado.codigoConstancia}</b>
+
+                    {/* PIE DE PÁGINA */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '15px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img 
+                          src={plantillaEdicion.logo_mppe_url || '/assets/img/logoMPPE.png'} 
+                          alt="MPPE" 
+                          style={{ height: '40px', width: 'auto' }} 
+                        />
+                      </div>
+                      <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
+                        SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
+                        Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{textoProcesado.codigoConstancia}</b>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

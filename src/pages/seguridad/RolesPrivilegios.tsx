@@ -32,6 +32,7 @@ const ESTRUCTURA_ACCESOS = {
   },
   "Gestión Estudiantil": {
     "Gestión de Admisiones": ["Tarjeta: Baremo y Clasificación", "Tarjeta: Auditoría Uno por Uno", "Tarjeta: Formalización de Matrícula", "Función: Enviar WhatsApp", "Función: Exportar Excel"], 
+    "Mensajes de Admisión": ["Función: Editar Plantillas", "Función: Probar Envíos", "Función: Restaurar Predeterminados"],
     "Gestión de Matrícula": [], 
     "Vincular Estudiante": ["Tarjeta: Registrar Vinculación", "Tarjeta: Lista de Matriculados", "Función: Descargar Ficha PDF", "Función: Exportar Ficha"],
     "Expediente Estudiantil": [], 
@@ -56,6 +57,11 @@ const ESTRUCTURA_ACCESOS = {
       "Función: Diseñar Plantillas",
       "Función: Cargar Firmas y Sellos",
       "Función: Descargar PDF"
+    ],
+    "Carnet Estudiantil": [
+      "Función: Diseñar Carnet",
+      "Función: Cargar Firmas y Sellos",
+      "Función: Descargar PDF y PNG"
     ],
     "Creador de Certificados": [],
     "Creador de Flyers": [],
