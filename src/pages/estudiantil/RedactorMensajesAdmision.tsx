@@ -151,7 +151,7 @@ export const RedactorMensajesAdmision: React.FC = () => {
     if (tipo === 'bold') reemplazo = `*${seleccion}*`;
     else if (tipo === 'italic') reemplazo = `_${seleccion}_`;
     else if (tipo === 'saludo') reemplazo = `\nEstimado(a) Representante *{{nombre_representante}}*:\n`;
-    else if (tipo === 'recaudos') reemplazo = `\n📋 *RECAUDOS REQUERIDOS:*\n1. Copia de Cédula del Representante y Alumno.\n2. Notas Certificadas del plantel de procedencia.\n3. Ficha Médica y Foto Tipo Carnet.\n`;
+    else if (tipo === 'recaudos') reemplazo = `\n📋 *RECAUDOS REQUERIDOS:*\n1. Copia de Cédula del Representante y Estudiante.\n2. Notas Certificadas del plantel de procedencia.\n3. Ficha Médica y Foto Tipo Carnet.\n`;
 
     const nuevoTexto = textoActual.substring(0, start) + reemplazo + textoActual.substring(end);
     setPlantillaEdicion({ ...plantillaEdicion, cuerpo_mensaje: nuevoTexto });

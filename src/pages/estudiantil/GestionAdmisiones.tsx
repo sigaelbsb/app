@@ -184,6 +184,39 @@ export const nombreCompleto = (nombres?: string, apellidos?: string): string => 
   return n || a || 'Sin nombre registrado';
 };
 
+// ── NORMALIZACIÓN DE GRADOS PARA COMPARACIÓN UNIFICADA (SIN FALSOS POSITIVOS) ──
+export const normalizarGrado = (g?: string): string => {
+  if (!g) return '';
+  const str = g.toLowerCase().trim()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remover acentos
+    .replace(/[°º]/g, '');
+
+  // Maternal / Lactante
+  if (str.includes('maternal') || str.includes('lactante') || str.includes('guarder') || str.includes('sala cuna')) return 'maternal';
+
+  // Grupos inicial: Evaluar III Grupo antes de II Grupo para evitar que "iii" contenga "ii"
+  if (/\b(3|3er|3ro|tercer|tercero|iii)\b/i.test(str) && str.includes('grupo')) return '3_grupo';
+  if (/\b(2|2do|2da|segundo|segunda|ii)\b/i.test(str) && str.includes('grupo')) return '2_grupo';
+  if (/\b(1|1er|1ro|1ra|primer|primero|primera|i)\b/i.test(str) && str.includes('grupo')) return '1_grupo';
+
+  // Primaria Grados
+  if (/\b(1|1er|1ro|primer|primero|primera)\b/i.test(str) && str.includes('grado')) return '1_grado';
+  if (/\b(2|2do|2da|segundo|segunda)\b/i.test(str) && str.includes('grado')) return '2_grado';
+  if (/\b(3|3er|3ro|tercer|tercero|tercera)\b/i.test(str) && str.includes('grado')) return '3_grado';
+  if (/\b(4|4to|4ta|cuarto|cuarta)\b/i.test(str) && str.includes('grado')) return '4_grado';
+  if (/\b(5|5to|5ta|quinto|quinta)\b/i.test(str) && str.includes('grado')) return '5_grado';
+  if (/\b(6|6to|6ta|sexto|sexta)\b/i.test(str) && str.includes('grado')) return '6_grado';
+
+  // Secundaria Años
+  if (/\b(1|1er|1ro|primer|primero)\b/i.test(str) && (str.includes('ano') || str.includes('anio'))) return '1_ano';
+  if (/\b(2|2do|segundo)\b/i.test(str) && (str.includes('ano') || str.includes('anio'))) return '2_ano';
+  if (/\b(3|3er|3ro|tercer|tercero)\b/i.test(str) && (str.includes('ano') || str.includes('anio'))) return '3_ano';
+  if (/\b(4|4to|cuarto)\b/i.test(str) && (str.includes('ano') || str.includes('anio'))) return '4_ano';
+  if (/\b(5|5to|quinto)\b/i.test(str) && (str.includes('ano') || str.includes('anio'))) return '5_ano';
+
+  return str.replace(/\s+/g, '_');
+};
+
 // ── PARSER Y SERIALIZADOR DE OBSERVACIONES / METADATOS ──────────────────────────
 export const parsearObservaciones = (obs?: string) => {
   let aptitud = 'En Evaluación';
@@ -702,11 +735,258 @@ export const GestionAdmisiones: React.FC = () => {
     }
   };
 
+  // ── CAPACIDAD, SALONES Y MATRÍCULA ESCOLAR REAL ────────────────────────────────
+  const [salonesBD, setSalonesBD] = useState<any[]>([]);
+  const [espaciosBD, setEspaciosBD] = useState<any[]>([]);
+  const [estudiantesMatriculaBD, setEstudiantesMatriculaBD] = useState<any[]>([]);
+  const [cargandoCapacidad, setCargandoCapacidad] = useState<boolean>(false);
+
+  // ── CARGA DE CAPACIDAD DE AMBIENTES Y MATRÍCULA REAL ───────────────────────────
+  const cargarCapacidadEscolar = async () => {
+    setCargandoCapacidad(true);
+    try {
+      const [salRes, espRes] = await Promise.all([
+        supabase.from('salones').select('*'),
+        supabase.from('espacios').select('*')
+      ]);
+
+      if (salRes.data) setSalonesBD(salRes.data);
+      if (espRes.data) setEspaciosBD(espRes.data);
+
+      // Cargar estudiantes vinculados con paginación
+      let todosEst: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: estData, error: estErr } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('id, cedula_estudiante, grado_actual, seccion_actual, codigo_escuela, estado')
+          .eq('estado', 'Activo')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (estErr) {
+          console.warn('Error al cargar matrícula para cálculo de cupos:', estErr);
+          hasMore = false;
+        } else if (estData && estData.length > 0) {
+          todosEst = [...todosEst, ...estData];
+          if (estData.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setEstudiantesMatriculaBD(todosEst);
+    } catch (e) {
+      console.error('Error cargando datos de capacidad y matrícula:', e);
+    } finally {
+      setCargandoCapacidad(false);
+    }
+  };
+
   useEffect(() => {
     cargarSolicitudes();
     cargarCatalogos();
     cargarPersonalEscuela();
+    cargarCapacidadEscolar();
   }, []);
+
+  // ── CÁLCULO DINÁMICO DE CUPOS, SALONES Y VACANTES POR GRADO ───────────────────
+  const metricasCapacidadGrado = useMemo(() => {
+    const escuelaActual = filtroEscuela; // 'sb', 'lb', 'todas'
+    const espaciosMap = new Map(espaciosBD.map(esp => [esp.id, Number(esp.capacidad) || 38]));
+
+    if (filtroGrado === 'todos') {
+      // Cálculo consolidado de la escuela seleccionada o ambas escuelas
+      const solEscuela = solicitudes.filter(s => {
+        if (escuelaActual === 'todas') return true;
+        return (s.codigo_escuela || '').toLowerCase() === escuelaActual.toLowerCase();
+      });
+
+      const solAprobadas = solEscuela.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+      const solPendientes = solEscuela.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
+
+      const estEscuela = estudiantesMatriculaBD.filter(e => {
+        if (escuelaActual === 'todas') return true;
+        return (e.codigo_escuela || '').toLowerCase() === escuelaActual.toLowerCase();
+      });
+
+      const salonesEscuela = salonesBD.filter(s => {
+        if (escuelaActual === 'todas') return true;
+        return (s.id_escuela || '').toLowerCase() === escuelaActual.toLowerCase();
+      });
+
+      let capacidadTotal = 0;
+      if (salonesEscuela.length > 0) {
+        salonesEscuela.forEach(s => {
+          const cap = espaciosMap.get(s.id_espacio) || 38;
+          capacidadTotal += cap;
+        });
+      } else {
+        capacidadTotal = estEscuela.length > 0 ? Math.ceil(estEscuela.length / 38) * 38 : 0;
+      }
+
+      const totalMatriculados = estEscuela.length;
+      const cuposDisponibles = Math.max(0, capacidadTotal - totalMatriculados - solAprobadas);
+
+      return {
+        esGradoEspecifico: false,
+        gradoNombre: 'Todos los Grados',
+        escuelaNombre: escuelaActual === 'sb' ? 'U.E. Santa Bárbara' : escuelaActual === 'lb' ? 'U.E. Libertador Bolívar' : 'Todas las Escuelas',
+        totalSalones: salonesEscuela.length,
+        salonesDetalle: salonesEscuela.map(s => ({
+          ...s,
+          capacidad: espaciosMap.get(s.id_espacio) || 38
+        })),
+        capacidadTotal,
+        estudiantesMatriculados: totalMatriculados,
+        cuposAprobados: solAprobadas,
+        cuposDisponibles,
+        solicitudesPendientes: solPendientes,
+        totalSolicitudes: solEscuela.length,
+        porcentajeOcupacion: capacidadTotal > 0 ? Math.min(100, Math.round(((totalMatriculados + solAprobadas) / capacidadTotal) * 100)) : 0
+      };
+    }
+
+    // CUANDO SE FILTRA POR UN GRADO ESPECÍFICO
+    const gradoNormalizado = normalizarGrado(filtroGrado);
+
+    // Helper para calcular métricas de una escuela específica ('sb' o 'lb')
+    const calcularMetricasEscuelaIndividual = (codEsc: 'sb' | 'lb') => {
+      const salonesEsc = salonesBD.filter(s => {
+        const estatus = (s.estatus || 'Activo').toLowerCase().trim();
+        if (estatus !== 'activo') return false;
+        const matchEsc = (s.id_escuela || '').toLowerCase().trim() === codEsc;
+        const matchGrd = normalizarGrado(s.grado_anio) === gradoNormalizado;
+        return matchEsc && matchGrd;
+      });
+
+      const estudiantesEsc = estudiantesMatriculaBD.filter(e => {
+        const matchEsc = (e.codigo_escuela || '').toLowerCase().trim() === codEsc;
+        const matchGrd = normalizarGrado(e.grado_actual) === gradoNormalizado;
+        return matchEsc && matchGrd;
+      });
+
+      let capTotalEsc = 0;
+      if (salonesEsc.length > 0) {
+        salonesEsc.forEach(s => {
+          capTotalEsc += espaciosMap.get(s.id_espacio) || 38;
+        });
+      } else {
+        const seccionesDetectadas = new Set(
+          estudiantesEsc.map(e => (e.seccion_actual || 'A').toUpperCase().trim()).filter(Boolean)
+        );
+        const totSal = Math.max(1, seccionesDetectadas.size || 1);
+        capTotalEsc = totSal * 38;
+      }
+
+      const solicitudesEsc = solicitudes.filter(s => {
+        const matchEsc = (s.codigo_escuela || '').toLowerCase().trim() === codEsc;
+        const matchGrd = normalizarGrado(s.grado_solicitado) === gradoNormalizado;
+        return matchEsc && matchGrd;
+      });
+
+      const aprobados = solicitudesEsc.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+      const pendientes = solicitudesEsc.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
+      const matriculados = estudiantesEsc.length;
+      const disponibles = Math.max(0, capTotalEsc - matriculados - aprobados);
+
+      return {
+        codigo: codEsc,
+        nombre: codEsc === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar',
+        totalSalones: salonesEsc.length || 1,
+        salonesDetalle: salonesEsc,
+        capacidadTotal: capTotalEsc,
+        estudiantesMatriculados: matriculados,
+        cuposAprobados: aprobados,
+        cuposDisponibles: disponibles,
+        solicitudesPendientes: pendientes,
+        totalSolicitudes: solicitudesEsc.length
+      };
+    };
+
+    const desgloseSB = calcularMetricasEscuelaIndividual('sb');
+    const desgloseLB = calcularMetricasEscuelaIndividual('lb');
+
+    // 1. Salones configurados para este grado y escuela seleccionada
+    const salonesCoincidentes = salonesBD.filter(s => {
+      const estatus = (s.estatus || 'Activo').toLowerCase().trim();
+      if (estatus !== 'activo') return false;
+      const matchEsc = escuelaActual === 'todas' || (s.id_escuela || '').toLowerCase().trim() === escuelaActual.toLowerCase().trim();
+      const matchGrd = normalizarGrado(s.grado_anio) === gradoNormalizado;
+      return matchEsc && matchGrd;
+    });
+
+    let capacidadTotal = 0;
+    const salonesConCapacidad = salonesCoincidentes.map(s => {
+      const cap = espaciosMap.get(s.id_espacio) || 38;
+      capacidadTotal += cap;
+      return {
+        ...s,
+        capacidad: cap
+      };
+    });
+
+    // 2. Estudiantes ya vinculados en este grado
+    const estudiantesEnGrado = estudiantesMatriculaBD.filter(e => {
+      const matchEsc = escuelaActual === 'todas' || (e.codigo_escuela || '').toLowerCase().trim() === escuelaActual.toLowerCase().trim();
+      const matchGrd = normalizarGrado(e.grado_actual) === gradoNormalizado;
+      return matchEsc && matchGrd;
+    });
+
+    // Si no hay salones registrados explícitos pero hay secciones en estudiantes o solicitudes
+    let totalSalones = salonesCoincidentes.length;
+    if (totalSalones === 0) {
+      if (escuelaActual === 'todas') {
+        totalSalones = desgloseSB.totalSalones + desgloseLB.totalSalones;
+        capacidadTotal = desgloseSB.capacidadTotal + desgloseLB.capacidadTotal;
+      } else {
+        const seccionesDetectadas = new Set(
+          estudiantesEnGrado.map(e => (e.seccion_actual || 'A').toUpperCase().trim()).filter(Boolean)
+        );
+        totalSalones = Math.max(1, seccionesDetectadas.size || 1);
+        capacidadTotal = totalSalones * 38; // 38 solo o 38+38=76
+      }
+    }
+
+    // 3. Solicitudes de Admisión para este grado
+    const solicitudesEnGrado = solicitudes.filter(s => {
+      const matchEsc = escuelaActual === 'todas' || (s.codigo_escuela || '').toLowerCase().trim() === escuelaActual.toLowerCase().trim();
+      const matchGrd = normalizarGrado(s.grado_solicitado) === gradoNormalizado;
+      return matchEsc && matchGrd;
+    });
+
+    const cuposAprobados = solicitudesEnGrado.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+    const solicitudesPendientes = solicitudesEnGrado.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
+    const matriculados = estudiantesEnGrado.length;
+
+    // Cupos disponibles descontando los matriculados y los ya aprobados
+    const cuposDisponibles = Math.max(0, capacidadTotal - matriculados - cuposAprobados);
+    const totalOcupados = matriculados + cuposAprobados;
+    const porcentajeOcupacion = capacidadTotal > 0 ? Math.min(100, Math.round((totalOcupados / capacidadTotal) * 100)) : 0;
+
+    return {
+      esGradoEspecifico: true,
+      gradoNombre: filtroGrado,
+      escuelaNombre: escuelaActual === 'sb' ? 'U.E. Santa Bárbara' : escuelaActual === 'lb' ? 'U.E. Libertador Bolívar' : 'Ambas Escuelas (Consolidado)',
+      totalSalones,
+      salonesDetalle: salonesConCapacidad,
+      capacidadTotal,
+      estudiantesMatriculados: matriculados,
+      cuposAprobados,
+      cuposDisponibles,
+      solicitudesPendientes,
+      totalSolicitudes: solicitudesEnGrado.length,
+      porcentajeOcupacion,
+      desgloseSB,
+      desgloseLB
+    };
+  }, [filtroGrado, filtroEscuela, salonesBD, espaciosBD, estudiantesMatriculaBD, solicitudes]);
 
   // ── OPCIONES DE FILTROS ENRIQUECIDAS ───────────────────────────────────────────
   const opcionesNominaEnriquecidas = useMemo(() => {
@@ -1822,9 +2102,19 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
 
               <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-mortarboard me-1"></i> Grado / Nivel
-                </label>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <label className="form-label extra-small fw-bold text-secondary mb-0">
+                    <i className="bi bi-mortarboard me-1"></i> Grado / Nivel
+                  </label>
+                  {filtroGrado !== 'todos' && (
+                    <span
+                      className={`badge ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} extra-small py-0.5 px-1.5 rounded-pill`}
+                      style={{ fontSize: '9.5px' }}
+                    >
+                      {metricasCapacidadGrado.cuposDisponibles} vacantes
+                    </span>
+                  )}
+                </div>
                 <select
                   className="form-select form-select-sm"
                   value={filtroGrado}
@@ -1929,6 +2219,254 @@ export const GestionAdmisiones: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ── PANEL DE ANÁLISIS DE CAPACIDAD, AMBIENTES Y CUPOS DISPONIBLES ───────── */}
+      <div className="mb-3">
+        {metricasCapacidadGrado.esGradoEspecifico ? (
+          <div className="card border-0 shadow-sm rounded-3 overflow-hidden bg-white border-top border-4 border-primary">
+            {/* Header del Banner de Capacidad */}
+            <div className="card-header bg-primary bg-opacity-10 py-2.5 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <span className="p-1.5 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center shadow-xs">
+                  <i className="bi bi-bar-chart-fill fs-6"></i>
+                </span>
+                <div>
+                  <h6 className="fw-bold text-dark mb-0">
+                    Disponibilidad de Cupos y Ambientes: <span className="text-primary">{metricasCapacidadGrado.gradoNombre}</span>
+                  </h6>
+                  <small className="text-muted extra-small">
+                    Plantel: <b>{metricasCapacidadGrado.escuelaNombre}</b> | Configuración: <b>{metricasCapacidadGrado.totalSalones} {metricasCapacidadGrado.totalSalones === 1 ? 'Ambiente / Salón' : 'Ambientes / Salones'}</b> ({metricasCapacidadGrado.totalSalones === 1 ? '38 puestos' : `${metricasCapacidadGrado.capacidadTotal} puestos totales [${Array.from({ length: metricasCapacidadGrado.totalSalones }).map(() => '38').join(' + ')}]`})
+                  </small>
+                </div>
+              </div>
+
+              <div className="d-flex align-items-center gap-2">
+                <span
+                  className={`badge rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 ${
+                    metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success text-white' : 'bg-danger text-white'
+                  }`}
+                  style={{ fontSize: '12px' }}
+                >
+                  <i className={`bi ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bi-check-circle-fill' : 'bi-slash-circle-fill'}`}></i>
+                  <span>{metricasCapacidadGrado.cuposDisponibles > 0 ? `${metricasCapacidadGrado.cuposDisponibles} Cupos Disponibles` : 'Sin Cupos (Agotado)'}</span>
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm py-0.5 px-2 extra-small"
+                  onClick={() => setFiltroGrado('todos')}
+                  title="Ver todos los grados"
+                >
+                  Ver Todos
+                </button>
+              </div>
+            </div>
+
+            {/* 4 Tarjetas de Métricas Clave */}
+            <div className="card-body p-3">
+              {/* Desglose por Escuela si está en "Todas las Escuelas" */}
+              {filtroEscuela === 'todas' && metricasCapacidadGrado.desgloseSB && metricasCapacidadGrado.desgloseLB && (
+                <div className="row g-2 mb-3">
+                  <div className="col-12 col-md-6">
+                    <div className="p-2 bg-light border border-primary-subtle rounded-3 d-flex align-items-center justify-content-between shadow-xs">
+                      <div>
+                        <strong className="d-block text-primary small">
+                          <i className="bi bi-building me-1"></i> U.E. Santa Bárbara
+                        </strong>
+                        <small className="text-muted extra-small">
+                          <b>{metricasCapacidadGrado.desgloseSB.totalSalones}</b> {metricasCapacidadGrado.desgloseSB.totalSalones === 1 ? 'salón' : 'salones'} ({metricasCapacidadGrado.desgloseSB.capacidadTotal} puestos) • <b>{metricasCapacidadGrado.desgloseSB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseSB.cuposAprobados}</b> aprob.
+                        </small>
+                      </div>
+                      <span className={`badge ${metricasCapacidadGrado.desgloseSB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2.5 py-1 fw-bold`} style={{ fontSize: '11px' }}>
+                        {metricasCapacidadGrado.desgloseSB.cuposDisponibles} vacantes
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-6">
+                    <div className="p-2 bg-light border border-primary-subtle rounded-3 d-flex align-items-center justify-content-between shadow-xs">
+                      <div>
+                        <strong className="d-block text-primary small">
+                          <i className="bi bi-building me-1"></i> U.E. Libertador Bolívar
+                        </strong>
+                        <small className="text-muted extra-small">
+                          <b>{metricasCapacidadGrado.desgloseLB.totalSalones}</b> {metricasCapacidadGrado.desgloseLB.totalSalones === 1 ? 'salón' : 'salones'} ({metricasCapacidadGrado.desgloseLB.capacidadTotal} puestos) • <b>{metricasCapacidadGrado.desgloseLB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseLB.cuposAprobados}</b> aprob.
+                        </small>
+                      </div>
+                      <span className={`badge ${metricasCapacidadGrado.desgloseLB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2.5 py-1 fw-bold`} style={{ fontSize: '11px' }}>
+                        {metricasCapacidadGrado.desgloseLB.cuposDisponibles} vacantes
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="row g-2.5 mb-3">
+                {/* 1. Capacidad de Ambientes */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div className="p-2.5 rounded-3 bg-light border border-primary-subtle d-flex align-items-center gap-2.5 h-100">
+                    <div
+                      className="p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                      style={{ backgroundColor: '#4F46E5', width: '42px', height: '42px' }}
+                    >
+                      <i className="bi bi-door-open-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <small className="text-muted extra-small d-block fw-semibold">Capacidad de Ambientes</small>
+                      <span className="fs-5 fw-bold text-dark d-block lh-1">
+                        {metricasCapacidadGrado.capacidadTotal} <span className="fs-6 fw-normal text-muted">puestos</span>
+                      </span>
+                      <small className="text-secondary extra-small">
+                        {metricasCapacidadGrado.totalSalones} {metricasCapacidadGrado.totalSalones === 1 ? 'salón' : 'salones'} ({metricasCapacidadGrado.totalSalones === 1 ? '38 c/u' : `${metricasCapacidadGrado.capacidadTotal} en ${metricasCapacidadGrado.totalSalones} salones`})
+                      </small>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Estudiantes Vinculados */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div className="p-2.5 rounded-3 bg-light border border-info-subtle d-flex align-items-center gap-2.5 h-100">
+                    <div
+                      className="p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                      style={{ backgroundColor: '#0284C7', width: '42px', height: '42px' }}
+                    >
+                      <i className="bi bi-people-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <small className="text-muted extra-small d-block fw-semibold">Estudiantes Vinculados</small>
+                      <span className="fs-5 fw-bold text-info-emphasis d-block lh-1">
+                        {metricasCapacidadGrado.estudiantesMatriculados} <span className="fs-6 fw-normal text-muted">estudiantes</span>
+                      </span>
+                      <small className="text-secondary extra-small">Matrícula regular activa</small>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Cupos Aprobados Admisión */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div className="p-2.5 rounded-3 bg-light border border-warning-subtle d-flex align-items-center gap-2.5 h-100">
+                    <div
+                      className="p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                      style={{ backgroundColor: '#D97706', width: '42px', height: '42px' }}
+                    >
+                      <i className="bi bi-person-check-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <small className="text-muted extra-small d-block fw-semibold">Admisiones Aprobadas</small>
+                      <span className="fs-5 fw-bold text-warning-emphasis d-block lh-1">
+                        {metricasCapacidadGrado.cuposAprobados} <span className="fs-6 fw-normal text-muted">asignados</span>
+                      </span>
+                      <small className="text-secondary extra-small">Descontados de cupos libres</small>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Cupos Disponibles Reales */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div
+                    className={`p-2.5 rounded-3 border d-flex align-items-center gap-2.5 h-100 ${
+                      metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger'
+                    }`}
+                  >
+                    <div
+                      className={`p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0 ${
+                        metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'
+                      }`}
+                      style={{ width: '42px', height: '42px' }}
+                    >
+                      <i className={`bi ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bi-check-all' : 'bi-exclamation-triangle-fill'} fs-5`}></i>
+                    </div>
+                    <div>
+                      <small className="text-muted extra-small d-block fw-bold">CUPOS DISPONIBLES</small>
+                      <span className={`fs-5 fw-bold d-block lh-1 ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'text-success' : 'text-danger'}`}>
+                        {metricasCapacidadGrado.cuposDisponibles} <span className="fs-6 fw-normal text-muted">vacantes</span>
+                      </span>
+                      <small className="extra-small d-block text-muted">
+                        {metricasCapacidadGrado.capacidadTotal} - {metricasCapacidadGrado.estudiantesMatriculados} (vinc) - {metricasCapacidadGrado.cuposAprobados} (aprob)
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra Visual de Ocupación y Resumen de Demanda */}
+              <div className="bg-light p-2.5 rounded-3 border">
+                <div className="d-flex justify-content-between align-items-center mb-1.5 small">
+                  <span className="fw-semibold text-dark extra-small">
+                    Ocupación de Ambientes: <b>{metricasCapacidadGrado.estudiantesMatriculados + metricasCapacidadGrado.cuposAprobados} de {metricasCapacidadGrado.capacidadTotal} puestos ({metricasCapacidadGrado.porcentajeOcupacion}%)</b>
+                  </span>
+                  <span className="badge bg-white text-secondary border extra-small">
+                    <i className="bi bi-hourglass-split me-1 text-warning"></i>
+                    <b>{metricasCapacidadGrado.solicitudesPendientes}</b> solicitudes en espera para este grado
+                  </span>
+                </div>
+
+                <div className="progress" style={{ height: '10px', backgroundColor: '#e2e8f0' }}>
+                  {/* Segmento 1: Matriculados */}
+                  <div
+                    className="progress-bar bg-info"
+                    role="progressbar"
+                    style={{
+                      width: `${metricasCapacidadGrado.capacidadTotal > 0 ? (metricasCapacidadGrado.estudiantesMatriculados / metricasCapacidadGrado.capacidadTotal) * 100 : 0}%`
+                    }}
+                    title={`Estudiantes Vinculados: ${metricasCapacidadGrado.estudiantesMatriculados}`}
+                  ></div>
+                  {/* Segmento 2: Aprobados en Admisión */}
+                  <div
+                    className="progress-bar bg-warning"
+                    role="progressbar"
+                    style={{
+                      width: `${metricasCapacidadGrado.capacidadTotal > 0 ? (metricasCapacidadGrado.cuposAprobados / metricasCapacidadGrado.capacidadTotal) * 100 : 0}%`
+                    }}
+                    title={`Cupos Aprobados Admisión: ${metricasCapacidadGrado.cuposAprobados}`}
+                  ></div>
+                  {/* Segmento 3: Disponibles */}
+                  <div
+                    className="progress-bar bg-success"
+                    role="progressbar"
+                    style={{
+                      width: `${metricasCapacidadGrado.capacidadTotal > 0 ? (metricasCapacidadGrado.cuposDisponibles / metricasCapacidadGrado.capacidadTotal) * 100 : 0}%`
+                    }}
+                    title={`Cupos Disponibles: ${metricasCapacidadGrado.cuposDisponibles}`}
+                  ></div>
+                </div>
+
+                <div className="d-flex align-items-center justify-content-between mt-2 flex-wrap gap-2 extra-small text-muted">
+                  <div className="d-flex align-items-center gap-3">
+                    <span><span className="d-inline-block rounded-circle bg-info me-1" style={{ width: '8px', height: '8px' }}></span><b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Vinculados</span>
+                    <span><span className="d-inline-block rounded-circle bg-warning me-1" style={{ width: '8px', height: '8px' }}></span><b>{metricasCapacidadGrado.cuposAprobados}</b> Aprobados Admisión</span>
+                    <span><span className="d-inline-block rounded-circle bg-success me-1" style={{ width: '8px', height: '8px' }}></span><b>{metricasCapacidadGrado.cuposDisponibles}</b> Vacantes Libres</span>
+                  </div>
+                  <span className="text-dark fw-bold">
+                    Fórmula: Capacidad ({metricasCapacidadGrado.capacidadTotal}) - Vinculados ({metricasCapacidadGrado.estudiantesMatriculados}) - Aprobados ({metricasCapacidadGrado.cuposAprobados}) = {metricasCapacidadGrado.cuposDisponibles} Cupos
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="card border-0 shadow-sm rounded-3 bg-white py-2 px-3 d-flex flex-row align-items-center justify-content-between flex-wrap gap-2 border-start border-4 border-info">
+            <div className="d-flex align-items-center gap-2">
+              <span className="p-1.5 bg-info-subtle text-info rounded-circle">
+                <i className="bi bi-info-circle-fill fs-6"></i>
+              </span>
+              <span className="small text-muted">
+                <b>Análisis de Cupos y Ambientes:</b> Filtra por un <b>Grado / Nivel</b> en el menú superior para ver la disponibilidad exacta de vacantes, ambientes (1 o 2 salones de 38 o 76 cupos) y estudiantes vinculados.
+              </span>
+            </div>
+            <div className="d-flex align-items-center gap-2 extra-small">
+              <span className="badge bg-light text-dark border">
+                <i className="bi bi-building me-1"></i> {metricasCapacidadGrado.totalSalones} Salones Globales
+              </span>
+              <span className="badge bg-light text-primary border">
+                <i className="bi bi-people me-1"></i> {metricasCapacidadGrado.estudiantesMatriculados} Estudiantes Vinculados
+              </span>
+              <span className="badge bg-light text-success border">
+                <i className="bi bi-check2-circle me-1"></i> {metricasCapacidadGrado.cuposAprobados} Cupos Asignados
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════════════════ */}
       {/* VISTA 1: TABLA GENERAL Y BAREMO                                           */}
