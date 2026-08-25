@@ -77,6 +77,9 @@ export interface SolicitudAdmision {
   instruccion_jerarquica?: boolean;
   instruccion_quien?: string | null;
   instruccion_motivo?: string;
+  whatsapp_notificado?: boolean;
+  whatsapp_fecha?: string | null;
+  whatsapp_estado?: string | null;
   observaciones?: string;
   creado_por?: string;
   created_at?: string;
@@ -224,6 +227,9 @@ export const parsearObservaciones = (obs?: string) => {
   let instruccion_quien: string | null = null;
   let prioridad_manual: number | null = null;
   let es_personal_escuela = false;
+  let whatsapp_notificado = false;
+  let whatsapp_fecha: string | null = null;
+  let whatsapp_estado: string | null = null;
   let textoLimpio = obs || '';
 
   if (obs) {
@@ -246,9 +252,27 @@ export const parsearObservaciones = (obs?: string) => {
       es_personal_escuela = matchPers[1].trim().toLowerCase() === 'sí' || matchPers[1].trim().toLowerCase() === 'si';
       textoLimpio = textoLimpio.replace(matchPers[0], '').trim();
     }
+
+    const matchWA = obs.match(/\[WhatsApp:\s*([^|\]]+)(?:\|\s*Fecha:\s*([^|\]]+))?(?:\|\s*Estado:\s*([^|\]]+))?\]/i);
+    if (matchWA) {
+      whatsapp_notificado = matchWA[1].trim().toLowerCase() === 'enviado' || matchWA[1].trim().toLowerCase() === 'si' || matchWA[1].trim().toLowerCase() === 'sí';
+      whatsapp_fecha = matchWA[2]?.trim() || null;
+      whatsapp_estado = matchWA[3]?.trim() || null;
+      textoLimpio = textoLimpio.replace(matchWA[0], '').trim();
+    }
   }
 
-  return { aptitud, instruccion_jerarquica, instruccion_quien, prioridad_manual, es_personal_escuela, textoLimpio };
+  return {
+    aptitud,
+    instruccion_jerarquica,
+    instruccion_quien,
+    prioridad_manual,
+    es_personal_escuela,
+    whatsapp_notificado,
+    whatsapp_fecha,
+    whatsapp_estado,
+    textoLimpio
+  };
 };
 
 export const estructurarObservaciones = (
@@ -257,12 +281,16 @@ export const estructurarObservaciones = (
   esJerarquica: boolean,
   quienInstruye?: string,
   prioridad?: number,
-  esPersonalEscuela?: boolean
+  esPersonalEscuela?: boolean,
+  whatsappNotificado?: boolean,
+  whatsappFecha?: string | null,
+  whatsappEstado?: string | null
 ): string => {
   let cleanText = (textoBase || '')
     .replace(/\[Aptitud:\s*[^\]]+\]/gi, '')
     .replace(/\[Jerarquía:\s*[^\]]+\]/gi, '')
     .replace(/\[PersonalEscuela:\s*[^\]]+\]/gi, '')
+    .replace(/\[WhatsApp:\s*[^\]]+\]/gi, '')
     .trim();
 
   let tags = `[Aptitud: ${aptitud || 'En Evaluación'}]`;
@@ -271,6 +299,9 @@ export const estructurarObservaciones = (
   }
   if (esPersonalEscuela) {
     tags += ` [PersonalEscuela: Sí]`;
+  }
+  if (whatsappNotificado) {
+    tags += ` [WhatsApp: Enviado${whatsappFecha ? ` | Fecha: ${whatsappFecha}` : ''}${whatsappEstado ? ` | Estado: ${whatsappEstado}` : ''}]`;
   }
 
   return cleanText ? `${tags} ${cleanText}` : tags;
@@ -543,6 +574,7 @@ export const GestionAdmisiones: React.FC = () => {
   const [filtroCondicionLaboral, setFiltroCondicionLaboral] = useState<string>('todas');
   const [filtroGrado, setFiltroGrado] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
+  const [filtroWhatsApp, setFiltroWhatsApp] = useState<'todos' | 'notificado' | 'sin_notificar'>('todos');
   const [busqueda, setBusqueda] = useState<string>('');
 
   // ── CATÁLOGOS CARGADOS DESDE LA BD ─────────────────────────────────────────────
@@ -724,6 +756,9 @@ export const GestionAdmisiones: React.FC = () => {
             instruccion_quien: s.instruccion_quien || parsed.instruccion_quien,
             prioridad_manual: s.prioridad_manual !== undefined ? s.prioridad_manual : parsed.prioridad_manual,
             es_personal_escuela: s.es_personal_escuela !== undefined ? s.es_personal_escuela : parsed.es_personal_escuela,
+            whatsapp_notificado: parsed.whatsapp_notificado,
+            whatsapp_fecha: parsed.whatsapp_fecha,
+            whatsapp_estado: parsed.whatsapp_estado,
           };
         });
         setSolicitudes(mapeadas);
@@ -1059,6 +1094,14 @@ export const GestionAdmisiones: React.FC = () => {
         return false;
       }
 
+      if (filtroWhatsApp === 'notificado') {
+        const parsed = parsearObservaciones(s.observaciones);
+        if (!parsed.whatsapp_notificado) return false;
+      } else if (filtroWhatsApp === 'sin_notificar') {
+        const parsed = parsearObservaciones(s.observaciones);
+        if (parsed.whatsapp_notificado) return false;
+      }
+
       if (busqueda.trim() !== '') {
         const query = busqueda.toLowerCase().trim();
         const nomEst = `${s.estudiante_nombres || ''} ${s.estudiante_apellidos || ''}`.toLowerCase();
@@ -1098,6 +1141,7 @@ export const GestionAdmisiones: React.FC = () => {
     filtroCondicionLaboral,
     filtroGrado,
     filtroEstado,
+    filtroWhatsApp,
     busqueda,
   ]);
 
@@ -1185,7 +1229,7 @@ export const GestionAdmisiones: React.FC = () => {
   };
 
   // ── ENVIAR MENSAJE OFICIAL POR WHATSAPP AL REPRESENTANTE (SIN BAREMO Y SIN "LE") ─
-  const notificarRepresentanteWhatsApp = (sol: SolicitudAdmision) => {
+  const notificarRepresentanteWhatsApp = async (sol: SolicitudAdmision) => {
     const telRaw = (sol.representante_telefono || sol.representante_telefono2 || '').replace(/\D/g, '');
     const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
     const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
@@ -1219,6 +1263,61 @@ export const GestionAdmisiones: React.FC = () => {
 
     const waUrl = generarEnlaceWhatsAppAdmision(telRaw, msg);
     window.open(waUrl, '_blank');
+
+    // Registrar fecha y hora de notificación
+    const ahora = new Date();
+    const fechaHoraStr = ahora.toLocaleDateString('es-VE') + ' ' + ahora.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+    
+    // Parsear observaciones actuales y estructurar con el tag de WhatsApp
+    const parsed = parsearObservaciones(sol.observaciones);
+    const nuevasObsConWA = estructurarObservaciones(
+      parsed.textoLimpio,
+      sol.aptitud || parsed.aptitud,
+      sol.instruccion_jerarquica !== undefined ? !!sol.instruccion_jerarquica : parsed.instruccion_jerarquica,
+      sol.instruccion_quien || parsed.instruccion_quien || undefined,
+      sol.prioridad_manual !== undefined && sol.prioridad_manual !== null ? sol.prioridad_manual : (parsed.prioridad_manual ?? undefined),
+      sol.es_personal_escuela !== undefined ? !!sol.es_personal_escuela : parsed.es_personal_escuela,
+      true,
+      fechaHoraStr,
+      estado
+    );
+
+    try {
+      await supabase
+        .from('solicitud_cupos')
+        .update({ observaciones: nuevasObsConWA })
+        .eq('id', sol.id);
+
+      // Actualizar estado local
+      const updateData = {
+        observaciones: nuevasObsConWA,
+        whatsapp_notificado: true,
+        whatsapp_fecha: fechaHoraStr,
+        whatsapp_estado: estado
+      };
+
+      setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, ...updateData } : s));
+      
+      if (solicitudSeleccionada && solicitudSeleccionada.id === sol.id) {
+        setSolicitudSeleccionada(prev => prev ? { ...prev, ...updateData } : null);
+      }
+
+      auditar('Gestión de Admisiones', 'Notificación WhatsApp', `Enviada notificación por WhatsApp a ${nomRep} (${telRaw}) para ${nomEst} - Estado: ${estado}`);
+
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: `WhatsApp registrado para ${nomEst}`,
+          text: `Estatus notificado: ${estado} (${fechaHoraStr})`,
+          showConfirmButton: false,
+          timer: 2500
+        });
+      }
+    } catch (errWA) {
+      console.warn('Error guardando registro de WhatsApp en BD:', errWA);
+    }
   };
 
   // ── ABRIR MODAL DE DETALLE Y GESTIÓN ───────────────────────────────────────────
@@ -1244,13 +1343,17 @@ export const GestionAdmisiones: React.FC = () => {
   const guardarEvaluacion = async (sol: SolicitudAdmision, avanzarSiguiente: boolean = false) => {
     setGuardandoEstado(true);
     try {
+      const parsedActual = parsearObservaciones(sol.observaciones);
       const obsEstructuradas = estructurarObservaciones(
         nuevasObservaciones,
         nuevaAptitud,
         esJerarquica,
         quienInstruye,
         prioridadAsignada,
-        esPersonalEscuelaForm
+        esPersonalEscuelaForm,
+        parsedActual.whatsapp_notificado,
+        parsedActual.whatsapp_fecha,
+        parsedActual.whatsapp_estado
       );
 
       // Payload estricto con campos que existen físicamente en la BD
@@ -1281,6 +1384,9 @@ export const GestionAdmisiones: React.FC = () => {
         prioridad_manual: esJerarquica ? prioridadAsignada : null,
         es_personal_escuela: esPersonalEscuelaForm,
         observaciones: obsEstructuradas,
+        whatsapp_notificado: parsedActual.whatsapp_notificado,
+        whatsapp_fecha: parsedActual.whatsapp_fecha,
+        whatsapp_estado: parsedActual.whatsapp_estado
       };
 
       setSolicitudes(prev =>
@@ -2193,7 +2299,22 @@ export const GestionAdmisiones: React.FC = () => {
                 </select>
               </div>
 
-              <div className="col-12 col-md-6 col-lg-8">
+              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
+                <label className="form-label extra-small fw-bold text-secondary mb-1">
+                  <i className="bi bi-whatsapp text-success me-1"></i> Notificación WhatsApp
+                </label>
+                <select
+                  className="form-select form-select-sm"
+                  value={filtroWhatsApp}
+                  onChange={e => setFiltroWhatsApp(e.target.value as any)}
+                >
+                  <option value="todos">Todos los Estados</option>
+                  <option value="notificado">💬 Notificados por WhatsApp</option>
+                  <option value="sin_notificar">⏳ Pendientes por Notificar</option>
+                </select>
+              </div>
+
+              <div className="col-12 col-md-6 col-lg-6">
                 <label className="form-label extra-small fw-bold text-secondary mb-1">
                   <i className="bi bi-search me-1"></i> Búsqueda en todos los campos
                 </label>
@@ -2586,8 +2707,31 @@ export const GestionAdmisiones: React.FC = () => {
                             <div className="small fw-semibold">{sol.pdvsa_tipo_nomina || 'Comunidad'}</div>
                             <div className="text-muted extra-small">{sol.pdvsa_condicion_laboral || 'N/A'}</div>
                           </td>
-                          <td className="text-center">{renderBadgeAptitud(sol.aptitud)}</td>
-                          <td className="text-center">{renderBadgeEstado(sol.estado)}</td>
+                          <td className="text-center">
+                            <div className="d-flex flex-column align-items-center gap-1">
+                              {renderBadgeEstado(sol.estado)}
+                              {(() => {
+                                const parsed = parsearObservaciones(sol.observaciones);
+                                return parsed.whatsapp_notificado ? (
+                                  <span
+                                    className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5 shadow-xs"
+                                    style={{ fontSize: '9.5px', cursor: 'help' }}
+                                    title={`Notificación oficial enviada por WhatsApp${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}${parsed.whatsapp_estado ? ` (${parsed.whatsapp_estado})` : ''}`}
+                                  >
+                                    <i className="bi bi-whatsapp"></i> Notificado
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="badge bg-light text-muted border extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5"
+                                    style={{ fontSize: '9px' }}
+                                    title="Pendiente por enviar notificación de estatus por WhatsApp"
+                                  >
+                                    <i className="bi bi-clock-history"></i> Sin Notificar
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </td>
                           <td className="text-end">
                             <div className="btn-group btn-group-sm">
                               {(() => {
@@ -2622,13 +2766,23 @@ export const GestionAdmisiones: React.FC = () => {
                               >
                                 <i className="bi bi-eye"></i>
                               </button>
-                              <button
-                                className="btn btn-outline-success"
-                                onClick={() => notificarRepresentanteWhatsApp(sol)}
-                                title="Notificar Estatus por WhatsApp"
-                              >
-                                <i className="bi bi-whatsapp"></i>
-                              </button>
+                              {(() => {
+                                const parsed = parsearObservaciones(sol.observaciones);
+                                return (
+                                  <button
+                                    className={`btn ${parsed.whatsapp_notificado ? 'btn-success text-white shadow-xs' : 'btn-outline-success'}`}
+                                    onClick={() => notificarRepresentanteWhatsApp(sol)}
+                                    title={
+                                      parsed.whatsapp_notificado
+                                        ? `WhatsApp enviado${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}${parsed.whatsapp_estado ? ` (${parsed.whatsapp_estado})` : ''}. Clic para reenviar.`
+                                        : 'Enviar Notificación Oficial de Estatus por WhatsApp'
+                                    }
+                                  >
+                                    <i className="bi bi-whatsapp"></i>
+                                    {parsed.whatsapp_notificado && <i className="bi bi-check ms-0.5 fw-bold"></i>}
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </td>
                         </tr>
@@ -3376,14 +3530,41 @@ export const GestionAdmisiones: React.FC = () => {
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        className="btn btn-success btn-sm fw-bold py-2 text-white shadow-sm mt-1"
-                        style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
-                        onClick={() => notificarRepresentanteWhatsApp(solicitudUnoAUno)}
-                      >
-                        <i className="bi bi-whatsapp me-1"></i> 📲 Enviar Notificación por WhatsApp
-                      </button>
+                      {(() => {
+                        const parsed = parsearObservaciones(solicitudUnoAUno.observaciones);
+                        return (
+                          <div className="mt-2 p-2.5 rounded-3 border bg-light">
+                            <div className="d-flex align-items-center justify-content-between mb-1.5 flex-wrap gap-1">
+                              <small className="fw-bold text-dark extra-small">
+                                <i className="bi bi-whatsapp text-success me-1"></i> Estado Notificación WhatsApp:
+                              </small>
+                              {parsed.whatsapp_notificado ? (
+                                <span className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill py-0.5 px-2">
+                                  <i className="bi bi-check-circle-fill me-1"></i> Enviado ({parsed.whatsapp_estado || 'Notificado'})
+                                </span>
+                              ) : (
+                                <span className="badge bg-secondary bg-opacity-10 text-secondary border extra-small rounded-pill py-0.5 px-2">
+                                  <i className="bi bi-clock-history me-1"></i> Sin Notificar
+                                </span>
+                              )}
+                            </div>
+                            {parsed.whatsapp_notificado && parsed.whatsapp_fecha && (
+                              <div className="extra-small text-muted mb-2">
+                                <i className="bi bi-calendar3 me-1"></i> Registrado el: <b>{parsed.whatsapp_fecha}</b>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-success btn-sm fw-bold py-1.5 text-white shadow-sm w-100 d-flex align-items-center justify-content-center gap-1.5"
+                              style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
+                              onClick={() => notificarRepresentanteWhatsApp(solicitudUnoAUno)}
+                            >
+                              <i className="bi bi-whatsapp"></i>
+                              <span>{parsed.whatsapp_notificado ? '📲 Reenviar Notificación por WhatsApp' : '📲 Enviar Notificación por WhatsApp'}</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -4073,14 +4254,34 @@ export const GestionAdmisiones: React.FC = () => {
                 </div>
               </div>
 
-              <div className="modal-footer bg-light py-2 d-flex justify-content-between">
-                <button
-                  type="button"
-                  className="btn btn-success btn-sm fw-bold"
-                  onClick={() => notificarRepresentanteWhatsApp(solicitudSeleccionada)}
-                >
-                  <i className="bi bi-whatsapp me-1"></i> Notificar por WhatsApp
-                </button>
+              <div className="modal-footer bg-light py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div className="d-flex align-items-center gap-2">
+                  {(() => {
+                    const parsed = parsearObservaciones(solicitudSeleccionada.observaciones);
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          className={`btn ${parsed.whatsapp_notificado ? 'btn-success text-white shadow-xs' : 'btn-outline-success'} btn-sm fw-bold d-flex align-items-center gap-1.5`}
+                          style={{ backgroundColor: parsed.whatsapp_notificado ? '#16a34a' : undefined }}
+                          onClick={() => notificarRepresentanteWhatsApp(solicitudSeleccionada)}
+                        >
+                          <i className="bi bi-whatsapp"></i>
+                          <span>{parsed.whatsapp_notificado ? 'Reenviar WhatsApp' : 'Notificar por WhatsApp'}</span>
+                        </button>
+                        {parsed.whatsapp_notificado ? (
+                          <span className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill py-1 px-2">
+                            <i className="bi bi-check-all me-1"></i> Enviado: {parsed.whatsapp_fecha} ({parsed.whatsapp_estado || 'Notificado'})
+                          </span>
+                        ) : (
+                          <span className="badge bg-light text-muted border extra-small rounded-pill py-1 px-2">
+                            <i className="bi bi-clock me-1"></i> Sin Notificar
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
                 <div className="d-flex gap-2">
                   <button type="button" className="btn btn-secondary btn-sm" onClick={cerrarModal}>
                     Cancelar
