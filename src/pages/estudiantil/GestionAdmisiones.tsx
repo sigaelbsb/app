@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import * as XLSX from 'xlsx';
-import { buscarPlantillaAdmision, renderizarMensajeAdmision, generarEnlaceWhatsAppAdmision } from '../../utils/plantillasAdmision';
+import {
+  buscarPlantillaAdmision,
+  renderizarMensajeAdmision,
+  generarEnlaceWhatsAppAdmision,
+  sincronizarPlantillasAdmisionDesdeBD
+} from '../../utils/plantillasAdmision';
 
 const Swal = (window as any).Swal;
 
@@ -576,6 +582,8 @@ export const GestionAdmisiones: React.FC = () => {
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroWhatsApp, setFiltroWhatsApp] = useState<'todos' | 'notificado' | 'sin_notificar'>('todos');
   const [busqueda, setBusqueda] = useState<string>('');
+  const [filtrosPanelAbierto, setFiltrosPanelAbierto] = useState<boolean>(false);
+  const [modalMatrizCapacidadAbierto, setModalMatrizCapacidadAbierto] = useState<boolean>(false);
 
   // ── CATÁLOGOS CARGADOS DESDE LA BD ─────────────────────────────────────────────
   const [opcionesNomina, setOpcionesNomina] = useState<string[]>([]);
@@ -609,6 +617,28 @@ export const GestionAdmisiones: React.FC = () => {
   const [seleccionadosRegulares, setSeleccionadosRegulares] = useState<Set<string | number>>(new Set());
   const [eliminandoRegulares, setEliminandoRegulares] = useState<boolean>(false);
   const [detectandoRegulares, setDetectandoRegulares] = useState<boolean>(false);
+
+  // ── BLOQUEO DE SCROLL EN FONDO CUANDO HAY UN MODAL ABIERTO ─────────────────────
+  const algunModalAbierto = Boolean(
+    modalMatrizCapacidadAbierto ||
+    modalFormalizarAbierto ||
+    modalConstanciaAbierto ||
+    modalAbierto ||
+    modalDuplicadosAbierto ||
+    modalVaciosAbierto ||
+    modalRegularesAbierto ||
+    modalVisorDocsAbierto
+  );
+
+  useEffect(() => {
+    if (algunModalAbierto) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [algunModalAbierto]);
 
   // ── CARGA DEL PERSONAL DESDE `usuarios` Y `expedientes_docentes` ────────────────
   const cargarPersonalEscuela = async () => {
@@ -829,6 +859,7 @@ export const GestionAdmisiones: React.FC = () => {
     cargarCatalogos();
     cargarPersonalEscuela();
     cargarCapacidadEscolar();
+    sincronizarPlantillasAdmisionDesdeBD();
   }, []);
 
   // ── CÁLCULO DINÁMICO DE CUPOS, SALONES Y VACANTES POR GRADO ───────────────────
@@ -1056,6 +1087,127 @@ export const GestionAdmisiones: React.FC = () => {
     return Array.from(set);
   }, [opcionesGrado, solicitudes]);
 
+  // ── CONTEO DE FILTROS ACTIVOS ──────────────────────────────────────────────────
+  const filtrosActivosCount = useMemo(() => {
+    let count = 0;
+    if (filtroEscuela !== 'todas') count++;
+    if (filtroPrioridad !== 'todas') count++;
+    if (filtroAptitud !== 'todas') count++;
+    if (filtroNomina !== 'todas') count++;
+    if (filtroLocalidad !== 'todas') count++;
+    if (filtroCondicionLaboral !== 'todas') count++;
+    if (filtroGrado !== 'todos') count++;
+    if (filtroEstado !== 'todos') count++;
+    if (filtroWhatsApp !== 'todos') count++;
+    if (busqueda.trim() !== '') count++;
+    return count;
+  }, [
+    filtroEscuela,
+    filtroPrioridad,
+    filtroAptitud,
+    filtroNomina,
+    filtroLocalidad,
+    filtroCondicionLaboral,
+    filtroGrado,
+    filtroEstado,
+    filtroWhatsApp,
+    busqueda
+  ]);
+
+  // ── RESUMEN DE CAPACIDAD Y VACANTES DE TODOS LOS GRADOS ───────────────────────
+  const resumenCapacidadTodosGrados = useMemo(() => {
+    const escuelaActual = filtroEscuela; // 'sb', 'lb', 'todas'
+    const espaciosMap = new Map(espaciosBD.map(esp => [esp.id, Number(esp.capacidad) || 38]));
+
+    const gradosBase = [
+      'Maternal',
+      '1er Grupo',
+      '2do Grupo',
+      '3er Grupo',
+      '1er Grado',
+      '2do Grado',
+      '3er Grado',
+      '4to Grado',
+      '5to Grado',
+      '6to Grado',
+      '1er Año',
+      '2do Año',
+      '3er Año',
+      '4to Año',
+      '5to Año'
+    ];
+
+    const todosGrados = Array.from(new Set([...gradosBase, ...opcionesGradoEnriquecidos]));
+
+    return todosGrados.map(grd => {
+      const gNorm = normalizarGrado(grd);
+
+      const calcularPorEscuela = (codEsc: 'sb' | 'lb') => {
+        const salones = salonesBD.filter(s => {
+          const estatus = (s.estatus || 'Activo').toLowerCase().trim();
+          if (estatus !== 'activo') return false;
+          return (s.id_escuela || '').toLowerCase().trim() === codEsc && normalizarGrado(s.grado_anio) === gNorm;
+        });
+
+        const estudiantes = estudiantesMatriculaBD.filter(e => {
+          return (e.codigo_escuela || '').toLowerCase().trim() === codEsc && normalizarGrado(e.grado_actual) === gNorm;
+        });
+
+        let capTotal = 0;
+        if (salones.length > 0) {
+          salones.forEach(s => { capTotal += espaciosMap.get(s.id_espacio) || 38; });
+        } else {
+          const secciones = new Set(estudiantes.map(e => (e.seccion_actual || 'A').toUpperCase().trim()).filter(Boolean));
+          capTotal = Math.max(1, secciones.size || 1) * 38;
+        }
+
+        const solicitudesGrd = solicitudes.filter(s => {
+          return (s.codigo_escuela || '').toLowerCase().trim() === codEsc && normalizarGrado(s.grado_solicitado) === gNorm;
+        });
+
+        const aprob = solicitudesGrd.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+        const pend = solicitudesGrd.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
+        const mat = estudiantes.length;
+        const disp = Math.max(0, capTotal - mat - aprob);
+
+        return {
+          salones: salones.length || 1,
+          capacidad: capTotal,
+          matriculados: mat,
+          aprobados: aprob,
+          pendientes: pend,
+          disponibles: disp,
+          totalSol: solicitudesGrd.length
+        };
+      };
+
+      const sb = calcularPorEscuela('sb');
+      const lb = calcularPorEscuela('lb');
+
+      const totalSal = escuelaActual === 'sb' ? sb.salones : escuelaActual === 'lb' ? lb.salones : sb.salones + lb.salones;
+      const capTot = escuelaActual === 'sb' ? sb.capacidad : escuelaActual === 'lb' ? lb.capacidad : sb.capacidad + lb.capacidad;
+      const matTot = escuelaActual === 'sb' ? sb.matriculados : escuelaActual === 'lb' ? lb.matriculados : sb.matriculados + lb.matriculados;
+      const aprTot = escuelaActual === 'sb' ? sb.aprobados : escuelaActual === 'lb' ? lb.aprobados : sb.aprobados + lb.aprobados;
+      const pendTot = escuelaActual === 'sb' ? sb.pendientes : escuelaActual === 'lb' ? lb.pendientes : sb.pendientes + lb.pendientes;
+      const dispTot = Math.max(0, capTot - matTot - aprTot);
+      const totSol = escuelaActual === 'sb' ? sb.totalSol : escuelaActual === 'lb' ? lb.totalSol : sb.totalSol + lb.totalSol;
+
+      return {
+        grado: grd,
+        gradoNorm: gNorm,
+        totalSalones: totalSal,
+        capacidadTotal: capTot,
+        estudiantesMatriculados: matTot,
+        cuposAprobados: aprTot,
+        solicitudesPendientes: pendTot,
+        cuposDisponibles: dispTot,
+        totalSolicitudes: totSol,
+        sb,
+        lb
+      };
+    });
+  }, [filtroEscuela, espaciosBD, salonesBD, estudiantesMatriculaBD, solicitudes, opcionesGradoEnriquecidos]);
+
   // ── FILTRADO Y ORDENAMIENTO POR BAREMO ─────────────────────────────────────────
   const solicitudesFiltradas = useMemo(() => {
     const filtradas = solicitudes.filter(s => {
@@ -1180,6 +1332,7 @@ export const GestionAdmisiones: React.FC = () => {
     setFiltroCondicionLaboral('todas');
     setFiltroGrado('todos');
     setFiltroEstado('todos');
+    setFiltroWhatsApp('todos');
     setBusqueda('');
   };
 
@@ -1990,83 +2143,141 @@ export const GestionAdmisiones: React.FC = () => {
   }
 
   return (
-    <div className="container-fluid py-4" style={{ backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+    <div className="container-fluid px-2 px-sm-3 px-md-4 py-3" style={{ backgroundColor: '#f8fafc', minHeight: '100vh' }}>
       {/* ── ENCABEZADO DE LA VISTA ────────────────────────────────────────────── */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between mb-3 pb-3 border-bottom gap-2">
-        <div className="d-flex align-items-center gap-2.5">
+      <div className="d-flex flex-wrap align-items-center justify-content-between mb-3 pb-2.5 border-bottom gap-2">
+        <div className="d-flex align-items-center gap-2">
           <span
-            className="p-2.5 rounded-3 text-white shadow-sm"
-            style={{ backgroundColor: '#8B5CF6', display: 'inline-flex' }}
+            className="p-2 rounded-3 text-white shadow-sm d-flex align-items-center justify-content-center"
+            style={{ backgroundColor: '#8B5CF6', width: '40px', height: '40px' }}
           >
-            <i className="bi bi-ui-checks-grid fs-4"></i>
+            <i className="bi bi-ui-checks-grid fs-5"></i>
           </span>
           <div>
-            <h3 className="fw-bold mb-0 text-dark">Gestión, Baremo y Admisiones</h3>
-            <p className="text-muted small mb-0">
-              Clasificación de prelación, auditoría con edición de datos, formalización física de matrícula y credenciales
+            <h4 className="fw-bold mb-0 text-dark" style={{ fontSize: 'calc(1.1rem + 0.3vw)' }}>
+              Gestión, Baremo y Admisiones
+            </h4>
+            <p className="text-muted extra-small mb-0 d-none d-sm-block">
+              Clasificación de prelación, auditoría con edición de datos, formalización de matrícula y credenciales
             </p>
           </div>
         </div>
 
-        <div className="d-flex gap-2 flex-wrap">
+        {/* Acciones del encabezado */}
+        <div className="d-flex gap-1.5 flex-wrap align-items-center ms-auto">
           <button
-            className="btn btn-outline-primary btn-sm fw-bold shadow-sm d-flex align-items-center gap-1.5"
+            className="btn btn-outline-primary btn-sm fw-bold shadow-xs d-flex align-items-center gap-1.5 py-1 px-2.5"
             onClick={() => navigate('/categoria/Gestión%20Estudiantil/Mensajes%20de%20Admisión')}
-            title="Configurar y redactar mensajes oficiales de aprobación y rechazo de admisión"
+            title="Configurar y redactar mensajes oficiales de admisión"
           >
             <i className="bi bi-chat-heart-fill text-primary"></i>
-            <span>Redactor de Mensajes</span>
+            <span className="d-none d-sm-inline">Redactor de Mensajes</span>
+            <span className="d-inline d-sm-none">Mensajes</span>
           </button>
-          <button className="btn btn-outline-secondary btn-sm shadow-sm" onClick={cargarSolicitudes} title="Recargar registros">
-            <i className="bi bi-arrow-clockwise me-1"></i> Actualizar
+
+          <button
+            className="btn btn-outline-secondary btn-sm shadow-xs py-1 px-2"
+            onClick={cargarSolicitudes}
+            title="Recargar registros"
+          >
+            <i className="bi bi-arrow-clockwise"></i>
+            <span className="d-none d-md-inline ms-1">Actualizar</span>
           </button>
-          <button className="btn btn-outline-warning btn-sm fw-bold shadow-sm" onClick={detectarDuplicados}>
-            <i className="bi bi-copy me-1"></i> Duplicados
-            {gruposDuplicados.length > 0 && (
-              <span className="badge bg-danger ms-1">{gruposDuplicados.length}</span>
-            )}
-          </button>
-          <button className="btn btn-outline-danger btn-sm fw-bold shadow-sm" onClick={() => detectarVacios('representante')}>
-            <i className="bi bi-person-x me-1"></i> Vacíos
-          </button>
-          <button className="btn btn-outline-info btn-sm fw-bold text-dark shadow-sm" onClick={detectarRegulares} disabled={detectandoRegulares}>
-            <i className="bi bi-shield-check me-1"></i> Depurar Regulares
-          </button>
-          <button className="btn btn-success btn-sm fw-bold text-white shadow-sm" onClick={exportarExcel}>
-            <i className="bi bi-file-earmark-excel-fill me-1"></i> Exportar Baremo Excel
-          </button>
+
+          {/* Botones completos en Desktop */}
+          <div className="d-none d-lg-flex gap-1.5 align-items-center">
+            <button className="btn btn-outline-warning btn-sm fw-bold shadow-xs py-1 px-2.5 text-dark" onClick={detectarDuplicados}>
+              <i className="bi bi-copy me-1"></i> Duplicados
+              {gruposDuplicados.length > 0 && (
+                <span className="badge bg-danger ms-1">{gruposDuplicados.length}</span>
+              )}
+            </button>
+            <button className="btn btn-outline-danger btn-sm fw-bold shadow-xs py-1 px-2.5" onClick={() => detectarVacios('representante')}>
+              <i className="bi bi-person-x me-1"></i> Vacíos
+            </button>
+            <button className="btn btn-outline-info btn-sm fw-bold text-dark shadow-xs py-1 px-2.5" onClick={detectarRegulares} disabled={detectandoRegulares}>
+              <i className="bi bi-shield-check me-1"></i> Depurar Regulares
+            </button>
+            <button className="btn btn-success btn-sm fw-bold text-white shadow-xs py-1 px-2.5" onClick={exportarExcel}>
+              <i className="bi bi-file-earmark-excel-fill me-1"></i> Exportar Baremo Excel
+            </button>
+          </div>
+
+          {/* Menú de Herramientas desplegable en Móvil/Tablet */}
+          <div className="dropdown d-inline-block d-lg-none">
+            <button
+              className="btn btn-outline-secondary btn-sm dropdown-toggle fw-bold py-1 px-2 shadow-xs"
+              type="button"
+              id="dropdownHerramientasMobile"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              <i className="bi bi-tools me-1"></i> Herramientas
+            </button>
+            <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 small p-2" aria-labelledby="dropdownHerramientasMobile">
+              <li>
+                <button className="dropdown-item py-2 d-flex align-items-center gap-2" onClick={detectarDuplicados}>
+                  <i className="bi bi-copy text-warning"></i>
+                  <span>Detectar Duplicados</span>
+                  {gruposDuplicados.length > 0 && <span className="badge bg-danger ms-auto">{gruposDuplicados.length}</span>}
+                </button>
+              </li>
+              <li>
+                <button className="dropdown-item py-2 d-flex align-items-center gap-2" onClick={() => detectarVacios('representante')}>
+                  <i className="bi bi-person-x text-danger"></i>
+                  <span>Detectar Registros Vacíos</span>
+                </button>
+              </li>
+              <li>
+                <button className="dropdown-item py-2 d-flex align-items-center gap-2" onClick={detectarRegulares} disabled={detectandoRegulares}>
+                  <i className="bi bi-shield-check text-info"></i>
+                  <span>Depurar Estudiantes Regulares</span>
+                </button>
+              </li>
+              <li><hr className="dropdown-divider my-1" /></li>
+              <li>
+                <button className="dropdown-item py-2 d-flex align-items-center gap-2 text-success fw-bold" onClick={exportarExcel}>
+                  <i className="bi bi-file-earmark-excel-fill"></i>
+                  <span>Exportar Baremo a Excel</span>
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
-      {/* ── SELECTOR DE PESTAÑAS DE VISTA (3 PESTAÑAS) ────────────────────────── */}
-      <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 flex-wrap gap-2">
-        <ul className="nav nav-pills gap-2">
+      {/* ── SELECTOR DE PESTAÑAS DE VISTA (DESLIZABLE EN MÓVIL) ────────────────── */}
+      <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 gap-2">
+        <ul className="nav nav-pills flex-nowrap overflow-x-auto text-nowrap pb-1 gap-1.5 w-100" style={{ scrollbarWidth: 'none' }}>
           <li className="nav-item">
             <button
-              className={`nav-link fw-bold px-3.5 py-2 ${vistaActiva === 'tabla' ? 'active shadow-sm' : 'bg-white text-secondary border'}`}
+              className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'tabla' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
               onClick={() => setVistaActiva('tabla')}
-              style={{ backgroundColor: vistaActiva === 'tabla' ? '#8B5CF6' : undefined }}
+              style={{ backgroundColor: vistaActiva === 'tabla' ? '#8B5CF6' : undefined, fontSize: '13px' }}
             >
-              <i className="bi bi-table me-2"></i> 1. Listado General y Baremo
+              <i className="bi bi-table me-1.5"></i>
+              <span>1. Listado General <span className="d-none d-sm-inline">y Baremo</span></span>
             </button>
           </li>
           <li className="nav-item">
             <button
-              className={`nav-link fw-bold px-3.5 py-2 ${vistaActiva === 'uno_a_uno' ? 'active shadow-sm' : 'bg-white text-secondary border'}`}
+              className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'uno_a_uno' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
               onClick={() => cambiarVistaUnoAUno(indiceUnoAUno)}
-              style={{ backgroundColor: vistaActiva === 'uno_a_uno' ? '#0284C7' : undefined }}
+              style={{ backgroundColor: vistaActiva === 'uno_a_uno' ? '#0284C7' : undefined, fontSize: '13px' }}
             >
-              <i className="bi bi-person-bounding-box me-2"></i> 2. Auditoría y Edición Uno por Uno
+              <i className="bi bi-person-bounding-box me-1.5"></i>
+              <span>2. Auditoría <span className="d-none d-sm-inline">Uno por Uno</span></span>
             </button>
           </li>
           <li className="nav-item">
             <button
-              className={`nav-link fw-bold px-3.5 py-2 ${vistaActiva === 'formalizacion' ? 'active shadow-sm text-white' : 'bg-white text-secondary border'}`}
+              className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'formalizacion' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
               onClick={() => setVistaActiva('formalizacion')}
-              style={{ backgroundColor: vistaActiva === 'formalizacion' ? '#0D9488' : undefined }}
+              style={{ backgroundColor: vistaActiva === 'formalizacion' ? '#0D9488' : undefined, fontSize: '13px' }}
             >
-              <i className="bi bi-journal-check me-2"></i> 3. Formalización de Inscripción Física
-              <span className="badge bg-white text-dark ms-2" style={{ fontSize: '11px' }}>
+              <i className="bi bi-journal-check me-1.5"></i>
+              <span>3. Formalización <span className="d-none d-sm-inline">Física</span></span>
+              <span className="badge bg-white text-dark ms-1.5" style={{ fontSize: '10px' }}>
                 {solicitudesAceptadasParaFormalizar.length}
               </span>
             </button>
@@ -2074,66 +2285,66 @@ export const GestionAdmisiones: React.FC = () => {
         </ul>
 
         {vistaActiva === 'uno_a_uno' && (
-          <div className="d-flex align-items-center gap-2">
-            <span className="badge bg-light text-dark border px-3 py-1.5 fw-bold">
+          <div className="d-none d-md-flex align-items-center gap-2 flex-shrink-0">
+            <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-bold">
               Aspirante {solicitudesFiltradas.length > 0 ? indiceUnoAUno + 1 : 0} de {solicitudesFiltradas.length}
             </span>
           </div>
         )}
       </div>
 
-      {/* ── TARJETAS KPI / MÉTRICAS ───────────────────────────────────────────── */}
-      <div className="row g-3 mb-4">
+      {/* ── TARJETAS KPI / MÉTRICAS COMPACTAS ─────────────────────────────────── */}
+      <div className="row g-2 mb-3">
         <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-sm rounded-3 h-100" style={{ borderLeft: '4px solid #8B5CF6' }}>
-            <div className="card-body p-3">
-              <div className="text-muted extra-small fw-bold text-uppercase">Total Solicitudes</div>
-              <div className="fs-4 fw-bold text-dark mt-1">{kpis.total}</div>
+          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #8B5CF6' }}>
+            <div className="card-body p-2 p-sm-2.5">
+              <div className="text-muted extra-small fw-bold text-uppercase text-truncate">Total Solicitudes</div>
+              <div className="fs-5 fw-bold text-dark mt-0.5 lh-1">{kpis.total}</div>
             </div>
           </div>
         </div>
 
         <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-sm rounded-3 h-100" style={{ borderLeft: '4px solid #16a34a' }}>
-            <div className="card-body p-3">
-              <div className="text-muted extra-small fw-bold text-uppercase text-success">Aceptados / Aprobados</div>
-              <div className="fs-4 fw-bold text-success mt-1">{kpis.aprobados}</div>
+          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #16a34a' }}>
+            <div className="card-body p-2 p-sm-2.5">
+              <div className="text-muted extra-small fw-bold text-uppercase text-success text-truncate">Aprobados</div>
+              <div className="fs-5 fw-bold text-success mt-0.5 lh-1">{kpis.aprobados}</div>
             </div>
           </div>
         </div>
 
         <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-sm rounded-3 h-100" style={{ borderLeft: '4px solid #0D9488' }}>
-            <div className="card-body p-3">
-              <div className="text-muted extra-small fw-bold text-uppercase" style={{ color: '#0D9488' }}>Inscripciones Formalizadas</div>
-              <div className="fs-4 fw-bold mt-1" style={{ color: '#0D9488' }}>{kpis.formalizados}</div>
+          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0D9488' }}>
+            <div className="card-body p-2 p-sm-2.5">
+              <div className="text-muted extra-small fw-bold text-uppercase text-truncate" style={{ color: '#0D9488' }}>Formalizados</div>
+              <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#0D9488' }}>{kpis.formalizados}</div>
             </div>
           </div>
         </div>
 
         <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-sm rounded-3 h-100" style={{ borderLeft: '4px solid #0284C7' }}>
-            <div className="card-body p-3">
-              <div className="text-muted extra-small fw-bold text-uppercase text-primary">Aptos Calificados</div>
-              <div className="fs-4 fw-bold text-primary mt-1">{kpis.aptos}</div>
+          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0284C7' }}>
+            <div className="card-body p-2 p-sm-2.5">
+              <div className="text-muted extra-small fw-bold text-uppercase text-primary text-truncate">Aptos Calificados</div>
+              <div className="fs-5 fw-bold text-primary mt-0.5 lh-1">{kpis.aptos}</div>
             </div>
           </div>
         </div>
 
         <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-sm rounded-3 h-100" style={{ borderLeft: '4px solid #eab308' }}>
-            <div className="card-body p-3">
-              <div className="text-muted extra-small fw-bold text-uppercase text-warning">Pendientes</div>
-              <div className="fs-4 fw-bold text-warning mt-1">{kpis.pendientes}</div>
+          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #eab308' }}>
+            <div className="card-body p-2 p-sm-2.5">
+              <div className="text-muted extra-small fw-bold text-uppercase text-warning text-truncate">Pendientes</div>
+              <div className="fs-5 fw-bold text-warning mt-0.5 lh-1">{kpis.pendientes}</div>
             </div>
           </div>
         </div>
 
         <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-sm rounded-3 h-100" style={{ borderLeft: '4px solid #dc2626' }}>
-            <div className="card-body p-3">
-              <div className="text-muted extra-small fw-bold text-uppercase text-danger">Rechazados</div>
-              <div className="fs-4 fw-bold text-danger mt-1">{kpis.rechazados}</div>
+          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #dc2626' }}>
+            <div className="card-body p-2 p-sm-2.5">
+              <div className="text-muted extra-small fw-bold text-uppercase text-danger text-truncate">Rechazados</div>
+              <div className="fs-5 fw-bold text-danger mt-0.5 lh-1">{kpis.rechazados}</div>
             </div>
           </div>
         </div>
@@ -2141,183 +2352,12 @@ export const GestionAdmisiones: React.FC = () => {
 
       {/* ── BARRA DE FILTROS BAREMO Y MULTICRITERIO (Visible en pestañas 1 y 2) ─── */}
       {vistaActiva !== 'formalizacion' && (
-        <div className="card border-0 shadow-sm rounded-3 mb-4">
-          <div className="card-header bg-white py-2.5 border-bottom d-flex align-items-center justify-content-between">
-            <div className="fw-bold text-dark small d-flex align-items-center gap-2">
-              <i className="bi bi-funnel-fill text-primary"></i> Filtros y Búsqueda Avanzada de Admisiones
-            </div>
-            <button className="btn btn-link text-decoration-none btn-sm p-0 text-muted small" onClick={limpiarFiltros}>
-              <i className="bi bi-x-circle me-1"></i> Limpiar Filtros
-            </button>
-          </div>
-
-          <div className="card-body p-3">
-            <div className="row g-2.5">
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-building me-1"></i> Escuela
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroEscuela}
-                  onChange={e => setFiltroEscuela(e.target.value)}
-                >
-                  <option value="todas">Todas las Escuelas</option>
-                  <option value="sb">U.E. Santa Bárbara (SB)</option>
-                  <option value="lb">U.E. Libertador Bolívar (LB)</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-sort-numeric-down me-1"></i> Baremo de Prioridad
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroPrioridad}
-                  onChange={e => setFiltroPrioridad(e.target.value)}
-                >
-                  <option value="todas">Todos los Niveles</option>
-                  <option value="P0">P0 - Instrucción Jerárquica (VIP)</option>
-                  <option value="P1">P1 - Hijos de Docentes y Trabajadores</option>
-                  <option value="P2">P2 - Hijos Contractual (Entorno)</option>
-                  <option value="P3">P3 - Hijos No Contractual (Entorno)</option>
-                  <option value="P4">P4 - Hijos Contractual (Foráneo)</option>
-                  <option value="P5">P5 - Hijos No Contractual (Foráneo)</option>
-                  <option value="P6">P6 - Otros Parentescos (Entorno)</option>
-                  <option value="P7">P7 - Otros Parentescos (Foráneo)</option>
-                  <option value="P8">P8 - Comunidad General</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-patch-check me-1"></i> Aptitud Técnica
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroAptitud}
-                  onChange={e => setFiltroAptitud(e.target.value)}
-                >
-                  <option value="todas">Todas las Aptitudes</option>
-                  <option value="Apto">Apto</option>
-                  <option value="No Apto">No Apto</option>
-                  <option value="En Evaluación">En Evaluación</option>
-                  <option value="Sin Evaluar">Sin Evaluar</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <label className="form-label extra-small fw-bold text-secondary mb-0">
-                    <i className="bi bi-mortarboard me-1"></i> Grado / Nivel
-                  </label>
-                  {filtroGrado !== 'todos' && (
-                    <span
-                      className={`badge ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} extra-small py-0.5 px-1.5 rounded-pill`}
-                      style={{ fontSize: '9.5px' }}
-                    >
-                      {metricasCapacidadGrado.cuposDisponibles} vacantes
-                    </span>
-                  )}
-                </div>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroGrado}
-                  onChange={e => setFiltroGrado(e.target.value)}
-                >
-                  <option value="todos">Todos los Grados</option>
-                  {opcionesGradoEnriquecidos.map(grd => (
-                    <option key={grd} value={grd}>{grd}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-flag me-1"></i> Estatus Oficial
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroEstado}
-                  onChange={e => setFiltroEstado(e.target.value)}
-                >
-                  <option value="todos">Todos los Estados</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="En Evaluación">En Evaluación</option>
-                  <option value="Aprobado">Aprobado</option>
-                  <option value="Formalizado">Formalizado</option>
-                  <option value="Rechazado">Rechazado</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-person-badge me-1"></i> Nómina
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroNomina}
-                  onChange={e => setFiltroNomina(e.target.value)}
-                >
-                  <option value="todas">Todas las Nóminas</option>
-                  {opcionesNominaEnriquecidas.map(nom => (
-                    <option key={nom} value={nom}>{nom}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-geo-alt me-1"></i> Localidad Trabajo
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroLocalidad}
-                  onChange={e => setFiltroLocalidad(e.target.value)}
-                >
-                  <option value="todas">Todas las Localidades</option>
-                  {opcionesLocalidadEnriquecidas.map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-person-workspace me-1"></i> Condición Laboral
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroCondicionLaboral}
-                  onChange={e => setFiltroCondicionLaboral(e.target.value)}
-                >
-                  <option value="todas">Todas las Condiciones</option>
-                  {opcionesCondicionEnriquecidas.map(con => (
-                    <option key={con} value={con}>{con}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-12 col-sm-6 col-md-3 col-lg-2">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-whatsapp text-success me-1"></i> Notificación WhatsApp
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={filtroWhatsApp}
-                  onChange={e => setFiltroWhatsApp(e.target.value as any)}
-                >
-                  <option value="todos">Todos los Estados</option>
-                  <option value="notificado">💬 Notificados por WhatsApp</option>
-                  <option value="sin_notificar">⏳ Pendientes por Notificar</option>
-                </select>
-              </div>
-
-              <div className="col-12 col-md-6 col-lg-6">
-                <label className="form-label extra-small fw-bold text-secondary mb-1">
-                  <i className="bi bi-search me-1"></i> Búsqueda en todos los campos
-                </label>
+        <div className="card border-0 shadow-sm rounded-3 mb-3 bg-white">
+          <div className="card-body p-2.5 p-md-3">
+            {/* Fila principal: Búsqueda rápida + Escuela + Botón de Filtros Avanzados */}
+            <div className="row g-2 align-items-center">
+              {/* Buscador general */}
+              <div className="col-12 col-md-5 col-lg-5">
                 <div className="input-group input-group-sm">
                   <span className="input-group-text bg-light text-muted border-end-0">
                     <i className="bi bi-search"></i>
@@ -2325,68 +2365,381 @@ export const GestionAdmisiones: React.FC = () => {
                   <input
                     type="text"
                     className="form-control border-start-0 ps-0"
-                    placeholder="Buscar por aspirante, cédula, representante o código único..."
+                    placeholder="Buscar por aspirante, cédula, representante o código..."
                     value={busqueda}
                     onChange={e => setBusqueda(e.target.value)}
                   />
                   {busqueda && (
-                    <button className="btn btn-outline-secondary" type="button" onClick={() => setBusqueda('')}>
-                      Limpiar
+                    <button
+                      className="btn btn-outline-secondary"
+                      type="button"
+                      onClick={() => setBusqueda('')}
+                      title="Limpiar búsqueda"
+                    >
+                      <i className="bi bi-x"></i>
                     </button>
                   )}
                 </div>
               </div>
+
+              {/* Selector Rápido de Escuela */}
+              <div className="col-6 col-md-3 col-lg-3">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-light text-muted">
+                    <i className="bi bi-building"></i>
+                  </span>
+                  <select
+                    className="form-select form-select-sm"
+                    value={filtroEscuela}
+                    onChange={e => setFiltroEscuela(e.target.value)}
+                    title="Filtrar por Escuela"
+                  >
+                    <option value="todas">Todas las Escuelas</option>
+                    <option value="sb">U.E. Santa Bárbara</option>
+                    <option value="lb">U.E. Libertador Bolívar</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Selector Rápido de Grado */}
+              <div className="col-6 col-md-4 col-lg-4 d-flex align-items-center gap-1.5">
+                <div className="input-group input-group-sm flex-grow-1">
+                  <span className="input-group-text bg-light text-muted">
+                    <i className="bi bi-mortarboard"></i>
+                  </span>
+                  <select
+                    className="form-select form-select-sm"
+                    value={filtroGrado}
+                    onChange={e => setFiltroGrado(e.target.value)}
+                    title="Filtrar por Grado"
+                  >
+                    <option value="todos">Todos los Grados</option>
+                    {opcionesGradoEnriquecidos.map(grd => (
+                      <option key={grd} value={grd}>{grd}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Botón Alternar Filtros Avanzados */}
+                <button
+                  type="button"
+                  className={`btn btn-sm text-nowrap fw-bold d-flex align-items-center gap-1.5 shadow-xs ${
+                    filtrosActivosCount > 0
+                      ? 'btn-primary text-white'
+                      : filtrosPanelAbierto
+                      ? 'btn-dark'
+                      : 'btn-outline-secondary'
+                  }`}
+                  onClick={() => setFiltrosPanelAbierto(!filtrosPanelAbierto)}
+                  title={filtrosPanelAbierto ? 'Ocultar panel de filtros' : 'Abrir más filtros'}
+                >
+                  <i className="bi bi-funnel-fill"></i>
+                  <span className="d-none d-sm-inline">Filtros</span>
+                  {filtrosActivosCount > 0 && (
+                    <span className="badge bg-white text-primary rounded-pill px-1.5 py-0.5" style={{ fontSize: '10px' }}>
+                      {filtrosActivosCount}
+                    </span>
+                  )}
+                  <i className={`bi bi-chevron-${filtrosPanelAbierto ? 'up' : 'down'} extra-small`}></i>
+                </button>
+              </div>
             </div>
+
+            {/* Chips de Filtros Activos con eliminación rápida en 1 tap */}
+            {filtrosActivosCount > 0 && (
+              <div className="d-flex align-items-center flex-wrap gap-1.5 mt-2 pt-2 border-top">
+                <span className="extra-small text-muted fw-bold me-1">
+                  <i className="bi bi-check2-all text-primary me-1"></i>Activos:
+                </span>
+
+                {filtroEscuela !== 'todas' && (
+                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Escuela: {filtroEscuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                    <button type="button" className="btn-close btn-close-white ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroEscuela('todas')}></button>
+                  </span>
+                )}
+
+                {filtroGrado !== 'todos' && (
+                  <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Grado: {filtroGrado}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroGrado('todos')}></button>
+                  </span>
+                )}
+
+                {filtroPrioridad !== 'todas' && (
+                  <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Baremo: {filtroPrioridad}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroPrioridad('todas')}></button>
+                  </span>
+                )}
+
+                {filtroAptitud !== 'todas' && (
+                  <span className="badge bg-secondary-subtle text-dark border rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Aptitud: {filtroAptitud}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroAptitud('todas')}></button>
+                  </span>
+                )}
+
+                {filtroEstado !== 'todos' && (
+                  <span className="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Estatus: {filtroEstado}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroEstado('todos')}></button>
+                  </span>
+                )}
+
+                {filtroNomina !== 'todas' && (
+                  <span className="badge bg-light text-dark border rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Nómina: {filtroNomina}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroNomina('todas')}></button>
+                  </span>
+                )}
+
+                {filtroLocalidad !== 'todas' && (
+                  <span className="badge bg-light text-dark border rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Localidad: {filtroLocalidad}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroLocalidad('todas')}></button>
+                  </span>
+                )}
+
+                {filtroCondicionLaboral !== 'todas' && (
+                  <span className="badge bg-light text-dark border rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Condición: {filtroCondicionLaboral}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroCondicionLaboral('todas')}></button>
+                  </span>
+                )}
+
+                {filtroWhatsApp !== 'todos' && (
+                  <span className="badge bg-success-subtle text-success border rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    WA: {filtroWhatsApp === 'notificado' ? 'Notificados' : 'Sin Notificar'}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroWhatsApp('todos')}></button>
+                  </span>
+                )}
+
+                {busqueda && (
+                  <span className="badge bg-dark-subtle text-dark border rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Texto: "{busqueda.length > 15 ? busqueda.substring(0, 15) + '...' : busqueda}"
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setBusqueda('')}></button>
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-link text-danger p-0 extra-small fw-bold text-decoration-none ms-auto"
+                  onClick={limpiarFiltros}
+                >
+                  <i className="bi bi-trash3 me-1"></i>Limpiar Todo
+                </button>
+              </div>
+            )}
+
+            {/* Panel Plegable con Todos los Filtros Avanzados */}
+            {filtrosPanelAbierto && (
+              <div className="mt-3 pt-3 border-top bg-light p-3 rounded-3">
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  <span className="fw-bold small text-dark d-flex align-items-center gap-1.5">
+                    <i className="bi bi-sliders text-primary"></i> Filtros Multicriterio y Baremo
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm text-secondary p-0 extra-small text-decoration-none"
+                    onClick={limpiarFiltros}
+                  >
+                    Restablecer valores
+                  </button>
+                </div>
+
+                <div className="row g-2.5">
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-sort-numeric-down me-1"></i> Baremo de Prioridad
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroPrioridad}
+                      onChange={e => setFiltroPrioridad(e.target.value)}
+                    >
+                      <option value="todas">Todos los Niveles</option>
+                      <option value="P0">P0 - Instrucción Jerárquica (VIP)</option>
+                      <option value="P1">P1 - Hijos de Docentes y Trabajadores</option>
+                      <option value="P2">P2 - Hijos Contractual (Entorno)</option>
+                      <option value="P3">P3 - Hijos No Contractual (Entorno)</option>
+                      <option value="P4">P4 - Hijos Contractual (Foráneo)</option>
+                      <option value="P5">P5 - Hijos No Contractual (Foráneo)</option>
+                      <option value="P6">P6 - Otros Parentescos (Entorno)</option>
+                      <option value="P7">P7 - Otros Parentescos (Foráneo)</option>
+                      <option value="P8">P8 - Comunidad General</option>
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-patch-check me-1"></i> Aptitud Técnica
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroAptitud}
+                      onChange={e => setFiltroAptitud(e.target.value)}
+                    >
+                      <option value="todas">Todas las Aptitudes</option>
+                      <option value="Apto">Apto</option>
+                      <option value="No Apto">No Apto</option>
+                      <option value="En Evaluación">En Evaluación</option>
+                      <option value="Sin Evaluar">Sin Evaluar</option>
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-flag me-1"></i> Estatus Oficial
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroEstado}
+                      onChange={e => setFiltroEstado(e.target.value)}
+                    >
+                      <option value="todos">Todos los Estados</option>
+                      <option value="Pendiente">Pendiente</option>
+                      <option value="En Evaluación">En Evaluación</option>
+                      <option value="Aprobado">Aprobado</option>
+                      <option value="Formalizado">Formalizado</option>
+                      <option value="Rechazado">Rechazado</option>
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-person-badge me-1"></i> Nómina
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroNomina}
+                      onChange={e => setFiltroNomina(e.target.value)}
+                    >
+                      <option value="todas">Todas las Nóminas</option>
+                      {opcionesNominaEnriquecidas.map(nom => (
+                        <option key={nom} value={nom}>{nom}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-geo-alt me-1"></i> Localidad Trabajo
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroLocalidad}
+                      onChange={e => setFiltroLocalidad(e.target.value)}
+                    >
+                      <option value="todas">Todas las Localidades</option>
+                      {opcionesLocalidadEnriquecidas.map(loc => (
+                        <option key={loc} value={loc}>{loc}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-person-workspace me-1"></i> Condición Laboral
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroCondicionLaboral}
+                      onChange={e => setFiltroCondicionLaboral(e.target.value)}
+                    >
+                      <option value="todas">Todas las Condiciones</option>
+                      {opcionesCondicionEnriquecidas.map(con => (
+                        <option key={con} value={con}>{con}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-whatsapp text-success me-1"></i> Notificación WhatsApp
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroWhatsApp}
+                      onChange={e => setFiltroWhatsApp(e.target.value as any)}
+                    >
+                      <option value="todos">Todos los Estados</option>
+                      <option value="notificado">💬 Notificados por WhatsApp</option>
+                      <option value="sin_notificar">⏳ Pendientes por Notificar</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="d-flex justify-content-end mt-2 pt-2 border-top">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm px-3 fw-bold"
+                    onClick={() => setFiltrosPanelAbierto(false)}
+                  >
+                    <i className="bi bi-check2 me-1"></i> Aplicar y Ocultar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── PANEL DE ANÁLISIS DE CAPACIDAD, AMBIENTES Y CUPOS DISPONIBLES ───────── */}
+      {/* ── PANEL DE ANÁLISIS DE CAPACIDAD, AMBIENTES Y CUPOS DISPONIBLES (MÓVIL Y DESKTOP) ─── */}
       <div className="mb-3">
         {metricasCapacidadGrado.esGradoEspecifico ? (
           <div className="card border-0 shadow-sm rounded-3 overflow-hidden bg-white border-top border-4 border-primary">
-            {/* Header del Banner de Capacidad */}
-            <div className="card-header bg-primary bg-opacity-10 py-2.5 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+            {/* Header del Banner de Capacidad por Grado */}
+            <div className="card-header bg-primary bg-opacity-10 py-2 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
               <div className="d-flex align-items-center gap-2">
                 <span className="p-1.5 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center shadow-xs">
                   <i className="bi bi-bar-chart-fill fs-6"></i>
                 </span>
                 <div>
-                  <h6 className="fw-bold text-dark mb-0">
-                    Disponibilidad de Cupos y Ambientes: <span className="text-primary">{metricasCapacidadGrado.gradoNombre}</span>
+                  <h6 className="fw-bold text-dark mb-0 d-flex align-items-center flex-wrap gap-1.5">
+                    <span>Disponibilidad:</span>
+                    <span className="text-primary">{metricasCapacidadGrado.gradoNombre}</span>
                   </h6>
-                  <small className="text-muted extra-small">
-                    Plantel: <b>{metricasCapacidadGrado.escuelaNombre}</b> | Configuración: <b>{metricasCapacidadGrado.totalSalones} {metricasCapacidadGrado.totalSalones === 1 ? 'Ambiente / Salón' : 'Ambientes / Salones'}</b> ({metricasCapacidadGrado.totalSalones === 1 ? '38 puestos' : `${metricasCapacidadGrado.capacidadTotal} puestos totales [${Array.from({ length: metricasCapacidadGrado.totalSalones }).map(() => '38').join(' + ')}]`})
+                  <small className="text-muted extra-small d-block">
+                    Plantel: <b>{metricasCapacidadGrado.escuelaNombre}</b> | <b>{metricasCapacidadGrado.totalSalones} {metricasCapacidadGrado.totalSalones === 1 ? 'Ambiente' : 'Ambientes'}</b> ({metricasCapacidadGrado.capacidadTotal} puestos)
                   </small>
                 </div>
               </div>
 
-              <div className="d-flex align-items-center gap-2">
+              <div className="d-flex align-items-center gap-1.5 flex-wrap ms-auto">
                 <span
-                  className={`badge rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 ${
+                  className={`badge rounded-pill px-2.5 py-1.5 fw-bold d-flex align-items-center gap-1 ${
                     metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success text-white' : 'bg-danger text-white'
                   }`}
-                  style={{ fontSize: '12px' }}
+                  style={{ fontSize: '11.5px' }}
                 >
                   <i className={`bi ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bi-check-circle-fill' : 'bi-slash-circle-fill'}`}></i>
-                  <span>{metricasCapacidadGrado.cuposDisponibles > 0 ? `${metricasCapacidadGrado.cuposDisponibles} Cupos Disponibles` : 'Sin Cupos (Agotado)'}</span>
+                  <span>{metricasCapacidadGrado.cuposDisponibles > 0 ? `${metricasCapacidadGrado.cuposDisponibles} Vacantes` : 'Sin Cupos'}</span>
                 </span>
                 <button
                   type="button"
-                  className="btn btn-outline-secondary btn-sm py-0.5 px-2 extra-small"
+                  className="btn btn-outline-secondary btn-sm py-1 px-2 extra-small fw-bold"
                   onClick={() => setFiltroGrado('todos')}
                   title="Ver todos los grados"
                 >
                   Ver Todos
                 </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm py-1 px-2 extra-small fw-bold"
+                  onClick={() => setModalMatrizCapacidadAbierto(true)}
+                  title="Ver matriz completa de todos los grados"
+                >
+                  <i className="bi bi-grid-3x3 me-1"></i> Matriz
+                </button>
               </div>
             </div>
 
-            {/* 4 Tarjetas de Métricas Clave */}
-            <div className="card-body p-3">
+            {/* 4 Tarjetas de Métricas Clave (2x2 en móviles, 4 en desktop) */}
+            <div className="card-body p-2.5 p-md-3">
               {/* Desglose por Escuela si está en "Todas las Escuelas" */}
               {filtroEscuela === 'todas' && metricasCapacidadGrado.desgloseSB && metricasCapacidadGrado.desgloseLB && (
-                <div className="row g-2 mb-3">
+                <div className="row g-2 mb-2.5">
                   <div className="col-12 col-md-6">
                     <div className="p-2 bg-light border border-primary-subtle rounded-3 d-flex align-items-center justify-content-between shadow-xs">
                       <div>
@@ -2394,10 +2747,10 @@ export const GestionAdmisiones: React.FC = () => {
                           <i className="bi bi-building me-1"></i> U.E. Santa Bárbara
                         </strong>
                         <small className="text-muted extra-small">
-                          <b>{metricasCapacidadGrado.desgloseSB.totalSalones}</b> {metricasCapacidadGrado.desgloseSB.totalSalones === 1 ? 'salón' : 'salones'} ({metricasCapacidadGrado.desgloseSB.capacidadTotal} puestos) • <b>{metricasCapacidadGrado.desgloseSB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseSB.cuposAprobados}</b> aprob.
+                          <b>{metricasCapacidadGrado.desgloseSB.totalSalones}</b> sal. ({metricasCapacidadGrado.desgloseSB.capacidadTotal} p.) • <b>{metricasCapacidadGrado.desgloseSB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseSB.cuposAprobados}</b> aprob.
                         </small>
                       </div>
-                      <span className={`badge ${metricasCapacidadGrado.desgloseSB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2.5 py-1 fw-bold`} style={{ fontSize: '11px' }}>
+                      <span className={`badge ${metricasCapacidadGrado.desgloseSB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2 py-1 fw-bold`} style={{ fontSize: '10.5px' }}>
                         {metricasCapacidadGrado.desgloseSB.cuposDisponibles} vacantes
                       </span>
                     </div>
@@ -2410,10 +2763,10 @@ export const GestionAdmisiones: React.FC = () => {
                           <i className="bi bi-building me-1"></i> U.E. Libertador Bolívar
                         </strong>
                         <small className="text-muted extra-small">
-                          <b>{metricasCapacidadGrado.desgloseLB.totalSalones}</b> {metricasCapacidadGrado.desgloseLB.totalSalones === 1 ? 'salón' : 'salones'} ({metricasCapacidadGrado.desgloseLB.capacidadTotal} puestos) • <b>{metricasCapacidadGrado.desgloseLB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseLB.cuposAprobados}</b> aprob.
+                          <b>{metricasCapacidadGrado.desgloseLB.totalSalones}</b> sal. ({metricasCapacidadGrado.desgloseLB.capacidadTotal} p.) • <b>{metricasCapacidadGrado.desgloseLB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseLB.cuposAprobados}</b> aprob.
                         </small>
                       </div>
-                      <span className={`badge ${metricasCapacidadGrado.desgloseLB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2.5 py-1 fw-bold`} style={{ fontSize: '11px' }}>
+                      <span className={`badge ${metricasCapacidadGrado.desgloseLB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2 py-1 fw-bold`} style={{ fontSize: '10.5px' }}>
                         {metricasCapacidadGrado.desgloseLB.cuposDisponibles} vacantes
                       </span>
                     </div>
@@ -2421,108 +2774,107 @@ export const GestionAdmisiones: React.FC = () => {
                 </div>
               )}
 
-              <div className="row g-2.5 mb-3">
+              <div className="row g-2 mb-2.5">
                 {/* 1. Capacidad de Ambientes */}
-                <div className="col-12 col-sm-6 col-lg-3">
-                  <div className="p-2.5 rounded-3 bg-light border border-primary-subtle d-flex align-items-center gap-2.5 h-100">
+                <div className="col-6 col-lg-3">
+                  <div className="p-2 rounded-3 bg-light border border-primary-subtle d-flex align-items-center gap-2 h-100">
                     <div
-                      className="p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
-                      style={{ backgroundColor: '#4F46E5', width: '42px', height: '42px' }}
+                      className="p-2 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                      style={{ backgroundColor: '#4F46E5', width: '36px', height: '36px' }}
                     >
-                      <i className="bi bi-door-open-fill fs-5"></i>
+                      <i className="bi bi-door-open-fill fs-6"></i>
                     </div>
-                    <div>
-                      <small className="text-muted extra-small d-block fw-semibold">Capacidad de Ambientes</small>
+                    <div className="overflow-hidden">
+                      <small className="text-muted extra-small d-block fw-semibold text-truncate">Capacidad</small>
                       <span className="fs-5 fw-bold text-dark d-block lh-1">
-                        {metricasCapacidadGrado.capacidadTotal} <span className="fs-6 fw-normal text-muted">puestos</span>
+                        {metricasCapacidadGrado.capacidadTotal} <small className="fs-7 fw-normal text-muted">puestos</small>
                       </span>
-                      <small className="text-secondary extra-small">
-                        {metricasCapacidadGrado.totalSalones} {metricasCapacidadGrado.totalSalones === 1 ? 'salón' : 'salones'} ({metricasCapacidadGrado.totalSalones === 1 ? '38 c/u' : `${metricasCapacidadGrado.capacidadTotal} en ${metricasCapacidadGrado.totalSalones} salones`})
+                      <small className="text-secondary extra-small text-truncate d-block">
+                        {metricasCapacidadGrado.totalSalones} {metricasCapacidadGrado.totalSalones === 1 ? 'salón' : 'salones'}
                       </small>
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Estudiantes Vinculados */}
-                <div className="col-12 col-sm-6 col-lg-3">
-                  <div className="p-2.5 rounded-3 bg-light border border-info-subtle d-flex align-items-center gap-2.5 h-100">
+                <div className="col-6 col-lg-3">
+                  <div className="p-2 rounded-3 bg-light border border-info-subtle d-flex align-items-center gap-2 h-100">
                     <div
-                      className="p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
-                      style={{ backgroundColor: '#0284C7', width: '42px', height: '42px' }}
+                      className="p-2 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                      style={{ backgroundColor: '#0284C7', width: '36px', height: '36px' }}
                     >
-                      <i className="bi bi-people-fill fs-5"></i>
+                      <i className="bi bi-people-fill fs-6"></i>
                     </div>
-                    <div>
-                      <small className="text-muted extra-small d-block fw-semibold">Estudiantes Vinculados</small>
+                    <div className="overflow-hidden">
+                      <small className="text-muted extra-small d-block fw-semibold text-truncate">Vinculados</small>
                       <span className="fs-5 fw-bold text-info-emphasis d-block lh-1">
-                        {metricasCapacidadGrado.estudiantesMatriculados} <span className="fs-6 fw-normal text-muted">estudiantes</span>
+                        {metricasCapacidadGrado.estudiantesMatriculados} <small className="fs-7 fw-normal text-muted">est.</small>
                       </span>
-                      <small className="text-secondary extra-small">Matrícula regular activa</small>
+                      <small className="text-secondary extra-small text-truncate d-block">Matrícula regular</small>
                     </div>
                   </div>
                 </div>
 
                 {/* 3. Cupos Aprobados Admisión */}
-                <div className="col-12 col-sm-6 col-lg-3">
-                  <div className="p-2.5 rounded-3 bg-light border border-warning-subtle d-flex align-items-center gap-2.5 h-100">
+                <div className="col-6 col-lg-3">
+                  <div className="p-2 rounded-3 bg-light border border-warning-subtle d-flex align-items-center gap-2 h-100">
                     <div
-                      className="p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
-                      style={{ backgroundColor: '#D97706', width: '42px', height: '42px' }}
+                      className="p-2 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                      style={{ backgroundColor: '#D97706', width: '36px', height: '36px' }}
                     >
-                      <i className="bi bi-person-check-fill fs-5"></i>
+                      <i className="bi bi-person-check-fill fs-6"></i>
                     </div>
-                    <div>
-                      <small className="text-muted extra-small d-block fw-semibold">Admisiones Aprobadas</small>
+                    <div className="overflow-hidden">
+                      <small className="text-muted extra-small d-block fw-semibold text-truncate">Aprobados</small>
                       <span className="fs-5 fw-bold text-warning-emphasis d-block lh-1">
-                        {metricasCapacidadGrado.cuposAprobados} <span className="fs-6 fw-normal text-muted">asignados</span>
+                        {metricasCapacidadGrado.cuposAprobados} <small className="fs-7 fw-normal text-muted">asig.</small>
                       </span>
-                      <small className="text-secondary extra-small">Descontados de cupos libres</small>
+                      <small className="text-secondary extra-small text-truncate d-block">En admisión</small>
                     </div>
                   </div>
                 </div>
 
                 {/* 4. Cupos Disponibles Reales */}
-                <div className="col-12 col-sm-6 col-lg-3">
+                <div className="col-6 col-lg-3">
                   <div
-                    className={`p-2.5 rounded-3 border d-flex align-items-center gap-2.5 h-100 ${
+                    className={`p-2 rounded-3 border d-flex align-items-center gap-2 h-100 ${
                       metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger'
                     }`}
                   >
                     <div
-                      className={`p-2.5 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0 ${
+                      className={`p-2 rounded-2 text-white d-flex align-items-center justify-content-center flex-shrink-0 ${
                         metricasCapacidadGrado.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'
                       }`}
-                      style={{ width: '42px', height: '42px' }}
+                      style={{ width: '36px', height: '36px' }}
                     >
-                      <i className={`bi ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bi-check-all' : 'bi-exclamation-triangle-fill'} fs-5`}></i>
+                      <i className={`bi ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bi-check-all' : 'bi-exclamation-triangle-fill'} fs-6`}></i>
                     </div>
-                    <div>
-                      <small className="text-muted extra-small d-block fw-bold">CUPOS DISPONIBLES</small>
+                    <div className="overflow-hidden">
+                      <small className="text-muted extra-small d-block fw-bold text-truncate">VACANTES</small>
                       <span className={`fs-5 fw-bold d-block lh-1 ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'text-success' : 'text-danger'}`}>
-                        {metricasCapacidadGrado.cuposDisponibles} <span className="fs-6 fw-normal text-muted">vacantes</span>
+                        {metricasCapacidadGrado.cuposDisponibles} <small className="fs-7 fw-normal text-muted">libres</small>
                       </span>
-                      <small className="extra-small d-block text-muted">
-                        {metricasCapacidadGrado.capacidadTotal} - {metricasCapacidadGrado.estudiantesMatriculados} (vinc) - {metricasCapacidadGrado.cuposAprobados} (aprob)
+                      <small className="extra-small d-block text-muted text-truncate">
+                        Disponibles reales
                       </small>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Barra Visual de Ocupación y Resumen de Demanda */}
-              <div className="bg-light p-2.5 rounded-3 border">
-                <div className="d-flex justify-content-between align-items-center mb-1.5 small">
+              {/* Barra Visual de Ocupación */}
+              <div className="bg-light p-2 rounded-3 border">
+                <div className="d-flex justify-content-between align-items-center mb-1 small flex-wrap gap-1">
                   <span className="fw-semibold text-dark extra-small">
-                    Ocupación de Ambientes: <b>{metricasCapacidadGrado.estudiantesMatriculados + metricasCapacidadGrado.cuposAprobados} de {metricasCapacidadGrado.capacidadTotal} puestos ({metricasCapacidadGrado.porcentajeOcupacion}%)</b>
+                    Ocupación: <b>{metricasCapacidadGrado.estudiantesMatriculados + metricasCapacidadGrado.cuposAprobados} de {metricasCapacidadGrado.capacidadTotal} ({metricasCapacidadGrado.porcentajeOcupacion}%)</b>
                   </span>
                   <span className="badge bg-white text-secondary border extra-small">
                     <i className="bi bi-hourglass-split me-1 text-warning"></i>
-                    <b>{metricasCapacidadGrado.solicitudesPendientes}</b> solicitudes en espera para este grado
+                    <b>{metricasCapacidadGrado.solicitudesPendientes}</b> en espera
                   </span>
                 </div>
 
-                <div className="progress" style={{ height: '10px', backgroundColor: '#e2e8f0' }}>
-                  {/* Segmento 1: Matriculados */}
+                <div className="progress" style={{ height: '8px', backgroundColor: '#e2e8f0' }}>
                   <div
                     className="progress-bar bg-info"
                     role="progressbar"
@@ -2531,7 +2883,6 @@ export const GestionAdmisiones: React.FC = () => {
                     }}
                     title={`Estudiantes Vinculados: ${metricasCapacidadGrado.estudiantesMatriculados}`}
                   ></div>
-                  {/* Segmento 2: Aprobados en Admisión */}
                   <div
                     className="progress-bar bg-warning"
                     role="progressbar"
@@ -2540,7 +2891,6 @@ export const GestionAdmisiones: React.FC = () => {
                     }}
                     title={`Cupos Aprobados Admisión: ${metricasCapacidadGrado.cuposAprobados}`}
                   ></div>
-                  {/* Segmento 3: Disponibles */}
                   <div
                     className="progress-bar bg-success"
                     role="progressbar"
@@ -2551,39 +2901,84 @@ export const GestionAdmisiones: React.FC = () => {
                   ></div>
                 </div>
 
-                <div className="d-flex align-items-center justify-content-between mt-2 flex-wrap gap-2 extra-small text-muted">
-                  <div className="d-flex align-items-center gap-3">
-                    <span><span className="d-inline-block rounded-circle bg-info me-1" style={{ width: '8px', height: '8px' }}></span><b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Vinculados</span>
-                    <span><span className="d-inline-block rounded-circle bg-warning me-1" style={{ width: '8px', height: '8px' }}></span><b>{metricasCapacidadGrado.cuposAprobados}</b> Aprobados Admisión</span>
-                    <span><span className="d-inline-block rounded-circle bg-success me-1" style={{ width: '8px', height: '8px' }}></span><b>{metricasCapacidadGrado.cuposDisponibles}</b> Vacantes Libres</span>
+                <div className="d-flex align-items-center justify-content-between mt-1.5 flex-wrap gap-2 extra-small text-muted">
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <span><span className="d-inline-block rounded-circle bg-info me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Vinculados</span>
+                    <span><span className="d-inline-block rounded-circle bg-warning me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.cuposAprobados}</b> Aprobados</span>
+                    <span><span className="d-inline-block rounded-circle bg-success me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.cuposDisponibles}</b> Libres</span>
                   </div>
-                  <span className="text-dark fw-bold">
-                    Fórmula: Capacidad ({metricasCapacidadGrado.capacidadTotal}) - Vinculados ({metricasCapacidadGrado.estudiantesMatriculados}) - Aprobados ({metricasCapacidadGrado.cuposAprobados}) = {metricasCapacidadGrado.cuposDisponibles} Cupos
-                  </span>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="card border-0 shadow-sm rounded-3 bg-white py-2 px-3 d-flex flex-row align-items-center justify-content-between flex-wrap gap-2 border-start border-4 border-info">
-            <div className="d-flex align-items-center gap-2">
-              <span className="p-1.5 bg-info-subtle text-info rounded-circle">
-                <i className="bi bi-info-circle-fill fs-6"></i>
-              </span>
-              <span className="small text-muted">
-                <b>Análisis de Cupos y Ambientes:</b> Filtra por un <b>Grado / Nivel</b> en el menú superior para ver la disponibilidad exacta de vacantes, ambientes (1 o 2 salones de 38 o 76 cupos) y estudiantes vinculados.
-              </span>
-            </div>
-            <div className="d-flex align-items-center gap-2 extra-small">
-              <span className="badge bg-light text-dark border">
-                <i className="bi bi-building me-1"></i> {metricasCapacidadGrado.totalSalones} Salones Globales
-              </span>
-              <span className="badge bg-light text-primary border">
-                <i className="bi bi-people me-1"></i> {metricasCapacidadGrado.estudiantesMatriculados} Estudiantes Vinculados
-              </span>
-              <span className="badge bg-light text-success border">
-                <i className="bi bi-check2-circle me-1"></i> {metricasCapacidadGrado.cuposAprobados} Cupos Asignados
-              </span>
+          /* VISTA CUANDO NO HAY UN GRADO SELECCIONADO: RESUMEN GLOBAL + SELECTOR DE GRADOS DIRECTO */
+          <div className="card border-0 shadow-sm rounded-3 bg-white border-start border-4 border-info">
+            <div className="card-body p-2.5 p-md-3">
+              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="p-1.5 bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center">
+                    <i className="bi bi-bar-chart-fill fs-6"></i>
+                  </span>
+                  <div>
+                    <h6 className="fw-bold text-dark mb-0">Análisis y Disponibilidad de Cupos por Grado</h6>
+                    <small className="text-muted extra-small">
+                      Toca cualquier grado para filtrar y ver la disponibilidad exacta de vacantes y ambientes:
+                    </small>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm fw-bold px-2.5 py-1 extra-small shadow-xs ms-auto"
+                  onClick={() => setModalMatrizCapacidadAbierto(true)}
+                >
+                  <i className="bi bi-grid-3x3 me-1"></i> Matriz Completa
+                </button>
+              </div>
+
+              {/* Tira interactiva de grados con vacantes en tiempo real */}
+              <div className="d-flex align-items-center gap-1.5 overflow-auto py-1 pb-2">
+                {resumenCapacidadTodosGrados.map(item => {
+                  const tieneCupos = item.cuposDisponibles > 0;
+                  return (
+                    <button
+                      key={item.grado}
+                      type="button"
+                      className={`btn btn-sm text-nowrap rounded-pill px-2.5 py-1 extra-small d-inline-flex align-items-center gap-1.5 transition-all shadow-xs ${
+                        tieneCupos
+                          ? 'btn-light border border-success-subtle text-dark'
+                          : 'btn-light border border-danger-subtle text-muted'
+                      }`}
+                      style={{ fontSize: '11px' }}
+                      onClick={() => setFiltroGrado(item.grado)}
+                      title={`Ver análisis de ${item.grado}: ${item.cuposDisponibles} vacantes disponibles de ${item.capacidadTotal} puestos`}
+                    >
+                      <span className={`rounded-circle d-inline-block ${tieneCupos ? 'bg-success' : 'bg-danger'}`} style={{ width: '7px', height: '7px' }}></span>
+                      <strong className="text-dark">{item.grado}</strong>
+                      <span className={`badge ${tieneCupos ? 'bg-success text-white' : 'bg-danger text-white'} rounded-pill px-1.5 py-0.5`} style={{ fontSize: '9px' }}>
+                        {tieneCupos ? `${item.cuposDisponibles}` : '0'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Resumen Global Consolidado */}
+              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-2 border-top extra-small text-muted mt-1">
+                <span>
+                  <i className="bi bi-building me-1 text-primary"></i> <b>{metricasCapacidadGrado.totalSalones}</b> Ambientes Globales ({metricasCapacidadGrado.capacidadTotal} puestos)
+                </span>
+                <span>
+                  <i className="bi bi-people me-1 text-info"></i> <b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Matriculados
+                </span>
+                <span>
+                  <i className="bi bi-person-check me-1 text-warning"></i> <b>{metricasCapacidadGrado.cuposAprobados}</b> Aprobados
+                </span>
+                <span className="text-success fw-bold">
+                  <i className="bi bi-check-circle-fill me-1"></i> <b>{metricasCapacidadGrado.cuposDisponibles}</b> Vacantes Libres Totales
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -2622,175 +3017,324 @@ export const GestionAdmisiones: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
-                  <thead className="table-light">
-                    <tr>
-                      <th style={{ width: '45px' }} className="text-center">#</th>
-                      <th style={{ width: '135px' }}>Baremo / Nivel</th>
-                      <th>Código Único</th>
-                      <th>Escuela</th>
-                      <th>Aspirante</th>
-                      <th>Grado</th>
-                      <th>Representante</th>
-                      <th>Nómina / Condición</th>
-                      <th className="text-center">Aptitud</th>
-                      <th className="text-center">Estatus</th>
-                      <th className="text-end" style={{ width: '150px' }}>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <>
+                {/* ── VISTA ESCRITORIO: TABLA COMPLETA (≥ lg) ──────────────────── */}
+                <div className="table-responsive d-none d-lg-block">
+                  <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
+                    <thead className="table-light">
+                      <tr>
+                        <th style={{ width: '45px' }} className="text-center">#</th>
+                        <th style={{ width: '135px' }}>Baremo / Nivel</th>
+                        <th>Código Único</th>
+                        <th>Escuela</th>
+                        <th>Aspirante</th>
+                        <th>Grado</th>
+                        <th>Representante</th>
+                        <th>Nómina / Condición</th>
+                        <th className="text-center">Aptitud</th>
+                        <th className="text-center">Estatus</th>
+                        <th className="text-end" style={{ width: '150px' }}>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {solicitudesFiltradas.map((sol, idx) => {
+                        const baremo = calcularBaremoPrioridad(sol, personalEscuelaMap);
+                        const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
+                        const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
+
+                        return (
+                          <tr key={sol.id || sol.codigo_unico}>
+                            <td className="text-center fw-bold text-muted small">{idx + 1}</td>
+                            <td>
+                              <div className="d-flex flex-column gap-0.5">
+                                <span
+                                  className="badge fw-bold text-white d-inline-block text-truncate"
+                                  style={{ backgroundColor: baremo.badgeBg, maxWidth: '130px', fontSize: '11px' }}
+                                  title={baremo.descripcion}
+                                >
+                                  {baremo.codigo}: {baremo.etiqueta.split('(')[0]}
+                                </span>
+                                {sol.instruccion_jerarquica && (
+                                  <span className="badge text-white extra-small" style={{ backgroundColor: '#EC4899', fontSize: '9.5px' }}>
+                                    <i className="bi bi-star-fill me-1"></i> Jerarquía
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <span className="fw-bold text-primary font-monospace">{sol.codigo_unico || 'N/A'}</span>
+                            </td>
+                            <td>
+                              <span className="badge bg-light text-dark border">
+                                {sol.codigo_escuela?.toUpperCase() === 'SB' ? 'Santa Bárbara' : 'Libertador B.'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="fw-bold text-dark">{nomEst}</div>
+                              <div className="text-muted extra-small">C.I: {sol.estudiante_cedula || 'En trámite'}</div>
+                              {(() => {
+                                const docsSol = obtenerDocumentosSolicitud(sol);
+                                return docsSol.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-link p-0 text-decoration-none fw-bold extra-small mt-0.5 d-inline-flex align-items-center gap-1 text-primary"
+                                    onClick={() => abrirVisorDocumentos(sol, 0)}
+                                    title="Ver documentos adjuntos"
+                                  >
+                                    <i className="bi bi-paperclip fs-6 text-danger"></i>
+                                    <span>{docsSol.length} {docsSol.length === 1 ? 'recaudo' : 'recaudos'}</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-muted extra-small d-block">Sin adjuntos</span>
+                                );
+                              })()}
+                            </td>
+                            <td>
+                              <span className="badge bg-secondary-subtle text-secondary border">
+                                {sol.grado_solicitado || 'Sin grado'}
+                              </span>
+                            </td>
+                            <td>
+                              <div>{nomRep}</div>
+                              <div className="text-muted extra-small">
+                                {sol.representante_cedula} ({sol.parentesco || sol.representante_parentesco || 'Representante'})
+                              </div>
+                            </td>
+                            <td>
+                              <div className="small fw-semibold">{sol.pdvsa_tipo_nomina || 'Comunidad'}</div>
+                              <div className="text-muted extra-small">{sol.pdvsa_condicion_laboral || 'N/A'}</div>
+                            </td>
+                            <td className="text-center">
+                              <span className={`badge extra-small ${sol.aptitud === 'Apto' ? 'bg-success-subtle text-success border border-success' : sol.aptitud === 'No Apto' ? 'bg-danger-subtle text-danger border border-danger' : 'bg-warning-subtle text-warning-emphasis border border-warning'}`}>
+                                {sol.aptitud || 'Pendiente'}
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <div className="d-flex flex-column align-items-center gap-1">
+                                {renderBadgeEstado(sol.estado)}
+                                {(() => {
+                                  const parsed = parsearObservaciones(sol.observaciones);
+                                  return parsed.whatsapp_notificado ? (
+                                    <span
+                                      className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5 shadow-xs"
+                                      style={{ fontSize: '9.5px', cursor: 'help' }}
+                                      title={`Notificación oficial enviada por WhatsApp${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}${parsed.whatsapp_estado ? ` (${parsed.whatsapp_estado})` : ''}`}
+                                    >
+                                      <i className="bi bi-whatsapp"></i> Notificado
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="badge bg-light text-muted border extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5"
+                                      style={{ fontSize: '9px' }}
+                                      title="Pendiente por enviar notificación de estatus por WhatsApp"
+                                    >
+                                      <i className="bi bi-clock-history"></i> Sin Notificar
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+                            <td className="text-end">
+                              <div className="btn-group btn-group-sm">
+                                {(() => {
+                                  const docsSol = obtenerDocumentosSolicitud(sol);
+                                  return (
+                                    <button
+                                      className={`btn ${docsSol.length > 0 ? 'btn-outline-danger' : 'btn-outline-secondary'}`}
+                                      onClick={() => abrirVisorDocumentos(sol, 0)}
+                                      title={docsSol.length > 0 ? `Ver ${docsSol.length} documento(s) adjunto(s)` : 'Sin documentos adjuntos'}
+                                      disabled={docsSol.length === 0}
+                                    >
+                                      <i className="bi bi-file-earmark-pdf"></i>
+                                      {docsSol.length > 0 && (
+                                        <span className="badge bg-danger ms-1 px-1 py-0.2" style={{ fontSize: '9px' }}>
+                                          {docsSol.length}
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })()}
+                                <button
+                                  className="btn btn-outline-primary"
+                                  onClick={() => cambiarVistaUnoAUno(idx)}
+                                  title="Evaluar y editar expediente uno a uno"
+                                >
+                                  <i className="bi bi-pencil-square"></i>
+                                </button>
+                                <button
+                                  className="btn btn-outline-secondary"
+                                  onClick={() => abrirDetalle(sol)}
+                                  title="Ver Ficha y Expediente"
+                                >
+                                  <i className="bi bi-eye"></i>
+                                </button>
+                                {(() => {
+                                  const parsed = parsearObservaciones(sol.observaciones);
+                                  return (
+                                    <button
+                                      className={`btn ${parsed.whatsapp_notificado ? 'btn-success text-white shadow-xs' : 'btn-outline-success'}`}
+                                      onClick={() => notificarRepresentanteWhatsApp(sol)}
+                                      title={
+                                        parsed.whatsapp_notificado
+                                          ? `WhatsApp enviado${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}${parsed.whatsapp_estado ? ` (${parsed.whatsapp_estado})` : ''}. Clic para reenviar.`
+                                          : 'Enviar Notificación Oficial de Estatus por WhatsApp'
+                                      }
+                                    >
+                                      <i className="bi bi-whatsapp"></i>
+                                      {parsed.whatsapp_notificado && <i className="bi bi-check ms-0.5 fw-bold"></i>}
+                                    </button>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── VISTA MÓVIL: TARJETAS RESPONSIVAS (< lg) ─────────────────── */}
+                <div className="d-block d-lg-none p-2 p-sm-3 bg-light">
+                  <div className="d-flex flex-column gap-2.5">
                     {solicitudesFiltradas.map((sol, idx) => {
                       const baremo = calcularBaremoPrioridad(sol, personalEscuelaMap);
                       const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
                       const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
+                      const docsSol = obtenerDocumentosSolicitud(sol);
+                      const parsed = parsearObservaciones(sol.observaciones);
 
                       return (
-                        <tr key={sol.id || sol.codigo_unico}>
-                          <td className="text-center fw-bold text-muted small">{idx + 1}</td>
-                          <td>
-                            <div className="d-flex flex-column gap-0.5">
+                        <div key={sol.id || sol.codigo_unico} className="card border-0 shadow-xs rounded-3 bg-white overflow-hidden">
+                          {/* Header de la tarjeta */}
+                          <div className="card-header bg-white py-2 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-1">
+                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                              <span className="badge bg-dark text-white rounded-pill extra-small px-2 py-0.5">
+                                #{idx + 1}
+                              </span>
                               <span
-                                className="badge fw-bold text-white d-inline-block text-truncate"
-                                style={{ backgroundColor: baremo.badgeBg, maxWidth: '130px', fontSize: '11px' }}
+                                className="badge fw-bold text-white extra-small"
+                                style={{ backgroundColor: baremo.badgeBg, fontSize: '10.5px' }}
                                 title={baremo.descripcion}
                               >
-                                {baremo.codigo}: {baremo.etiqueta.split('(')[0]}
+                                {baremo.codigo} • {baremo.etiqueta.split('(')[0]}
                               </span>
                               {sol.instruccion_jerarquica && (
-                                <span className="badge text-white extra-small" style={{ backgroundColor: '#EC4899', fontSize: '9.5px' }}>
-                                  <i className="bi bi-star-fill me-1"></i> Jerarquía
+                                <span className="badge text-white extra-small" style={{ backgroundColor: '#EC4899', fontSize: '9px' }}>
+                                  <i className="bi bi-star-fill"></i>
                                 </span>
                               )}
                             </div>
-                          </td>
-                          <td>
-                            <span className="fw-bold text-primary font-monospace">{sol.codigo_unico || 'N/A'}</span>
-                          </td>
-                          <td>
-                            <span className="badge bg-light text-dark border">
-                              {sol.codigo_escuela?.toUpperCase() === 'SB' ? 'Santa Bárbara' : 'Libertador B.'}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="fw-bold text-dark">{nomEst}</div>
-                            <div className="text-muted extra-small">C.I: {sol.estudiante_cedula || 'En trámite'}</div>
-                            {(() => {
-                              const docsSol = obtenerDocumentosSolicitud(sol);
-                              return docsSol.length > 0 ? (
+
+                            <div className="d-flex align-items-center gap-1">
+                              {renderBadgeEstado(sol.estado)}
+                            </div>
+                          </div>
+
+                          {/* Cuerpo de la tarjeta */}
+                          <div className="card-body p-3">
+                            {/* Nombre del Aspirante */}
+                            <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                              <div>
+                                <h6 className="fw-bold text-dark mb-0 fs-6">
+                                  {nomEst}
+                                </h6>
+                                <small className="text-muted extra-small d-block">
+                                  C.I: <b>{sol.estudiante_cedula || 'En trámite'}</b> • Cód: <b className="font-monospace text-primary">{sol.codigo_unico || 'N/A'}</b>
+                                </small>
+                              </div>
+
+                              <span className="badge bg-light text-dark border extra-small flex-shrink-0">
+                                {sol.codigo_escuela?.toUpperCase() === 'SB' ? 'Santa Bárbara' : 'Libertador B.'}
+                              </span>
+                            </div>
+
+                            {/* Datos Clave: Grado, Representante, Nómina */}
+                            <div className="bg-light p-2.5 rounded-3 mb-2 small">
+                              <div className="row g-1.5 extra-small">
+                                <div className="col-6">
+                                  <span className="text-muted d-block">Grado Solicitado:</span>
+                                  <strong className="text-primary">{sol.grado_solicitado || 'Sin asignar'}</strong>
+                                </div>
+                                <div className="col-6">
+                                  <span className="text-muted d-block">Aptitud Técnica:</span>
+                                  <strong className={sol.aptitud === 'Apto' ? 'text-success' : sol.aptitud === 'No Apto' ? 'text-danger' : 'text-warning'}>
+                                    {sol.aptitud || 'En Evaluación'}
+                                  </strong>
+                                </div>
+                                <div className="col-12 pt-1 border-top border-secondary-subtle">
+                                  <span className="text-muted d-block">Representante:</span>
+                                  <strong className="text-dark">{nomRep}</strong> ({sol.representante_cedula}) • <span className="text-secondary">{sol.parentesco || sol.representante_parentesco || 'Representante'}</span>
+                                </div>
+                                <div className="col-12">
+                                  <span className="text-muted d-block">Nómina / Condición:</span>
+                                  <span className="text-dark fw-semibold">{sol.pdvsa_tipo_nomina || 'Comunidad'}</span> {sol.pdvsa_condicion_laboral ? `(${sol.pdvsa_condicion_laboral})` : ''}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Recaudos y WhatsApp info */}
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 pt-1">
+                              {docsSol.length > 0 ? (
                                 <button
                                   type="button"
-                                  className="btn btn-sm btn-link p-0 text-decoration-none fw-bold extra-small mt-0.5 d-inline-flex align-items-center gap-1 text-primary"
+                                  className="btn btn-outline-danger btn-sm py-0.5 px-2 rounded-pill extra-small fw-bold d-inline-flex align-items-center gap-1"
                                   onClick={() => abrirVisorDocumentos(sol, 0)}
-                                  title="Ver documentos adjuntos"
                                 >
-                                  <i className="bi bi-paperclip fs-6 text-danger"></i>
-                                  <span>{docsSol.length} {docsSol.length === 1 ? 'recaudo' : 'recaudos'}</span>
+                                  <i className="bi bi-paperclip"></i>
+                                  <span>{docsSol.length} {docsSol.length === 1 ? 'Recaudo' : 'Recaudos'}</span>
                                 </button>
                               ) : (
-                                <span className="text-muted extra-small d-block">Sin adjuntos</span>
-                              );
-                            })()}
-                          </td>
-                          <td>
-                            <span className="badge bg-secondary-subtle text-secondary border">
-                              {sol.grado_solicitado || 'Sin grado'}
-                            </span>
-                          </td>
-                          <td>
-                            <div>{nomRep}</div>
-                            <div className="text-muted extra-small">
-                              {sol.representante_cedula} ({sol.parentesco || sol.representante_parentesco || 'Representante'})
+                                <span className="text-muted extra-small">Sin adjuntos</span>
+                              )}
+
+                              {parsed.whatsapp_notificado ? (
+                                <span className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill py-0.5 px-2">
+                                  <i className="bi bi-whatsapp me-1"></i> WA Notificado
+                                </span>
+                              ) : (
+                                <span className="badge bg-light text-muted border extra-small rounded-pill py-0.5 px-1.5">
+                                  <i className="bi bi-clock-history me-1"></i> WA Pendiente
+                                </span>
+                              )}
                             </div>
-                          </td>
-                          <td>
-                            <div className="small fw-semibold">{sol.pdvsa_tipo_nomina || 'Comunidad'}</div>
-                            <div className="text-muted extra-small">{sol.pdvsa_condicion_laboral || 'N/A'}</div>
-                          </td>
-                          <td className="text-center">
-                            <div className="d-flex flex-column align-items-center gap-1">
-                              {renderBadgeEstado(sol.estado)}
-                              {(() => {
-                                const parsed = parsearObservaciones(sol.observaciones);
-                                return parsed.whatsapp_notificado ? (
-                                  <span
-                                    className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5 shadow-xs"
-                                    style={{ fontSize: '9.5px', cursor: 'help' }}
-                                    title={`Notificación oficial enviada por WhatsApp${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}${parsed.whatsapp_estado ? ` (${parsed.whatsapp_estado})` : ''}`}
-                                  >
-                                    <i className="bi bi-whatsapp"></i> Notificado
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="badge bg-light text-muted border extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5"
-                                    style={{ fontSize: '9px' }}
-                                    title="Pendiente por enviar notificación de estatus por WhatsApp"
-                                  >
-                                    <i className="bi bi-clock-history"></i> Sin Notificar
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          </td>
-                          <td className="text-end">
-                            <div className="btn-group btn-group-sm">
-                              {(() => {
-                                const docsSol = obtenerDocumentosSolicitud(sol);
-                                return (
-                                  <button
-                                    className={`btn ${docsSol.length > 0 ? 'btn-outline-danger' : 'btn-outline-secondary'}`}
-                                    onClick={() => abrirVisorDocumentos(sol, 0)}
-                                    title={docsSol.length > 0 ? `Ver ${docsSol.length} documento(s) adjunto(s)` : 'Sin documentos adjuntos'}
-                                    disabled={docsSol.length === 0}
-                                  >
-                                    <i className="bi bi-file-earmark-pdf"></i>
-                                    {docsSol.length > 0 && (
-                                      <span className="badge bg-danger ms-1 px-1 py-0.2" style={{ fontSize: '9px' }}>
-                                        {docsSol.length}
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })()}
-                              <button
-                                className="btn btn-outline-primary"
-                                onClick={() => cambiarVistaUnoAUno(idx)}
-                                title="Evaluar y editar expediente uno a uno"
-                              >
-                                <i className="bi bi-pencil-square"></i>
-                              </button>
-                              <button
-                                className="btn btn-outline-secondary"
-                                onClick={() => abrirDetalle(sol)}
-                                title="Ver Ficha y Expediente"
-                              >
-                                <i className="bi bi-eye"></i>
-                              </button>
-                              {(() => {
-                                const parsed = parsearObservaciones(sol.observaciones);
-                                return (
-                                  <button
-                                    className={`btn ${parsed.whatsapp_notificado ? 'btn-success text-white shadow-xs' : 'btn-outline-success'}`}
-                                    onClick={() => notificarRepresentanteWhatsApp(sol)}
-                                    title={
-                                      parsed.whatsapp_notificado
-                                        ? `WhatsApp enviado${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}${parsed.whatsapp_estado ? ` (${parsed.whatsapp_estado})` : ''}. Clic para reenviar.`
-                                        : 'Enviar Notificación Oficial de Estatus por WhatsApp'
-                                    }
-                                  >
-                                    <i className="bi bi-whatsapp"></i>
-                                    {parsed.whatsapp_notificado && <i className="bi bi-check ms-0.5 fw-bold"></i>}
-                                  </button>
-                                );
-                              })()}
-                            </div>
-                          </td>
-                        </tr>
+                          </div>
+
+                          {/* Footer de Acciones Rápidas */}
+                          <div className="card-footer bg-light py-2 px-3 border-top d-flex align-items-center justify-content-between gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm flex-grow-1 fw-bold py-1 extra-small shadow-xs d-flex align-items-center justify-content-center gap-1"
+                              onClick={() => cambiarVistaUnoAUno(idx)}
+                            >
+                              <i className="bi bi-pencil-square"></i>
+                              <span>Auditar / Calificar</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary btn-sm py-1 px-2.5 extra-small fw-bold"
+                              onClick={() => abrirDetalle(sol)}
+                              title="Ver Ficha y Expediente"
+                            >
+                              <i className="bi bi-eye me-1"></i>Ficha
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`btn btn-sm py-1 px-2.5 extra-small fw-bold ${parsed.whatsapp_notificado ? 'btn-success text-white' : 'btn-outline-success'}`}
+                              onClick={() => notificarRepresentanteWhatsApp(sol)}
+                              title="Notificar por WhatsApp"
+                            >
+                              <i className="bi bi-whatsapp"></i>
+                            </button>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -2801,12 +3345,12 @@ export const GestionAdmisiones: React.FC = () => {
       {/* ══════════════════════════════════════════════════════════════════════════ */}
       {vistaActiva === 'uno_a_uno' && (
         <div>
-          {/* BARRA DE NAVEGACIÓN */}
-          <div className="card border-0 shadow-sm rounded-3 mb-3 bg-white">
-            <div className="card-body py-2.5 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-              <div className="d-flex align-items-center gap-2">
+          {/* BARRA DE NAVEGACIÓN RESPONSIVA */}
+          <div className="card border-0 shadow-xs rounded-3 mb-3 bg-white">
+            <div className="card-body p-2.5 p-sm-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div className="d-flex align-items-center gap-1.5 flex-grow-1 flex-sm-grow-0">
                 <button
-                  className="btn btn-outline-secondary btn-sm"
+                  className="btn btn-outline-secondary btn-sm py-1 px-2.5 fw-bold"
                   onClick={() => {
                     const prev = Math.max(0, indiceUnoAUno - 1);
                     cambiarVistaUnoAUno(prev);
@@ -2817,7 +3361,7 @@ export const GestionAdmisiones: React.FC = () => {
                 </button>
 
                 <button
-                  className="btn btn-outline-secondary btn-sm"
+                  className="btn btn-outline-secondary btn-sm py-1 px-2.5 fw-bold"
                   onClick={() => {
                     const next = Math.min(solicitudesFiltradas.length - 1, indiceUnoAUno + 1);
                     cambiarVistaUnoAUno(next);
@@ -2828,14 +3372,13 @@ export const GestionAdmisiones: React.FC = () => {
                 </button>
               </div>
 
-              <div className="d-flex align-items-center gap-3">
-                <span className="fw-bold text-dark">
-                  Solicitud <span className="text-primary fs-6">#{indiceUnoAUno + 1}</span> de {solicitudesFiltradas.length}
+              <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ minWidth: '220px' }}>
+                <span className="fw-bold text-dark extra-small text-nowrap d-none d-md-inline">
+                  Aspirante <span className="text-primary fs-6">#{indiceUnoAUno + 1}</span> de {solicitudesFiltradas.length}
                 </span>
 
                 <select
-                  className="form-select form-select-sm"
-                  style={{ width: '260px' }}
+                  className="form-select form-select-sm flex-grow-1"
                   value={indiceUnoAUno}
                   onChange={e => cambiarVistaUnoAUno(Number(e.target.value))}
                 >
@@ -2847,17 +3390,21 @@ export const GestionAdmisiones: React.FC = () => {
                 </select>
               </div>
 
-              <div className="d-flex gap-2">
+              <div className="d-flex gap-1.5 flex-wrap ms-auto">
                 {!modoEdicionUnoAUno && solicitudUnoAUno && (
                   <button
-                    className="btn btn-outline-warning btn-sm fw-bold text-dark"
+                    className="btn btn-outline-warning btn-sm fw-bold text-dark py-1 px-2.5 shadow-xs"
                     onClick={() => iniciarEdicionExpediente(solicitudUnoAUno)}
                   >
-                    <i className="bi bi-pencil-fill me-1"></i> ✏️ Editar Datos del Expediente
+                    <i className="bi bi-pencil-fill me-1"></i>
+                    <span className="d-none d-sm-inline">Editar Expediente</span>
+                    <span className="d-inline d-sm-none">Editar</span>
                   </button>
                 )}
-                <button className="btn btn-outline-dark btn-sm" onClick={() => setVistaActiva('tabla')}>
-                  <i className="bi bi-table me-1"></i> Volver al Listado
+                <button className="btn btn-outline-dark btn-sm py-1 px-2.5" onClick={() => setVistaActiva('tabla')}>
+                  <i className="bi bi-table me-1"></i>
+                  <span className="d-none d-sm-inline">Volver al Listado</span>
+                  <span className="d-inline d-sm-none">Listado</span>
                 </button>
               </div>
             </div>
@@ -3605,117 +4152,248 @@ export const GestionAdmisiones: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
-                  <thead className="table-light">
-                    <tr>
-                      <th style={{ width: '40px' }} className="text-center">#</th>
-                      <th>Código Único</th>
-                      <th>Escuela</th>
-                      <th>Aspirante</th>
-                      <th>Grado Solicitado</th>
-                      <th>Representante Legal</th>
-                      <th>Teléfono Contacto</th>
-                      <th className="text-center">Estado Formalización</th>
-                      <th className="text-end" style={{ width: '220px' }}>Acción Docente</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <>
+                {/* ── VISTA ESCRITORIO: TABLA (≥ lg) ──────────────────────────── */}
+                <div className="table-responsive d-none d-lg-block">
+                  <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
+                    <thead className="table-light">
+                      <tr>
+                        <th style={{ width: '40px' }} className="text-center">#</th>
+                        <th>Código Único</th>
+                        <th>Escuela</th>
+                        <th>Aspirante</th>
+                        <th>Grado Solicitado</th>
+                        <th>Representante Legal</th>
+                        <th>Teléfono Contacto</th>
+                        <th className="text-center">Estado Formalización</th>
+                        <th className="text-end" style={{ width: '220px' }}>Acción Docente</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {solicitudesAceptadasParaFormalizar.map((sol, idx) => {
+                        const esFormalizado = sol.estado === 'Formalizado' || sol.estado === 'Inscrito';
+                        const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
+                        const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
+
+                        return (
+                          <tr key={sol.id || sol.codigo_unico} className={esFormalizado ? 'table-light' : ''}>
+                            <td className="text-center fw-bold text-muted small">{idx + 1}</td>
+                            <td>
+                              <span className="fw-bold text-primary font-monospace">{sol.codigo_unico}</span>
+                            </td>
+                            <td>
+                              <span className="badge bg-light text-dark border">
+                                {NOMBRE_ESCUELA_MAP[sol.codigo_escuela] || sol.codigo_escuela}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="fw-bold text-dark">{nomEst}</div>
+                              <div className="text-muted extra-small">C.I: {sol.estudiante_cedula || 'En trámite'}</div>
+                            </td>
+                            <td>
+                              <span className="badge bg-secondary-subtle text-secondary border">
+                                {sol.grado_solicitado}
+                              </span>
+                            </td>
+                            <td>
+                              <div>{nomRep}</div>
+                              <div className="text-muted extra-small">C.I. {sol.representante_cedula}</div>
+                            </td>
+                            <td>
+                              <span className="text-dark small">{sol.representante_telefono || 'N/A'}</span>
+                            </td>
+                            <td className="text-center">
+                              {esFormalizado ? (
+                                <span className="badge bg-success-subtle text-success border border-success px-2.5 py-1 rounded-pill">
+                                  <i className="bi bi-check-circle-fill me-1"></i> Inscrito / Formalizado
+                                </span>
+                              ) : (
+                                <span className="badge bg-warning-subtle text-warning-emphasis border border-warning px-2.5 py-1 rounded-pill">
+                                  <i className="bi bi-clock-fill me-1"></i> Pendiente por Consignar Físico
+                                </span>
+                              )}
+                            </td>
+                            <td className="text-end">
+                              <div className="btn-group btn-group-sm">
+                                {!esFormalizado ? (
+                                  <button
+                                    className="btn btn-sm fw-bold text-white shadow-sm"
+                                    style={{ backgroundColor: '#0D9488' }}
+                                    onClick={() => abrirModalFormalizar(sol)}
+                                    title="Verificar recaudos físicos y formalizar"
+                                  >
+                                    <i className="bi bi-journal-check me-1"></i> Formalizar
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={() => {
+                                      setSolicitudConstancia(sol);
+                                      setModalConstanciaAbierto(true);
+                                    }}
+                                    title="Imprimir Constancia de Matrícula"
+                                  >
+                                    <i className="bi bi-printer-fill me-1"></i> Constancia
+                                  </button>
+                                )}
+                                <button
+                                  className="btn btn-sm btn-outline-success"
+                                  onClick={() => notificarRepresentanteWhatsApp(sol)}
+                                  title="Notificar por WhatsApp"
+                                >
+                                  <i className="bi bi-whatsapp"></i>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── VISTA MÓVIL: TARJETAS DE FORMALIZACIÓN (< lg) ───────────── */}
+                <div className="d-block d-lg-none p-2 p-sm-3 bg-light">
+                  <div className="d-flex flex-column gap-2.5">
                     {solicitudesAceptadasParaFormalizar.map((sol, idx) => {
                       const esFormalizado = sol.estado === 'Formalizado' || sol.estado === 'Inscrito';
                       const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
                       const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
 
                       return (
-                        <tr key={sol.id || sol.codigo_unico} className={esFormalizado ? 'table-light' : ''}>
-                          <td className="text-center fw-bold text-muted small">{idx + 1}</td>
-                          <td>
-                            <span className="fw-bold text-primary font-monospace">{sol.codigo_unico}</span>
-                          </td>
-                          <td>
-                            <span className="badge bg-light text-dark border">
-                              {NOMBRE_ESCUELA_MAP[sol.codigo_escuela] || sol.codigo_escuela}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="fw-bold text-dark">{nomEst}</div>
-                            <div className="text-muted extra-small">C.I: {sol.estudiante_cedula || 'En trámite'}</div>
-                          </td>
-                          <td>
-                            <span className="badge bg-secondary-subtle text-secondary border">
-                              {sol.grado_solicitado}
-                            </span>
-                          </td>
-                          <td>
-                            <div>{nomRep}</div>
-                            <div className="text-muted extra-small">C.I. {sol.representante_cedula}</div>
-                          </td>
-                          <td>
-                            <span className="text-dark small">{sol.representante_telefono || 'N/A'}</span>
-                          </td>
-                          <td className="text-center">
+                        <div key={sol.id || sol.codigo_unico} className="card border-0 shadow-xs rounded-3 bg-white overflow-hidden">
+                          {/* Header */}
+                          <div className="card-header bg-white py-2 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-1">
+                            <div className="d-flex align-items-center gap-1.5">
+                              <span className="badge bg-dark text-white rounded-pill extra-small px-2 py-0.5">
+                                #{idx + 1}
+                              </span>
+                              <span className="fw-bold text-primary font-monospace extra-small">
+                                {sol.codigo_unico}
+                              </span>
+                            </div>
+
                             {esFormalizado ? (
-                              <span className="badge bg-success-subtle text-success border border-success px-2.5 py-1 rounded-pill">
-                                <i className="bi bi-check-circle-fill me-1"></i> Inscrito / Formalizado
+                              <span className="badge bg-success text-white extra-small rounded-pill py-0.5 px-2">
+                                <i className="bi bi-check-circle-fill me-1"></i> Inscrito
                               </span>
                             ) : (
-                              <span className="badge bg-warning-subtle text-warning-emphasis border border-warning px-2.5 py-1 rounded-pill">
-                                <i className="bi bi-clock-fill me-1"></i> Pendiente por Consignar Físico
+                              <span className="badge bg-warning text-dark extra-small rounded-pill py-0.5 px-2">
+                                <i className="bi bi-clock-fill me-1"></i> Pendiente Físico
                               </span>
                             )}
-                          </td>
-                          <td className="text-end">
-                            <div className="btn-group btn-group-sm">
-                              {!esFormalizado ? (
-                                <button
-                                  className="btn btn-sm fw-bold text-white shadow-sm"
-                                  style={{ backgroundColor: '#0D9488' }}
-                                  onClick={() => abrirModalFormalizar(sol)}
-                                  title="Verificar recaudos físicos y formalizar"
-                                >
-                                  <i className="bi bi-journal-check me-1"></i> Formalizar
-                                </button>
-                              ) : (
-                                <button
-                                  className="btn btn-sm btn-outline-primary"
-                                  onClick={() => {
-                                    setSolicitudConstancia(sol);
-                                    setModalConstanciaAbierto(true);
-                                  }}
-                                  title="Imprimir Constancia de Matrícula"
-                                >
-                                  <i className="bi bi-printer-fill me-1"></i> Constancia
-                                </button>
-                              )}
-                              <button
-                                className="btn btn-sm btn-outline-success"
-                                onClick={() => notificarRepresentanteWhatsApp(sol)}
-                                title="Notificar por WhatsApp"
-                              >
-                                <i className="bi bi-whatsapp"></i>
-                              </button>
+                          </div>
+
+                          {/* Body */}
+                          <div className="card-body p-3">
+                            <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                              <div>
+                                <h6 className="fw-bold text-dark mb-0 fs-6">
+                                  {nomEst}
+                                </h6>
+                                <small className="text-muted extra-small d-block">
+                                  C.I: <b>{sol.estudiante_cedula || 'En trámite'}</b> • Grado: <b className="text-primary">{sol.grado_solicitado}</b>
+                                </small>
+                              </div>
+                              <span className="badge bg-light text-dark border extra-small flex-shrink-0">
+                                {NOMBRE_ESCUELA_MAP[sol.codigo_escuela] || sol.codigo_escuela}
+                              </span>
                             </div>
-                          </td>
-                        </tr>
+
+                            <div className="bg-light p-2.5 rounded-3 mb-2 small">
+                              <div className="row g-1 extra-small">
+                                <div className="col-12">
+                                  <span className="text-muted d-block">Representante Legal:</span>
+                                  <strong className="text-dark">{nomRep}</strong> (C.I. {sol.representante_cedula})
+                                </div>
+                                <div className="col-12 pt-1 border-top border-secondary-subtle d-flex align-items-center justify-content-between">
+                                  <span>
+                                    <span className="text-muted">Teléfono: </span>
+                                    <strong className="text-dark">{sol.representante_telefono || 'N/A'}</strong>
+                                  </span>
+                                  {sol.representante_telefono && (
+                                    <a
+                                      href={`tel:${sol.representante_telefono}`}
+                                      className="btn btn-outline-secondary btn-sm py-0.2 px-2 extra-small rounded-pill"
+                                    >
+                                      <i className="bi bi-telephone-fill me-1"></i> Llamar
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Footer */}
+                          <div className="card-footer bg-light py-2 px-3 border-top d-flex align-items-center justify-content-between gap-1.5 flex-wrap">
+                            {!esFormalizado ? (
+                              <button
+                                type="button"
+                                className="btn btn-teal btn-sm flex-grow-1 fw-bold text-white shadow-xs py-1.5 extra-small d-flex align-items-center justify-content-center gap-1"
+                                style={{ backgroundColor: '#0D9488' }}
+                                onClick={() => abrirModalFormalizar(sol)}
+                              >
+                                <i className="bi bi-journal-check"></i>
+                                <span>Formalizar Matrícula Física</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm flex-grow-1 fw-bold py-1.5 extra-small d-flex align-items-center justify-content-center gap-1"
+                                onClick={() => {
+                                  setSolicitudConstancia(sol);
+                                  setModalConstanciaAbierto(true);
+                                }}
+                              >
+                                <i className="bi bi-printer-fill"></i>
+                                <span>Ver / Imprimir Constancia</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              className="btn btn-outline-success btn-sm py-1.5 px-2.5 extra-small fw-bold"
+                              onClick={() => notificarRepresentanteWhatsApp(sol)}
+                              title="Notificar por WhatsApp"
+                            >
+                              <i className="bi bi-whatsapp"></i>
+                            </button>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
       )}
 
       {/* ── MODAL INTERACTIVO DE FORMALIZACIÓN FÍSICA DE MATRÍCULA ───────────── */}
-      {modalFormalizarAbierto && solicitudParaFormalizar && (
+      {modalFormalizarAbierto && solicitudParaFormalizar && createPortal(
         <div
-          className="modal fade show d-block"
+          className="modal fade show d-flex align-items-center justify-content-center"
           tabIndex={-1}
-          style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1060 }}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
         >
-          <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content border-0 shadow-lg">
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '900px', maxHeight: '92vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
               <div className="modal-header py-3 text-white" style={{ backgroundColor: '#0D9488' }}>
                 <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
                   <i className="bi bi-journal-check fs-4"></i> Formalización de Inscripción Física
@@ -3919,18 +4597,34 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL DE CONSTANCIA OFICIAL DE INSCRIPCIÓN Y CREDENCIALES ────────── */}
-      {modalConstanciaAbierto && solicitudConstancia && (
+      {modalConstanciaAbierto && solicitudConstancia && createPortal(
         <div
-          className="modal fade show d-block"
+          className="modal fade show d-flex align-items-center justify-content-center"
           tabIndex={-1}
-          style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1070 }}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
         >
-          <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content border-0 shadow-lg">
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '900px', maxHeight: '92vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
               <div className="modal-header py-3 bg-dark text-white d-flex justify-content-between align-items-center">
                 <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
                   <i className="bi bi-printer-fill"></i> Constancia Oficial de Admisión e Inscripción
@@ -4077,18 +4771,34 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL DE DETALLE RÁPIDO ───────────────────────────────────────────── */}
-      {modalAbierto && solicitudSeleccionada && (
+      {modalAbierto && solicitudSeleccionada && createPortal(
         <div
-          className="modal fade show d-block"
+          className="modal fade show d-flex align-items-center justify-content-center"
           tabIndex={-1}
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1055 }}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
         >
-          <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content border-0 shadow-lg">
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '900px', maxHeight: '92vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
               <div className="modal-header bg-primary text-white py-3">
                 <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
                   <i className="bi bi-clipboard-check"></i> Expediente: {solicitudSeleccionada.codigo_unico}
@@ -4298,14 +5008,34 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODALES DE DEPURACIÓN (DUPLICADOS, VACÍOS, REGULARES) ────────────────── */}
-      {modalDuplicadosAbierto && (
-        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1060 }}>
-          <div className="modal-dialog modal-xl modal-dialog-scrollable">
-            <div className="modal-content border-0 shadow-lg">
+      {modalDuplicadosAbierto && createPortal(
+        <div
+          className="modal fade show d-flex align-items-center justify-content-center"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
+        >
+          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '1000px', maxHeight: '92vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
               <div className="modal-header py-3 bg-danger text-white">
                 <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
                   <i className="bi bi-copy fs-5"></i> Detector de Duplicados ({gruposDuplicados.length} grupos)
@@ -4342,13 +5072,33 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {modalVaciosAbierto && (
-        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1060 }}>
-          <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content border-0 shadow-lg">
+      {modalVaciosAbierto && createPortal(
+        <div
+          className="modal fade show d-flex align-items-center justify-content-center"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '900px', maxHeight: '92vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
               <div className="modal-header py-3 bg-danger text-white">
                 <h5 className="modal-title fw-bold">Registros Vacíos ({registrosVacios.length})</h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setModalVaciosAbierto(false)}></button>
@@ -4377,13 +5127,33 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {modalRegularesAbierto && (
-        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 1060 }}>
-          <div className="modal-dialog modal-lg modal-dialog-scrollable">
-            <div className="modal-content border-0 shadow-lg">
+      {modalRegularesAbierto && createPortal(
+        <div
+          className="modal fade show d-flex align-items-center justify-content-center"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '900px', maxHeight: '92vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
               <div className="modal-header py-3 bg-info text-dark">
                 <h5 className="modal-title fw-bold">Solicitudes de Estudiantes Regulares ({registrosRegulares.length})</h5>
                 <button type="button" className="btn-close" onClick={() => setModalRegularesAbierto(false)}></button>
@@ -4412,7 +5182,8 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL VISOR INTERACTIVO DE DOCUMENTOS Y RECAUDOS ─────────────────── */}
@@ -4421,13 +5192,28 @@ export const GestionAdmisiones: React.FC = () => {
         const docActual = docs[docVisorActivoIndex] || docs[0];
         const esPdf = docActual?.url?.toLowerCase().includes('.pdf');
 
-        return (
+        return createPortal(
           <div
-            className="modal fade show d-block animate__animated animate__fadeIn"
+            className="modal fade show d-flex align-items-center justify-content-center"
             tabIndex={-1}
-            style={{ backgroundColor: 'rgba(15, 23, 42, 0.90)', zIndex: 1085, backdropFilter: 'blur(5px)' }}
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              zIndex: 99999,
+              backdropFilter: 'blur(8px)',
+              overflowY: 'auto',
+              padding: '12px'
+            }}
           >
-            <div className="modal-dialog modal-xl modal-dialog-centered" style={{ maxWidth: '94vw', height: '94vh', margin: '3vh auto' }}>
+            <div className="modal-dialog modal-xl modal-dialog-centered w-100 my-auto mx-auto" style={{ maxWidth: '95vw', height: '94vh' }}>
               <div className="modal-content border-0 shadow-2xl rounded-4 h-100 d-flex flex-column overflow-hidden bg-dark text-white">
                 {/* Header Visor */}
                 <div className="modal-header py-2.5 px-4 bg-black bg-opacity-60 border-bottom border-secondary d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -4615,9 +5401,256 @@ export const GestionAdmisiones: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
+
+      {/* ── MODAL MATRIZ COMPLETA DE CAPACIDAD Y VACANTES POR GRADO (PORTAL) ─── */}
+      {modalMatrizCapacidadAbierto && createPortal(
+        <div
+          className="modal fade show d-flex align-items-center justify-content-center"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalMatrizCapacidadAbierto(false);
+          }}
+        >
+          <div
+            className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down w-100 my-auto"
+            style={{ maxWidth: '1100px', maxHeight: '92vh' }}
+          >
+            <div className="modal-content shadow-2xl border-0 rounded-4 overflow-hidden h-100 d-flex flex-column bg-white">
+              {/* Modal Header */}
+              <div className="modal-header bg-primary text-white py-3 px-3 px-md-4 d-flex align-items-center justify-content-between flex-shrink-0">
+                <div className="d-flex align-items-center gap-2.5">
+                  <div className="p-2 bg-white bg-opacity-20 rounded-3 text-white">
+                    <i className="bi bi-grid-3x3 fs-5"></i>
+                  </div>
+                  <div>
+                    <h5 className="modal-title fw-bold mb-0 text-white fs-6 fs-md-5">
+                      Matriz de Capacidad, Ambientes y Vacantes
+                    </h5>
+                    <p className="text-white-50 extra-small mb-0 d-none d-sm-block">
+                      Disponibilidad en tiempo real por cada grado y plantel escolar
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setModalMatrizCapacidadAbierto(false)}
+                  aria-label="Cerrar"
+                ></button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="modal-body p-2.5 p-md-4 overflow-auto flex-grow-1">
+                {/* Selector rápido de plantel dentro del modal */}
+                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 bg-light p-2.5 rounded-3 border">
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <span className="extra-small fw-bold text-secondary">
+                      <i className="bi bi-building me-1"></i>Plantel:
+                    </span>
+                    <div className="btn-group btn-group-sm" role="group">
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${filtroEscuela === 'todas' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                        onClick={() => setFiltroEscuela('todas')}
+                      >
+                        Ambas Escuelas
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${filtroEscuela === 'sb' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                        onClick={() => setFiltroEscuela('sb')}
+                      >
+                        Santa Bárbara
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${filtroEscuela === 'lb' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                        onClick={() => setFiltroEscuela('lb')}
+                      >
+                        Libertador Bolívar
+                      </button>
+                    </div>
+                  </div>
+
+                  <span className="badge bg-white text-secondary border extra-small">
+                    <b>{resumenCapacidadTodosGrados.length} Grados</b> evaluados
+                  </span>
+                </div>
+
+                {/* VISTA ESCRITORIO: TABLA (≥ md) */}
+                <div className="table-responsive d-none d-md-block">
+                  <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
+                    <thead className="table-light">
+                      <tr>
+                        <th>Grado / Nivel</th>
+                        <th className="text-center">Ambientes</th>
+                        <th className="text-center">Capacidad</th>
+                        <th className="text-center">Matriculados</th>
+                        <th className="text-center">Aprobados</th>
+                        <th className="text-center">Vacantes Libres</th>
+                        <th className="text-center">En Espera</th>
+                        <th className="text-end">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resumenCapacidadTodosGrados.map(item => {
+                        const tieneCupos = item.cuposDisponibles > 0;
+                        return (
+                          <tr key={item.grado} className={item.cuposDisponibles === 0 ? 'table-light' : ''}>
+                            <td className="fw-bold text-dark">
+                              <i className="bi bi-mortarboard me-1.5 text-primary"></i>
+                              {item.grado}
+                            </td>
+                            <td className="text-center">
+                              <span className="badge bg-light text-dark border">
+                                {item.totalSalones} {item.totalSalones === 1 ? 'salón' : 'salones'}
+                              </span>
+                            </td>
+                            <td className="text-center fw-semibold text-secondary">
+                              {item.capacidadTotal} puestos
+                            </td>
+                            <td className="text-center">
+                              <span className="text-info fw-bold">{item.estudiantesMatriculados}</span>
+                            </td>
+                            <td className="text-center">
+                              <span className="text-warning-emphasis fw-bold">{item.cuposAprobados}</span>
+                            </td>
+                            <td className="text-center">
+                              <span
+                                className={`badge rounded-pill px-2.5 py-1 fw-bold ${
+                                  tieneCupos ? 'bg-success text-white' : 'bg-danger text-white'
+                                }`}
+                                style={{ fontSize: '11px' }}
+                              >
+                                {tieneCupos ? `${item.cuposDisponibles} vacantes` : 'Agotado (0)'}
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <span className="badge bg-light text-muted border">
+                                {item.solicitudesPendientes}
+                              </span>
+                            </td>
+                            <td className="text-end">
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm py-0.5 px-2 extra-small fw-bold"
+                                onClick={() => {
+                                  setFiltroGrado(item.grado);
+                                  setModalMatrizCapacidadAbierto(false);
+                                }}
+                              >
+                                <i className="bi bi-funnel me-1"></i>Filtrar
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* VISTA MÓVIL: TARJETAS COMPACTAS (< md) */}
+                <div className="d-block d-md-none">
+                  <div className="d-flex flex-column gap-2">
+                    {resumenCapacidadTodosGrados.map(item => {
+                      const tieneCupos = item.cuposDisponibles > 0;
+                      return (
+                        <div
+                          key={item.grado}
+                          className={`p-2.5 rounded-3 border bg-white shadow-xs ${
+                            tieneCupos ? 'border-success-subtle' : 'border-danger-subtle'
+                          }`}
+                        >
+                          <div className="d-flex align-items-center justify-content-between mb-1.5">
+                            <strong className="text-dark fs-6 d-flex align-items-center gap-1.5">
+                              <span className={`rounded-circle d-inline-block ${tieneCupos ? 'bg-success' : 'bg-danger'}`} style={{ width: '8px', height: '8px' }}></span>
+                              {item.grado}
+                            </strong>
+                            <span
+                              className={`badge rounded-pill px-2 py-0.5 fw-bold ${
+                                tieneCupos ? 'bg-success text-white' : 'bg-danger text-white'
+                              }`}
+                              style={{ fontSize: '10.5px' }}
+                            >
+                              {tieneCupos ? `${item.cuposDisponibles} vacantes` : 'Sin cupo (0)'}
+                            </span>
+                          </div>
+
+                          <div className="row g-1 extra-small text-muted mb-2 bg-light p-2 rounded-2">
+                            <div className="col-6">
+                              Ambientes: <strong className="text-dark">{item.totalSalones} salones</strong>
+                            </div>
+                            <div className="col-6">
+                              Capacidad: <strong className="text-dark">{item.capacidadTotal} puestos</strong>
+                            </div>
+                            <div className="col-6">
+                              Matriculados: <strong className="text-info">{item.estudiantesMatriculados}</strong>
+                            </div>
+                            <div className="col-6">
+                              Aprobados: <strong className="text-warning-emphasis">{item.cuposAprobados}</strong>
+                            </div>
+                          </div>
+
+                          <div className="d-flex align-items-center justify-content-between pt-1">
+                            <span className="extra-small text-muted">
+                              <i className="bi bi-clock me-1"></i><b>{item.solicitudesPendientes}</b> en espera
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm py-0.5 px-3 extra-small fw-bold shadow-xs"
+                              onClick={() => {
+                                setFiltroGrado(item.grado);
+                                setModalMatrizCapacidadAbierto(false);
+                              }}
+                            >
+                              <i className="bi bi-funnel me-1"></i> Filtrar este Grado
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="modal-footer py-2 px-3 px-md-4 bg-light d-flex align-items-center justify-content-between flex-shrink-0">
+                <span className="text-muted extra-small d-none d-sm-inline">
+                  Vacantes = Capacidad - Matriculados - Aprobados
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm px-4 fw-bold ms-auto"
+                  onClick={() => setModalMatrizCapacidadAbierto(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

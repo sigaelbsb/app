@@ -270,6 +270,35 @@ Dirección y Comité de Admisiones
 ];
 
 /**
+ * Sincroniza y descarga las plantillas personalizadas desde Supabase (ajustes_globales)
+ * y actualiza el caché de localStorage. Permite que cualquier cambio guardado desde la PC
+ * esté disponible de inmediato en teléfonos móviles y otros equipos.
+ */
+export const sincronizarPlantillasAdmisionDesdeBD = async (): Promise<PlantillaMensajeAdmision[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('ajustes_globales')
+      .select('valor')
+      .eq('clave', 'plantillas_admisiones')
+      .maybeSingle();
+
+    if (!error && data?.valor) {
+      const parsed = typeof data.valor === 'string' ? JSON.parse(data.valor) : data.valor;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const ids = new Set(parsed.map((p: any) => p.id));
+        const faltantes = PLANTILLAS_PREDETERMINADAS_ADMISION.filter(p => !ids.has(p.id));
+        const merged = [...parsed, ...faltantes];
+        localStorage.setItem('sigae_plantillas_admisiones', JSON.stringify(merged));
+        return merged;
+      }
+    }
+  } catch (e) {
+    console.warn('Aviso sincronizando plantillas de admisiones desde Supabase:', e);
+  }
+  return obtenerPlantillasAdmision();
+};
+
+/**
  * Obtiene las plantillas de mensajes de admisión desde localStorage o predeterminadas
  */
 export const obtenerPlantillasAdmision = (): PlantillaMensajeAdmision[] => {
@@ -291,18 +320,24 @@ export const obtenerPlantillasAdmision = (): PlantillaMensajeAdmision[] => {
 };
 
 /**
- * Guarda las plantillas de mensajes en localStorage y sincroniza con Supabase
+ * Guarda las plantillas de mensajes en localStorage y sincroniza con Supabase en tiempo real
  */
 export const guardarPlantillasAdmision = async (plantillas: PlantillaMensajeAdmision[]): Promise<void> => {
   localStorage.setItem('sigae_plantillas_admisiones', JSON.stringify(plantillas));
   try {
-    await supabase.from('ajustes_globales').upsert({
+    const { error } = await supabase.from('ajustes_globales').upsert({
       clave: 'plantillas_admisiones',
       valor: JSON.stringify(plantillas),
       descripcion: 'Plantillas de redacción de mensajes de admisión (WhatsApp y Email)'
     }, { onConflict: 'clave' });
+
+    if (error) {
+      console.error('Error al guardar plantillas en Supabase:', error);
+      throw error;
+    }
   } catch (e) {
     console.warn('Aviso sincronizando plantillas de admisión en BD:', e);
+    throw e;
   }
 };
 

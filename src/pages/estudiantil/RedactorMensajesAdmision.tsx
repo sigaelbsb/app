@@ -12,6 +12,7 @@ import {
   VARIABLES_DISPONIBLES,
   PLANTILLAS_PREDETERMINADAS_ADMISION,
   obtenerPlantillasAdmision,
+  sincronizarPlantillasAdmisionDesdeBD,
   guardarPlantillasAdmision,
   renderizarMensajeAdmision,
   generarEnlaceWhatsAppAdmision
@@ -45,12 +46,29 @@ export const RedactorMensajesAdmision: React.FC = () => {
   }, []);
 
   const cargarDatos = async () => {
-    const listado = obtenerPlantillasAdmision();
-    setPlantillas(listado);
+    // 1. Cargar caché inicial rápido
+    const listadoInicial = obtenerPlantillasAdmision();
+    setPlantillas(listadoInicial);
 
-    if (listado.length > 0) {
-      setPlantillaActivaId(listado[0].id);
-      setPlantillaEdicion(JSON.parse(JSON.stringify(listado[0])));
+    if (listadoInicial.length > 0) {
+      setPlantillaActivaId(listadoInicial[0].id);
+      setPlantillaEdicion(JSON.parse(JSON.stringify(listadoInicial[0])));
+    }
+
+    // 2. Sincronizar desde Supabase en tiempo real
+    try {
+      const listadoActualizado = await sincronizarPlantillasAdmisionDesdeBD();
+      setPlantillas(listadoActualizado);
+      if (listadoActualizado.length > 0) {
+        setPlantillaActivaId(prev => {
+          const match = listadoActualizado.find(p => p.id === prev);
+          const activa = match || listadoActualizado[0];
+          setPlantillaEdicion(JSON.parse(JSON.stringify(activa)));
+          return activa.id;
+        });
+      }
+    } catch (errSync) {
+      console.warn('Aviso sincronizando plantillas con Supabase:', errSync);
     }
 
     // Cargar aspirantes muestra para el simulador
