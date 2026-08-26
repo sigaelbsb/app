@@ -1592,22 +1592,74 @@ export const GestionAdmisiones: React.FC = () => {
     if (!formEdicion.id) return;
     setGuardandoEdicion(true);
     try {
-      // Filtrar campos computados antes de enviar a Supabase
-      const {
-        aptitud,
-        instruccion_jerarquica,
-        instruccion_quien,
-        prioridad_manual,
-        instruccion_motivo,
-        es_personal_escuela,
-        created_at,
-        id,
-        ...datosValidos
-      } = formEdicion;
+      // Whitelist estricto de columnas físicas existentes en la tabla `solicitud_cupos`
+      const columnasPermitidas = [
+        'codigo_unico',
+        'codigo_escuela',
+        'estudiante_nombres',
+        'estudiante_apellidos',
+        'estudiante_cedula',
+        'estudiante_fecha_nacimiento',
+        'estudiante_sexo',
+        'estudiante_condicion_neuro',
+        'estudiante_condicion_medica',
+        'grado_solicitado',
+        'plantel_procedencia',
+        'representante_nombres',
+        'representante_apellidos',
+        'representante_cedula',
+        'representante_telefono',
+        'representante_telefono2',
+        'representante_email',
+        'representante_parentesco',
+        'representante_trabaja_pdvsa',
+        'pdvsa_condicion_laboral',
+        'pdvsa_tipo_nomina',
+        'pdvsa_negocio_filial',
+        'pdvsa_gerencia',
+        'pdvsa_localidad_trabajo',
+        'pdvsa_email_empresa',
+        'madre_nombres',
+        'madre_apellidos',
+        'madre_cedula',
+        'madre_telefono',
+        'madre_trabaja_pdvsa',
+        'padre_nombres',
+        'padre_apellidos',
+        'padre_cedula',
+        'padre_telefono',
+        'padre_trabaja_pdvsa',
+        'estado_habitacion',
+        'municipio_habitacion',
+        'parroquia_habitacion',
+        'direccion_habitacion',
+        'requiere_transporte',
+        'ruta_transporte',
+        'estado',
+        'observaciones',
+        'foto_partida_nacimiento_url',
+        'foto_cedula_estudiante_url',
+        'foto_carnet_url',
+        'foto_informe_medico_url',
+        'foto_carnet_conapdis_url',
+        'foto_cedula_madre_url',
+        'foto_cedula_padre_url',
+        'constancia_cultura_url',
+        'constancia_danza_url',
+        'constancia_deporte_url',
+        'documentos_adjuntos'
+      ];
+
+      const payloadBD: any = {};
+      columnasPermitidas.forEach(col => {
+        if ((formEdicion as any)[col] !== undefined) {
+          payloadBD[col] = (formEdicion as any)[col];
+        }
+      });
 
       const { error } = await supabase
         .from('solicitud_cupos')
-        .update(datosValidos)
+        .update(payloadBD)
         .eq('id', formEdicion.id);
 
       if (error) throw error;
