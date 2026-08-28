@@ -593,7 +593,7 @@ export const ActualizacionDatos: React.FC = () => {
     const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `CI-${escCodigo.toUpperCase()}-${cedulaLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoActual}`;
     
     const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseUrl = esLocal ? 'https://sigae-hh6u.onrender.com' : window.location.origin;
+    const baseUrl = esLocal ? 'https://app-xi-lake-26.vercel.app' : window.location.origin;
     const urlVerificacionPublica = `${baseUrl}/validar-constancia/${encodeURIComponent(codigoUnico)}`;
     const qrApiUrlPublica = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(urlVerificacionPublica)}&bgcolor=ffffff&color=166534&margin=2`;
 
