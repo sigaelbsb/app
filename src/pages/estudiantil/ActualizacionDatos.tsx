@@ -392,8 +392,6 @@ export const ActualizacionDatos: React.FC = () => {
 
   const [loadingGPS, setLoadingGPS] = useState(false);
 
-  const escCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-
   const esAdmin = ['SuperAdmin', 'Director', 'Administrador', 'Coordinador'].includes(user?.rol || '');
 
   const [cedulaBusquedaAdmin, setCedulaBusquedaAdmin] = useState<string>('');

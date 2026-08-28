@@ -804,11 +804,9 @@ export const GestionAdmisiones: React.FC = () => {
   const [salonesBD, setSalonesBD] = useState<any[]>([]);
   const [espaciosBD, setEspaciosBD] = useState<any[]>([]);
   const [estudiantesMatriculaBD, setEstudiantesMatriculaBD] = useState<any[]>([]);
-  const [cargandoCapacidad, setCargandoCapacidad] = useState<boolean>(false);
 
   // ── CARGA DE CAPACIDAD DE AMBIENTES Y MATRÍCULA REAL ───────────────────────────
   const cargarCapacidadEscolar = async () => {
-    setCargandoCapacidad(true);
     try {
       const [salRes, espRes] = await Promise.all([
         supabase.from('salones').select('*'),
@@ -849,8 +847,6 @@ export const GestionAdmisiones: React.FC = () => {
       setEstudiantesMatriculaBD(todosEst);
     } catch (e) {
       console.error('Error cargando datos de capacidad y matrícula:', e);
-    } finally {
-      setCargandoCapacidad(false);
     }
   };
 
@@ -1900,17 +1896,6 @@ export const GestionAdmisiones: React.FC = () => {
         return <span className="badge bg-secondary text-white px-2.5 py-1 rounded-pill"><i className="bi bi-pencil-square me-1"></i>Borrador</span>;
       default:
         return <span className="badge bg-warning text-dark px-2.5 py-1 rounded-pill"><i className="bi bi-clock-history me-1"></i>Pendiente</span>;
-    }
-  };
-
-  const renderBadgeAptitud = (aptitud?: string) => {
-    switch (aptitud?.toLowerCase()) {
-      case 'apto':
-        return <span className="badge bg-success-subtle text-success border border-success px-2 py-0.5 rounded"><i className="bi bi-check-lg me-1"></i>Apto</span>;
-      case 'no apto':
-        return <span className="badge bg-danger-subtle text-danger border border-danger px-2 py-0.5 rounded"><i className="bi bi-x-lg me-1"></i>No Apto</span>;
-      default:
-        return <span className="badge bg-secondary-subtle text-secondary border px-2 py-0.5 rounded"><i className="bi bi-question-circle me-1"></i>En Evaluación</span>;
     }
   };
 

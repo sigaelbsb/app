@@ -372,7 +372,6 @@ export const prepararDatosCarnet = async (
 export const renderCarnetContainerHTML = (d: DatosCarnetProcesados, config = d.config): string => {
   const cPrim = config.color_primario || (d.escCodigo === 'sb' ? '#047857' : '#1d4ed8');
   const cAcento = config.color_acento || '#f59e0b';
-  const activo = esCarnetActivo(d.escCodigo);
 
   return `
     <div id="carnet-export-wrapper" style="display: flex; flex-direction: row; gap: 28px; justify-content: center; align-items: center; padding: 18px; background: #f1f5f9; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; box-sizing: border-box; flex-wrap: wrap;">
@@ -647,7 +646,6 @@ export const descargarCarnetPDF = async (datosCarnet: DatosCarnetProcesados) => 
     });
 
     const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
 
     // Encabezado de la hoja de impresión
     pdf.setFontSize(14);
