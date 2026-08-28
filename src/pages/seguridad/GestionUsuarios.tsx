@@ -694,7 +694,7 @@ export const GestionUsuarios = () => {
     let telefono = telefonoPredefinido || await obtenerTelefonoUsuario(u);
 
     const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const linkPlataforma = esLocal ? 'https://app-xi-lake-26.vercel.app' : window.location.origin;
+    const linkPlataforma = esLocal ? 'https://app-delta-ten-80.vercel.app' : window.location.origin;
     
     const mensaje = esTotal 
       ? `*NOTIFICACIÓN OFICIAL SIGAE* 🔐\n\n*Estimado(a):* ${nombre} (C.I. ${cedula})\n\nLe informamos que se ha procesado y aprobado el *RESETEO TOTAL* de su cuenta en el *Sistema Integrado de Gestión y Administración Escolar (SIGAE)*.\n\nSu cuenta ha quedado habilitada en estado de *Primer Ingreso*, permitiéndole crear su propia contraseña personal y nuevas credenciales de seguridad desde cero.\n\n📋 *Datos de Acceso:*\n• *Usuario:* ${cedula}\n• *Contraseña Inicial:* No requerida (Creará su propia clave al ingresar)\n\n👉 *Pasos para Ingresar y Crear sus Credenciales:*\n1. Ingrese a la plataforma SIGAE: ${linkPlataforma}\n2. Coloque su número de cédula en el campo *Usuario* y presione *Continuar / Ingresar*.\n3. El sistema lo guiará automáticamente en el Asistente de Primer Ingreso para que cree su nueva contraseña personal y configure sus preguntas secretas de seguridad.\n\n_Si usted no solicitó este cambio o necesita asistencia, por favor contacte a la Dirección de la Institución._`

@@ -406,7 +406,7 @@ export const renderizarMensajeAdmision = (
   const anoEscolar = '2025 - 2026';
   
   const esLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const baseUrl = esLocal ? 'https://app-xi-lake-26.vercel.app' : (typeof window !== 'undefined' ? window.location.origin : 'https://app-xi-lake-26.vercel.app');
+  const baseUrl = esLocal ? 'https://app-delta-ten-80.vercel.app' : (typeof window !== 'undefined' ? window.location.origin : 'https://app-delta-ten-80.vercel.app');
   const enlacePortal = `${baseUrl}/login`;
   const enlaceValidacion = `${baseUrl}/validar-constancia/${encodeURIComponent(codigo)}`;
   const fechaActual = new Date().toLocaleDateString('es-VE');

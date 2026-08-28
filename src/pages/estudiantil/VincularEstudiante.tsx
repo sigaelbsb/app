@@ -338,7 +338,7 @@ export const VincularEstudiante: React.FC = () => {
     const ano = new Date().getFullYear();
     const codigoConst = estudianteDoc.codigo_unico || `CI-${esc}-${cedulaEst.replace(/\D/g, '') || '0000'}-${ano}`;
     const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'https://app-xi-lake-26.vercel.app'
+      ? 'https://app-delta-ten-80.vercel.app'
       : window.location.origin;
     const link = `${baseUrl}/validar-constancia/${encodeURIComponent(codigoConst)}`;
     const nombre = toTitulo(`${estudianteDoc.nombres_estudiante} ${estudianteDoc.apellidos_estudiante}`);
@@ -4484,7 +4484,7 @@ export const VincularEstudiante: React.FC = () => {
                 const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
 
                 const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                const baseUrlVerificacion = esLocal ? 'https://app-xi-lake-26.vercel.app' : window.location.origin;
+                const baseUrlVerificacion = esLocal ? 'https://app-delta-ten-80.vercel.app' : window.location.origin;
                 const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
                 const urlQrResumen = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`SIGAE:FI:${codigoResumen}:${nombreEstudianteCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
 

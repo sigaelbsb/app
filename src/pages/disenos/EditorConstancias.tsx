@@ -608,7 +608,7 @@ export const EditorConstancias: React.FC = () => {
     const codigoConstancia = `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
 
     const esLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const baseUrlVerificacion = esLocal ? 'https://app-xi-lake-26.vercel.app' : (typeof window !== 'undefined' ? window.location.origin : '');
+    const baseUrlVerificacion = esLocal ? 'https://app-delta-ten-80.vercel.app' : (typeof window !== 'undefined' ? window.location.origin : '');
     const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
 
     // Tipo de documento (cédula escolar vs cédula de identidad)
