@@ -39,17 +39,17 @@
 .sigma-avatar-wrapper {
     position: relative;
     width: var(--sigma-size);
-    height: calc(var(--sigma-size) * (824 / 436));
+    height: calc(var(--sigma-size) * 1.08);
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
-    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28)) drop-shadow(0 0 10px rgba(56, 189, 248, 0.25));
+    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28)) drop-shadow(0 0 14px rgba(244, 114, 182, 0.45));
     transition: filter 0.3s ease;
 }
 
 .sigma-avatar-wrapper:hover {
-    filter: drop-shadow(0 14px 30px rgba(15, 23, 42, 0.36)) drop-shadow(0 0 20px rgba(0, 229, 255, 0.5));
+    filter: drop-shadow(0 16px 32px rgba(15, 23, 42, 0.36)) drop-shadow(0 0 24px rgba(236, 72, 153, 0.7));
 }
 
 /* Figura Animada de Sigma (Opción 3 - Transparente con Micro-movimientos) */

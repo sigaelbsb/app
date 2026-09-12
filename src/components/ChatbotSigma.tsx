@@ -15,32 +15,15 @@ export const SigmaFiguraVisual: React.FC<{
 }> = ({ style, className = "", animado = true }) => (
   <div className={`sigma-mascot-container ${className}`} style={style}>
     <img 
-      src="/sigma-avatar.png" 
+      src="/sigma-avatar.png?v=sigma-pink-bot" 
       alt="SIGMA - Asistente de IA" 
       className="sigma-mascot-base"
       draggable={false}
     />
     {animado && (
       <div className="sigma-anim-layer">
-        {/* Párpados animados para parpadeo natural */}
-        <div className="sigma-eyelid left" />
-        <div className="sigma-eyelid right" />
-        
-        {/* Reflejo dinámico de pupila */}
-        <div className="sigma-pupil-glance left" />
-        <div className="sigma-pupil-glance right" />
-
-        {/* Iluminación LED Cyan en la Diadema */}
-        <div className="sigma-headset-glow-ring" />
-
-        {/* Micro-LED en el micrófono */}
-        <div className="sigma-mic-led" />
-
-        {/* Destello de luz sobre el símbolo Sigma */}
-        <div className="sigma-symbol-sheen" />
-
-        {/* Núcleo Cuántico Central Pulsante de la Σ */}
-        <div className="sigma-quantum-core-glow" />
+        {/* Destello sutil de energía propulsora */}
+        <div className="sigma-quantum-core-glow" style={{ top: '53%', left: '44%', width: '12%', height: '12%' }} />
       </div>
     )}
   </div>
@@ -819,7 +802,7 @@ export const ChatbotSigma = () => {
         <div className="sigma-bubble-header d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center gap-2">
             <img 
-              src="/sigma-avatar.png" 
+              src="/sigma-avatar.png?v=sigma-pink-bot" 
               alt="SIGMA" 
               className="rounded-circle shadow-xs border border-white" 
               style={{ width: '24px', height: '24px', objectFit: 'cover', objectPosition: 'center 22%' }} 
@@ -1046,7 +1029,7 @@ export const ChatbotSigma = () => {
         title="Hablar con SIGMA"
       >
         <img 
-          src="/sigma-avatar.png" 
+          src="/sigma-avatar.png?v=sigma-pink-bot" 
           alt="SIGMA" 
           className="sigma-launcher-img" 
           draggable={false}
