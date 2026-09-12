@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
@@ -7,11 +7,12 @@ import { subscribeToWebPush } from '../lib/webPush';
 import { ChatbotSigma } from './ChatbotSigma';
 import { TourOrientacion } from './TourOrientacion';
 import { NavigationLoader } from './NavigationLoader';
+import { ModalAsignacionSorpresa } from './ModalAsignacionSorpresa';
 
 export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { tienePermiso, tieneAccesoEscuela, loading: permLoading } = usePermisos();
+  const { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
   const usuarioStr = localStorage.getItem('usuario_sigae');
   const usuario = usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
   const escuelaCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
@@ -20,12 +21,6 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
-  const [isStandalone, setIsStandalone] = useState(false);
-  
-  useEffect(() => {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    setIsStandalone(standalone);
-  }, []);
   
   // Lógica de Notificaciones
   const [notificaciones, setNotificaciones] = useState<any[]>([]);
@@ -38,6 +33,73 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     }
   });
   const [mostrarNotifDropdown, setMostrarNotifDropdown] = useState(false);
+  const [mostrarUserDropdown, setMostrarUserDropdown] = useState(false);
+  const [mostrarAsignacionManual, setMostrarAsignacionManual] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [silenciarTransporte, setSilenciarTransporte] = useState<boolean>(() => {
+    return localStorage.getItem('sigae_silenciar_transporte') === 'true';
+  });
+  const [filtroNotif, setFiltroNotif] = useState<'todas' | 'seguridad' | 'transporte'>('todas');
+  const [misRutasRepresentante, setMisRutasRepresentante] = useState<string[]>([]);
+  const misRutasRef = useRef<string[]>([]);
+  misRutasRef.current = misRutasRepresentante;
+
+  const toggleSilenciarTransporte = () => {
+    setSilenciarTransporte(prev => {
+      const nextVal = !prev;
+      localStorage.setItem('sigae_silenciar_transporte', String(nextVal));
+      return nextVal;
+    });
+  };
+
+  // Cargar las rutas asociadas a los representados si el usuario es Representante
+  useEffect(() => {
+    const fetchRutasRepresentante = async () => {
+      const usrStr = localStorage.getItem('usuario_sigae');
+      if (!usrStr) return;
+      try {
+        const u = JSON.parse(usrStr);
+        if (!u.cedula) return;
+        const { data: vincs } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('datos_actualizados')
+          .eq('cedula_representante', u.cedula);
+
+        if (vincs && vincs.length > 0) {
+          const rutas: string[] = [];
+          vincs.forEach((item: any) => {
+            const r = item.datos_actualizados?.ruta_transporte;
+            if (r && typeof r === 'string') {
+              rutas.push(r.toLowerCase());
+            }
+          });
+          setMisRutasRepresentante(rutas);
+        }
+      } catch (err) {
+        console.warn('Error al cargar rutas del representante:', err);
+      }
+    };
+    fetchRutasRepresentante();
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 8);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('sigae-abrir-sigma-busqueda'));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('sigae_notif_leidas', JSON.stringify(leidasIds));
@@ -217,12 +279,52 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             let list: any[] = [];
             const esAdminODirectivo = ['SuperAdmin', 'Director', 'Directora', 'Administrador', 'Subdirector', 'Coordinador'].includes(usr.rol || '');
 
+            // Cargar rutas de representados para filtrado exacto si es Representante
+            let misRutas: string[] = [];
+            if (usr.rol === 'Representante' && usr.cedula) {
+              try {
+                const { data: vincs } = await supabase
+                  .from('estudiantes_vinculaciones')
+                  .select('datos_actualizados')
+                  .eq('cedula_representante', usr.cedula);
+                if (vincs && vincs.length > 0) {
+                  vincs.forEach((item: any) => {
+                    const r = item.datos_actualizados?.ruta_transporte;
+                    if (r && typeof r === 'string') misRutas.push(r.toLowerCase());
+                  });
+                }
+              } catch (e) {}
+            }
+
             if (data) {
               list = data
                 .filter((d: any) => {
+                  // 1. Notificación personal para el usuario actual
+                  if (d.tipo && d.tipo.startsWith('usuario:')) {
+                    const targetCedula = d.tipo.replace('usuario:', '').trim().toLowerCase();
+                    const myCedula = String(usr.cedula || '').trim().toLowerCase();
+                    return targetCedula === myCedula;
+                  }
+
+                  // 2. Notificación de seguridad / reseteo general
                   const esSeg = d.tipo === 'seguridad' || d.tipo === 'alerta' || (d.titulo && d.titulo.toLowerCase().includes('reseteo'));
-                  // Si es notificación de seguridad o reseteo, SOLO mostrar a administradores y directivos
-                  if (esSeg && !esAdminODirectivo) return false;
+                  if (esSeg) {
+                    return esAdminODirectivo;
+                  }
+
+                  // 3. Notificación de transporte
+                  if (d.tipo === 'transporte') {
+                    if (usr.rol === 'Representante') {
+                      if (misRutas.length === 0) return false;
+                      const textoNotif = ((d.titulo || '') + ' ' + (d.cuerpo || '')).toLowerCase();
+                      return misRutas.some(ruta => {
+                        const palabras = ruta.split(/[-–—]/).map((p: string) => p.trim()).filter(Boolean);
+                        return palabras.some((p: string) => p.length > 3 && textoNotif.includes(p)) || textoNotif.includes(ruta);
+                      });
+                    }
+                    return true;
+                  }
+
                   return true;
                 })
                 .map((d: any) => ({
@@ -230,7 +332,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   titulo: d.titulo,
                   cuerpo: d.cuerpo,
                   fecha: d.creado_en,
-                  tipo: d.tipo || 'transporte',
+                  tipo: (d.tipo && d.tipo.startsWith('usuario:')) ? 'personal' : (d.tipo || 'transporte'),
                   leido: leidasIds.includes(String(d.id))
                 }));
             }
@@ -385,17 +487,61 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           const isSuperAdmin = usuario?.rol === 'SuperAdmin';
           if (!isSuperAdmin && row.escuela_codigo && row.escuela_codigo !== 'todas' && row.escuela_codigo !== escCodigo) return;
 
+          const isPersonal = row.tipo && row.tipo.startsWith('usuario:');
+          const miCedula = String(usuario?.cedula || '').trim().toLowerCase();
+
+          // 1. Notificación personal dirigida a un usuario específico
+          if (isPersonal) {
+            const cedulaDestino = row.tipo.replace('usuario:', '').trim().toLowerCase();
+            if (cedulaDestino !== miCedula) {
+              return; // Notificación dirigida a otra persona, ignorar
+            }
+          }
+
           const isSeguridad = row.tipo === 'seguridad' || row.tipo === 'alerta' || (row.titulo && row.titulo.toLowerCase().includes('reseteo'));
           const esAdminODirectivo = ['SuperAdmin', 'Director', 'Directora', 'Administrador', 'Subdirector', 'Coordinador'].includes(usuario?.rol || '');
 
-          // SEGURIDAD ESTRICTA: Las notificaciones de reseteo/seguridad son EXCLUSIVAS de administradores y directivos
-          if (isSeguridad && !esAdminODirectivo) {
-            return;
+          if (!isPersonal) {
+            // SEGURIDAD ESTRICTA: Las notificaciones generales de seguridad son EXCLUSIVAS de administradores y directivos
+            if (isSeguridad && !esAdminODirectivo) {
+              return;
+            }
+
+            // SEGMENTACIÓN DE TRANSPORTE PARA REPRESENTANTES:
+            // El representante solo debe recibir la alerta si corresponde a la ruta de su representado
+            if (row.tipo === 'transporte' && usuario?.rol === 'Representante') {
+              const misRutas = misRutasRef.current;
+              if (!misRutas || misRutas.length === 0) {
+                return; // Si el representante no tiene rutas registradas, no recibe alertas de transporte
+              }
+              const textoAlerta = ((row.titulo || '') + ' ' + (row.cuerpo || '')).toLowerCase();
+              const rutaCoincide = misRutas.some(r => r && textoAlerta.includes(r.toLowerCase()));
+              if (!rutaCoincide) {
+                return; // La ruta no pertenece a ninguno de sus representados
+              }
+            }
           }
 
           const isEnd = (row.titulo || '').toLowerCase().includes('finalizada') || (row.titulo || '').toLowerCase().includes('destino') || (row.titulo || '').toLowerCase().includes('alcanzado');
+          const transporteSilenciado = localStorage.getItem('sigae_silenciar_transporte') === 'true';
           
-          if (isSeguridad) {
+          if (isPersonal) {
+            playAlertSound();
+            const Swal = (window as any).Swal;
+            if (Swal) {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: row.titulo,
+                text: row.cuerpo,
+                showConfirmButton: false,
+                timer: 8000,
+                timerProgressBar: true
+              });
+            }
+            sendSystemNotification(row.titulo, row.cuerpo, 'info');
+          } else if (isSeguridad) {
             playAlertSound();
             const Swal = (window as any).Swal;
             if (Swal) {
@@ -417,11 +563,17 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                 }
               });
             }
+            sendSystemNotification(row.titulo, row.cuerpo, 'seguridad');
+          } else if (row.tipo === 'transporte') {
+            // El administrador o usuario puede silenciar alertas de rutas
+            if (!transporteSilenciado) {
+              playBusChime(isEnd ? 'llegada' : 'parada');
+              sendSystemNotification(row.titulo, row.cuerpo, 'bus-parada');
+            }
           } else {
-            playBusChime(isEnd ? 'llegada' : 'parada');
+            playAlertSound();
+            sendSystemNotification(row.titulo, row.cuerpo, 'info');
           }
-
-          sendSystemNotification(row.titulo, row.cuerpo, isSeguridad ? 'seguridad' : 'bus-parada');
 
           setNotificaciones(prev => {
             if (prev.some(n => n.id === String(row.id))) return prev;
@@ -722,20 +874,104 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     };
   }, [navigate, onLogout]);
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarColapsado, setSidebarColapsado] = useState(() => {
+    return typeof document !== 'undefined' ? document.body.classList.contains('menu-colapsado') : false;
+  });
+
   const toggleSidebar = () => {
-    document.body.classList.toggle('menu-colapsado');
+    if (window.innerWidth < 992) {
+      toggleMobileSidebar();
+      return;
+    }
+    const isColapsado = document.body.classList.toggle('menu-colapsado');
+    setSidebarColapsado(isColapsado);
+  };
+
+  const closeMobileSidebar = () => {
+    document.body.classList.remove('menu-abierto');
+    if (window.innerWidth < 992) {
+      document.body.classList.remove('menu-colapsado');
+      setSidebarColapsado(false);
+    }
+    setMobileMenuOpen(false);
   };
 
   const toggleMobileSidebar = () => {
-    document.body.classList.toggle('menu-abierto');
+    document.body.classList.remove('menu-colapsado');
+    setSidebarColapsado(false);
+    const isOpen = document.body.classList.toggle('menu-abierto');
+    setMobileMenuOpen(isOpen);
   };
 
-
-
-  // Close mobile sidebar on route change
+  // Cierre de barra lateral móvil y menús desplegables al cambiar de ruta
   useEffect(() => {
-    document.body.classList.remove('menu-abierto');
+    closeMobileSidebar();
+    setMostrarUserDropdown(false);
+    setMostrarNotifDropdown(false);
   }, [location.pathname]);
+
+  // Listener de redimensionamiento de ventana para ajustar el layout inmediatamente
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 992) {
+        document.body.classList.remove('menu-colapsado');
+        setSidebarColapsado(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    // Ejecutar una vez al montar para corregir si arrancó en pantalla pequeña con clase previa
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Cierre y recogida automática al hacer clic fuera de la barra lateral (en móvil y desktop)
+  useEffect(() => {
+    const handleClickAfuera = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      const menuLateral = document.getElementById('menu-lateral');
+      const btnColapsar = document.getElementById('btn-colapsar-menu');
+      const btnToggleDesktop = document.getElementById('btn-toggle-sidebar-desktop');
+      const btnMovil = document.getElementById('btn-menu-movil');
+      const btnCerrarMovil = document.getElementById('btn-cerrar-menu-movil');
+
+      // Si el clic fue dentro de la barra lateral o sobre sus botones de apertura/cierre, ignorar
+      if (
+        (menuLateral && menuLateral.contains(target)) ||
+        (btnColapsar && btnColapsar.contains(target)) ||
+        (btnToggleDesktop && btnToggleDesktop.contains(target)) ||
+        (btnMovil && btnMovil.contains(target)) ||
+        (btnCerrarMovil && btnCerrarMovil.contains(target))
+      ) {
+        return;
+      }
+
+      // En móviles/tablets: si está abierta, cerrarla y asegurar que no quede menu-colapsado
+      if (window.innerWidth < 992) {
+        document.body.classList.remove('menu-colapsado');
+        setSidebarColapsado(false);
+        if (document.body.classList.contains('menu-abierto')) {
+          closeMobileSidebar();
+        }
+        return;
+      }
+
+      // En desktop (pantallas grandes): si la barra está desplegada, recogerla automáticamente al hacer clic afuera
+      if (window.innerWidth >= 992 && !document.body.classList.contains('menu-colapsado')) {
+        document.body.classList.add('menu-colapsado');
+        setSidebarColapsado(true);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickAfuera);
+    document.addEventListener('touchstart', handleClickAfuera);
+    return () => {
+      document.removeEventListener('mousedown', handleClickAfuera);
+      document.removeEventListener('touchstart', handleClickAfuera);
+    };
+  }, []);
 
   const activeCategory = location.pathname === '/' 
     ? 'Inicio' 
@@ -745,100 +981,217 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   return (
     <div id="vista-app" className="vista-app-estilo">
-      <aside id="menu-lateral" className="glass-sidebar shadow-lg">
-        <div className="sidebar-header d-flex align-items-center justify-content-between">
-          <div id="btn-logo-nav" onClick={() => navigate('/')} className="d-flex align-items-center cursor-pointer">
-            <img 
-              src={logoPath} 
-              width="40" 
-              className="me-2 logo-img" 
-              alt="Logo SIGAE" 
-              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-            />
-            <span className="fw-bold text-dark sidebar-texto">SIGAE {escuelaNombre.replace('UE ', '')}</span>
+      {/* TELÓN DE FONDO (OVERLAY) PARA CERRAR LA BARRA LATERAL AL HACER CLIC AFUERA */}
+      {mobileMenuOpen && (
+        <div 
+          id="sidebar-backdrop-overlay"
+          onClick={closeMobileSidebar}
+          className="animate__animated animate__fadeIn"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+            zIndex: 999,
+            cursor: 'pointer'
+          }}
+          title="Haga clic afuera para cerrar la barra lateral"
+        />
+      )}
+
+      <aside id="menu-lateral" className="glass-sidebar chamilo-sidebar shadow-sm d-flex flex-column">
+        {/* CABECERA INSTITUCIONAL CHAMILO */}
+        <div className="chamilo-sidebar-brand d-flex align-items-center justify-content-between">
+          <div 
+            id="btn-logo-nav" 
+            onClick={() => { navigate('/'); closeMobileSidebar(); }} 
+            className="d-flex align-items-center gap-2.5 cursor-pointer text-decoration-none"
+            title="Ir al Portal Principal"
+          >
+            <div className="chamilo-sidebar-logo-frame">
+              <img 
+                src={logoPath} 
+                className="logo-img" 
+                alt="Escuela SIGAE" 
+                onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+              />
+            </div>
+            <div className="sidebar-texto">
+              <div className="chamilo-sidebar-title text-truncate" style={{ maxWidth: '170px' }}>
+                {escuelaNombre}
+              </div>
+              <div className="chamilo-sidebar-subtitle">
+                PDVSA Oriente &bull; <span className="text-primary fw-bold">{escuelaCodigo.toUpperCase()}</span>
+              </div>
+            </div>
           </div>
-          <div className="d-flex align-items-center ms-auto gap-2">
+
+          <div className="d-flex align-items-center gap-1">
+            {/* Botón Colapsar en Pantallas Grandes (Desktop) */}
             <button 
               id="btn-colapsar-menu" 
               onClick={toggleSidebar} 
-              className="btn-colapsar d-none d-lg-block position-relative" 
-              title="Contraer/Expandir Menú Lateral"
+              className="btn-colapsar d-none d-lg-flex align-items-center justify-content-center p-1.5 rounded-3 text-muted hover-efecto" 
+              title={sidebarColapsado ? "Expandir Barra Lateral" : "Contraer Barra Lateral"}
             >
-              <i className="bi bi-list"></i>
+              <i className={`bi ${sidebarColapsado ? 'bi-chevron-right text-primary fw-bold' : 'bi-layout-sidebar-inset'} fs-5`}></i>
+            </button>
+
+            {/* Botón Cerrar en Pantallas Móviles y Tablets */}
+            <button 
+              id="btn-cerrar-menu-movil" 
+              onClick={closeMobileSidebar} 
+              className="btn btn-sm btn-light rounded-circle d-flex d-lg-none align-items-center justify-content-center border shadow-xs text-secondary hover-efecto" 
+              style={{ width: '34px', height: '34px' }}
+              title="Cerrar Barra Lateral"
+            >
+              <i className="bi bi-x-lg fs-6"></i>
             </button>
           </div>
         </div>
         
-        <div id="contenedor-enlaces" className="sidebar-menu pb-5">
-          {/* PANEL PRINCIPAL / INICIO */}
-          <div className="px-4 mb-3">
-            <button 
-              onClick={() => navigate('/')} 
-              id="btn-menu-Inicio" 
-              className={`btn-moderno w-100 btn-inicio-sidebar text-start ${activeCategory === 'Inicio' ? 'btn-primario' : 'btn-secundario'}`} 
-              style={{ 
-                padding: '12px', 
-                display: 'flex', 
-                alignItems: 'center',
-                background: activeCategory === 'Inicio' ? 'var(--color-primario)' : 'transparent',
-                color: activeCategory === 'Inicio' ? 'white' : 'var(--color-primario)',
-                border: activeCategory === 'Inicio' ? 'none' : '2px solid var(--color-primario)',
-                boxShadow: activeCategory === 'Inicio' ? 'var(--sombra-neon)' : 'none'
-              }}
-            >
-              <i className="bi bi-house-door-fill me-3 fs-5"></i>
-              <span className="texto-menu-ocultable fw-bold">Panel Principal</span>
-            </button>
+        {/* LISTADO DE CAJAS DE HERRAMIENTAS (ESTILO CHAMILO) */}
+        <div id="contenedor-enlaces" className="sidebar-menu flex-grow-1 overflow-auto py-3">
+          {/* SECCIÓN 1: PORTAL PRINCIPAL */}
+          <div className="chamilo-nav-section-title sidebar-texto">
+            Portal Oficial
           </div>
 
-          {/* CATEGORIAS DINAMICAS */}
-          <div className="px-3">
-            <div className="small text-muted fw-bold mb-2 px-3 texto-menu-ocultable" style={{ fontSize: '0.75rem', letterSpacing: '1px' }}>
-              MÓDULOS DEL SISTEMA
+          <div 
+            onClick={() => { navigate('/'); closeMobileSidebar(); }} 
+            id="btn-menu-Inicio" 
+            className={`chamilo-menu-link ${activeCategory === 'Inicio' ? 'active' : ''}`}
+            role="button"
+          >
+            <div className="d-flex align-items-center">
+              <div 
+                className="chamilo-menu-icon-box"
+                style={{ 
+                  backgroundColor: activeCategory === 'Inicio' ? '#0066FF' : '#eff6ff',
+                  color: activeCategory === 'Inicio' ? '#ffffff' : '#0066FF'
+                }}
+              >
+                <i className="bi bi-house-door-fill"></i>
+              </div>
+              <span className="texto-menu-ocultable">Panel Principal</span>
             </div>
-            
-            {Object.entries(ModulosSistema).map(([nombreCategoria, datosModulo]) => {
-              // Mientras cargan permisos, no mostrar nada (evita flash de módulos sin filtrar)
-              if (permLoading) return null;
-              if (!datosModulo.items.some((item: any) => tienePermiso(item.vista, 'ver'))) {
-                return null;
+
+            <span className="chamilo-menu-badge texto-menu-ocultable" title="Módulos autorizados para tu rol">
+              {Object.values(ModulosSistema).flatMap(cat => cat.items).filter((item: any) => {
+                if (item.vista === 'Mi Expediente' && tienePermiso('Gestor de Expedientes', 'ver')) return false;
+                if (item.vista === 'Gestión de Colectivos') {
+                  return tienePermisoEnEscuela('sb', item.vista, 'ver') || tienePermisoEnEscuela('lb', item.vista, 'ver');
+                }
+                return tienePermiso(item.vista, 'ver');
+              }).length}
+            </span>
+          </div>
+
+          {/* SECCIÓN 2: CAJAS DE HERRAMIENTAS DINÁMICAS */}
+          <div className="chamilo-nav-section-title sidebar-texto mt-2">
+            Cajas de Herramientas
+          </div>
+          
+          {Object.entries(ModulosSistema).map(([nombreCategoria, datosModulo]) => {
+            if (permLoading) return null;
+
+            const itemsPermitidos = datosModulo.items.filter((item: any) => {
+              if (item.vista === 'Mi Expediente' && tienePermiso('Gestor de Expedientes', 'ver')) return false;
+              if (item.vista === 'Gestión de Colectivos') {
+                return tienePermisoEnEscuela('sb', item.vista, 'ver') || tienePermisoEnEscuela('lb', item.vista, 'ver');
               }
-              const isActive = activeCategory === nombreCategoria;
-              return (
-                <a 
-                  key={nombreCategoria}
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(`/categoria/${encodeURIComponent(nombreCategoria)}`);
-                  }}
-                  id={`btn-menu-${nombreCategoria.replace(/[\s/()]/g, '-')}`}
-                  className={`menu-item d-flex align-items-center mb-1 rounded-3 ${isActive ? 'activo' : ''}`}
-                  style={{ 
-                    padding: '12px 20px', 
-                    textDecoration: 'none',
-                    background: isActive ? 'rgba(0, 102, 255, 0.08)' : 'transparent',
-                    borderLeft: isActive ? '4px solid var(--color-primario)' : '4px solid transparent'
-                  }}
-                >
-                  <i className={`bi ${datosModulo.icono} me-3 fs-5`} style={{ color: datosModulo.color }}></i>
-                  <span className="texto-menu-ocultable">{nombreCategoria}</span>
-                </a>
-              );
-            })}
+              return tienePermiso(item.vista, 'ver');
+            });
+
+            if (itemsPermitidos.length === 0) return null;
+
+            const isActive = activeCategory === nombreCategoria;
+
+            return (
+              <div
+                key={nombreCategoria}
+                onClick={() => {
+                  navigate(`/categoria/${encodeURIComponent(nombreCategoria)}`);
+                  closeMobileSidebar();
+                }}
+                id={`btn-menu-${nombreCategoria.replace(/[\s/()]/g, '-')}`}
+                className={`chamilo-menu-link ${isActive ? 'active' : ''}`}
+                role="button"
+                title={`${nombreCategoria} (${itemsPermitidos.length} herramientas)`}
+              >
+                <div className="d-flex align-items-center text-truncate">
+                  <div 
+                    className="chamilo-menu-icon-box d-flex align-items-center justify-content-center"
+                    style={{ 
+                      backgroundColor: isActive ? datosModulo.color : `${datosModulo.color}15`,
+                      color: isActive ? '#ffffff' : datosModulo.color,
+                      border: isActive ? `1.5px solid ${datosModulo.color}` : `1px solid ${datosModulo.color}25`
+                    }}
+                  >
+                    <i className={`bi ${datosModulo.icono}`}></i>
+                  </div>
+                  <span className="texto-menu-ocultable text-truncate">{nombreCategoria}</span>
+                </div>
+
+                <span className="chamilo-menu-badge texto-menu-ocultable">
+                  {itemsPermitidos.length}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* PIE INSTITUCIONAL DEL MENÚ LATERAL */}
+        <div className="chamilo-sidebar-footer sidebar-texto">
+          <div className="d-flex align-items-center justify-content-between mb-2">
+            <span className="extra-small text-muted fw-bold">Sede Activa:</span>
+            <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success' : 'bg-primary'} rounded-pill extra-small px-2 py-0.5`}>
+              {escuelaCodigo === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+            </span>
+          </div>
+
+          <div className="d-flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('sigae-iniciar-tour'))}
+              className="btn btn-xs btn-light border w-100 rounded-pill fw-bold text-muted d-flex align-items-center justify-content-center gap-1 hover-efecto"
+              style={{ fontSize: '0.74rem' }}
+              title="Guía interactiva"
+            >
+              <i className="bi bi-question-circle text-primary"></i>
+              <span>Orientación</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/categoria/Seguridad%20y%20Accesos/Mi%20Perfil')}
+              className="btn btn-xs btn-light border w-100 rounded-pill fw-bold text-muted d-flex align-items-center justify-content-center gap-1 hover-efecto"
+              style={{ fontSize: '0.74rem' }}
+              title="Mi Perfil"
+            >
+              <i className="bi bi-person-gear text-secondary"></i>
+              <span>Mi Perfil</span>
+            </button>
           </div>
         </div>
       </aside>
 
-      <main id="contenido-principal" className="d-flex flex-column min-vh-100">
+      <main 
+        id="contenido-principal" 
+        className="d-flex flex-column min-vh-100"
+        style={esModoEmulacion ? { paddingTop: '120px' } : undefined}
+      >
         {/* BANNER FLOTANTE DE MODO EMULACIÓN */}
         {esModoEmulacion && (
           <div 
             className="w-100 px-3 px-md-4 py-2 text-white shadow d-flex align-items-center justify-content-between flex-wrap gap-2 animate__animated animate__fadeInDown"
             style={{ 
               background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
-              position: 'sticky',
+              position: 'fixed',
               top: 0,
+              left: 0,
+              right: 0,
               zIndex: 1060,
               borderBottom: '2px solid rgba(255,255,255,0.2)'
             }}
@@ -882,92 +1235,83 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         )}
 
-        <header className="glass-header shadow-sm d-flex align-items-center px-4 bg-white auth-header">
-          <div className="d-flex align-items-center d-lg-none me-3">
+        <header 
+          className={`chamilo-top-header d-flex align-items-center px-3 px-md-4 ${isScrolled ? 'barra-flotante-activa' : ''}`}
+          style={esModoEmulacion ? { top: '48px' } : undefined}
+        >
+          <div className="d-flex align-items-center d-lg-none me-2">
             <button id="btn-menu-movil" onClick={toggleMobileSidebar} className="btn-movil position-relative" title="Abrir Menú de Categorías">
               <i className="bi bi-list fs-2 text-primary"></i>
             </button>
           </div>
-          <h5 id="titulo-pagina" className="mb-0 fw-bold text-dark d-none d-md-block">
-            {activeCategory === 'Inicio' ? 'Panel Principal' : activeCategory}
-          </h5>
 
-          <div className="ms-auto d-flex align-items-center">
-            <div className="d-none d-lg-flex flex-column align-items-end me-4 pe-4 border-end">
-              <span className="fw-bold text-primary text-anio" id="global-anio-escolar">
-                <i className="bi bi-calendar3 me-1"></i> Año Escolar: <span className="fw-bold">{anioEscolar}</span>
-              </span>
-              <span className="text-muted fw-bold text-lapso" id="global-lapso-escolar">
-                <i className="bi bi-clock-history me-1"></i> Fase Actual: <span className={lapsoEscolar.includes('Fuera') || lapsoEscolar === 'Error' ? 'text-danger fw-bold' : (lapsoEscolar === 'Cargando...' ? 'text-muted' : 'text-success fw-bold')}>{lapsoEscolar}</span>
-              </span>
+          {/* BOTÓN TOGGLE SIDEBAR EN DESKTOP (SIEMPRE DISPONIBLE Y VISIBLE) */}
+          <div className="d-none d-lg-flex align-items-center me-2.5">
+            <button 
+              id="btn-toggle-sidebar-desktop" 
+              onClick={toggleSidebar} 
+              className="btn btn-sm btn-light rounded-3 p-1.5 border shadow-xs hover-efecto d-flex align-items-center justify-content-center" 
+              title={sidebarColapsado ? "Expandir Menú Lateral" : "Contraer Menú Lateral"}
+              style={{ width: '36px', height: '36px', color: sidebarColapsado ? '#0066FF' : '#64748b' }}
+            >
+              <i className={`bi ${sidebarColapsado ? 'bi-layout-sidebar fs-5' : 'bi-layout-sidebar-inset fs-5'}`}></i>
+            </button>
+          </div>
+
+          {/* TÍTULO / MIGA DE PAN DE LA SECCIÓN */}
+          <div className="d-none d-md-flex align-items-center gap-2">
+            <h5 id="titulo-pagina" className="mb-0 fw-bold text-dark">
+              {activeCategory === 'Inicio' ? 'Panel Principal' : activeCategory}
+            </h5>
+          </div>
+
+          <div className="ms-auto d-flex align-items-center gap-2 gap-md-3">
+            {/* DISTINTIVO AÑO ESCOLAR Y FASE */}
+            <div className="d-none d-xl-flex align-items-center gap-2 px-3 py-1.5 bg-light rounded-pill border">
+              <i className="bi bi-calendar-event text-primary"></i>
+              <span className="small fw-bold text-dark">{anioEscolar}</span>
+              <span className="text-muted extra-small">&bull; {lapsoEscolar}</span>
             </div>
 
-            {/* BOTON RAPIDO EMULAR ROL EN NAVBAR */}
-            {!esModoEmulacion && (usuario.rol === 'SuperAdmin' || usuario.rol === 'Administrador' || tienePermiso('Función: Emulación de Roles', 'ver')) && (
-              <button 
-                type="button" 
-                onClick={() => navigate('/categoria/Seguridad%20y%20Accesos/Roles%20y%20Privilegios')}
-                className="btn btn-sm rounded-pill px-3 fw-bold me-3 d-none d-md-inline-flex align-items-center gap-1.5 shadow-sm text-dark hover-efecto"
-                style={{ backgroundColor: '#fef3c7', borderColor: '#fde68a' }}
-                title="Probar y Emular Roles del Sistema"
-              >
-                <i className="bi bi-person-bounding-box text-warning fs-6"></i>
-                <span>Emular Rol</span>
-              </button>
-            )}
-
-            {!isStandalone && (
-              <button 
-                type="button" 
-                onClick={() => window.dispatchEvent(new Event('show-pwa-modal'))}
-                className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold me-3 d-none d-sm-inline-flex align-items-center gap-1 shadow-sm hover-efecto"
-                title="Instalar Aplicación en tu dispositivo"
-              >
-                <i className="bi bi-download"></i>
-                <span>Instalar App</span>
-              </button>
-            )}
-
-            <div className="position-relative me-3 cursor-pointer" id="btn-dark-mode">
-              <i className="bi bi-moon-stars-fill fs-4 text-secondary hover-efecto" id="icono-tema"></i>
-            </div>
-
+            {/* CAMPANA DE NOTIFICACIONES */}
             <div 
-              className="position-relative me-3 me-md-4" 
+              className="position-relative" 
               id="campana-notificaciones"
               style={{ display: 'inline-block' }}
             >
-              <div 
+              <button 
+                type="button"
                 onClick={() => setMostrarNotifDropdown(!mostrarNotifDropdown)} 
-                className="cursor-pointer position-relative d-flex align-items-center"
+                className="btn btn-sm btn-light rounded-circle p-2 border shadow-xs d-flex align-items-center justify-content-center text-muted hover-efecto position-relative"
+                style={{ width: '38px', height: '38px' }}
+                title="Notificaciones"
               >
-                <i className="bi bi-bell-fill fs-4 text-secondary hover-efecto" id="icono-campana"></i>
+                <i className="bi bi-bell-fill fs-6"></i>
                 {notificaciones.filter(n => !n.leido).length > 0 && (
                   <span 
                     className="position-absolute translate-middle badge rounded-pill bg-danger" 
                     style={{
-                      top: '4px',
-                      right: '-8px',
-                      fontSize: '0.65rem',
-                      padding: '4px 6px',
-                      boxShadow: '0 0 0 2px white',
-                      animation: 'pulse-badge 1.5s infinite'
+                      top: '6px',
+                      right: '-4px',
+                      fontSize: '0.62rem',
+                      padding: '3px 5px',
+                      boxShadow: '0 0 0 2px white'
                     }}
                   >
                     {notificaciones.filter(n => !n.leido).length}
                   </span>
                 )}
-              </div>
+              </button>
 
               {mostrarNotifDropdown && (
                 <div 
-                  className="dropdown-menu show dropdown-menu-end shadow-lg border-0 rounded-3 p-0"
+                  className="dropdown-menu show dropdown-menu-end shadow-lg border-0 rounded-4 p-0"
                   style={{
                     position: 'absolute',
-                    top: '38px',
+                    top: '44px',
                     right: 0,
-                    width: '320px',
-                    maxHeight: '400px',
+                    width: '340px',
+                    maxHeight: '440px',
                     zIndex: 1050,
                     display: 'flex',
                     flexDirection: 'column',
@@ -975,9 +1319,16 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   }}
                 >
                   <div className="d-flex justify-content-between align-items-center p-3 border-bottom bg-light rounded-top">
-                    <span className="fw-bold text-dark mb-0 small">Notificaciones</span>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="fw-bold text-dark mb-0 small">Notificaciones</span>
+                      {notificaciones.filter(n => !n.leido).length > 0 && (
+                        <span className="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle" style={{ fontSize: '0.68rem' }}>
+                          {notificaciones.filter(n => !n.leido).length} nuevas
+                        </span>
+                      )}
+                    </div>
                     {notificaciones.length > 0 && (
-                      <div className="d-flex gap-2">
+                      <div className="d-flex gap-2 align-items-center">
                         <button 
                           className="btn btn-link btn-sm p-0 text-primary fw-semibold small text-decoration-none"
                           onClick={() => {
@@ -1004,151 +1355,297 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                     )}
                   </div>
 
-                  <div className="overflow-auto" style={{ maxHeight: '320px', flexGrow: 1 }}>
-                    {notificaciones.length === 0 ? (
-                      <div className="text-center py-4 text-muted small">
-                        <i className="bi bi-bell-slash fs-3 d-block mb-2 text-secondary"></i>
-                        No tienes notificaciones
-                      </div>
-                    ) : (
-                      notificaciones.map((notif) => {
-                        const isSeguridad = notif.tipo === 'seguridad' || notif.tipo === 'alerta' || (notif.titulo || '').toLowerCase().includes('reseteo');
+                  {/* BARRA DE SILENCIAR RUTAS DE TRANSPORTE */}
+                  <div className="px-3 py-1.5 bg-white border-bottom d-flex align-items-center justify-content-between">
+                    <span className="text-muted extra-small">Alertas de Rutas:</span>
+                    <button
+                      type="button"
+                      onClick={toggleSilenciarTransporte}
+                      className={`btn btn-xs rounded-pill d-flex align-items-center gap-1.5 px-2.5 py-0.5 text-decoration-none border shadow-xs transition-all ${
+                        silenciarTransporte 
+                          ? 'btn-outline-secondary bg-light text-muted' 
+                          : 'btn-outline-warning text-dark bg-warning-subtle'
+                      }`}
+                      style={{ fontSize: '0.72rem' }}
+                      title={silenciarTransporte ? 'Alertas sonoras silenciadas. Clic para activar sonido.' : 'Alertas sonoras activas. Clic para silenciar.'}
+                    >
+                      <i className={`bi ${silenciarTransporte ? 'bi-volume-mute-fill text-danger' : 'bi-volume-up-fill text-warning'}`}></i>
+                      <span>{silenciarTransporte ? 'Silenciadas' : 'Con Sonido'}</span>
+                    </button>
+                  </div>
+
+                  {/* PESTAÑAS DE FILTRO */}
+                  <div className="d-flex border-bottom bg-light px-2.5 py-1.5 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setFiltroNotif('todas')}
+                      className={`btn btn-sm py-0.5 px-2 rounded-pill border-0 fw-semibold extra-small transition-all ${
+                        filtroNotif === 'todas' ? 'bg-primary text-white shadow-xs' : 'text-muted bg-transparent'
+                      }`}
+                      style={{ fontSize: '0.72rem' }}
+                    >
+                      Todas ({notificaciones.length})
+                    </button>
+                    {['SuperAdmin', 'Director', 'Directora', 'Administrador', 'Subdirector', 'Coordinador'].includes(usuario?.rol || '') && (
+                      <button
+                        type="button"
+                        onClick={() => setFiltroNotif('seguridad')}
+                        className={`btn btn-sm py-0.5 px-2 rounded-pill border-0 fw-semibold extra-small transition-all ${
+                          filtroNotif === 'seguridad' ? 'bg-danger text-white shadow-xs' : 'text-muted bg-transparent'
+                        }`}
+                        style={{ fontSize: '0.72rem' }}
+                      >
+                        Seguridad ({notificaciones.filter(n => n.tipo === 'seguridad' || n.tipo === 'alerta' || (n.titulo || '').toLowerCase().includes('reseteo')).length})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setFiltroNotif('transporte')}
+                      className={`btn btn-sm py-0.5 px-2 rounded-pill border-0 fw-semibold extra-small transition-all ${
+                        filtroNotif === 'transporte' ? 'bg-warning text-dark shadow-xs' : 'text-muted bg-transparent'
+                      }`}
+                      style={{ fontSize: '0.72rem' }}
+                    >
+                      Transporte ({notificaciones.filter(n => n.tipo === 'transporte').length})
+                    </button>
+                  </div>
+
+                  {/* LISTADO DE NOTIFICACIONES */}
+                  <div className="overflow-auto" style={{ maxHeight: '300px', flexGrow: 1 }}>
+                    {(() => {
+                      const notifsFiltradas = notificaciones.filter(n => {
+                        if (filtroNotif === 'todas') return true;
+                        if (filtroNotif === 'seguridad') {
+                          return n.tipo === 'seguridad' || n.tipo === 'alerta' || (n.titulo || '').toLowerCase().includes('reseteo');
+                        }
+                        if (filtroNotif === 'transporte') {
+                          return n.tipo === 'transporte';
+                        }
+                        return true;
+                      });
+
+                      if (notifsFiltradas.length === 0) {
                         return (
-                        <div 
-                          key={notif.id}
-                          onClick={() => {
-                            setNotificaciones(prev => prev.map(n => n.id === notif.id ? { ...n, leido: true } : n));
-                            setLeidasIds(prevLeidas => {
-                              const stringId = String(notif.id);
-                              if (!prevLeidas.includes(stringId)) {
-                                return [...prevLeidas, stringId];
-                              }
-                              return prevLeidas;
-                            });
-                            if (isSeguridad) {
-                              navigate('/categoria/Seguridad y Accesos/Gestión de Usuarios');
-                              setMostrarNotifDropdown(false);
-                            }
-                          }}
-                          className={`d-flex p-3 border-bottom cursor-pointer hover-bg-light transition-all ${!notif.leido ? 'bg-aliceblue' : ''}`}
-                          style={{
-                            backgroundColor: !notif.leido ? (isSeguridad ? '#fff1f2' : '#f0f7ff') : '#ffffff',
-                            transition: 'background-color 0.2s'
-                          }}
-                        >
-                          <div className="me-3">
-                            <span 
-                              className={`d-flex align-items-center justify-content-center rounded-circle`}
-                              style={{
-                                width: '32px',
-                                height: '32px',
-                                background: isSeguridad ? '#fef2f2' : notif.tipo === 'transporte' ? '#fffbeb' : '#eff6ff',
-                                color: isSeguridad ? '#dc2626' : notif.tipo === 'transporte' ? '#d97706' : '#2563eb',
-                                border: isSeguridad ? '1px solid #fecaca' : notif.tipo === 'transporte' ? '1px solid #fde68a' : '1px solid #bfdbfe'
-                              }}
-                            >
-                              <i className={`bi ${isSeguridad ? 'bi-shield-exclamation' : notif.tipo === 'transporte' ? 'bi-bus-front' : 'bi-info-circle-fill'} small`}></i>
-                            </span>
+                          <div className="text-center py-4 text-muted small">
+                            <i className="bi bi-bell-slash fs-3 d-block mb-2 text-secondary"></i>
+                            No hay notificaciones en este filtro
                           </div>
-                          <div style={{ flexGrow: 1, minWidth: 0 }}>
-                            <div className="d-flex justify-content-between align-items-start mb-1">
-                              <span className={`fw-bold text-truncate small ${isSeguridad ? 'text-danger' : 'text-dark'}`} style={{ maxWidth: '160px' }}>
-                                {notif.titulo}
-                              </span>
-                              <span className="text-muted style-date" style={{ fontSize: '0.65rem' }}>
-                                {notif.fecha ? new Date(notif.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        );
+                      }
+
+                      return notifsFiltradas.map((notif) => {
+                        const isPersonal = notif.tipo && notif.tipo.startsWith('usuario:');
+                        const isSeguridad = notif.tipo === 'seguridad' || notif.tipo === 'alerta' || (notif.titulo || '').toLowerCase().includes('reseteo');
+                        const isTransporte = notif.tipo === 'transporte';
+
+                        return (
+                          <div 
+                            key={notif.id}
+                            onClick={() => {
+                              setNotificaciones(prev => prev.map(n => n.id === notif.id ? { ...n, leido: true } : n));
+                              setLeidasIds(prevLeidas => {
+                                const stringId = String(notif.id);
+                                if (!prevLeidas.includes(stringId)) {
+                                  return [...prevLeidas, stringId];
+                                }
+                                return prevLeidas;
+                              });
+                              if (isSeguridad) {
+                                navigate('/categoria/Seguridad y Accesos/Gestión de Usuarios');
+                                setMostrarNotifDropdown(false);
+                              }
+                            }}
+                            className={`d-flex p-3 border-bottom cursor-pointer hover-bg-light transition-all ${!notif.leido ? 'bg-aliceblue' : ''}`}
+                            style={{
+                              backgroundColor: !notif.leido 
+                                ? (isPersonal ? '#f5f3ff' : isSeguridad ? '#fff1f2' : '#fefce8') 
+                                : '#ffffff',
+                              transition: 'background-color 0.2s'
+                            }}
+                          >
+                            <div className="me-3">
+                              <span 
+                                className="d-flex align-items-center justify-content-center rounded-circle"
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  background: isPersonal ? '#ede9fe' : isSeguridad ? '#fef2f2' : isTransporte ? '#fffbeb' : '#eff6ff',
+                                  color: isPersonal ? '#7c3aed' : isSeguridad ? '#dc2626' : isTransporte ? '#d97706' : '#2563eb',
+                                  border: isPersonal ? '1px solid #ddd6fe' : isSeguridad ? '1px solid #fecaca' : isTransporte ? '1px solid #fde68a' : '1px solid #bfdbfe'
+                                }}
+                              >
+                                <i className={`bi ${isPersonal ? 'bi-person-badge-fill' : isSeguridad ? 'bi-shield-exclamation' : isTransporte ? 'bi-bus-front' : 'bi-info-circle-fill'} small`}></i>
                               </span>
                             </div>
-                            <p className="text-muted mb-0 small text-wrap-break" style={{ fontSize: '0.75rem', lineHeight: '1.25' }}>
-                              {notif.cuerpo}
-                            </p>
+                            <div style={{ flexGrow: 1, minWidth: 0 }}>
+                              <div className="d-flex justify-content-between align-items-start mb-1">
+                                <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                  <span className={`fw-bold text-truncate small ${isPersonal ? 'text-primary' : isSeguridad ? 'text-danger' : 'text-dark'}`} style={{ maxWidth: '140px' }}>
+                                    {notif.titulo}
+                                  </span>
+                                  {isPersonal && (
+                                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-1 py-0 rounded" style={{ fontSize: '0.62rem' }}>
+                                      Personal
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-muted style-date" style={{ fontSize: '0.65rem' }}>
+                                  {notif.fecha ? new Date(notif.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                              </div>
+                              <p className="text-muted mb-0 small text-wrap-break" style={{ fontSize: '0.75rem', lineHeight: '1.25' }}>
+                                {notif.cuerpo}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      );})
-                    )}
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* SELECTOR RAPIDO DE ESCUELA PARA ADMINISTRADORES/CON ACCESO DUAL */}
-            {((usuario.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(usuario.rol) || usuario.id_escuela === 'ambas' || usuario.id_escuela === 'todas') && tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb')) && (
-              <div className="dropdown me-3 d-none d-sm-block">
-                <button 
-                  className="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold d-flex align-items-center gap-2 shadow-sm bg-white hover-efecto" 
-                  type="button" 
-                  data-bs-toggle="dropdown" 
-                  aria-expanded="false"
-                  title="Cambiar Plantel Activo"
-                >
-                  <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success' : 'bg-primary'} rounded-circle p-1`}></span>
-                  <span style={{ fontSize: '0.8rem' }}>{escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</span>
-                  <i className="bi bi-chevron-down small text-muted"></i>
-                </button>
-                <ul className="dropdown-menu dropdown-menu-end shadow border-0 rounded-4 p-2 mt-2" style={{ minWidth: '240px' }}>
-                  <li>
-                    <h6 className="dropdown-header small fw-bold text-muted text-uppercase d-flex align-items-center gap-2">
-                      <i className="bi bi-buildings text-primary"></i> Cambiar Escuela Activa
-                    </h6>
-                  </li>
-                  <li>
-                    <button 
-                      className={`dropdown-item rounded-3 py-2 d-flex align-items-center justify-content-between ${escuelaCodigo === 'sb' ? 'bg-success bg-opacity-10 text-success fw-bold' : ''}`}
-                      onClick={() => {
-                        if (escuelaCodigo !== 'sb') {
-                          localStorage.setItem('sigae_escuela_codigo', 'sb');
-                          localStorage.setItem('sigae_escuela_activa', 'UE Santa Bárbara');
-                          try {
-                            const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
-                            u.id_escuela = 'sb';
-                            u.nombre_escuela = 'UE Santa Bárbara';
-                            localStorage.setItem('usuario_sigae', JSON.stringify(u));
-                          } catch(e) {}
-                          window.location.reload();
-                        }
-                      }}
-                    >
-                      <span className="d-flex align-items-center gap-2">
-                        <i className="bi bi-building"></i> UE Santa Bárbara
-                      </span>
-                      {escuelaCodigo === 'sb' && <i className="bi bi-check-circle-fill"></i>}
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      className={`dropdown-item rounded-3 py-2 d-flex align-items-center justify-content-between mt-1 ${escuelaCodigo === 'lb' ? 'bg-primary bg-opacity-10 text-primary fw-bold' : ''}`}
-                      onClick={() => {
-                        if (escuelaCodigo !== 'lb') {
-                          localStorage.setItem('sigae_escuela_codigo', 'lb');
-                          localStorage.setItem('sigae_escuela_activa', 'UE Libertador Bolívar');
-                          try {
-                            const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
-                            u.id_escuela = 'lb';
-                            u.nombre_escuela = 'UE Libertador Bolívar';
-                            localStorage.setItem('usuario_sigae', JSON.stringify(u));
-                          } catch(e) {}
-                          window.location.reload();
-                        }
-                      }}
-                    >
-                      <span className="d-flex align-items-center gap-2">
-                        <i className="bi bi-building"></i> UE Libertador Bolívar
-                      </span>
-                      {escuelaCodigo === 'lb' && <i className="bi bi-check-circle-fill"></i>}
-                    </button>
-                  </li>
-                </ul>
+            {/* MENÚ DE USUARIO UNIFICADO (ESTILO CHAMILO) */}
+            <div className="position-relative" id="menu-usuario-chamilo">
+              <div 
+                onClick={() => setMostrarUserDropdown(!mostrarUserDropdown)}
+                className="chamilo-user-pill shadow-xs"
+                role="button"
+                title="Opciones de Cuenta"
+              >
+                <div className="chamilo-avatar-circle">
+                  {usuario.nombre ? usuario.nombre.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'U'}
+                </div>
+                <div className="d-none d-md-block text-start" style={{ lineHeight: 1.2 }}>
+                  <div className="fw-bold text-dark small text-truncate" style={{ maxWidth: '130px' }}>
+                    {usuario.nombre || 'Usuario'}
+                  </div>
+                  <div className="text-primary extra-small fw-bold">
+                    {usuario.rol || 'Comunidad'}
+                  </div>
+                </div>
+                <i className="bi bi-chevron-down text-muted small ms-1"></i>
               </div>
-            )}
 
-            <div className="usuario-info me-3 text-end d-none d-md-block">
-              <div id="nombre-usuario-nav" className="fw-bold text-dark">{usuario.nombre}</div>
-              <div id="rol-usuario-nav" className="small texto-gradiente fw-bold">{usuario.rol}</div>
+              {mostrarUserDropdown && (
+                <div 
+                  className="dropdown-menu show dropdown-menu-end chamilo-user-dropdown-menu shadow-lg border bg-white"
+                  style={{
+                    position: 'absolute',
+                    top: '46px',
+                    right: 0,
+                    zIndex: 1050
+                  }}
+                >
+                  {/* Encabezado del Usuario */}
+                  <div className="p-3 border-bottom bg-light rounded-top-3 mb-1">
+                    <div className="fw-bolder text-dark small">{usuario.nombre || 'Usuario SIGAE'}</div>
+                    <div className="extra-small text-muted mb-1">C.I. {usuario.cedula || 'N/A'}</div>
+                    <span className="badge bg-primary text-white rounded-pill extra-small px-2 py-0.5 fw-bold">
+                      {usuario.rol || 'Comunidad'}
+                    </span>
+                  </div>
+
+                  {/* Opciones Principales */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarUserDropdown(false);
+                      navigate('/categoria/Seguridad y Accesos/Mi Perfil');
+                    }}
+                    className="chamilo-dropdown-item"
+                  >
+                    <i className="bi bi-person-badge text-primary"></i>
+                    <span>Mi Perfil y Cuenta</span>
+                  </button>
+
+                  {/* Ver Asignación de Responsabilidades */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarUserDropdown(false);
+                      setMostrarAsignacionManual(true);
+                    }}
+                    className="chamilo-dropdown-item"
+                  >
+                    <i className="bi bi-stars text-warning"></i>
+                    <span>Mi Asignación 2026-2027</span>
+                  </button>
+
+                  {/* Selector de Sede Dual si está autorizado */}
+                  {((usuario.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(usuario.rol) || usuario.id_escuela === 'ambas' || usuario.id_escuela === 'todas') && tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb')) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = escuelaCodigo === 'sb' ? 'lb' : 'sb';
+                        localStorage.setItem('sigae_escuela_codigo', target);
+                        localStorage.setItem('sigae_escuela_activa', target === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+                        try {
+                          const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+                          u.id_escuela = target;
+                          u.nombre_escuela = target === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+                          localStorage.setItem('usuario_sigae', JSON.stringify(u));
+                        } catch {
+                          // ignorar error de lectura/escritura de json
+                        }
+                        window.location.reload();
+                      }}
+                      className="chamilo-dropdown-item"
+                    >
+                      <i className="bi bi-arrow-left-right text-success"></i>
+                      <span>Cambiar a {escuelaCodigo === 'sb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara'}</span>
+                    </button>
+                  )}
+
+                  {/* Emulación de Rol si está autorizado */}
+                  {!esModoEmulacion && (usuario.rol === 'SuperAdmin' || usuario.rol === 'Administrador' || tienePermiso('Función: Emulación de Roles', 'ver')) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarUserDropdown(false);
+                        navigate('/categoria/Seguridad y Accesos/Roles y Privilegios');
+                      }}
+                      className="chamilo-dropdown-item"
+                    >
+                      <i className="bi bi-person-bounding-box text-warning"></i>
+                      <span>Emular Rol / Permisos</span>
+                    </button>
+                  )}
+
+                  {/* Instalación y Descargas */}
+                  {tienePermiso('Instalación y Descargas', 'ver') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarUserDropdown(false);
+                        navigate('/categoria/Dirección y Sistema/Instalación y Descargas');
+                      }}
+                      className="chamilo-dropdown-item"
+                    >
+                      <i className="bi bi-cloud-arrow-down text-info"></i>
+                      <span>Instalar SIGAE / App</span>
+                    </button>
+                  )}
+
+                  <div className="dropdown-divider my-1"></div>
+
+                  {/* Cerrar Sesión */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarUserDropdown(false);
+                      handleLogout();
+                    }}
+                    className="chamilo-dropdown-item item-danger"
+                  >
+                    <i className="bi bi-power text-danger"></i>
+                    <span>Cerrar Sesión</span>
+                  </button>
+                </div>
+              )}
             </div>
-            
-            <button onClick={handleLogout} id="btn-cerrar-sesion" className="btn-circulo btn-peligro shadow-sm">
-              <i className="bi bi-power"></i>
-            </button>
+
           </div>
         </header>
 
@@ -1162,13 +1659,17 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             <img src="/assets/img/sigae.png" alt="Sistema Integral de Gestión y Administración Escolar" className="footer-logo-sigae" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
           </div>
           <div className="fw-bold text-center mb-2 footer-anio">
-            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary">Versión 1.0</span>
+            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary">Versión 1.1</span>
           </div>
         </footer>
       </main>
       <NavigationLoader />
       <ChatbotSigma />
       <TourOrientacion />
+      <ModalAsignacionSorpresa 
+        forzarApertura={mostrarAsignacionManual} 
+        onClose={() => setMostrarAsignacionManual(false)} 
+      />
     </div>
   );
 };

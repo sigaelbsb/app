@@ -10,7 +10,7 @@
     --sigma-glow: rgba(0, 195, 255, 0.5);
     --sigma-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
     --sigma-bg: rgba(255, 255, 255, 0.95);
-    --sigma-size: 80px;
+    --sigma-size: 90px;
 }
 
 /* Contenedor Principal Arrastrable */
@@ -33,171 +33,251 @@
 }
 
 /* ==========================================================
-   DISEÑO Y ANIMACIONES DEL ORBE/PERSONAJE
+   DISEÑO Y MICRO-ANIMACIONES DE LA FIGURA OFICIAL DE SIGMA
+   (Opción 3: Mascota 3D transparente con cabello estilizado, ojos animados y luz)
 ============================================================= */
 .sigma-avatar-wrapper {
     position: relative;
     width: var(--sigma-size);
-    height: var(--sigma-size);
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    filter: drop-shadow(0 10px 15px rgba(0, 102, 255, 0.3));
+    height: calc(var(--sigma-size) * (824 / 436));
     z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28)) drop-shadow(0 0 10px rgba(56, 189, 248, 0.25));
+    transition: filter 0.3s ease;
 }
 
-.sigma-container:hover .sigma-avatar-wrapper {
-    transform: scale(1.1);
+.sigma-avatar-wrapper:hover {
+    filter: drop-shadow(0 14px 30px rgba(15, 23, 42, 0.36)) drop-shadow(0 0 20px rgba(0, 229, 255, 0.5));
 }
 
-/* SVG del Orbe Sigma */
-.sigma-svg {
+/* Figura Animada de Sigma (Opción 3 - Transparente con Micro-movimientos) */
+.sigma-mascot-container {
+    position: relative;
     width: 100%;
     height: 100%;
-    animation: sigma-hover 3s ease-in-out infinite;
+    user-select: none;
 }
 
-/* Efectos de Movimiento Base */
-@keyframes sigma-hover {
-    0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
-    25% { transform: translateY(-3px) rotate(-1deg) scale(1.01); }
-    50% { transform: translateY(-10px) rotate(1deg) scale(1.02); }
-    75% { transform: translateY(-4px) rotate(-1deg) scale(1.01); }
+/* Imagen recortada transparente de alta resolución */
+.sigma-mascot-base {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;
+    animation: sigma-alive-float 4.8s ease-in-out infinite;
+    transform-origin: 50% 90%;
 }
 
-/* ==========================================================
-   REACCIONES ANIMADAS (ESTILO GIF) PARA CLIPPY-SIGMA
-============================================================= */
-
-/* Parpadeo Aleatorio (Idle) */
-@keyframes blink {
-    0%, 96%, 98%, 100% { transform: scaleY(1); }
-    97%, 99% { transform: scaleY(0.1); }
+/* 1. Movimiento Suave de Flotación y Respiración del Cabello */
+@keyframes sigma-alive-float {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-3.5px) rotate(0.8deg);
+    }
 }
 
-.sigma-eyes-group {
-    transform-origin: 54px 5px;
-    animation: blink 4s infinite;
+/* Capa de Micro-animaciones (Ojos, Iluminación de Estructura) */
+.sigma-anim-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    animation: sigma-alive-float 4.8s ease-in-out infinite;
+    transform-origin: 50% 90%;
 }
 
-/* Elementos Secundarios Idle Flotantes */
-@keyframes pencil-float {
-    0%, 100% { transform: translate(-10px, 32px) rotate(-15deg); }
-    50% { transform: translate(-12px, 26px) rotate(-10deg); }
-}
-.sigma-pencil {
-    animation: pencil-float 4s ease-in-out infinite;
-    transform-origin: 17.5px 25px;
-    transition: transform 0.2s ease;
-}
-
-@keyframes cap-sway {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-2px) rotate(2.5deg); }
-}
-.sigma-grad-cap {
-    animation: cap-sway 5s ease-in-out infinite;
-    transform-origin: 55px -27px;
+/* 2. Parpadeo Natural de los Ojos */
+.sigma-eyelid {
+    position: absolute;
+    background: linear-gradient(180deg, #9a533b 0%, #e3a481 75%, #23162b 100%);
+    border-radius: 50% / 40% 40% 60% 60%;
+    box-shadow: 0 1px 1.5px rgba(26, 19, 36, 0.8);
+    transform-origin: top center;
+    opacity: 0;
+    transform: scaleY(0);
+    animation: sigma-eyelid-blink 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-@keyframes eyebrows-idle {
-    0%, 80%, 100% { transform: translateY(0); }
-    85%, 95% { transform: translateY(-2.5px) rotate(1deg); }
-}
-.sigma-eyebrows-group {
-    animation: eyebrows-idle 6s ease-in-out infinite;
-    transform-origin: center;
+.sigma-eyelid.left {
+    left: 46.5%;
+    top: 27.4%;
+    width: 12.4%;
+    height: 4.6%;
 }
 
-/* ESTADO: PENSANDO (Mirando a los lados y cejas arriba, lápiz escribiendo) */
-@keyframes look-around {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px) translateY(-2px); }
-    75% { transform: translateX(5px) translateY(-2px); }
+.sigma-eyelid.right {
+    left: 69.9%;
+    top: 27.8%;
+    width: 12.4%;
+    height: 4.6%;
 }
 
-@keyframes raise-eyebrows {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-4px) rotate(3deg); }
+@keyframes sigma-eyelid-blink {
+    0%, 93%, 97%, 100% {
+        opacity: 0;
+        transform: scaleY(0);
+    }
+    94.5%, 95.5% {
+        opacity: 1;
+        transform: scaleY(1);
+    }
 }
 
-@keyframes pencil-scribble {
-    0%, 100% { transform: translate(-10px, 32px) rotate(-15deg); }
-    25% { transform: translate(-8px, 36px) rotate(-22deg); }
-    50% { transform: translate(-12px, 34px) rotate(-10deg); }
-    75% { transform: translate(-6px, 30px) rotate(-25deg); }
+/* 3. Reflejo Vivo de la Pupila (Micro-mirada inteligente) */
+.sigma-pupil-glance {
+    position: absolute;
+    width: 3.2%;
+    height: 1.8%;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0 3px #38bdf8;
+    animation: sigma-pupil-shift 6s ease-in-out infinite;
+}
+.sigma-pupil-glance.left {
+    left: 51.5%;
+    top: 30.5%;
+}
+.sigma-pupil-glance.right {
+    left: 74.2%;
+    top: 30.8%;
 }
 
-.sigma-container.thinking .sigma-pupils {
-    animation: look-around 1s ease-in-out infinite;
+@keyframes sigma-pupil-shift {
+    0%, 45%, 100% {
+        transform: translate(0, 0);
+    }
+    50%, 70% {
+        transform: translate(-1px, 0.5px);
+    }
+    75%, 95% {
+        transform: translate(0.8px, -0.4px);
+    }
 }
 
-.sigma-container.thinking .sigma-eyebrows-group {
-    animation: raise-eyebrows 1s ease-in-out infinite;
+/* 4. Iluminación en su Estructura: Diadema Headset LED Neón */
+.sigma-headset-glow-ring {
+    position: absolute;
+    left: 23.4%;
+    top: 27.7%;
+    width: 11.0%;
+    height: 5.8%;
+    border-radius: 50%;
+    border: 1.5px solid #00e5ff;
+    box-shadow: 0 0 8px #00e5ff, inset 0 0 5px #00e5ff;
+    animation: sigma-headset-pulse 2.4s ease-in-out infinite;
 }
 
-.sigma-container.thinking .sigma-pencil {
-    animation: pencil-scribble 0.6s ease-in-out infinite;
+@keyframes sigma-headset-pulse {
+    0%, 100% {
+        opacity: 0.65;
+        transform: scale(0.96);
+        box-shadow: 0 0 6px #00e5ff, inset 0 0 4px #00e5ff;
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.06);
+        box-shadow: 0 0 14px #00ffff, 0 0 22px rgba(0, 229, 255, 0.6), inset 0 0 8px #00ffff;
+    }
 }
 
-/* ESTADO: HABLANDO (Bouncing animado estilo dibujo animado, lápiz apuntando) */
-@keyframes sigma-talk-bounce {
-    0%, 100% { transform: translateY(0) scaleY(1) rotate(0deg); }
-    25% { transform: translateY(-6px) scaleY(1.03) rotate(-3deg); }
-    50% { transform: translateY(-10px) scaleY(1.05) rotate(0deg); }
-    75% { transform: translateY(-6px) scaleY(1.03) rotate(3deg); }
+/* LED de Estado en el Micrófono */
+.sigma-mic-led {
+    position: absolute;
+    left: 50.2%;
+    top: 40.3%;
+    width: 3.6%;
+    height: 1.9%;
+    border-radius: 50%;
+    background: #00e5ff;
+    box-shadow: 0 0 5px #00e5ff;
+    animation: sigma-mic-blink 1.8s ease-in-out infinite;
 }
 
-@keyframes eyebrows-talk {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
+@keyframes sigma-mic-blink {
+    0%, 100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 8px #00ffff;
+    }
 }
 
-@keyframes pencil-gesturing {
-    0%, 100% { transform: translate(-10px, 32px) rotate(-15deg); }
-    50% { transform: translate(-5px, 20px) rotate(-45deg); }
+/* 5. Destello de Luz Cuántico en el Símbolo Sigma Dorado/Zafiro */
+.sigma-symbol-sheen {
+    position: absolute;
+    left: 15%;
+    top: 54%;
+    width: 70%;
+    height: 44%;
+    overflow: hidden;
+    pointer-events: none;
+    border-radius: 10px;
 }
 
-.sigma-container.talking .sigma-body-group {
-    transform-origin: center bottom;
-    animation: sigma-talk-bounce 0.4s ease-in-out infinite;
+.sigma-symbol-sheen::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -100%;
+    width: 50%;
+    height: 200%;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(30deg);
+    animation: sigma-sheen-sweep 5s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sigma-container.talking .sigma-eyebrows-group {
-    animation: eyebrows-talk 0.4s ease-in-out infinite;
+@keyframes sigma-sheen-sweep {
+    0%, 40% {
+        left: -100%;
+        opacity: 0;
+    }
+    45% {
+        opacity: 1;
+    }
+    55% {
+        left: 200%;
+        opacity: 1;
+    }
+    56%, 100% {
+        left: 200%;
+        opacity: 0;
+    }
 }
 
-.sigma-container.talking .sigma-pencil {
-    animation: pencil-gesturing 0.6s ease-in-out infinite;
+/* 6. Núcleo Cuántico Central Pulsante de la Σ */
+.sigma-quantum-core-glow {
+    position: absolute;
+    left: 48%;
+    top: 67%;
+    width: 15%;
+    height: 9%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 229, 255, 0.85) 0%, rgba(0, 102, 255, 0.45) 50%, transparent 85%);
+    box-shadow: 0 0 10px #00e5ff, 0 0 20px rgba(0, 229, 255, 0.6);
+    animation: sigma-quantum-core-breathe 2.8s ease-in-out infinite;
+    pointer-events: none;
 }
 
-/* ESTADO: ARRASTRANDO (Cuerpecito mareado, pupilas girando, lápiz flotando loco) */
-@keyframes carry-wobble {
-    0%, 100% { transform: rotate(5deg) scaleY(0.9); }
-    50% { transform: rotate(-5deg) scaleY(0.95); }
-}
-
-@keyframes dizzy-eyes {
-    0%, 100% { transform: translate(-3px, -3px); }
-    25% { transform: translate(3px, -3px); }
-    50% { transform: translate(3px, 3px); }
-    75% { transform: translate(-3px, 3px); }
-}
-
-@keyframes pencil-trail {
-    0%, 100% { transform: translate(-10px, 32px) rotate(45deg); }
-    50% { transform: translate(-10px, 32px) rotate(-45deg); }
-}
-
-.sigma-container.dragging .sigma-body-group {
-    animation: carry-wobble 0.25s ease-in-out infinite;
-    transform-origin: center bottom;
-}
-
-.sigma-container.dragging .sigma-pupils {
-    animation: dizzy-eyes 0.25s linear infinite;
-}
-
-.sigma-container.dragging .sigma-pencil {
-    animation: pencil-trail 0.25s ease-in-out infinite;
+@keyframes sigma-quantum-core-breathe {
+    0%, 100% {
+        transform: scale(0.88);
+        opacity: 0.65;
+    }
+    50% {
+        transform: scale(1.15);
+        opacity: 1;
+        box-shadow: 0 0 16px #00ffff, 0 0 28px rgba(0, 229, 255, 0.85);
+    }
 }
 
 /* ==========================================================
@@ -205,15 +285,15 @@
 ============================================================= */
 .sigma-speech-bubble {
     position: absolute;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(0, 102, 255, 0.2);
-    border-radius: 16px;
-    padding: 15px 20px;
-    width: max-content;
-    max-width: 320px;
-    box-shadow: 0 10px 25px rgba(0, 30, 80, 0.15);
+    border-radius: 18px;
+    padding: 14px 16px;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    box-shadow: 0 14px 35px rgba(0, 30, 80, 0.2);
     color: #1e293b;
     font-family: 'Inter', 'Segoe UI', sans-serif;
     font-size: 0.9rem;
@@ -224,8 +304,7 @@
     transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     z-index: 1;
     
-    /* Posición por defecto */
-    bottom: calc(var(--sigma-size) + 12px);
+    bottom: calc(var(--sigma-size) * (824 / 436) + 16px);
     right: -20px;
 }
 
@@ -243,7 +322,7 @@
     right: 45px;
     border-width: 10px 10px 0;
     border-style: solid;
-    border-color: rgba(255, 255, 255, 0.95) transparent transparent transparent;
+    border-color: rgba(255, 255, 255, 0.98) transparent transparent transparent;
     filter: drop-shadow(0 3px 2px rgba(0, 102, 255, 0.1));
 }
 
@@ -252,9 +331,104 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(0, 102, 255, 0.15);
+    border-bottom: 1px solid rgba(0, 102, 255, 0.12);
     padding-bottom: 8px;
     margin-bottom: 12px;
+}
+
+/* Tarjetas Interactivas de Módulos dentro del Diálogo */
+.sigma-interactive-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 10px;
+    margin-bottom: 8px;
+}
+
+.sigma-module-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 102, 255, 0.15);
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 30, 80, 0.05);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-align: left;
+    width: 100%;
+}
+
+.sigma-module-card:hover {
+    transform: translateY(-2px) scale(1.01);
+    background: #f0f7ff;
+    border-color: #0066FF;
+    box-shadow: 0 4px 14px rgba(0, 102, 255, 0.18);
+}
+
+.sigma-module-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.sigma-module-info {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.sigma-module-title {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sigma-module-sub {
+    font-size: 0.68rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sigma-quick-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    margin-bottom: 6px;
+}
+
+.sigma-chip-btn {
+    border: 1px solid rgba(0, 102, 255, 0.2);
+    background: #f8fafc;
+    color: #334155;
+    border-radius: 50px;
+    padding: 4px 11px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.sigma-chip-btn:hover {
+    background: #eff6ff;
+    border-color: #0066FF;
+    color: #0066FF;
+    transform: translateY(-1px);
 }
 
 .sigma-bubble-title {
@@ -363,6 +537,31 @@ body.dark-mode .sigma-input {
     color: white;
 }
 
+body.dark-mode .sigma-module-card {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+body.dark-mode .sigma-module-card:hover {
+    background: #0f172a;
+    border-color: #38bdf8;
+}
+body.dark-mode .sigma-module-title {
+    color: #f1f5f9;
+}
+body.dark-mode .sigma-module-sub {
+    color: #94a3b8;
+}
+body.dark-mode .sigma-chip-btn {
+    background: #1e293b;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+}
+body.dark-mode .sigma-chip-btn:hover {
+    background: #0f172a;
+    border-color: #38bdf8;
+    color: #38bdf8;
+}
+
 body.dark-mode .sigma-btn-minimize {
     background: #334155;
     color: #cbd5e1;
@@ -429,7 +628,6 @@ body.dark-mode .sigma-btn-minimize:hover {
 }
 
 .sigma-launcher:hover {
-    transform: scale(1.1) rotate(10deg);
     box-shadow: 0 8px 25px rgba(0, 102, 255, 0.6);
 }
 
@@ -484,16 +682,37 @@ body.dark-mode .sigma-btn-minimize:hover {
     text-shadow: 0 1px 3px rgba(0,0,0,0.25);
 }
 
-@keyframes sigma-pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(0, 102, 255, 0.6), 0 6px 20px rgba(0, 102, 255, 0.4);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(0, 102, 255, 0), 0 6px 20px rgba(0, 102, 255, 0.4);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(0, 102, 255, 0), 0 6px 20px rgba(0, 102, 255, 0.4);
-    }
+.sigma-launcher-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 22%;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* Desactivar cualquier animación flotante en el lanzador o cabeceras */
+.sigma-launcher .sigma-anim-layer,
+.sigma-bubble-header .sigma-anim-layer {
+    display: none !important;
+}
+
+.sigma-launcher-badge {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 900;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #ffffff;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
 /* Reglas de Ocultamiento en Estado Minimizado */
@@ -505,123 +724,4 @@ body.dark-mode .sigma-btn-minimize:hover {
 
 .sigma-container.minimized .sigma-launcher {
     display: flex !important;
-}
-
-/* ==========================================================
-   REACCIONES HOVER ALEATORIAS (INTERROGACION, EXCLAMACION, FUEGOS, DISCO)
-   ============================================================= */
-
-/* Giro 360 (Backflip Spin) */
-@keyframes spin-flip {
-    0% { transform: scale(1) rotate(0deg); }
-    50% { transform: scale(1.25) rotate(180deg); }
-    100% { transform: scale(1.1) rotate(360deg); }
-}
-.sigma-avatar-wrapper.react-spin .sigma-svg {
-    animation: spin-flip 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* Partículas de Signo de Interrogación o Exclamación */
-.sigma-particle-text {
-    position: absolute;
-    pointer-events: none;
-    font-weight: 900;
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 2px 5px rgba(0, 0, 0, 0.2);
-    z-index: 100;
-    user-select: none;
-    transform-origin: center;
-}
-
-@keyframes float-question {
-    0% { transform: translate(0, 0) scale(0.3) rotate(0deg); opacity: 0; }
-    15% { opacity: 1; }
-    100% { transform: translate(var(--dx), var(--dy)) scale(1.4) rotate(var(--rot)); opacity: 0; }
-}
-
-/* Fuegos Artificiales / Sparkles */
-.sigma-sparkle {
-    position: absolute;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 100;
-    user-select: none;
-    transform-origin: center;
-}
-
-@keyframes explode-sparkle {
-    0% { transform: translate(0, 0) scale(1.2); opacity: 1; }
-    100% { transform: translate(var(--dx), var(--dy)) scale(0.1); opacity: 0; }
-}
-
-/* Arcoiris / Rainbow Glow */
-@keyframes rainbow-glow {
-    0% { filter: hue-rotate(0deg) drop-shadow(0 10px 15px rgba(0, 102, 255, 0.8)); }
-    100% { filter: hue-rotate(360deg) drop-shadow(0 10px 15px rgba(239, 68, 68, 0.8)); }
-}
-.sigma-avatar-wrapper.react-rainbow {
-    animation: rainbow-glow 2s linear infinite;
-}
-
-/* Bote de Alegría */
-@keyframes bounce-happy {
-    0%, 100% { transform: translateY(0) scaleY(1); }
-    30% { transform: translateY(-16px) scaleY(1.08); }
-    50% { transform: translateY(0) scaleY(0.92); }
-    70% { transform: translateY(-8px) scaleY(1.03); }
-    85% { transform: translateY(0) scaleY(0.97); }
-}
-.sigma-avatar-wrapper.react-bounce {
-    animation: bounce-happy 1s ease-in-out;
-}
-
-/* Temblor de Carga / Susto */
-@keyframes shake-dizzy {
-    0%, 100% { transform: translateX(0) rotate(0deg); }
-    12%, 37%, 62%, 87% { transform: translateX(-5px) rotate(-4deg); }
-    25%, 50%, 75% { transform: translateX(5px) rotate(4deg); }
-}
-.sigma-avatar-wrapper.react-shake {
-    animation: shake-dizzy 0.6s ease-in-out;
-}
-
-/* Animación de retiro / ocultar (cuando Sigma se despide y se oculta tras presentarse) */
-@keyframes retire-shrink {
-    0% { transform: scale(1) translateY(0); opacity: 1; filter: brightness(1); }
-    40% { transform: scale(1.15) translateY(-6px) rotate(5deg); opacity: 1; filter: brightness(1.2); }
-    100% { transform: scale(0.1) translateY(25px) rotate(-15deg); opacity: 0; filter: brightness(2); }
-}
-.sigma-avatar-wrapper.react-retire {
-    animation: retire-shrink 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
-}
-
-/* Teletransporte Portal */
-@keyframes portal-pulse {
-    0% { transform: scale(1); opacity: 1; filter: brightness(1); }
-    30% { transform: scale(0.6); opacity: 0.05; filter: brightness(2.5); }
-    70% { transform: scale(1.2); opacity: 1; filter: brightness(1.6); }
-    100% { transform: scale(1); opacity: 1; filter: brightness(1); }
-}
-.sigma-avatar-wrapper.react-portal {
-    animation: portal-pulse 0.9s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.sigma-portal-ring {
-    position: absolute;
-    border: 4px solid var(--sigma-secondary);
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 50;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%) scale(0.2);
-    width: 60px;
-    height: 60px;
-    opacity: 1;
-}
-@keyframes ring-expand {
-    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; box-shadow: 0 0 10px var(--sigma-secondary); }
-    100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; box-shadow: 0 0 30px var(--sigma-accent); }
 }

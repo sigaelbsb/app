@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { formatPhoneNumber } from '../../lib/formatters';
+import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
 
 interface Familiar {
   nombres: string;
@@ -2084,44 +2085,114 @@ export const MiExpediente = () => {
           }
         }
       `}</style>
-      {/* Banner */}
-      <div className="row mb-4 animate__animated animate__fadeInDown">
-        <div className="col-12">
-          <div 
-            className="banner-modulo p-4 p-md-5 text-white shadow-sm" 
-            style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}
-          >
-            <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.06)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-            <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.04)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
-            <div className="row align-items-center position-relative z-1">
-              <div className="col-12 text-center text-md-start">
-                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                  <span className="badge bg-white text-success mb-0 px-3 py-2 shadow-sm fw-bold" style={{ letterSpacing: '1px', fontSize: '0.85rem' }}>
-                    <i className="bi bi-person-workspace me-1"></i> GESTIÓN DOCENTE
-                  </span>
-                  <div className="d-flex gap-2">
-                    <button 
-                      onClick={() => window.print()} 
-                      className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-1.5 text-success"
-                    >
-                      <i className="bi bi-printer-fill"></i> Imprimir Ficha de RRHH
-                    </button>
-                    <button 
-                      onClick={() => navigate('/categoria/Gestión%20Docente')} 
-                      className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                    >
-                      <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                    </button>
-                  </div>
-                </div>
-                <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                  <i className="bi bi-person-vcard me-3"></i>Mi Expediente
-                </h1>
-                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Consulta y edita tu expediente laboral, datos de salud, núcleo familiar y formación.
-                </p>
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Gestión Docente"
+        currentModule="Mi Expediente"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_mi_expediente"
+        title="Guía de Mi Expediente Digital"
+        content="Actualice sus datos personales, información médica y de tallas, carga familiar y formación académica. Seleccione además hasta 5 cursos de formación del catálogo institucional para su acreditación curricular."
+        icon="bi-file-earmark-person-fill"
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO ── */}
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white border-top border-4" style={{ borderColor: '#00E676' }}>
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Logo de la Escuela */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" style={{ width: '105px', height: '105px' }}>
+                <img 
+                  src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+                  alt="Escudo Institucional" 
+                  className="img-fluid"
+                  style={{ maxHeight: '85px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
               </div>
             </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small" style={{ backgroundColor: '#059669' }}>
+                  <i className="bi bi-person-workspace me-1"></i>Gestión Docente & Talento Humano
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-person-badge-fill text-success me-1"></i><b>{user?.nombre_completo || user?.nombre || 'Docente'}</b>
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-card-heading text-primary me-1"></i>C.I. <b>{targetCedula}</b>
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-building me-1"></i>Sede: <b>{localStorage.getItem('sigae_escuela_codigo') === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</b>
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Mi Expediente Docente
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                Consulta y edita tu expediente laboral, datos de salud ocupacional, núcleo familiar y plan de formación institucional.
+              </p>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Gestión%20Docente')}
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver al Menú</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Barra de Acciones Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
+              onClick={handleGuardar}
+              disabled={guardando}
+            >
+              {guardando ? (
+                <span className="spinner-border spinner-border-sm"></span>
+              ) : (
+                <i className="bi bi-floppy-fill"></i>
+              )}
+              <span>Guardar Expediente</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
+              onClick={() => window.print()}
+            >
+              <i className="bi bi-printer-fill text-primary"></i>
+              <span>Imprimir Ficha de RRHH</span>
+            </button>
+          </div>
+
+          <div className="d-flex align-items-center gap-1.5">
+            <span className="text-muted extra-small">
+              <i className="bi bi-shield-check text-success me-1"></i>Expediente Sincronizado
+            </span>
           </div>
         </div>
       </div>

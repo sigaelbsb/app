@@ -3,6 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { 
+  ChamiloBreadcrumb, 
+  ChamiloHelpCallout, 
+  IconoDivisionTerritorial,
+  IconoEstadoVenezuela,
+  IconoMunicipioVenezuela,
+  IconoParroquiaVenezuela 
+} from '../../components/chamilo';
 
 interface DivisionRecord {
   id: number;
@@ -22,6 +30,7 @@ export const DivisionTerritorial = () => {
   // Selections
   const [estadoSel, setEstadoSel] = useState<string | null>(null);
   const [municipioSel, setMunicipioSel] = useState<string | null>(null);
+  const [tabMovil, setTabMovil] = useState<'estados' | 'municipios' | 'parroquias'>('estados');
 
   const esAdmin = user?.rol && user.rol.toLowerCase().includes('administrador');
   const hasVer = esAdmin || tienePermiso('División Territorial', 'ver');
@@ -79,19 +88,20 @@ export const DivisionTerritorial = () => {
 
   const parroquiasFiltradas = (estadoSel && municipioSel)
     ? records
-        .filter(r => r.estado === estadoSel && r.municipio === municipioSel)
+        .filter(r => r.estado === estadoSel && r.municipio === municipioSel && r.parroquia !== 'Sin Parroquia')
         .map(r => ({ id: r.id, valor: r.parroquia }))
-        .filter(p => p.valor !== 'Sin Parroquia' && p.valor !== 'N/A')
         .sort((a, b) => a.valor.localeCompare(b.valor))
     : [];
 
   const seleccionarEstado = (estado: string) => {
     setEstadoSel(estado);
     setMunicipioSel(null);
+    setTabMovil('municipios');
   };
 
   const seleccionarMunicipio = (muni: string) => {
     setMunicipioSel(muni);
+    setTabMovil('parroquias');
   };
 
   const nuevoEstado = () => {
@@ -602,79 +612,220 @@ export const DivisionTerritorial = () => {
 
   return (
     <div className="modulo-animado">
-      {/* Banner */}
-      <div className="row mb-4 animate__animated animate__fadeInDown">
-        <div className="col-12">
-          <div 
-            className="banner-modulo p-4 p-md-5 text-white shadow-sm" 
-            style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}
-          >
-            <div className="burbuja-3d burbuja-1"></div>
-            <div className="burbuja-3d burbuja-2"></div>
-            <div className="row align-items-center position-relative z-1">
-              <div className="col-12 text-center text-md-start mb-3 mb-md-0">
-                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                  <span className="badge bg-white px-3 py-2 shadow-sm fw-bold" style={{ color: '#0f172a', letterSpacing: '1px', fontSize: '0.85rem' }}>
-                    <i className="bi bi-geo-alt-fill me-1"></i> GEOGRAFÍA NACIONAL
-                  </span>
-                  <button 
-                    onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')} 
-                    className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                  >
-                    <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                  </button>
-                </div>
-                <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                  <i className="bi bi-geo-alt-fill me-3"></i>División Territorial
-                </h1>
-                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                  Gestión jerárquica de Estados, Municipios y Parroquias de Venezuela.
-                </p>
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Dirección y Sistema"
+        currentModule="División Territorial"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_division_territorial"
+        title="Guía de la División Político-Territorial"
+        content="Administre el catálogo geográfico nacional (estados, municipios y parroquias). Estas ubicaciones se sincronizan en cascada con los formularios de registro estudiantil, expedientes docentes y zonificación escolar."
+        icon="bi-geo-alt-fill"
+      />
+
+      {/* ── CABECERA INSTITUCIONAL TECNOLÓGICA CON RESUMEN GEOGRÁFICO ── */}
+      <div 
+        className="tech-card overflow-hidden mb-4 shadow-sm animate__animated animate__fadeInDown" 
+        style={{ 
+          border: '2px solid #fed7aa',
+          borderTop: '6px solid #FF8D00',
+          background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
+          borderRadius: '26px'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Logo de la Escuela en Contenedor Interactivo */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div 
+                className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2"
+                style={{ 
+                  width: '110px', 
+                  height: '110px',
+                  borderRadius: '24px',
+                  border: '2.5px solid #fed7aa',
+                  boxShadow: '0 10px 24px rgba(249, 115, 22, 0.15)'
+                }}
+              >
+                <img 
+                  src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+                  alt="Escudo Institucional" 
+                  className="img-fluid"
+                  style={{ maxHeight: '92px', maxWidth: '92px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
               </div>
             </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+                {/* Live Campus Beacon */}
+                <div 
+                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
+                  style={{ borderColor: '#fed7aa' }}
+                >
+                  <span 
+                    className="status-beacon-live" 
+                    style={{ color: '#ea580c' }}
+                  ></span>
+                  <span 
+                    className="extra-small fw-bold text-uppercase" 
+                    style={{ fontSize: '0.72rem', color: '#c2410c', letterSpacing: '0.5px' }}
+                  >
+                    Campus Conectado &bull; SIGAE v1.1
+                  </span>
+                </div>
+
+                <span 
+                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-1.5"
+                  style={{ backgroundColor: '#FF8D00' }}
+                >
+                  <IconoDivisionTerritorial size={18} color="#ffffff" />
+                  <span>Geografía & Territorio</span>
+                </span>
+
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs d-inline-flex align-items-center gap-1.5">
+                  <IconoEstadoVenezuela size={17} color="#FF8D00" />
+                  <span><b>{estadosUnicos.length}</b> Estados</span>
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs d-inline-flex align-items-center gap-1.5">
+                  <IconoMunicipioVenezuela size={17} color="#00C3FF" />
+                  <span><b>{[...new Set(records.map(r => `${r.estado}_${r.municipio}`))].length}</b> Municipios</span>
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs d-inline-flex align-items-center gap-1.5">
+                  <IconoParroquiaVenezuela size={17} color="#10b981" />
+                  <span><b>{records.filter(r => r.parroquia !== 'Sin Parroquia').length}</b> Parroquias</span>
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
+                División Territorial
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                Catálogo geopolítico de Estados, Municipios y Parroquias para la zonificación de alumnos, docentes y expedientes.
+              </p>
+
+              {/* Cinta de Telemetría Escolar Interactiva */}
+              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
+                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Cobertura Geográfica">
+                  <i className="bi bi-geo-alt-fill text-danger"></i>
+                  <span className="text-secondary">Nivel Nacional</span>
+                </div>
+                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Registros Geopolíticos Totales">
+                  <i className="bi bi-layers-fill text-primary"></i>
+                  <span className="font-monospace fw-bold text-dark">{records.length} Entidades</span>
+                </div>
+                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Estado del Catálogo">
+                  <i className="bi bi-shield-fill-check text-warning"></i>
+                  <span className="text-secondary">Sincronizado</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')}
+                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
+                style={{ fontSize: '0.85rem', borderColor: '#fed7aa' }}
+              >
+                <i className="bi bi-arrow-left" style={{ color: '#ea580c' }}></i>
+                <span>Volver a Dirección</span>
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
 
-      <div className="row g-4 animate__animated animate__fadeInUp">
-        {/* Column: Estados */}
-        <div className="col-md-4">
-          <div className="card border-0 shadow-sm rounded-4 h-100" style={{ borderTop: '5px solid #0f172a' }}>
-            <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-              <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-map-fill me-2 text-secondary"></i>Estados</h6>
+      {/* Selector de Nivel Territorial para Móviles (Swiper Píldora) */}
+      <div className="d-flex d-md-none nav nav-pills gap-1 mb-3 p-1.5 bg-light rounded-pill border shadow-xs">
+        <button 
+          className={`nav-link rounded-pill py-1.5 px-2.5 extra-small fw-bold flex-fill transition-all d-flex align-items-center justify-content-center gap-1.5 ${tabMovil === 'estados' ? 'active text-white shadow-xs' : 'text-muted'}`}
+          style={{ backgroundColor: tabMovil === 'estados' ? '#FF8D00' : undefined }}
+          onClick={() => setTabMovil('estados')}
+        >
+          <IconoEstadoVenezuela size={16} color={tabMovil === 'estados' ? '#ffffff' : '#FF8D00'} />
+          <span>Estados ({estadosUnicos.length})</span>
+        </button>
+        <button 
+          className={`nav-link rounded-pill py-1.5 px-2.5 extra-small fw-bold flex-fill transition-all d-flex align-items-center justify-content-center gap-1.5 ${tabMovil === 'municipios' ? 'active text-white shadow-xs' : 'text-muted'}`}
+          style={{ backgroundColor: tabMovil === 'municipios' ? '#00C3FF' : undefined }}
+          onClick={() => setTabMovil('municipios')}
+        >
+          <IconoMunicipioVenezuela size={16} color={tabMovil === 'municipios' ? '#ffffff' : '#00C3FF'} />
+          <span>Municipios ({municipiosFiltrados.length})</span>
+        </button>
+        <button 
+          className={`nav-link rounded-pill py-1.5 px-2.5 extra-small fw-bold flex-fill transition-all d-flex align-items-center justify-content-center gap-1.5 ${tabMovil === 'parroquias' ? 'active text-white shadow-xs' : 'text-muted'}`}
+          style={{ backgroundColor: tabMovil === 'parroquias' ? '#10b981' : undefined }}
+          onClick={() => setTabMovil('parroquias')}
+        >
+          <IconoParroquiaVenezuela size={16} color={tabMovil === 'parroquias' ? '#ffffff' : '#10b981'} />
+          <span>Parroquias ({parroquiasFiltradas.length})</span>
+        </button>
+      </div>
+
+      <div className="row g-3 g-md-4 mb-5 animate__animated animate__fadeInUp">
+        {/* Column 1: Estados */}
+        <div className={`col-12 col-md-4 ${tabMovil === 'estados' ? 'd-block' : 'd-none d-md-block'}`}>
+          <div className="card border-0 shadow-sm rounded-4 h-100 bg-white overflow-hidden" style={{ borderTop: '4px solid #FF8D00' }}>
+            <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                <IconoEstadoVenezuela size={24} color="#FF8D00" />
+                <span>Estados ({estadosUnicos.length})</span>
+              </h6>
               {hasCrear && (
-                <button className="btn btn-sm text-white fw-bold shadow-sm hover-efecto" style={{ background: '#0f172a' }} onClick={nuevoEstado}>
+                <button 
+                  className="btn btn-xs text-white rounded-pill px-2.5 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1" 
+                  style={{ background: '#FF8D00' }} 
+                  onClick={nuevoEstado}
+                >
                   <i className="bi bi-plus-lg"></i>
+                  <span>Nuevo</span>
                 </button>
               )}
             </div>
-            <div className="card-body p-0" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <div className="card-body p-0" style={{ maxHeight: '520px', overflowY: 'auto' }}>
               {estadosUnicos.length === 0 ? (
                 <div className="p-4 text-center text-muted">
-                  <i className="bi bi-inbox fs-2"></i>
+                  <IconoEstadoVenezuela size={38} color="#cbd5e1" />
                   <p className="mb-0 small fw-bold mt-2">No hay estados</p>
                 </div>
               ) : (
                 <div className="list-group list-group-flush">
                   {estadosUnicos.map(est => {
-                    const activeClass = (estadoSel === est) ? 'active bg-primary text-white' : 'text-dark bg-white';
-                    const iconColor = (estadoSel === est) ? 'text-white' : 'text-primary';
-                    const btnTrashColor = (estadoSel === est) ? 'btn-primary text-white border-white' : 'btn-light text-danger border';
+                    const isSelected = (estadoSel === est);
+                    const activeClass = isSelected ? 'active text-white' : 'text-dark bg-white';
 
                     return (
                       <div 
                         key={est} 
-                        className={`list-group-item p-3 border-0 border-bottom d-flex justify-content-between align-items-center hover-efecto cursor-pointer ${activeClass}`} 
+                        className={`list-group-item p-3 border-0 border-bottom d-flex justify-content-between align-items-center gap-2 hover-efecto cursor-pointer ${activeClass}`} 
                         onClick={() => seleccionarEstado(est)}
-                        style={{ cursor: 'pointer' }}
+                        style={{ 
+                          cursor: 'pointer',
+                          backgroundColor: isSelected ? '#FF8D00' : undefined,
+                          borderColor: isSelected ? '#FF8D00' : undefined
+                        }}
                       >
-                        <div className="fw-bold d-flex align-items-center gap-2">
-                          <i className={`bi bi-map-fill ${iconColor}`}></i> {est}
+                        <div className="fw-bold d-flex align-items-center gap-2 text-break" style={{ minWidth: 0 }}>
+                          <IconoEstadoVenezuela size={20} color={isSelected ? '#ffffff' : '#FF8D00'} />
+                          <span>{est}</span>
                         </div>
-                        <div className="d-flex align-items-center gap-1">
+                        <div className="d-flex align-items-center gap-1 flex-shrink-0">
                           {hasModificar && (
                             <button 
-                              className={`btn btn-sm ${(estadoSel === est) ? 'btn-primary text-white border-white' : 'btn-light text-primary border'} rounded-circle shadow-sm hover-efecto`} 
+                              className={`btn btn-xs ${isSelected ? 'btn-white bg-white text-dark' : 'btn-light text-primary'} rounded-circle shadow-xs d-flex align-items-center justify-content-center`} 
+                              style={{ width: '34px', height: '34px', minWidth: '34px' }}
                               onClick={(e) => { e.stopPropagation(); editarEstado(est); }} 
                               title="Editar Estado"
                             >
@@ -683,7 +834,8 @@ export const DivisionTerritorial = () => {
                           )}
                           {hasEliminar && (
                             <button 
-                              className={`btn btn-sm ${btnTrashColor} rounded-circle shadow-sm hover-efecto`} 
+                              className={`btn btn-xs ${isSelected ? 'btn-white bg-white text-danger' : 'btn-light text-danger'} rounded-circle shadow-xs d-flex align-items-center justify-content-center`} 
+                              style={{ width: '34px', height: '34px', minWidth: '34px' }}
                               onClick={(e) => { e.stopPropagation(); eliminarEstado(est); }} 
                               title="Eliminar Estado"
                             >
@@ -700,54 +852,63 @@ export const DivisionTerritorial = () => {
           </div>
         </div>
 
-        {/* Column: Municipios */}
-        <div className="col-md-4">
-          <div className="card border-0 shadow-sm rounded-4 h-100" style={{ borderTop: '5px solid #1e293b' }}>
-            <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-              <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-compass-fill me-2 text-secondary"></i>Municipios</h6>
+        {/* Column 2: Municipios */}
+        <div className={`col-12 col-md-4 ${tabMovil === 'municipios' ? 'd-block' : 'd-none d-md-block'}`}>
+          <div className="card border-0 shadow-sm rounded-4 h-100 bg-white overflow-hidden" style={{ borderTop: '4px solid #00C3FF' }}>
+            <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                <IconoMunicipioVenezuela size={24} color="#00C3FF" />
+                <span>Municipios ({municipiosFiltrados.length})</span>
+              </h6>
               {hasCrear && (
                 <button 
-                  className={`btn btn-sm text-white fw-bold shadow-sm hover-efecto ${!estadoSel ? 'disabled' : ''}`} 
-                  style={{ background: '#1e293b' }} 
+                  className={`btn btn-xs text-white rounded-pill px-2.5 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1 ${!estadoSel ? 'disabled' : ''}`} 
+                  style={{ background: '#00C3FF' }} 
                   onClick={nuevoMunicipio}
                   disabled={!estadoSel}
                 >
                   <i className="bi bi-plus-lg"></i>
+                  <span>Nuevo</span>
                 </button>
               )}
             </div>
-            <div className="card-body p-0" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <div className="card-body p-0" style={{ maxHeight: '520px', overflowY: 'auto' }}>
               {!estadoSel ? (
                 <div className="p-4 text-center text-muted">
-                  <i className="bi bi-map fs-2"></i>
-                  <p className="mb-0 small fw-bold mt-2">Seleccione un Estado</p>
+                  <IconoMunicipioVenezuela size={38} color="#cbd5e1" />
+                  <p className="mb-0 small fw-bold mt-2">Seleccione un Estado para ver sus municipios</p>
                 </div>
               ) : municipiosFiltrados.length === 0 ? (
                 <div className="p-4 text-center text-muted">
-                  <i className="bi bi-inbox fs-2"></i>
+                  <IconoMunicipioVenezuela size={38} color="#cbd5e1" />
                   <p className="mb-0 small fw-bold mt-2">No hay municipios agregados</p>
                 </div>
               ) : (
                 <div className="list-group list-group-flush">
                   {municipiosFiltrados.map(muni => {
-                    const activeClass = (municipioSel === muni) ? 'active bg-primary text-white' : 'text-dark bg-white';
-                    const iconColor = (municipioSel === muni) ? 'text-white' : 'text-success';
-                    const btnTrashColor = (municipioSel === muni) ? 'btn-primary text-white border-white' : 'btn-light text-danger border';
+                    const isSelected = (municipioSel === muni);
+                    const activeClass = isSelected ? 'active text-white' : 'text-dark bg-white';
 
                     return (
                       <div 
                         key={muni} 
-                        className={`list-group-item p-3 border-0 border-bottom d-flex justify-content-between align-items-center hover-efecto cursor-pointer ${activeClass}`} 
+                        className={`list-group-item p-3 border-0 border-bottom d-flex justify-content-between align-items-center gap-2 hover-efecto cursor-pointer ${activeClass}`} 
                         onClick={() => seleccionarMunicipio(muni)}
-                        style={{ cursor: 'pointer' }}
+                        style={{ 
+                          cursor: 'pointer',
+                          backgroundColor: isSelected ? '#00C3FF' : undefined,
+                          borderColor: isSelected ? '#00C3FF' : undefined
+                        }}
                       >
-                        <div className="fw-bold d-flex align-items-center gap-2">
-                          <i className={`bi bi-compass-fill ${iconColor}`}></i> {muni}
+                        <div className="fw-bold d-flex align-items-center gap-2 text-break" style={{ minWidth: 0 }}>
+                          <IconoMunicipioVenezuela size={20} color={isSelected ? '#ffffff' : '#00C3FF'} />
+                          <span>{muni}</span>
                         </div>
-                        <div className="d-flex align-items-center gap-1">
+                        <div className="d-flex align-items-center gap-1 flex-shrink-0">
                           {hasModificar && (
                             <button 
-                              className={`btn btn-sm ${(municipioSel === muni) ? 'btn-primary text-white border-white' : 'btn-light text-primary border'} rounded-circle shadow-sm hover-efecto`} 
+                              className={`btn btn-xs ${isSelected ? 'btn-white bg-white text-dark' : 'btn-light text-primary'} rounded-circle shadow-xs d-flex align-items-center justify-content-center`} 
+                              style={{ width: '34px', height: '34px', minWidth: '34px' }}
                               onClick={(e) => { e.stopPropagation(); editarMunicipio(muni); }} 
                               title="Editar Municipio"
                             >
@@ -756,7 +917,8 @@ export const DivisionTerritorial = () => {
                           )}
                           {hasEliminar && (
                             <button 
-                              className={`btn btn-sm ${btnTrashColor} rounded-circle shadow-sm hover-efecto`} 
+                              className={`btn btn-xs ${isSelected ? 'btn-white bg-white text-danger' : 'btn-light text-danger'} rounded-circle shadow-xs d-flex align-items-center justify-content-center`} 
+                              style={{ width: '34px', height: '34px', minWidth: '34px' }}
                               onClick={(e) => { e.stopPropagation(); eliminarMunicipio(muni); }} 
                               title="Eliminar Municipio"
                             >
@@ -773,44 +935,50 @@ export const DivisionTerritorial = () => {
           </div>
         </div>
 
-        {/* Column: Parroquias */}
-        <div className="col-md-4">
-          <div className="card border-0 shadow-sm rounded-4 h-100" style={{ borderTop: '5px solid #334155' }}>
-            <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-              <h6 className="mb-0 fw-bold text-dark"><i className="bi bi-geo-fill me-2 text-secondary"></i>Parroquias</h6>
+        {/* Column 3: Parroquias */}
+        <div className={`col-12 col-md-4 ${tabMovil === 'parroquias' ? 'd-block' : 'd-none d-md-block'}`}>
+          <div className="card border-0 shadow-sm rounded-4 h-100 bg-white overflow-hidden" style={{ borderTop: '4px solid #10b981' }}>
+            <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+              <h6 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                <IconoParroquiaVenezuela size={24} color="#10b981" />
+                <span>Parroquias ({parroquiasFiltradas.length})</span>
+              </h6>
               {hasCrear && (
                 <button 
-                  className={`btn btn-sm text-white fw-bold shadow-sm hover-efecto ${!municipioSel ? 'disabled' : ''}`} 
-                  style={{ background: '#334155' }} 
+                  className={`btn btn-xs text-white rounded-pill px-2.5 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1 ${!municipioSel ? 'disabled' : ''}`} 
+                  style={{ background: '#10b981' }} 
                   onClick={nuevaParroquia}
                   disabled={!municipioSel}
                 >
                   <i className="bi bi-plus-lg"></i>
+                  <span>Nueva</span>
                 </button>
               )}
             </div>
-            <div className="card-body p-0" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <div className="card-body p-0" style={{ maxHeight: '520px', overflowY: 'auto' }}>
               {!municipioSel ? (
                 <div className="p-4 text-center text-muted">
-                  <i className="bi bi-compass fs-2"></i>
-                  <p className="mb-0 small fw-bold mt-2">Seleccione un Municipio</p>
+                  <IconoParroquiaVenezuela size={38} color="#cbd5e1" />
+                  <p className="mb-0 small fw-bold mt-2">Seleccione un Municipio para ver sus parroquias</p>
                 </div>
               ) : parroquiasFiltradas.length === 0 ? (
                 <div className="p-4 text-center text-muted">
-                  <i className="bi bi-inbox fs-2"></i>
+                  <IconoParroquiaVenezuela size={38} color="#cbd5e1" />
                   <p className="mb-0 small fw-bold mt-2">No hay parroquias agregadas</p>
                 </div>
               ) : (
                 <div className="list-group list-group-flush">
                   {parroquiasFiltradas.map(parr => (
-                    <div key={parr.id} className="list-group-item p-3 border-0 border-bottom d-flex justify-content-between align-items-center hover-efecto text-dark bg-white">
-                      <div className="fw-bold d-flex align-items-center gap-2">
-                        <i className="bi bi-geo-fill text-danger"></i> {parr.valor}
+                    <div key={parr.id} className="list-group-item p-3 border-0 border-bottom d-flex justify-content-between align-items-center gap-2 hover-efecto text-dark bg-white">
+                      <div className="fw-bold d-flex align-items-center gap-2 text-break" style={{ minWidth: 0 }}>
+                        <IconoParroquiaVenezuela size={20} color="#10b981" />
+                        <span>{parr.valor}</span>
                       </div>
-                      <div className="d-flex align-items-center gap-1">
+                      <div className="d-flex align-items-center gap-1 flex-shrink-0">
                         {hasModificar && (
                           <button 
-                            className="btn btn-sm btn-light text-primary rounded-circle shadow-sm hover-efecto border" 
+                            className="btn btn-xs btn-light text-primary rounded-circle shadow-xs d-flex align-items-center justify-content-center" 
+                            style={{ width: '34px', height: '34px', minWidth: '34px' }}
                             onClick={() => editarParroquia(parr.id, parr.valor)} 
                             title="Editar Parroquia"
                           >
@@ -819,7 +987,8 @@ export const DivisionTerritorial = () => {
                         )}
                         {hasEliminar && (
                           <button 
-                            className="btn btn-sm btn-light text-danger rounded-circle shadow-sm hover-efecto border" 
+                            className="btn btn-xs btn-light text-danger rounded-circle shadow-xs d-flex align-items-center justify-content-center" 
+                            style={{ width: '34px', height: '34px', minWidth: '34px' }}
                             onClick={() => eliminarParroquia(parr.id, parr.valor)} 
                             title="Eliminar Parroquia"
                           >

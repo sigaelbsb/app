@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoEstudioDiseno } from '../../components/chamilo';
 
 export type TipoHerramienta = 'certificados' | 'flyers' | 'invitaciones' | 'tapas' | 'comunicados' | 'cumpleanos' | 'galeria';
 
@@ -201,6 +202,54 @@ const PLANTILLAS_PREDEFINIDAS: PlantillaDiseno[] = [
 
   // COMUNICADOS
   {
+    id: 'com-orientaciones-nuevos-ingresos',
+    tipo: 'comunicados',
+    nombre: 'Orientaciones Paso a Paso (Nuevos Ingresos)',
+    descripcion: 'Guía oficial para representantes: ingreso al sistema, actualización de ficha, recaudos, revisión presencial, constancia en 12h y bienvenida.',
+    icono: 'bi-signpost-split-fill',
+    badge: 'Paso a Paso Oficial',
+    colorAcento: '#1d4ed8',
+    colorFondo: '#ffffff',
+    estiloBorde: 'moderno-azul',
+    titulo: 'Orientaciones Generales y Guía Paso a Paso',
+    subtitulo: 'Proceso Oficial de Admisión, Actualización y Formalización de Matrícula',
+    destinatario: 'Padres, Madres y Representantes de Nuevos Ingresos',
+    cuerpo: `Estimados Padres, Madres y Representantes:
+
+Reciban un fraternal saludo de parte de la Dirección y el Consejo Educativo de la {ESCUELA}. En seguimiento a la asignación y aceptación del cupo para su representado(a), a continuación detallamos las orientaciones oficiales y el paso a paso para completar exitosamente la actualización de datos y formalización de la matrícula:
+
+1️⃣ Paso 1: Ingreso al sistema y creación de contraseña
+• Ingrese a la plataforma web oficial SIGAE: https://sigaelbsb.vercel.app/
+• En la casilla "Usuario", introduzca su número de Cédula de Identidad (sin puntos ni letras).
+• Cree su contraseña personal segura y configure sus preguntas de seguridad para su primer inicio de sesión.
+
+2️⃣ Paso 2: Módulo de gestión estudiantil y actualización de ficha
+• Una vez dentro del sistema, diríjase al módulo de "Gestión Estudiantil".
+• Seleccione al estudiante asignado y proceda a actualizar y completar detalladamente la Ficha del Estudiante (datos de identificación, salud, residencia y contactos).
+
+3️⃣ Paso 3: Descarga de recaudos digitales
+• Al finalizar satisfactoriamente la actualización de la ficha, el sistema le permitirá descargar tres (3) documentos oficiales:
+   📄 Hoja de Resumen de Admisión.
+   📜 Carta de Aceptación Oficial.
+   📑 Normas Internas de Convivencia Escolar.
+
+4️⃣ Paso 4: Impresión y recaudos físicos en carpeta
+• Imprima los documentos descargados en el Paso 3.
+• Arme una carpeta de manila tamaño oficio adjuntando dichos recaudos impresos conjuntamente con todos los recaudos físicos requeridos en el documento de la Carta de Aceptación (partida de nacimiento, fotos tipo carnet, copia de cédulas, notas certificadas y constancias según el nivel).
+
+5️⃣ Paso 5: Asistencia a la escuela según cronograma
+• Asista puntualmente a la sede de la institución en las fechas y horarios fijados en la convocatoria para la revisión, validación y consignación física de la documentación en la Coordinación de Control de Estudios.
+
+6️⃣ Paso 6: Descarga de constancia de inscripción (en 12 horas)
+• Transcurridas doce (12) horas posteriores a la verificación y validación presencial de sus documentos físicos en el plantel, ingrese nuevamente al sistema SIGAE y descargue su Constancia de Inscripción Definitiva.
+
+¡Bienvenidos a la {ESCUELA}!
+Formando con excelencia, disciplina y valores a la generación del mañana.`,
+    pieFirma: 'Dirección y Control de Estudios',
+    cargoFirma: 'COMITÉ INSTITUCIONAL DE ADMISIONES',
+    fecha: 'Año Escolar 2026 - 2027'
+  },
+  {
     id: 'com-circular',
     tipo: 'comunicados',
     nombre: 'Circular Directiva Oficial (Membretada)',
@@ -319,15 +368,15 @@ export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial
     ? {
         nombre: 'UNIDAD EDUCATIVA SANTA BÁRBARA',
         codigoDea: 'DEA: S0152D0105 - RIF: J-30124587-0',
-        direccion: 'Av. Principal de Santa Bárbara, Caracas, Distrito Capital',
-        logo: '/assets/img/logo-sb.png',
+        direccion: 'El Tejero, estado Monagas',
+        logo: '/assets/img/logo_sb.png',
         color: '#FF8D00'
       }
     : {
         nombre: 'UNIDAD EDUCATIVA LIBERTADOR BOLÍVAR',
         codigoDea: 'DEA: S0244D0102 - RIF: J-40258741-9',
-        direccion: 'Calle Bolívar, Sector Centro, Libertador, Caracas',
-        logo: '/assets/img/logo-lb.png',
+        direccion: 'Miraflores, estado Monagas',
+        logo: '/assets/img/logo_lb.png',
         color: '#0066FF'
       };
 
@@ -452,42 +501,164 @@ export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial
         }
       `}</style>
 
-      {/* ENCABEZADO MAESTRO */}
-      <div className="card border-0 shadow-sm rounded-4 p-4 mb-4" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #311042 50%, #4c0519 100%)', color: 'white' }}>
-        <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
-          <div className="d-flex align-items-center gap-3">
-            <div className="bg-white bg-opacity-10 p-3 rounded-4 border border-white border-opacity-25 d-flex align-items-center justify-content-center shadow-lg" style={{ width: '64px', height: '64px' }}>
-              <i className="bi bi-palette-fill fs-2 text-warning"></i>
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Área de Diseños"
+        currentModule="Estudio de Diseño Gráfico"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_estudio_diseno"
+        title="Guía del Estudio Creativo y Plantillas Gráficas"
+        content="Cree diplomas de honor al mérito, flyers de eventos escolares, invitaciones a actos de grado y tapas de expedientes con exportación directa en PNG y PDF de alta calidad."
+        icon="bi-palette-fill"
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      <div 
+        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown ocultar-impresion" 
+        style={{ 
+          border: '2px solid #fbcfe8',
+          borderTop: '6px solid #ec4899',
+          background: 'linear-gradient(135deg, #ffffff 0%, #fdf2f8 45%, #fce7f3 100%)',
+          borderRadius: '26px'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Doble: Ícono 3D de Estudio de Diseño + Escudo Oficial de la Escuela */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 flex-wrap">
+                {/* Ícono 3D Estudio de Diseño */}
+                <div 
+                  className="tech-icon-wrapper bg-white d-inline-flex align-items-center justify-content-center p-2"
+                  style={{ 
+                    width: '105px', 
+                    height: '105px',
+                    borderRadius: '24px',
+                    border: '2.5px solid #fbcfe8',
+                    boxShadow: '0 10px 24px rgba(236, 72, 153, 0.15)'
+                  }}
+                  title="Estudio Gráfico Oficial"
+                >
+                  <IconoEstudioDiseno size={54} color="#ec4899" />
+                </div>
+
+                {/* Logo Oficial de la Escuela */}
+                <div 
+                  className="tech-icon-wrapper bg-white d-inline-flex align-items-center justify-content-center p-2"
+                  style={{ 
+                    width: '105px', 
+                    height: '105px',
+                    borderRadius: '24px',
+                    border: '2.5px solid #fbcfe8',
+                    boxShadow: '0 10px 24px rgba(236, 72, 153, 0.15)'
+                  }}
+                  title={`Plantel Activo: ${escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}`}
+                >
+                  <img 
+                    src={`/assets/img/logo_${escuelaSeleccionada}.png`} 
+                    alt="Escudo Institucional" 
+                    className="img-fluid"
+                    style={{ maxHeight: '85px', maxWidth: '85px', objectFit: 'contain' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="badge rounded-pill bg-warning text-dark fw-bolder px-3 py-1 mb-2">
-                <i className="bi bi-stars me-1"></i> Módulo Creativo SIGAE
-              </span>
-              <h2 className="fw-bolder mb-1">Estudio de Diseño Gráfico e Impresión</h2>
-              <p className="mb-0 text-light text-opacity-75 small">
-                Crea, personaliza, exporta y archiva certificados académicos, flyers promocionales, invitaciones oficiales, tapas de expedientes y comunicados directivos.
+
+            {/* Título, Badges y Beacon Tecnológico */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                {/* Live Campus Beacon */}
+                <div 
+                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
+                  style={{ borderColor: '#fbcfe8' }}
+                >
+                  <span className="status-beacon-live" style={{ color: '#ec4899' }}></span>
+                  <span 
+                    className="extra-small fw-bold text-uppercase" 
+                    style={{ fontSize: '0.72rem', color: '#be185d', letterSpacing: '0.5px' }}
+                  >
+                    Campus Creativo &bull; {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
+                  </span>
+                </div>
+
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#ec4899' }}>
+                  <i className="bi bi-stars me-1"></i>Módulo Creativo & Diseño
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-building me-1"></i>Plantel: <b>{escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold text-capitalize shadow-xs">
+                  <i className="bi bi-palette text-primary me-1"></i>Modo: <b>{herramienta}</b>
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
+                Estudio de Diseño Gráfico e Impresión
+              </h1>
+
+              <p className="mb-0 text-muted small d-flex align-items-center gap-1.5 flex-wrap">
+                <i className="bi bi-info-circle-fill text-primary flex-shrink-0"></i>
+                <span className="fw-semibold">Crea, personaliza, exporta y archiva certificados académicos, flyers promocionales, invitaciones oficiales, tapas de expedientes y comunicados directivos.</span>
               </p>
             </div>
-          </div>
 
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => window.location.href = '/categoria/Diseños'}
+                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-2"
+                style={{ fontSize: '0.85rem', borderColor: '#fbcfe8' }}
+              >
+                <i className="bi bi-arrow-left" style={{ color: '#be185d' }}></i>
+                <span>Volver a Diseños</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Barra de Selector de Sede Institucional Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            <div className="bg-dark bg-opacity-50 px-3 py-2 rounded-3 border border-white border-opacity-15 d-flex align-items-center gap-2">
-              <span className="small text-light">Membrete:</span>
+            <span className="small text-muted fw-bold">Membrete Institucional:</span>
+            <div className="btn-group bg-white rounded-pill p-0.5 shadow-xs border">
               <button
                 type="button"
                 onClick={() => handleEscuelaChange('sb')}
-                className={`btn btn-sm fw-bold rounded-pill px-3 ${escuelaSeleccionada === 'sb' ? 'btn-warning text-dark shadow' : 'btn-outline-light'}`}
+                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escuelaSeleccionada === 'sb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
+                style={{
+                  backgroundColor: escuelaSeleccionada === 'sb' ? '#EC4899' : undefined,
+                  borderColor: escuelaSeleccionada === 'sb' ? '#EC4899' : undefined,
+                  fontSize: '0.78rem'
+                }}
               >
                 UE Santa Bárbara
               </button>
               <button
                 type="button"
                 onClick={() => handleEscuelaChange('lb')}
-                className={`btn btn-sm fw-bold rounded-pill px-3 ${escuelaSeleccionada === 'lb' ? 'btn-info text-dark shadow' : 'btn-outline-light'}`}
+                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escuelaSeleccionada === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
+                style={{
+                  backgroundColor: escuelaSeleccionada === 'lb' ? '#EC4899' : undefined,
+                  borderColor: escuelaSeleccionada === 'lb' ? '#EC4899' : undefined,
+                  fontSize: '0.78rem'
+                }}
               >
                 UE Libertador Bolívar
               </button>
             </div>
+          </div>
+
+          <div className="d-flex align-items-center gap-1.5">
+            <span className="text-muted extra-small">
+              <i className="bi bi-printer text-success me-1"></i>Listo para Imprimir / Exportar
+            </span>
           </div>
         </div>
       </div>
@@ -1042,7 +1213,7 @@ export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial
                             textAlign: plantillaActiva.tipo === 'tapas' || plantillaActiva.tipo === 'comunicados' ? 'left' : 'center'
                           }}
                         >
-                          {plantillaActiva.cuerpo}
+                          {plantillaActiva.cuerpo.replace(/{ESCUELA}/g, escuelaSeleccionada === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}
                         </p>
                       </div>
                     </div>

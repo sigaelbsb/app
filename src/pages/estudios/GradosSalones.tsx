@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { formatPhoneNumber } from '../../lib/formatters';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoGradosSalones } from '../../components/chamilo';
+import { ModalAsignacionSorpresa, abrirModalParametrizarSorpresa, abrirModalProbarSonidos } from '../../components/ModalAsignacionSorpresa';
 
 interface GradoItem {
   id_parametro: string;
@@ -59,8 +61,38 @@ interface EstudianteVinculado {
   created_at?: string;
 }
 
+export interface ResponsabilidadDocente {
+  id_responsabilidad: string;
+  id_escuela: string;
+  nombre_responsabilidad: string;
+  categoria: string;
+  nivel_educativo: string;
+  grados_atendidos: string[];
+  docentes_asignados: string[];
+  periodo_escolar: string;
+  horas_semanales?: number;
+  observaciones?: string;
+  created_at?: string;
+}
+
+const ESPECIALIDADES_SUGERIDAS = [
+  'Especialista de Castellano',
+  'Especialista de Inglés e Idiomas',
+  'Docente de Educación Física y Deporte',
+  'Especialista de Matemáticas',
+  'Especialista de Ciencias Naturales / Biología',
+  'Especialista de Física y Química',
+  'Especialista de Geografía, Historia y Ciudadanía (GHC)',
+  'Especialista de Computación y Recursos (CRA)',
+  'Docente de Orientación y Convivencia',
+  'Docente de Proyecto Socioproductivo / PTMS',
+  'Especialista de Educación Artística / Música',
+  'Especialista en Dificultades de Aprendizaje / Aula Integrada',
+  'Coordinador(a) Pedagógico(a)'
+];
+
 interface GradosSalonesProps {
-  defaultTab?: 'espacios' | 'salones' | 'matricula' | 'reportes';
+  defaultTab?: 'espacios' | 'salones' | 'matricula' | 'especialistas' | 'reportes';
 }
 
 export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salones' }) => {
@@ -70,7 +102,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const html2pdf = (window as any).html2pdf;
 
   // Active Main Tab
-  const [activeTab, setActiveTab] = useState<'espacios' | 'salones' | 'matricula' | 'reportes'>(defaultTab);
+  const [activeTab, setActiveTab] = useState<'espacios' | 'salones' | 'matricula' | 'especialistas' | 'reportes'>(defaultTab);
 
   // General State
   const [niveles, setNiveles] = useState<NivelItem[]>([]);
@@ -80,6 +112,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const [salones, setSalones] = useState<SalonItem[]>([]);
   const [docentes, setDocentes] = useState<any[]>([]);
   const [estudiantes, setEstudiantes] = useState<EstudianteVinculado[]>([]);
+  const [responsabilidades, setResponsabilidades] = useState<ResponsabilidadDocente[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Filters and Selection
@@ -88,6 +121,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const [searchEspacios, setSearchEspacios] = useState<string>('');
   const [searchSalones, setSearchSalones] = useState<string>('');
   const [searchEstudiantes, setSearchEstudiantes] = useState<string>('');
+  const [searchEspecialistas, setSearchEspecialistas] = useState<string>('');
+  const [filtroNivelEspecialistas, setFiltroNivelEspecialistas] = useState<string>('todos');
   const [searchReportes, setSearchReportes] = useState<string>('');
   const [paginaActualEspacios, setPaginaActualEspacios] = useState<number>(1);
   const itemsPorPaginaEspacios = 8;
@@ -110,6 +145,33 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   // Selected Salon for Matrícula & Docente Guía view
   const [salonSeleccionadoId, setSalonSeleccionadoId] = useState<string>('');
   const [seleccionadosMatricula, setSeleccionadosMatricula] = useState<string[]>([]);
+  const [mostrarPreviewSorpresa, setMostrarPreviewSorpresa] = useState(false);
+  const [previewDocenteCedula, setPreviewDocenteCedula] = useState('');
+
+  // Especialistas modal & form state
+  const [mostrarModalEspecialidad, setMostrarModalEspecialidad] = useState<boolean>(false);
+  const [editandoEspecialidadId, setEditandoEspecialidadId] = useState<string | null>(null);
+  const [formEspecialidad, setFormEspecialidad] = useState<{
+    id_escuela: string;
+    nombre_responsabilidad: string;
+    categoria: string;
+    nivel_educativo: string;
+    grados_atendidos: string[];
+    docentes_asignados: string[];
+    periodo_escolar: string;
+    horas_semanales: number;
+    observaciones: string;
+  }>({
+    id_escuela: 'sb',
+    nombre_responsabilidad: '',
+    categoria: 'Área de Formación / Especialista',
+    nivel_educativo: 'Educación Media General',
+    grados_atendidos: [],
+    docentes_asignados: [],
+    periodo_escolar: '2026 - 2027',
+    horas_semanales: 12,
+    observaciones: ''
+  });
 
   // Permissions Checks
   const hasAccessSB_Esp = tienePermisoEnEscuela('sb', 'Grados y Salones', 'ver') || tienePermisoEnEscuela('sb', 'Tarjeta: Ambientes y Espacios Físicos', 'ver') || tienePermisoEnEscuela('sb', 'Tarjeta: Apertura de Salones', 'ver');
@@ -150,42 +212,39 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const cargarDatosCompletos = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      // 1. Cargar datos básicos de configuración en paralelo
-      const [nivRes, graRes, secRes, espRes, salRes, docRes] = await Promise.all([
-        supabase.from('conf_niveles').select('*').order('valor', { ascending: true }),
-        supabase.from('conf_grados').select('*').order('orden', { ascending: true }),
-        supabase.from('conf_secciones').select('*').order('valor', { ascending: true }),
+      // 1. Cargar datos básicos y primer bloque de estudiantes en paralelo inmediato
+      const [nivRes, graRes, secRes, espRes, salRes, docRes, estPage1, estPage2, estPage3, estPage4] = await Promise.all([
+        supabase.from('conf_niveles').select('id_parametro, valor').order('valor', { ascending: true }),
+        supabase.from('conf_grados').select('id_parametro, valor, orden').order('orden', { ascending: true }),
+        supabase.from('conf_secciones').select('id_parametro, valor').order('valor', { ascending: true }),
         supabase.from('espacios').select('*'),
         supabase.from('salones').select('*'),
-        supabase.from('usuarios').select('cedula, nombre_completo, id_escuela, telefono, email').eq('rol', 'Docente').eq('estado', 'Activo').order('nombre_completo', { ascending: true })
+        supabase.from('usuarios').select('cedula, nombre_completo, id_escuela, telefono, email').eq('rol', 'Docente').eq('estado', 'Activo').order('nombre_completo', { ascending: true }),
+        // Carga paralela de bloques de estudiantes con solo las columnas requeridas (súper veloz)
+        supabase.from('estudiantes_vinculaciones')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .eq('estado', 'Activo')
+          .range(0, 999),
+        supabase.from('estudiantes_vinculaciones')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .eq('estado', 'Activo')
+          .range(1000, 1999),
+        supabase.from('estudiantes_vinculaciones')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .eq('estado', 'Activo')
+          .range(2000, 2999),
+        supabase.from('estudiantes_vinculaciones')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .eq('estado', 'Activo')
+          .range(3000, 3999)
       ]);
 
-      // 2. Cargar la totalidad de estudiantes vinculados paginando para evitar el límite de 1000 registros de Supabase
-      let todosEstudiantes: EstudianteVinculado[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data: estData, error: estErr } = await supabase
-          .from('estudiantes_vinculaciones')
-          .select('*')
-          .eq('estado', 'Activo')
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (estErr) throw estErr;
-
-        if (estData && estData.length > 0) {
-          todosEstudiantes = [...todosEstudiantes, ...estData];
-          if (estData.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
+      const todosEstudiantes: EstudianteVinculado[] = [
+        ...(estPage1.data || []),
+        ...(estPage2.data || []),
+        ...(estPage3.data || []),
+        ...(estPage4.data || [])
+      ];
 
       if (nivRes.data) setNiveles(nivRes.data);
       if (graRes.data) setGrados(graRes.data);
@@ -199,12 +258,250 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       }
       if (docRes.data) setDocentes(docRes.data);
       setEstudiantes(todosEstudiantes);
+
+      // Cargar Responsabilidades y Especialistas Asignadas
+      try {
+        const { data: respData, error: respErr } = await supabase
+          .from('responsabilidades_docentes')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!respErr && respData && respData.length > 0) {
+          setResponsabilidades(respData);
+          localStorage.setItem('sigae_responsabilidades_docentes', JSON.stringify(respData));
+        } else {
+          const localR = localStorage.getItem('sigae_responsabilidades_docentes');
+          if (localR) setResponsabilidades(JSON.parse(localR));
+        }
+      } catch (errR) {
+        const localR = localStorage.getItem('sigae_responsabilidades_docentes');
+        if (localR) setResponsabilidades(JSON.parse(localR));
+      }
     } catch (e: any) {
       console.error("Error al cargar datos del módulo unificado:", e);
       if (Swal) Swal.fire('Error', 'Falla de conexión al cargar datos escolares.', 'error');
     } finally {
       if (!silencioso) setLoading(false);
     }
+  };
+
+  // ──────────────────────────────────────────────────────────
+  // GESTIÓN DE ESPECIALISTAS Y OTRAS RESPONSABILIDADES
+  // ──────────────────────────────────────────────────────────
+  const abrirModalNuevaEspecialidad = (item?: ResponsabilidadDocente) => {
+    if (item) {
+      setEditandoEspecialidadId(item.id_responsabilidad);
+      setFormEspecialidad({
+        id_escuela: item.id_escuela || 'sb',
+        nombre_responsabilidad: item.nombre_responsabilidad,
+        categoria: item.categoria || 'Área de Formación / Especialista',
+        nivel_educativo: item.nivel_educativo || 'Educación Media General',
+        grados_atendidos: item.grados_atendidos || [],
+        docentes_asignados: item.docentes_asignados || [],
+        periodo_escolar: item.periodo_escolar || '2026 - 2027',
+        horas_semanales: item.horas_semanales || 12,
+        observaciones: item.observaciones || ''
+      });
+    } else {
+      setEditandoEspecialidadId(null);
+      setFormEspecialidad({
+        id_escuela: escuelaFiltro !== 'todas' ? escuelaFiltro : (escuelasAutorizadas[0] || 'sb'),
+        nombre_responsabilidad: '',
+        categoria: 'Área de Formación / Especialista',
+        nivel_educativo: 'Educación Media General',
+        grados_atendidos: [],
+        docentes_asignados: [],
+        periodo_escolar: '2026 - 2027',
+        horas_semanales: 12,
+        observaciones: ''
+      });
+    }
+    setMostrarModalEspecialidad(true);
+  };
+
+  const handleGuardarEspecialidad = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formEspecialidad.nombre_responsabilidad.trim()) {
+      if (Swal) Swal.fire('Atención', 'Ingrese el nombre de la especialidad o responsabilidad.', 'warning');
+      return;
+    }
+    if (formEspecialidad.grados_atendidos.length === 0) {
+      if (Swal) Swal.fire('Atención', 'Seleccione al menos un grado o año atendido.', 'warning');
+      return;
+    }
+    if (formEspecialidad.docentes_asignados.length === 0) {
+      if (Swal) Swal.fire('Atención', 'Debe asignar al menos un docente o especialista.', 'warning');
+      return;
+    }
+
+    try {
+      const nuevaResp: ResponsabilidadDocente = {
+        id_responsabilidad: editandoEspecialidadId || `resp_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        id_escuela: formEspecialidad.id_escuela,
+        nombre_responsabilidad: formEspecialidad.nombre_responsabilidad.trim(),
+        categoria: formEspecialidad.categoria,
+        nivel_educativo: formEspecialidad.nivel_educativo,
+        grados_atendidos: formEspecialidad.grados_atendidos,
+        docentes_asignados: formEspecialidad.docentes_asignados,
+        periodo_escolar: '2026 - 2027',
+        horas_semanales: Number(formEspecialidad.horas_semanales) || 0,
+        observaciones: formEspecialidad.observaciones?.trim() || '',
+        created_at: new Date().toISOString()
+      };
+
+      // Persistir en Supabase
+      try {
+        if (editandoEspecialidadId) {
+          await supabase.from('responsabilidades_docentes').update(nuevaResp).eq('id_responsabilidad', editandoEspecialidadId);
+        } else {
+          await supabase.from('responsabilidades_docentes').insert([nuevaResp]);
+        }
+      } catch (errDb) {
+        console.log('Sincronizando responsabilidad en base de datos:', errDb);
+      }
+
+      // Sincronizar en LocalStorage y Estado
+      let listaActualizada: ResponsabilidadDocente[];
+      if (editandoEspecialidadId) {
+        listaActualizada = responsabilidades.map(r => r.id_responsabilidad === editandoEspecialidadId ? nuevaResp : r);
+      } else {
+        listaActualizada = [nuevaResp, ...responsabilidades];
+      }
+      setResponsabilidades(listaActualizada);
+      localStorage.setItem('sigae_responsabilidades_docentes', JSON.stringify(listaActualizada));
+
+      auditar('Control de Estudios', editandoEspecialidadId ? 'Editar Especialidad' : 'Crear Especialidad', `Responsabilidad: ${nuevaResp.nombre_responsabilidad} (${nuevaResp.nivel_educativo}) - Grados: ${nuevaResp.grados_atendidos.join(', ')}`);
+
+      setMostrarModalEspecialidad(false);
+      setEditandoEspecialidadId(null);
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: editandoEspecialidadId ? '¡Especialidad Actualizada!' : '¡Especialidad Asignada!',
+          text: `La responsabilidad "${nuevaResp.nombre_responsabilidad}" ha sido guardada con éxito para el año escolar 2026 - 2027.`,
+          confirmButtonColor: '#2b4c7e'
+        });
+      }
+    } catch (err) {
+      console.error('Error al guardar responsabilidad:', err);
+    }
+  };
+
+  const handleEliminarEspecialidad = async (resp: ResponsabilidadDocente) => {
+    if (!Swal) return;
+    const confirm = await Swal.fire({
+      title: '¿Eliminar Responsabilidad?',
+      html: `¿Está seguro de eliminar la especialidad <b>"${resp.nombre_responsabilidad}"</b> asignada para <b>${resp.nivel_educativo}</b>?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#64748b'
+    });
+
+    if (confirm.isConfirmed) {
+      try {
+        await supabase.from('responsabilidades_docentes').delete().eq('id_responsabilidad', resp.id_responsabilidad);
+      } catch (e) {}
+
+      const listaActualizada = responsabilidades.filter(r => r.id_responsabilidad !== resp.id_responsabilidad);
+      setResponsabilidades(listaActualizada);
+      localStorage.setItem('sigae_responsabilidades_docentes', JSON.stringify(listaActualizada));
+
+      auditar('Control de Estudios', 'Eliminar Especialidad', `Eliminó responsabilidad ${resp.nombre_responsabilidad}`);
+      Swal.fire('Eliminado', 'La especialidad ha sido removida del registro.', 'success');
+    }
+  };
+
+  const generarReporteEspecialistasPDF = (escuelaCode: string = 'todas') => {
+    if (!html2pdf) {
+      if (Swal) Swal.fire('Aviso', 'Motor de PDF no disponible en este momento.', 'warning');
+      return;
+    }
+
+    const filtrados = responsabilidades.filter(r => escuelaCode === 'todas' || r.id_escuela === escuelaCode);
+    const nombrePlantel = escuelaCode === 'todas' ? 'Consolidado Institucional (Ambos Planteles)' : escuelaCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+    const logoPlantel = escuelaCode === 'lb' ? '/assets/img/logo_lb.png' : '/assets/img/logo_sb.png';
+    const fecha = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    let filasHtml = '';
+    if (filtrados.length === 0) {
+      filasHtml = `<tr><td colspan="6" style="padding: 12px; text-align: center; color: #64748b;">No hay especialistas ni responsabilidades registradas.</td></tr>`;
+    } else {
+      filasHtml = filtrados.map((r, idx) => {
+        const nombresDocs = r.docentes_asignados.map(ci => {
+          const doc = docentes.find(d => d.cedula === ci);
+          return doc ? `${doc.nombre_completo} (C.I. ${ci})` : `C.I. ${ci}`;
+        }).join('<br/>');
+
+        return `
+          <tr style="border-bottom: 1px solid #cbd5e1; font-size: 10px;">
+            <td style="padding: 6px; text-align: center; font-weight: bold;">${idx + 1}</td>
+            <td style="padding: 6px; text-align: center;"><span style="font-weight: 700; color: ${r.id_escuela === 'sb' ? '#0284c7' : '#4f46e5'}">${r.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</span></td>
+            <td style="padding: 6px; font-weight: 700; color: #0f172a;">${r.nombre_responsabilidad}<br/><span style="color: #64748b; font-size: 9px;">${r.categoria}</span></td>
+            <td style="padding: 6px; text-align: center;"><b>${r.nivel_educativo}</b></td>
+            <td style="padding: 6px;">${r.grados_atendidos.join(', ')}</td>
+            <td style="padding: 6px;">${nombresDocs || 'Sin docente asignado'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    const template = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; padding: 25px 30px; background: #ffffff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0284c7; padding-bottom: 10px; margin-bottom: 14px;">
+          <img src="${logoPlantel}" alt="Logo Escuela" style="height: 50px; object-fit: contain;" />
+          <div style="text-align: center; flex-grow: 1; padding: 0 12px;">
+            <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #64748b;">República Bolivariana de Venezuela</div>
+            <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #64748b;">Ministerio del Poder Popular para la Educación</div>
+            <div style="font-size: 13px; font-weight: 900; color: #0f172a; margin-top: 2px;">${nombrePlantel}</div>
+            <div style="font-size: 11px; font-weight: 800; color: #0284c7; margin-top: 3px;">DIRECTORIO OFICIAL DE DOCENTES ESPECIALISTAS Y ÁREAS DE FORMACIÓN</div>
+            <div style="font-size: 9px; color: #64748b;">Año Escolar 2026 - 2027 • Fecha de Emisión: ${fecha}</div>
+          </div>
+          <img src="/assets/img/logoMPPE.png" alt="MPPE Logo" style="height: 36px; object-fit: contain;" />
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px;">
+          <thead>
+            <tr style="background: #0284c7; color: #ffffff; font-size: 9.5px; text-transform: uppercase;">
+              <th style="padding: 6px; text-align: center;">N°</th>
+              <th style="padding: 6px; text-align: center;">Plantel</th>
+              <th style="padding: 6px; text-align: left;">Especialidad / Área</th>
+              <th style="padding: 6px; text-align: center;">Nivel Educativo</th>
+              <th style="padding: 6px; text-align: left;">Grados / Años Atendidos</th>
+              <th style="padding: 6px; text-align: left;">Docente(s) Especialista(s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filasHtml}
+          </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-around; margin-top: 40px; text-align: center; font-size: 10px;">
+          <div style="width: 220px; border-top: 1px solid #475569; padding-top: 5px;">
+            <b>Control de Estudios y Evaluación</b>
+            <div style="font-size: 8.5px; color: #64748b;">Firma y Sello</div>
+          </div>
+          <div style="width: 220px; border-top: 1px solid #475569; padding-top: 5px;">
+            <b>Dirección del Plantel</b>
+            <div style="font-size: 8.5px; color: #64748b;">Firma y Sello Oficial</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const opt = {
+      margin: [8, 8, 8, 8],
+      filename: `Nomina_Especialistas_2026_2027_${escuelaCode}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'letter', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(template).save();
+    auditar('Control de Estudios', 'Exportar Directorio Especialistas', `Descargó reporte PDF de especialistas para ${nombrePlantel}`);
   };
 
   // ──────────────────────────────────────────────────────────
@@ -968,49 +1265,214 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   };
 
   // ──────────────────────────────────────────────────────────
-  // ASIGNACIÓN DE DOCENTE GUÍA
+  // ASIGNACIÓN DE DOCENTE GUÍA (HASTA 2 DOCENTES POR AULA)
   // ──────────────────────────────────────────────────────────
   const abrirModalAsignarDocente = (salon: SalonItem) => {
     if (!Swal) return;
 
-    const docentesPlantel = docentes.filter(d => d.id_escuela === salon.id_escuela || !d.id_escuela);
-    const docentesActuales = salon.docentes_guias || [];
-
-    let checkboxesHtml = '';
-    docentesPlantel.forEach(d => {
-      const isChecked = docentesActuales.includes(d.cedula) ? 'checked' : '';
-      checkboxesHtml += `
-        <div class="form-check p-2 border-bottom d-flex align-items-center justify-content-between">
-          <div>
-            <input class="form-check-input check-docente me-2" type="checkbox" value="${d.cedula}" id="doc-${d.cedula}" ${isChecked}>
-            <label class="form-check-label fw-bold text-dark cursor-pointer" for="doc-${d.cedula}">
-              ${d.nombre_completo} <span class="badge bg-light text-muted border">C.I. ${d.cedula}</span>
-            </label>
-            <div class="small text-muted ps-4">${d.telefono ? formatPhoneNumber(d.telefono) : 'Sin tlf'} | ${d.email || 'Sin correo'}</div>
-          </div>
-        </div>
-      `;
+    // Docentes asignados a OTROS salones del plantel
+    const docentesEnOtrosSalones: Record<string, string> = {};
+    salones.forEach(s => {
+      if (s.id_salon !== salon.id_salon && s.id_escuela === salon.id_escuela) {
+        (s.docentes_guias || []).forEach(ci => {
+          docentesEnOtrosSalones[ci] = s.nombre_salon;
+        });
+      }
     });
 
+    // Docentes pertenecientes al plantel
+    const docentesPlantel = docentes.filter(d => {
+      const dEsc = String(d.id_escuela || '').trim().toLowerCase();
+      const sEsc = String(salon.id_escuela || '').trim().toLowerCase();
+      return !d.id_escuela || dEsc === sEsc || dEsc === 'ambas' || dEsc === 'todas';
+    });
+
+    // Docentes actualmente asignados a este salón
+    let asignados: string[] = [...(salon.docentes_guias || [])];
+
     Swal.fire({
-      title: `Docente Guía: ${salon.nombre_salon}`,
+      title: `<div class="d-flex align-items-center justify-content-center gap-2 text-dark"><i class="bi bi-person-badge-fill text-info"></i> <span>Asignar Docentes: ${salon.nombre_salon}</span></div>`,
       html: `
         <div class="text-start">
-          <p class="small text-muted mb-2">Seleccione el o los docentes guías asignados a esta sección:</p>
-          <div style="max-height: 280px; overflow-y: auto;" class="border rounded p-2 bg-light">
-            ${checkboxesHtml || '<p class="text-muted small text-center p-3">No hay docentes registrados en este plantel.</p>'}
+          <div class="alert alert-info py-2 px-3 small border-0 mb-3 rounded-3 d-flex align-items-center justify-content-between">
+            <div>
+              <i class="bi bi-people-fill me-1"></i>
+              <b>Permite hasta 2 docentes por aula</b> (Titular y Auxiliar / Co-Docente)
+            </div>
+            <span id="badge-contador-docentes" class="badge rounded-pill bg-primary px-2.5 py-1">
+              ${asignados.length} / 2 asignados
+            </span>
+          </div>
+
+          <!-- SECCIÓN 1: DOCENTES ASIGNADOS A ESTA AULA -->
+          <div class="mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-1.5">
+              <label class="small fw-bold text-dark mb-0">
+                <i class="bi bi-check-circle-fill text-success me-1"></i>Docentes Asignados a esta Aula:
+              </label>
+              <span class="extra-small text-muted font-monospace">(Haga clic en Quitar para liberar)</span>
+            </div>
+            <div id="contenedor-asignados" class="p-2 border rounded-3 bg-white shadow-xs" style="min-height: 54px;">
+              <!-- Renderizado dinámico -->
+            </div>
+          </div>
+
+          <!-- SECCIÓN 2: BUSCADOR Y LISTA DE DOCENTES DISPONIBLES -->
+          <div class="mb-2">
+            <div class="d-flex align-items-center justify-content-between mb-1.5">
+              <label class="small fw-bold text-muted mb-0">
+                <i class="bi bi-person-plus-fill text-primary me-1"></i>Docentes Disponibles del Plantel:
+              </label>
+              <span class="extra-small text-muted font-monospace">(Al seleccionar, se borran de esta lista)</span>
+            </div>
+            <div class="input-group input-group-sm mb-2">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input 
+                type="text" 
+                id="input-buscar-docente" 
+                class="form-control" 
+                placeholder="Buscar por nombre o cédula..." 
+              />
+            </div>
+            <div id="contenedor-disponibles" style="max-height: 220px; overflow-y: auto;" class="border rounded-3 p-1.5 bg-light shadow-xs">
+              <!-- Renderizado dinámico -->
+            </div>
           </div>
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: 'Guardar Asignación',
+      confirmButtonText: '<i class="bi bi-check-lg me-1"></i> Guardar Asignación',
+      cancelButtonText: 'Cancelar',
       confirmButtonColor: '#00BCD4',
+      cancelButtonColor: '#64748b',
+      didOpen: () => {
+        const contAsignados = document.getElementById('contenedor-asignados');
+        const contDisponibles = document.getElementById('contenedor-disponibles');
+        const badgeContador = document.getElementById('badge-contador-docentes');
+        const inputBuscar = document.getElementById('input-buscar-docente') as HTMLInputElement;
+
+        const renderizar = () => {
+          // 1. Contador
+          if (badgeContador) {
+            badgeContador.textContent = `${asignados.length} / 2 asignados`;
+            badgeContador.className = `badge rounded-pill px-2.5 py-1 ${asignados.length === 2 ? 'bg-success' : asignados.length === 1 ? 'bg-primary' : 'bg-secondary'}`;
+          }
+
+          // 2. Docentes Asignados
+          if (contAsignados) {
+            if (asignados.length === 0) {
+              contAsignados.innerHTML = `
+                <div class="text-center py-2.5 text-muted small">
+                  <i class="bi bi-exclamation-circle me-1 text-warning"></i>No hay docentes asignados. Seleccione hasta 2 docentes de la lista de disponibles abajo.
+                </div>
+              `;
+            } else {
+              let htmlAsig = '<div class="d-flex flex-column gap-1.5">';
+              asignados.forEach((ci, idx) => {
+                const doc = docentesPlantel.find(d => d.cedula === ci) || docentes.find(d => d.cedula === ci);
+                const nombre = doc ? doc.nombre_completo : ci;
+                const rolDocente = idx === 0 ? 'Docente Titular' : 'Docente Auxiliar / Co-Docente';
+                const badgeColor = idx === 0 ? 'bg-success' : 'bg-info text-dark';
+
+                htmlAsig += `
+                  <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-light border animate__animated animate__fadeIn">
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="badge ${badgeColor} rounded-pill" style="font-size: 10px;">${rolDocente}</span>
+                      <span class="fw-bold text-dark small">${nombre}</span>
+                      <span class="badge bg-white text-muted border small">C.I. ${ci}</span>
+                    </div>
+                    <button type="button" class="btn btn-xs btn-outline-danger rounded-pill px-2.5 py-0.5 btn-quitar-docente" data-ci="${ci}" title="Quitar de este salón">
+                      <i class="bi bi-x-lg me-1"></i>Quitar
+                    </button>
+                  </div>
+                `;
+              });
+              htmlAsig += '</div>';
+              contAsignados.innerHTML = htmlAsig;
+            }
+          }
+
+          // 3. Docentes Disponibles (Se borran de la lista los que ya están seleccionados)
+          if (contDisponibles) {
+            const query = (inputBuscar?.value || '').toLowerCase().trim();
+            const disponibles = docentesPlantel.filter(d => {
+              // Si ya está asignado a este salón, se borra de la lista
+              if (asignados.includes(d.cedula)) return false;
+              // Si está ocupado en otro salón del mismo plantel, no está disponible
+              if (docentesEnOtrosSalones[d.cedula]) return false;
+              if (!query) return true;
+              const nom = String(d.nombre_completo || '').toLowerCase();
+              const ci = String(d.cedula || '').toLowerCase();
+              return nom.includes(query) || ci.includes(query);
+            });
+
+            if (disponibles.length === 0) {
+              contDisponibles.innerHTML = `
+                <div class="text-center py-3 text-muted small">
+                  ${asignados.length >= 2 ? '<i class="bi bi-check-circle-fill text-success me-1"></i>Cupo completo para esta aula (2 docentes asignados).' : query ? 'No se encontraron docentes con ese nombre o cédula.' : 'No hay más docentes disponibles en este plantel.'}
+                </div>
+              `;
+            } else {
+              let htmlDisp = '<div class="d-flex flex-column gap-1">';
+              disponibles.forEach(d => {
+                const puedeAsignar = asignados.length < 2;
+                htmlDisp += `
+                  <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-white border hover-efecto ${puedeAsignar ? '' : 'opacity-50'}">
+                    <div>
+                      <div class="fw-bold text-dark small">${d.nombre_completo} <span class="badge bg-light text-muted border">C.I. ${d.cedula}</span></div>
+                      <div class="extra-small text-muted">${d.telefono ? formatPhoneNumber(d.telefono) : 'Sin tlf'} ${d.email ? `• ${d.email}` : ''}</div>
+                    </div>
+                    <button 
+                      type="button" 
+                      class="btn btn-xs ${puedeAsignar ? 'btn-primary' : 'btn-light text-muted'} rounded-pill px-3 py-1 fw-bold btn-asignar-docente" 
+                      data-ci="${d.cedula}"
+                      ${puedeAsignar ? '' : 'disabled'}
+                      title="${puedeAsignar ? 'Seleccionar docente' : 'Cupo lleno (Máximo 2 docentes)'}"
+                    >
+                      <i class="bi bi-plus-lg me-1"></i>Asignar
+                    </button>
+                  </div>
+                `;
+              });
+              htmlDisp += '</div>';
+              contDisponibles.innerHTML = htmlDisp;
+            }
+          }
+
+          // Listeners para quitar docentes asignados
+          document.querySelectorAll('.btn-quitar-docente').forEach((btn: any) => {
+            btn.onclick = () => {
+              const ci = btn.getAttribute('data-ci');
+              asignados = asignados.filter(c => c !== ci);
+              renderizar();
+            };
+          });
+
+          // Listeners para asignar docentes disponibles
+          document.querySelectorAll('.btn-asignar-docente').forEach((btn: any) => {
+            btn.onclick = () => {
+              if (asignados.length >= 2) return;
+              const ci = btn.getAttribute('data-ci');
+              if (ci && !asignados.includes(ci)) {
+                asignados.push(ci);
+                renderizar();
+              }
+            };
+          });
+        };
+
+        if (inputBuscar) {
+          inputBuscar.oninput = () => renderizar();
+        }
+
+        renderizar();
+      },
       preConfirm: () => {
-        const seleccionados: string[] = [];
-        document.querySelectorAll('.check-docente:checked').forEach((el: any) => {
-          seleccionados.push(el.value);
-        });
-        return seleccionados;
+        if (asignados.length > 2) {
+          Swal.showValidationMessage('Solo se permite asignar un máximo de 2 docentes por aula.');
+          return false;
+        }
+        return asignados;
       }
     }).then(async (result: any) => {
       if (result.isConfirmed) {
@@ -1020,8 +1482,13 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             docentes_guias: result.value
           }).eq('id_salon', salon.id_salon);
           if (error) throw error;
-          auditar('Control de Estudios', 'Asignar Docente Guía', `Actualizó docentes guías de ${salon.nombre_salon}`);
-          Swal.fire('¡Asignado!', 'Docente(s) guía(s) actualizado(s) correctamente.', 'success');
+          auditar('Control de Estudios', 'Asignar Docente Guía', `Actualizó docentes guías de ${salon.nombre_salon}: asignó ${result.value.length} docente(s)`);
+          Swal.fire({
+            icon: 'success',
+            title: '¡Asignación Guardada!',
+            text: `Se han asignado ${result.value.length} docente(s) a ${salon.nombre_salon}.`,
+            confirmButtonColor: '#00BCD4'
+          });
           cargarDatosCompletos(true);
         } catch (err: any) {
           console.error(err);
@@ -1052,7 +1519,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       return;
     }
 
-    const nombreEscuela = salon.id_escuela === 'sb' ? 'U.E. "SANTA BÁRBARA"' : 'U.E. "LIBERTADOR BOLÍVAR"';
+    const nombreEscuela = salon.id_escuela === 'sb' ? 'UE SANTA BÁRBARA' : 'UE LIBERTADOR BOLÍVAR';
     const logoEscuela = salon.id_escuela === 'sb' ? '/assets/img/logo_sb.png' : '/assets/img/logo_lb.png';
     const docentesNombres = (salon.docentes_guias || [])
       .map(ci => {
@@ -1215,6 +1682,45 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     auditar('Control de Estudios', 'Exportar Excel', `Exportó listado CSV de ${salon.nombre_salon}`);
   };
 
+  // Previsualizar Sorpresa de Asignación Docente
+  const abrirSelectorPreviewSorpresa = () => {
+    if (!Swal) return;
+    if (docentes.length === 0) {
+      Swal.fire('Sin Docentes', 'No hay docentes registrados para previsualizar.', 'info');
+      return;
+    }
+
+    let optionsHtml = '';
+    docentes.forEach(d => {
+      optionsHtml += `<option value="${d.cedula}">${d.nombre_completo} (C.I. ${d.cedula}) - ${d.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</option>`;
+    });
+
+    Swal.fire({
+      title: '🎉 Previsualizar Ficha Sorpresa Docente',
+      html: `
+        <div class="text-start">
+          <p class="small text-muted mb-2">Seleccione el docente o miembro del personal para ver exactamente cómo se le presentará su sorpresa de asignación:</p>
+          <select id="swal-select-docente-preview" class="form-select form-select-sm rounded-3 mb-2">
+            ${optionsHtml}
+          </select>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Ver Ficha Sorpresa',
+      confirmButtonColor: '#4f46e5',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const el = document.getElementById('swal-select-docente-preview') as HTMLSelectElement;
+        return el ? el.value : '';
+      }
+    }).then((res: any) => {
+      if (res.isConfirmed && res.value) {
+        setPreviewDocenteCedula(res.value);
+        setMostrarPreviewSorpresa(true);
+      }
+    });
+  };
+
   // Reasignar estudiante de salón/sección
   const handleReasignarEstudiante = (est: EstudianteVinculado) => {
     if (!Swal) return;
@@ -1293,7 +1799,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     const espacioSalon = espacios.find(e => e.id === salon.id_espacio);
     const capTotal = espacioSalon ? espacioSalon.capacidad : 35;
     const vacantes = Math.max(0, capTotal - inscritosEnEsteSalon.length);
-    const nombrePlantelSalon = salon.id_escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const nombrePlantelSalon = salon.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
 
     if (todosCandidatos.length === 0) {
       Swal.fire({
@@ -1333,7 +1839,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             <select id="swal-filtro-plantel" class="form-select form-select-sm border-info rounded-pill">
               <option value="${salon.id_escuela}" selected>Mismo Plantel: ${nombrePlantelSalon}</option>
               <option value="todas">Todos los Planteles (${todosCandidatos.length})</option>
-              <option value="${salon.id_escuela === 'sb' ? 'lb' : 'sb'}">Solo ${salon.id_escuela === 'sb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara'}</option>
+              <option value="${salon.id_escuela === 'sb' ? 'lb' : 'sb'}">Solo ${salon.id_escuela === 'sb' ? 'UE Libertador Bolívar' : 'UE Santa Bárbara'}</option>
             </select>
           </div>
           <div class="col-12 col-md-6">
@@ -1822,89 +2328,349 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   }
 
   return (
-    <div className="container-fluid py-4 px-3 px-md-4">
-      {/* Banner Principal */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card shadow-sm border-0 rounded-4 overflow-hidden position-relative" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0f172a 100%)' }}>
-            <div className="card-body p-4 p-md-5 text-white position-relative z-1">
-              <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-                <div className="d-flex align-items-center gap-2">
-                  <span className="badge bg-white text-dark px-3 py-2 fw-bold shadow-sm rounded-pill" style={{ letterSpacing: '0.5px' }}>
-                    <i className="bi bi-diagram-3-fill text-primary me-1"></i> CONTROL DE ESTUDIOS & DIRECCIÓN
-                  </span>
-                  <span className="badge bg-info text-white px-3 py-2 fw-bold shadow-sm rounded-pill">
-                    MÓDULO UNIFICADO
+    <div className="modulo-animado container-fluid p-0 animate__animated animate__fadeIn">
+      {/* 1. Miga de Pan Chamilo */}
+      <ChamiloBreadcrumb
+        items={[
+          { label: 'Control de Estudios', url: '/categoria/Control%20de%20Estudios', icon: 'bi-folder-check' },
+          { label: 'Grados y Salones', icon: 'bi-grid-3x3-gap-fill' }
+        ]}
+      />
+
+      {/* 2. Guía de ayuda contextual Chamilo */}
+      <ChamiloHelpCallout
+        title="Orientación para la Gestión de Ambientes, Salones y Matrícula"
+        storageKey="grados_salones"
+      >
+        <p className="mb-1">
+          Este módulo le permite administrar la infraestructura académica: 1) Registre los <strong>Ambientes y Espacios Físicos</strong> con sus capacidades. 2) Aperture los <strong>Grados y Secciones</strong> vinculándolos a las aulas. 3) Asigne <strong>Docentes Guías</strong> y gestione la <strong>Matrícula Estudiantil</strong>. 4) Genere los <strong>Reportes Oficiales</strong> de ocupación y capacidad.
+        </p>
+      </ChamiloHelpCallout>
+
+      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      <div 
+        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
+        style={{ 
+          border: '2px solid #bae6fd',
+          borderTop: '6px solid #0284c7',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%)',
+          borderRadius: '26px'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
+                {/* Icono Tech Personalizado */}
+                <div 
+                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
+                  style={{
+                    width: '95px',
+                    height: '95px',
+                    border: '2.5px solid #bae6fd',
+                    boxShadow: '0 10px 24px rgba(2, 132, 199, 0.15)'
+                  }}
+                  title="Módulo de Grados y Salones"
+                >
+                  <IconoGradosSalones size={60} color="#0284c7" />
+                </div>
+
+                {/* Selector Dual Interactivo de Escuelas */}
+                <div 
+                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
+                  style={{ borderColor: '#bae6fd' }}
+                >
+                  {/* Switch Ambas / Todas si tiene acceso a ambas */}
+                  {escuelasAutorizadas.length > 1 && (
+                    <div 
+                      onClick={() => { setEscuelaFiltro('todas'); setPaginaActualEspacios(1); }}
+                      className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                        escuelaFiltro === 'todas' 
+                          ? 'bg-info bg-opacity-15 border-info shadow-xs' 
+                          : 'bg-white border-transparent opacity-60 hover-efecto'
+                      }`}
+                      style={{ width: '64px', height: '74px', cursor: 'pointer' }}
+                      title="Ver ambas sedes consolidadas"
+                    >
+                      <i className="bi bi-building fs-3 text-info"></i>
+                      <span className={`badge ${escuelaFiltro === 'todas' ? 'bg-info text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.60rem' }}>
+                        Ambas {escuelaFiltro === 'todas' ? '●' : ''}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Switch SB */}
+                  {(canSalonesSB || hasAccessSB_Esp || escuelasAutorizadas.includes('sb')) && (
+                    <div 
+                      onClick={() => { setEscuelaFiltro('sb'); setPaginaActualEspacios(1); }}
+                      className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                        escuelaFiltro === 'sb' 
+                          ? 'bg-success bg-opacity-10 border-success shadow-xs' 
+                          : 'bg-white border-transparent opacity-60 hover-efecto'
+                      }`}
+                      style={{ width: '64px', height: '74px', cursor: 'pointer' }}
+                      title="Filtrar por U.E. Santa Bárbara"
+                    >
+                      <img 
+                        src="/assets/img/logo_sb.png" 
+                        alt="UE Santa Bárbara" 
+                        style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                      />
+                      <span className={`badge ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                        SB {escuelaFiltro === 'sb' ? '●' : ''}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Switch LB */}
+                  {(canSalonesLB || hasAccessLB_Esp || escuelasAutorizadas.includes('lb')) && (
+                    <div 
+                      onClick={() => { setEscuelaFiltro('lb'); setPaginaActualEspacios(1); }}
+                      className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                        escuelaFiltro === 'lb' 
+                          ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
+                          : 'bg-white border-transparent opacity-60 hover-efecto'
+                      }`}
+                      style={{ width: '64px', height: '74px', cursor: 'pointer' }}
+                      title="Filtrar por U.E. Libertador Bolívar"
+                    >
+                      <img 
+                        src="/assets/img/logo_lb.png" 
+                        alt="UE Libertador Bolívar" 
+                        style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                      />
+                      <span className={`badge ${escuelaFiltro === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                        LB {escuelaFiltro === 'lb' ? '●' : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+                <span 
+                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
+                  style={{ backgroundColor: '#0284c7', fontSize: '0.78rem' }}
+                >
+                  <i className="bi bi-folder-check"></i>Control de Estudios & Aulas
+                </span>
+
+                <div 
+                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
+                  style={{ borderColor: '#bae6fd' }}
+                >
+                  <span className="status-beacon-live" style={{ color: '#0284c7' }}></span>
+                  <span 
+                    className="extra-small fw-bold text-uppercase" 
+                    style={{ fontSize: '0.72rem', color: '#0369a1', letterSpacing: '0.5px' }}
+                  >
+                    Campus Conectado &bull; {escuelaFiltro === 'todas' ? 'Ambas Sedes' : (escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar')}
                   </span>
                 </div>
-                <button 
-                  onClick={() => navigate('/categoria/Control%20de%20Estudios')}
-                  className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                >
-                  <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                </button>
+
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
+                  <i className="bi bi-door-open-fill text-primary me-1"></i><b>{espacios.length}</b> Ambientes
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
+                  <i className="bi bi-mortarboard-fill text-info me-1"></i><b>{salones.length}</b> Salones Aperturados
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
+                  <i className="bi bi-people-fill text-success me-1"></i><b>{estudiantes.length}</b> Matrícula Activa
+                </span>
               </div>
 
-              <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                <i className="bi bi-grid-3x3-gap-fill me-3"></i>Gestión de Espacios, Salones y Matrícula
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Gestión de Espacios, Salones y Matrícula
               </h1>
-              <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Administración integral de ambientes físicos, grados, apertura de salones, docentes guías y matrícula estudiantil.
+
+              <p className="mb-0 text-muted small" style={{ maxWidth: '820px' }}>
+                Administración integral de ambientes físicos, capacidades de aulas, grados académicos, apertura de salones, docentes guías y control de matrícula estudiantil.
               </p>
+
+              {/* Cinta de Telemetría Escolar Interactiva */}
+              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
+                <div 
+                  className="tech-pill-badge shadow-xs cursor-pointer" 
+                  title="Capacidad Global Disponible"
+                >
+                  <i className="bi bi-building-check text-primary"></i>
+                  <span className="font-monospace fw-bold text-dark">{capTotalGlobal} Cupos Instalados</span>
+                </div>
+                <div 
+                  className="tech-pill-badge shadow-xs cursor-pointer" 
+                  title="Salones activos"
+                >
+                  <i className="bi bi-grid-3x3-gap-fill text-info"></i>
+                  <span className="text-secondary">{salones.length} Secciones Registradas</span>
+                </div>
+                <div 
+                  className="tech-pill-badge shadow-xs cursor-pointer" 
+                  title="Estado Operativo"
+                >
+                  <i className="bi bi-shield-fill-check text-success"></i>
+                  <span className="text-secondary">100% Operativo</span>
+                </div>
+              </div>
             </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Control%20de%20Estudios')}
+                className="btn btn-white bg-white border rounded-pill px-4 py-2 fw-bold text-dark d-inline-flex align-items-center gap-2 shadow-xs hover-efecto"
+                style={{ fontSize: '0.84rem', borderColor: '#bae6fd' }}
+              >
+                <i className="bi bi-arrow-left text-primary"></i>
+                <span>Volver al Menú</span>
+              </button>
+            </div>
+
           </div>
         </div>
-      </div>
 
-      {/* Navegación por Pestañas Principales */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card bg-white border-0 shadow-sm rounded-4 p-2">
-            <ul className="nav nav-pills nav-fill gap-2" role="tablist">
-              <li className="nav-item">
-                <button
-                  className={`nav-link rounded-4 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 transition-all ${activeTab === 'espacios' ? 'active bg-primary text-white shadow' : 'text-secondary hover-efecto'}`}
-                  onClick={() => setActiveTab('espacios')}
-                >
-                  <i className="bi bi-door-open-fill fs-5"></i>
-                  <span>1. Ambientes y Espacios Físicos</span>
-                  <span className="badge bg-white text-dark rounded-pill ms-1">{espacios.length}</span>
-                </button>
-              </li>
+        {/* ── BARRA CHAMILO: PESTAÑAS PRINCIPALES Y SELECTOR DE SEDE ── */}
+        <div className="px-4 py-3 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-3">
+          
+          {/* Pestañas Principales Chamilo */}
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveTab('espacios')}
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'espacios' 
+                  ? 'btn-info text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'espacios' ? '#0284c7' : undefined,
+                borderColor: activeTab === 'espacios' ? '#0284c7' : undefined,
+                fontSize: '0.82rem'
+              }}
+            >
+              <i className="bi bi-door-open-fill me-1.5"></i>1. Ambientes Físicos ({espacios.length})
+            </button>
 
-              <li className="nav-item">
-                <button
-                  className={`nav-link rounded-4 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 transition-all ${activeTab === 'salones' ? 'active bg-primary text-white shadow' : 'text-secondary hover-efecto'}`}
-                  onClick={() => setActiveTab('salones')}
-                >
-                  <i className="bi bi-mortarboard-fill fs-5"></i>
-                  <span>2. Grados, Secciones y Salones</span>
-                  <span className="badge bg-white text-dark rounded-pill ms-1">{salones.length}</span>
-                </button>
-              </li>
+            <button
+              type="button"
+              onClick={() => setActiveTab('salones')}
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'salones' 
+                  ? 'btn-info text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'salones' ? '#0284c7' : undefined,
+                borderColor: activeTab === 'salones' ? '#0284c7' : undefined,
+                fontSize: '0.82rem'
+              }}
+            >
+              <i className="bi bi-mortarboard-fill me-1.5"></i>2. Grados y Salones ({salones.length})
+            </button>
 
-              <li className="nav-item">
-                <button
-                  className={`nav-link rounded-4 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 transition-all ${activeTab === 'matricula' ? 'active bg-primary text-white shadow' : 'text-secondary hover-efecto'}`}
-                  onClick={() => setActiveTab('matricula')}
-                >
-                  <i className="bi bi-people-fill fs-5"></i>
-                  <span>3. Docentes Guías y Matrícula</span>
-                  <span className="badge bg-success text-white rounded-pill ms-1">{estudiantes.length}</span>
-                </button>
-              </li>
+            <button
+              type="button"
+              onClick={() => setActiveTab('matricula')}
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'matricula' 
+                  ? 'btn-info text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'matricula' ? '#0284c7' : undefined,
+                borderColor: activeTab === 'matricula' ? '#0284c7' : undefined,
+                fontSize: '0.82rem'
+              }}
+            >
+              <i className="bi bi-people-fill me-1.5"></i>3. Docentes Guías y Matrícula ({estudiantes.length})
+            </button>
 
-              <li className="nav-item">
-                <button
-                  className={`nav-link rounded-4 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 transition-all ${activeTab === 'reportes' ? 'active bg-primary text-white shadow' : 'text-secondary hover-efecto'}`}
-                  onClick={() => setActiveTab('reportes')}
-                >
-                  <i className="bi bi-bar-chart-line-fill fs-5"></i>
-                  <span>4. Capacidad y Reportes</span>
-                </button>
-              </li>
-            </ul>
+            <button
+              type="button"
+              onClick={() => setActiveTab('especialistas')}
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'especialistas' 
+                  ? 'btn-info text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'especialistas' ? '#0284c7' : undefined,
+                borderColor: activeTab === 'especialistas' ? '#0284c7' : undefined,
+                fontSize: '0.82rem'
+              }}
+            >
+              <i className="bi bi-journal-bookmark-fill me-1.5"></i>4. Especialistas y Responsabilidades ({responsabilidades.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('reportes')}
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'reportes' 
+                  ? 'btn-info text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'reportes' ? '#0284c7' : undefined,
+                borderColor: activeTab === 'reportes' ? '#0284c7' : undefined,
+                fontSize: '0.82rem'
+              }}
+            >
+              <i className="bi bi-bar-chart-line-fill me-1.5"></i>5. Capacidad y Reportes
+            </button>
           </div>
+
+          {/* Selector Superior de Sede */}
+          <div className="d-flex align-items-center gap-1.5">
+            <span className="extra-small fw-bold text-muted text-uppercase me-1">Sede Activa:</span>
+            
+            {escuelasAutorizadas.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setEscuelaFiltro('todas')}
+                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${
+                  escuelaFiltro === 'todas' ? 'btn-dark text-white shadow-xs' : 'btn-white bg-white text-muted border'
+                }`}
+                style={{ fontSize: '0.78rem' }}
+              >
+                🏢 Todas las Sedes
+              </button>
+            )}
+
+            {(canSalonesSB || hasAccessSB_Esp || escuelasAutorizadas.includes('sb')) && (
+              <button
+                type="button"
+                onClick={() => setEscuelaFiltro('sb')}
+                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${
+                  escuelaFiltro === 'sb' ? 'btn-success text-white shadow-xs' : 'btn-white bg-white text-muted border'
+                }`}
+                style={{ fontSize: '0.78rem' }}
+              >
+                🟢 UE Santa Bárbara
+              </button>
+            )}
+
+            {(canSalonesLB || hasAccessLB_Esp || escuelasAutorizadas.includes('lb')) && (
+              <button
+                type="button"
+                onClick={() => setEscuelaFiltro('lb')}
+                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${
+                  escuelaFiltro === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white text-muted border'
+                }`}
+                style={{ fontSize: '0.78rem' }}
+              >
+                🔵 UE Libertador Bolívar
+              </button>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -2117,14 +2883,26 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                         <option value="tipo">🏫 Tipo de Ambiente</option>
                       </select>
 
-                      <input 
-                        type="text" 
-                        className="form-control form-control-sm border-info rounded-pill w-auto" 
-                        placeholder="Buscar espacio..."
-                        value={searchEspacios}
-                        onChange={(e) => { setSearchEspacios(e.target.value); setPaginaActualEspacios(1); }}
-                        style={{ maxWidth: '180px' }}
-                      />
+                      <div className="position-relative" style={{ minWidth: '180px', maxWidth: '240px' }}>
+                        <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted small"></i>
+                        <input 
+                          type="text" 
+                          className="form-control form-control-sm border-info rounded-pill ps-4 pe-4" 
+                          placeholder="Buscar espacio..."
+                          value={searchEspacios}
+                          onChange={(e) => { setSearchEspacios(e.target.value); setPaginaActualEspacios(1); }}
+                        />
+                        {searchEspacios && (
+                          <button 
+                            type="button" 
+                            className="btn btn-link position-absolute top-50 end-0 translate-middle-y me-1 p-0 text-muted border-0"
+                            onClick={() => { setSearchEspacios(''); setPaginaActualEspacios(1); }}
+                            title="Limpiar búsqueda"
+                          >
+                            <i className="bi bi-x-circle-fill text-secondary small"></i>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -2328,13 +3106,38 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
               </button>
             </div>
 
-            {subTabSalones === 'apertura' && canCrearSalones && (
-              <button 
-                className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm hover-efecto"
-                onClick={() => abrirModalSalon()}
-              >
-                <i className="bi bi-plus-lg me-2"></i>Aperturar Nuevo Salón
-              </button>
+            {subTabSalones === 'apertura' && (
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <button 
+                  className="btn btn-outline-secondary text-dark bg-white rounded-pill px-3.5 fw-bold shadow-xs hover-efecto"
+                  onClick={() => abrirModalParametrizarSorpresa(Swal)}
+                  title="Configurar tiempo, fechas y frecuencia de la notificación sorpresa"
+                >
+                  <i className="bi bi-sliders text-primary me-1.5"></i>Parametrizar Notificación
+                </button>
+                <button 
+                  className="btn btn-outline-info text-dark bg-white rounded-pill px-3.5 fw-bold shadow-xs hover-efecto"
+                  onClick={() => abrirModalProbarSonidos(Swal)}
+                  title="Probar y escuchar los estilos de audio de bienvenida para el personal"
+                >
+                  <i className="bi bi-soundwave text-info me-1.5"></i>Probar Audios
+                </button>
+                <button 
+                  className="btn btn-outline-warning text-dark bg-white rounded-pill px-3.5 fw-bold shadow-xs hover-efecto"
+                  onClick={abrirSelectorPreviewSorpresa}
+                  title="Ver cómo verá el docente su sorpresa de asignación"
+                >
+                  <i className="bi bi-stars text-warning me-1.5"></i>Previsualizar Sorpresa
+                </button>
+                {canCrearSalones && (
+                  <button 
+                    className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm hover-efecto"
+                    onClick={() => abrirModalSalon()}
+                  >
+                    <i className="bi bi-plus-lg me-2"></i>Aperturar Nuevo Salón
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -2346,14 +3149,26 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   <i className="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Salones Escolares Activos
                 </h5>
                 <div className="d-flex align-items-center gap-2">
-                  <input 
-                    type="text" 
-                    className="form-control form-control-sm border-info rounded-pill"
-                    placeholder="Buscar salón..."
-                    value={searchSalones}
-                    onChange={(e) => setSearchSalones(e.target.value)}
-                    style={{ maxWidth: '200px' }}
-                  />
+                  <div className="position-relative" style={{ minWidth: '200px', maxWidth: '260px' }}>
+                    <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted small"></i>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm border-info rounded-pill ps-4 pe-4"
+                      placeholder="Buscar salón..."
+                      value={searchSalones}
+                      onChange={(e) => setSearchSalones(e.target.value)}
+                    />
+                    {searchSalones && (
+                      <button 
+                        type="button" 
+                        className="btn btn-link position-absolute top-50 end-0 translate-middle-y me-1 p-0 text-muted border-0"
+                        onClick={() => setSearchSalones('')}
+                        title="Limpiar búsqueda"
+                      >
+                        <i className="bi bi-x-circle-fill text-secondary small"></i>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -2424,27 +3239,37 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                                   {docentesNombres}
                                 </button>
                               </td>
-                              <td className="text-center">
-                                <span className="badge bg-success text-white rounded-pill px-3 py-1 fw-bold">
-                                  {cap} Cupos
-                                </span>
+                              <td className="text-center" style={{ minWidth: '160px' }}>
+                                <div className="d-flex justify-content-between align-items-center mb-1 small">
+                                  <span className="fw-bold text-dark">{estsCount} / {cap}</span>
+                                  <span className={`badge rounded-pill ${cap > 0 && estsCount >= cap ? 'bg-danger text-white' : estsCount > (cap * 0.8) ? 'bg-warning text-dark' : 'bg-success text-white'}`} style={{ fontSize: '0.7rem' }}>
+                                    {cap > 0 ? `${Math.round((estsCount / cap) * 100)}%` : '0%'}
+                                  </span>
+                                </div>
+                                <div className="progress" style={{ height: '6px' }}>
+                                  <div 
+                                    className={`progress-bar ${cap > 0 && estsCount >= cap ? 'bg-danger' : estsCount > (cap * 0.8) ? 'bg-warning' : 'bg-success'}`}
+                                    role="progressbar" 
+                                    style={{ width: `${cap > 0 ? Math.min(100, (estsCount / cap) * 100) : 0}%` }}
+                                  ></div>
+                                </div>
                               </td>
                               <td className="text-center">
-                                <span className="badge bg-primary text-white rounded-pill px-3 py-1 fw-bold">
+                                <span className={`badge rounded-pill px-3 py-1.5 fw-bold ${cap > 0 && estsCount >= cap ? 'bg-danger text-white' : estsCount > (cap * 0.8) ? 'bg-warning text-dark' : 'bg-primary text-white'}`}>
                                   {estsCount} Estudiantes
                                 </span>
                               </td>
                               <td className="text-end pe-4">
                                 <div className="btn-group btn-group-sm">
                                   <button 
-                                    className="btn btn-outline-info"
+                                    className="btn btn-outline-info rounded-start-pill"
                                     onClick={() => {
                                       setSalonSeleccionadoId(sal.id_salon);
                                       setActiveTab('matricula');
                                     }}
-                                    title="Ver matrícula y estudiantes"
+                                    title="Ver nómina de estudiantes del salón"
                                   >
-                                    <i className="bi bi-people-fill"></i>
+                                    <i className="bi bi-people-fill me-1"></i> Nómina
                                   </button>
                                   <button 
                                     className="btn btn-outline-primary"
@@ -2454,7 +3279,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                                     <i className="bi bi-pencil-fill"></i>
                                   </button>
                                   <button 
-                                    className="btn btn-outline-danger"
+                                    className="btn btn-outline-danger rounded-end-pill"
                                     onClick={() => eliminarSalon(sal.id_salon, sal.nombre_salon)}
                                     title="Eliminar salón"
                                   >
@@ -2670,14 +3495,25 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 </div>
 
                 {/* Buscador de Salones */}
-                <div className="mb-3">
+                <div className="mb-3 position-relative">
+                  <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted small"></i>
                   <input 
                     type="text" 
-                    className="form-control form-control-sm border-info rounded-pill"
-                    placeholder="🔍 Buscar salón por grado, sección o nombre..."
+                    className="form-control form-control-sm border-info rounded-pill ps-4 pe-4"
+                    placeholder="Buscar por grado, sección o nombre..."
                     value={searchSalones}
                     onChange={(e) => setSearchSalones(e.target.value)}
                   />
+                  {searchSalones && (
+                    <button 
+                      type="button" 
+                      className="btn btn-link position-absolute top-50 end-0 translate-middle-y me-2 p-0 text-muted border-0"
+                      onClick={() => setSearchSalones('')}
+                      title="Limpiar búsqueda"
+                    >
+                      <i className="bi bi-x-circle-fill text-secondary small"></i>
+                    </button>
+                  )}
                 </div>
 
                 <div className="list-group" style={{ maxHeight: '550px', overflowY: 'auto' }}>
@@ -2787,14 +3623,26 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   <div className="card-body p-0">
                     <div className="p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                       <h6 className="fw-bold text-dark m-0">Nómina de Estudiantes ({estudiantesSalonActivo.length})</h6>
-                      <input 
-                        type="text" 
-                        className="form-control form-control-sm border-info rounded-pill"
-                        placeholder="Buscar por cédula o nombre..."
-                        value={searchEstudiantes}
-                        onChange={(e) => setSearchEstudiantes(e.target.value)}
-                        style={{ maxWidth: '250px' }}
-                      />
+                      <div className="position-relative" style={{ minWidth: '220px', maxWidth: '280px' }}>
+                        <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted small"></i>
+                        <input 
+                          type="text" 
+                          className="form-control form-control-sm border-info rounded-pill ps-4 pe-4"
+                          placeholder="Buscar por cédula o nombre..."
+                          value={searchEstudiantes}
+                          onChange={(e) => setSearchEstudiantes(e.target.value)}
+                        />
+                        {searchEstudiantes && (
+                          <button 
+                            type="button" 
+                            className="btn btn-link position-absolute top-50 end-0 translate-middle-y me-1 p-0 text-muted border-0"
+                            onClick={() => setSearchEstudiantes('')}
+                            title="Limpiar búsqueda"
+                          >
+                            <i className="bi bi-x-circle-fill text-secondary small"></i>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Barra de Acciones Masivas en Nómina */}
@@ -2925,7 +3773,323 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       )}
 
       {/* ────────────────────────────────────────────────────────── */}
-      {/* PESTAÑA 4: CAPACIDAD INSTALADA Y REPORTES                 */}
+      {/* PESTAÑA 4: ESPECIALISTAS Y OTRAS RESPONSABILIDADES        */}
+      {/* ────────────────────────────────────────────────────────── */}
+      {activeTab === 'especialistas' && (
+        <div className="animate__animated animate__fadeIn">
+          {/* Header de Especialistas */}
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+            <div>
+              <h4 className="fw-bold text-dark m-0">
+                <i className="bi bi-journal-bookmark-fill text-primary me-2"></i>Directorio de Especialistas y Áreas de Formación
+              </h4>
+              <p className="text-muted small m-0">
+                Asignación de docentes especialistas por área (Castellano, Inglés, Educación Física, etc.), niveles educativos y grados atendidos para el año escolar <b>2026 - 2027</b>.
+              </p>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <button 
+                className="btn btn-outline-primary bg-white rounded-pill px-3.5 fw-bold shadow-xs hover-efecto"
+                onClick={() => generarReporteEspecialistasPDF(escuelaFiltro)}
+                title="Descargar nómina de especialistas en PDF"
+              >
+                <i className="bi bi-file-earmark-pdf-fill text-danger me-1.5"></i>Descargar Nómina (PDF)
+              </button>
+              <button 
+                className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm hover-efecto"
+                onClick={() => abrirModalNuevaEspecialidad()}
+              >
+                <i className="bi bi-plus-lg me-2"></i>Asignar Nueva Especialidad
+              </button>
+            </div>
+          </div>
+
+          {/* Tarjetas de Resumen */}
+          <div className="row g-3 mb-4">
+            <div className="col-12 col-sm-6 col-xl-3">
+              <div className="card p-3 border-0 shadow-sm rounded-4 text-white h-100" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
+                <span className="small fw-bold opacity-75">Especialidades Registradas</span>
+                <h3 className="fw-bold m-0 mt-1">{responsabilidades.length} Áreas</h3>
+                <div className="small opacity-90 mt-1">Carga académica especializada</div>
+              </div>
+            </div>
+
+            <div className="col-12 col-sm-6 col-xl-3">
+              <div className="card p-3 border-0 shadow-sm rounded-4 text-white h-100" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+                <span className="small fw-bold opacity-75">Docentes Especialistas</span>
+                <h3 className="fw-bold m-0 mt-1">
+                  {new Set(responsabilidades.flatMap(r => r.docentes_asignados)).size} Docentes
+                </h3>
+                <div className="small opacity-90 mt-1">Personal con asignaciones activas</div>
+              </div>
+            </div>
+
+            <div className="col-12 col-sm-6 col-xl-3">
+              <div className="card p-3 border-0 shadow-sm rounded-4 text-white h-100" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+                <span className="small fw-bold opacity-75">Total Horas Semanales</span>
+                <h3 className="fw-bold m-0 mt-1">
+                  {responsabilidades.reduce((acc, r) => acc + (Number(r.horas_semanales) || 0), 0)} Horas
+                </h3>
+                <div className="small opacity-90 mt-1">Planificación horaria consolidada</div>
+              </div>
+            </div>
+
+            <div className="col-12 col-sm-6 col-xl-3">
+              <div className="card p-3 border-0 shadow-sm rounded-4 text-white h-100" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
+                <span className="small fw-bold opacity-75">Año Escolar Activo</span>
+                <h3 className="fw-bold m-0 mt-1">2026 - 2027</h3>
+                <div className="small opacity-90 mt-1">Período Institucional</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Barra de Filtros y Búsqueda */}
+          <div className="card bg-white shadow-sm border-0 rounded-4 p-3 mb-4">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                {/* Filtro por Escuela */}
+                <div className="btn-group shadow-xs rounded-pill p-1 bg-light border" role="group">
+                  <button 
+                    type="button" 
+                    className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'todas' ? 'btn-success text-white shadow-xs' : 'btn-light text-dark'}`}
+                    onClick={() => setEscuelaFiltro('todas')}
+                  >
+                    Todas las Sedes
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'sb' ? 'btn-info text-dark shadow-xs' : 'btn-light text-dark'}`}
+                    onClick={() => setEscuelaFiltro('sb')}
+                  >
+                    U.E. Santa Bárbara
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-light text-dark'}`}
+                    onClick={() => setEscuelaFiltro('lb')}
+                  >
+                    U.E. Libertador Bolívar
+                  </button>
+                </div>
+
+                {/* Filtro por Nivel Educativo */}
+                <select 
+                  className="form-select form-select-sm border-info rounded-pill fw-bold text-dark w-auto"
+                  value={filtroNivelEspecialistas}
+                  onChange={(e) => setFiltroNivelEspecialistas(e.target.value)}
+                >
+                  <option value="todos">🎓 Todos los Niveles</option>
+                  <option value="Educación Primaria">Educación Primaria</option>
+                  <option value="Educación Media General">Educación Media General</option>
+                  <option value="Educación Inicial">Educación Inicial</option>
+                  <option value="Educación Media Técnica">Educación Media Técnica</option>
+                </select>
+              </div>
+
+              {/* Buscador */}
+              <div className="d-flex align-items-center gap-2">
+                <div className="position-relative" style={{ minWidth: '240px', maxWidth: '320px' }}>
+                  <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted small"></i>
+                  <input 
+                    type="text" 
+                    className="form-control form-control-sm border-info rounded-pill ps-4 pe-4"
+                    placeholder="Buscar especialidad, grado o docente..."
+                    value={searchEspecialistas}
+                    onChange={(e) => setSearchEspecialistas(e.target.value)}
+                  />
+                  {searchEspecialistas && (
+                    <button 
+                      type="button" 
+                      className="btn btn-link position-absolute top-50 end-0 translate-middle-y me-1 p-0 text-muted border-0"
+                      onClick={() => setSearchEspecialistas('')}
+                      title="Limpiar búsqueda"
+                    >
+                      <i className="bi bi-x-circle-fill text-secondary small"></i>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla y Listado de Especialistas */}
+          <div className="card bg-white shadow-sm border-0 rounded-4 overflow-hidden">
+            <div className="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <h5 className="fw-bold text-dark m-0">
+                <i className="bi bi-list-check text-primary me-2"></i>Nómina de Responsabilidades y Docentes Asignados
+              </h5>
+              <span className="badge bg-light text-muted border rounded-pill px-3 py-1.5 extra-small fw-bold">
+                Mostrando {responsabilidades.filter(r => {
+                  const matchEscuela = escuelaFiltro === 'todas' || r.id_escuela === escuelaFiltro;
+                  const matchNivel = filtroNivelEspecialistas === 'todos' || r.nivel_educativo === filtroNivelEspecialistas;
+                  if (!matchEscuela || !matchNivel) return false;
+                  if (searchEspecialistas) {
+                    const q = searchEspecialistas.toLowerCase();
+                    const nom = (r.nombre_responsabilidad || '').toLowerCase();
+                    const niv = (r.nivel_educativo || '').toLowerCase();
+                    const gra = (r.grados_atendidos || []).join(' ').toLowerCase();
+                    const docs = (r.docentes_asignados || []).join(' ');
+                    return nom.includes(q) || niv.includes(q) || gra.includes(q) || docs.includes(q);
+                  }
+                  return true;
+                }).length} registros
+              </span>
+            </div>
+
+            <div className="card-body p-0">
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th className="ps-4">Plantel</th>
+                      <th>Especialidad / Responsabilidad</th>
+                      <th>Nivel Educativo</th>
+                      <th>Grados / Años Atendidos</th>
+                      <th>Docente(s) Encargado(s)</th>
+                      <th className="text-center">Carga Horaria</th>
+                      <th className="text-end pe-4">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const listaFiltrada = responsabilidades.filter(r => {
+                        const matchEscuela = escuelaFiltro === 'todas' || r.id_escuela === escuelaFiltro;
+                        const matchNivel = filtroNivelEspecialistas === 'todos' || r.nivel_educativo === filtroNivelEspecialistas;
+                        if (!matchEscuela || !matchNivel) return false;
+
+                        if (searchEspecialistas) {
+                          const q = searchEspecialistas.toLowerCase();
+                          const nom = (r.nombre_responsabilidad || '').toLowerCase();
+                          const niv = (r.nivel_educativo || '').toLowerCase();
+                          const gra = (r.grados_atendidos || []).join(' ').toLowerCase();
+                          const docs = (r.docentes_asignados || []).join(' ');
+                          return nom.includes(q) || niv.includes(q) || gra.includes(q) || docs.includes(q);
+                        }
+                        return true;
+                      });
+
+                      if (listaFiltrada.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={7} className="text-center py-5 text-muted">
+                              <i className="bi bi-inbox fs-2 d-block mb-2"></i>
+                              No se encontraron especialidades registradas con los filtros seleccionados.
+                              <div className="mt-2">
+                                <button 
+                                  className="btn btn-sm btn-primary rounded-pill px-3 fw-bold"
+                                  onClick={() => abrirModalNuevaEspecialidad()}
+                                >
+                                  <i className="bi bi-plus-lg me-1"></i>Registrar Primera Especialidad
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return listaFiltrada.map(resp => {
+                        return (
+                          <tr key={resp.id_responsabilidad}>
+                            <td className="ps-4">
+                              <span className={`badge rounded-pill ${resp.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
+                                {resp.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="fw-bold text-dark fs-6 d-flex align-items-center gap-1.5">
+                                <i className="bi bi-award-fill text-primary"></i>
+                                {resp.nombre_responsabilidad}
+                              </div>
+                              <div className="extra-small text-muted">{resp.categoria}</div>
+                            </td>
+                            <td>
+                              <span className="badge bg-light text-dark border fw-bold">
+                                {resp.nivel_educativo}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="d-flex align-items-center gap-1 flex-wrap">
+                                {resp.grados_atendidos && resp.grados_atendidos.length > 0 ? (
+                                  resp.grados_atendidos.map((g, gIdx) => (
+                                    <span key={gIdx} className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-0.5 extra-small">
+                                      {g}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="badge bg-light text-muted border extra-small">Todos los Grados</span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <div className="d-flex flex-column gap-1">
+                                {resp.docentes_asignados && resp.docentes_asignados.length > 0 ? (
+                                  resp.docentes_asignados.map(ci => {
+                                    const doc = docentes.find(d => d.cedula === ci);
+                                    return (
+                                      <div key={ci} className="d-flex align-items-center gap-1.5">
+                                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 extra-small fw-bold">
+                                          <i className="bi bi-person-check-fill me-1"></i>
+                                          {doc ? doc.nombre_completo : `C.I. ${ci}`}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="btn btn-xs btn-outline-warning border-0 p-0 text-warning"
+                                          onClick={() => {
+                                            setPreviewDocenteCedula(ci);
+                                            setMostrarPreviewSorpresa(true);
+                                          }}
+                                          title={`Ver sorpresa de asignación para ${doc?.nombre_completo || ci}`}
+                                        >
+                                          <i className="bi bi-stars"></i>
+                                        </button>
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <span className="text-muted extra-small fst-italic">Sin docente asignado</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="text-center">
+                              <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">
+                                <i className="bi bi-clock-history me-1 text-primary"></i>
+                                {resp.horas_semanales || 0} hrs/sem
+                              </span>
+                            </td>
+                            <td className="text-end pe-4">
+                              <div className="btn-group btn-group-sm">
+                                <button 
+                                  className="btn btn-outline-primary rounded-start-pill"
+                                  onClick={() => abrirModalNuevaEspecialidad(resp)}
+                                  title="Editar esta especialidad"
+                                >
+                                  <i className="bi bi-pencil-square"></i>
+                                </button>
+                                <button 
+                                  className="btn btn-outline-danger rounded-end-pill"
+                                  onClick={() => handleEliminarEspecialidad(resp)}
+                                  title="Eliminar especialidad"
+                                >
+                                  <i className="bi bi-trash-fill"></i>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────────────────────────────────────────────────── */}
+      {/* PESTAÑA 5: CAPACIDAD INSTALADA Y REPORTES                 */}
       {/* ────────────────────────────────────────────────────────── */}
       {activeTab === 'reportes' && (
         <div className="animate__animated animate__fadeIn">
@@ -3212,6 +4376,341 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           </div>
         </div>
       )}
+
+      {/* ────────────────────────────────────────────────────────── */}
+      {/* MODAL: REGISTRAR / EDITAR ESPECIALIDAD                     */}
+      {/* ────────────────────────────────────────────────────────── */}
+      {mostrarModalEspecialidad && (
+        <div className="modal fade show d-block" tabIndex={-1} style={{ backgroundColor: 'rgba(15, 23, 42, 0.65)', zIndex: 1055, backdropFilter: 'blur(4px)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+              <div className="modal-header bg-primary text-white p-4 border-0">
+                <h5 className="modal-title fw-bold">
+                  <i className="bi bi-award-fill me-2"></i>
+                  {editandoEspecialidadId ? 'Editar Especialidad / Responsabilidad' : 'Asignar Nueva Especialidad / Responsabilidad'}
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={() => { setMostrarModalEspecialidad(false); setEditandoEspecialidadId(null); }}
+                ></button>
+              </div>
+
+              <form onSubmit={handleGuardarEspecialidad}>
+                <div className="modal-body p-4" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
+                  <div className="row g-3">
+                    
+                    {/* Plantel */}
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold text-muted">Plantel / Escuela</label>
+                      <select 
+                        className="form-select border-info rounded-pill"
+                        value={formEspecialidad.id_escuela}
+                        onChange={(e) => setFormEspecialidad({ ...formEspecialidad, id_escuela: e.target.value })}
+                        required
+                      >
+                        {escuelasAutorizadas.includes('sb') && <option value="sb">U.E. Santa Bárbara</option>}
+                        {escuelasAutorizadas.includes('lb') && <option value="lb">U.E. Libertador Bolívar</option>}
+                      </select>
+                    </div>
+
+                    {/* Categoría */}
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold text-muted">Categoría de la Asignación</label>
+                      <select 
+                        className="form-select border-info rounded-pill"
+                        value={formEspecialidad.categoria}
+                        onChange={(e) => setFormEspecialidad({ ...formEspecialidad, categoria: e.target.value })}
+                      >
+                        <option value="Área de Formación / Especialista">Área de Formación / Especialista</option>
+                        <option value="Acompañamiento Pedagógico">Acompañamiento Pedagógico</option>
+                        <option value="Coordinación Pedagógica">Coordinación Pedagógica</option>
+                        <option value="Comité / Colectivo Pedagógico">Comité / Colectivo Pedagógico</option>
+                      </select>
+                    </div>
+
+                    {/* Nombre de la Especialidad con Sugerencias Rápidas */}
+                    <div className="col-12">
+                      <label className="form-label small fw-bold text-muted d-flex justify-content-between align-items-center">
+                        <span>Nombre de la Especialidad / Asignatura:</span>
+                        <span className="extra-small text-primary">Haz clic en una sugerencia rápida:</span>
+                      </label>
+                      <input 
+                        type="text"
+                        className="form-control border-info rounded-pill mb-2"
+                        placeholder="Ej: Especialista de Castellano, Especialista de Inglés, Educación Física..."
+                        value={formEspecialidad.nombre_responsabilidad}
+                        onChange={(e) => setFormEspecialidad({ ...formEspecialidad, nombre_responsabilidad: e.target.value })}
+                        required
+                      />
+
+                      {/* Pastillas de Sugerencias */}
+                      <div className="d-flex flex-wrap gap-1.5 p-2.5 bg-light rounded-3 border">
+                        {ESPECIALIDADES_SUGERIDAS.map((sug, sIdx) => (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            className="btn btn-xs btn-white bg-white text-dark border rounded-pill px-2.5 py-1 shadow-xs hover-efecto"
+                            style={{ fontSize: '0.74rem' }}
+                            onClick={() => setFormEspecialidad({ ...formEspecialidad, nombre_responsabilidad: sug })}
+                          >
+                            + {sug}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Nivel Educativo */}
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold text-muted">Nivel Educativo al que Aplica</label>
+                      <select 
+                        className="form-select border-info rounded-pill"
+                        value={formEspecialidad.nivel_educativo}
+                        onChange={(e) => {
+                          const nuevoNivel = e.target.value;
+                          setFormEspecialidad({ 
+                            ...formEspecialidad, 
+                            nivel_educativo: nuevoNivel,
+                            grados_atendidos: [] // Reiniciar para que seleccione acordes al nivel
+                          });
+                        }}
+                        required
+                      >
+                        <option value="Educación Media General">Educación Media General (1er a 5to Año)</option>
+                        <option value="Educación Primaria">Educación Primaria (1er a 6to Grado)</option>
+                        <option value="Educación Inicial">Educación Inicial / Preescolar</option>
+                        <option value="Educación Media Técnica">Educación Media Técnica (1er a 6to Año)</option>
+                        <option value="Todos los Niveles">Todos los Niveles de la Institución</option>
+                      </select>
+                    </div>
+
+                    {/* Carga Horaria Semanal */}
+                    <div className="col-12 col-md-6">
+                      <label className="form-label small fw-bold text-muted">Carga Horaria Semanal (Horas)</label>
+                      <input 
+                        type="number"
+                        min="1"
+                        max="60"
+                        className="form-control border-info rounded-pill"
+                        value={formEspecialidad.horas_semanales}
+                        onChange={(e) => setFormEspecialidad({ ...formEspecialidad, horas_semanales: Number(e.target.value) || 0 })}
+                        required
+                      />
+                    </div>
+
+                    {/* Grados / Años Atendidos (Selección Múltiple con Checkboxes) */}
+                    <div className="col-12">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <label className="form-label small fw-bold text-muted mb-0">
+                          <i className="bi bi-mortarboard-fill me-1 text-primary"></i>Grados / Años que Atiende:
+                        </label>
+                        <div className="d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-link p-0 text-primary text-decoration-none fw-bold"
+                            onClick={() => {
+                              // Determinar lista de grados según nivel
+                              let todos: string[] = [];
+                              if (formEspecialidad.nivel_educativo === 'Educación Media General') {
+                                todos = ['1er Año', '2do Año', '3er Año', '4to Año', '5to Año'];
+                              } else if (formEspecialidad.nivel_educativo === 'Educación Primaria') {
+                                todos = ['1er Grado', '2do Grado', '3er Grado', '4to Grado', '5to Grado', '6to Grado'];
+                              } else if (formEspecialidad.nivel_educativo === 'Educación Inicial') {
+                                todos = ['Maternal', '1er Grupo', '2do Grupo', '3er Grupo'];
+                              } else {
+                                todos = grados.map(g => g.valor);
+                              }
+                              setFormEspecialidad({ ...formEspecialidad, grados_atendidos: todos });
+                            }}
+                          >
+                            Seleccionar Todos
+                          </button>
+                          <span className="text-muted">|</span>
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-link p-0 text-muted text-decoration-none"
+                            onClick={() => setFormEspecialidad({ ...formEspecialidad, grados_atendidos: [] })}
+                          >
+                            Limpiar
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Checkboxes de Grados */}
+                      <div className="p-3 bg-light rounded-4 border">
+                        <div className="row g-2">
+                          {(() => {
+                            let listaOpcionesGrados: string[] = [];
+                            if (formEspecialidad.nivel_educativo === 'Educación Media General') {
+                              listaOpcionesGrados = ['1er Año', '2do Año', '3er Año', '4to Año', '5to Año'];
+                            } else if (formEspecialidad.nivel_educativo === 'Educación Primaria') {
+                              listaOpcionesGrados = ['1er Grado', '2do Grado', '3er Grado', '4to Grado', '5to Grado', '6to Grado'];
+                            } else if (formEspecialidad.nivel_educativo === 'Educación Inicial') {
+                              listaOpcionesGrados = ['Maternal', '1er Grupo', '2do Grupo', '3er Grupo'];
+                            } else {
+                              listaOpcionesGrados = grados.length > 0 ? grados.map(g => g.valor) : [
+                                '1er Grado', '2do Grado', '3er Grado', '4to Grado', '5to Grado', '6to Grado',
+                                '1er Año', '2do Año', '3er Año', '4to Año', '5to Año'
+                              ];
+                            }
+
+                            return listaOpcionesGrados.map((gradoItem, gIdx) => {
+                              const checked = formEspecialidad.grados_atendidos.includes(gradoItem);
+                              return (
+                                <div key={gIdx} className="col-6 col-sm-4 col-md-3">
+                                  <label className={`form-check p-2 rounded-3 border d-flex align-items-center gap-2 cursor-pointer transition-all ${checked ? 'bg-primary bg-opacity-10 border-primary' : 'bg-white'}`}>
+                                    <input 
+                                      type="checkbox"
+                                      className="form-check-input mt-0"
+                                      checked={checked}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setFormEspecialidad({
+                                            ...formEspecialidad,
+                                            grados_atendidos: [...formEspecialidad.grados_atendidos, gradoItem]
+                                          });
+                                        } else {
+                                          setFormEspecialidad({
+                                            ...formEspecialidad,
+                                            grados_atendidos: formEspecialidad.grados_atendidos.filter(g => g !== gradoItem)
+                                          });
+                                        }
+                                      }}
+                                    />
+                                    <span className="small fw-bold text-dark">{gradoItem}</span>
+                                  </label>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Docentes Asignados (Selector con exclusión y Badges con X) */}
+                    <div className="col-12">
+                      <label className="form-label small fw-bold text-muted">
+                        <i className="bi bi-people-fill me-1 text-success"></i>Docente(s) Especialista(s) Asignado(s):
+                      </label>
+
+                      {/* Dropdown de Docentes Disponibles */}
+                      <select
+                        className="form-select border-info rounded-pill mb-2"
+                        value=""
+                        onChange={(e) => {
+                          const ced = e.target.value;
+                          if (ced && !formEspecialidad.docentes_asignados.includes(ced)) {
+                            setFormEspecialidad({
+                              ...formEspecialidad,
+                              docentes_asignados: [...formEspecialidad.docentes_asignados, ced]
+                            });
+                          }
+                        }}
+                      >
+                        <option value="">➕ Seleccione un docente para agregar...</option>
+                        {docentes
+                          .filter(d => {
+                            const matchEscuela = formEspecialidad.id_escuela ? (d.id_escuela === formEspecialidad.id_escuela || !d.id_escuela) : true;
+                            const yaSeleccionado = formEspecialidad.docentes_asignados.includes(d.cedula);
+                            return matchEscuela && !yaSeleccionado;
+                          })
+                          .map(doc => (
+                            <option key={doc.cedula} value={doc.cedula}>
+                              {doc.nombre_completo} (C.I. {doc.cedula}) {doc.id_escuela === 'sb' ? '— UE Santa Bárbara' : '— UE Libertador Bolívar'}
+                            </option>
+                          ))}
+                      </select>
+
+                      {/* Badges de Docentes Asignados */}
+                      <div className="p-3 bg-light rounded-4 border">
+                        {formEspecialidad.docentes_asignados.length === 0 ? (
+                          <div className="extra-small text-muted text-center py-2">
+                            <i className="bi bi-info-circle me-1"></i>No ha asignado ningún docente aún. Seleccione uno en el menú superior.
+                          </div>
+                        ) : (
+                          <div className="d-flex flex-wrap gap-2">
+                            {formEspecialidad.docentes_asignados.map(cedula => {
+                              const doc = docentes.find(d => d.cedula === cedula);
+                              return (
+                                <span 
+                                  key={cedula} 
+                                  className="badge bg-white text-dark border border-success p-2 rounded-pill d-inline-flex align-items-center gap-2 shadow-xs"
+                                >
+                                  <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center fw-bold" style={{ width: '22px', height: '22px', fontSize: '10px' }}>
+                                    {doc?.nombre_completo?.charAt(0) || 'D'}
+                                  </div>
+                                  <span className="small fw-bold">{doc ? doc.nombre_completo : `C.I. ${cedula}`}</span>
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs btn-outline-danger rounded-circle border-0 p-0 d-flex align-items-center justify-content-center"
+                                    style={{ width: '18px', height: '18px' }}
+                                    onClick={() => {
+                                      setFormEspecialidad({
+                                        ...formEspecialidad,
+                                        docentes_asignados: formEspecialidad.docentes_asignados.filter(c => c !== cedula)
+                                      });
+                                    }}
+                                    title="Quitar docente"
+                                  >
+                                    <i className="bi bi-x"></i>
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Observaciones */}
+                    <div className="col-12">
+                      <label className="form-label small fw-bold text-muted">Observaciones / Planificación Adicional</label>
+                      <textarea 
+                        className="form-control border-info rounded-4"
+                        rows={2}
+                        placeholder="Detalles sobre el plan de estudio, proyectos interdisciplinarios, etc..."
+                        value={formEspecialidad.observaciones}
+                        onChange={(e) => setFormEspecialidad({ ...formEspecialidad, observaciones: e.target.value })}
+                      ></textarea>
+                    </div>
+
+                  </div>
+                </div>
+
+                <div className="modal-footer bg-light p-3 border-top d-flex justify-content-between">
+                  <button 
+                    type="button" 
+                    className="btn btn-light rounded-pill px-4 fw-bold"
+                    onClick={() => { setMostrarModalEspecialidad(false); setEditandoEspecialidadId(null); }}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary rounded-pill px-4 fw-bold shadow-sm"
+                  >
+                    <i className="bi bi-check-lg me-1"></i>
+                    {editandoEspecialidadId ? 'Guardar Cambios' : 'Registrar Especialidad'}
+                  </button>
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mostrarPreviewSorpresa && (
+        <ModalAsignacionSorpresa 
+          forzarApertura={true}
+          cedulaSimulada={previewDocenteCedula}
+          onClose={() => {
+            setMostrarPreviewSorpresa(false);
+            setPreviewDocenteCedula('');
+          }}
+        />
+      )}
     </div>
   );
 };
+

@@ -5,6 +5,25 @@ import html2canvas from 'html2canvas';
 import jsQR from 'jsqr';
 import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 import { toTitulo } from '../../lib/formatters';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoVerificaciones } from '../../components/chamilo';
+import { usePermisos } from '../../hooks/usePermisos';
+import { 
+  renderNormasInternasHTML, 
+  descargarNormasInternasPDF,
+  obtenerPlantillaNormasInternas
+} from '../../utils/generadorNormasInternas';
+import { 
+  renderCartaAceptacionHTML, 
+  descargarCartaAceptacionPDF,
+  obtenerPlantillasCartaAceptacion,
+  PLANTILLAS_ACEPTACION_DEFAULT
+} from '../../utils/generadorCartaAceptacion';
+import { 
+  prepararDatosCarnet, 
+  descargarCarnetPDF, 
+  renderCarnetContainerHTML,
+  type DatosCarnetProcesados
+} from '../../utils/generadorCarnet';
 
 interface VinculacionData {
   id?: string;
@@ -87,17 +106,17 @@ const autoCompletarGuiones = (val: string, valAnterior: string): string => {
     raw = raw.split('/VALIDAR-CONSTANCIA/').pop()?.split('?')[0] || raw;
   }
 
-  // Si es un prefijo reconocido (CI, FI, SC, RES)
-  const prefijos = ['CI', 'FI', 'SC', 'RES'];
+  // Si es un prefijo reconocido (CI, CE, CC, FI, SC, RES, CA, CR, NI, NORMAS, NORM, CARNET, CRN)
+  const prefijos = ['CI', 'CE', 'CC', 'FI', 'SC', 'RES', 'CA', 'CR', 'NI', 'NORMAS', 'NORM', 'CARNET', 'CRN'];
   const prefijoEncontrado = prefijos.find(p => raw.startsWith(p));
 
   if (prefijoEncontrado) {
-    // Si escribió exactamente las 2 letras (ej: "CI" o "SC"), agregar guión automáticamente -> "CI-"
+    // Si escribió exactamente las 2 letras (ej: "CI" o "SC" o "CA" o "NI"), agregar guión automáticamente -> "NI-"
     if (raw.length === prefijoEncontrado.length) {
       return `${prefijoEncontrado}-`;
     }
 
-    // Si escribió las letras y no puso guión (ej: "CILB"), insertar guión -> "CI-LB"
+    // Si escribió las letras y no puso guión (ej: "CILB" o "CALB" o "NILB"), insertar guión -> "NI-LB"
     if (raw.length > prefijoEncontrado.length && raw[prefijoEncontrado.length] !== '-') {
       raw = `${prefijoEncontrado}-${raw.slice(prefijoEncontrado.length)}`;
     }
@@ -115,8 +134,8 @@ const autoCompletarGuiones = (val: string, valAnterior: string): string => {
       if (prefijoEncontrado === 'SC' && parte3.length === 4 && !raw.endsWith('-')) {
         return `${partes[0]}-${partes[1]}-${parte3}-`;
       }
-      // Si en CI o FI escribe cédula completa (7-9 dígitos) y sigue con el año
-      if ((prefijoEncontrado === 'CI' || prefijoEncontrado === 'FI') && parte3.length > 8) {
+      // Si en CI, CE, CC, FI, CA, CR, NI escribe cédula completa (7-9 dígitos) y sigue con el año
+      if (['CI', 'CE', 'CC', 'FI', 'CA', 'CR', 'NI', 'NORM', 'CRN'].includes(prefijoEncontrado) && parte3.length > 8) {
         const ced = parte3.slice(0, -4);
         const ano = parte3.slice(-4);
         return `${partes[0]}-${partes[1]}-${ced}-${ano}`;
@@ -127,7 +146,19 @@ const autoCompletarGuiones = (val: string, valAnterior: string): string => {
   return raw;
 };
 
+export type TipoVistaVerificacion = 'constancia' | 'estudio' | 'conducta' | 'normas' | 'aceptacion' | 'carnet' | 'resumen' | 'cupo';
+
 export const Verificaciones: React.FC = () => {
+  const { user, tienePermiso } = usePermisos();
+  const esAdminOAutorizado = Boolean(
+    user && (
+      ['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora', 'Subdirector', 'Subdirectora', 'Coordinador', 'Control de Estudios'].includes((user.rol || '').trim()) ||
+      tienePermiso('Gestión Estudiantil', 'Disenar') ||
+      tienePermiso('Gestión Estudiantil', 'Editar') ||
+      tienePermiso('Diseños y Certificados', 'Ver')
+    )
+  );
+
   const [codigoBusqueda, setCodigoBusqueda] = useState('');
   const [cargando, setCargando] = useState(false);
   const [busquedaRealizada, setBusquedaRealizada] = useState(false);
@@ -137,12 +168,13 @@ export const Verificaciones: React.FC = () => {
   const [solicitudCupo, setSolicitudCupo] = useState<SolicitudCupoData | null>(null);
 
   // Vista activa de documento
-  const [vistaDoc, setVistaDoc] = useState<'constancia' | 'resumen' | 'cupo'>('constancia');
+  const [vistaDoc, setVistaDoc] = useState<TipoVistaVerificacion>('constancia');
   const [generandoPdf, setGenerandoPdf] = useState(false);
 
   // Firma y datos de director
   const [dirInfo, setDirInfo] = useState<any>(null);
   const [firmaBase64, setFirmaBase64] = useState<string>('');
+  const [datosCarnet, setDatosCarnet] = useState<DatosCarnetProcesados | null>(null);
 
   // ─── ESTADOS DEL ESCÁNER DE CÁMARA QR ─────────────────────────────────────
   const [mostrarEscaner, setMostrarEscaner] = useState(false);
@@ -280,10 +312,11 @@ export const Verificaciones: React.FC = () => {
 
     const cleanUpper = raw.replace(/['"%;]/g, '').trim().toUpperCase();
 
-    // Extraer cédula de estudiante si viene en formato CI-LB-17780095-2026 o FI-SB-32145678-2026
+    // Extraer cédula de estudiante o representante si viene en formato con guiones
     let cedulaEstudianteBuscada = '';
     const partes = cleanUpper.split('-');
-    if (partes.length >= 3 && (cleanUpper.startsWith('CI-') || cleanUpper.startsWith('FI-') || cleanUpper.startsWith('RES-'))) {
+    const prefijosReconocidos = ['CI-', 'CE-', 'CC-', 'FI-', 'RES-', 'CA-', 'CR-', 'NI-', 'NORMAS-', 'NORM-', 'CARNET-', 'CRN-', 'SC-'];
+    if (partes.length >= 3 && prefijosReconocidos.some(p => cleanUpper.startsWith(p))) {
       const segCedula = partes[2].replace(/\D/g, '');
       if (segCedula.length >= 4) {
         cedulaEstudianteBuscada = segCedula;
@@ -334,6 +367,7 @@ export const Verificaciones: React.FC = () => {
           const d = item.datos_actualizados || {};
           const codUnico = (d.codigo_unico || item.codigo_unico || '').toString().trim().toUpperCase();
           const cedEstDigitos = (item.cedula_estudiante || d.estudiante_cedula || '').toString().replace(/\D/g, '');
+          const cedRepDigitos = (item.cedula_representante || d.representante_cedula || '').toString().replace(/\D/g, '');
 
           // 1. Coincidencia exacta por código único
           if (codUnico && codUnico === cleanUpper) return true;
@@ -341,13 +375,16 @@ export const Verificaciones: React.FC = () => {
           // 2. Coincidencia por ID
           if (item.id && String(item.id) === cleanUpper) return true;
 
-          // 3. Coincidencia EXACTA por cédula del estudiante
+          // 3. Coincidencia EXACTA por cédula del estudiante o del representante
           if (cedulaEstudianteBuscada && cedEstDigitos && cedEstDigitos === cedulaEstudianteBuscada) {
             return true;
           }
+          if (cedulaEstudianteBuscada && cedRepDigitos && cedRepDigitos === cedulaEstudianteBuscada) {
+            return true;
+          }
 
-          // 4. Si el término buscado es solo números y coincide con la cédula del estudiante
-          if (soloNumeros && soloNumeros.length >= 5 && cedEstDigitos === soloNumeros) {
+          // 4. Si el término buscado es solo números y coincide con la cédula del estudiante o del representante
+          if (soloNumeros && soloNumeros.length >= 5 && (cedEstDigitos === soloNumeros || cedRepDigitos === soloNumeros)) {
             return true;
           }
 
@@ -377,6 +414,8 @@ export const Verificaciones: React.FC = () => {
             if (cod && cod === cleanUpper) return true;
             const cedCupo = (c.estudiante_cedula || '').replace(/\D/g, '');
             if (cedulaEstudianteBuscada && cedCupo && cedCupo === cedulaEstudianteBuscada) return true;
+            const cedRep = (c.representante_cedula || '').replace(/\D/g, '');
+            if (cedulaEstudianteBuscada && cedRep && cedRep === cedulaEstudianteBuscada) return true;
             return false;
           }) || null;
         };
@@ -399,10 +438,20 @@ export const Verificaciones: React.FC = () => {
       setFirmaBase64(firma);
 
       // Determinar pestaña según el prefijo o datos
-      if (cleanUpper.startsWith('SC-') || (!vincEncontrada && cupoEncontrado)) {
-        setVistaDoc('cupo');
+      if (cleanUpper.startsWith('NI-') || cleanUpper.startsWith('NORMAS-') || cleanUpper.startsWith('NORM-')) {
+        setVistaDoc('normas');
+      } else if (cleanUpper.startsWith('CA-') || cleanUpper.startsWith('CR-') || cleanUpper.startsWith('ACEPT-')) {
+        setVistaDoc('aceptacion');
+      } else if (cleanUpper.startsWith('CE-') || cleanUpper.startsWith('EST-')) {
+        setVistaDoc('estudio');
+      } else if (cleanUpper.startsWith('CC-') || cleanUpper.startsWith('COND-')) {
+        setVistaDoc('conducta');
+      } else if (cleanUpper.startsWith('CARNET-') || cleanUpper.startsWith('CRN-')) {
+        setVistaDoc('carnet');
       } else if (cleanUpper.startsWith('FI-') || cleanUpper.startsWith('RES-')) {
         setVistaDoc('resumen');
+      } else if (cleanUpper.startsWith('SC-') || (!vincEncontrada && cupoEncontrado)) {
+        setVistaDoc('cupo');
       } else {
         setVistaDoc('constancia');
       }
@@ -588,10 +637,59 @@ export const Verificaciones: React.FC = () => {
   }, [detenerCamara]);
 
   const handleDescargarPdf = async () => {
-    if (!docRef.current) return;
     setGenerandoPdf(true);
-    let clon: HTMLElement | null = null;
     try {
+      if (vistaDoc === 'normas') {
+        const plantillaNormas = obtenerPlantillaNormasInternas(escuelaCodigo as 'sb' | 'lb');
+        await descargarNormasInternasPDF(plantillaNormas, {
+          codigo_unico: codigoNormas,
+          codigo_escuela: escuelaCodigo as 'sb' | 'lb',
+          estudiante_nombres: vinculacion?.nombres_estudiante || d.estudiante_nombres || solicitudCupo?.estudiante_nombres || '',
+          estudiante_apellidos: vinculacion?.apellidos_estudiante || d.estudiante_apellidos || solicitudCupo?.estudiante_apellidos || '',
+          estudiante_cedula: cedulaEstudiante,
+          grado_solicitado: gradoEstudiante,
+          representante_nombres: d.representante_nombres || vinculacion?.nombres_representante || solicitudCupo?.representante_nombres || '',
+          representante_apellidos: d.representante_apellidos || vinculacion?.apellidos_representante || solicitudCupo?.representante_apellidos || '',
+          representante_cedula: representanteCedula,
+          representante_telefono: d.representante_telefono || solicitudCupo?.representante_telefono || '',
+          parentesco: d.representante_parentesco || d.parentesco || 'Representante Legal'
+        });
+        setGenerandoPdf(false);
+        return;
+      }
+
+      if (vistaDoc === 'aceptacion') {
+        const plantillaAceptacion = obtenerPlantillasCartaAceptacion().find(p => p.id_escuela === escuelaCodigo) || PLANTILLAS_ACEPTACION_DEFAULT[escuelaCodigo] || PLANTILLAS_ACEPTACION_DEFAULT.lb;
+        await descargarCartaAceptacionPDF(plantillaAceptacion, {
+          codigo_unico: codigoAceptacion,
+          codigo_escuela: escuelaCodigo as 'sb' | 'lb',
+          representante_nombres: d.representante_nombres || vinculacion?.nombres_representante || solicitudCupo?.representante_nombres || 'Representante Legal',
+          representante_apellidos: d.representante_apellidos || vinculacion?.apellidos_representante || solicitudCupo?.representante_apellidos || '',
+          representante_cedula: representanteCedula,
+          representante_telefono: d.representante_telefono || solicitudCupo?.representante_telefono || '',
+          representante_email: d.representante_email || solicitudCupo?.representante_email || '',
+          estudiante_nombres: vinculacion?.nombres_estudiante || d.estudiante_nombres || solicitudCupo?.estudiante_nombres || 'Aspirante',
+          estudiante_apellidos: vinculacion?.apellidos_estudiante || d.estudiante_apellidos || solicitudCupo?.estudiante_apellidos || '',
+          estudiante_cedula: cedulaEstudiante,
+          grado_solicitado: gradoEstudiante
+        });
+        setGenerandoPdf(false);
+        return;
+      }
+
+      if (vistaDoc === 'carnet') {
+        const datosCarnet = await prepararDatosCarnet(vinculacion || solicitudCupo, d);
+        await descargarCarnetPDF(datosCarnet);
+        setGenerandoPdf(false);
+        return;
+      }
+
+      if (!docRef.current) {
+        setGenerandoPdf(false);
+        return;
+      }
+
+      let clon: HTMLElement | null = null;
       // Clonar el contenedor a un sandbox aislado con ancho fijo de 800px
       // Esto evita que en teléfonos móviles o pantallas pequeñas se capture un layout colapsado verticalmente
       clon = docRef.current.cloneNode(true) as HTMLElement;
@@ -664,31 +762,61 @@ export const Verificaciones: React.FC = () => {
       pdf.addImage(imgData, 'JPEG', posX, posY, finalWidth, finalHeight, undefined, 'FAST');
 
       const nombreEst = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Estudiante';
-      const tipoTexto = vistaDoc === 'constancia' ? 'Constancia_Inscripcion' : vistaDoc === 'resumen' ? 'Ficha_Integral' : 'Solicitud_Cupo';
+      const tipoTexto = vistaDoc === 'constancia'
+        ? 'Constancia_Inscripcion'
+        : (vistaDoc === 'estudio'
+          ? 'Constancia_Estudio'
+          : (vistaDoc === 'conducta'
+            ? 'Constancia_Conducta'
+            : (vistaDoc === 'resumen'
+              ? 'Ficha_Integral'
+              : 'Solicitud_Cupo')));
       const fileName = `SIGAE_${tipoTexto}_${nombreEst.replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
       if (Swal) Swal.fire('¡PDF Generado!', 'El documento oficial ha sido descargado en proporción y alta calidad.', 'success');
+
+      if (clon && clon.parentNode) {
+        clon.parentNode.removeChild(clon);
+      }
     } catch (e) {
       console.error('Error al generar PDF', e);
       if (Swal) Swal.fire('Error', 'No se pudo generar el documento PDF.', 'error');
     } finally {
-      if (clon && clon.parentNode) {
-        clon.parentNode.removeChild(clon);
-      }
       setGenerandoPdf(false);
     }
   };
 
   const handleCompartirWhatsApp = () => {
     const nombre = vinculacion?.nombres_estudiante || solicitudCupo?.estudiante_nombres || 'Estudiante';
-    const codigo = vinculacion?.codigo_unico || solicitudCupo?.codigo_unico || codigoConstancia;
+    const nombresDoc: Record<TipoVistaVerificacion, string> = {
+      constancia: 'Constancia Oficial de Inscripción',
+      estudio: 'Constancia de Estudio Regular',
+      conducta: 'Constancia de Buena Conducta',
+      normas: 'Normativa Interna Institucional',
+      aceptacion: 'Carta Oficial de Aceptación',
+      carnet: 'Carnet Estudiantil Institucional',
+      resumen: 'Resumen de Actualización (Ficha Integral)',
+      cupo: 'Comprobante de Solicitud de Cupo'
+    };
+    const codigosPorVista: Record<TipoVistaVerificacion, string> = {
+      constancia: codigoConstancia,
+      estudio: codigoEstudio,
+      conducta: codigoConducta,
+      normas: codigoNormas,
+      aceptacion: codigoAceptacion,
+      carnet: codigoCarnet,
+      resumen: codigoResumen,
+      cupo: codigoSolicitud
+    };
+    const codigoActivo = codigosPorVista[vistaDoc] || codigoConstancia;
     const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = esLocal ? 'https://app-delta-ten-80.vercel.app' : window.location.origin;
-    const link = `${baseUrl}/validar-constancia/${encodeURIComponent(codigo)}`;
+    const link = `${baseUrl}/validar-constancia/${encodeURIComponent(codigoActivo)}`;
     const texto = `*SIGAE - Verificación Oficial de Documento*\n\n` +
+      `Documento: *${nombresDoc[vistaDoc] || 'Documento Oficial'}*\n` +
       `Estudiante: *${nombre}*\n` +
-      `Código de Autenticidad: *${codigo}*\n\n` +
-      `Puede consultar la validez de este documento escaneando su código QR o accediendo al enlace público:\n` +
+      `Código de Autenticidad: *${codigoActivo}*\n\n` +
+      `Puede consultar la validez oficial de este documento escaneando su código QR o accediendo al enlace público:\n` +
       `${link}`;
 
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
@@ -705,6 +833,7 @@ export const Verificaciones: React.FC = () => {
   const anoActual = new Date().getFullYear();
   const anoProximo = anoActual + 1;
   const cedulaLimpia = cedulaEstudiante.replace(/\D/g, '') || '0000';
+  const cedulaRepLimpia = (representanteCedula || '').replace(/\D/g, '') || '0000';
   const escuelaCodigo = resolverEscuelaEstudiante(vinculacion || solicitudCupo, { codigo_unico: codigoBusqueda });
 
   // Sincronizar datos y firma del Director correspondiente a la escuela
@@ -725,19 +854,84 @@ export const Verificaciones: React.FC = () => {
     return () => { activo = false; };
   }, [escuelaCodigo]);
 
-  // Códigos correspondientes
-  const codigoConstancia = vinculacion?.codigo_unico || `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
-  const codigoResumen = d.codigo_unico || `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  // Códigos correspondientes a cada documento oficial
+  const codigoConstancia = (vinculacion?.codigo_unico && vinculacion.codigo_unico.startsWith('CI-')) ? vinculacion.codigo_unico : `CI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  const codigoEstudio = `CE-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  const codigoConducta = `CC-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  const codigoNormas = `NI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  const codigoAceptacion = `CA-${escuelaCodigo.toUpperCase()}-${cedulaRepLimpia || cedulaLimpia}-${anoActual}`;
+  const codigoCarnet = `CRN-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
+  const codigoResumen = (d.codigo_unico && d.codigo_unico.startsWith('FI-')) ? d.codigo_unico : `FI-${escuelaCodigo.toUpperCase()}-${cedulaLimpia}-${anoActual}`;
   const codigoSolicitud = solicitudCupo?.codigo_unico || `SC-${escuelaCodigo.toUpperCase()}-${anoActual}-${cedulaLimpia.slice(-4) || '0001'}`;
 
-  // URL del QR oficial con el código embebido
+  // URLs del QR oficial con el código embebido para cada tipo de documento
   const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const baseUrlVerificacion = esLocal ? 'https://app-delta-ten-80.vercel.app' : window.location.origin;
   const urlQrConstancia = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoConstancia)}`)}&bgcolor=ffffff&color=166534&margin=2`;
+  const urlQrEstudio = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoEstudio)}`)}&bgcolor=ffffff&color=166534&margin=2`;
+  const urlQrConducta = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${baseUrlVerificacion}/validar-constancia/${encodeURIComponent(codigoConducta)}`)}&bgcolor=ffffff&color=166534&margin=2`;
   const urlQrResumen = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`SIGAE:FI:${codigoResumen}:${nombreEstudianteCompleto}`)}&bgcolor=ffffff&color=166534&margin=2`;
 
   const logoEscuela = `/assets/img/logo_${escuelaCodigo}.png`;
   const logoMppe = '/assets/img/logoMPPE.png';
+
+  // Sincronizar datos para carnet estudiantil
+  useEffect(() => {
+    let activo = true;
+    if (vinculacion || solicitudCupo) {
+      prepararDatosCarnet(vinculacion || solicitudCupo, d)
+        .then(datos => {
+          if (activo) setDatosCarnet(datos);
+        })
+        .catch(err => console.error('Error preparando carnet:', err));
+    }
+    return () => { activo = false; };
+  }, [vinculacion, solicitudCupo, d, escuelaCodigo]);
+
+  // Renderizados HTML dinámicos para Normas Internas y Carta de Aceptación
+  const htmlNormas = (() => {
+    try {
+      const plantilla = obtenerPlantillaNormasInternas(escuelaCodigo as 'sb' | 'lb');
+      return renderNormasInternasHTML(plantilla, {
+        codigo_unico: codigoNormas,
+        codigo_escuela: escuelaCodigo as 'sb' | 'lb',
+        estudiante_nombres: vinculacion?.nombres_estudiante || d.estudiante_nombres || solicitudCupo?.estudiante_nombres || '',
+        estudiante_apellidos: vinculacion?.apellidos_estudiante || d.estudiante_apellidos || solicitudCupo?.estudiante_apellidos || '',
+        estudiante_cedula: cedulaEstudiante,
+        grado_solicitado: gradoEstudiante,
+        representante_nombres: d.representante_nombres || vinculacion?.nombres_representante || solicitudCupo?.representante_nombres || '',
+        representante_apellidos: d.representante_apellidos || vinculacion?.apellidos_representante || solicitudCupo?.representante_apellidos || '',
+        representante_cedula: representanteCedula,
+        representante_telefono: d.representante_telefono || solicitudCupo?.representante_telefono || '',
+        parentesco: d.representante_parentesco || d.parentesco || 'Representante Legal'
+      }, firmaBase64);
+    } catch (e) {
+      console.error('Error generando htmlNormas:', e);
+      return '';
+    }
+  })();
+
+  const htmlAceptacion = (() => {
+    try {
+      const plantilla = obtenerPlantillasCartaAceptacion().find(p => p.id_escuela === escuelaCodigo) || PLANTILLAS_ACEPTACION_DEFAULT[escuelaCodigo] || PLANTILLAS_ACEPTACION_DEFAULT.lb;
+      return renderCartaAceptacionHTML(plantilla, {
+        codigo_unico: codigoAceptacion,
+        codigo_escuela: escuelaCodigo as 'sb' | 'lb',
+        representante_nombres: d.representante_nombres || vinculacion?.nombres_representante || solicitudCupo?.representante_nombres || 'Representante Legal',
+        representante_apellidos: d.representante_apellidos || vinculacion?.apellidos_representante || solicitudCupo?.representante_apellidos || '',
+        representante_cedula: representanteCedula,
+        representante_telefono: d.representante_telefono || solicitudCupo?.representante_telefono || '',
+        representante_email: d.representante_email || solicitudCupo?.representante_email || '',
+        estudiante_nombres: vinculacion?.nombres_estudiante || d.estudiante_nombres || solicitudCupo?.estudiante_nombres || 'Aspirante',
+        estudiante_apellidos: vinculacion?.apellidos_estudiante || d.estudiante_apellidos || solicitudCupo?.estudiante_apellidos || '',
+        estudiante_cedula: cedulaEstudiante,
+        grado_solicitado: gradoEstudiante
+      }, firmaBase64);
+    } catch (e) {
+      console.error('Error generando htmlAceptacion:', e);
+      return '';
+    }
+  })();
 
   const rawGen = (
     d.estudiante_sexo ||
@@ -769,6 +963,10 @@ export const Verificaciones: React.FC = () => {
   const estatusCupo = calcularEstatusCupo(solicitudCupo);
 
   const cargarModeloEjemplo = async (esc: 'sb' | 'lb' = 'sb') => {
+    if (!esAdminOAutorizado) {
+      if (Swal) Swal.fire('Acceso Restringido', 'Solo administradores o personal autorizado pueden visualizar y emitir modelos de constancias de prueba.', 'warning');
+      return;
+    }
     setCargando(true);
     try {
       const dir = await obtenerDatosDirectorAsync(esc);
@@ -817,67 +1015,161 @@ export const Verificaciones: React.FC = () => {
 
   return (
     <div className="modulo-animado p-3 p-md-4 font-sans">
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Gestión Estudiantil"
+        currentModule="Verificaciones"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_verificaciones"
+        title="Guía del Módulo de Verificaciones Oficiales"
+        content="Verifique al instante la autenticidad de constancias, fichas integrales o solicitudes de cupos introduciendo el código del documento, la cédula del estudiante o utilizando la cámara para escanear el código QR."
+        icon="bi-patch-check-fill"
+      />
       
-      {/* ─── ENCABEZADO PRINCIPAL ─────────────────────────────────────────── */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-        <div>
-          <div className="d-flex align-items-center gap-2 mb-1">
-            <div className="p-2 rounded-3 bg-success bg-opacity-10 text-success">
-              <i className="bi bi-patch-check-fill fs-3"></i>
+      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      <div 
+        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
+        style={{ 
+          border: '2px solid #ddd6fe',
+          borderTop: '6px solid #8b5cf6',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
+          borderRadius: '26px'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono 3D Isométrico + Escudo Institucional */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm" style={{ border: '2px solid #ddd6fe' }}>
+                <div 
+                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ 
+                    width: '88px', 
+                    height: '88px',
+                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                    border: '1.5px solid #ddd6fe'
+                  }}
+                  title="Módulo de Verificaciones Chamilo Tech"
+                >
+                  <IconoVerificaciones size={58} color="#8b5cf6" />
+                </div>
+                <div 
+                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ width: '88px', height: '88px' }}
+                >
+                  <img 
+                    src={`/assets/img/logo_${escuelaCodigo}.png`} 
+                    alt="Escudo Institucional" 
+                    className="img-fluid"
+                    style={{ maxHeight: '72px', objectFit: 'contain' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="fw-bold mb-0 text-dark">Módulo de Verificaciones Oficiales</h3>
-              <p className="text-muted small mb-0">
-                Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos.
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#8B5CF6' }}>
+                  <i className="bi bi-patch-check-fill me-1"></i>Control de Estudios & Auditoría
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-qr-code-scan text-primary me-1"></i>Autenticidad Digital QR
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-building text-info me-1"></i>Sede Activa: <b>{escuelaCodigo === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</b>
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                  <span className="text-success fw-bold">Live</span> / Servidor Criptográfico
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Módulo de Verificaciones Oficiales
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos mediante Código Oficial o Cámara QR.
               </p>
             </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => window.location.href = '/categoria/Gesti%C3%B3n%20Estudiantil'}
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver al Menú</span>
+              </button>
+            </div>
+
           </div>
         </div>
 
-        <div className="d-flex flex-wrap gap-2 align-items-center">
-          <div className="btn-group shadow-sm" role="group">
+        {/* Barra de Herramientas de Verificación Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
             <button 
               type="button"
-              onClick={() => cargarModeloEjemplo('sb')} 
-              className="btn btn-outline-success fw-bold d-flex align-items-center gap-1.5"
-              title="Ver Modelo de Constancia Oficial de la UE Santa Bárbara"
+              onClick={abrirEscaner} 
+              className="btn btn-primary rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6', fontSize: '0.82rem' }}
             >
-              <i className="bi bi-eye-fill"></i>
-              <span>Modelo SB</span>
+              <i className="bi bi-camera-fill"></i>
+              <span>Escanear QR</span>
             </button>
-            <button 
-              type="button"
-              onClick={() => cargarModeloEjemplo('lb')} 
-              className="btn btn-outline-primary fw-bold d-flex align-items-center gap-1.5"
-              title="Ver Modelo de Constancia Oficial de la UE Libertador Bolívar"
-            >
-              <i className="bi bi-eye-fill"></i>
-              <span>Modelo LB</span>
-            </button>
+
+            {esAdminOAutorizado && (
+              <div className="btn-group shadow-xs rounded-pill" role="group">
+                <button 
+                  type="button"
+                  onClick={() => cargarModeloEjemplo('sb')} 
+                  className="btn btn-white bg-white text-dark border btn-xs fw-bold px-3 py-1.5 hover-efecto"
+                  style={{ fontSize: '0.82rem' }}
+                  title="Ver Modelo de Constancia Oficial de la UE Santa Bárbara"
+                >
+                  <i className="bi bi-eye-fill me-1 text-primary"></i>
+                  <span>Modelo SB</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => cargarModeloEjemplo('lb')} 
+                  className="btn btn-white bg-white text-dark border btn-xs fw-bold px-3 py-1.5 hover-efecto"
+                  style={{ fontSize: '0.82rem' }}
+                  title="Ver Modelo de Constancia Oficial de la UE Libertador Bolívar"
+                >
+                  <i className="bi bi-eye-fill me-1 text-info"></i>
+                  <span>Modelo LB</span>
+                </button>
+              </div>
+            )}
           </div>
 
-          <button 
-            type="button"
-            onClick={abrirEscaner} 
-            className="btn btn-success fw-bold rounded-pill px-3 shadow-sm d-flex align-items-center gap-2"
-            style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
-          >
-            <i className="bi bi-camera-fill fs-5"></i>
-            <span>Escanear QR</span>
-          </button>
-
-          <button 
-            onClick={() => {
-              setCodigoBusqueda('');
-              setBusquedaRealizada(false);
-              setVinculacion(null);
-              setSolicitudCupo(null);
-              if (inputRef.current) inputRef.current.focus();
-            }} 
-            className="btn btn-outline-secondary rounded-pill px-3 fw-bold shadow-sm"
-          >
-            <i className="bi bi-arrow-counterclockwise me-1"></i> Nueva Consulta
-          </button>
+          <div className="d-flex align-items-center gap-1.5">
+            <button 
+              onClick={() => {
+                setCodigoBusqueda('');
+                setBusquedaRealizada(false);
+                setVinculacion(null);
+                setSolicitudCupo(null);
+                if (inputRef.current) inputRef.current.focus();
+              }} 
+              className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold extra-small hover-efecto"
+            >
+              <i className="bi bi-arrow-counterclockwise text-warning me-1"></i>
+              <span>Limpiar Búsqueda</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -984,6 +1276,51 @@ export const Verificaciones: React.FC = () => {
               style={{ fontSize: '0.78rem' }}
             >
               FI-SB-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('CE-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-secondary fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+              title="Constancia de Estudio"
+            >
+              CE-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('CC-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-secondary fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+              title="Buena Conducta"
+            >
+              CC-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('NI-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-dark fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+              title="Normativa Interna"
+            >
+              NI-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('CA-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-primary fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+              title="Carta de Aceptación"
+            >
+              CA-
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtajoPrefijo('CRN-')}
+              className="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 text-info fw-bold font-monospace shadow-none"
+              style={{ fontSize: '0.78rem' }}
+              title="Carnet Estudiantil"
+            >
+              CRN-
             </button>
             <button
               type="button"
@@ -1263,7 +1600,47 @@ export const Verificaciones: React.FC = () => {
                 onClick={() => setVistaDoc('constancia')}
                 className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'constancia' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
               >
-                <i className="bi bi-award-fill me-1"></i> Constancia de Inscripción
+                <i className="bi bi-award-fill me-1"></i> Inscripción
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVistaDoc('estudio')}
+                className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'estudio' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
+              >
+                <i className="bi bi-book-fill me-1"></i> Estudio
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVistaDoc('conducta')}
+                className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'conducta' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
+              >
+                <i className="bi bi-star-fill me-1"></i> Conducta
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVistaDoc('normas')}
+                className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'normas' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
+              >
+                <i className="bi bi-shield-check me-1"></i> Normativa Interna
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVistaDoc('aceptacion')}
+                className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'aceptacion' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
+              >
+                <i className="bi bi-patch-check-fill me-1"></i> Carta de Aceptación
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVistaDoc('carnet')}
+                className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'carnet' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
+              >
+                <i className="bi bi-person-badge-fill me-1"></i> Carnet
               </button>
               
               <button
@@ -1271,7 +1648,7 @@ export const Verificaciones: React.FC = () => {
                 onClick={() => setVistaDoc('resumen')}
                 className={`btn rounded-pill fw-bold px-3 py-2 ${vistaDoc === 'resumen' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted'}`}
               >
-                <i className="bi bi-file-earmark-text-fill me-1"></i> Resumen de Actualización
+                <i className="bi bi-file-earmark-text-fill me-1"></i> Ficha Integral
               </button>
 
               {solicitudCupo && (
@@ -1324,8 +1701,7 @@ export const Verificaciones: React.FC = () => {
             {vistaDoc === 'constancia' && (
               <div 
                 ref={docRef}
-                className="bg-white shadow-lg rounded-4 mb-5 animate__animated animate__fadeIn mx-auto"
-                style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box', minHeight: '1035px', padding: '42px 48px 35px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontFamily: 'Arial, Helvetica, sans-serif' }}
+                className="hoja-verificacion-oficial mb-5 animate__animated animate__fadeIn mx-auto"
               >
                 {/* BANDERA DE VENEZUELA */}
                 <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1336,28 +1712,29 @@ export const Verificaciones: React.FC = () => {
                   <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
                 </div>
 
-                {/* ENCABEZADO INSTITUCIONAL MODELO */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '25px', position: 'relative' }}>
-                  <img src={logoEscuela} alt="Escuela" style={{ height: '70px', width: 'auto', position: 'absolute', left: 0 }} />
-                  <div style={{ textAlign: 'center', width: '100%' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', lineHeight: '1.45', textTransform: 'uppercase', color: '#000000' }}>
+                {/* ENCABEZADO INSTITUCIONAL MODELO RESPONSIVO */}
+                <div className="hoja-doc-header">
+                  <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto', objectFit: 'contain' }} className="d-block" />
+                  <div className="text-center flex-grow-1 px-1">
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', lineHeight: '1.4', textTransform: 'uppercase', color: '#000000' }}>
                       República Bolivariana de Venezuela<br/>
                       Ministerio del Poder Popular para la Educación<br/>
                       {dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}<br/>
-                      <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>{dirInfo?.ubicacionEscuela || 'Monagas, Venezuela'}</span>
+                      <span style={{ fontWeight: 'normal', fontSize: '11px', textTransform: 'none', color: '#334155' }}>{dirInfo?.ubicacionEscuela || 'Monagas, Venezuela'}</span>
                     </div>
                   </div>
+                  <img src={logoMppe} alt="MPPE" style={{ height: '38px', width: 'auto', objectFit: 'contain' }} className="d-none d-sm-block" />
                 </div>
 
                 {/* TÍTULO DE LA CONSTANCIA */}
-                <div style={{ textAlign: 'center', margin: '32px 0 28px' }}>
+                <div style={{ textAlign: 'center', margin: '24px 0 20px' }}>
                   <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
                     Constancia de Inscripción
                   </h2>
                 </div>
 
                 {/* PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE */}
-                <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '26px', textIndent: '35px' }}>
+                <p className="hoja-doc-texto">
                   Quien suscribe, <b>{(() => {
                     const esDirectora = escuelaCodigo === 'sb' || (dirInfo?.cargoGenerico || '').toLowerCase().includes('directora') || (dirInfo?.cargo || '').toLowerCase().includes('directora');
                     const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
@@ -1390,23 +1767,127 @@ export const Verificaciones: React.FC = () => {
                 </p>
 
                 {/* PÁRRAFO 2: REPRESENTANTE LEGAL */}
-                <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '26px', textIndent: '35px' }}>
+                <p className="hoja-doc-texto">
                   Asimismo, se deja constancia que el representante legal {esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>{toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>{representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
                 </p>
 
                 {/* PÁRRAFO 3: EXPEDICIÓN Y FECHA */}
-                <p style={{ fontSize: '14.5px', lineHeight: '2.15', color: '#000000', textAlign: 'justify', marginBottom: '35px', textIndent: '35px' }}>
+                <p className="hoja-doc-texto" style={{ marginBottom: '25px' }}>
                   Constancia que se expide para los efectos y fines consiguientes en <b>{toTitulo(escuelaCodigo === 'sb' ? 'El Tejero' : 'Miraflores')}</b>, a los {new Date().getDate()} días del mes de {['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][new Date().getMonth()]} del año {new Date().getFullYear()}.
                 </p>
 
-                {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD QUE TIENE EL CÓDIGO */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '20px', paddingTop: '15px', borderTop: '1.5px solid #cbd5e1' }}>
-                  <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', margin: '0 auto' }}>
+                {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD */}
+                <div className="hoja-doc-firmas">
+                  <div style={{ textAlign: 'center', maxWidth: '440px', width: '100%', margin: '0 auto' }}>
+                    <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
+                    {firmaBase64 ? (
+                      <img src={firmaBase64} alt="Firma Director" style={{ height: '95px', width: 'auto', display: 'block', margin: '0 auto 4px' }} />
+                    ) : (
+                      <img src={`/assets/img/firma_director_${escuelaCodigo}.png`} alt="Firma Director" style={{ height: '95px', width: 'auto', display: 'block', margin: '0 auto 4px' }} />
+                    )}
+                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>
+                      {(() => {
+                        const esDirectora = escuelaCodigo === 'sb' || (dirInfo?.cargoGenerico || '').toLowerCase().includes('directora');
+                        const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+                        const nombreDirectorBase = (dirInfo?.nombreCompleto || (escuelaCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+                          .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+                          .trim();
+                        return `${prefijoDirector} ${toTitulo(nombreDirectorBase)}`;
+                      })()}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#333333' }}>C.I.: {dirInfo?.cedula || (escuelaCodigo === 'sb' ? '16.808.608' : '17.780.095')}</div>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000000' }}>{dirInfo?.cargo || (escuelaCodigo === 'sb' ? 'Directora de la Unidad Educativa Santa Bárbara' : 'Director de la Unidad Educativa Libertador Bolívar')}</div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px 10px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
+                    <img src={urlQrConstancia} alt="QR Verificación" style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} />
+                    <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>VERIFICACIÓN QR</span>
+                    <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>{codigoConstancia}</span>
+                  </div>
+                </div>
+
+                {/* PIE DE PÁGINA */}
+                <div className="hoja-doc-footer-mppe">
+                  <img src={logoMppe} alt="MPPE" style={{ height: '36px', width: 'auto' }} />
+                  <div style={{ fontSize: '8.5px', color: '#64748b' }}>
+                    SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
+                    Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoConstancia}</b>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* 1.B. CONSTANCIA DE ESTUDIO OFICIAL */}
+            {vistaDoc === 'estudio' && (
+              <div 
+                ref={docRef}
+                className="hoja-verificacion-oficial mb-5 animate__animated animate__fadeIn mx-auto"
+              >
+                {/* BANDERA DE VENEZUELA CON 8 ESTRELLAS */}
+                <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
+                  <div style={{ height: '8px', backgroundColor: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7px', lineHeight: '1' }}>
+                    <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                  </div>
+                  <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
+                </div>
+
+                {/* ENCABEZADO INSTITUCIONAL MODELO */}
+                <div className="hoja-doc-header">
+                  <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto' }} />
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', lineHeight: '1.4', textTransform: 'uppercase', color: '#000000' }}>
+                      República Bolivariana de Venezuela<br/>
+                      Ministerio del Poder Popular para la Educación<br/>
+                      {dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}<br/>
+                      <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>{dirInfo?.ubicacionEscuela || 'Monagas, Venezuela'}</span>
+                    </div>
+                  </div>
+                  <img src={logoMppe} alt="MPPE" className="d-none d-sm-block" style={{ height: '42px', width: 'auto' }} />
+                </div>
+
+                {/* TÍTULO DE LA CONSTANCIA */}
+                <div style={{ textAlign: 'center', margin: '26px 0 20px' }}>
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
+                    Constancia de Estudio
+                  </h2>
+                </div>
+
+                {/* PÁRRAFO 1: CERTIFICACIÓN */}
+                <p className="hoja-doc-texto" style={{ marginBottom: '22px' }}>
+                  Quien suscribe, <b>{(() => {
+                    const esDirectora = escuelaCodigo === 'sb' || (dirInfo?.cargoGenerico || '').toLowerCase().includes('directora') || (dirInfo?.cargo || '').toLowerCase().includes('directora');
+                    const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+                    const nombreDirectorBase = (dirInfo?.nombreCompleto || (escuelaCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+                      .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+                      .trim();
+                    return `${prefijoDirector} ${toTitulo(nombreDirectorBase)}`;
+                  })()}</b>, {(dirInfo?.cargoGenerico || (escuelaCodigo === 'sb' ? 'Directora' : 'Director')).toLowerCase()} de la <b>{toTitulo(dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar'))}</b>, que funciona en <b>{toTitulo(dirInfo?.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudianteCompleto)}</b>, titular de la {(() => {
+                    const clean = (cedulaEstudiante || '').toString().trim().toUpperCase();
+                    if (clean.startsWith('CE') || clean.startsWith('CE-') || clean.replace(/\D/g, '').length >= 10) return 'cédula escolar';
+                    return 'cédula de identidad';
+                  })()} N.° <b>{cedulaEstudiante}</b>, cursa de manera regular y activa el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                </p>
+
+                {/* PÁRRAFO 2: REGULARIDAD ACADÉMICA */}
+                <p className="hoja-doc-texto" style={{ marginBottom: '22px' }}>
+                  Asimismo, se hace constar que el alumno mantiene asistencia activa y cumplimiento responsable de sus actividades escolares en el presente período lectivo.
+                </p>
+
+                {/* PÁRRAFO 3: EXPEDICIÓN Y FECHA */}
+                <p className="hoja-doc-texto" style={{ marginBottom: '28px' }}>
+                  Constancia que se expide a petición de la parte interesada para los fines pertinentes en <b>{toTitulo(escuelaCodigo === 'sb' ? 'El Tejero' : 'Miraflores')}</b>, a los {new Date().getDate()} días del mes de {['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][new Date().getMonth()]} del año {new Date().getFullYear()}.
+                </p>
+
+                {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD */}
+                <div className="hoja-doc-firmas">
+                  <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', width: '100%' }}>
                     <p style={{ margin: '0 0 4px', fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
                     {firmaBase64 ? (
-                      <img src={firmaBase64} alt="Firma Director" style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
+                      <img src={firmaBase64} alt="Firma Director" style={{ height: '95px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
                     ) : (
-                      <img src={`/assets/img/firma_director_${escuelaCodigo}.png`} alt="Firma Director" style={{ height: '105px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
+                      <img src={`/assets/img/firma_director_${escuelaCodigo}.png`} alt="Firma Director" style={{ height: '95px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
                     )}
                     <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>
                       {(() => {
@@ -1423,23 +1904,164 @@ export const Verificaciones: React.FC = () => {
                   </div>
 
                   <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
-                    <img src={urlQrConstancia} alt="QR Verificación" style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} />
+                    <img src={urlQrEstudio} alt="QR Verificación" style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} />
                     <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>VERIFICACIÓN QR</span>
-                    <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>{codigoConstancia}</span>
+                    <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>{codigoEstudio}</span>
                   </div>
                 </div>
 
-                {/* PIE DE PÁGINA CON LOGO DEL MINISTERIO ALINEADO A LA IZQUIERDA */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #cbd5e1', paddingTop: '10px', marginTop: '15px' }}>
+                {/* PIE DE PÁGINA */}
+                <div className="hoja-doc-footer-mppe">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src={logoMppe} alt="MPPE" style={{ height: '40px', width: 'auto' }} />
+                    <img src={logoMppe} alt="MPPE" style={{ height: '36px', width: 'auto' }} />
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
-                    SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
-                    Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoConstancia}</b>
+                  <div className="text-center text-sm-end" style={{ fontSize: '8.5px', color: '#64748b' }}>
+                    SIGAE - Control Estudiantil | Constancia Oficial de Estudio Verificable mediante Código QR<br/>
+                    Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoEstudio}</b>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 1.C. CONSTANCIA DE BUENA CONDUCTA OFICIAL */}
+            {vistaDoc === 'conducta' && (
+              <div 
+                ref={docRef}
+                className="hoja-verificacion-oficial mb-5 animate__animated animate__fadeIn mx-auto"
+              >
+                {/* BANDERA DE VENEZUELA CON 8 ESTRELLAS */}
+                <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ height: '6px', backgroundColor: '#facc15' }}></div>
+                  <div style={{ height: '8px', backgroundColor: '#2563eb', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', color: '#ffffff', fontSize: '7px', lineHeight: '1' }}>
+                    <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                  </div>
+                  <div style={{ height: '6px', backgroundColor: '#dc2626' }}></div>
+                </div>
+
+                {/* ENCABEZADO INSTITUCIONAL MODELO */}
+                <div className="hoja-doc-header">
+                  <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto' }} />
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', lineHeight: '1.4', textTransform: 'uppercase', color: '#000000' }}>
+                      República Bolivariana de Venezuela<br/>
+                      Ministerio del Poder Popular para la Educación<br/>
+                      {dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}<br/>
+                      <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>{dirInfo?.ubicacionEscuela || 'Monagas, Venezuela'}</span>
+                    </div>
+                  </div>
+                  <img src={logoMppe} alt="MPPE" className="d-none d-sm-block" style={{ height: '42px', width: 'auto' }} />
+                </div>
+
+                {/* TÍTULO DE LA CONSTANCIA */}
+                <div style={{ textAlign: 'center', margin: '26px 0 20px' }}>
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
+                    Constancia de Buena Conducta
+                  </h2>
+                </div>
+
+                {/* PÁRRAFO 1: CERTIFICACIÓN */}
+                <p className="hoja-doc-texto" style={{ marginBottom: '22px' }}>
+                  Quien suscribe, <b>{(() => {
+                    const esDirectora = escuelaCodigo === 'sb' || (dirInfo?.cargoGenerico || '').toLowerCase().includes('directora') || (dirInfo?.cargo || '').toLowerCase().includes('directora');
+                    const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+                    const nombreDirectorBase = (dirInfo?.nombreCompleto || (escuelaCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+                      .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+                      .trim();
+                    return `${prefijoDirector} ${toTitulo(nombreDirectorBase)}`;
+                  })()}</b>, {(dirInfo?.cargoGenerico || (escuelaCodigo === 'sb' ? 'Directora' : 'Director')).toLowerCase()} de la <b>{toTitulo(dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar'))}</b>, que funciona en <b>{toTitulo(dirInfo?.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que {esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>{toTitulo(nombreEstudianteCompleto)}</b>, titular de la {(() => {
+                    const clean = (cedulaEstudiante || '').toString().trim().toUpperCase();
+                    if (clean.startsWith('CE') || clean.startsWith('CE-') || clean.replace(/\D/g, '').length >= 10) return 'cédula escolar';
+                    return 'cédula de identidad';
+                  })()} N.° <b>{cedulaEstudiante}</b>, quien cursa el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>, ha observado y demostrado en todo momento una <b>EXCELENTE CONDUCTA</b>, disciplina, espíritu de superación y estricto apego a las normas de convivencia escolar.
+                </p>
+
+                {/* PÁRRAFO 2: EXPEDICIÓN Y FECHA */}
+                <p className="hoja-doc-texto" style={{ marginBottom: '28px' }}>
+                  Constancia que se expide a solicitud de la parte interesada para los fines consiguientes en <b>{toTitulo(escuelaCodigo === 'sb' ? 'El Tejero' : 'Miraflores')}</b>, a los {new Date().getDate()} días del mes de {['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'][new Date().getMonth()]} del año {new Date().getFullYear()}.
+                </p>
+
+                {/* ATENTAMENTE Y FIRMA DEL DIRECTOR CON QR DE SEGURIDAD */}
+                <div className="hoja-doc-firmas">
+                  <div style={{ textAlign: 'center', flex: 1, maxWidth: '440px', width: '100%' }}>
+                    <p style={{ margin: '0 0 4px', fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>Atentamente</p>
+                    {firmaBase64 ? (
+                      <img src={firmaBase64} alt="Firma Director" style={{ height: '95px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
+                    ) : (
+                      <img src={`/assets/img/firma_director_${escuelaCodigo}.png`} alt="Firma Director" style={{ height: '95px', width: 'auto', display: 'block', margin: '0 auto 5px' }} />
+                    )}
+                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', color: '#000000' }}>
+                      {(() => {
+                        const esDirectora = escuelaCodigo === 'sb' || (dirInfo?.cargoGenerico || '').toLowerCase().includes('directora');
+                        const prefijoDirector = esDirectora ? 'Profa.' : 'Prof.';
+                        const nombreDirectorBase = (dirInfo?.nombreCompleto || (escuelaCodigo === 'sb' ? 'Elika Dayana Chaviel Rondón' : 'José Vicente Millán Montaño'))
+                          .replace(/^(Prof\.|Profa\.|Profesora|Profesor|Lic\.|Lcda\.|Lcdo\.)\s*/i, '')
+                          .trim();
+                        return `${prefijoDirector} ${toTitulo(nombreDirectorBase)}`;
+                      })()}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#333333' }}>C.I.: {dirInfo?.cedula || (escuelaCodigo === 'sb' ? '16.808.608' : '17.780.095')}</div>
+                    <div style={{ fontSize: '12.5px', fontWeight: 'bold', color: '#000000' }}>{dirInfo?.cargo || (escuelaCodigo === 'sb' ? 'Directora de la Unidad Educativa Santa Bárbara' : 'Director de la Unidad Educativa Libertador Bolívar')}</div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', border: '1.5px solid #cbd5e1', padding: '6px', borderRadius: '10px', background: '#ffffff', minWidth: '95px' }}>
+                    <img src={urlQrConducta} alt="QR Verificación" style={{ height: '72px', width: '72px', display: 'block', margin: '0 auto' }} />
+                    <span style={{ fontSize: '7.5px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>VERIFICACIÓN QR</span>
+                    <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#0f172a', fontFamily: 'monospace', display: 'block' }}>{codigoConducta}</span>
                   </div>
                 </div>
 
+                {/* PIE DE PÁGINA */}
+                <div className="hoja-doc-footer-mppe">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src={logoMppe} alt="MPPE" style={{ height: '36px', width: 'auto' }} />
+                  </div>
+                  <div className="text-center text-sm-end" style={{ fontSize: '8.5px', color: '#64748b' }}>
+                    SIGAE - Control Estudiantil | Constancia Oficial de Buena Conducta Verificable mediante Código QR<br/>
+                    Cód. Autenticidad: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoConducta}</b>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 1.D. NORMATIVA INTERNA INSTITUCIONAL (2 PÁGINAS) */}
+            {vistaDoc === 'normas' && (
+              <div className="mb-5 animate__animated animate__fadeIn mx-auto" style={{ width: '850px', maxWidth: '100%' }}>
+                <div className="d-md-none text-center bg-light border p-2 rounded-3 mb-2 small text-muted">
+                  <i className="bi bi-arrows-expand me-1 text-primary"></i> <b>Vista completa para móvil:</b> Deslice horizontalmente para leer el documento en tamaño oficial.
+                </div>
+                <div 
+                  ref={docRef}
+                  className="contenedor-visor-movil"
+                  dangerouslySetInnerHTML={{ __html: htmlNormas || '<div class="card p-4 text-center">Generando Normativa Interna...</div>' }}
+                />
+              </div>
+            )}
+
+            {/* 1.E. CARTA OFICIAL DE ACEPTACIÓN (3 PÁGINAS) */}
+            {vistaDoc === 'aceptacion' && (
+              <div className="mb-5 animate__animated animate__fadeIn mx-auto" style={{ width: '850px', maxWidth: '100%' }}>
+                <div className="d-md-none text-center bg-light border p-2 rounded-3 mb-2 small text-muted">
+                  <i className="bi bi-arrows-expand me-1 text-primary"></i> <b>Vista completa para móvil:</b> Deslice horizontalmente para leer el documento en tamaño oficial.
+                </div>
+                <div 
+                  ref={docRef}
+                  className="contenedor-visor-movil"
+                  dangerouslySetInnerHTML={{ __html: htmlAceptacion || '<div class="card p-4 text-center">Generando Carta de Aceptación...</div>' }}
+                />
+              </div>
+            )}
+
+            {/* 1.F. CARNET ESTUDIANTIL OFICIAL (ANVERSO Y REVERSO) */}
+            {vistaDoc === 'carnet' && (
+              <div className="mb-5 animate__animated animate__fadeIn mx-auto" style={{ maxWidth: '100%' }}>
+                <div className="d-md-none text-center bg-light border p-2 rounded-3 mb-2 small text-muted">
+                  <i className="bi bi-arrows-expand me-1 text-primary"></i> <b>Carnet Escolar:</b> Deslice si es necesario para visualizar ambos lados.
+                </div>
+                <div 
+                  ref={docRef}
+                  className="contenedor-visor-movil"
+                  dangerouslySetInnerHTML={{ __html: datosCarnet ? renderCarnetContainerHTML(datosCarnet) : '<div class="card p-4 text-center">Cargando carnet estudiantil...</div>' }}
+                />
               </div>
             )}
 
@@ -1447,8 +2069,8 @@ export const Verificaciones: React.FC = () => {
             {vistaDoc === 'resumen' && (
               <div 
                 ref={docRef}
-                className="bg-white shadow-lg rounded-4 p-4 p-md-5 mb-5 animate__animated animate__fadeIn"
-                style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box' }}
+                className="hoja-verificacion-oficial mb-5 animate__animated animate__fadeIn mx-auto"
+                style={{ minHeight: 'auto' }}
               >
                 {/* BANDERA DE VENEZUELA */}
                 <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1460,15 +2082,16 @@ export const Verificaciones: React.FC = () => {
                 </div>
 
                 {/* ENCABEZADO INSTITUCIONAL */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '20px', position: 'relative' }}>
-                  <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto', position: 'absolute', left: 0 }} />
-                  <div style={{ textAlign: 'center', width: '100%' }}>
+                <div className="hoja-doc-header">
+                  <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto' }} />
+                  <div style={{ textAlign: 'center', flex: 1 }}>
                     <div style={{ fontSize: '13.5px', fontWeight: 'bold', lineHeight: '1.4', textTransform: 'uppercase', color: '#000000' }}>
                       República Bolivariana de Venezuela<br/>
                       Ministerio del Poder Popular para la Educación<br/>
                       {dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}
                     </div>
                   </div>
+                  <img src={logoMppe} alt="MPPE" className="d-none d-sm-block" style={{ height: '40px', width: 'auto' }} />
                 </div>
 
                 {/* TÍTULO DEL RESUMEN */}
@@ -1490,12 +2113,12 @@ export const Verificaciones: React.FC = () => {
                       <i className="bi bi-person-badge me-1 text-success"></i> 1. Representante Legal
                     </h6>
                     <div className="row g-2 small font-monospace">
-                      <div className="col-md-6"><b>Nombre:</b> {representanteNombre}</div>
-                      <div className="col-md-6"><b>Cédula:</b> {representanteCedula}</div>
-                      <div className="col-md-6"><b>Teléfono:</b> {d.representante_telefono || 'No registrado'}</div>
-                      <div className="col-md-6"><b>Correo:</b> {d.representante_email || 'No registrado'}</div>
-                      <div className="col-md-6"><b>Vínculo / Parentesco:</b> {d.representante_parentesco || 'Representante Legal'}</div>
-                      <div className="col-md-6"><b>¿Trabaja en PDVSA?:</b> {d.representante_trabaja_pdvsa || 'No'}</div>
+                      <div className="col-12 col-sm-6"><b>Nombre:</b> {representanteNombre}</div>
+                      <div className="col-12 col-sm-6"><b>Cédula:</b> {representanteCedula}</div>
+                      <div className="col-12 col-sm-6"><b>Teléfono:</b> {d.representante_telefono || 'No registrado'}</div>
+                      <div className="col-12 col-sm-6"><b>Correo:</b> {d.representante_email || 'No registrado'}</div>
+                      <div className="col-12 col-sm-6"><b>Vínculo / Parentesco:</b> {d.representante_parentesco || 'Representante Legal'}</div>
+                      <div className="col-12 col-sm-6"><b>¿Trabaja en PDVSA?:</b> {d.representante_trabaja_pdvsa || 'No'}</div>
                     </div>
                   </div>
 
@@ -1505,12 +2128,12 @@ export const Verificaciones: React.FC = () => {
                       <i className="bi bi-mortarboard me-1 text-success"></i> 2. Identificación del Estudiante
                     </h6>
                     <div className="row g-2 small font-monospace">
-                      <div className="col-md-6"><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
-                      <div className="col-md-6"><b>Cédula:</b> {cedulaEstudiante}</div>
-                      <div className="col-md-6"><b>Fecha Nacimiento:</b> {d.estudiante_fecha_nacimiento || 'No registrada'}</div>
-                      <div className="col-md-6"><b>Género:</b> {d.estudiante_genero || 'No informado'}</div>
-                      <div className="col-md-6"><b>Grado Actual:</b> <b className="text-primary">{gradoEstudiante}</b></div>
-                      <div className="col-md-6"><b>Sección:</b> {vinculacion?.seccion_actual || d.seccion_actual || 'A'}</div>
+                      <div className="col-12 col-sm-6"><b>Estudiante:</b> {nombreEstudianteCompleto}</div>
+                      <div className="col-12 col-sm-6"><b>Cédula:</b> {cedulaEstudiante}</div>
+                      <div className="col-12 col-sm-6"><b>Fecha Nacimiento:</b> {d.estudiante_fecha_nacimiento || 'No registrada'}</div>
+                      <div className="col-12 col-sm-6"><b>Género:</b> {d.estudiante_genero || 'No informado'}</div>
+                      <div className="col-12 col-sm-6"><b>Grado Actual:</b> <b className="text-primary">{gradoEstudiante}</b></div>
+                      <div className="col-12 col-sm-6"><b>Sección:</b> {vinculacion?.seccion_actual || d.seccion_actual || 'A'}</div>
                     </div>
                   </div>
 
@@ -1520,11 +2143,11 @@ export const Verificaciones: React.FC = () => {
                       <i className="bi bi-heart-pulse me-1 text-danger"></i> 3. Salud y Antropometría
                     </h6>
                     <div className="row g-2 small font-monospace">
-                      <div className="col-md-4"><b>Tipo de Sangre:</b> {d.salud_tipo_sangre || 'No informado'}</div>
-                      <div className="col-md-4"><b>Estatura (cm):</b> {d.salud_estatura || '—'}</div>
-                      <div className="col-md-4"><b>Peso (kg):</b> {d.salud_peso || '—'}</div>
-                      <div className="col-md-6"><b>Talla Camisa / Pantalón:</b> {d.salud_talla_camisa || '—'} / {d.salud_talla_pantalon || '—'}</div>
-                      <div className="col-md-6"><b>Calzado:</b> {d.salud_talla_calzado || '—'}</div>
+                      <div className="col-12 col-sm-4"><b>Tipo de Sangre:</b> {d.salud_tipo_sangre || 'No informado'}</div>
+                      <div className="col-12 col-sm-4"><b>Estatura (cm):</b> {d.salud_estatura || '—'}</div>
+                      <div className="col-12 col-sm-4"><b>Peso (kg):</b> {d.salud_peso || '—'}</div>
+                      <div className="col-12 col-sm-6"><b>Talla Camisa / Pantalón:</b> {d.salud_talla_camisa || '—'} / {d.salud_talla_pantalon || '—'}</div>
+                      <div className="col-12 col-sm-6"><b>Calzado:</b> {d.salud_talla_calzado || '—'}</div>
                       <div className="col-12"><b>Alergias / Padecimientos:</b> {d.salud_alergias || 'Ninguna manifestada'}</div>
                     </div>
                   </div>
@@ -1536,24 +2159,24 @@ export const Verificaciones: React.FC = () => {
                     </h6>
                     <div className="row g-2 small font-monospace">
                       <div className="col-12"><b>Dirección de Habitación:</b> {d.direccion_vivienda || d.direccion_habitacion || 'Santa Bárbara / Miraflores, Monagas'}</div>
-                      <div className="col-md-6"><b>Punto de Referencia:</b> {d.direccion_punto_referencia || 'No indicado'}</div>
-                      <div className="col-md-6"><b>Sector:</b> {d.direccion_sector || 'Comunidad'}</div>
+                      <div className="col-12 col-sm-6"><b>Punto de Referencia:</b> {d.direccion_punto_referencia || 'No indicado'}</div>
+                      <div className="col-12 col-sm-6"><b>Sector:</b> {d.direccion_sector || 'Comunidad'}</div>
                     </div>
                   </div>
 
                 </div>
 
                 {/* PIE DE PÁGINA CON CÓDIGO QR Y LOGO MPPE */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1.5px solid #cbd5e1', paddingTop: '15px' }}>
+                <div className="hoja-doc-footer-mppe">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src={logoMppe} alt="MPPE" style={{ height: '38px', width: 'auto' }} />
+                    <img src={logoMppe} alt="MPPE" style={{ height: '36px', width: 'auto' }} />
                   </div>
                   <div style={{ textAlign: 'center', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '8px', background: '#ffffff' }}>
                     <img src={urlQrResumen} alt="QR Resumen" style={{ height: '55px', width: '55px', display: 'block', margin: '0 auto' }} />
                     <span style={{ fontSize: '7px', fontWeight: 'bold', color: '#166534', fontFamily: 'monospace' }}>RESUMEN VALIDADO</span>
                     <span style={{ fontSize: '6.5px', color: '#334155', fontFamily: 'monospace', display: 'block' }}>{codigoResumen}</span>
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
+                  <div className="text-center text-sm-end" style={{ fontSize: '8.5px', color: '#64748b' }}>
                     SIGAE - Ficha Integral de Actualización<br/>
                     Cód. Resumen: <b style={{ color: '#166534', fontFamily: 'monospace' }}>{codigoResumen}</b>
                   </div>
@@ -1566,8 +2189,8 @@ export const Verificaciones: React.FC = () => {
             {vistaDoc === 'cupo' && (
               <div 
                 ref={docRef}
-                className="bg-white shadow-lg rounded-4 p-4 p-md-5 mb-5 animate__animated animate__fadeIn"
-                style={{ width: '800px', maxWidth: '100%', border: '2px solid #94a3b8', color: '#000000', boxSizing: 'border-box' }}
+                className="hoja-verificacion-oficial mb-5 animate__animated animate__fadeIn mx-auto"
+                style={{ minHeight: 'auto' }}
               >
                 {/* BANDERA DE VENEZUELA */}
                 <div style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1579,22 +2202,23 @@ export const Verificaciones: React.FC = () => {
                 </div>
 
                 {/* ENCABEZADO INSTITUCIONAL */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid #cbd5e1', paddingBottom: '16px', marginBottom: '25px', position: 'relative' }}>
-                  <img src={logoEscuela} alt="Escuela" style={{ height: '70px', width: 'auto', position: 'absolute', left: 0 }} />
-                  <div style={{ textAlign: 'center', width: '100%' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', lineHeight: '1.45', textTransform: 'uppercase', color: '#000000' }}>
+                <div className="hoja-doc-header">
+                  <img src={logoEscuela} alt="Escuela" style={{ height: '65px', width: 'auto' }} />
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: '13.5px', fontWeight: 'bold', lineHeight: '1.4', textTransform: 'uppercase', color: '#000000' }}>
                       República Bolivariana de Venezuela<br/>
                       Ministerio del Poder Popular para la Educación<br/>
                       {dirInfo?.nombreEscuela || (escuelaCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar')}<br/>
                       <span style={{ fontWeight: 'normal', fontSize: '12px', textTransform: 'none', color: '#334155' }}>Sistema Integral de Admisiones y Asignación de Cupos</span>
                     </div>
                   </div>
+                  <img src={logoMppe} alt="MPPE" className="d-none d-sm-block" style={{ height: '40px', width: 'auto' }} />
                 </div>
 
                 {/* TÍTULO DEL COMPROBANTE */}
                 <div style={{ textAlign: 'center', margin: '20px 0 25px' }}>
                   <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: '#000000', textTransform: 'uppercase' }}>
-                    Comprobante Oficial de Solicitud de Cupo
+                    {codigoSolicitud.startsWith('CA-') ? 'Carta Oficial de Aceptación y Asignación de Cupo' : 'Comprobante Oficial de Solicitud de Cupo'}
                   </h2>
                   <span className="badge bg-primary px-3 py-1 rounded-pill mt-2 fw-bold">
                     Año Escolar {anoActual} – {anoProximo}
@@ -1604,21 +2228,21 @@ export const Verificaciones: React.FC = () => {
                 {/* CÓDIGO ÚNICO Y ESTADO */}
                 <div style={{ background: '#f8fafc', border: '1.5px solid #cbd5e1', borderRadius: '12px', padding: '15px', marginBottom: '25px' }}>
                   <div className="row g-2 font-monospace">
-                    <div className="col-md-6">
-                      <span className="text-muted d-block small">Código Único de Solicitud:</span>
+                    <div className="col-12 col-sm-6">
+                      <span className="text-muted d-block small">Código Único de Solicitud / Carta:</span>
                       <b className="fs-5 text-primary">{codigoSolicitud}</b>
                     </div>
-                    <div className="col-md-6 text-md-end">
+                    <div className="col-12 col-sm-6 text-sm-end">
                       <span className="text-muted d-block small">Estatus del Trámite:</span>
-                      <span className={`badge ${estatusCupo.badge} fs-6 px-3 py-1 rounded-pill`}>
-                        {estatusCupo.estado}
+                      <span className={`badge ${codigoSolicitud.startsWith('CA-') ? 'bg-success text-white' : estatusCupo.badge} fs-6 px-3 py-1 rounded-pill`}>
+                        {codigoSolicitud.startsWith('CA-') ? 'Cupo Aprobado y Asignado' : estatusCupo.estado}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* DATOS DE LA SOLICITUD */}
-                <div style={{ fontSize: '13.5px', lineHeight: '2.1', color: '#000000', marginLeft: '8px', marginBottom: '25px' }}>
+                <div style={{ fontSize: '13.5px', lineHeight: '2.1', color: '#000000', marginBottom: '25px' }}>
                   <div><b>Estudiante Postulado:</b> {nombreEstudianteCompleto}</div>
                   <div><b>Cédula del Estudiante:</b> {cedulaEstudiante}</div>
                   <div><b>Grado / Año Solicitado:</b> <span style={{ color: '#2563eb', fontWeight: 'bold' }}>{solicitudCupo?.grado_solicitado || gradoEstudiante}</span></div>
@@ -1642,14 +2266,16 @@ export const Verificaciones: React.FC = () => {
 
                 {/* NOTA INSTITUCIONAL */}
                 <div style={{ background: '#fef9c3', border: '1px solid #fde047', padding: '10px 15px', borderRadius: '8px', marginBottom: '25px', fontSize: '11.5px', color: '#713f12' }}>
-                  <b>Nota Importante:</b> La recepción de esta solicitud está sujeta a revisión. Los cupos se asignarán de acuerdo a la disponibilidad del grado y baremo institucional.
+                  <b>Nota Importante:</b> {codigoSolicitud.startsWith('CA-') 
+                    ? 'Esta Carta de Aceptación oficial acredita la asignación formal del cupo por la Dirección del plantel. Para completar la matrícula, el representante legal debe consignar la carpeta de recaudos en las fechas establecidas.'
+                    : 'La recepción de esta solicitud está sujeta a revisión. Los cupos se asignarán de acuerdo a la disponibilidad del grado y baremo institucional.'}
                 </div>
 
                 {/* PIE DE PÁGINA */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1.5px solid #cbd5e1', paddingTop: '15px' }}>
-                  <img src={logoMppe} alt="MPPE" style={{ height: '38px', width: 'auto' }} />
-                  <div style={{ textAlign: 'right', fontSize: '8.5px', color: '#64748b' }}>
-                    SIGAE - Sistema de Gestión Escolar | Comprobante de Admisión<br/>
+                <div className="hoja-doc-footer-mppe">
+                  <img src={logoMppe} alt="MPPE" style={{ height: '36px', width: 'auto' }} />
+                  <div className="text-center text-sm-end" style={{ fontSize: '8.5px', color: '#64748b' }}>
+                    SIGAE - Sistema de Gestión Escolar | {codigoSolicitud.startsWith('CA-') ? 'Carta de Aceptación Oficial Verificada' : 'Comprobante de Admisión'}<br/>
                     Cód. Verificación: <b style={{ color: '#2563eb', fontFamily: 'monospace' }}>{codigoSolicitud}</b>
                   </div>
                 </div>

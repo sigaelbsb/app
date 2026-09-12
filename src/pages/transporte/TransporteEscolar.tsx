@@ -10,6 +10,7 @@ import { OperacionView } from './components/OperacionView';
 import { VisorView } from './components/VisorView';
 import { CargaMasivaView } from './components/CargaMasivaView';
 import { ModalParada, ModalRuta, ModalAsignacion } from './components/Modals';
+import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
 
 // ─── SVG Animated Bus — Transporte Escolar Venezuela ──────────────────────────────
 // ‘size’ = altura del bus en px. El ancho se calcula con la relación 80:56.
@@ -1999,60 +2000,132 @@ export const TransporteEscolar = () => {
 
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
-      {/* Banner de Categoría Unificado */}
-      <div className="row mb-5 animate__animated animate__fadeInDown">
-        <div className="col-12">
-          <div className="banner-modulo p-4 p-md-5 text-white" style={{ background: 'linear-gradient(135deg, #FF3D00 0%, rgba(0,0,0,0.4) 150%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}>
-            <div className="burbuja-3d burbuja-1" style={{ position: 'absolute', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', top: '-20px', left: '-20px' }}></div>
-            <div className="burbuja-3d burbuja-2" style={{ position: 'absolute', width: '250px', height: '250px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', bottom: '-50px', right: '10%' }}></div>
-            <div className="burbuja-3d burbuja-3" style={{ position: 'absolute', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', top: '30%', left: '40%' }}></div>
-            <div className="row align-items-center position-relative z-1">
-              <div className="col-md-9 text-center text-md-start mb-3 mb-md-0">
-                <span className="badge bg-white shadow-sm mb-3 px-3 py-2 fw-bold" style={{ color: '#FF3D00', letterSpacing: '1px', fontSize: '0.85rem' }}>
-                  <i className="bi bi-bus-front me-1"></i> SERVICIOS Y BIENESTAR
-                </span>
-                <h1 className="fw-bolder mb-2 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-3" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                  <span className="bus-header-icon"><AnimatedBusSVG size={48} className="bus-bounce" /></span>
-                  Transporte Escolar
-                </h1>
-                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>Monitoreo de rutas, paradas y recorridos de las unidades en tiempo real.</p>
-              </div>
-              <div className="col-md-3 text-center text-md-end d-none d-md-block">
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Servicios y Transporte"
+        currentModule="Transporte Escolar"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_transporte_escolar"
+        title="Guía del Sistema de Rutas y Transporte Escolar"
+        content="Monitoree las unidades en tiempo real, configure las paradas y el rutograma oficial, asigne docentes responsables por unidad y envíe notificaciones masivas por WhatsApp."
+        icon="bi-bus-front"
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO ── */}
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white border-top border-4" style={{ borderColor: '#FF3D00' }}>
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Logo de la Escuela */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs position-relative" style={{ width: '105px', height: '105px' }}>
                 <img 
                   src={`/assets/img/logo_${escCodigo}.png`} 
-                  alt="Logo Escuela" 
-                  style={{ maxHeight: '130px', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }} 
+                  alt="Escudo Institucional" 
+                  className="img-fluid"
+                  style={{ maxHeight: '85px', objectFit: 'contain' }}
                   onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
                 />
               </div>
             </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small" style={{ backgroundColor: '#FF3D00' }}>
+                  <i className="bi bi-bus-front me-1"></i>Servicios, Bienestar & Movilidad
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-signpost-split-fill text-primary me-1"></i><b>{rutas.length}</b> Rutas
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-geo-alt-fill text-success me-1"></i><b>{paradas.length}</b> Paradas
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-building me-1"></i>Sede: <b>{escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark d-flex align-items-center gap-2" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                <span className="bus-header-icon"><AnimatedBusSVG size={36} className="bus-bounce" /></span>
+                <span>Transporte Escolar</span>
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                Monitoreo de rutas, paradas, rutogramas oficiales y recorridos de las unidades en tiempo real con notificaciones push.
+              </p>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <a
+                href="/categoria/Servicios%20y%20Transporte"
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver a Servicios</span>
+              </a>
+            </div>
+
           </div>
         </div>
-      </div>
 
-      {/* Barra de control para escuelas y volver */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        {tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') && (
-          <div className="btn-group bg-light rounded-pill p-1 shadow-sm border">
-            <button 
-              onClick={() => setEscCodigo('sb')} 
-              className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+        {/* Barra de Herramientas y Selector de Sede Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            {tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') && (
+              <div className="btn-group bg-white rounded-pill p-0.5 shadow-xs border">
+                <button 
+                  onClick={() => setEscCodigo('sb')} 
+                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
+                  style={{
+                    backgroundColor: escCodigo === 'sb' ? '#FF3D00' : undefined,
+                    borderColor: escCodigo === 'sb' ? '#FF3D00' : undefined,
+                    fontSize: '0.78rem'
+                  }}
+                >
+                  UE Santa Bárbara
+                </button>
+                <button 
+                  onClick={() => setEscCodigo('lb')} 
+                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
+                  style={{
+                    backgroundColor: escCodigo === 'lb' ? '#FF3D00' : undefined,
+                    borderColor: escCodigo === 'lb' ? '#FF3D00' : undefined,
+                    fontSize: '0.78rem'
+                  }}
+                >
+                  UE Libertador Bolívar
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={requestNotifPermission}
+              className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
             >
-              Santa Bárbara
-            </button>
-            <button 
-              onClick={() => setEscCodigo('lb')} 
-              className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
-            >
-              Libertador Bolívar
+              <i className="bi bi-bell-fill text-warning"></i>
+              <span>Activar Alertas</span>
             </button>
           </div>
-        )}
-        {vistaActual !== 'dashboard' && (
-          <button className="btn btn-outline-secondary rounded-pill px-3 shadow-sm fw-bold ms-auto" onClick={() => setVistaActual('dashboard')}>
-            <i className="bi bi-arrow-left me-1"></i> Volver al Dashboard
-          </button>
-        )}
+
+          <div className="d-flex align-items-center gap-1.5">
+            {vistaActual !== 'dashboard' && (
+              <button 
+                className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold extra-small hover-efecto" 
+                onClick={() => setVistaActual('dashboard')}
+              >
+                <i className="bi bi-arrow-left me-1"></i>Volver al Dashboard
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <style>{`

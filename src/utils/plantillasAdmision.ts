@@ -30,39 +30,41 @@ export const VARIABLES_DISPONIBLES = [
   { tag: '{{ano_escolar}}', desc: 'Período Escolar Actual (ej. 2025-2026)' },
   { tag: '{{enlace_portal}}', desc: 'Enlace web al Portal SIGAE' },
   { tag: '{{enlace_validacion}}', desc: 'Enlace de verificación digital' },
-  { tag: '{{fecha_actual}}', desc: 'Fecha de emisión del mensaje' }
+  { tag: '{{fecha_actual}}', desc: 'Fecha de emisión del mensaje' },
+  { tag: '{{fecha_inscripcion}}', desc: 'Fecha de convocatoria presencial' },
+  { tag: '{{lugar_inscripcion}}', desc: 'Lugar de formalización de matrícula' },
+  { tag: '{{horario_inscripcion}}', desc: 'Horario de atención para recaudos' }
 ];
 
 export const PLANTILLAS_PREDETERMINADAS_ADMISION: PlantillaMensajeAdmision[] = [
-  // ─── APROBADO (WHATSAPP) ───
+  // ─── APROBADO (WHATSAPP - OPTIMIZADO ANTI-SPAM) ───
   {
     id: 'adm-sb-aprobado-wa',
     id_escuela: 'sb',
     estado_solicitud: 'Aprobado',
     canal: 'whatsapp',
-    titulo_plantilla: 'Notificación de Aprobación / Admisión (SB)',
-    cuerpo_mensaje: `🏛️ *SIGAE - NOTIFICACIÓN OFICIAL DE ADMISIÓN*
-🏫 *{{nombre_escuela}}*
+    titulo_plantilla: 'Carta de Aceptación / Aprobado (Anti-Spam SB)',
+    cuerpo_mensaje: `Estimado(a) *{{nombre_representante}}*,
 
-Estimado(a) Representante *{{nombre_representante}}*:
+Reciba un cordial saludo de la Dirección de la *{{nombre_escuela}}*.
 
-Reciba un cordial y afectuoso saludo institucional. Nos complace informarle que la solicitud de cupo escolar para su representado(a) ha sido *ADMITIDA SATISFACTORIAMENTE*.
+Nos complace comunicarle que la solicitud de cupo escolar para su representado(a) *{{nombre_estudiante}}* ({{grado_solicitado}}) para el Año Escolar {{ano_escolar}} ha sido *Aprobada*.
 
-📋 *DATOS DEL ASPIRANTE:*
-• 👤 *Estudiante:* {{nombre_estudiante}}
-• 🆔 *Cédula / Identificador:* {{cedula_estudiante}}
-• 📚 *Grado Asignado:* {{grado_solicitado}}
-• 🔖 *Código de Solicitud:* *{{codigo_solicitud}}*
-• 📅 *Período Escolar:* {{ano_escolar}}
+Su Carta de Aceptación oficial con firma digital y código de validación QR se encuentra registrada bajo el código: *{{codigo_solicitud}}*.
 
-🎉 *RESULTADO DEL COMITÉ:*
-✅ *ESTATUS: ADMITIDO / APROBADO*
-Le invitamos a consignar los recaudos físicos en la sede de la institución para proceder a la formalización definitiva de la matrícula.
+*Pasos a seguir para la inscripción:*
+1. Guarde e imprima su Carta de Aceptación oficial.
+2. Complete la ficha escolar en línea: {{enlace_portal}}
+3. Consigne los recaudos en la fecha indicada:
+   • Fecha: {{fecha_inscripcion}}
+   • Lugar: {{lugar_inscripcion}}
+   • Horario: {{horario_inscripcion}}
 
 {{observaciones}}
 
-🌐 *Portal Web SIGAE:* {{enlace_portal}}
-_Comité de Admisiones y Control de Estudios_`,
+Cualquier duda o consulta puede dirigirse a la sede de la institución.
+
+_Dirección y Comité de Admisiones_`,
     activo: true
   },
   {
@@ -70,27 +72,27 @@ _Comité de Admisiones y Control de Estudios_`,
     id_escuela: 'lb',
     estado_solicitud: 'Aprobado',
     canal: 'whatsapp',
-    titulo_plantilla: 'Notificación de Aprobación / Admisión (LB)',
-    cuerpo_mensaje: `🏛️ *SIGAE - NOTIFICACIÓN OFICIAL DE ADMISIÓN*
-🏫 *{{nombre_escuela}}*
+    titulo_plantilla: 'Carta de Aceptación / Aprobado (Anti-Spam LB)',
+    cuerpo_mensaje: `Estimado(a) *{{nombre_representante}}*,
 
-Estimado(a) Representante *{{nombre_representante}}*:
+Reciba un cordial saludo de la Dirección de la *{{nombre_escuela}}*.
 
-Nos complace comunicarle que la solicitud de admisión para el período escolar {{ano_escolar}} ha sido *APROBADA*.
+Nos complace comunicarle que la solicitud de cupo escolar para su representado(a) *{{nombre_estudiante}}* ({{grado_solicitado}}) para el Año Escolar {{ano_escolar}} ha sido *Aprobada*.
 
-📋 *DATOS DEL ASPIRANTE:*
-• 👤 *Estudiante:* {{nombre_estudiante}}
-• 🆔 *Cédula:* {{cedula_estudiante}}
-• 📚 *Grado Solicitado:* {{grado_solicitado}}
-• 🔖 *Código Único:* *{{codigo_solicitud}}*
+Su Carta de Aceptación oficial con firma digital y código de validación QR se encuentra registrada bajo el código: *{{codigo_solicitud}}*.
 
-🎉 *RESULTADO OFICIAL:*
-✅ *ESTATUS: ADMITIDO / APROBADO*
-Favor presentarse en la Dirección del Plantel en el horario de atención con los documentos de soporte para la firma de la matrícula.
+*Pasos a seguir para la inscripción:*
+1. Guarde e imprima su Carta de Aceptación oficial.
+2. Complete la ficha escolar en línea: {{enlace_portal}}
+3. Consigne los recaudos en la fecha indicada:
+   • Fecha: {{fecha_inscripcion}}
+   • Lugar: {{lugar_inscripcion}}
+   • Horario: {{horario_inscripcion}}
 
 {{observaciones}}
 
-🌐 *Portal Oficial:* {{enlace_portal}}
+Cualquier duda o consulta puede dirigirse a la sede de la institución.
+
 _Dirección y Comité de Admisiones_`,
     activo: true
   },
@@ -411,6 +413,10 @@ export const renderizarMensajeAdmision = (
   const enlaceValidacion = `${baseUrl}/validar-constancia/${encodeURIComponent(codigo)}`;
   const fechaActual = new Date().toLocaleDateString('es-VE');
 
+  const fechaInscripcion = escKey === 'lb' ? '17/09/2025' : '18/09/2025';
+  const lugarInscripcion = escKey === 'lb' ? 'ESEM - Frente al Salón Temblador' : 'Sede Principal U.E. Santa Bárbara - Control de Estudios';
+  const horarioInscripcion = escKey === 'lb' ? '8:00 a.m. a 4:00 p.m.' : '8:00 a.m. a 3:30 p.m.';
+
   let resultado = cuerpo
     .replace(/\{\{nombre_representante\}\}/g, nombreRepresentante)
     .replace(/\{\{cedula_representante\}\}/g, cedulaRep)
@@ -425,7 +431,10 @@ export const renderizarMensajeAdmision = (
     .replace(/\{\{ano_escolar\}\}/g, anoEscolar)
     .replace(/\{\{enlace_portal\}\}/g, enlacePortal)
     .replace(/\{\{enlace_validacion\}\}/g, enlaceValidacion)
-    .replace(/\{\{fecha_actual\}\}/g, fechaActual);
+    .replace(/\{\{fecha_actual\}\}/g, fechaActual)
+    .replace(/\{\{fecha_inscripcion\}\}/g, fechaInscripcion)
+    .replace(/\{\{lugar_inscripcion\}\}/g, lugarInscripcion)
+    .replace(/\{\{horario_inscripcion\}\}/g, horarioInscripcion);
 
   return resultado;
 };

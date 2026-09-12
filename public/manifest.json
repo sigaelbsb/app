@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "SIGAE - Sistema de Gestión Escolar",
-  "short_name": "SIGAE",
+  "name": "SIGAE v1.1 - Sistema de Gestión Escolar",
+  "short_name": "SIGAE v1.1",
   "description": "Sistema Integral de Gestión y Administración Escolar",
   "start_url": "/",
   "scope": "/",

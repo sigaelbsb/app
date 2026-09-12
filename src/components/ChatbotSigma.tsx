@@ -3,11 +3,55 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Fuse from 'fuse.js';
 import { supabase } from '../lib/supabase';
 import { usePermisos } from '../hooks/usePermisos';
+import { ModulosSistema } from '../pages/CategoryDashboard';
+/**
+ * Figura Visual Oficial de SIGMA - Opción 3 Seleccionada
+ * (100% Transparente, sin fondo, ojos animados, cabello y estructura iluminada)
+ */
+export const SigmaFiguraVisual: React.FC<{ 
+  style?: React.CSSProperties; 
+  className?: string;
+  animado?: boolean;
+}> = ({ style, className = "", animado = true }) => (
+  <div className={`sigma-mascot-container ${className}`} style={style}>
+    <img 
+      src="/sigma-avatar.png" 
+      alt="SIGMA - Asistente de IA" 
+      className="sigma-mascot-base"
+      draggable={false}
+    />
+    {animado && (
+      <div className="sigma-anim-layer">
+        {/* Párpados animados para parpadeo natural */}
+        <div className="sigma-eyelid left" />
+        <div className="sigma-eyelid right" />
+        
+        {/* Reflejo dinámico de pupila */}
+        <div className="sigma-pupil-glance left" />
+        <div className="sigma-pupil-glance right" />
+
+        {/* Iluminación LED Cyan en la Diadema */}
+        <div className="sigma-headset-glow-ring" />
+
+        {/* Micro-LED en el micrófono */}
+        <div className="sigma-mic-led" />
+
+        {/* Destello de luz sobre el símbolo Sigma */}
+        <div className="sigma-symbol-sheen" />
+
+        {/* Núcleo Cuántico Central Pulsante de la Σ */}
+        <div className="sigma-quantum-core-glow" />
+      </div>
+    )}
+  </div>
+);
+
+export const SigmaFiguraAnimada = SigmaFiguraVisual;
 
 export const ChatbotSigma = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { tienePermiso } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela } = usePermisos();
 
   const [activo, setActivo] = useState(false);
   const [pensando, setPensando] = useState(false);
@@ -15,20 +59,19 @@ export const ChatbotSigma = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [minimizado, setMinimizado] = useState(false);
 
+  // Estados para Navegación y Recomendaciones Interactivas
+  const [modulosRecomendados, setModulosRecomendados] = useState<any[]>([]);
+  const [chipsSugeridos, setChipsSugeridos] = useState<Array<{ texto: string; accion: () => void }>>([]);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+
   const [position, setPosition] = useState({ x: window.innerWidth - 120, y: window.innerHeight - 150 });
-  const [mensaje, setMensaje] = useState('¡Iniciando sistemas...!');
+  const [mensaje, setMensaje] = useState('¡Hola! Conectando mis sistemas...');
   const [acciones, setAcciones] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState('');
   
-  const [efectoHover, setEfectoHover] = useState('');
-  const [particles, setParticles] = useState<Array<{ id: number; text: string; color: string; style: React.CSSProperties }>>([]);
-  const [sparkles, setSparkles] = useState<Array<{ id: number; color: string; style: React.CSSProperties }>>([]);
-  const [portalRing, setPortalRing] = useState<Array<{ id: number; style: React.CSSProperties }>>([]);
-
   const dragStart = useRef({ x: 0, y: 0 });
   const initialPos = useRef({ x: 0, y: 0 });
   const dragMoved = useRef(false);
-  const particleId = useRef(0);
   const lastPath = useRef(location.pathname);
   const userInteractedRef = useRef(false);
   const autoRetireTimerRef = useRef<any>(null);
@@ -36,79 +79,6 @@ export const ChatbotSigma = () => {
   const [conocimientoCache, setConocimientoCache] = useState<any[]>([]);
   const [fuseInstance, setFuseInstance] = useState<Fuse<any> | null>(null);
 
-  // Generador del SVG del Personaje Sigma
-  const obtenerSvgSigma = () => {
-    return (
-      <svg viewBox="-10 -50 120 150" className="sigma-svg">
-        <defs>
-          <linearGradient id="metalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="20%" stopColor="#cbd5e1" />
-            <stop offset="50%" stopColor="#94a3b8" />
-            <stop offset="80%" stopColor="#64748b" />
-            <stop offset="100%" stopColor="#1e293b" />
-          </linearGradient>
-          <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="2" dy="6" stdDeviation="4" floodColor="#000000" floodOpacity="0.35" />
-          </filter>
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#0066FF" floodOpacity="0.6" />
-          </filter>
-        </defs>
-
-        <g filter="url(#shadow3d)" className="sigma-body-group">
-          {/* Símbolo Sigma brillante de fondo */}
-          <text x="55" y="55" textAnchor="middle" dominantBaseline="middle" fontFamily="Arial" fontSize="65" fontWeight="bold" fill="rgba(0, 102, 255, 0.12)" filter="url(#glow)">Σ</text>
-
-          {/* Forma de Sigma como clip doblado */}
-          <path d="M 85 20 L 25 20 L 55 50 L 25 80 L 85 80" 
-                fill="none" 
-                stroke="url(#metalGradient)" 
-                strokeWidth="13" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" />
-          
-          {/* Birrete de Graduación */}
-          <g className="sigma-grad-cap">
-            <path d="M 40 -27 L 40 -17 Q 55 -10 70 -17 L 70 -27 Z" fill="#0f172a" />
-            <polygon points="55,-45 12,-27 55,-9 98,-27" fill="#1e293b" stroke="#475569" strokeWidth="2" strokeLinejoin="round" />
-            <circle cx="55" cy="-27" r="4.5" fill="#f59e0b" />
-            <path d="M 55 -27 L 88 -14 L 92 2" fill="none" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="92" cy="5" r="4" fill="#f59e0b" />
-          </g>
-          
-          {/* Ojos Grandes */}
-          <g className="sigma-eyes-group">
-            <ellipse cx="38" cy="4" rx="14" ry="18" fill="#ffffff" stroke="#1e293b" strokeWidth="2.5" />
-            <ellipse cx="68" cy="4" rx="14" ry="18" fill="#ffffff" stroke="#1e293b" strokeWidth="2.5" />
-
-            <g className="sigma-pupils">
-              <circle cx="43" cy="7" r="5.5" fill="#0f172a" />
-              <circle cx="41.5" cy="5.5" r="2" fill="#ffffff" opacity="0.9" />
-              <circle cx="63" cy="7" r="5.5" fill="#0f172a" />
-              <circle cx="61.5" cy="5.5" r="2" fill="#ffffff" opacity="0.9" />
-            </g>
-          </g>
-
-          {/* Cejas */}
-          <g className="sigma-eyebrows-group">
-            <path d="M 23 -16 Q 38 -27 48 -13" fill="none" stroke="#0f172a" strokeWidth="5" strokeLinecap="round" />
-            <path d="M 58 -13 Q 68 -27 83 -16" fill="none" stroke="#0f172a" strokeWidth="5" strokeLinecap="round" />
-          </g>
-
-          {/* Lápiz Flotante */}
-          <g className="sigma-pencil" transform="translate(-10, 32) rotate(-15)">
-            <polygon points="15,40 20,40 17.5,50" fill="#fcd34d" />
-            <polygon points="16.5,46 18.5,46 17.5,50" fill="#334155" />
-            <polygon points="15,10 20,10 20,40 15,40" fill="#fbbf24" stroke="#d97706" strokeWidth="1" strokeLinejoin="round" />
-            <line x1="17.5" y1="10" x2="17.5" y2="40" stroke="#f59e0b" strokeWidth="1" />
-            <rect x="14" y="5" width="7" height="5" fill="#cbd5e1" stroke="#64748b" strokeWidth="1" />
-            <rect x="14" y="0" width="7" height="5" fill="#f43f5e" rx="1.5" />
-          </g>
-        </g>
-      </svg>
-    );
-  };
 
   // Carga de conocimientos y filtrado por rol
   const cargarConocimiento = async () => {
@@ -155,24 +125,137 @@ export const ChatbotSigma = () => {
     }
   };
 
-  // Cargar datos al montar y escuchar eventos de cambio de conocimiento
+  // Mapeo semántico de palabras clave para navegación interactiva
+  const KEYWORDS_MAP: Record<string, string[]> = {
+    "Perfil de la Escuela": ["escuela", "plantel", "colegio", "dea", "director", "directora", "mision", "vision", "peic", "sede"],
+    "Configuración Escolar": ["configuracion", "parametros", "lapsos", "periodos", "periodo", "niveles", "fases", "año", "ano", "escolar"],
+    "Cerebro de Sigma": ["sigma", "cerebro", "ia", "inteligencia", "preguntas", "respuestas", "conocimiento", "bot"],
+    "Calendario Escolar": ["calendario", "fechas", "feriados", "efemerides", "actividades", "eventos"],
+    "División Territorial": ["division", "territorio", "estados", "municipios", "parroquias", "ciudades", "sectores", "geografia", "mapa"],
+    "Instalación y Descargas": ["instalar", "descargas", "instalador", "desktop", "pwa", "app", "aplicacion"],
+    "Panel de Control": ["panel", "control", "estadisticas", "metricas", "resumen", "kpi", "graficos"],
+    "Grados y Salones": ["grados", "salones", "aulas", "secciones", "cursos", "ambientes"],
+    "Espacios Escolares": ["espacios", "ambientes", "canchas", "laboratorios", "biblioteca", "instalaciones"],
+    "Carga de Notas y Calificaciones": ["notas", "calificaciones", "boletin", "evaluacion", "cargar notas", "promedios", "materias"],
+    "Gestión de Matrícula": ["matricula", "estudiantes activos", "listado estudiantes", "censo"],
+    "Expediente Estudiantil": ["expediente", "historial alumno", "estudiante", "documentos alumno", "hoja de vida"],
+    "Solicitud de Cupos": ["cupos", "solicitar cupo", "nuevo ingreso", "solicitud"],
+    "Vincular Estudiante": ["vincular", "asignar", "representante", "hijo", "representado", "vincular estudiante"],
+    "Actualización de Datos": ["actualizacion", "actualizar datos", "ficha", "datos personales", "censo"],
+    "Mis Solicitudes": ["mis solicitudes", "estado de solicitud", "seguimiento cupo"],
+    "Gestión de Admisiones": ["admisiones", "admitir", "aceptar cupo", "inscripciones", "inscribir"],
+    "Cargos Institucionales": ["cargos", "personal", "puestos", "docentes", "obreros", "administrativos"],
+    "Cadena Supervisoria": ["cadena", "supervisoria", "jerarquia", "organigrama", "jefes", "supervisores"],
+    "Mi Expediente": ["mi expediente", "datos docente", "mi curriculum", "mis datos laborales"],
+    "Gestión de Colectivos": ["colectivos", "colectivo", "obreros", "grupos"],
+    "Transporte Escolar": ["transporte", "ruta", "rutas", "bus", "autobus", "paradas", "chofer", "unidad"],
+    "Mi Perfil": ["perfil", "mi cuenta", "mis datos", "usuario actual"],
+    "Métodos de Acceso": ["metodos de acceso", "seguridad", "doble factor", "recuperacion"],
+    "Gestión de Usuarios": ["usuarios", "crear usuario", "clave", "contraseña", "resetear", "restablecer", "bloquear"],
+    "Roles y Privilegios": ["roles", "privilegios", "permisos", "emulacion", "emular"],
+    "Preguntas de Seguridad": ["preguntas", "seguridad", "respuestas secretas"],
+    "Auditoría del Sistema": ["auditoria", "logs", "movimientos", "historial", "acciones", "quien hizo"]
+  };
+
+  // Índice de herramientas disponibles con permisos para búsqueda interactiva
+  const toolsIndex = React.useMemo(() => {
+    const list: Array<{
+      categoria: string;
+      submodulo: string;
+      icono: string;
+      categoriaIcono: string;
+      color: string;
+      desc?: string;
+      url: string;
+      keywords: string[];
+    }> = [];
+
+    Object.entries(ModulosSistema).forEach(([catNombre, catData]: [string, any]) => {
+      (catData.items || []).forEach((item: any) => {
+        let tieneAcceso = false;
+        if (item.vista === 'Gestión de Colectivos') {
+          tieneAcceso = tienePermisoEnEscuela('sb', item.vista, 'ver') || tienePermisoEnEscuela('lb', item.vista, 'ver');
+        } else {
+          tieneAcceso = tienePermiso(item.vista, 'ver');
+        }
+
+        if (tieneAcceso) {
+          list.push({
+            categoria: catNombre,
+            submodulo: item.vista,
+            icono: item.icono || catData.icono || 'bi-app',
+            categoriaIcono: catData.icono || 'bi-folder',
+            color: catData.color || '#0066FF',
+            desc: item.desc || catData.desc,
+            url: `/categoria/${encodeURIComponent(catNombre)}/${encodeURIComponent(item.vista)}`,
+            keywords: KEYWORDS_MAP[item.vista] || []
+          });
+        }
+      });
+    });
+    return list;
+  }, [tienePermiso, tienePermisoEnEscuela]);
+
+  const navegarInteractivo = (item: any) => {
+    marcarInteraccionUsuario();
+    setHablando(true);
+    setMensaje(`🚀 <b>¡Excelente!</b> Abriendo <b>${item.submodulo}</b>...`);
+    setModulosRecomendados([]);
+    setChipsSugeridos([]);
+    setTimeout(() => {
+      navigate(item.url);
+      setActivo(false);
+      setHablando(false);
+    }, 450);
+  };
+
+  const iniciarBusquedaInteractiva = () => {
+    marcarInteraccionUsuario();
+    setMinimizado(false);
+    setActivo(true);
+    setHablando(true);
+    setTimeout(() => setHablando(false), 1500);
+
+    const destacados = toolsIndex.slice(0, 4);
+    setMensaje(`🔍 <b>Navegadora Inteligente de SIGAE</b><br><br>
+      ¡Dime qué módulo buscas o qué necesitas gestionar hoy! Estoy lista para orientarte y llevarte directo al lugar indicado. Escribe una palabra clave o toca un acceso rápido:`);
+    setModulosRecomendados(destacados);
+    setAcciones([]);
+    setChipsSugeridos([
+      { texto: '🚌 Transporte Escolar', accion: () => procesarPreguntaUsuario('transporte') },
+      { texto: '👥 Usuarios y Claves', accion: () => procesarPreguntaUsuario('usuarios') },
+      { texto: '🏫 Grados y Salones', accion: () => procesarPreguntaUsuario('grados') },
+      { texto: '📝 Carga de Notas', accion: () => procesarPreguntaUsuario('notas') },
+      { texto: '⚙️ Configuración Escolar', accion: () => procesarPreguntaUsuario('configuracion') },
+      { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') }
+    ]);
+    setTimeout(() => chatInputRef.current?.focus(), 80);
+  };
+
+  // Cargar datos al montar y escuchar eventos de cambio de conocimiento y apertura de búsqueda interactiva
   useEffect(() => {
     cargarConocimiento();
 
-    // Permitir refrescar el cache de conocimiento si se actualiza en el cerebro de sigma
     const refrescarCanal = () => {
       cargarConocimiento();
     };
+
+    const handleAbrirBusqueda = () => {
+      iniciarBusquedaInteractiva();
+    };
+
     window.addEventListener('sigae-sigma-refresh', refrescarCanal);
+    window.addEventListener('sigae-abrir-sigma-busqueda', handleAbrirBusqueda);
     return () => {
       window.removeEventListener('sigae-sigma-refresh', refrescarCanal);
+      window.removeEventListener('sigae-abrir-sigma-busqueda', handleAbrirBusqueda);
       if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
     };
-  }, []);
+  }, [toolsIndex]);
 
   // Saludo de bienvenida y presentación automática al ingresar
   useEffect(() => {
-    let saludo = "¡Hola! Soy <b>Sigma</b>, el Asistente Virtual de SIGAE. Estoy listo para asistirte en la plataforma. Desplázame por la pantalla y pregúntame lo que necesites.";
+    let saludo = "¡Hola! Soy <b>SIGMA</b>, tu <b>Asistente Virtual e Inteligencia Artificial</b> de SIGAE. Estoy <b>lista y encantada</b> de ayudarte a gestionar cualquier proceso del sistema. Desplázame por la pantalla o pregúntame lo que necesites.";
     
     if (conocimientoCache.length > 0) {
       const saludoBD = conocimientoCache.find(c => 
@@ -200,6 +283,13 @@ export const ChatbotSigma = () => {
     }
     setMensaje(saludo);
     setAcciones([]);
+    setModulosRecomendados([]);
+    setChipsSugeridos([
+      { texto: '🔍 Buscar módulo (Ctrl K)', accion: () => iniciarBusquedaInteractiva() },
+      { texto: '🧭 Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
+      { texto: '🚀 Mis módulos activos', accion: () => procesarPreguntaUsuario('mis modulos') },
+      { texto: '🏫 ¿En qué escuela estoy?', accion: () => procesarPreguntaUsuario('escuela') }
+    ]);
 
     // Cargar posición guardada
     let savedX = parseInt(localStorage.getItem('sigma_pos_x') || '');
@@ -224,10 +314,6 @@ export const ChatbotSigma = () => {
 
       if (!yaPresentado) {
         userInteractedRef.current = false;
-        setTimeout(() => {
-          setEfectoHover('react-bounce');
-          createSparkles();
-        }, 500);
       }
 
       if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
@@ -235,17 +321,10 @@ export const ChatbotSigma = () => {
       // Programar el retiro/ocultamiento automático después de 8 segundos si el usuario no ha interactuado
       autoRetireTimerRef.current = setTimeout(() => {
         if (!userInteractedRef.current) {
+          sessionStorage.removeItem('sigma_presentando_ahora');
           setActivo(false);
-          setEfectoHover('react-retire');
-          
-          setTimeout(() => {
-            if (!userInteractedRef.current) {
-              sessionStorage.removeItem('sigma_presentando_ahora');
-              setMinimizado(true);
-              setEfectoHover('');
-              localStorage.setItem('sigma_minimizada', 'true');
-            }
-          }, 650);
+          setMinimizado(true);
+          localStorage.setItem('sigma_minimizada', 'true');
         } else {
           sessionStorage.removeItem('sigma_presentando_ahora');
         }
@@ -277,7 +356,7 @@ export const ChatbotSigma = () => {
       const schoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
       const schoolName = schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
       
-      setMensaje(`Has ingresado al módulo de <b>${currentModule}</b> para la institución <b>${schoolName}</b>. Si no sabes cómo utilizar esta sección, consúltame y te explicaré paso a paso.`);
+      setMensaje(`Has ingresado al módulo de <b>${currentModule}</b> en la <b>${schoolName}</b>. Si tienes alguna duda sobre cómo utilizar esta sección, pregúntame y te guiaré con mucho gusto.`);
       setAcciones([]);
       setActivo(true);
 
@@ -286,14 +365,8 @@ export const ChatbotSigma = () => {
       autoRetireTimerRef.current = setTimeout(() => {
         if (!userInteractedRef.current) {
           setActivo(false);
-          setEfectoHover('react-retire');
-          setTimeout(() => {
-            if (!userInteractedRef.current) {
-              setMinimizado(true);
-              setEfectoHover('');
-              localStorage.setItem('sigma_minimizada', 'true');
-            }
-          }, 650);
+          setMinimizado(true);
+          localStorage.setItem('sigma_minimizada', 'true');
         }
       }, 8000);
     }
@@ -392,123 +465,9 @@ export const ChatbotSigma = () => {
     localStorage.setItem('sigma_minimizada', 'false');
   };
 
-  // Reacciones hover animadas
-  const triggerHoverReaction = () => {
-    if (efectoHover || isDragging || minimizado) return;
 
-    const effect = Math.floor(Math.random() * 8);
 
-    if (effect === 0) {
-      setEfectoHover('react-spin');
-      setTimeout(() => setEfectoHover(''), 850);
-    } else if (effect === 1) {
-      createParticles('?', '#00C3FF', 8);
-    } else if (effect === 2) {
-      createParticles('!', '#FF3D00', 8);
-    } else if (effect === 3) {
-      createSparkles();
-    } else if (effect === 4) {
-      setEfectoHover('react-rainbow');
-      setTimeout(() => setEfectoHover(''), 2000);
-    } else if (effect === 5) {
-      setEfectoHover('react-bounce');
-      createParticles('🎵', '#E040FB', 4);
-      setTimeout(() => {
-        createParticles('🎶', '#FF4081', 4);
-      }, 200);
-      setTimeout(() => setEfectoHover(''), 1200);
-    } else if (effect === 6) {
-      setEfectoHover('react-shake');
-      createParticles('💦', '#00B0FF', 6);
-      setTimeout(() => setEfectoHover(''), 800);
-    } else if (effect === 7) {
-      setEfectoHover('react-portal');
-      createPortalRing();
-      setTimeout(() => setEfectoHover(''), 900);
-    }
-  };
-
-  const createParticles = (text: string, color: string, count: number) => {
-    const newParticles: any[] = [];
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const distance = Math.random() * 60 + 40;
-      const dx = Math.cos(angle) * distance + 'px';
-      const dy = (Math.sin(angle) * distance - 40) + 'px';
-      const rot = (Math.random() * 180 - 90) + 'deg';
-      const id = ++particleId.current;
-
-      newParticles.push({
-        id,
-        text,
-        color,
-        style: {
-          color,
-          fontSize: (Math.random() * 1.5 + 1.2) + 'rem',
-          '--dx': dx,
-          '--dy': dy,
-          '--rot': rot,
-          left: '40%',
-          top: '40%',
-          animation: 'float-question ' + (Math.random() * 0.4 + 0.8) + 's forwards cubic-bezier(0.1, 0.8, 0.3, 1)'
-        } as React.CSSProperties
-      });
-    }
-    setParticles(prev => [...prev, ...newParticles]);
-    setTimeout(() => {
-      setParticles(prev => prev.filter(p => !newParticles.some(np => np.id === p.id)));
-    }, 1200);
-  };
-
-  const createSparkles = () => {
-    const colores = ['#FF3D00', '#00E676', '#2979FF', '#FFEA00', '#D500F9', '#00E5FF'];
-    const count = 20;
-    const newSparkles: any[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const distance = Math.random() * 70 + 30;
-      const dx = Math.cos(angle) * distance + 'px';
-      const dy = Math.sin(angle) * distance + 'px';
-      const color = colores[Math.floor(Math.random() * colores.length)];
-      const id = ++particleId.current;
-
-      newSparkles.push({
-        id,
-        color,
-        style: {
-          background: color,
-          boxShadow: `0 0 6px ${color}`,
-          '--dx': dx,
-          '--dy': dy,
-          left: '45%',
-          top: '45%',
-          animation: 'explode-sparkle ' + (Math.random() * 0.3 + 0.6) + 's forwards cubic-bezier(0.1, 0.8, 0.3, 1)'
-        } as React.CSSProperties
-      });
-    }
-
-    setSparkles(prev => [...prev, ...newSparkles]);
-    setTimeout(() => {
-      setSparkles(prev => prev.filter(s => !newSparkles.some(ns => ns.id === s.id)));
-    }, 1000);
-  };
-
-  const createPortalRing = () => {
-    const id = ++particleId.current;
-    const newRing = {
-      id,
-      style: {
-        animation: 'ring-expand 0.9s forwards cubic-bezier(0.1, 0.8, 0.3, 1)'
-      } as React.CSSProperties
-    };
-    setPortalRing(prev => [...prev, newRing]);
-    setTimeout(() => {
-      setPortalRing(prev => prev.filter(r => r.id !== id));
-    }, 1000);
-  };
-
-  // Procesar preguntas del usuario
+  // Procesar preguntas del usuario y búsqueda interactiva de módulos
   const procesarPreguntaUsuario = (textoManual: string | null = null) => {
     const query = (textoManual !== null ? textoManual : inputValue).trim();
     if (!query) return;
@@ -516,20 +475,62 @@ export const ChatbotSigma = () => {
     marcarInteraccionUsuario();
     setInputValue('');
     setPensando(true);
-    setMensaje("<div class='text-center'><span class='spinner-border spinner-border-sm text-primary'></span> <i>Analizando solicitud...</i></div>");
+    setMensaje("<div class='text-center py-2'><span class='spinner-border spinner-border-sm text-primary'></span> <i>Procesando tu solicitud y consultando mis módulos...</i></div>");
     setAcciones([]);
+    setModulosRecomendados([]);
+    setChipsSugeridos([]);
     setActivo(true);
 
     const queryClean = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    // 1. CHEQUEAR PALABRAS CLAVE DEL DICCIONARIO (DINÁMICAMENTE DESDE LA BASE DE DATOS)
+    // 0. BÚSQUEDA INTERACTIVA EN EL ÍNDICE DE MÓDULOS DE SIGAE
+    const modulosCoincidentes = toolsIndex.filter(t => {
+      const sub = t.submodulo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const cat = t.categoria.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const desc = (t.desc || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const keys = (t.keywords || []).map(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+
+      const matchExacto = sub.includes(queryClean) || cat.includes(queryClean) || desc.includes(queryClean);
+      const matchKeywords = keys.some(k => queryClean.includes(k) || k.includes(queryClean));
+      return matchExacto || matchKeywords;
+    });
+
+    // Si coincide con herramientas del sistema:
+    if (modulosCoincidentes.length > 0) {
+      setTimeout(() => {
+        setPensando(false);
+        setHablando(true);
+        setTimeout(() => setHablando(false), 2000);
+
+        if (modulosCoincidentes.length === 1) {
+          const m = modulosCoincidentes[0];
+          setMensaje(`✨ <b>¡Excelente! He encontrado el módulo que buscas:</b><br>
+            Toca la tarjeta interactiva a continuación y te llevaré de inmediato a <b>${m.submodulo}</b>:`);
+          setModulosRecomendados([m]);
+        } else {
+          setMensaje(`🔍 <b>He localizado ${modulosCoincidentes.length} herramientas disponibles</b> para ti:<br>
+            Toca el módulo que deseas abrir y te acompañaré de inmediato:`);
+          setModulosRecomendados(modulosCoincidentes.slice(0, 4));
+        }
+
+        setAcciones([]);
+        setChipsSugeridos([
+          { texto: '🔄 Buscar otro módulo', accion: () => iniciarBusquedaInteractiva() },
+          { texto: '📋 Ver mis módulos activos', accion: () => procesarPreguntaUsuario('mis modulos') },
+          { texto: '❓ Hacer otra pregunta', accion: () => { setModulosRecomendados([]); setMensaje('¿Qué otra consulta tienes? Escríbela y con gusto te oriento:'); } }
+        ]);
+      }, 400);
+      return;
+    }
+
+    // 1. CHEQUEAR PALABRAS CLAVE DEL DICCIONARIO
     const pideDiccionario = /\b(diccionario|glosario|terminos|conceptos|definiciones)\b/i.test(queryClean);
     if (pideDiccionario) {
       setTimeout(() => {
         setPensando(false);
-        // Filtrar temas que no sean saludos o bienvenidas
         const terminosList = conocimientoCache
           .filter(item => {
+            if (!item || !item.tema || typeof item.tema !== 'string') return false;
             const t = item.tema.toLowerCase();
             return !t.includes('bienvenida') && !t.includes('saludo') && !t.includes('despedida') && !t.includes('hola');
           })
@@ -538,12 +539,12 @@ export const ChatbotSigma = () => {
         
         const terminosHtml = terminosList.map(t => `<li>${t}</li>`).join('');
         
-        setMensaje(`📚 <b>Diccionario Educativo y Guía de SIGAE</b><br/><br/>
-          Aquí tienes una lista de conceptos y temas del ámbito escolar que puedo definirte. Escribe su nombre o pregúntame por ellos:<br/><br/>
+        setMensaje(`📚 <b>Glosario Educativo y Guía de SIGAE</b><br/><br/>
+          Aquí tienes una lista de conceptos y temas del ámbito escolar que puedo explicarte. Escribe su nombre o pregúntame sobre ellos:<br/><br/>
           <ul>${terminosHtml}</ul>`);
         
-        // Sugerir clics de los primeros 4 conceptos del glosario cargados
         const glosarioItems = conocimientoCache.filter(item => {
+          if (!item || !item.tema || typeof item.tema !== 'string') return false;
           const t = item.tema.toLowerCase();
           return !t.includes('bienvenida') && !t.includes('saludo') && !t.includes('despedida') && !t.includes('hola');
         });
@@ -554,7 +555,7 @@ export const ChatbotSigma = () => {
             id: item.id,
             tipo: 'pregunta',
             valor: item.tema,
-            tema: item.tema.includes('(') ? item.tema.split(' ')[0] : item.tema.substring(0, 15),
+            tema: (item.tema || '').includes('(') ? (item.tema || '').split(' ')[0] : (item.tema || '').substring(0, 15),
             esAlternativa: true
           }));
 
@@ -563,10 +564,9 @@ export const ChatbotSigma = () => {
       return;
     }
     
-    // Detectar si pregunta por la escuela/plantel
+    // 2. DETECTAR SI PREGUNTA POR LA ESCUELA O MÓDULOS ACTIVOS
     const preguntaEscuela = /\b(escuela|plantel|colegio|sede|institucion|institución|donde estoy|dónde estoy|en que escuela|en qué escuela)\b/i.test(queryClean);
-    // Detectar si pregunta por módulos/permisos/accesos
-    const preguntaModulos = /\b(modulo|módulo|seccion|sección|activo|permiso|acceso|que puedo hacer|qué puedo hacer|mis accesos)\b/i.test(queryClean);
+    const preguntaModulos = /\b(modulo|módulo|modulos|módulos|seccion|sección|activo|permiso|acceso|que puedo hacer|qué puedo hacer|mis accesos)\b/i.test(queryClean);
 
     if (preguntaEscuela || preguntaModulos) {
       setTimeout(() => {
@@ -588,75 +588,38 @@ export const ChatbotSigma = () => {
 
         if (preguntaEscuela && !preguntaModulos) {
           setMensaje(`Hola <b>${userName}</b>, actualmente has ingresado a la institución: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>).<br/><br/>Toda la información y registros que gestiones corresponden a esta sede.`);
-          setAcciones([{
-            id: 'escuela-acc',
-            tipo: 'navegar',
-            valor: 'Perfil de la Escuela',
-            tema: 'Perfil de la Escuela',
-            allowed: tienePermiso('Perfil de la Escuela', 'ver')
-          }]);
+          const escuelaTool = toolsIndex.find(t => t.submodulo === 'Perfil de la Escuela');
+          if (escuelaTool) {
+            setModulosRecomendados([escuelaTool]);
+          }
         } else if (preguntaModulos && !preguntaEscuela) {
-          const modulosPermitidos: string[] = [];
-          const modulosPosibles = [
-            'Perfil de la Escuela', 'Roles y Privilegios', 'Gestión de Usuarios', 'Auditoría del Sistema',
-            'Espacios Escolares', 'Grados y Salones', 'Gestión de Matrícula', 'Gestión de Admisiones',
-            'Carga de Notas y Calificaciones', 'Vincular Estudiante',
-            'Expediente Estudiantil', 'Mi Expediente', 'Cargos Institucionales', 'Cadena Supervisoria',
-            'Gestión de Colectivos', 'Transporte Escolar', 'Solicitud de Cupos', 'Cerebro de Sigma'
-          ];
-          
-          modulosPosibles.forEach(mod => {
-            if (tienePermiso(mod, 'ver')) {
-              modulosPermitidos.push(mod);
-            }
-          });
-
-          if (userRole === 'SuperAdmin') {
-            setMensaje(`Hola <b>${userName}</b>, al ser <b>SuperAdmin</b> tienes acceso total a <b>todos los módulos</b> del sistema en <b>${schoolName}</b>.`);
-          } else if (modulosPermitidos.length > 0) {
-            const listHtml = modulosPermitidos.map(m => `<li><b>${m}</b></li>`).join('');
-            setMensaje(`Hola <b>${userName}</b>, de acuerdo con tu rol de <b>${userRole}</b> en <b>${schoolName}</b>, tienes los siguientes módulos activos:<br/><br/><ul>${listHtml}</ul>`);
+          if (toolsIndex.length > 0) {
+            setMensaje(`Hola <b>${userName}</b>, con tu rol de <b>${userRole}</b> en <b>${schoolName}</b> tienes <b>${toolsIndex.length} herramientas activas</b>. Toca cualquiera para ir directamente:`);
+            setModulosRecomendados(toolsIndex.slice(0, 5));
           } else {
             setMensaje(`Hola <b>${userName}</b>, actualmente no posees ningún módulo con permisos activos en <b>${schoolName}</b>.`);
+            setModulosRecomendados([]);
           }
           setAcciones([]);
+          setChipsSugeridos([
+            { texto: '🔍 Buscar módulo específico', accion: () => iniciarBusquedaInteractiva() },
+            { texto: '🏫 Ver datos de la escuela', accion: () => procesarPreguntaUsuario('escuela') }
+          ]);
         } else {
-          const modulosPermitidos: string[] = [];
-          const modulosPosibles = [
-            'Perfil de la Escuela', 'Roles y Privilegios', 'Gestión de Usuarios', 'Auditoría del Sistema',
-            'Espacios Escolares', 'Grados y Salones', 'Gestión de Matrícula', 'Gestión de Admisiones',
-            'Carga de Notas y Calificaciones', 'Vincular Estudiante',
-            'Expediente Estudiantil', 'Mi Expediente', 'Cargos Institucionales', 'Cadena Supervisoria',
-            'Gestión de Colectivos', 'Transporte Escolar', 'Solicitud de Cupos', 'Cerebro de Sigma'
-          ];
-          
-          modulosPosibles.forEach(mod => {
-            if (tienePermiso(mod, 'ver')) {
-              modulosPermitidos.push(mod);
-            }
-          });
-
-          let modsText = '';
-          if (userRole === 'SuperAdmin') {
-            modsText = `acceso total como <b>SuperAdmin</b> a todos los módulos.`;
-          } else if (modulosPermitidos.length > 0) {
-            modsText = `los siguientes módulos activos:<br/><br/><ul>${modulosPermitidos.map(m => `<li><b>${m}</b></li>`).join('')}</ul>`;
-          } else {
-            modsText = `ningún módulo activo.`;
-          }
-
-          setMensaje(`Te encuentras en la institución: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>) con el rol de <b>${userRole}</b>.<br/><br/>Tienes ${modsText}`);
+          setMensaje(`Te encuentras en la institución: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>) con el rol de <b>${userRole}</b>.<br/><br/>Tienes <b>${toolsIndex.length} módulos disponibles</b> en el sistema:`);
+          setModulosRecomendados(toolsIndex.slice(0, 4));
           setAcciones([]);
         }
-      }, 500);
+      }, 450);
       return;
     }
 
+    // 3. CONSULTA A LA BASE DE CONOCIMIENTO (FUSE SEARCH)
     setTimeout(() => {
       setPensando(false);
 
       if (!fuseInstance) {
-        setMensaje("Actualmente estoy desconectado de la base de datos central. No puedo procesar tu solicitud.");
+        setMensaje("En este momento estoy desconectada de la base de datos central, pero sigo disponible para orientarte en tus módulos.");
         return;
       }
 
@@ -672,15 +635,18 @@ export const ChatbotSigma = () => {
   };
 
   const registrarPreguntaPendiente = async (query: string) => {
-    setMensaje("Lo siento, aún no conozco la respuesta a esa pregunta. La he registrado para que mis administradores me enseñen y así poder ayudarte mejor en el futuro.");
+    setMensaje(`Aún no tengo una respuesta exacta para "<b>${query}</b>", pero ya registré tu consulta para que la directiva me la enseñe pronto.<br><br>¿Deseas que te oriente hacia alguno de tus módulos principales?`);
     setAcciones([]);
+    setModulosRecomendados(toolsIndex.slice(0, 3));
+    setChipsSugeridos([
+      { texto: '🔍 Buscar otra herramienta', accion: () => iniciarBusquedaInteractiva() },
+      { texto: '🧭 Iniciar Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } }
+    ]);
     try {
       const { error } = await supabase.from('sigma_preguntas_pendientes').insert([
         { pregunta: query, estado: 'pendiente' }
       ]);
-      if (error) {
-        console.error("Error de Supabase al insertar pregunta pendiente:", error);
-      } else {
+      if (!error) {
         window.dispatchEvent(new CustomEvent('sigae-sigma-pending-refresh'));
       }
     } catch (e) {
@@ -690,8 +656,9 @@ export const ChatbotSigma = () => {
 
   const ejecutarRespuesta = (items: any[]) => {
     marcarInteraccionUsuario();
+    if (!items || items.length === 0) return;
     const item = items[0];
-    let htmlRespuesta = item.respuesta;
+    let htmlRespuesta = item?.respuesta || '';
 
     let userName = 'visitante';
     try {
@@ -710,14 +677,14 @@ export const ChatbotSigma = () => {
     const listAcciones: any[] = [];
     
     // Acción principal
-    if (item.accion_tipo && item.accion_valor) {
+    if (item?.accion_tipo && item?.accion_valor) {
       const vistaInfo = getVistaFromKeyword(item.accion_valor);
       const allowed = tienePermiso(vistaInfo, 'ver') || vistaInfo === 'Inicio' || vistaInfo === 'Mi Perfil' || !vistaInfo;
       listAcciones.push({
         id: item.id,
         tipo: item.accion_tipo,
         valor: item.accion_valor,
-        tema: item.tema,
+        tema: item.tema || '',
         allowed
       });
     }
@@ -726,13 +693,14 @@ export const ChatbotSigma = () => {
     if (items.length > 1) {
       for (let i = 1; i < items.length; i++) {
         const alt = items[i];
+        if (!alt) continue;
         const vistaInfoAlt = getVistaFromKeyword(alt.accion_valor || '');
         const allowedAlt = tienePermiso(vistaInfoAlt, 'ver') || vistaInfoAlt === 'Inicio' || vistaInfoAlt === 'Mi Perfil' || !vistaInfoAlt;
         listAcciones.push({
           id: alt.id,
           tipo: alt.accion_tipo || 'pregunta',
-          valor: alt.accion_valor || alt.tema,
-          tema: alt.tema,
+          valor: alt.accion_valor || alt.tema || '',
+          tema: alt.tema || '',
           allowed: allowedAlt,
           esAlternativa: true
         });
@@ -744,7 +712,8 @@ export const ChatbotSigma = () => {
     setTimeout(() => setHablando(false), 2000);
   };
 
-  const getVistaFromKeyword = (keyword: string): string => {
+  const getVistaFromKeyword = (keyword: string | null | undefined): string => {
+    if (!keyword || typeof keyword !== 'string') return '';
     const claveLimpia = keyword.replace('#', '').toLowerCase().trim();
     const mapToView: { [key: string]: string } = {
       'escuela': 'Perfil de la Escuela',
@@ -778,8 +747,16 @@ export const ChatbotSigma = () => {
   };
 
   const mapVistaToUrl = (vista: string): string => {
+    if (!vista || typeof vista !== 'string') return '';
     const v = vista.toLowerCase().trim();
     if (v === 'inicio' || v === 'panel principal' || v === '/') return '/';
+
+    // Búsqueda dinámica en herramientas disponibles
+    const foundTool = toolsIndex.find(t => 
+      t.submodulo && t.submodulo.toLowerCase().trim() === v
+    );
+    if (foundTool && foundTool.url) return foundTool.url;
+
     if (v === 'mi perfil') return '/categoria/Seguridad y Accesos/Mi Perfil';
     if (v === 'métodos de acceso' || v === 'metodos de acceso') return '/categoria/Seguridad y Accesos/M%C3%A9todos%20de%20Acceso';
     if (v === 'gestión de usuarios' || v === 'gestion de usuarios') return '/categoria/Seguridad y Accesos/Gestión de Usuarios';
@@ -787,7 +764,7 @@ export const ChatbotSigma = () => {
     if (v === 'preguntas de seguridad') return '/categoria/Seguridad y Accesos/Preguntas de Seguridad';
     if (v === 'auditoría del sistema' || v === 'auditoria del sistema') return '/categoria/Seguridad y Accesos/Auditoría del Sistema';
     if (v === 'perfil de la escuela') return '/categoria/Dirección y Sistema/Perfil de la Escuela';
-    if (v === 'configuración del sistema' || v === 'configuracion del sistema') return '/categoria/Dirección y Sistema/Configuración del Sistema';
+    if (v === 'configuración escolar' || v === 'configuracion escolar' || v === 'configuración del sistema' || v === 'configuracion del sistema') return '/categoria/Dirección y Sistema/Configuración Escolar';
     if (v === 'espacios escolares' || v === 'ambientes escolares' || v === 'salones' || v === 'grados y salones') return '/categoria/Control de Estudios/Grados y Salones';
     if (v === 'división territorial' || v === 'division territorial') return '/categoria/Dirección y Sistema/División Territorial';
     if (v === 'cerebro de sigma') return '/categoria/Dirección y Sistema/Cerebro de Sigma';
@@ -839,19 +816,84 @@ export const ChatbotSigma = () => {
     >
       {/* Burbuja de Diálogo Interactiva */}
       <div className={`sigma-speech-bubble ${activo ? 'active' : ''}`} id="sigma-speech-bubble">
-        <div className="sigma-bubble-header">
-          <span className="sigma-bubble-title"><i className="bi bi-stars"></i> Asistente Sigma</span>
-          <button className="sigma-bubble-close" onClick={() => { marcarInteraccionUsuario(); setActivo(false); }}>&times;</button>
+        <div className="sigma-bubble-header d-flex align-items-center justify-content-between">
+          <div className="d-flex align-items-center gap-2">
+            <img 
+              src="/sigma-avatar.png" 
+              alt="SIGMA" 
+              className="rounded-circle shadow-xs border border-white" 
+              style={{ width: '24px', height: '24px', objectFit: 'cover', objectPosition: 'center 22%' }} 
+            />
+            <span className="sigma-bubble-title">
+              <i className="bi bi-stars text-warning me-1"></i> SIGMA &bull; Asistente Virtual
+            </span>
+          </div>
+
+          <div className="d-flex align-items-center gap-1.5">
+            <button 
+              type="button"
+              onClick={iniciarBusquedaInteractiva}
+              className="btn btn-xs rounded-pill px-2 py-0.5 border text-muted bg-light d-flex align-items-center gap-1 shadow-2xs hover-efecto" 
+              style={{ fontSize: '0.68rem' }}
+              title="Buscar herramientas interactivamente (Ctrl+K)"
+            >
+              <i className="bi bi-search text-primary"></i>
+              <span>Buscar</span>
+              <kbd className="bg-white border rounded px-1 text-secondary" style={{ fontSize: '0.6rem' }}>Ctrl K</kbd>
+            </button>
+            <button className="sigma-bubble-close" onClick={() => { marcarInteraccionUsuario(); setActivo(false); }}>&times;</button>
+          </div>
         </div>
-        
+
         <div className="sigma-bubble-content">
           <div dangerouslySetInnerHTML={{ __html: mensaje }} />
-          
-          {location.pathname === '/' && (
-            <div className="mt-3">
+
+          {/* Tarjetas Interactivas de Módulos */}
+          {modulosRecomendados.length > 0 && (
+            <div className="sigma-interactive-cards">
+              {modulosRecomendados.map((item, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => navegarInteractivo(item)}
+                  className="sigma-module-card"
+                  title={`Abrir ${item.submodulo}`}
+                >
+                  <div className="sigma-module-icon" style={{ backgroundColor: item.color }}>
+                    <i className={`bi ${item.icono}`}></i>
+                  </div>
+                  <div className="sigma-module-info">
+                    <div className="sigma-module-title">{item.submodulo}</div>
+                    <div className="sigma-module-sub">{item.categoria}</div>
+                  </div>
+                  <span className="badge bg-primary text-white rounded-pill px-2 py-1 extra-small d-flex align-items-center gap-1">
+                    Ir <i className="bi bi-arrow-right"></i>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Chips Interactivos de Sugerencia / Accesos Rápidos */}
+          {chipsSugeridos.length > 0 && (
+            <div className="sigma-quick-chips">
+              {chipsSugeridos.map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={chip.accion}
+                  className="sigma-chip-btn"
+                >
+                  {chip.texto}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {location.pathname === '/' && modulosRecomendados.length === 0 && (
+            <div className="mt-2.5">
               <button
                 type="button"
-                className="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm w-100 mb-2 fw-bold text-start d-flex align-items-center justify-content-between hover-efecto"
+                className="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm w-100 mb-1 fw-bold text-start d-flex align-items-center justify-content-between hover-efecto"
                 onClick={() => {
                   marcarInteraccionUsuario();
                   window.dispatchEvent(new CustomEvent('sigae-iniciar-tour'));
@@ -862,7 +904,7 @@ export const ChatbotSigma = () => {
               </button>
             </div>
           )}
-          
+
           {acciones.length > 0 && (
             <div className="mt-3">
               {/* Acción Principal */}
@@ -957,10 +999,11 @@ export const ChatbotSigma = () => {
             </div>
           )}
         </div>
-        
+
         {/* Entrada de texto */}
         <div className="sigma-input-group">
           <input 
+            ref={chatInputRef}
             type="text" 
             value={inputValue}
             onFocus={marcarInteraccionUsuario}
@@ -970,43 +1013,25 @@ export const ChatbotSigma = () => {
             }}
             onKeyDown={(e) => { if (e.key === 'Enter') procesarPreguntaUsuario(); }}
             className="sigma-input" 
-            placeholder="Pregunta algo sobre SIGAE..."
+            placeholder="Pregúntame algo o dime qué módulo buscas..."
           />
-          <button onClick={() => procesarPreguntaUsuario()} className="sigma-btn-send">
+          <button onClick={() => procesarPreguntaUsuario()} className="sigma-btn-send" title="Consultar a SIGMA">
             <i className="bi bi-send-fill"></i>
           </button>
         </div>
       </div>
 
-      {/* Avatar Gráfico de Sigma */}
+      {/* Avatar Gráfico de Sigma (Figura transparente con micro-animaciones) */}
       <div 
-        className={`sigma-avatar-wrapper ${efectoHover}`} 
+        className="sigma-avatar-wrapper" 
         id="sigma-avatar"
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        onMouseEnter={triggerHoverReaction}
       >
-        <button className="sigma-btn-minimize" onClick={minimizar} title="Ocultar Asistente">
+        <button className="sigma-btn-minimize" onClick={minimizar} title="Minimizar a SIGMA">
           <i className="bi bi-eye-slash-fill"></i>
         </button>
-        {obtenerSvgSigma()}
-
-        {/* Partículas de Texto */}
-        {particles.map((p) => (
-          <div key={p.id} className="sigma-particle-text" style={p.style}>
-            {p.text}
-          </div>
-        ))}
-
-        {/* Chispas / Sparkles */}
-        {sparkles.map((s) => (
-          <div key={s.id} className="sigma-sparkle" style={s.style} />
-        ))}
-
-        {/* Portal Rings */}
-        {portalRing.map((r) => (
-          <div key={r.id} className="sigma-portal-ring" style={r.style} />
-        ))}
+        <SigmaFiguraVisual />
       </div>
       
       {/* Sombra de profundidad */}
@@ -1018,9 +1043,15 @@ export const ChatbotSigma = () => {
         onClick={restaurar}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        title="Mostrar Sigma"
+        title="Hablar con SIGMA"
       >
-        <span>Σ</span>
+        <img 
+          src="/sigma-avatar.png" 
+          alt="SIGMA" 
+          className="sigma-launcher-img" 
+          draggable={false}
+        />
+        <span className="sigma-launcher-badge">Σ</span>
       </div>
     </div>
   );

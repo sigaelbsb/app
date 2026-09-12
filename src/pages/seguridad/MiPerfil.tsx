@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { formatPhoneNumber } from '../../lib/formatters';
+import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
 
 export const MiPerfil = () => {
   const navigate = useNavigate();
@@ -200,6 +201,9 @@ export const MiPerfil = () => {
       if (tfaHabilitado) scoreCalculated += 15;
     }
     setScore(scoreCalculated);
+    try {
+      localStorage.setItem('sigae_security_score', String(scoreCalculated));
+    } catch (e) {}
   };
 
   const registrarHuella = async () => {
@@ -447,36 +451,57 @@ export const MiPerfil = () => {
 
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Seguridad y Accesos"
+        currentModule="Mi Perfil"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_mi_perfil"
+        title="Guía de Mi Perfil y Seguridad de Cuenta"
+        content="Administre sus datos personales, actualice su contraseña con medidor de robustez, configure preguntas de desafío para recuperación de cuenta y habilite el acceso biométrico."
+        icon="bi-shield-lock-fill"
+      />
+
       {/* Banner */}
-      <div className="rounded-4 p-4 p-md-5 mb-4 position-relative overflow-hidden shadow-sm banner-perfil" style={{ background: 'linear-gradient(135deg, var(--color-primario) 0%, #00d2ff 100%)' }}>
-        <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.15)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-        <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
+      <div 
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4" 
+        style={{ background: 'linear-gradient(135deg, #0066FF 0%, #00C3FF 100%)' }}
+      >
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
         <div className="row align-items-center position-relative z-1">
-          <div className="col-md-auto text-center mb-3 mb-md-0">
-            <div className="rounded-circle shadow-lg d-inline-flex align-items-center justify-content-center bg-white avatar-perfil-caja" style={{ width: '90px', height: '90px' }}>
-              <i className="bi bi-shield-lock-fill text-primary avatar-perfil-icono" style={{ fontSize: '3rem' }}></i>
-            </div>
-          </div>
-          <div className="col-md text-center text-md-start text-white">
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-              <h1 className="fw-bolder mb-0" id="perfil-nombre-display">
-                <i className="bi bi-shield-check me-3"></i>{nombre}
-              </h1>
-              <button 
-                onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
-                className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-              >
-                <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-              </button>
-            </div>
-            <p className="mb-0 opacity-75 fw-bold mt-1">
-              <i className="bi bi-person-vcard me-2"></i>C.I: <span id="perfil-cedula-display">{appUser.cedula}</span>
-            </p>
-            <div className="mt-2">
-              <span className="badge bg-white text-primary rounded-pill px-3 py-2 fw-bold shadow-sm">
+          <div className="col-lg-9 text-center text-md-start mb-3 mb-lg-0">
+            <div className="d-flex align-items-center gap-2 flex-wrap mb-3">
+              <span className="badge bg-white text-primary px-3 py-2 shadow-sm fw-bold rounded-pill badge-3d" style={{ letterSpacing: '0.5px' }}>
                 <i className="bi bi-shield-check me-1"></i> <span id="perfil-rol-display">{appUser.rol}</span>
               </span>
+              <button 
+                onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
+                className="btn btn-sm btn-white bg-white text-dark rounded-pill px-3 py-1.5 fw-bold shadow-sm hover-efecto btn-pill-3d"
+              >
+                <i className="bi bi-arrow-left me-1"></i> Volver al Menú
+              </button>
             </div>
+            <h1 className="fw-bolder mb-2 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-2" style={{ fontSize: 'calc(1.6rem + 1vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              <i className="bi bi-person-circle me-1"></i>
+              <span id="perfil-nombre-display">{nombre}</span>
+            </h1>
+            <p className="mb-0 fw-semibold fs-5 text-white text-opacity-90">
+              <i className="bi bi-person-vcard me-2"></i>C.I: <span id="perfil-cedula-display">{appUser.cedula}</span> &nbsp;|&nbsp; Actualización de credenciales y seguridad personal
+            </p>
+          </div>
+          <div className="col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
       </div>

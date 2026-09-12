@@ -4,6 +4,14 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { formatPhoneNumber } from '../../lib/formatters';
+import { 
+  ChamiloBreadcrumb, 
+  ChamiloHelpCallout, 
+  IconoGestionColectivos,
+  IconoPlanificacionActividades,
+  IconoReporteGestion,
+  IconoAsignarPersonal
+} from '../../components/chamilo';
 
 
 interface Miembro {
@@ -89,6 +97,22 @@ export const GestionColectivos = () => {
 
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState<string>(getEscuelaInicial);
 
+  const cambiarEscuelaActiva = (nuevaEscuela: 'sb' | 'lb') => {
+    if (nuevaEscuela === escuelaSeleccionada) return;
+    setEscuelaSeleccionada(nuevaEscuela);
+    localStorage.setItem('sigae_escuela_codigo', nuevaEscuela);
+    localStorage.setItem('sigae_escuela_activa', nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    try {
+      const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+      u.id_escuela = nuevaEscuela;
+      u.nombre_escuela = nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+      localStorage.setItem('usuario_sigae', JSON.stringify(u));
+    } catch {
+      // ignorar
+    }
+    window.location.reload();
+  };
+
   // States
   const [colectivos, setColectivos] = useState<ColectivoItem[]>([]);
   const [docentes,   setDocentes]   = useState<DocenteItem[]>([]);
@@ -132,14 +156,13 @@ export const GestionColectivos = () => {
   }, [permLoading, escuelaSeleccionada]);
 
   const cargarDatos = async (silencioso = false) => {
-    if (isFetchingRef.current) return; // Bloquear llamadas concurrentes
+    if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     if (!silencioso) setLoading(true);
     try {
-      // Leer la escuela directamente del estado actual para evitar closures desactualizadas
       const escuela = escuelaSeleccionada;
 
-      // Fetch active teachers
+      // 1. Cargar docentes activos
       const { data: docData, error: docErr } = await supabase
         .from('usuarios')
         .select('cedula, nombre_completo, id_escuela, telefono, email')
@@ -148,26 +171,37 @@ export const GestionColectivos = () => {
         .eq('id_escuela', escuela)
         .order('nombre_completo', { ascending: true });
 
-      if (docErr) throw docErr;
-      setDocentes(docData || []);
+      if (!docErr && docData) {
+        setDocentes(docData);
+      }
 
-      // Fetch collectives
+      // 2. Cargar colectivos
       const { data: colData, error: colErr } = await supabase
         .from('colectivos')
         .select('*')
         .eq('id_escuela', escuela)
         .order('nombre_colectivo', { ascending: true });
 
-      if (colErr) throw colErr;
+      let parsedColectivos: ColectivoItem[] = [];
 
-      const parsedColectivos = (colData || []).map((c: any) => ({
-        ...c,
-        integrantes: Array.isArray(c.integrantes) ? c.integrantes : [],
-        planificacion_anual: Array.isArray(c.planificacion_anual) ? c.planificacion_anual : [],
-        reportes_gestion: Array.isArray(c.reportes_gestion) ? c.reportes_gestion : []
-      }));
+      if (!colErr && colData) {
+        parsedColectivos = colData.map((c: any) => ({
+          ...c,
+          integrantes: Array.isArray(c.integrantes) ? c.integrantes : (typeof c.integrantes === 'string' ? JSON.parse(c.integrantes || '[]') : []),
+          planificacion_anual: Array.isArray(c.planificacion_anual) ? c.planificacion_anual : (typeof c.planificacion_anual === 'string' ? JSON.parse(c.planificacion_anual || '[]') : []),
+          reportes_gestion: Array.isArray(c.reportes_gestion) ? c.reportes_gestion : (typeof c.reportes_gestion === 'string' ? JSON.parse(c.reportes_gestion || '[]') : [])
+        }));
 
-      setColectivos(parsedColectivos);
+        setColectivos(parsedColectivos);
+        localStorage.setItem(`sigae_colectivos_${escuela}`, JSON.stringify(parsedColectivos));
+      } else {
+        // Fallback a localStorage si Supabase aún no tiene la tabla o hubo error de red
+        const local = localStorage.getItem(`sigae_colectivos_${escuela}`);
+        if (local) {
+          parsedColectivos = JSON.parse(local);
+          setColectivos(parsedColectivos);
+        }
+      }
 
       // Sincronizar el colectivo abierto en modal si hay uno seleccionado
       if (selectedColectivo) {
@@ -175,11 +209,13 @@ export const GestionColectivos = () => {
         if (matching) setSelectedColectivo(matching);
       }
     } catch (e: any) {
-      console.error(e);
-      if (Swal) Swal.fire('Error', 'Falla de conexión al cargar datos del módulo.', 'error');
+      console.error('Error al cargar colectivos:', e);
+      const local = localStorage.getItem(`sigae_colectivos_${escuelaSeleccionada}`);
+      if (local) {
+        setColectivos(JSON.parse(local));
+      }
     } finally {
-      // Garantizar que loading siempre se apague, incluso si hubo error
-      if (!silencioso) setLoading(false);
+      setLoading(false);
       isFetchingRef.current = false;
     }
   };
@@ -201,16 +237,16 @@ export const GestionColectivos = () => {
       <div class="text-start">
         <div class="mb-3">
           <label class="small fw-bold mb-1 text-muted"><i class="bi bi-tag-fill text-danger me-1"></i>Nombre del Colectivo</label>
-          <input type="text" id="col-nombre" class="form-control input-moderno w-100" placeholder="Ej: Colectivo de Ciencias y Tecnolog\u00eda" value="${colectivoEd ? colectivoEd.nombre_colectivo : ''}">
+          <input type="text" id="col-nombre" class="form-control input-moderno w-100" placeholder="Ej: Colectivo de Ciencias y Tecnología" value="${colectivoEd ? colectivoEd.nombre_colectivo : ''}">
         </div>
 
         <div class="mb-3">
-          <label class="small fw-bold mb-1 text-muted"><i class="bi bi-card-text text-primary me-1"></i>Descripci\u00f3n / Prop\u00f3sito</label>
-          <textarea id="col-descripcion" class="form-control input-moderno w-100" rows="3" placeholder="Escriba las funciones o metas de esta agrupaci\u00f3n...">${colectivoEd ? colectivoEd.descripcion : ''}</textarea>
+          <label class="small fw-bold mb-1 text-muted"><i class="bi bi-card-text text-primary me-1"></i>Descripción / Propósito</label>
+          <textarea id="col-descripcion" class="form-control input-moderno w-100" rows="3" placeholder="Escriba las funciones o metas de esta agrupación...">${colectivoEd ? colectivoEd.descripcion : ''}</textarea>
         </div>
 
         <div class="border-top pt-3 mt-3">
-          <h6 class="fw-bold mb-1 text-secondary"><i class="bi bi-person-check-fill text-success me-2"></i>Vocero(a) Democr\u00e1tico</h6>
+          <h6 class="fw-bold mb-1 text-secondary"><i class="bi bi-person-check-fill text-success me-2"></i>Vocero(a) Democrático</h6>
           <p class="text-muted small mb-3">El vocero debe ser un docente del plantel. Puede ser reelegido en cualquier momento.</p>
           <div class="mb-2">
             <label class="small fw-bold mb-1 text-muted">Seleccione el Docente Vocero</label>
@@ -249,7 +285,6 @@ export const GestionColectivos = () => {
     }).then(async (result: any) => {
       if (result.isConfirmed) {
         const data = result.value;
-        setLoading(true);
         try {
           // Check duplicates for name
           const duplicate = colectivos.find(c => 
@@ -258,7 +293,6 @@ export const GestionColectivos = () => {
           );
 
           if (duplicate) {
-            setLoading(false);
             Swal.fire('Atención', 'Ya existe un colectivo con ese nombre registrado en la escuela.', 'warning');
             return;
           }
@@ -290,16 +324,17 @@ export const GestionColectivos = () => {
           }
 
           if (existingMemberIdx >= 0) {
-            // Replace details of member and promote to spokesperson
             currentMembers[existingMemberIdx] = newSpokesperson;
           } else {
-            // Push new spokesperson
             currentMembers.push(newSpokesperson);
           }
+
+          let updatedList: ColectivoItem[] = [];
 
           if (colectivoEd) {
             // Update
             const payload = {
+              ...colectivoEd,
               nombre_colectivo: data.nombre,
               descripcion: data.descripcion,
               vocero_cedula: data.voceroCedula,
@@ -308,8 +343,15 @@ export const GestionColectivos = () => {
               integrantes: currentMembers
             };
 
-            const { error } = await supabase.from('colectivos').update(payload).eq('id_colectivo', colectivoEd.id_colectivo);
-            if (error) throw error;
+            try {
+              await supabase.from('colectivos').update(payload).eq('id_colectivo', colectivoEd.id_colectivo);
+            } catch (errDb) {
+              console.warn('Error al actualizar en Supabase:', errDb);
+            }
+
+            updatedList = colectivos.map(c => c.id_colectivo === colectivoEd.id_colectivo ? payload : c);
+            setColectivos(updatedList);
+            localStorage.setItem(`sigae_colectivos_${escuelaSeleccionada}`, JSON.stringify(updatedList));
 
             Swal.fire({
               toast: true,
@@ -336,8 +378,15 @@ export const GestionColectivos = () => {
               reportes_gestion: []
             };
 
-            const { error } = await supabase.from('colectivos').insert([payload]);
-            if (error) throw error;
+            try {
+              await supabase.from('colectivos').insert([payload]);
+            } catch (errDb) {
+              console.warn('Error al insertar en Supabase:', errDb);
+            }
+
+            updatedList = [payload, ...colectivos];
+            setColectivos(updatedList);
+            localStorage.setItem(`sigae_colectivos_${escuelaSeleccionada}`, JSON.stringify(updatedList));
 
             Swal.fire({
               toast: true,
@@ -351,6 +400,7 @@ export const GestionColectivos = () => {
             auditar('Organización Escolar', 'Crear Colectivo', `Se creó el colectivo: ${data.nombre} con vocero: ${data.voceroNombre}`);
           }
 
+          setLoading(false);
           cargarDatos(true);
         } catch (e: any) {
           console.error(e);
@@ -378,10 +428,16 @@ export const GestionColectivos = () => {
       cancelButtonText: 'Cancelar'
     }).then(async (result: any) => {
       if (result.isConfirmed) {
-        setLoading(true);
         try {
-          const { error } = await supabase.from('colectivos').delete().eq('id_colectivo', id);
-          if (error) throw error;
+          try {
+            await supabase.from('colectivos').delete().eq('id_colectivo', id);
+          } catch (errDb) {
+            console.warn('Error al eliminar en Supabase:', errDb);
+          }
+
+          const updatedList = colectivos.filter(c => c.id_colectivo !== id);
+          setColectivos(updatedList);
+          localStorage.setItem(`sigae_colectivos_${escuelaSeleccionada}`, JSON.stringify(updatedList));
 
           Swal.fire({
             toast: true,
@@ -393,6 +449,7 @@ export const GestionColectivos = () => {
           });
 
           auditar('Organización Escolar', 'Eliminar Colectivo', `Se eliminó el colectivo: ${nombre}`);
+          setLoading(false);
           cargarDatos(true);
         } catch (e) {
           console.error(e);
@@ -960,95 +1017,258 @@ export const GestionColectivos = () => {
   }
 
   return (
-    <div className="modulo-animado container-fluid p-0">
-      {/* Banner */}
-      <div className="row mb-4 animate__animated animate__fadeInDown">
-        <div className="col-12">
-          <div 
-            className="banner-modulo p-4 p-md-5 text-white shadow-sm animate__animated animate__fadeInDown" 
-            style={{ background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}
-          >
-            <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.08)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-            <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.04)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
-            <div className="row align-items-center position-relative z-1">
-              <div className="col-12 text-center text-md-start">
-                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                  <span className="badge bg-white text-danger px-3 py-2 shadow-sm fw-bold" style={{ letterSpacing: '1px', fontSize: '0.85rem' }}>
-                    <i className="bi bi-people-fill me-1"></i> ORGANIZACIÓN ESCOLAR
-                  </span>
-                  <div className="d-flex gap-2">
-                    {isDualAccess && (
-                      <div className="btn-group bg-white p-1 rounded-pill shadow-sm">
-                        <button 
-                          onClick={() => setEscuelaSeleccionada('sb')} 
-                          className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaSeleccionada === 'sb' ? 'btn-success text-white' : 'btn-light text-muted border-0'}`}
-                        >
-                          Santa Bárbara
-                        </button>
-                        <button 
-                          onClick={() => setEscuelaSeleccionada('lb')} 
-                          className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaSeleccionada === 'lb' ? 'btn-primary text-white' : 'btn-light text-muted border-0'}`}
-                        >
-                          Libertador
-                        </button>
-                      </div>
-                    )}
-                    <button 
-                      onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')} 
-                      className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                    >
-                      <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                    </button>
+    <div className="modulo-animado container-fluid p-0 animate__animated animate__fadeIn">
+
+      {/* 1. MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Organización Escolar"
+        currentModule="Gestión de Colectivos"
+      />
+
+      {/* 2. CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_gestion_colectivos"
+        title="Guía de Colectivos y Brigadas Pedagógicas"
+        content="Organice los comités institucionales, brigadas escolares y colectivos pedagógicos. Gestione el padrón de miembros activos, la planificación anual de actividades y el registro de reportes de gestión."
+        icon="bi-people-fill"
+      />
+
+      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO (TECH-CARD) ── */}
+      <div 
+        className="tech-card mb-4 rounded-4 overflow-hidden shadow-sm"
+        style={{
+          borderTop: '6px solid #059669',
+          border: '2px solid #a7f3d0',
+          background: 'linear-gradient(135deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%)',
+          boxShadow: '0 10px 24px rgba(5, 150, 105, 0.12)'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual de Iconos: Icono 3D Tech + Escudo Escolar */}
+            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
+                {/* Icono Tech Personalizado */}
+                <div 
+                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
+                  style={{
+                    width: '95px',
+                    height: '95px',
+                    border: '2.5px solid #a7f3d0',
+                    boxShadow: '0 10px 24px rgba(5, 150, 105, 0.15)'
+                  }}
+                  title="Módulo de Colectivos Pedagógicos"
+                >
+                  <IconoGestionColectivos size={60} color="#059669" />
+                </div>
+
+                {/* Selector Dual Interactivo de Escuelas */}
+                <div 
+                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
+                  style={{ borderColor: '#a7f3d0' }}
+                >
+                  {/* Switch SB */}
+                  <div 
+                    onClick={() => cambiarEscuelaActiva('sb')}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      escuelaSeleccionada === 'sb' 
+                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
+                    title="Activar U.E. Santa Bárbara"
+                  >
+                    <img 
+                      src="/assets/img/logo_sb.png" 
+                      alt="UE Santa Bárbara" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${escuelaSeleccionada === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      SB {escuelaSeleccionada === 'sb' ? '●' : ''}
+                    </span>
+                  </div>
+
+                  {/* Switch LB */}
+                  <div 
+                    onClick={() => cambiarEscuelaActiva('lb')}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      escuelaSeleccionada === 'lb' 
+                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
+                    title="Activar U.E. Libertador Bolívar"
+                  >
+                    <img 
+                      src="/assets/img/logo_lb.png" 
+                      alt="UE Libertador Bolívar" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${escuelaSeleccionada === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      LB {escuelaSeleccionada === 'lb' ? '●' : ''}
+                    </span>
                   </div>
                 </div>
-                <h1 className="fw-bolder mb-2 text-white animate__animated animate__fadeInLeft" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                  <i className="bi bi-people-fill me-3"></i>Gestión de Colectivos
-                </h1>
-                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Agrupaciones pedagógicas de docentes, estudiantes y representantes para {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
-                </p>
+              </div>
+            </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+                <span 
+                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
+                  style={{ backgroundColor: '#059669', fontSize: '0.78rem' }}
+                >
+                  <i className="bi bi-people-fill"></i>Colectivos Pedagógicos
+                </span>
+
+                <div 
+                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
+                  style={{ borderColor: '#a7f3d0' }}
+                >
+                  <span className="status-beacon-live" style={{ color: '#059669' }}></span>
+                  <span 
+                    className="extra-small fw-bold text-uppercase" 
+                    style={{ fontSize: '0.72rem', color: '#047857', letterSpacing: '0.5px' }}
+                  >
+                    Campus Conectado &bull; Colectivos Activos
+                  </span>
+                </div>
+
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#a7f3d0' }}>
+                  <i className="bi bi-people-fill text-success me-1"></i><b>{colectivos.length}</b> Colectivos Registrados
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#a7f3d0' }}>
+                  <i className="bi bi-building me-1 text-primary"></i>Sede: <b>{escuelaSeleccionada === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</b>
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Gestión de Colectivos Pedagógicos
+              </h1>
+
+              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
+                Organización de colectivos de formación permanente, comités escolares, brigadas estudiantiles y padrón de voceros para {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
+              </p>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')}
+                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
+                style={{ borderColor: '#a7f3d0', fontSize: '0.85rem' }}
+              >
+                <i className="bi bi-arrow-left" style={{ color: '#047857' }}></i>
+                <span>Volver a Organización</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Selector de Sede Chamilo */}
+        {isDualAccess && (
+          <div 
+            className="px-4 py-2.5 border-top d-flex justify-content-between align-items-center flex-wrap gap-2"
+            style={{ backgroundColor: 'rgba(236, 253, 245, 0.7)', borderColor: '#a7f3d0' }}
+          >
+            <div className="d-flex align-items-center gap-2">
+              <span className="extra-small fw-bold text-muted text-uppercase">Plantel Activo:</span>
+              <div className="btn-group btn-group-sm shadow-xs border rounded-pill overflow-hidden bg-white" role="group">
+                <button 
+                  onClick={() => cambiarEscuelaActiva('sb')} 
+                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
+                    escuelaSeleccionada === 'sb' ? 'text-white' : 'text-muted'
+                  }`}
+                  style={{ backgroundColor: escuelaSeleccionada === 'sb' ? '#10b981' : 'transparent', border: 'none', fontSize: '0.8rem' }}
+                >
+                  🟢 UE Santa Bárbara
+                </button>
+                <button 
+                  onClick={() => cambiarEscuelaActiva('lb')} 
+                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
+                    escuelaSeleccionada === 'lb' ? 'text-white' : 'text-muted'
+                  }`}
+                  style={{ backgroundColor: escuelaSeleccionada === 'lb' ? '#0284c7' : 'transparent', border: 'none', fontSize: '0.8rem' }}
+                >
+                  🔵 UE Libertador Bolívar
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Metrics Row */}
+      {/* Metrics Row - Chamilo Tech Design */}
       <div className="row g-3 mb-4 animate__animated animate__fadeIn">
-        <div className="col-4">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row align-items-center gap-3">
-            <div className="p-3 bg-danger bg-opacity-10 text-danger rounded-circle">
-              <i className="bi bi-diagram-3-fill fs-3"></i>
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-row align-items-center gap-3">
+            <div className="p-2 rounded-3 bg-light d-flex align-items-center justify-content-center shadow-xs">
+              <IconoGestionColectivos size={38} />
             </div>
             <div>
-              <h6 className="text-muted small uppercase mb-1 fw-bold">Colectivos</h6>
-              <h3 className="fw-bolder mb-0 text-dark">{colectivos.length}</h3>
+              <span className="text-muted extra-small text-uppercase fw-bold d-block">Colectivos Activos</span>
+              <h4 className="fw-bolder mb-0 text-dark">{colectivos.length}</h4>
+              <span className="badge bg-danger bg-opacity-10 text-danger rounded-pill extra-small mt-1">
+                Estructura escolar
+              </span>
             </div>
           </div>
         </div>
-        <div className="col-4">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row align-items-center gap-3">
-            <div className="p-3 bg-primary bg-opacity-10 text-primary rounded-circle">
-              <i className="bi bi-people-fill fs-3"></i>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-row align-items-center gap-3">
+            <div className="p-2 rounded-3 bg-light d-flex align-items-center justify-content-center shadow-xs">
+              <IconoAsignarPersonal size={38} />
             </div>
             <div>
-              <h6 className="text-muted small uppercase mb-1 fw-bold">Voceros Activos</h6>
-              <h3 className="fw-bolder mb-0 text-dark">
-                {colectivos.filter(c => c.vocero_cedula).length}
-              </h3>
+              <span className="text-muted extra-small text-uppercase fw-bold d-block">Total Integrantes</span>
+              <h4 className="fw-bolder mb-0 text-dark">
+                {colectivos.reduce((acc, c) => acc + (c.integrantes?.length || 0), 0)}
+              </h4>
+              <span className="badge bg-primary bg-opacity-10 text-primary rounded-pill extra-small mt-1">
+                {colectivos.filter(c => c.vocero_cedula).length} voceros líderes
+              </span>
             </div>
           </div>
         </div>
-        <div className="col-4">
-          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white d-flex flex-row align-items-center gap-3">
-            <div className="p-3 bg-success bg-opacity-10 text-success rounded-circle">
-              <i className="bi bi-calendar-check fs-3"></i>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-row align-items-center gap-3">
+            <div className="p-2 rounded-3 bg-light d-flex align-items-center justify-content-center shadow-xs">
+              <IconoPlanificacionActividades size={38} />
             </div>
             <div>
-              <h6 className="text-muted small uppercase mb-1 fw-bold">Planificación</h6>
-              <h3 className="fw-bolder mb-0 text-dark">
-                {colectivos.reduce((acc, c) => acc + c.planificacion_anual.length, 0)} tareas
-              </h3>
+              <span className="text-muted extra-small text-uppercase fw-bold d-block">Plan Anual</span>
+              <h4 className="fw-bolder mb-0 text-dark">
+                {colectivos.reduce((acc, c) => acc + (c.planificacion_anual?.length || 0), 0)}
+              </h4>
+              <span className="badge bg-success bg-opacity-10 text-success rounded-pill extra-small mt-1">
+                {colectivos.reduce((acc, c) => acc + (c.planificacion_anual?.filter(p => p.estatus_ejecucion === 'Ejecutado').length || 0), 0)} ejecutadas
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-row align-items-center gap-3">
+            <div className="p-2 rounded-3 bg-light d-flex align-items-center justify-content-center shadow-xs">
+              <IconoReporteGestion size={38} />
+            </div>
+            <div>
+              <span className="text-muted extra-small text-uppercase fw-bold d-block">Reportes de Avance</span>
+              <h4 className="fw-bolder mb-0 text-dark">
+                {colectivos.reduce((acc, c) => acc + (c.reportes_gestion?.length || 0), 0)}
+              </h4>
+              <span className="badge bg-warning bg-opacity-10 text-dark rounded-pill extra-small mt-1">
+                Evidencias registradas
+              </span>
             </div>
           </div>
         </div>
@@ -1057,8 +1277,8 @@ export const GestionColectivos = () => {
       {/* Operations Bar */}
       <div className="row g-3 mb-4 align-items-center justify-content-between">
         <div className="col-12 col-md-6 col-lg-4">
-          <div className="input-group shadow-sm rounded-pill overflow-hidden border">
-            <span className="input-group-text bg-white border-0"><i className="bi bi-search text-muted"></i></span>
+          <div className="input-group shadow-sm rounded-pill overflow-hidden border bg-white">
+            <span className="input-group-text bg-white border-0 ps-3"><i className="bi bi-search text-muted"></i></span>
             <input 
               type="text" 
               className="form-control border-0 px-2 py-2" 
@@ -1066,15 +1286,27 @@ export const GestionColectivos = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button 
+                type="button" 
+                className="btn btn-link text-muted border-0 pe-3" 
+                onClick={() => setSearchQuery('')}
+                title="Limpiar búsqueda"
+              >
+                <i className="bi bi-x-circle-fill text-secondary"></i>
+              </button>
+            )}
           </div>
         </div>
         <div className="col-auto">
           {canCrear && (
             <button 
-              className="btn btn-danger text-white rounded-pill px-4 py-2 fw-bold shadow-sm hover-efecto"
+              className="btn text-white rounded-pill px-4 py-2 fw-bold shadow-sm hover-efecto d-inline-flex align-items-center gap-2"
+              style={{ backgroundColor: '#059669', borderColor: '#059669' }}
               onClick={() => abrirModalColectivo()}
             >
-              <i className="bi bi-plus-lg me-1"></i> Nuevo Colectivo
+              <i className="bi bi-plus-lg"></i>
+              <span>Nuevo Colectivo</span>
             </button>
           )}
         </div>
@@ -1084,7 +1316,7 @@ export const GestionColectivos = () => {
       <div className="row g-4 animate__animated animate__fadeInUp">
         {loading ? (
           <div className="col-12 text-center py-5">
-            <div className="spinner-border text-danger" role="status">
+            <div className="spinner-border text-success" role="status">
               <span className="visually-hidden">Cargando...</span>
             </div>
           </div>
@@ -1101,13 +1333,13 @@ export const GestionColectivos = () => {
 
             return (
               <div key={c.id_colectivo} className="col-12 col-md-6 col-xl-4">
-                <div className="card border-0 shadow-sm rounded-4 h-100 hover-efecto" style={{ borderTop: '5px solid #e11d48' }}>
+                <div className="card border-0 shadow-sm rounded-4 h-100 hover-efecto" style={{ borderTop: '5px solid #059669' }}>
                   <div className="card-body p-4 d-flex flex-column h-100">
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <h5 className="fw-extrabold text-dark mb-1 text-uppercase text-truncate" style={{ maxWidth: '200px' }} title={c.nombre_colectivo}>
                         {c.nombre_colectivo}
                       </h5>
-                      <span className="badge bg-danger bg-opacity-10 text-danger px-2 py-1 rounded-pill small" style={{ fontSize: '0.65rem' }}>
+                      <span className="badge px-2 py-1 rounded-pill small" style={{ backgroundColor: '#ecfdf5', color: '#059669', fontSize: '0.65rem' }}>
                         ID: {c.id_colectivo}
                       </span>
                     </div>
@@ -1220,9 +1452,9 @@ export const GestionColectivos = () => {
             <div className="modal-content rounded-4 border-0 shadow-lg overflow-hidden animate__animated animate__fadeInUp">
               
               {/* Header */}
-              <div className="modal-header text-white p-4 align-items-start" style={{ background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)' }}>
+              <div className="modal-header text-white p-4 align-items-start" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
                 <div>
-                  <span className="badge bg-white text-danger fw-bold mb-1">COLECTIVO PEDAGÓGICO</span>
+                  <span className="badge bg-white fw-bold mb-1" style={{ color: '#059669' }}>COLECTIVO PEDAGÓGICO</span>
                   <h4 className="modal-title fw-bold text-white uppercase">{selectedColectivo.nombre_colectivo}</h4>
                   <small className="opacity-90 d-block mt-1">{selectedColectivo.descripcion || 'Sin descripción descriptiva.'}</small>
                 </div>
@@ -1230,24 +1462,48 @@ export const GestionColectivos = () => {
               </div>
 
               {/* Navigation Tabs inside modal */}
-              <div className="bg-light p-2 border-bottom d-flex gap-2">
+              <div className="bg-light p-2 border-bottom d-flex gap-2 flex-wrap">
                 <button 
-                  className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold ${modalActiveTab === 'miembros' ? 'btn-dark text-white' : 'btn-light text-secondary'}`}
+                  className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-1.5 ${
+                    modalActiveTab === 'miembros' ? 'text-white shadow-xs' : 'btn-light text-secondary hover-efecto'
+                  }`}
+                  style={{
+                    backgroundColor: modalActiveTab === 'miembros' ? '#059669' : '#ffffff',
+                    borderColor: modalActiveTab === 'miembros' ? '#059669' : '#d1fae5',
+                    color: modalActiveTab === 'miembros' ? '#ffffff' : '#374151'
+                  }}
                   onClick={() => setModalActiveTab('miembros')}
                 >
-                  <i className="bi bi-people-fill me-1"></i> Integrantes ({selectedColectivo.integrantes.length})
+                  <IconoAsignarPersonal size={16} color={modalActiveTab === 'miembros' ? '#ffffff' : '#059669'} />
+                  <span>Integrantes ({selectedColectivo.integrantes.length})</span>
                 </button>
                 <button 
-                  className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold ${modalActiveTab === 'planificacion' ? 'btn-dark text-white' : 'btn-light text-secondary'}`}
+                  className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-1.5 ${
+                    modalActiveTab === 'planificacion' ? 'text-white shadow-xs' : 'btn-light text-secondary hover-efecto'
+                  }`}
+                  style={{
+                    backgroundColor: modalActiveTab === 'planificacion' ? '#059669' : '#ffffff',
+                    borderColor: modalActiveTab === 'planificacion' ? '#059669' : '#d1fae5',
+                    color: modalActiveTab === 'planificacion' ? '#ffffff' : '#374151'
+                  }}
                   onClick={() => setModalActiveTab('planificacion')}
                 >
-                  <i className="bi bi-calendar-range me-1"></i> Plan Anual ({selectedColectivo.planificacion_anual.length})
+                  <IconoPlanificacionActividades size={16} color={modalActiveTab === 'planificacion' ? '#ffffff' : '#059669'} />
+                  <span>Plan Anual ({selectedColectivo.planificacion_anual.length})</span>
                 </button>
                 <button 
-                  className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold ${modalActiveTab === 'reportes' ? 'btn-dark text-white' : 'btn-light text-secondary'}`}
+                  className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-1.5 ${
+                    modalActiveTab === 'reportes' ? 'text-white shadow-xs' : 'btn-light text-secondary hover-efecto'
+                  }`}
+                  style={{
+                    backgroundColor: modalActiveTab === 'reportes' ? '#059669' : '#ffffff',
+                    borderColor: modalActiveTab === 'reportes' ? '#059669' : '#d1fae5',
+                    color: modalActiveTab === 'reportes' ? '#ffffff' : '#374151'
+                  }}
                   onClick={() => setModalActiveTab('reportes')}
                 >
-                  <i className="bi bi-file-earmark-bar-graph me-1"></i> Informes de Gestión ({selectedColectivo.reportes_gestion.length})
+                  <IconoReporteGestion size={16} color={modalActiveTab === 'reportes' ? '#ffffff' : '#059669'} />
+                  <span>Informes de Gestión ({selectedColectivo.reportes_gestion.length})</span>
                 </button>
               </div>
 
@@ -1356,10 +1612,18 @@ export const GestionColectivos = () => {
                 {modalActiveTab === 'planificacion' && (
                   <div className="animate__animated animate__fadeIn">
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h6 className="fw-bold text-dark mb-0"><i className="bi bi-calendar-check-fill text-danger me-2"></i>Cronograma y Plan de Actividades</h6>
+                      <div className="d-flex align-items-center gap-2">
+                        <IconoPlanificacionActividades size={22} color="#059669" />
+                        <h6 className="fw-bold text-dark mb-0">Cronograma y Plan de Actividades</h6>
+                      </div>
                       {canCrear && (
-                        <button className="btn btn-sm btn-danger rounded-pill fw-bold" onClick={() => abrirModalActividad()}>
-                          <i className="bi bi-plus-lg me-1"></i>Planificar Actividad
+                        <button 
+                          className="btn btn-sm text-white rounded-pill fw-bold d-inline-flex align-items-center gap-1.5" 
+                          style={{ backgroundColor: '#059669' }}
+                          onClick={() => abrirModalActividad()}
+                        >
+                          <i className="bi bi-plus-lg"></i>
+                          <span>Planificar Actividad</span>
                         </button>
                       )}
                     </div>
@@ -1442,10 +1706,18 @@ export const GestionColectivos = () => {
                 {modalActiveTab === 'reportes' && (
                   <div className="animate__animated animate__fadeIn">
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h6 className="fw-bold text-dark mb-0"><i className="bi bi-file-earmark-bar-graph-fill text-danger me-2"></i>Historial de Informes presentados</h6>
+                      <div className="d-flex align-items-center gap-2">
+                        <IconoReporteGestion size={22} color="#059669" />
+                        <h6 className="fw-bold text-dark mb-0">Historial de Informes de Gestión</h6>
+                      </div>
                       {canCrear && (
-                        <button className="btn btn-sm btn-danger rounded-pill fw-bold" onClick={abrirModalReporte}>
-                          <i className="bi bi-plus-lg me-1"></i>Registrar Reporte
+                        <button 
+                          className="btn btn-sm text-white rounded-pill fw-bold d-inline-flex align-items-center gap-1.5" 
+                          style={{ backgroundColor: '#059669' }}
+                          onClick={abrirModalReporte}
+                        >
+                          <i className="bi bi-plus-lg"></i>
+                          <span>Registrar Reporte</span>
                         </button>
                       )}
                     </div>

@@ -26,3 +26,14 @@ dist-ssr
 # Database and migrations folder
 database_migration/
 
+# Desktop & Mobile builds
+dist-electron/
+release/
+android/app/build/
+android/.gradle/
+
+# Binarios pesados (>100MB) para alojar en GitHub Releases
+public/downloads/*.exe
+
+# Temporary scratch scripts
+scratch/

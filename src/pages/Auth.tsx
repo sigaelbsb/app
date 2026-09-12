@@ -1059,12 +1059,20 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           try {
             const escDestino = school || localStorage.getItem('sigae_escuela_codigo') || 'sb';
 
-            // Insertar en notificaciones_globales para activar alerta en tiempo real con sonido y campana
+            // Insertar en notificaciones_globales para activar alerta en tiempo real al administrador
             await supabase.from('notificaciones_globales').insert([{
               escuela_codigo: escDestino,
               titulo: '⚠️ Solicitud de Reseteo de Cuenta',
               cuerpo: `El usuario con cédula ${cedula} olvidó sus datos y solicita reseteo de cuenta en Gestión de Usuarios.`,
               tipo: 'seguridad'
+            }]);
+
+            // Insertar confirmación personal para el usuario solicitante
+            await supabase.from('notificaciones_globales').insert([{
+              escuela_codigo: escDestino,
+              titulo: '📨 Solicitud de Restablecimiento Enviada',
+              cuerpo: 'Tu solicitud de reseteo de cuenta ha sido enviada al administrador escolar. Se te notificará por esta vía y por WhatsApp cuando sea procesada.',
+              tipo: `usuario:${cedula}`
             }]);
 
             // Actualizar el estado del usuario

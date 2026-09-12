@@ -3,6 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { 
+  ChamiloBreadcrumb, 
+  ChamiloHelpCallout, 
+  IconoCadenaSupervisoria,
+  IconoConstructorJerarquia,
+  IconoArbolOrganigrama
+} from '../../components/chamilo';
 
 interface Cargo {
   id_cargo: string;
@@ -10,7 +17,7 @@ interface Cargo {
   tipo_cargo: string;
   descripcion: string;
   depende_de: string | null;
-  id_escuela: string | null;
+  id_escuela: string | null; // null = ambas escuelas / corporativo
 }
 
 interface UsuarioSimple {
@@ -21,7 +28,19 @@ interface UsuarioSimple {
   id_escuela: string | null;
 }
 
-// Recursive Node Component for Organigram Tree
+/**
+ * Determina si un cargo es interinstitucional (Líder de Escuela y Apoyo a la Gestión),
+ * lo que significa que son exactamente las mismas personas asignadas para ambas instituciones.
+ */
+export const esCargoInterinstitucional = (nombreCargo: string): boolean => {
+  const norm = (nombreCargo || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return (
+    (norm.includes('lider') && norm.includes('escuela')) ||
+    (norm.includes('apoyo') && norm.includes('gestion'))
+  );
+};
+
+// Componente recursivo para renderizar nodos del organigrama
 const OrganigramaNodo = ({
   cargo,
   cargos,
@@ -50,15 +69,21 @@ const OrganigramaNodo = ({
   const newVisitados = new Set(visitados);
   newVisitados.add(cargo.id_cargo);
 
+  const isCompartido = esCargoInterinstitucional(cargo.nombre_cargo);
+
   const tipo = (cargo.tipo_cargo || '').toLowerCase();
   let cBg = '#ffffff';
-  let cBorde = '#0066FF';
-  let cTexto = '#0066FF';
+  let cBorde = '#e11d48';
+  let cTexto = '#e11d48';
 
-  if (tipo.includes('directiv')) {
-    cBg = '#f5f3ff';
+  if (isCompartido) {
+    cBg = '#faf5ff';
     cBorde = '#7c3aed';
-    cTexto = '#5b21b6';
+    cTexto = '#581c87';
+  } else if (tipo.includes('directiv') || tipo.includes('gerenc')) {
+    cBg = '#fff1f2';
+    cBorde = '#e11d48';
+    cTexto = '#9f1239';
   } else if (tipo.includes('coord') || tipo.includes('superv')) {
     cBg = '#eff6ff';
     cBorde = '#2563eb';
@@ -71,16 +96,18 @@ const OrganigramaNodo = ({
     cBg = '#fffbeb';
     cBorde = '#d97706';
     cTexto = '#78350f';
-  } else if (tipo.includes('obrer') || tipo.includes('apoyo')) {
+  } else {
     cBg = '#f8fafc';
     cBorde = '#475569';
     cTexto = '#0f172a';
   }
 
-  let dueños = usuarios.filter(u => {
+  // Personal asignado (Líder de Escuela y Apoyo a la Gestión aplican a ambas instituciones)
+  const dueños = usuarios.filter(u => {
     if (u.cargo !== cargo.nombre_cargo) return false;
+    if (isCompartido) return true;
     if (escuelaContext) {
-      return u.id_escuela === escuelaContext;
+      return u.id_escuela === escuelaContext || !u.id_escuela;
     }
     if (cargo.id_escuela) {
       return u.id_escuela === cargo.id_escuela;
@@ -91,9 +118,8 @@ const OrganigramaNodo = ({
   const hijos = cargos.filter(c => c.depende_de === cargo.id_cargo);
   hijos.sort((a, b) => a.nombre_cargo.localeCompare(b.nombre_cargo));
 
-  // Duplicar el nodo del director si estamos en la parte global y queremos separar las dos escuelas
   const hijosParaRender = hijos.flatMap(h => {
-    if (escuelaContext === null && h.nombre_cargo.toLowerCase().includes('director')) {
+    if (escuelaContext === null && h.nombre_cargo.toLowerCase().includes('director') && !h.id_escuela) {
       return [
         { cargoHijo: h, escCtx: 'sb' as const },
         { cargoHijo: h, escCtx: 'lb' as const }
@@ -103,29 +129,45 @@ const OrganigramaNodo = ({
   });
 
   let nombreMostrado = cargo.nombre_cargo;
-  if (escuelaContext && !cargo.id_escuela) {
+  if (!isCompartido && escuelaContext && !cargo.id_escuela) {
     nombreMostrado += escuelaContext === 'sb' ? ' (Santa Bárbara)' : ' (Libertador Bolívar)';
   }
 
   return (
     <li>
-      <div className="nodo-cargo-custom" style={{ borderColor: cBorde, backgroundColor: cBg }}>
-        <div style={{ color: cTexto, fontWeight: 900, fontSize: '11px', fontFamily: 'sans-serif', textTransform: 'uppercase', marginBottom: '3px', lineHeight: 1.2 }}>
+      <div className="nodo-cargo-custom shadow-xs" style={{ borderColor: cBorde, backgroundColor: cBg, borderRadius: '12px', padding: '10px 14px' }}>
+        <div style={{ color: cTexto, fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', marginBottom: '2px', lineHeight: 1.2 }}>
           {nombreMostrado}
         </div>
-        <div style={{ color: '#475569', fontSize: '9px', fontFamily: 'sans-serif', fontWeight: 600 }}>
-          {cargo.tipo_cargo}
+        <div className="d-flex align-items-center justify-content-center gap-1">
+          <span style={{ color: '#64748b', fontSize: '9px', fontWeight: 600 }}>
+            {cargo.tipo_cargo}
+          </span>
+          {isCompartido ? (
+            <span className="badge rounded-pill text-white shadow-xs" style={{ backgroundColor: '#7c3aed', fontSize: '7px', padding: '2px 5px' }}>
+              <i className="bi bi-buildings-fill me-1"></i>Ambas Instituciones
+            </span>
+          ) : !cargo.id_escuela ? (
+            <span className="badge bg-secondary rounded-pill" style={{ fontSize: '7px', padding: '2px 5px' }}>
+              Ambas Sedes
+            </span>
+          ) : null}
         </div>
         {mostrarNombres && (
           <div style={{ marginTop: '6px', paddingTop: '4px', borderTop: `1px dashed ${cBorde}`, fontSize: '9px' }}>
             {dueños.length > 0 ? (
               dueños.map(d => (
                 <div key={d.id_usuario} style={{ fontWeight: 'bold', color: '#1e293b', marginTop: '2px' }}>
-                  {d.nombre_completo}
+                  <i className="bi bi-person-fill me-1 text-muted"></i>{d.nombre_completo}
+                  {isCompartido && (
+                    <span className="badge bg-light text-primary border ms-1 extra-small fw-normal" style={{ fontSize: '7px' }}>
+                      Biescolar
+                    </span>
+                  )}
                 </div>
               ))
             ) : (
-              <div style={{ color: '#ef4444', fontWeight: 'bold', fontStyle: 'italic' }}>Vacante</div>
+              <div style={{ color: '#ef4444', fontWeight: 'bold', fontStyle: 'italic' }}>Puesto Vacante</div>
             )}
           </div>
         )}
@@ -159,74 +201,66 @@ export const CadenaSupervisoria = () => {
   const canSeeLB = tieneAccesoEscuela('lb');
   const tieneDobleAcceso = user?.rol === 'SuperAdmin' || (canSeeSB && canSeeLB);
 
-  const [activeView, setActiveView] = useState<'dashboard' | 'constructor' | 'mapa'>('dashboard');
+  // Selector Superior de Escuela: 'todas' | 'sb' | 'lb'
+  const [filtroEscuelaActiva, setFiltroEscuelaActiva] = useState<'todas' | 'sb' | 'lb'>('todas');
 
-  // Master Data
+  // Pestañas Principales: 'constructor' (Estructurar Jerarquía) vs 'mapa' (Ver Organigrama)
+  const [tabActivo, setTabActivo] = useState<'constructor' | 'mapa'>('constructor');
+
+  // Datos Maestros
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [usuarios, setUsuarios] = useState<UsuarioSimple[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Escuela Activa del Organigrama
-  const [escuelaFiltroMapa, setEscuelaFiltroMapa] = useState<'sb' | 'lb' | 'consolidado'>('sb');
-
-  // Constructor state (Cargo-centric)
+  // Estados del Constructor
   const [cambiosPendientes, setCambiosPendientes] = useState<{ [cargoId: string]: string | null }>({});
-  const [busquedaConstructor, setBusquedaConstructor] = useState('');
-  const [filtroEscuelaConstructor, setFiltroEscuelaConstructor] = useState<'todos' | 'sb' | 'lb' | 'global'>('todos');
+  const [busquedaCargo, setBusquedaCargo] = useState('');
+  const [filtroTipoCargo, setFiltroTipoCargo] = useState<string>('todos');
 
-  // Organigram map state
+  // Estados del Visor de Organigrama
   const [filtroRama, setFiltroRama] = useState('');
-  const [mostrarNombres, setMostrarNombres] = useState(false);
+  const [mostrarNombres, setMostrarNombres] = useState(true);
 
   // Permisos
-  const canEstructurarSB = tienePermisoEnEscuela('sb', 'Función: Estructurar Cadena', 'ver');
-  const canEstructurarLB = tienePermisoEnEscuela('lb', 'Función: Estructurar Cadena', 'ver');
-  const isDualAccessConstructor = canEstructurarSB && canEstructurarLB;
-
   const canEstructurarCrearSB = tienePermisoEnEscuela('sb', 'Función: Estructurar Cadena', 'crear');
   const canEstructurarCrearLB = tienePermisoEnEscuela('lb', 'Función: Estructurar Cadena', 'crear');
   const pCrear = canEstructurarCrearSB || canEstructurarCrearLB;
-
   const pImprimir = tienePermisoEnEscuela('sb', 'Función: Imprimir Organigrama', 'imprimir') || tienePermisoEnEscuela('lb', 'Función: Imprimir Organigrama', 'imprimir');
-
   const hasModuloAcceso = tienePermiso('Cadena Supervisoria', 'ver');
   const isRestricted = !permLoading && !hasModuloAcceso;
 
-  // Initialize school filter based on privileges and user role
+  const cambiarEscuelaActiva = (nuevaEscuela: 'sb' | 'lb') => {
+    setFiltroEscuelaActiva(nuevaEscuela);
+    localStorage.setItem('sigae_escuela_codigo', nuevaEscuela);
+    localStorage.setItem('sigae_escuela_activa', nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    try {
+      const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+      u.id_escuela = nuevaEscuela;
+      u.nombre_escuela = nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+      localStorage.setItem('usuario_sigae', JSON.stringify(u));
+    } catch {
+      // ignorar
+    }
+    window.location.reload();
+  };
+
+  // Sincronizar escuela por defecto según rol
   useEffect(() => {
     if (!permLoading && user) {
-      const canSeeSB = tieneAccesoEscuela('sb');
-      const canSeeLB = tieneAccesoEscuela('lb');
-      
-      if (user.rol === 'SuperAdmin' || (canSeeSB && canSeeLB)) {
-        setEscuelaFiltroMapa('consolidado');
-      } else if (canSeeLB) {
-        setEscuelaFiltroMapa('lb');
+      if (canSeeSB && !canSeeLB) {
+        setFiltroEscuelaActiva('sb');
+      } else if (canSeeLB && !canSeeSB) {
+        setFiltroEscuelaActiva('lb');
       } else {
-        setEscuelaFiltroMapa('sb');
+        const stored = localStorage.getItem('sigae_escuela_codigo');
+        if (stored === 'sb' || stored === 'lb') {
+          setFiltroEscuelaActiva(stored);
+        } else {
+          setFiltroEscuelaActiva('todas');
+        }
       }
     }
-  }, [permLoading, user]);
-
-  // Redirigir a vista de mapa si el usuario no tiene permisos de edición de jerarquías
-  useEffect(() => {
-    if (!permLoading) {
-      if (!pCrear && user?.rol !== 'SuperAdmin') {
-        setActiveView('mapa');
-      }
-    }
-  }, [permLoading, pCrear, user]);
-
-  // Sincronizar filtro del constructor según permisos del usuario
-  useEffect(() => {
-    if (!permLoading) {
-      if (canEstructurarSB && !canEstructurarLB) {
-        setFiltroEscuelaConstructor('sb');
-      } else if (canEstructurarLB && !canEstructurarSB) {
-        setFiltroEscuelaConstructor('lb');
-      }
-    }
-  }, [permLoading, canEstructurarSB, canEstructurarLB]);
+  }, [permLoading, user, canSeeSB, canSeeLB]);
 
   useEffect(() => {
     if (!permLoading && hasModuloAcceso) {
@@ -248,378 +282,165 @@ export const CadenaSupervisoria = () => {
       setCargos(resCargos.data || []);
       setUsuarios(resUsers.data || []);
     } catch (e: any) {
-      console.error("Error cargando jerarquía:", e);
-      if (Swal) Swal.fire("Error", "No se pudo conectar con la base de datos Supabase.", "error");
+      console.error('Error cargando datos de cadena supervisoria:', e);
+      if (Swal) Swal.fire('Error', 'No se pudieron cargar los datos de la cadena supervisoria.', 'error');
+    } finally {
+      if (!silencioso) setLoading(false);
     }
-    if (!silencioso) setLoading(false);
   };
 
-  // Prevenir ciclos jerárquicos
-  const detectarCiclo = (cargoId: string, supervisorId: string, cargosList: Cargo[]): boolean => {
-    if (cargoId === supervisorId) return true;
-    let currentSup = cargosList.find(c => c.id_cargo === supervisorId);
+  // Detección de ciclos jerárquicos
+  const detectarCiclo = (cargoId: string, supervisorPropuestoId: string, listaCargos: Cargo[]): boolean => {
+    if (!supervisorPropuestoId) return false;
+    if (cargoId === supervisorPropuestoId) return true;
+
+    let actualId: string | null = supervisorPropuestoId;
     const visitados = new Set<string>();
-    while (currentSup && currentSup.depende_de) {
-      if (currentSup.depende_de === cargoId) return true;
-      if (visitados.has(currentSup.depende_de)) break; // Evitar bucles infinitos por datos corruptos
-      visitados.add(currentSup.depende_de);
-      currentSup = cargosList.find(c => c.id_cargo === currentSup!.depende_de);
+
+    while (actualId) {
+      if (actualId === cargoId) return true;
+      if (visitados.has(actualId)) break;
+      visitados.add(actualId);
+
+      const supCargo = listaCargos.find(c => c.id_cargo === actualId);
+      actualId = supCargo?.depende_de || null;
     }
     return false;
   };
 
-  const handleChangeSupervisor = (cargoId: string, nuevoSupId: string) => {
-    const cargo = cargos.find(c => c.id_cargo === cargoId);
-    if (!cargo) return;
+  // Manejar cambio de supervisor en el constructor
+  const handleChangeSupervisor = (cargoId: string, nuevoSupervisorId: string) => {
+    const valorFinal = nuevoSupervisorId === '' ? null : nuevoSupervisorId;
+    const cargoOriginal = cargos.find(c => c.id_cargo === cargoId);
 
-    const valGuardar = nuevoSupId === "" ? null : nuevoSupId;
-    const esOriginal = cargo.depende_de === valGuardar;
-
-    setCambiosPendientes(prev => {
-      const copia = { ...prev };
-      if (esOriginal) {
-        delete copia[cargoId];
-      } else {
-        copia[cargoId] = valGuardar;
-      }
-      return copia;
-    });
+    if (cargoOriginal && cargoOriginal.depende_de === valorFinal) {
+      const actualizados = { ...cambiosPendientes };
+      delete actualizados[cargoId];
+      setCambiosPendientes(actualizados);
+    } else {
+      setCambiosPendientes(prev => ({
+        ...prev,
+        [cargoId]: valorFinal
+      }));
+    }
   };
 
+  // Guardar cambios jerárquicos en la base de datos
   const handleSaveJerarquia = async () => {
-    const currentSchool = isDualAccessConstructor ? filtroEscuelaConstructor : (canEstructurarSB ? 'sb' : 'lb');
-    const hasPermissionToSave = 
-      (currentSchool === 'sb' && canEstructurarCrearSB) ||
-      (currentSchool === 'lb' && canEstructurarCrearLB) ||
-      (currentSchool === 'todos' && canEstructurarCrearSB && canEstructurarCrearLB) ||
-      (isDualAccessConstructor && (canEstructurarCrearSB || canEstructurarCrearLB));
+    const totalCambios = Object.keys(cambiosPendientes).length;
+    if (totalCambios === 0) return;
 
-    if (!hasPermissionToSave) {
-      if (Swal) Swal.fire('Acceso Denegado', 'No posees permisos de edición para la escuela seleccionada.', 'error');
+    if (!pCrear) {
+      if (Swal) Swal.fire('Acceso Denegado', 'No tienes permisos para modificar la jerarquía.', 'error');
       return;
     }
 
-    if (Object.keys(cambiosPendientes).length === 0) {
-      if (Swal) Swal.fire('Aviso', 'No hay cambios pendientes por guardar.', 'warning');
-      return;
-    }
+    const confirm = await Swal.fire({
+      title: `¿Guardar ${totalCambios} cambio(s) de jerarquía?`,
+      text: 'La cadena de mando y el organigrama oficial se actualizarán inmediatamente.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, guardar estructura',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b'
+    });
+
+    if (!confirm.isConfirmed) return;
 
     setLoading(true);
     try {
-      const promesas: any[] = [];
-      Object.entries(cambiosPendientes).forEach(([cargoId, nuevoSup]) => {
-        promesas.push(
-          supabase.from('cargos').update({ depende_de: nuevoSup }).eq('id_cargo', cargoId)
-        );
+      for (const [cargoId, supervisorId] of Object.entries(cambiosPendientes)) {
+        const { error } = await supabase
+          .from('cargos')
+          .update({ depende_de: supervisorId })
+          .eq('id_cargo', cargoId);
+
+        if (error) throw error;
+      }
+
+      await auditar('Organización Escolar', 'Actualizar Cadena Supervisoria', `Se guardaron ${totalCambios} asignaciones jerárquicas.`);
+
+      Swal.fire({
+        icon: 'success',
+        title: '¡Jerarquía Actualizada!',
+        text: 'La cadena supervisoria se guardó con éxito en el sistema.',
+        confirmButtonColor: '#e11d48'
       });
 
-      if (promesas.length > 0) {
-        await Promise.all(promesas);
-      }
-
-      if (Swal) {
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'Estructura actualizada',
-          showConfirmButton: false,
-          timer: 3000
-        });
-      }
-
-      auditar('Cadena Supervisoria', 'Estructurar Cadena', `Se actualizaron las dependencias de ${Object.keys(cambiosPendientes).length} cargos.`);
-      
       setCambiosPendientes({});
       await cargarDatosMaestros(true);
-      setActiveView('dashboard');
     } catch (e: any) {
       console.error(e);
-      if (Swal) Swal.fire('Error', 'Falla al actualizar la estructura en Supabase.', 'error');
+      Swal.fire('Error', 'No se pudieron guardar las dependencias jerárquicas.', 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // PDF Export logic
-  const obtenerImagenBase64 = (url: string): Promise<string | null> => {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
-  };
-
+  // Exportar Organigrama a PDF
   const handleExportPDF = () => {
-    if (!pImprimir) {
-      if (Swal) Swal.fire('Acceso Denegado', 'No tiene permisos para exportar.', 'error');
+    const el = document.getElementById('chart_div');
+    if (!el) {
+      if (Swal) Swal.fire('Aviso', 'No hay organigrama visual para exportar.', 'info');
       return;
     }
-
-    if (!Swal) return;
-
-    Swal.fire({
-      title: 'Exportar Organigrama a PDF',
-      html: `
-        <div class="text-start p-2">
-          <label class="form-label fw-bold text-muted mb-2 small d-block">Orientación de la página:</label>
-          <div class="d-flex gap-4 mb-4">
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="pdf-orientacion" id="pdf-orientacion-horiz" value="landscape" checked>
-              <label class="form-check-label fw-bold small text-dark" for="pdf-orientacion-horiz">
-                <i class="bi bi-aspect-ratio me-1 text-primary"></i> Horizontal (Recomendado)
-              </label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="pdf-orientacion" id="pdf-orientacion-vert" value="portrait">
-              <label class="form-check-label fw-bold small text-dark" for="pdf-orientacion-vert">
-                <i class="bi bi-file-earmark-pdf me-1 text-secondary"></i> Vertical
-              </label>
-            </div>
-          </div>
-
-          <label class="form-label fw-bold text-muted mb-2 small d-block">Tamaño del papel:</label>
-          <select id="pdf-formato" class="form-select form-select-sm input-moderno fw-bold text-dark" style="cursor: pointer;">
-            <option value="letter">Carta (Letter - 216 x 279 mm)</option>
-            <option value="legal">Oficio (Legal - 216 x 356 mm)</option>
-            <option value="a4">A4 (210 x 297 mm)</option>
-          </select>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: '<i class="bi bi-cloud-arrow-down-fill me-1"></i> Generar PDF',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: 'var(--color-primario, #0066FF)',
-      preConfirm: () => {
-        const orientacionEl = document.querySelector('input[name="pdf-orientacion"]:checked') as HTMLInputElement;
-        const formatoEl = document.getElementById('pdf-formato') as HTMLSelectElement;
-        return {
-          orientacion: orientacionEl ? orientacionEl.value : 'landscape',
-          formato: formatoEl ? formatoEl.value : 'letter'
-        };
-      }
-    }).then((result: any) => {
-      if (result.isConfirmed && result.value) {
-        const { orientacion, formato } = result.value;
-        generarPDF(orientacion, formato);
-      }
-    });
+    window.print();
   };
 
-  const generarPDF = async (orientacion: 'landscape' | 'portrait', formato: 'letter' | 'legal' | 'a4') => {
-    const div = document.getElementById('chart_div');
-    if (!div || div.innerHTML === '' || cargos.length === 0) {
-      if (Swal) Swal.fire('Atención', 'No hay organigrama para exportar.', 'warning');
-      return;
+  // Filtrado de cargos según la escuela activa seleccionada
+  const cargosFiltrados = cargos.filter(c => {
+    // 1. Filtro de Escuela (cargos específicos de la escuela seleccionada + cargos que aplican a ambas escuelas / id_escuela === null)
+    let pasaEscuela = true;
+    if (filtroEscuelaActiva === 'sb') {
+      pasaEscuela = c.id_escuela === 'sb' || c.id_escuela === null;
+    } else if (filtroEscuelaActiva === 'lb') {
+      pasaEscuela = c.id_escuela === 'lb' || c.id_escuela === null;
     }
 
-    const html2canvas = (window as any).html2canvas;
-    const jspdf = (window as any).jspdf;
-
-    if (!html2canvas || !jspdf) {
-      if (Swal) Swal.fire('Error Técnico', 'Librerías html2canvas o jsPDF no cargadas.', 'error');
-      return;
+    // 2. Filtro de Búsqueda por Nombre
+    let pasaBusqueda = true;
+    if (busquedaCargo.trim()) {
+      const q = busquedaCargo.toLowerCase();
+      pasaBusqueda = c.nombre_cargo.toLowerCase().includes(q) || (c.descripcion || '').toLowerCase().includes(q);
     }
 
-    if (Swal) {
-      Swal.fire({
-        title: 'Generando PDF Oficial...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-      });
+    // 3. Filtro de Tipo de Cargo
+    let pasaTipo = true;
+    if (filtroTipoCargo !== 'todos') {
+      pasaTipo = (c.tipo_cargo || '').toLowerCase() === filtroTipoCargo.toLowerCase();
     }
 
-    try {
-      const base64LogoSB = await obtenerImagenBase64('/assets/img/logo_sb.png');
-      const base64LogoLB = await obtenerImagenBase64('/assets/img/logo_lb.png');
-      const base64LogoSistema = await obtenerImagenBase64('/assets/img/sigae.png');
-      const base64CintilloMPPE = await obtenerImagenBase64('/assets/img/logoMPPE.png');
-
-      const clon = div.cloneNode(true) as HTMLElement;
-      clon.style.width = 'max-content';
-      clon.style.height = 'max-content';
-      clon.style.padding = '20px';
-      clon.style.position = 'absolute';
-      clon.style.top = '-9999px';
-      clon.style.left = '-9999px';
-      clon.style.background = '#ffffff';
-      document.body.appendChild(clon);
-
-      // Give images time to render
-      await new Promise(r => setTimeout(r, 600));
-
-      const canvas = await html2canvas(clon, { scale: 2, backgroundColor: '#ffffff', logging: false });
-      document.body.removeChild(clon);
-      const imgData = canvas.toDataURL('image/png');
-
-      const jsPDFClass = jspdf.jsPDF;
-      const doc = new jsPDFClass({ orientation: orientacion, unit: 'mm', format: formato });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 15;
-
-      // Header
-      let textX = margin;
-      if (escuelaFiltroMapa === 'consolidado') {
-        if (base64LogoSB) {
-          doc.addImage(base64LogoSB, 'PNG', margin, margin, 14, 14);
-        }
-        if (base64LogoLB) {
-          doc.addImage(base64LogoLB, 'PNG', margin + 16, margin, 14, 14);
-        }
-        textX = margin + 32;
-      } else if (escuelaFiltroMapa === 'sb') {
-        if (base64LogoSB) {
-          doc.addImage(base64LogoSB, 'PNG', margin, margin, 14, 14);
-          textX = margin + 18;
-        }
-      } else if (escuelaFiltroMapa === 'lb') {
-        if (base64LogoLB) {
-          doc.addImage(base64LogoLB, 'PNG', margin, margin, 14, 14);
-          textX = margin + 18;
-        }
-      }
-
-      doc.setTextColor(30, 41, 59);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('República Bolivariana de Venezuela', textX, margin + 4);
-      doc.text('Ministerio del Poder Popular para la Educación', textX, margin + 8);
-      
-      doc.setFont('helvetica', 'bold');
-      if (escuelaFiltroMapa === 'consolidado') {
-        doc.text('UE Santa Bárbara', textX, margin + 12);
-        doc.text('UE Libertador Bolívar', textX, margin + 15.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.text('Escuelas DEP Oriente', textX, margin + 19);
-      } else {
-        const escuelaNombre = escuelaFiltroMapa === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
-        doc.text(escuelaNombre, textX, margin + 12);
-      }
-
-      // Title
-      doc.setTextColor(109, 40, 217);
-      doc.setFontSize(14);
-      doc.text('ORGANIGRAMA INSTITUCIONAL', pageWidth / 2, margin + 20, { align: 'center' });
-
-      doc.setDrawColor(109, 40, 217);
-      doc.setLineWidth(1.0);
-      doc.line(margin, margin + 25, pageWidth - margin, margin + 25);
-
-      const topSpace = margin + 30;
-      const bottomSpace = 25;
-
-      const availableWidth = pageWidth - margin * 2;
-      const availableHeight = pageHeight - topSpace - bottomSpace;
-
-      const imgProps = doc.getImageProperties(imgData);
-      const ratio = Math.min(availableWidth / imgProps.width, availableHeight / imgProps.height);
-      const finalWidth = imgProps.width * ratio;
-      const finalHeight = imgProps.height * ratio;
-
-      const x = margin + (availableWidth - finalWidth) / 2;
-      const y = topSpace;
-
-      doc.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
-
-      // Footer
-      const footerY = pageHeight - bottomSpace + 10;
-      doc.setDrawColor(220, 38, 38);
-      doc.setLineWidth(0.4);
-      doc.line(margin, footerY - 3, pageWidth - margin, footerY - 3);
-
-      if (base64CintilloMPPE) {
-        doc.addImage(base64CintilloMPPE, 'PNG', margin, footerY, 28, 8);
-      }
-
-      doc.setTextColor(100, 116, 139);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      const fechaHoy = new Date().toLocaleDateString('es-VE', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-
-      doc.text(`Generado: ${fechaHoy}`, margin + 32, footerY + 5);
-      
-      let systemTextX = pageWidth - margin;
-      if (base64LogoSistema) {
-        doc.addImage(base64LogoSistema, 'PNG', pageWidth - margin - 8, footerY, 8, 8);
-        systemTextX = pageWidth - margin - 10;
-      }
-      doc.text('Sistema SIGAE v1.0', systemTextX, footerY + 5, { align: 'right' });
-
-      doc.save('Organigrama_Institucional.pdf');
-      
-      if (Swal) {
-        Swal.close();
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'PDF Exportado con Éxito',
-          showConfirmButton: false,
-          timer: 3000
-        });
-      }
-
-      auditar('Cadena Supervisoria', 'Imprimir Organigrama', 'Se exportó el mapa institucional en formato PDF.');
-    } catch (error) {
-      console.error(error);
-      if (Swal) {
-        Swal.close();
-        Swal.fire('Error', 'Fallo al generar el PDF.', 'error');
-      }
-    }
-  };
-
-  // Filtrar cargos y usuarios según escuela seleccionada en el mapa
-  const cargosVisibles = cargos.filter(c => {
-    if (escuelaFiltroMapa === 'consolidado') return true;
-    return c.id_escuela === escuelaFiltroMapa || !c.id_escuela;
+    return pasaEscuela && pasaBusqueda && pasaTipo;
   });
 
-  const usuariosVisibles = usuarios.filter(u => {
-    if (escuelaFiltroMapa === 'consolidado') return true;
-    return u.id_escuela === escuelaFiltroMapa;
+  // Cargos visibles para el mapa del organigrama
+  const cargosVisiblesMapa = cargos.filter(c => {
+    if (filtroEscuelaActiva === 'sb') return c.id_escuela === 'sb' || c.id_escuela === null;
+    if (filtroEscuelaActiva === 'lb') return c.id_escuela === 'lb' || c.id_escuela === null;
+    return true;
   });
 
-  // Find root leaders (those with depende_de === null or reports to someone outside this view)
-  let raices: Cargo[] = [];
+  // Usuarios visibles en el organigrama (Líder y Apoyo son las mismas personas para ambas instituciones)
+  const usuariosVisiblesMapa = usuarios.filter(u => {
+    if (u.cargo && esCargoInterinstitucional(u.cargo)) return true;
+    if (filtroEscuelaActiva === 'sb') return u.id_escuela === 'sb' || !u.id_escuela;
+    if (filtroEscuelaActiva === 'lb') return u.id_escuela === 'lb' || !u.id_escuela;
+    return true;
+  });
+
+  // Raíces del organigrama (cargos sin supervisor o seleccionados por rama)
+  let raices = cargosVisiblesMapa.filter(c => !c.depende_de);
   if (filtroRama) {
-    const r = cargosVisibles.find(c => String(c.id_cargo) === String(filtroRama));
-    if (r) raices.push(r);
-  } else {
-    raices = cargosVisibles.filter(c => {
-      if (!c.depende_de) return true;
-      // Si el supervisor directo no forma parte de los cargos visibles en esta escuela, este cargo se convierte en raíz aquí
-      return !cargosVisibles.some(x => x.id_cargo === c.depende_de);
-    });
-    raices.sort((a, b) => a.nombre_cargo.localeCompare(b.nombre_cargo));
+    raices = cargosVisiblesMapa.filter(c => c.id_cargo === filtroRama);
   }
 
-  if (permLoading || (loading && cargos.length === 0)) {
-    return (
-      <div className="d-flex justify-content-center align-items-center py-5 h-100">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Cargando jerarquías...</span>
-        </div>
-      </div>
-    );
-  }
+  const totalCargosEscuela = cargosVisiblesMapa.length;
+  const cargosEnlazados = cargosVisiblesMapa.filter(c => c.depende_de).length;
+  const cargosRaices = cargosVisiblesMapa.filter(c => !c.depende_de).length;
+  const porcentajeEnlazados = totalCargosEscuela > 0 ? Math.round((cargosEnlazados / totalCargosEscuela) * 100) : 0;
+
+  const tiposDisponibles = [...new Set(cargos.map(c => c.tipo_cargo).filter(Boolean))];
 
   if (isRestricted) {
     return (
@@ -634,397 +455,641 @@ export const CadenaSupervisoria = () => {
   }
 
   return (
-    <div className="modulo-animado container-fluid p-0">
-      {/* Banner */}
-      <div className="row mb-4 animate__animated animate__fadeInDown">
-        <div className="col-12">
-          <div 
-            className="banner-modulo p-4 p-md-5 text-white shadow-sm" 
-            style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}
-          >
-            <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.06)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-            <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.04)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
-            <div className="row align-items-center position-relative z-1">
-              <div className="col-12 text-center text-md-start">
-                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                  <span className="badge bg-white mb-0 px-3 py-2 shadow-sm fw-bold" style={{ color: '#0f172a', letterSpacing: '1px', fontSize: '0.85rem' }}>
-                    <i className="bi bi-diagram-2-fill me-1"></i> ORGANIZACIÓN JERÁRQUICA
-                  </span>
-                  {(activeView !== 'dashboard' && (pCrear || user?.rol === 'SuperAdmin')) ? (
-                    <button 
-                      onClick={() => setActiveView('dashboard')} 
-                      className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                    >
-                      <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')} 
-                      className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                    >
-                      <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                    </button>
-                  )}
+    <div className="modulo-animado container-fluid p-0 animate__animated animate__fadeIn">
+
+      {/* 1. MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Organización Escolar"
+        currentModule="Cadena Supervisoria"
+      />
+
+      {/* 2. CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_cadena_supervisoria"
+        title="Guía Práctica para Construir y Visualizar la Cadena Supervisoria"
+        content="Para construir la jerarquía escolar: 1) Seleccione la institución en la barra superior (los cargos compartidos aplican a ambas sedes). 2) Deje la máxima autoridad (Director o Gerente) como '👑 Máxima Autoridad (Puesto Raíz)'. 3) En cada subordinado, seleccione a quién le rinde cuentas. 4) Presione 'Guardar Cambios' para actualizar el organigrama institucional en tiempo real."
+        icon="bi-diagram-3-fill"
+      />
+
+      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO (TECH-CARD) ── */}
+      <div 
+        className="tech-card mb-4 rounded-4 overflow-hidden shadow-sm"
+        style={{
+          borderTop: '6px solid #7c3aed',
+          border: '2px solid #ddd6fe',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
+          boxShadow: '0 10px 24px rgba(124, 58, 237, 0.12)'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
+                {/* Icono Tech Personalizado */}
+                <div 
+                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
+                  style={{
+                    width: '95px',
+                    height: '95px',
+                    border: '2.5px solid #ddd6fe',
+                    boxShadow: '0 10px 24px rgba(124, 58, 237, 0.15)'
+                  }}
+                  title="Módulo de Cadena Supervisoria"
+                >
+                  <IconoCadenaSupervisoria size={60} color="#7c3aed" />
                 </div>
-                <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                  <i className="bi bi-diagram-2-fill me-3"></i>Cadena Supervisoria
-                </h1>
-                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                  Configuración de subordinados y mapa interactivo del organigrama escolar.
-                </p>
+
+                {/* Selector Dual Interactivo de Escuelas */}
+                <div 
+                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
+                  style={{ borderColor: '#ddd6fe' }}
+                >
+                  {/* Switch SB */}
+                  <div 
+                    onClick={() => cambiarEscuelaActiva('sb')}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      filtroEscuelaActiva === 'sb' 
+                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
+                    title="Activar U.E. Santa Bárbara"
+                  >
+                    <img 
+                      src="/assets/img/logo_sb.png" 
+                      alt="UE Santa Bárbara" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${filtroEscuelaActiva === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      SB {filtroEscuelaActiva === 'sb' ? '●' : ''}
+                    </span>
+                  </div>
+
+                  {/* Switch LB */}
+                  <div 
+                    onClick={() => cambiarEscuelaActiva('lb')}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      filtroEscuelaActiva === 'lb' 
+                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
+                    title="Activar U.E. Libertador Bolívar"
+                  >
+                    <img 
+                      src="/assets/img/logo_lb.png" 
+                      alt="UE Libertador Bolívar" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${filtroEscuelaActiva === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      LB {filtroEscuelaActiva === 'lb' ? '●' : ''}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+                <span 
+                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
+                  style={{ backgroundColor: '#7c3aed', fontSize: '0.78rem' }}
+                >
+                  <i className="bi bi-diagram-2-fill"></i>Organización Jerárquica
+                </span>
+
+                <div 
+                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
+                  style={{ borderColor: '#ddd6fe' }}
+                >
+                  <span className="status-beacon-live" style={{ color: '#7c3aed' }}></span>
+                  <span 
+                    className="extra-small fw-bold text-uppercase" 
+                    style={{ fontSize: '0.72rem', color: '#6d28d9', letterSpacing: '0.5px' }}
+                  >
+                    Campus Conectado &bull; Jerarquía Activa
+                  </span>
+                </div>
+
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
+                  <i className="bi bi-briefcase-fill text-primary me-1"></i><b>{totalCargosEscuela}</b> Cargos Plantel
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
+                  <i className="bi bi-diagram-2-fill text-success me-1"></i><b>{cargosEnlazados}</b> Enlazados ({porcentajeEnlazados}%)
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
+                  <i className="bi bi-crown-fill text-warning me-1"></i><b>{cargosRaices}</b> Puestos Raíz
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Cadena Supervisoria y Organigrama
+              </h1>
+
+              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
+                Gestión estructurada de líneas de reporte, subordinados inmediatos y visualización del organigrama jerárquico institucional.
+              </p>
+
+              {/* Barra de Consolidación Jerárquica */}
+              <div className="mt-3" style={{ maxWidth: '440px' }}>
+                <div className="d-flex justify-content-between align-items-center small fw-bold text-muted mb-1">
+                  <span><i className="bi bi-diagram-2-fill text-primary me-1"></i>Consolidación del Organigrama</span>
+                  <span style={{ color: '#7c3aed' }}>{porcentajeEnlazados}%</span>
+                </div>
+                <div className="progress rounded-pill shadow-xs" style={{ height: '7px', backgroundColor: '#e2e8f0' }}>
+                  <div 
+                    className="progress-bar rounded-pill" 
+                    role="progressbar" 
+                    style={{ 
+                      width: `${porcentajeEnlazados}%`, 
+                      background: 'linear-gradient(90deg, #c084fc 0%, #7c3aed 100%)',
+                      transition: 'width 0.6s ease'
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')}
+                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
+                style={{ borderColor: '#ddd6fe', fontSize: '0.85rem' }}
+              >
+                <i className="bi bi-arrow-left" style={{ color: '#6d28d9' }}></i>
+                <span>Volver a Organización</span>
+              </button>
+            </div>
+
           </div>
+        </div>
+
+        {/* ── BARRA CHAMILO: SELECTOR DE ESCUELA Y PESTAÑAS ── */}
+        <div 
+          className="px-4 py-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-3"
+          style={{ backgroundColor: 'rgba(245, 243, 255, 0.7)', borderColor: '#ddd6fe' }}
+        >
+          {/* Pestañas de Vista */}
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setTabActivo('constructor')}
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+                tabActivo === 'constructor' 
+                  ? 'text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: tabActivo === 'constructor' ? '#7c3aed' : '#ffffff',
+                borderColor: tabActivo === 'constructor' ? '#7c3aed' : '#ddd6fe',
+                color: tabActivo === 'constructor' ? '#ffffff' : '#475569',
+                fontSize: '0.82rem'
+              }}
+            >
+              <IconoConstructorJerarquia size={18} color={tabActivo === 'constructor' ? '#ffffff' : '#7c3aed'} />
+              <span>1. Constructor de Jerarquías</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabActivo('mapa')}
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+                tabActivo === 'mapa' 
+                  ? 'text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: tabActivo === 'mapa' ? '#7c3aed' : '#ffffff',
+                borderColor: tabActivo === 'mapa' ? '#7c3aed' : '#ddd6fe',
+                color: tabActivo === 'mapa' ? '#ffffff' : '#475569',
+                fontSize: '0.82rem'
+              }}
+            >
+              <IconoArbolOrganigrama size={18} color={tabActivo === 'mapa' ? '#ffffff' : '#7c3aed'} />
+              <span>2. Organigrama Visual en Árbol</span>
+            </button>
+          </div>
+
+          {/* Selector Superior de Escuela (Incluye Ambas Escuelas / Corporativos) */}
+          <div className="d-flex align-items-center gap-1.5">
+            <span className="extra-small fw-bold text-muted text-uppercase me-1">Ámbito:</span>
+            
+            <div className="btn-group btn-group-sm shadow-xs border rounded-pill overflow-hidden bg-white" role="group">
+              {tieneDobleAcceso && (
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuelaActiva('todas')}
+                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
+                    filtroEscuelaActiva === 'todas' ? 'text-white' : 'text-muted'
+                  }`}
+                  style={{ backgroundColor: filtroEscuelaActiva === 'todas' ? '#7c3aed' : 'transparent', border: 'none', fontSize: '0.78rem' }}
+                >
+                  🏢 Ambas Sedes / Corporativo
+                </button>
+              )}
+
+              {(canSeeSB || tieneDobleAcceso) && (
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuelaActiva('sb')}
+                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
+                    filtroEscuelaActiva === 'sb' ? 'text-white' : 'text-muted'
+                  }`}
+                  style={{ backgroundColor: filtroEscuelaActiva === 'sb' ? '#10b981' : 'transparent', border: 'none', fontSize: '0.78rem' }}
+                >
+                  🟢 UE Santa Bárbara
+                </button>
+              )}
+
+              {(canSeeLB || tieneDobleAcceso) && (
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuelaActiva('lb')}
+                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
+                    filtroEscuelaActiva === 'lb' ? 'text-white' : 'text-muted'
+                  }`}
+                  style={{ backgroundColor: filtroEscuelaActiva === 'lb' ? '#0284c7' : 'transparent', border: 'none', fontSize: '0.78rem' }}
+                >
+                  🔵 UE Libertador Bolívar
+                </button>
+              )}
+            </div>
+          </div>
+
         </div>
       </div>
 
-      {/* DASHBOARD VIEW */}
-      {activeView === 'dashboard' && (
-        <div className="row g-4 justify-content-center animate__animated animate__fadeIn">
-          <div className="col-md-6 col-xl-5">
-            <div 
-              className={`tarjeta-modulo-nueva p-5 text-center h-100 shadow-sm rounded-4 cursor-pointer`} 
-              onClick={() => setActiveView('constructor')}
-              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)', border: '2px solid #bfdbfe' }}
-            >
-              <div className="bg-primary bg-opacity-10 d-inline-flex p-4 rounded-circle mb-4 text-primary align-items-center justify-content-center" style={{ width: '80px', height: '80px' }}>
-                <i className="bi bi-diagram-3-fill fs-1"></i>
-              </div>
-              <h4 className="fw-bold text-dark mb-2">Estructurar Cadena</h4>
-              <p className="small text-muted mb-4 text-center">Configura quién depende de quién en los cargos escolares, asignando jefes y subordinados de forma sencilla.</p>
-              <span className="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm">Ingresar al Constructor <i className="bi bi-arrow-right ms-1"></i></span>
-            </div>
-          </div>
-
-          <div className="col-md-6 col-xl-5">
-            <div 
-              className={`tarjeta-modulo-nueva p-5 text-center h-100 shadow-sm rounded-4 cursor-pointer`} 
-              onClick={() => setActiveView('mapa')}
-              style={{ background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)', border: '2px solid #ddd6fe' }}
-            >
-              <div className="bg-purple bg-opacity-10 d-inline-flex p-4 rounded-circle mb-4 text-purple align-items-center justify-content-center" style={{ width: '80px', height: '80px', color: '#7c3aed' }}>
-                <i className="bi bi-bezier2 fs-1"></i>
-              </div>
-              <h4 className="fw-bold text-dark mb-2">Ver Mapa / Organigrama</h4>
-              <p className="small text-muted mb-4 text-center">Explora el organigrama interactivo de la institución en tiempo real con cruce de empleados y exportación a PDF.</p>
-              <span className="btn btn-sm btn-primary rounded-pill px-4 fw-bold shadow-sm" style={{ background: '#7c3aed', borderColor: '#7c3aed' }}>Visualizar Organigrama <i className="bi bi-arrow-right ms-1"></i></span>
-            </div>
-          </div>
+      {loading ? (
+        <div className="text-center py-5 text-muted">
+          <div className="spinner-border text-primary mb-3" role="status"></div>
+          <div>Cargando datos de la cadena supervisoria...</div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* ══════════════════════════════════════════════════════════════
+              PESTAÑA 1: CONSTRUCTOR DE JERARQUÍAS (INTUITIVO Y DIRECTO)
+             ══════════════════════════════════════════════════════════════ */}
+          {tabActivo === 'constructor' && (
+            <div className="row g-4 animate__animated animate__fadeIn">
+              <div className="col-12">
+                <div className="card border-0 shadow-sm rounded-4 p-4 bg-white">
+                  
+                  {/* Cabecera del Constructor con botón Guardar */}
+                  <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 pb-3 border-bottom mb-4">
+                    <div className="d-flex align-items-center gap-3">
+                      <div 
+                        className="p-2 rounded-3 d-flex align-items-center justify-content-center shadow-xs" 
+                        style={{ backgroundColor: '#f5f3ff', border: '1.5px solid #ddd6fe', width: '44px', height: '44px' }}
+                      >
+                        <IconoConstructorJerarquia size={26} color="#7c3aed" />
+                      </div>
+                      <div>
+                        <h5 className="fw-bolder text-dark mb-0.5">Asignación Directa de Supervisores</h5>
+                        <p className="text-muted extra-small mb-0">
+                          Mostrando cargos para <b>{filtroEscuelaActiva === 'sb' ? 'UE Santa Bárbara (+ Cargos Compartidos)' : (filtroEscuelaActiva === 'lb' ? 'UE Libertador Bolívar (+ Cargos Compartidos)' : 'Todas las Sedes y Cargos Corporativos')}</b>.
+                        </p>
+                      </div>
+                    </div>
 
-      {/* CONSTRUCTOR VIEW */}
-      {activeView === 'constructor' && (
-        <div className="row g-4 animate__animated animate__fadeIn">
-          <div className="col-12">
-            <div className="card border-0 shadow-sm rounded-4">
-              <div className="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div>
-                  <h5 className="mb-1 fw-bold text-dark">Constructor de Jerarquías (Cadena Supervisoria)</h5>
-                  <p className="mb-0 text-muted small">Asigna directamente el supervisor a cada uno de los cargos de la institución.</p>
-                </div>
-                <div className="d-flex align-items-center gap-2">
-                  {pCrear ? (
-                    <button 
-                      onClick={handleSaveJerarquia} 
-                      className="btn btn-success rounded-pill fw-bold hover-efecto"
-                      disabled={Object.keys(cambiosPendientes).length === 0}
-                    >
-                      <i className="bi bi-floppy-fill me-2"></i> Guardar Estructura ({Object.keys(cambiosPendientes).length})
-                    </button>
-                  ) : (
-                    <span className="text-danger small fw-bold"><i className="bi bi-lock-fill me-1"></i>Sin permisos para modificar.</span>
-                  )}
-                </div>
-              </div>
-              <div className="card-body p-4">
-                {/* Filtros Constructor */}
-                <div className="row g-3 mb-4">
-                  <div className="col-md-6 col-lg-4">
-                    <label className="form-label small fw-bold text-muted">Filtrar por Escuela</label>
-                    <select
-                      className="form-select form-select-sm input-moderno"
-                      value={filtroEscuelaConstructor}
-                      onChange={(e) => setFiltroEscuelaConstructor(e.target.value as any)}
-                    >
-                      {isDualAccessConstructor && <option value="todos">Todos los Cargos</option>}
-                      {(canEstructurarSB || isDualAccessConstructor) && <option value="sb">UE Santa Bárbara</option>}
-                      {(canEstructurarLB || isDualAccessConstructor) && <option value="lb">UE Libertador Bolívar</option>}
-                      {isDualAccessConstructor && <option value="global">Globales</option>}
-                    </select>
-                  </div>
-                  <div className="col-md-6 col-lg-8">
-                    <label className="form-label small fw-bold text-muted">Buscar Cargo</label>
-                    <div className="position-relative">
-                      <span className="position-absolute start-0 top-50 translate-middle-y ms-3 text-muted">
-                        <i className="bi bi-search"></i>
-                      </span>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm rounded-pill ps-5 input-moderno"
-                        placeholder="Escribe el nombre del cargo..."
-                        value={busquedaConstructor}
-                        onChange={(e) => setBusquedaConstructor(e.target.value)}
-                      />
+                    <div className="d-flex align-items-center gap-2">
+                      {Object.keys(cambiosPendientes).length > 0 && (
+                        <span className="badge bg-warning bg-opacity-20 text-dark border border-warning px-3 py-2 rounded-pill small fw-bold">
+                          <i className="bi bi-pencil-fill me-1 text-warning"></i>{Object.keys(cambiosPendientes).length} cambio(s) pendientes
+                        </span>
+                      )}
+
+                      {pCrear ? (
+                        <button
+                          type="button"
+                          onClick={handleSaveJerarquia}
+                          disabled={Object.keys(cambiosPendientes).length === 0}
+                          className="btn btn-success rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-2"
+                        >
+                          <i className="bi bi-check2-circle fs-5"></i>
+                          <span>Guardar Estructura Jerárquica</span>
+                        </button>
+                      ) : (
+                        <span className="badge bg-light text-danger border px-3 py-2 rounded-pill small fw-bold">
+                          <i className="bi bi-lock-fill me-1"></i>Solo Lectura
+                        </span>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Grid de Cargos */}
-                <div className="row g-3">
-                  {cargos
-                    .filter(c => {
-                      const coincideNombre = c.nombre_cargo.toLowerCase().includes(busquedaConstructor.toLowerCase());
-                      const schoolFilter = isDualAccessConstructor ? filtroEscuelaConstructor : (canEstructurarSB ? 'sb' : 'lb');
-                      const coincideEscuela =
-                        schoolFilter === 'todos' ||
-                        (schoolFilter === 'sb' && (c.id_escuela === 'sb' || !c.id_escuela)) ||
-                        (schoolFilter === 'lb' && (c.id_escuela === 'lb' || !c.id_escuela)) ||
-                        (schoolFilter === 'global' && !c.id_escuela);
-                      return coincideNombre && coincideEscuela;
-                    })
-                    .map(c => {
-                      const isPending = cambiosPendientes.hasOwnProperty(c.id_cargo);
-                      const currentSupId = isPending ? (cambiosPendientes[c.id_cargo] || '') : (c.depende_de || '');
-                      
-                      const schoolFilter = isDualAccessConstructor ? filtroEscuelaConstructor : (canEstructurarSB ? 'sb' : 'lb');
-                      const dueños = usuarios.filter(u => {
-                        if (u.cargo !== c.nombre_cargo) return false;
-                        if (schoolFilter === 'sb') return u.id_escuela === 'sb';
-                        if (schoolFilter === 'lb') return u.id_escuela === 'lb';
-                        return true;
-                      });
-
-                      const tipo = (c.tipo_cargo || '').toLowerCase();
-                      let badgeColor = 'secondary';
-                      if (tipo.includes('directiv')) badgeColor = 'danger';
-                      else if (tipo.includes('coord') || tipo.includes('superv')) badgeColor = 'warning text-dark';
-                      else if (tipo.includes('docen') || tipo.includes('pedag')) badgeColor = 'success';
-                      else if (tipo.includes('admin')) badgeColor = 'primary';
-
-                      return (
-                        <div className="col-md-6 col-lg-4 animate__animated animate__fadeIn" key={c.id_cargo}>
-                          <div 
-                            className="card border shadow-sm rounded-4 h-100" 
-                            style={{
-                              backgroundColor: '#ffffff',
-                              border: isPending ? '2px solid #eab308' : '1px solid #e2e8f0'
-                            }}
+                  {/* Barra de Búsqueda y Filtros Rápidos */}
+                  <div className="row g-3 mb-4">
+                    <div className="col-12 col-md-6 col-lg-8">
+                      <div className="position-relative">
+                        <div className="input-group">
+                          <span className="input-group-text bg-light border-end-0 rounded-start-pill ps-3">
+                            <i className="bi bi-search text-muted"></i>
+                          </span>
+                          <input
+                            type="text"
+                            className="form-control bg-light border-start-0 rounded-end-pill pe-5"
+                            placeholder="Buscar cargo por nombre o descripción..."
+                            value={busquedaCargo}
+                            onChange={(e) => setBusquedaCargo(e.target.value)}
+                          />
+                        </div>
+                        {busquedaCargo && (
+                          <button
+                            type="button"
+                            onClick={() => setBusquedaCargo('')}
+                            className="btn btn-link position-absolute end-0 top-50 translate-middle-y me-3 text-muted border-0 p-0"
+                            title="Limpiar búsqueda"
                           >
-                            <div className="card-body p-4 d-flex flex-column justify-content-between">
-                              <div>
-                                <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-                                  <span className={`badge bg-${badgeColor.replace(' text-dark', '')} bg-opacity-10 text-${badgeColor.replace(' text-dark', '')} border border-${badgeColor.replace(' text-dark', '')} px-2 py-0.5`} style={{ fontSize: '0.7rem' }}>
-                                    {c.tipo_cargo}
-                                  </span>
-                                  {c.id_escuela === 'sb' && (
-                                    <span className="badge bg-success bg-opacity-10 text-success border border-success" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                                      Santa Bárbara
-                                    </span>
-                                  )}
-                                  {c.id_escuela === 'lb' && (
-                                    <span className="badge bg-primary bg-opacity-10 text-primary border border-primary" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                                      Libertador Bolívar
-                                    </span>
-                                  )}
-                                  {!c.id_escuela && (
-                                    <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                                      Global
-                                    </span>
-                                  )}
-                                </div>
-                                <h6 className="fw-bold text-dark mb-2">{c.nombre_cargo}</h6>
-                                
-                                <div className="small text-muted mb-3" style={{ fontSize: '0.78rem' }}>
-                                  <strong className="text-dark">Personal asignado:</strong>{' '}
-                                  {dueños.length > 0 ? (
-                                    <span className="fw-bold text-primary">{dueños.map(d => d.nombre_completo).join(', ')}</span>
-                                  ) : (
-                                    <span className="text-danger italic">Vacante</span>
-                                  )}
-                                </div>
-                              </div>
+                            <i className="bi bi-x-circle-fill small"></i>
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                              <div className="pt-2 border-top">
-                                <label className="form-label small fw-bold text-muted mb-1" style={{ fontSize: '0.75rem' }}>
-                                  <i className="bi bi-chevron-bar-up me-1"></i>Supervisor Directo (Reporta a)
-                                </label>
-                                <select
-                                  className="form-select form-select-sm input-moderno fw-bold"
-                                  value={currentSupId}
-                                  onChange={(e) => handleChangeSupervisor(c.id_cargo, e.target.value)}
-                                  disabled={!pCrear}
-                                  style={{ fontSize: '0.8rem', cursor: 'pointer' }}
-                                >
-                                  <option value="">-- Sin Supervisor (Raíz) --</option>
-                                  {cargos
-                                    .filter(posSup => {
-                                      if (posSup.id_cargo === c.id_cargo) return false;
-                                      // Restricción: un cargo de escuela no puede reportar a otra escuela
-                                      if (c.id_escuela && posSup.id_escuela && c.id_escuela !== posSup.id_escuela) return false;
-                                      
-                                      // Restricción: si no es dual, el supervisor debe ser de la escuela permitida
-                                      if (!isDualAccessConstructor) {
-                                        const permittedSchool = canEstructurarSB ? 'sb' : 'lb';
-                                        if (posSup.id_escuela && posSup.id_escuela !== permittedSchool) return false;
-                                      }
-                                      
-                                      // Prevenir ciclos jerárquicos
-                                      return !detectarCiclo(c.id_cargo, posSup.id_cargo, cargos);
-                                    })
-                                    .map(posSup => (
-                                      <option key={posSup.id_cargo} value={posSup.id_cargo}>
-                                        {posSup.nombre_cargo} {posSup.id_escuela ? `(${posSup.id_escuela.toUpperCase()})` : '(Global)'}
-                                      </option>
-                                    ))}
-                                </select>
+                    <div className="col-12 col-md-6 col-lg-4">
+                      <select
+                        className="form-select bg-light rounded-pill"
+                        value={filtroTipoCargo}
+                        onChange={(e) => setFiltroTipoCargo(e.target.value)}
+                      >
+                        <option value="todos">Todos los Tipos de Cargo</option>
+                        {tiposDisponibles.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-                                {isPending && (
-                                  <div className="mt-2 text-end">
-                                    <span className="badge bg-warning bg-opacity-20 text-warning px-2 py-0.5" style={{ fontSize: '0.7rem', color: '#854d0e', border: '1px solid #fef08a' }}>
-                                      <i className="bi bi-exclamation-circle-fill me-1"></i>Cambio sin guardar
+                  {/* Cuadrícula de Tarjetas de Cargo */}
+                  {cargosFiltrados.length === 0 ? (
+                    <div className="text-center py-5 text-muted">
+                      <i className="bi bi-inbox fs-1 d-block mb-2 text-muted opacity-50"></i>
+                      <p className="fw-bold mb-0">No se encontraron cargos para los filtros seleccionados.</p>
+                    </div>
+                  ) : (
+                    <div className="row g-3">
+                      {cargosFiltrados.map((c) => {
+                        const isPending = cambiosPendientes.hasOwnProperty(c.id_cargo);
+                        const currentSupId = isPending ? (cambiosPendientes[c.id_cargo] || '') : (c.depende_de || '');
+                        
+                        const isInterinst = esCargoInterinstitucional(c.nombre_cargo);
+
+                        // Personal asignado a este cargo (Líder y Apoyo aplican a ambas instituciones)
+                        const dueños = usuarios.filter(u => {
+                          if (u.cargo !== c.nombre_cargo) return false;
+                          if (isInterinst) return true;
+                          if (filtroEscuelaActiva === 'sb') return u.id_escuela === 'sb' || !u.id_escuela;
+                          if (filtroEscuelaActiva === 'lb') return u.id_escuela === 'lb' || !u.id_escuela;
+                          return true;
+                        });
+
+                        const supervisorActual = cargos.find(sup => sup.id_cargo === currentSupId);
+
+                        return (
+                          <div key={c.id_cargo} className="col-12 col-md-6 col-xl-4">
+                            <div 
+                              className={`card rounded-4 p-3.5 h-100 shadow-xs transition-all border ${
+                                isPending 
+                                  ? 'border-warning bg-warning bg-opacity-10' 
+                                  : (isInterinst ? 'bg-light' : 'bg-light border-light')
+                              }`}
+                              style={isInterinst ? { borderLeft: '4px solid #7c3aed' } : {}}
+                            >
+                              <div className="d-flex flex-column h-100 justify-content-between">
+                                <div>
+                                  {/* Badges de Tipo y Ámbito */}
+                                  <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                    <span className="badge bg-white text-dark border px-2 py-0.5 rounded-pill extra-small fw-bold">
+                                      {c.tipo_cargo || 'General'}
                                     </span>
+
+                                    {isInterinst ? (
+                                      <span className="badge rounded-pill extra-small text-white shadow-xs" style={{ backgroundColor: '#7c3aed' }}>
+                                        <i className="bi bi-buildings-fill me-1"></i>Ambas Instituciones
+                                      </span>
+                                    ) : !c.id_escuela ? (
+                                      <span className="badge bg-secondary text-white rounded-pill extra-small">
+                                        <i className="bi bi-building me-1"></i>Ambas Escuelas
+                                      </span>
+                                    ) : c.id_escuela === 'sb' ? (
+                                      <span className="badge bg-success text-white rounded-pill extra-small">
+                                        <i className="bi bi-check-circle me-1"></i>Solo Santa Bárbara
+                                      </span>
+                                    ) : (
+                                      <span className="badge bg-primary text-white rounded-pill extra-small">
+                                        <i className="bi bi-check-circle me-1"></i>Solo Libertador
+                                      </span>
+                                    )}
                                   </div>
-                                )}
+
+                                  {/* Nombre del Cargo */}
+                                  <h6 className="fw-bolder text-dark mb-1.5" style={{ fontSize: '0.98rem' }}>
+                                    {c.nombre_cargo}
+                                  </h6>
+
+                                  {/* Empleados Asignados */}
+                                  <div className="mb-3 extra-small">
+                                    <span className="text-muted fw-semibold">Personal Ocupante: </span>
+                                    {dueños.length > 0 ? (
+                                      <span className="fw-bold text-dark">
+                                        {dueños.map(d => d.nombre_completo).join(', ')}
+                                        {isInterinst && (
+                                          <span className="badge bg-light text-primary border ms-1 extra-small fw-normal" style={{ fontSize: '7.5px' }}>
+                                            Común para SB y LB
+                                          </span>
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <span className="text-danger fw-bold italic">Vacante</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Selector de Supervisor Directo */}
+                                <div className="pt-2.5 border-top">
+                                  <label className="form-label extra-small fw-bold text-muted mb-1 d-flex align-items-center justify-content-between">
+                                    <span><i className="bi bi-chevron-bar-up me-1"></i>Supervisor Inmediato:</span>
+                                    {supervisorActual ? (
+                                      <span className="text-primary fw-bold">Reporta a superior</span>
+                                    ) : (
+                                      <span className="text-warning text-dark fw-bold">👑 Máxima Autoridad (Raíz)</span>
+                                    )}
+                                  </label>
+
+                                  <select
+                                    className="form-select form-select-sm rounded-3 bg-white fw-semibold"
+                                    style={{ fontSize: '0.82rem' }}
+                                    value={currentSupId}
+                                    disabled={!pCrear}
+                                    onChange={(e) => handleChangeSupervisor(c.id_cargo, e.target.value)}
+                                  >
+                                    <option value="">👑 Máxima Autoridad (Puesto Raíz / Sin Jefe)</option>
+                                    <optgroup label="Cargos Disponibles para Supervisión">
+                                      {cargos
+                                        .filter(posSup => {
+                                          if (posSup.id_cargo === c.id_cargo) return false;
+                                          if (c.id_escuela && posSup.id_escuela && c.id_escuela !== posSup.id_escuela) return false;
+                                          return !detectarCiclo(c.id_cargo, posSup.id_cargo, cargos);
+                                        })
+                                        .map(posSup => (
+                                          <option key={posSup.id_cargo} value={posSup.id_cargo}>
+                                            {posSup.nombre_cargo} {!posSup.id_escuela ? '(Ambas Sedes)' : `(${posSup.id_escuela.toUpperCase()})`}
+                                          </option>
+                                        ))}
+                                    </optgroup>
+                                  </select>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ORGANIGRAMA VIEW */}
-      {activeView === 'mapa' && (
-        <div className="row g-4 animate__animated animate__fadeIn">
-          {/* Controles de filtro */}
-          <div className="col-12">
-            <div className="card border-0 shadow-sm rounded-4">
-              <div className="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-4">
-                <div className="d-flex align-items-center gap-3 flex-wrap">
-                  {/* Selector de escuela para Organigrama (solo si es SuperAdmin y tiene acceso a ambas) */}
-                  {tieneDobleAcceso ? (
-                    <div>
-                      <label className="form-label small fw-bold text-muted mb-1">Estructura Escolar</label>
-                      <div className="btn-group btn-group-sm shadow-sm border rounded-pill overflow-hidden" role="group">
-                        <button 
-                          type="button" 
-                          onClick={() => { setEscuelaFiltroMapa('sb'); setFiltroRama(''); }} 
-                          className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'sb' ? 'btn-primary' : 'btn-light text-muted'}`}
-                          style={{ border: 'none' }}
-                        >
-                          UE Santa Bárbara
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => { setEscuelaFiltroMapa('lb'); setFiltroRama(''); }} 
-                          className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'lb' ? 'btn-primary' : 'btn-light text-muted'}`}
-                          style={{ border: 'none' }}
-                        >
-                          UE Libertador Bolívar
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => { setEscuelaFiltroMapa('consolidado'); setFiltroRama(''); }} 
-                          className={`btn btn-sm px-3 fw-bold ${escuelaFiltroMapa === 'consolidado' ? 'btn-primary' : 'btn-light text-muted'}`}
-                          style={{ border: 'none' }}
-                        >
-                          Consolidado
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="form-label small fw-bold text-muted mb-1 d-block">Estructura Escolar</label>
-                      <span className="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 fw-bold" style={{ fontSize: '0.85rem' }}>
-                        <i className="bi bi-building me-1"></i> {escuelaFiltroMapa === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
-                      </span>
+                        );
+                      })}
                     </div>
                   )}
 
-                  <div>
-                    <label className="form-label small fw-bold text-muted mb-1">Filtrar por Rama</label>
-                    <select 
-                      className="form-select form-select-sm input-moderno" 
-                      style={{ minWidth: '220px' }}
-                      value={filtroRama}
-                      onChange={(e) => setFiltroRama(e.target.value)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════
+              PESTAÑA 2: ORGANIGRAMA VISUAL EN ÁRBOL
+             ══════════════════════════════════════════════════════════════ */}
+          {tabActivo === 'mapa' && (
+            <div className="row g-4 animate__animated animate__fadeIn">
+              <div className="col-12">
+                <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                  <div className="d-flex align-items-center gap-3 pb-3 border-bottom mb-3">
+                    <div 
+                      className="p-2 rounded-3 d-flex align-items-center justify-content-center shadow-xs" 
+                      style={{ backgroundColor: '#f5f3ff', border: '1.5px solid #ddd6fe', width: '44px', height: '44px' }}
                     >
-                      <option value="">Mostrar Toda la Estructura</option>
-                      {cargosVisibles.map(c => (
-                        <option key={c.id_cargo} value={c.id_cargo}>
-                          {c.nombre_cargo}
-                        </option>
-                      ))}
-                    </select>
+                      <IconoArbolOrganigrama size={26} color="#7c3aed" />
+                    </div>
+                    <div>
+                      <h5 className="fw-bolder text-dark mb-0.5">Organigrama Institucional</h5>
+                      <p className="text-muted extra-small mb-0">Visualización interactiva del árbol de supervisión y líneas de mando.</p>
+                    </div>
                   </div>
-                  <div className="form-check mt-md-4 pt-1">
-                    <input 
-                      className="form-check-input border-secondary" 
-                      type="checkbox" 
-                      id="chk-nombres" 
-                      checked={mostrarNombres}
-                      onChange={(e) => setMostrarNombres(e.target.checked)}
-                    />
-                    <label className="form-check-label fw-bold text-dark small" htmlFor="chk-nombres">
-                      Mostrar Nombres de Empleados
-                    </label>
+
+                  <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div className="d-flex align-items-center gap-3 flex-wrap">
+                      {/* Filtro por Rama */}
+                      <div style={{ minWidth: '240px' }}>
+                        <label className="form-label extra-small fw-bold text-muted mb-1">Explorar por Rama / Dependencia:</label>
+                        <select
+                          className="form-select form-select-sm rounded-pill bg-light"
+                          value={filtroRama}
+                          onChange={(e) => setFiltroRama(e.target.value)}
+                        >
+                          <option value="">🌳 Toda la Estructura Completa</option>
+                          {cargosVisiblesMapa.map(c => (
+                            <option key={c.id_cargo} value={c.id_cargo}>
+                              {c.nombre_cargo} {!c.id_escuela ? '(Ambas Sedes)' : `(${c.id_escuela.toUpperCase()})`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Switch de Mostrar Nombres */}
+                      <div className="form-check form-switch pt-3">
+                        <input
+                          className="form-check-input hover-mano"
+                          type="checkbox"
+                          role="switch"
+                          id="chk-nombres-chamilo"
+                          checked={mostrarNombres}
+                          onChange={(e) => setMostrarNombres(e.target.checked)}
+                        />
+                        <label className="form-check-label extra-small fw-bold text-dark" htmlFor="chk-nombres-chamilo">
+                          Mostrar Nombres de Empleados
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Botón Exportar PDF */}
+                    {pImprimir && (
+                      <button
+                        type="button"
+                        onClick={handleExportPDF}
+                        className="btn btn-outline-danger rounded-pill px-3.5 py-2 fw-bold d-flex align-items-center gap-2 hover-efecto shadow-xs"
+                        style={{ fontSize: '0.82rem' }}
+                      >
+                        <i className="bi bi-file-earmark-pdf-fill"></i>
+                        <span>Imprimir / Exportar Organigrama</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-                {pImprimir && (
-                  <button 
-                    onClick={handleExportPDF} 
-                    className="btn btn-primary rounded-pill fw-bold hover-efecto"
-                  >
-                    <i className="bi bi-file-earmark-pdf-fill me-2"></i> Exportar Organigrama
-                  </button>
-                )}
+
+                {/* Leyenda Cromática de Niveles Jerárquicos */}
+                <div className="d-flex align-items-center justify-content-center gap-2 p-3 bg-light rounded-4 mb-3 flex-wrap border">
+                  <span className="extra-small fw-bold text-muted text-uppercase me-2"><i className="bi bi-palette me-1"></i>Jerarquías:</span>
+                  <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#faf5ff', color: '#581c87', border: '1.5px solid #7c3aed' }}>
+                    🏢 Biescolar (Líder y Apoyo)
+                  </span>
+                  <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#fff1f2', color: '#9f1239', border: '1.5px solid #e11d48' }}>
+                    👑 Directivo / Rectoral
+                  </span>
+                  <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1.5px solid #2563eb' }}>
+                    ⚡ Coordinación / Supervisorio
+                  </span>
+                  <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#f0fdf4', color: '#14532d', border: '1.5px solid #16a34a' }}>
+                    📚 Docencia / Pedagógico
+                  </span>
+                  <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#fffbeb', color: '#78350f', border: '1.5px solid #d97706' }}>
+                    💼 Administrativo
+                  </span>
+                  <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#f8fafc', color: '#0f172a', border: '1.5px solid #475569' }}>
+                    🛠️ Obrero / Apoyo
+                  </span>
+                </div>
+
+                {/* Lienzo del Organigrama */}
+                <div className="card border-0 shadow-sm rounded-4 bg-white" style={{ overflow: 'auto' }}>
+                  <div className="card-body p-5 text-center" style={{ minHeight: '400px' }}>
+                    {cargosVisiblesMapa.length === 0 ? (
+                      <div className="text-muted py-5">
+                        No hay cargos registrados para esta institución.
+                      </div>
+                    ) : raices.length === 0 ? (
+                      <div className="alert alert-warning border-warning rounded-4 shadow-sm mx-auto p-4" style={{ maxWidth: '600px' }}>
+                        <i className="bi bi-exclamation-triangle-fill fs-3 text-warning d-block mb-2"></i>
+                        <h6 className="fw-bold text-dark">No se detectó un Puesto Raíz (Máxima Autoridad)</h6>
+                        <p className="extra-small text-muted mb-0">
+                          Para que el organigrama pueda ramificarse, el cargo principal de la institución (ej. Director o Gerente) debe tener su supervisor configurado como <strong>"👑 Máxima Autoridad (Puesto Raíz)"</strong> en la pestaña Constructor.
+                        </p>
+                      </div>
+                    ) : (
+                      <div id="chart_div" className="mi-organigrama">
+                        <ul>
+                          {raices.map(raiz => (
+                            <OrganigramaNodo
+                              key={raiz.id_cargo}
+                              cargo={raiz}
+                              cargos={cargosVisiblesMapa}
+                              usuarios={usuariosVisiblesMapa}
+                              mostrarNombres={mostrarNombres}
+                              escuelaContext={filtroEscuelaActiva === 'todas' ? null : filtroEscuelaActiva}
+                            />
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Lienzo del Organigrama */}
-          <div className="col-12">
-            <div className="card border-0 shadow-sm rounded-4" style={{ overflow: 'auto' }}>
-              <div className="card-body p-5 text-center bg-white" style={{ minHeight: '400px' }}>
-                
-                {cargosVisibles.length === 0 ? (
-                  <div className="text-muted fs-5 py-5">
-                    No hay cargos creados en el sistema para esta vista.
-                  </div>
-                ) : raices.length === 0 ? (
-                  <div className="alert alert-warning border-warning shadow-sm mx-auto" style={{ maxWidth: '600px' }}>
-                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                    <strong>Atención:</strong> No se pudo encontrar un Líder o Director Principal. 
-                    Asegúrate de que el cargo más alto de la escuela <strong>NO TENGA</strong> ningún supervisor asignado.
-                  </div>
-                ) : (
-                  <div id="chart_div" className="mi-organigrama">
-                    <ul>
-                      {raices.map(raiz => (
-                        <OrganigramaNodo
-                          key={raiz.id_cargo}
-                          cargo={raiz}
-                          cargos={cargosVisibles}
-                          usuarios={usuariosVisibles}
-                          mostrarNombres={mostrarNombres}
-                          escuelaContext={escuelaFiltroMapa === 'consolidado' ? null : escuelaFiltroMapa}
-                        />
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-              </div>
-            </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
+
     </div>
   );
 };

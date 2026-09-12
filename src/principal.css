@@ -12,7 +12,7 @@
     --color-peligro: #FF3D00;
     --color-alerta: #FFC400;
     
-    --fondo-app: #f4f7fe;
+    --fondo-app: #eaeff5;
     --cristal-bg: rgba(255, 255, 255, 0.7);
     --cristal-borde: rgba(255, 255, 255, 0.5);
     
@@ -23,11 +23,19 @@
     --transicion-fluida: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* SweetAlert2 siempre en capa superior */
+.swal2-container {
+    z-index: 999999 !important;
+}
+
+html, body {
+    overflow-x: clip;
+}
+
 body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     background-color: var(--fondo-app);
     color: #2b3674;
-    overflow-x: hidden;
     margin: 0;
 }
 
@@ -95,15 +103,40 @@ body {
 .btn-moderno:active { transform: translateY(1px) scale(0.98); }
 
 /* --- ESTRUCTURA APP (SIDEBAR & HEADER & FOOTER GLOBAL) --- */
-.glass-sidebar { position: fixed; left: 0; top: 0; width: 280px; height: 100vh; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border-right: 1px solid rgba(255,255,255,0.5); z-index: 1000; transition: var(--transicion-fluida); overflow-y: auto; overflow-x: hidden; }
+.glass-sidebar { 
+    position: fixed; 
+    left: 0; 
+    top: 0; 
+    width: 280px; 
+    height: 100vh; 
+    background: rgba(255, 255, 255, 0.85); 
+    backdrop-filter: blur(20px); 
+    border-right: 1px solid rgba(255,255,255,0.5); 
+    z-index: 1000; 
+    transition: width 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1); 
+    will-change: width, transform;
+    overflow-y: auto; 
+    overflow-x: hidden; 
+}
 .sidebar-header { padding: 25px 20px; display: flex; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }
-.btn-colapsar, .btn-movil { background: transparent; border: none; color: #a0aec0; font-size: 1.5rem; transition: 0.3s; }
+.btn-colapsar, .btn-movil { background: transparent; border: none; color: #a0aec0; font-size: 1.5rem; transition: 0.2s ease; }
 .btn-colapsar:hover, .btn-movil:hover { color: var(--color-primario); transform: scale(1.1); }
 .glass-header { position: sticky; top: 0; left: 0; height: 80px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255,255,255,0.5); z-index: 900; }
 
 /* Configuración Flexbox para el Footer Global */
-#contenido-principal { margin-left: 280px; display: flex; flex-direction: column; min-height: 100vh; transition: var(--transicion-fluida); flex-grow: 1; min-width: 0; }
-#area-dinamica { flex-grow: 1; }
+#contenido-principal { 
+    margin-left: 280px; 
+    display: flex; 
+    flex-direction: column; 
+    min-height: 100vh; 
+    padding-top: 72px;
+    transition: margin-left 0.18s cubic-bezier(0.16, 1, 0.3, 1); 
+    will-change: margin-left;
+    flex-grow: 1; 
+    min-width: 0; 
+    width: auto;
+}
+#area-dinamica { flex-grow: 1; min-width: 0; width: 100%; }
 
 .menu-categoria { width: 100%; background: transparent; border: none; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: #a0aec0; transition: var(--transicion-rapida); }
 .menu-categoria:hover { color: var(--color-primario); background: rgba(0, 102, 255, 0.05); }
@@ -112,25 +145,104 @@ body {
 .menu-item:hover { color: var(--color-primario); background: rgba(0, 102, 255, 0.05); transform: translateX(5px); }
 .menu-item.activo { color: var(--color-primario); background: rgba(0, 102, 255, 0.1); border-left-color: var(--color-primario); box-shadow: var(--sombra-neon); }
 
+/* Reglas estrictas para Móviles, Tablets y Ventanas Reducidas (< 992px) */
 @media (max-width: 992px) {
-    .glass-sidebar { transform: translateX(-100%); }
-    #contenido-principal { margin-left: 0; }
-    body.menu-abierto .glass-sidebar { transform: translateX(0); }
+    .glass-sidebar { 
+        transform: translateX(-100%) !important; 
+        width: 280px !important;
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    #contenido-principal,
+    body.menu-colapsado #contenido-principal { 
+        margin-left: 0 !important; 
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: clip;
+    }
+    body.menu-abierto .glass-sidebar { 
+        transform: translateX(0) !important; 
+    }
 }
 
-.vista-entrar { animation: fadeUpIn 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
-@keyframes fadeUpIn { from { opacity: 0; transform: translateY(30px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.vista-entrar { animation: fadeUpIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+@keyframes fadeUpIn { from { opacity: 0; transform: translateY(15px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-body.menu-colapsado .glass-sidebar { width: 85px; }
-body.menu-colapsado #contenido-principal { margin-left: 85px; }
-body.menu-colapsado .sidebar-texto, body.menu-colapsado .texto-menu-ocultable, body.menu-colapsado .menu-categoria span span, body.menu-colapsado .menu-categoria .bi-chevron-down { display: none !important; }
-body.menu-colapsado .sidebar-header { padding: 20px 0; flex-direction: column; justify-content: center; gap: 15px; }
-body.menu-colapsado .logo-img { margin: 0 !important; }
-body.menu-colapsado .btn-colapsar { margin: 0 !important; }
-body.menu-colapsado .btn-inicio-sidebar { padding: 15px 0 !important; border-radius: 15px; display: flex; justify-content: center; }
-body.menu-colapsado .btn-inicio-sidebar i { margin: 0 !important; font-size: 1.5rem; }
-body.menu-colapsado .menu-categoria { justify-content: center; padding: 15px 0; }
-body.menu-colapsado .menu-categoria i { margin: 0 !important; font-size: 1.5rem !important; }
+/* Reglas exclusivas para Desktop Colapsado (>= 992px) */
+@media (min-width: 992.02px) {
+    body.menu-colapsado .glass-sidebar { width: 85px; }
+    body.menu-colapsado #contenido-principal { margin-left: 85px; }
+    body.menu-colapsado .sidebar-texto, 
+    body.menu-colapsado .texto-menu-ocultable, 
+    body.menu-colapsado .menu-categoria span span, 
+    body.menu-colapsado .menu-categoria .bi-chevron-down { display: none !important; }
+    body.menu-colapsado .sidebar-header { padding: 20px 0; flex-direction: column; justify-content: center; gap: 15px; }
+    body.menu-colapsado .logo-img { margin: 0 !important; }
+    body.menu-colapsado .btn-colapsar { margin: 0 !important; }
+    body.menu-colapsado .btn-inicio-sidebar { padding: 15px 0 !important; border-radius: 15px; display: flex; justify-content: center; }
+    body.menu-colapsado .btn-inicio-sidebar i { margin: 0 !important; font-size: 1.5rem; }
+    body.menu-colapsado .menu-categoria { justify-content: center; padding: 15px 0; }
+    body.menu-colapsado .menu-categoria i { margin: 0 !important; font-size: 1.5rem !important; }
+
+    /* Soporte Chamilo Sidebar Colapsado (Desktop) */
+    body.menu-colapsado .chamilo-sidebar-brand {
+      padding: 12px 6px !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+    }
+    body.menu-colapsado .chamilo-sidebar-brand #btn-logo-nav {
+      justify-content: center !important;
+      margin: 0 auto !important;
+      gap: 0 !important;
+    }
+    body.menu-colapsado .chamilo-sidebar-logo-frame {
+      width: 42px !important;
+      height: 42px !important;
+      margin: 0 auto !important;
+    }
+    body.menu-colapsado #btn-colapsar-menu {
+      display: flex !important;
+      width: 36px !important;
+      height: 36px !important;
+      border-radius: 10px !important;
+      background-color: #f1f5f9 !important;
+      border: 1.5px solid #cbd5e1 !important;
+      color: #0066FF !important;
+      align-items: center !important;
+      justify-content: center !important;
+      margin: 0 auto !important;
+      box-shadow: 0 2px 8px rgba(0, 102, 255, 0.12) !important;
+      cursor: pointer !important;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    body.menu-colapsado #btn-colapsar-menu:hover {
+      background-color: #0066FF !important;
+      color: #ffffff !important;
+      border-color: #0066FF !important;
+      transform: scale(1.08) !important;
+    }
+    body.menu-colapsado .chamilo-menu-link {
+      margin: 4px 8px !important;
+      padding: 10px 0 !important;
+      justify-content: center !important;
+      border-left-width: 0 !important;
+    }
+    body.menu-colapsado .chamilo-menu-icon-box {
+      margin-right: 0 !important;
+      width: 38px !important;
+      height: 38px !important;
+    }
+    body.menu-colapsado .chamilo-nav-section-title {
+      display: none !important;
+    }
+    body.menu-colapsado .chamilo-menu-badge {
+      display: none !important;
+    }
+    body.menu-colapsado .chamilo-sidebar-footer {
+      display: none !important;
+    }
+}
 
 /* ==========================================================
    NUEVO: BANNER AZUL (BURBUJAS 3D Y LOGO ILUMINADO)
@@ -477,7 +589,94 @@ img {
     }
 }
 
+/* --- EFECTOS VISUALES 3D Y ACABADOS PREMIUM SIGAE --- */
+.burbuja-3d {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.15) 30%, rgba(255, 255, 255, 0.03) 70%, transparent 100%);
+    box-shadow: 
+        inset -18px -18px 36px rgba(0, 0, 0, 0.2), 
+        inset 18px 18px 36px rgba(255, 255, 255, 0.45), 
+        0 20px 45px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+    z-index: 0;
+}
 
+.burbuja-1 {
+    width: 320px;
+    height: 320px;
+    top: -100px;
+    right: -40px;
+    animation: flotar-suave 8s infinite ease-in-out;
+}
 
+.burbuja-2 {
+    width: 220px;
+    height: 220px;
+    bottom: -60px;
+    right: 200px;
+    animation: flotar-suave 12s infinite ease-in-out reverse;
+}
 
+.burbuja-3 {
+    width: 160px;
+    height: 160px;
+    top: 30px;
+    left: 10%;
+    animation: flotar-suave 10s infinite ease-in-out 1.5s;
+}
 
+.banner-modulo {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    box-shadow: 0 15px 35px -10px rgba(0, 102, 255, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    transition: all 0.3s ease;
+}
+
+.logo-escuela-banner {
+    max-height: 130px;
+    filter: drop-shadow(0 12px 24px rgba(0,0,0,0.35)) drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.logo-escuela-banner:hover {
+    transform: scale(1.06) rotate(2deg);
+}
+
+.tarjeta-3d {
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+}
+.tarjeta-3d:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px -12px rgba(0, 102, 255, 0.2), 0 10px 20px -6px rgba(0, 195, 255, 0.12);
+    border-color: rgba(0, 102, 255, 0.3);
+}
+
+.badge-3d {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08), inset 0 1px 1px rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.4);
+}
+
+.btn-pill-3d {
+    border-radius: 50px;
+    font-weight: 700;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08), inset 0 1px 1px rgba(255,255,255,0.4);
+}
+.btn-pill-3d:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0, 102, 255, 0.3), inset 0 1px 1px rgba(255,255,255,0.6);
+}
+.btn-pill-3d:active {
+    transform: translateY(1px);
+}

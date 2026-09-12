@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
 import * as XLSX from 'xlsx';
+import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
 
 export type TipoPregunta = 
   | 'opcion_unica' 
@@ -890,55 +891,115 @@ export const ConstructorEncuestas: React.FC = () => {
 
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
-      {/* Banner Principal del Módulo */}
-      <div 
-        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden" 
-        style={{ background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)', borderRadius: '24px' }}
-      >
-        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative z-1">
-          <div>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <span className="badge bg-white text-dark fw-bold px-3 py-1.5 rounded-pill shadow-sm" style={{ fontSize: '0.75rem' }}>
-                <i className="bi bi-palette-fill text-pink me-1"></i> MÓDULO DE DISEÑOS
-              </span>
-              <span className="badge bg-white bg-opacity-25 text-white fw-bold px-3 py-1.5 rounded-pill" style={{ fontSize: '0.75rem' }}>
-                <i className="bi bi-ui-checks-grid me-1"></i> {isSoloRespondiente ? 'CONSULTAS Y ENCUESTAS' : 'CONSTRUCTOR DE ENCUESTAS'}
-              </span>
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Área de Diseños"
+        currentModule="Constructor de Encuestas"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_constructor_encuestas"
+        title="Guía de Consultas, Encuestas y Sondeos Institucionales"
+        content="Diseñe cuestionarios interactivos, recopile opiniones de docentes, estudiantes o representantes, analice gráficos de respuestas y descargue consolidados en Excel."
+        icon="bi-ui-checks-grid"
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO ── */}
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white border-top border-4" style={{ borderColor: '#EC4899' }}>
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Logo de la Escuela */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" style={{ width: '105px', height: '105px' }}>
+                <img 
+                  src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+                  alt="Escudo Institucional" 
+                  className="img-fluid"
+                  style={{ maxHeight: '85px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
+              </div>
             </div>
-            <h1 className="fw-bolder mb-2 display-6 text-white">
-              <i className="bi bi-ui-checks-grid me-3"></i>{isSoloRespondiente ? 'Consultas y Encuestas Institucionales' : 'Constructor de Encuestas'}
-            </h1>
-            <p className="mb-0 text-white-50 fs-6" style={{ maxWidth: '750px' }}>
-              {isSoloRespondiente
-                ? 'Participa en las consultas activas para tu rol. Tu opinión es fundamental para la toma de decisiones y la mejora continua de la institución.'
-                : 'Diseña encuestas dinámicas, define a qué roles de usuarios aplicar cada consulta (Docentes, Representantes, etc.), analiza métricas en tiempo real y exporta resultados.'}
-            </p>
-          </div>
-          <div className="mt-4 mt-md-0 d-flex flex-wrap gap-2">
-            <button 
-              onClick={() => navigate(isSoloRespondiente ? '/' : '/categoria/Diseños')}
-              className="btn btn-light rounded-pill px-4 fw-bold shadow-sm hover-efecto"
-            >
-              <i className="bi bi-arrow-left-short me-1"></i> {isSoloRespondiente ? 'Volver al Inicio' : 'Volver a Diseños'}
-            </button>
-            {vistaActual !== 'listado' && (
-              <button 
-                onClick={() => setVistaActual('listado')}
-                className="btn btn-outline-light rounded-pill px-4 fw-bold shadow-sm hover-efecto"
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small" style={{ backgroundColor: '#EC4899' }}>
+                  <i className="bi bi-ui-checks-grid me-1"></i>{isSoloRespondiente ? 'Consultas y Encuestas' : 'Constructor de Encuestas'}
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-card-checklist text-primary me-1"></i><b>{encuestas.length}</b> Encuestas Creadas
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-check-circle-fill text-success me-1"></i><b>{encuestasFiltradas.length}</b> Disponibles
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-building me-1"></i>Sede: <b>{filtroEscuela === 'sb' ? 'Santa Bárbara' : (filtroEscuela === 'lb' ? 'Libertador Bolívar' : 'Todas las Sedes')}</b>
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                {isSoloRespondiente ? 'Consultas y Encuestas Institucionales' : 'Constructor de Encuestas'}
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                {isSoloRespondiente
+                  ? 'Participa en las consultas activas para tu rol. Tu opinión es fundamental para la toma de decisiones y la mejora continua de la institución.'
+                  : 'Diseña encuestas dinámicas, define a qué roles de usuarios aplicar cada consulta, analiza métricas en tiempo real y exporta resultados.'}
+              </p>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate(isSoloRespondiente ? '/' : '/categoria/Diseños')}
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
               >
-                <i className="bi bi-grid-fill me-1"></i> Ver Todas las Encuestas
+                <i className="bi bi-arrow-left"></i>
+                <span>{isSoloRespondiente ? 'Volver al Inicio' : 'Volver a Diseños'}</span>
               </button>
-            )}
+            </div>
+
+          </div>
+        </div>
+
+        {/* Barra de Herramientas Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
             {vistaActual === 'listado' && !isSoloRespondiente && canCrearEncuestas && (
-              <button 
+              <button
+                type="button"
+                className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                style={{ fontSize: '0.82rem' }}
                 onClick={handleNuevaEncuesta}
-                className="btn btn-white text-dark rounded-pill px-4 fw-bold shadow-lg hover-efecto d-flex align-items-center gap-2"
-                style={{ backgroundColor: '#ffffff' }}
               >
-                <i className="bi bi-plus-circle-fill text-pink fs-5"></i>
+                <i className="bi bi-plus-circle-fill"></i>
                 <span>Crear Nueva Encuesta</span>
               </button>
             )}
+
+            {vistaActual !== 'listado' && (
+              <button
+                type="button"
+                className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                style={{ fontSize: '0.82rem' }}
+                onClick={() => setVistaActual('listado')}
+              >
+                <i className="bi bi-grid-fill text-primary"></i>
+                <span>Ver Todas las Encuestas</span>
+              </button>
+            )}
+          </div>
+
+          <div className="d-flex align-items-center gap-1.5">
+            <span className="text-muted extra-small">
+              <i className="bi bi-shield-check text-success me-1"></i>Módulo de Consultas Activo
+            </span>
           </div>
         </div>
       </div>

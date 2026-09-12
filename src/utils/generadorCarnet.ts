@@ -93,7 +93,7 @@ export const esCarnetActivo = (escCodigo?: string): boolean => {
   }
   const rawGlobal = localStorage.getItem('sigae_carnet_activo');
   if (rawGlobal !== null) return rawGlobal === 'true' || rawGlobal === '1';
-  return true; // Activo por defecto
+  return false; // Bloqueado por defecto
 };
 
 /**

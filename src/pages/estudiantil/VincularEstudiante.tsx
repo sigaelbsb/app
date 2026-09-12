@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -10,6 +10,8 @@ import * as XLSX from 'xlsx';
 import { toTitulo } from '../../lib/formatters';
 import { obtenerDatosDirectorAsync, obtenerFirmaDirectorProtegida, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 import { mostrarModalCarnetEstudiantil } from '../../utils/generadorCarnet';
+import { esDocumentoActivo } from '../../utils/gestorDocumentosActivos';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoVincularEstudiante } from '../../components/chamilo';
 
 const handleTituloChange = (
   e: React.ChangeEvent<HTMLInputElement>,
@@ -122,6 +124,67 @@ export const VincularEstudiante: React.FC = () => {
   const elementosPorPaginaDir = 50;
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
   const [gradosDB, setGradosDB] = useState<string[]>([]);
+  const [usuariosMap, setUsuariosMap] = useState<Map<string, string>>(new Map());
+
+  // Helper para obtener el nombre oficial y verídico del representante desde la tabla de usuarios
+  const getNombreRepresentante = (item: any): string => {
+    if (!item) return 'No Registrado';
+    const rawCed = String(item.cedula_representante || '').trim().toUpperCase();
+    const digits = rawCed.replace(/\D/g, '');
+    const noZeros = digits.replace(/^0+/, '');
+
+    // 1. Prioridad Máxima: Registro oficial en la tabla de Usuarios (donde el usuario tiene su nombre verídico)
+    const fromUser = usuariosMap.get(rawCed) || (digits ? usuariosMap.get(digits) : null) || (noZeros ? usuariosMap.get(noZeros) : null);
+    if (fromUser && fromUser.trim()) {
+      return toTitulo(fromUser);
+    }
+
+    // 2. Si no está en usuarios, verificar en datos_actualizados
+    if (item.datos_actualizados && (item.datos_actualizados.representante_nombres || item.datos_actualizados.representante_apellidos)) {
+      const nom = `${item.datos_actualizados.representante_nombres || ''} ${item.datos_actualizados.representante_apellidos || ''}`.trim();
+      if (nom) return toTitulo(nom);
+    }
+
+    // 3. Fallback: campos de la fila en estudiantes_vinculaciones
+    const fallback = `${item.nombres_representante || ''} ${item.apellidos_representante || ''}`.trim();
+    return fallback ? toTitulo(fallback) : 'No Registrado';
+  };
+
+  // Helper para obtener el nombre real del estudiante, resolviendo si fue duplicado con el representante
+  const getNombreEstudiante = (item: any): string => {
+    if (!item) return 'Sin Nombre';
+    const nomEstRaiz = `${item.nombres_estudiante || ''} ${item.apellidos_estudiante || ''}`.trim();
+    const nomRepRaiz = `${item.nombres_representante || ''} ${item.apellidos_representante || ''}`.trim();
+    const repOficial = getNombreRepresentante(item);
+
+    // Si en datos_actualizados el representante especificó el nombre real del estudiante
+    if (item.datos_actualizados) {
+      const nomAct = `${item.datos_actualizados.estudiante_nombres || ''} ${item.datos_actualizados.estudiante_apellidos || ''}`.trim();
+      if (nomAct && nomAct.length > 2) {
+        // Si el nombre raíz del estudiante era idéntico al representante (error de duplicación), usar el de datos_actualizados
+        if (
+          !nomEstRaiz ||
+          nomEstRaiz.toLowerCase() === nomRepRaiz.toLowerCase() ||
+          nomEstRaiz.toLowerCase() === repOficial.toLowerCase()
+        ) {
+          return toTitulo(nomAct);
+        }
+      }
+    }
+
+    // Si el nombre raíz existe y no está duplicado con el representante
+    if (nomEstRaiz && nomEstRaiz.toLowerCase() !== repOficial.toLowerCase()) {
+      return toTitulo(nomEstRaiz);
+    }
+
+    // Si datos_actualizados tiene algo
+    if (item.datos_actualizados) {
+      const nomAct = `${item.datos_actualizados.estudiante_nombres || ''} ${item.datos_actualizados.estudiante_apellidos || ''}`.trim();
+      if (nomAct) return toTitulo(nomAct);
+    }
+
+    return nomEstRaiz ? toTitulo(nomEstRaiz) : 'Sin Nombre Registrado';
+  };
 
   // Estados para Edición
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -141,7 +204,7 @@ export const VincularEstudiante: React.FC = () => {
   // Estados para Visor / Descarga de Constancia y Resumen
   const [showDocModal, setShowDocModal] = useState<boolean>(false);
   const [estudianteDoc, setEstudianteDoc] = useState<any | null>(null);
-  const [vistaDocEstudiante, setVistaDocEstudiante] = useState<'constancia' | 'resumen'>('constancia');
+  const [vistaDocEstudiante, setVistaDocEstudiante] = useState<'constancia' | 'resumen' | 'estudio'>('constancia');
   const [docDirInfo, setDocDirInfo] = useState<any>(null);
   const [docFirmaBase64, setDocFirmaBase64] = useState<string>('');
   const [generandoDocPdf, setGenerandoDocPdf] = useState<boolean>(false);
@@ -178,10 +241,11 @@ export const VincularEstudiante: React.FC = () => {
 
   useEffect(() => {
     cargarCatalogos();
+    cargarVinculaciones();
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'directorio') {
+    if (activeTab === 'directorio' && vinculaciones.length === 0) {
       cargarVinculaciones();
     }
   }, [activeTab]);
@@ -205,33 +269,42 @@ export const VincularEstudiante: React.FC = () => {
     setLoading(true);
     setSeleccionados([]);
     try {
-      let todosLosDatos: any[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      const selectFields = 'id, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, estado, fecha_ultima_actualizacion, datos_actualizados, created_at';
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('estudiantes_vinculaciones')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+      // Supabase limita a 1000 por query. Hacemos fetch paralelo para obtener el 100% de la matrícula y usuarios oficiales
+      const [chunks, usuariosRes] = await Promise.all([
+        Promise.all([
+          supabase.from('estudiantes_vinculaciones').select(selectFields).order('created_at', { ascending: false }).range(0, 999),
+          supabase.from('estudiantes_vinculaciones').select(selectFields).order('created_at', { ascending: false }).range(1000, 1999),
+          supabase.from('estudiantes_vinculaciones').select(selectFields).order('created_at', { ascending: false }).range(2000, 2999),
+          supabase.from('estudiantes_vinculaciones').select(selectFields).order('created_at', { ascending: false }).range(3000, 3999),
+        ]),
+        supabase.from('usuarios').select('cedula, nombre_completo')
+      ]);
 
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          todosLosDatos = [...todosLosDatos, ...data];
-          if (data.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
-
+      const todosLosDatos = chunks.flatMap(c => c.data || []);
       setVinculaciones(todosLosDatos);
+
+      const uMap = new Map<string, string>();
+      (usuariosRes.data || []).forEach((u: any) => {
+        const raw = String(u.cedula || '').trim();
+        const digits = raw.replace(/\D/g, '');
+        const noZeros = digits.replace(/^0+/, '');
+        if (raw) uMap.set(raw.toUpperCase(), u.nombre_completo);
+        if (digits) {
+          uMap.set(digits, u.nombre_completo);
+          uMap.set(`V-${digits}`, u.nombre_completo);
+          uMap.set(`V${digits}`, u.nombre_completo);
+          uMap.set(`E-${digits}`, u.nombre_completo);
+        }
+        if (noZeros && noZeros !== digits) {
+          uMap.set(noZeros, u.nombre_completo);
+          uMap.set(`V-${noZeros}`, u.nombre_completo);
+          uMap.set(`V${noZeros}`, u.nombre_completo);
+          uMap.set(`E-${noZeros}`, u.nombre_completo);
+        }
+      });
+      setUsuariosMap(uMap);
     } catch (err: any) {
       console.error('Error al cargar vinculaciones:', err);
     } finally {
@@ -316,9 +389,11 @@ export const VincularEstudiante: React.FC = () => {
 
       const cedulaEst = (estudianteDoc.cedula_estudiante || '').replace(/\D/g, '') || '0000';
       const esc = resolverEscuelaEstudiante(estudianteDoc).toUpperCase();
-      const nombreDoc = vistaDocEstudiante === 'constancia'
-        ? `Constancia_Inscripcion_${esc}_${cedulaEst}.pdf`
-        : `Resumen_Ficha_Integral_${esc}_${cedulaEst}.pdf`;
+      const nombreDoc = (vistaDocEstudiante as string) === 'estudio'
+        ? `Constancia_Estudio_${esc}_${cedulaEst}.pdf`
+        : ((vistaDocEstudiante as string) === 'constancia'
+          ? `Constancia_Inscripcion_${esc}_${cedulaEst}.pdf`
+          : `Resumen_Ficha_Integral_${esc}_${cedulaEst}.pdf`);
 
       pdf.save(nombreDoc);
     } catch (err) {
@@ -871,7 +946,25 @@ export const VincularEstudiante: React.FC = () => {
   };
 
   const handleAbrirEdicion = (estudiante: any) => {
-    setEstudianteEditando({ ...estudiante });
+    let nomEst = estudiante.nombres_estudiante || '';
+    let apeEst = estudiante.apellidos_estudiante || '';
+    const repOficial = getNombreRepresentante(estudiante);
+
+    // Si el nombre del estudiante está vacío o duplicado con el nombre del representante, pre-cargar de datos_actualizados
+    if (
+      estudiante.datos_actualizados &&
+      estudiante.datos_actualizados.estudiante_nombres &&
+      (`${nomEst} ${apeEst}`.trim().toLowerCase() === repOficial.toLowerCase() || !nomEst.trim())
+    ) {
+      nomEst = estudiante.datos_actualizados.estudiante_nombres;
+      apeEst = estudiante.datos_actualizados.estudiante_apellidos || apeEst;
+    }
+
+    setEstudianteEditando({
+      ...estudiante,
+      nombres_estudiante: nomEst,
+      apellidos_estudiante: apeEst
+    });
     setShowEditModal(true);
   };
 
@@ -882,7 +975,7 @@ export const VincularEstudiante: React.FC = () => {
 
   const handleResetearActualizacion = async (estudiante: any) => {
     const Swal = (window as any).Swal;
-    const nombre = toTitulo(`${estudiante.nombres_estudiante} ${estudiante.apellidos_estudiante}`);
+    const nombre = getNombreEstudiante(estudiante);
     const cedula = estudiante.cedula_estudiante;
 
     let confirmado = false;
@@ -1001,10 +1094,27 @@ export const VincularEstudiante: React.FC = () => {
         };
       }
 
+      // Obtener el nombre oficial del representante para asegurar integridad en la fila
+      const repOficial = getNombreRepresentante(estudianteEditando);
+      let repNombres = estudianteEditando.nombres_representante;
+      let repApellidos = estudianteEditando.apellidos_representante;
+      if (repOficial && repOficial !== 'No Registrado') {
+        const partesRep = repOficial.split(' ');
+        if (partesRep.length >= 2) {
+          repNombres = partesRep.slice(0, Math.ceil(partesRep.length / 2)).join(' ');
+          repApellidos = partesRep.slice(Math.ceil(partesRep.length / 2)).join(' ');
+        } else {
+          repNombres = repOficial;
+          repApellidos = '';
+        }
+      }
+
       const payload: any = {
         cedula_estudiante: nuevaCedula,
         nombres_estudiante: toTitulo(estudianteEditando.nombres_estudiante.trim()),
         apellidos_estudiante: toTitulo(estudianteEditando.apellidos_estudiante.trim()),
+        nombres_representante: repNombres,
+        apellidos_representante: repApellidos,
         grado_actual: estudianteEditando.grado_actual,
         seccion_actual: estudianteEditando.seccion_actual,
         codigo_escuela: escuelaFinal
@@ -1117,8 +1227,8 @@ export const VincularEstudiante: React.FC = () => {
     }
   };
 
-  const countSB = vinculaciones.filter(v => v.codigo_escuela === 'sb').length;
-  const countLB = vinculaciones.filter(v => v.codigo_escuela === 'lb').length;
+  const countSB = vinculaciones.filter(v => (v.codigo_escuela || '').trim().toLowerCase() === 'sb').length;
+  const countLB = vinculaciones.filter(v => (v.codigo_escuela || '').trim().toLowerCase() === 'lb').length;
   const countAmbas = vinculaciones.length;
 
   // ─── CÁLCULO DE ESTADÍSTICAS Y REPORTES ─────────────────────────────────────────
@@ -1380,134 +1490,132 @@ export const VincularEstudiante: React.FC = () => {
     } catch (e) {}
 
     return `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; background: #ffffff; padding: 22px; width: 800px; box-sizing: border-box;">
-        <!-- ENCABEZADO INSTITUCIONAL CON LOGOS OFICIALES -->
-        <div style="border-bottom: 2.5px solid #1e40af; padding-bottom: 8px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; background: #ffffff; padding: 24px; width: 800px; box-sizing: border-box;">
+        <!-- ENCABEZADO INSTITUCIONAL CHAMILO CON LOGOS OFICIALES -->
+        <div style="border-top: 4px solid #8B5CF6; border-bottom: 1.5px solid #e2e8f0; padding-top: 10px; padding-bottom: 10px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
           <!-- LOGO IZQUIERDA: ESCUELA -->
           <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
             ${escuelaReporte === 'ambas' ? `
-              <img src="/assets/img/logo_sb.png" style="height: 42px; width: auto;" alt="SB" />
-              <img src="/assets/img/logo_lb.png" style="height: 42px; width: auto;" alt="LB" />
-            ` : (escuelaReporte === 'sb' ? `
               <img src="/assets/img/logo_sb.png" style="height: 44px; width: auto;" alt="SB" />
-            ` : `
               <img src="/assets/img/logo_lb.png" style="height: 44px; width: auto;" alt="LB" />
+            ` : (escuelaReporte === 'sb' ? `
+              <img src="/assets/img/logo_sb.png" style="height: 46px; width: auto;" alt="SB" />
+            ` : `
+              <img src="/assets/img/logo_lb.png" style="height: 46px; width: auto;" alt="LB" />
             `)}
           </div>
 
-          <!-- TEXTO CENTRADO INSTITUCIONAL -->
+          <!-- TEXTO CENTRADO INSTITUCIONAL CHAMILO -->
           <div style="text-align: center; flex-grow: 1;">
             <div style="letter-spacing: 0.8px; font-weight: bold; text-transform: uppercase; font-size: 8.5px; color: #64748b;">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
-            <div style="font-weight: 800; text-transform: uppercase; margin: 1px 0; color: #1e293b; font-size: 10.5px;">MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN</div>
-            <div style="font-weight: bold; color: #1e40af; margin: 1px 0; font-size: 9.5px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE • GESTIÓN EDUCATIVA</div>
-            <h3 style="font-weight: 800; color: #1e40af; margin: 2px 0; font-size: 13.5px;">${nombreInstitucion}</h3>
-            <div style="font-weight: bold; font-size: 10px; color: #1e40af; background: #eff6ff; padding: 2px 8px; border-radius: 4px; display: inline-block; border: 1px solid #bfdbfe; margin-top: 1px;">
-              ${tipo === 'dossier' ? 'DOSSIER ESTADÍSTICO INTEGRAL 360°' : `INFORME ESTADÍSTICO: ${tipo.toUpperCase()} (${tituloDesglose.toUpperCase()})`}
+            <div style="font-weight: 800; text-transform: uppercase; margin: 1px 0; color: #0f172a; font-size: 10.5px;">MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN</div>
+            <div style="font-weight: bold; color: #7C3AED; margin: 1px 0; font-size: 9.5px;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE • GESTIÓN EDUCATIVA</div>
+            <h3 style="font-weight: 800; color: #0f172a; margin: 2px 0; font-size: 14px;">${nombreInstitucion}</h3>
+            <div style="font-weight: bold; font-size: 9.5px; color: #ffffff; background: #8B5CF6; padding: 3px 12px; border-radius: 9999px; display: inline-block; margin-top: 2px;">
+              ${tipo === 'dossier' ? 'DOSSIER ESTADÍSTICO INTEGRAL 360°' : `INFORME ESTADÍSTICO CHAMILO: ${tipo.toUpperCase()} (${tituloDesglose.toUpperCase()})`}
             </div>
           </div>
 
           <!-- LOGO DERECHA: SIGAE -->
           <div style="display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0;">
-            <img src="/assets/img/sigae.png" style="height: 45px; width: auto;" alt="SIGAE" />
+            <img src="/assets/img/sigae.png" style="height: 46px; width: auto;" alt="SIGAE" />
           </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; color: #64748b; font-size: 9px; margin-top: -4px; margin-bottom: 10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px;">
+        <div style="display: flex; justify-content: space-between; color: #475569; font-size: 9px; margin-top: -4px; margin-bottom: 12px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px;">
           <span><strong>Fecha y Hora de Emisión:</strong> ${stats.fechaHoraReporte}</span>
           <span><strong>Emitido por:</strong> ${nombreEmisor}</span>
         </div>
 
         ${tipo !== 'resumen_niveles' ? `
-        <!-- TARJETAS KPIS SUPERIORES -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px;">
-          <div style="border: 1px solid #bfdbfe; border-radius: 8px; padding: 6px 8px; background: #eff6ff; text-align: center;">
-            <div style="color: #1e40af; font-size: 8px; font-weight: bold;">MATRÍCULA TOTAL</div>
-            <div style="font-size: 15px; font-weight: bold; color: #1e40af;">${stats.totalGeneral}</div>
-            <div style="font-size: 7.5px; color: #3b82f6;">100% de estudiantes</div>
+        <!-- TARJETAS KPIS SUPERIORES ESTILO CHAMILO -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px;">
+          <div style="border: 1px solid #DDD6FE; border-left: 4px solid #8B5CF6; border-radius: 10px; padding: 8px 10px; background: #F5F3FF; text-align: center;">
+            <div style="color: #6D28D9; font-size: 8.5px; font-weight: bold;">MATRÍCULA TOTAL</div>
+            <div style="font-size: 18px; font-weight: 900; color: #4C1D95;">${stats.totalGeneral}</div>
+            <div style="font-size: 8px; color: #7C3AED; font-weight: 600;">100% de estudiantes</div>
           </div>
-          <div style="border: 1px solid #bbf7d0; border-radius: 8px; padding: 6px 8px; background: #f0fdf4; text-align: center;">
-            <div style="color: #166534; font-size: 8px; font-weight: bold;">ACTUALIZADOS (100%)</div>
-            <div style="font-size: 15px; font-weight: bold; color: #16a34a;">${stats.completadosGeneral}</div>
-            <div style="font-size: 7.5px; font-weight: bold; color: #166534;">${stats.pctGeneral}% completado</div>
+          <div style="border: 1px solid #BBF7D0; border-left: 4px solid #10B981; border-radius: 10px; padding: 8px 10px; background: #F0FDF4; text-align: center;">
+            <div style="color: #166534; font-size: 8.5px; font-weight: bold;">ACTUALIZADOS (100%)</div>
+            <div style="font-size: 18px; font-weight: 900; color: #15803D;">${stats.completadosGeneral}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #166534;">${stats.pctGeneral}% completado</div>
           </div>
-          <div style="border: 1px solid #fde68a; border-radius: 8px; padding: 6px 8px; background: #fefce8; text-align: center;">
-            <div style="color: #854d0e; font-size: 8px; font-weight: bold;">EN PROCESO</div>
-            <div style="font-size: 15px; font-weight: bold; color: #d97706;">${stats.enProcesoGeneral}</div>
-            <div style="font-size: 7.5px; font-weight: bold; color: #854d0e;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en llenado</div>
+          <div style="border: 1px solid #FDE68A; border-left: 4px solid #F59E0B; border-radius: 10px; padding: 8px 10px; background: #FEFCE8; text-align: center;">
+            <div style="color: #854D0E; font-size: 8.5px; font-weight: bold;">EN PROCESO</div>
+            <div style="font-size: 18px; font-weight: 900; color: #B45309;">${stats.enProcesoGeneral}</div>
+            <div style="font-size: 8px; font-weight: bold; color: #92400E;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}% en progreso</div>
           </div>
-          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; background: #f8fafc; text-align: center;">
-            <div style="color: #64748b; font-size: 8px; font-weight: bold;">SIN INICIAR (0%)</div>
-            <div style="font-size: 15px; font-weight: bold; color: #64748b;">${stats.sinIniciarGeneral}</div>
-            <div style="font-size: 7.5px; color: #64748b;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
+          <div style="border: 1px solid #E2E8F0; border-left: 4px solid #64748B; border-radius: 10px; padding: 8px 10px; background: #F8FAFC; text-align: center;">
+            <div style="color: #334155; font-size: 8.5px; font-weight: bold;">SIN INICIAR (0%)</div>
+            <div style="font-size: 18px; font-weight: 900; color: #475569;">${stats.sinIniciarGeneral}</div>
+            <div style="font-size: 8px; color: #475569; font-weight: 600;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}% pendientes</div>
           </div>
         </div>
         ` : ''}
 
         ${tipo === 'resumen_niveles' ? `
-          <!-- REPORTE SINTÉTICO EJECUTIVO POR NIVELES -->
-          <div style="background: #ffffff; border-radius: 12px; padding: 16px 20px; border: 1.5px solid #cbd5e1; margin-bottom: 12px;">
+          <!-- REPORTE SINTÉTICO EJECUTIVO CHAMILO POR NIVELES -->
+          <div style="background: #ffffff; border-radius: 14px; padding: 18px 20px; border: 1.5px solid #e2e8f0; margin-bottom: 14px;">
             <!-- CABECERA TOTAL DE LA INSTITUCIÓN / AMBAS ESCUELAS -->
-            <div style="background: linear-gradient(135deg, ${escuelaReporte === 'ambas' ? '#0f172a 0%, #1e3a8a 100%' : '#1e40af 0%, #3b82f6 100%'}); color: #ffffff; padding: 16px 20px; border-radius: 10px; margin-bottom: 16px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.25); padding-bottom: 10px; margin-bottom: 12px;">
+            <div style="background: linear-gradient(135deg, #1E1B4B 0%, #4C1D95 50%, #7C3AED 100%); color: #ffffff; padding: 18px 22px; border-radius: 12px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.25); padding-bottom: 12px; margin-bottom: 14px;">
                 <div>
-                  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.85; font-weight: bold;">
+                  <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #EDE9FE; font-weight: bold;">
                     ${escuelaReporte === 'ambas' ? 'COMPLEJO EDUCATIVO ORIENTE • SUMATORIA CONSOLIDADA (SB + LB)' : 'AVANCE GENERAL DE LA INSTITUCIÓN'}
                   </div>
-                  <div style="font-size: 20px; font-weight: 900; margin-top: 2px;">${nombreInstitucion}</div>
+                  <div style="font-size: 20px; font-weight: 900; margin-top: 2px; color: #ffffff;">${nombreInstitucion}</div>
                 </div>
-                <div style="text-align: right; background: rgba(255,255,255,0.2); padding: 8px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3);">
-                  <div style="font-size: 32px; font-weight: 900; line-height: 1;">${stats.pctGeneral}%</div>
-                  <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; margin-top: 2px;">
+                <div style="text-align: right; background: rgba(255,255,255,0.22); padding: 8px 18px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.4);">
+                  <div style="font-size: 32px; font-weight: 900; line-height: 1; color: #ffffff;">${stats.pctGeneral}%</div>
+                  <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; margin-top: 2px; color: #EDE9FE;">
                     ${escuelaReporte === 'ambas' ? 'Avance Global' : 'Total Escuela'}
                   </div>
                 </div>
               </div>
 
               <!-- DESGLOSE TOTAL ESCUELA: MATRICULA, COMPLETADOS, EN PROCESO, SIN INICIAR -->
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center;">
-                <div style="background: rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 8px;">
-                  <div style="font-size: 8px; text-transform: uppercase; opacity: 0.85;">Matrícula Total</div>
-                  <div style="font-size: 16px; font-weight: 900;">${stats.totalGeneral}</div>
-                  <div style="font-size: 7.5px; opacity: 0.8;">100% estudiantes</div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                <div style="background: rgba(255,255,255,0.18); border-radius: 8px; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.3);">
+                  <div style="font-size: 8.5px; text-transform: uppercase; color: #EDE9FE; font-weight: bold;">Matrícula Total</div>
+                  <div style="font-size: 18px; font-weight: 900; color: #ffffff;">${stats.totalGeneral}</div>
+                  <div style="font-size: 8px; color: #EDE9FE;">100% estudiantes</div>
                 </div>
-                <div style="background: rgba(16,185,129,0.25); border-radius: 6px; padding: 6px 8px; border: 1px solid rgba(16,185,129,0.4);">
-                  <div style="font-size: 8px; text-transform: uppercase; color: #a7f3d0; font-weight: bold;">🟢 Actualizados (100%)</div>
-                  <div style="font-size: 16px; font-weight: 900; color: #ffffff;">${stats.completadosGeneral}</div>
-                  <div style="font-size: 7.5px; color: #a7f3d0; font-weight: bold;">${stats.pctGeneral}%</div>
+                <div style="background: rgba(16,185,129,0.35); border-radius: 8px; padding: 8px 10px; border: 1.5px solid #10B981;">
+                  <div style="font-size: 8.5px; text-transform: uppercase; color: #A7F3D0; font-weight: 900;">🟢 Actualizados (100%)</div>
+                  <div style="font-size: 18px; font-weight: 900; color: #ffffff;">${stats.completadosGeneral}</div>
+                  <div style="font-size: 8px; color: #A7F3D0; font-weight: bold;">${stats.pctGeneral}%</div>
                 </div>
-                <div style="background: rgba(245,158,11,0.25); border-radius: 6px; padding: 6px 8px; border: 1px solid rgba(245,158,11,0.4);">
-                  <div style="font-size: 8px; text-transform: uppercase; color: #fde68a; font-weight: bold;">🟡 En Proceso</div>
-                  <div style="font-size: 16px; font-weight: 900; color: #ffffff;">${stats.enProcesoGeneral}</div>
-                  <div style="font-size: 7.5px; color: #fde68a; font-weight: bold;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%</div>
+                <div style="background: rgba(245,158,11,0.35); border-radius: 8px; padding: 8px 10px; border: 1.5px solid #F59E0B;">
+                  <div style="font-size: 8.5px; text-transform: uppercase; color: #FDE68A; font-weight: 900;">🟡 En Proceso</div>
+                  <div style="font-size: 18px; font-weight: 900; color: #ffffff;">${stats.enProcesoGeneral}</div>
+                  <div style="font-size: 8px; color: #FDE68A; font-weight: bold;">${stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%</div>
                 </div>
-                <div style="background: rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 8px; border: 1px solid rgba(255,255,255,0.25);">
-                  <div style="font-size: 8px; text-transform: uppercase; opacity: 0.85;">⚪ Sin Iniciar</div>
-                  <div style="font-size: 16px; font-weight: 900; color: #ffffff;">${stats.sinIniciarGeneral}</div>
-                  <div style="font-size: 7.5px; opacity: 0.8;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%</div>
+                <div style="background: rgba(255,255,255,0.18); border-radius: 8px; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.3);">
+                  <div style="font-size: 8.5px; text-transform: uppercase; color: #EDE9FE; font-weight: bold;">⚪ Sin Iniciar</div>
+                  <div style="font-size: 18px; font-weight: 900; color: #ffffff;">${stats.sinIniciarGeneral}</div>
+                  <div style="font-size: 8px; color: #EDE9FE;">${stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%</div>
                 </div>
               </div>
             </div>
 
             <!-- TARJETAS DE NIVELES EDUCATIVOS CON COMPLETADOS, EN PROCESO, SIN INICIAR Y % -->
-            <div style="font-size: 11px; font-weight: 800; color: #1e293b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <div style="font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
               📊 Avance por Niveles Educativos ${escuelaReporte === 'ambas' ? '(Sumatoria Ambas Escuelas)' : ''}:
             </div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
               ${(stats.desgloseEtapas || []).map((et: any) => {
-                const c = et.pct >= 75 ? '#10b981' : (et.pct >= 40 ? '#f59e0b' : '#ef4444');
-                const bg = et.pct >= 75 ? '#f0fdf4' : (et.pct >= 40 ? '#fefce8' : '#fef2f2');
-                const border = et.pct >= 75 ? '#bbf7d0' : (et.pct >= 40 ? '#fde68a' : '#fecaca');
+                const c = et.pct >= 75 ? '#10B981' : (et.pct >= 40 ? '#F59E0B' : '#EF4444');
                 const icono = et.etapa.includes('Inicial') ? '🧸' : (et.etapa.includes('Primaria') ? '🎒' : '🎓');
                 const pComp = et.pct;
                 const pProc = et.total > 0 ? Math.round((et.enProceso / et.total) * 100) : 0;
                 const pSin = et.total > 0 ? Math.round((et.sinIniciar / et.total) * 100) : 0;
                 return `
-                  <div style="background: ${bg}; border: 1.5px solid ${border}; border-radius: 10px; padding: 14px 12px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid ${border}; padding-bottom: 8px; margin-bottom: 10px;">
+                  <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-top: 4px solid ${c}; border-radius: 12px; padding: 14px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 10px;">
                       <div style="display: flex; align-items: center; gap: 6px;">
                         <span style="font-size: 20px;">${icono}</span>
                         <div>
-                          <div style="font-size: 12.5px; font-weight: 800; color: #1e293b;">${et.etapa}</div>
+                          <div style="font-size: 13px; font-weight: 800; color: #0f172a;">${et.etapa}</div>
                           <div style="font-size: 8px; color: #64748b;">Matrícula: <strong>${et.total}</strong> estudiantes</div>
                         </div>
                       </div>
@@ -1516,27 +1624,27 @@ export const VincularEstudiante: React.FC = () => {
                       </div>
                     </div>
 
-                    <!-- DESGLOSE ESTADOS DEL NIVEL -->
+                    <!-- DESGLOSE ESTADOS DEL NIVEL EN ALTO CONTRASTE -->
                     <div style="display: flex; flex-direction: column; gap: 5px; font-size: 9px; margin-bottom: 10px;">
-                      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 5px; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center;">
+                      <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 6px; padding: 5px 8px; display: flex; justify-content: space-between; align-items: center;">
                         <span style="color: #166534; font-weight: bold;">🟢 Actualizados (100%):</span>
-                        <span><strong>${et.completados}</strong> <span style="color: #166534; font-weight: bold;">(${pComp}%)</span></span>
+                        <span style="color: #0f172a;"><strong>${et.completados}</strong> <span style="color: #166534; font-weight: bold;">(${pComp}%)</span></span>
                       </div>
-                      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 5px; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #854d0e; font-weight: bold;">🟡 En Proceso:</span>
-                        <span><strong>${et.enProceso}</strong> <span style="color: #854d0e; font-weight: bold;">(${pProc}%)</span></span>
+                      <div style="background: #FEFCE8; border: 1px solid #FDE68A; border-radius: 6px; padding: 5px 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #854D0E; font-weight: bold;">🟡 En Proceso:</span>
+                        <span style="color: #0f172a;"><strong>${et.enProceso}</strong> <span style="color: #92400E; font-weight: bold;">(${pProc}%)</span></span>
                       </div>
-                      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 5px; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #64748b; font-weight: bold;">⚪ Sin Iniciar:</span>
-                        <span><strong>${et.sinIniciar}</strong> <span style="color: #64748b; font-weight: bold;">(${pSin}%)</span></span>
+                      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 5px 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #334155; font-weight: bold;">⚪ Sin Iniciar:</span>
+                        <span style="color: #0f172a;"><strong>${et.sinIniciar}</strong> <span style="color: #475569; font-weight: bold;">(${pSin}%)</span></span>
                       </div>
                     </div>
 
                     <!-- BARRA DE AVANCE MULTICOLOR -->
-                    <div style="background-color: #e2e8f0; border-radius: 4px; height: 8px; overflow: hidden; display: flex; width: 100%;">
-                      <div style="background-color: #10b981; height: 100%; width: ${pComp}%;"></div>
-                      <div style="background-color: #f59e0b; height: 100%; width: ${pProc}%;"></div>
-                      <div style="background-color: #cbd5e1; height: 100%; width: ${pSin}%;"></div>
+                    <div style="background-color: #E2E8F0; border-radius: 9999px; height: 8px; overflow: hidden; display: flex; width: 100%;">
+                      <div style="background-color: #10B981; height: 100%; width: ${pComp}%;"></div>
+                      <div style="background-color: #F59E0B; height: 100%; width: ${pProc}%;"></div>
+                      <div style="background-color: #94A3B8; height: 100%; width: ${pSin}%;"></div>
                     </div>
                   </div>
                 `;
@@ -1545,51 +1653,51 @@ export const VincularEstudiante: React.FC = () => {
           </div>
         ` : (tipo === 'dossier' ? `
           <!-- VISTA DOSSIER 360° COMBINADO -->
-          <div style="display: flex; align-items: stretch; gap: 10px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: stretch; gap: 10px; margin-bottom: 14px;">
             <!-- ANILLO CONCÉNTRICO -->
-            <div style="width: 165px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #f8fafc; flex-shrink: 0;">
-              <div style="font-size: 9.5px; font-weight: bold; color: #475569; margin-bottom: 2px;">DISTRIBUCIÓN EN ANILLO</div>
+            <div style="width: 170px; text-align: center; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
+              <div style="font-size: 9.5px; font-weight: bold; color: #475569; margin-bottom: 4px;">DISTRIBUCIÓN EN ANILLO</div>
               <div style="position: relative; width: 95px; height: 95px; margin: 0 auto;">
                 <svg width="95" height="95" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
-                  <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="18" />
+                  <circle cx="70" cy="70" r="${R}" fill="none" stroke="#e2e8f0" stroke-width="18" />
                   ${lenComp > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#10b981" stroke-width="18" stroke-dasharray="${lenComp} ${C - lenComp}" stroke-dashoffset="${offComp}" />` : ''}
                   ${lenProc > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#f59e0b" stroke-width="18" stroke-dasharray="${lenProc} ${C - lenProc}" stroke-dashoffset="${offProc}" />` : ''}
                   ${lenSin > 0 ? `<circle cx="70" cy="70" r="${R}" fill="none" stroke="#94a3b8" stroke-width="18" stroke-dasharray="${lenSin} ${C - lenSin}" stroke-dashoffset="${offSin}" />` : ''}
                 </svg>
                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                  <div style="font-size: 13px; font-weight: 900; color: #0f172a;">${stats.totalGeneral}</div>
+                  <div style="font-size: 14px; font-weight: 900; color: #0f172a;">${stats.totalGeneral}</div>
                   <div style="font-size: 7px; font-weight: bold; color: #64748b;">ESTUDIANTES</div>
                 </div>
               </div>
-              <div style="font-size: 9px; font-weight: bold; color: #166534; margin-top: 2px;">🟢 ${stats.pctGeneral}% al día</div>
+              <div style="font-size: 9.5px; font-weight: bold; color: #166534; margin-top: 4px;">🟢 ${stats.pctGeneral}% al día</div>
             </div>
 
             <!-- TACÓMETRO DE META -->
-            <div style="width: 175px; text-align: center; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #f8fafc; flex-shrink: 0;">
-              <div style="font-size: 9.5px; font-weight: bold; color: #475569; margin-bottom: 2px;">TACÓMETRO DE META (180°)</div>
+            <div style="width: 180px; text-align: center; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; background: #f8fafc; flex-shrink: 0;">
+              <div style="font-size: 9.5px; font-weight: bold; color: #475569; margin-bottom: 4px;">TACÓMETRO DE META</div>
               <div style="position: relative; width: 135px; height: 75px; margin: 0 auto; overflow: hidden;">
                 <svg width="135" height="135" viewBox="0 0 140 140">
                   <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
                   <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="${gaugeColor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="172.78" stroke-dashoffset="${172.78 * (1 - pct / 100)}" />
                   <g transform="translate(70, 80) rotate(${needleAngle})">
-                    <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" stroke-width="3" stroke-linecap="round" />
+                    <line x1="0" y1="0" x2="0" y2="-45" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round" />
                     <circle cx="0" cy="0" r="5" fill="#0f172a" />
                   </g>
                 </svg>
               </div>
-              <div style="font-size: 16px; font-weight: 900; color: ${gaugeColor}; margin-top: -4px;">${stats.pctGeneral}%</div>
-              <div style="font-size: 8.5px; font-weight: bold; color: #64748b;">${pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}</div>
+              <div style="font-size: 18px; font-weight: 900; color: ${gaugeColor}; margin-top: -4px;">${stats.pctGeneral}%</div>
+              <div style="font-size: 8.5px; font-weight: bold; color: #475569;">${pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}</div>
             </div>
 
             <!-- COMPARATIVA ETAPAS -->
-            <div style="flex-grow: 1; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #ffffff;">
-              <div style="font-size: 10px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">
+            <div style="flex-grow: 1; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; background: #ffffff;">
+              <div style="font-size: 10.5px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">
                 📊 Avance por Etapa Educativa
               </div>
               ${stats.desgloseEtapas?.map((et: any) => `
-                <div style="margin-bottom: 5px;">
+                <div style="margin-bottom: 6px;">
                   <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 2px;">
-                    <span style="font-weight: bold; color: #1e293b;">${et.etapa}</span>
+                    <span style="font-weight: bold; color: #0f172a;">${et.etapa}</span>
                     <span style="color: #166534; font-weight: bold;">${et.completados}/${et.total} (${et.pct}%)</span>
                   </div>
                   <div style="background-color: #f1f5f9; border-radius: 4px; height: 7px; overflow: hidden; display: flex;">
@@ -1603,9 +1711,9 @@ export const VincularEstudiante: React.FC = () => {
           </div>
 
           <!-- FILA DE PICOS DE RENDIMIENTO POR GRADO -->
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px; background: #ffffff; margin-bottom: 12px;">
-            <div style="font-size: 10px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">
-              ⛰️ Picos de Avance y Cumplimiento por Grado / Año Escolar
+          <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; background: #ffffff; margin-bottom: 14px;">
+            <div style="font-size: 10.5px; font-weight: bold; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">
+              ⛰️ Picos de Avance por Grado / Año Escolar
             </div>
             <div style="height: 85px; display: flex; align-items: flex-end; gap: 4px; padding: 0 4px; border-bottom: 1px solid #cbd5e1;">
               ${stats.desglosePorGrado.slice(0, 15).map((g: any) => {
@@ -1613,9 +1721,9 @@ export const VincularEstudiante: React.FC = () => {
                 const barColor = g.pctCompletado >= 75 ? '#10b981' : (g.pctCompletado >= 40 ? '#f59e0b' : '#ef4444');
                 return `
                   <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
-                    <span style="font-size: 7px; font-weight: bold; color: ${barColor}; margin-bottom: 1px;">${g.pctCompletado}%</span>
-                    <div style="width: 100%; max-width: 16px; background: ${barColor}; height: ${heightPct}%; border-radius: 3px 3px 0 0;"></div>
-                    <span style="font-size: 6.5px; color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32px;">${g.grado.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}</span>
+                    <span style="font-size: 7.5px; font-weight: bold; color: ${barColor}; margin-bottom: 1px;">${g.pctCompletado}%</span>
+                    <div style="width: 100%; max-width: 18px; background: ${barColor}; height: ${heightPct}%; border-radius: 3px 3px 0 0;"></div>
+                    <span style="font-size: 7px; color: #0f172a; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34px;">${g.grado.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}</span>
                   </div>
                 `;
               }).join('')}
@@ -1623,10 +1731,10 @@ export const VincularEstudiante: React.FC = () => {
           </div>
         ` : `
           <!-- VISTA PERSONALIZADA DE GRÁFICO SELECCIONADO -->
-          <div style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; background: #f8fafc; margin-bottom: 12px;">
-            <div style="font-size: 11px; font-weight: bold; color: #0f172a; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; display: flex; justify-content: space-between;">
+          <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #f8fafc; margin-bottom: 14px;">
+            <div style="font-size: 11.5px; font-weight: bold; color: #0f172a; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; display: flex; justify-content: space-between;">
               <span>📊 Gráfica Seleccionada: ${tipo.toUpperCase()} (${tituloDesglose})</span>
-              <span style="color: #1e40af;">Total: ${stats.totalGeneral} Estudiantes</span>
+              <span style="color: #7C3AED; font-weight: bold;">Total: ${stats.totalGeneral} Estudiantes</span>
             </div>
 
             ${tipo === 'picos' ? `
@@ -1637,9 +1745,9 @@ export const VincularEstudiante: React.FC = () => {
                   const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
                   return `
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
-                      <span style="font-size: 7.5px; font-weight: bold; color: ${itemColor}; margin-bottom: 1px;">${itemPct}%</span>
+                      <span style="font-size: 8px; font-weight: bold; color: ${itemColor}; margin-bottom: 1px;">${itemPct}%</span>
                       <div style="width: 100%; max-width: 22px; background: ${itemColor}; height: ${Math.max(itemPct, 8)}%; border-radius: 4px 4px 0 0;"></div>
-                      <span style="font-size: 7px; color: #475569; margin-top: 2px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40px;">${label.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}</span>
+                      <span style="font-size: 7.5px; color: #0f172a; font-weight: 600; margin-top: 2px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42px;">${label.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}</span>
                     </div>
                   `;
                 }).join('')}
@@ -1656,18 +1764,18 @@ export const VincularEstudiante: React.FC = () => {
                   const itComp = it.completados || 0;
                   const itemLen = itTot > 0 ? (itComp / itTot) * C : 0;
                   return `
-                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; background: #ffffff;">
-                      <div style="font-size: 8px; font-weight: bold; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</div>
-                      <div style="position: relative; width: 65px; height: 65px; margin: 4px auto;">
-                        <svg width="65" height="65" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
+                    <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; background: #ffffff;">
+                      <div style="font-size: 8.5px; font-weight: bold; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</div>
+                      <div style="position: relative; width: 70px; height: 70px; margin: 4px auto;">
+                        <svg width="70" height="70" viewBox="0 0 140 140" style="transform: rotate(-90deg);">
                           <circle cx="70" cy="70" r="${R}" fill="none" stroke="#f1f5f9" stroke-width="20" />
                           <circle cx="70" cy="70" r="${R}" fill="none" stroke="${itemColor}" stroke-width="20" stroke-dasharray="${itemLen} ${C - itemLen}" stroke-dashoffset="0" />
                         </svg>
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: 900; color: ${itemColor};">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px; font-weight: 900; color: ${itemColor};">
                           ${itemPct}%
                         </div>
                       </div>
-                      <div style="font-size: 7.5px; color: #64748b;">${itComp}/${itTot} listos</div>
+                      <div style="font-size: 8px; color: #475569; font-weight: 600;">${itComp}/${itTot} listos</div>
                     </div>
                   `;
                 }).join('')}
@@ -1675,8 +1783,8 @@ export const VincularEstudiante: React.FC = () => {
             ` : ''}
 
             ${tipo === 'torta' ? (() => {
-              const pal = ['#00C3FF', '#8B5CF6', '#00E676', '#FF8D00', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#06B6D4', '#6366F1', '#14B8A6', '#84CC16'];
-              const darkPal = ['#0095C2', '#6D28D9', '#00B359', '#CC7000', '#BE185D', '#1D4ED8', '#059669', '#D97706', '#0891B2', '#4338CA', '#0D9488', '#65A30D'];
+              const pal = ['#8B5CF6', '#10B981', '#F59E0B', '#06B6D4', '#EC4899', '#3B82F6', '#84CC16', '#6366F1', '#F97316', '#14B8A6'];
+              const darkPal = ['#6D28D9', '#059669', '#D97706', '#0891B2', '#BE185D', '#1D4ED8', '#65A30D', '#4338CA', '#EA580C', '#0D9488'];
               const tVal = itemsDesglose.reduce((acc: number, it: any) => acc + (it.completados || it.total || it.pct || 1), 0);
               let curAngle = -Math.PI / 2;
               const cx3 = 140;
@@ -1704,7 +1812,7 @@ export const VincularEstudiante: React.FC = () => {
               });
 
               return `
-                <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
                   <div style="flex-shrink: 0; width: 290px; text-align: center;">
                     <svg width="280" height="170" viewBox="0 0 280 170">
                       <ellipse cx="${cx3}" cy="${cy3 + d3 + 6}" rx="${rx3 + 3}" ry="${ry3 + 2}" fill="#cbd5e1" opacity="0.6" />
@@ -1727,21 +1835,21 @@ export const VincularEstudiante: React.FC = () => {
                           return `
                             <g>
                               <rect x="${tagX - 15}" y="${tagY - 8}" width="30" height="16" rx="8" fill="#ffffff" stroke="${s.col}" stroke-width="1.5" />
-                              <text x="${tagX}" y="${tagY + 3.5}" text-anchor="middle" fill="#0f172a" font-size="8" font-weight="bold">${s.pctDisp}%</text>
+                              <text x="${tagX}" y="${tagY + 3.5}" text-anchor="middle" fill="#0f172a" font-size="8.5" font-weight="900">${s.pctDisp}%</text>
                             </g>
                           `;
                         }).join('')}
                       </g>
                     </svg>
                   </div>
-                  <div style="flex-grow: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                  <div style="flex-grow: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
                     ${sls.map((s: any) => `
                       <div style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; background: #ffffff; display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 4px; overflow: hidden;">
                           <div style="width: 8px; height: 8px; border-radius: 50%; background: ${s.col}; flex-shrink: 0;"></div>
-                          <span style="font-size: 7.5px; font-weight: bold; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">${s.lab}</span>
+                          <span style="font-size: 8px; font-weight: bold; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">${s.lab}</span>
                         </div>
-                        <span style="font-size: 8px; font-weight: bold; color: ${s.col};">${s.pctDisp}%</span>
+                        <span style="font-size: 8.5px; font-weight: 900; color: ${s.col};">${s.pctDisp}%</span>
                       </div>
                     `).join('')}
                   </div>
@@ -1750,7 +1858,7 @@ export const VincularEstudiante: React.FC = () => {
             })() : ''}
 
             ${tipo === 'barras' ? `
-              <div style="display: flex; flex-direction: column; gap: 5px;">
+              <div style="display: flex; flex-direction: column; gap: 6px;">
                 ${itemsDesglose.map((it: any) => {
                   const label = it.grado || it.etapa || it.nombre || '';
                   const itemPct = it.pctCompletado ?? it.pct ?? 0;
@@ -1759,11 +1867,11 @@ export const VincularEstudiante: React.FC = () => {
                   const itComp = it.completados || 0;
                   return `
                     <div>
-                      <div style="display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 1px;">
-                        <span style="font-weight: bold; color: #1e293b;">${label}</span>
+                      <div style="display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 2px;">
+                        <span style="font-weight: bold; color: #0f172a;">${label}</span>
                         <span style="color: ${itemColor}; font-weight: bold;">${itComp}/${itTot} (${itemPct}%)</span>
                       </div>
-                      <div style="background-color: #f1f5f9; border-radius: 4px; height: 7px; overflow: hidden; display: flex;">
+                      <div style="background-color: #e2e8f0; border-radius: 9999px; height: 7px; overflow: hidden; display: flex;">
                         <div style="background-color: ${itemColor}; height: 100%; width: ${itemPct}%;"></div>
                       </div>
                     </div>
@@ -1780,8 +1888,8 @@ export const VincularEstudiante: React.FC = () => {
                   const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
                   const itAngle = -90 + (itemPct / 100) * 180;
                   return `
-                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; background: #ffffff;">
-                      <div style="font-size: 8px; font-weight: bold; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</div>
+                    <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; background: #ffffff;">
+                      <div style="font-size: 8.5px; font-weight: bold; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</div>
                       <div style="position: relative; width: 100px; height: 55px; margin: 2px auto; overflow: hidden;">
                         <svg width="100" height="100" viewBox="0 0 140 140">
                           <path d="M 15 80 A 55 55 0 0 1 125 80" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
@@ -1792,7 +1900,7 @@ export const VincularEstudiante: React.FC = () => {
                           </g>
                         </svg>
                       </div>
-                      <div style="font-size: 11px; font-weight: 900; color: ${itemColor};">${itemPct}%</div>
+                      <div style="font-size: 13px; font-weight: 900; color: ${itemColor};">${itemPct}%</div>
                     </div>
                   `;
                 }).join('')}
@@ -1802,14 +1910,14 @@ export const VincularEstudiante: React.FC = () => {
             ${tipo === 'radar' ? `
               <div style="text-align: center; padding: 6px;">
                 <div style="font-size: 9px; color: #64748b; margin-bottom: 6px;">Polígono de Cobertura y Cumplimiento</div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; text-align: left;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; text-align: left;">
                   ${itemsDesglose.map((it: any) => {
                     const label = it.grado || it.etapa || it.nombre || '';
                     const itemPct = it.pctCompletado ?? it.pct ?? 0;
                     const itemColor = itemPct >= 75 ? '#10b981' : (itemPct >= 40 ? '#f59e0b' : '#ef4444');
                     return `
-                      <div style="font-size: 8px; border: 1px solid #e2e8f0; border-radius: 4px; padding: 3px 5px; display: flex; justify-content: space-between;">
-                        <span style="font-weight: bold; color: #1e293b;">${label}</span>
+                      <div style="font-size: 8.5px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; display: flex; justify-content: space-between; background: #ffffff;">
+                        <span style="font-weight: bold; color: #0f172a;">${label}</span>
                         <span style="color: ${itemColor}; font-weight: bold;">${itemPct}%</span>
                       </div>
                     `;
@@ -1821,58 +1929,59 @@ export const VincularEstudiante: React.FC = () => {
         `)}
 
         ${tipo !== 'resumen_niveles' ? `
-        <!-- TABLA DESGLOSADA POR GRADO / NIVEL -->
-        <div style="font-weight: bold; margin-bottom: 4px; color: #0f172a; font-size: 10px;">📋 Detalle Consolidado de Matrícula</div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 12px;">
+        <!-- TABLA DESGLOSADA POR GRADO / NIVEL CHAMILO -->
+        <div style="font-weight: 800; margin-bottom: 6px; color: #0f172a; font-size: 10.5px;">📋 Detalle Consolidado de Matrícula</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 14px; border-radius: 8px; overflow: hidden;">
           <thead>
-            <tr style="background-color: #f1f5f9; text-align: center; border: 1px solid #cbd5e1;">
-              <th style="padding: 4px; text-align: left; width: 30%; border: 1px solid #cbd5e1;">Grupo / Grado / Nivel</th>
-              <th style="padding: 4px; width: 10%; border: 1px solid #cbd5e1;">Total</th>
-              <th style="padding: 4px; width: 12%; border: 1px solid #cbd5e1;">Completados</th>
-              <th style="padding: 4px; width: 12%; border: 1px solid #cbd5e1;">En Proceso</th>
-              <th style="padding: 4px; width: 12%; border: 1px solid #cbd5e1;">Sin Iniciar</th>
-              <th style="padding: 4px; width: 24%; border: 1px solid #cbd5e1;">Avance</th>
+            <tr style="background-color: #7C3AED; color: #ffffff; text-align: center;">
+              <th style="padding: 6px; text-align: left; width: 30%;">Grupo / Grado / Nivel</th>
+              <th style="padding: 6px; width: 10%;">Total</th>
+              <th style="padding: 6px; width: 12%;">Actualizados</th>
+              <th style="padding: 6px; width: 12%;">En Proceso</th>
+              <th style="padding: 6px; width: 12%;">Sin Iniciar</th>
+              <th style="padding: 6px; width: 24%;">Avance</th>
             </tr>
           </thead>
           <tbody>
-            ${stats.desglosePorGrado.map((g: any) => {
+            ${stats.desglosePorGrado.map((g: any, i: number) => {
               const pComp = g.total > 0 ? (g.completados / g.total) * 100 : 0;
               const pProc = g.total > 0 ? (g.enProceso / g.total) * 100 : 0;
               const pSin = g.total > 0 ? (g.sinIniciar / g.total) * 100 : 0;
+              const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
               return `
-              <tr style="text-align: center; border: 1px solid #cbd5e1;">
-                <td style="padding: 3px; text-align: left; font-weight: bold; border: 1px solid #cbd5e1;">${g.grado}</td>
-                <td style="padding: 3px; font-weight: bold; border: 1px solid #cbd5e1;">${g.total}</td>
-                <td style="padding: 3px; border: 1px solid #cbd5e1;"><span style="background: #dcfce7; color: #166534; font-weight: bold; padding: 1px 3px; border-radius: 3px; font-size: 8.5px;">${g.completados}</span></td>
-                <td style="padding: 3px; border: 1px solid #cbd5e1;"><span style="background: #fef9c3; color: #854d0e; font-weight: bold; padding: 1px 3px; border-radius: 3px; font-size: 8.5px;">${g.enProceso}</span></td>
-                <td style="padding: 3px; border: 1px solid #cbd5e1;"><span style="background: #f1f5f9; color: #475569; font-weight: bold; padding: 1px 3px; border-radius: 3px; font-size: 8.5px;">${g.sinIniciar}</span></td>
-                <td style="padding: 3px; border: 1px solid #cbd5e1;">
-                  <div style="display: flex; align-items: center; gap: 3px;">
-                    <div style="background-color: #f1f5f9; border-radius: 3px; height: 6px; overflow: hidden; display: flex; width: 100%;">
-                      <div style="background-color: #10b981; height: 100%; width: ${pComp}%;"></div>
-                      <div style="background-color: #f59e0b; height: 100%; width: ${pProc}%;"></div>
-                      <div style="background-color: #cbd5e1; height: 100%; width: ${pSin}%;"></div>
+              <tr style="text-align: center; border-bottom: 1px solid #e2e8f0; background-color: ${rowBg};">
+                <td style="padding: 5px 6px; text-align: left; font-weight: bold; color: #0f172a;">${g.grado}</td>
+                <td style="padding: 5px 6px; font-weight: 800; color: #0f172a;">${g.total}</td>
+                <td style="padding: 5px 6px;"><span style="background: #DCFCE7; color: #166534; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 8.5px;">${g.completados}</span></td>
+                <td style="padding: 5px 6px;"><span style="background: #FEF9C3; color: #854D0E; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 8.5px;">${g.enProceso}</span></td>
+                <td style="padding: 5px 6px;"><span style="background: #F1F5F9; color: #334155; font-weight: 700; padding: 2px 5px; border-radius: 4px; font-size: 8.5px;">${g.sinIniciar}</span></td>
+                <td style="padding: 5px 6px;">
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="background-color: #E2E8F0; border-radius: 9999px; height: 6px; overflow: hidden; display: flex; width: 100%;">
+                      <div style="background-color: #10B981; height: 100%; width: ${pComp}%;"></div>
+                      <div style="background-color: #F59E0B; height: 100%; width: ${pProc}%;"></div>
+                      <div style="background-color: #94A3B8; height: 100%; width: ${pSin}%;"></div>
                     </div>
-                    <span style="min-width: 24px; font-weight: bold; color: #166534; font-size: 8.5px;">${g.pctCompletado}%</span>
+                    <span style="min-width: 26px; font-weight: 900; color: #15803D; font-size: 8.5px;">${g.pctCompletado}%</span>
                   </div>
                 </td>
               </tr>
             `;
             }).join('')}
-            <tr style="background-color: #e2e8f0; text-align: center; font-weight: bold; border: 1px solid #cbd5e1;">
-              <td style="padding: 4px; text-align: left; border: 1px solid #cbd5e1;">TOTAL CONSOLIDADO</td>
-              <td style="padding: 4px; border: 1px solid #cbd5e1;">${stats.totalGeneral}</td>
-              <td style="padding: 4px; color: #16a34a; border: 1px solid #cbd5e1;">${stats.completadosGeneral}</td>
-              <td style="padding: 4px; color: #d97706; border: 1px solid #cbd5e1;">${stats.enProcesoGeneral}</td>
-              <td style="padding: 4px; color: #475569; border: 1px solid #cbd5e1;">${stats.sinIniciarGeneral}</td>
-              <td style="padding: 4px; border: 1px solid #cbd5e1;">
-                <div style="display: flex; align-items: center; gap: 3px;">
-                  <div style="background-color: #f1f5f9; border-radius: 3px; height: 7px; overflow: hidden; display: flex; width: 100%;">
-                    <div style="background-color: #10b981; height: 100%; width: ${stats.pctGeneral}%;"></div>
-                    <div style="background-color: #f59e0b; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
-                    <div style="background-color: #cbd5e1; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
+            <tr style="background-color: #EDE9FE; text-align: center; font-weight: 900; border-top: 2px solid #8B5CF6; color: #4C1D95;">
+              <td style="padding: 6px; text-align: left;">TOTAL CONSOLIDADO</td>
+              <td style="padding: 6px;">${stats.totalGeneral}</td>
+              <td style="padding: 6px; color: #15803D;">${stats.completadosGeneral}</td>
+              <td style="padding: 6px; color: #B45309;">${stats.enProcesoGeneral}</td>
+              <td style="padding: 6px; color: #475569;">${stats.sinIniciarGeneral}</td>
+              <td style="padding: 6px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <div style="background-color: #DDD6FE; border-radius: 9999px; height: 7px; overflow: hidden; display: flex; width: 100%;">
+                    <div style="background-color: #10B981; height: 100%; width: ${stats.pctGeneral}%;"></div>
+                    <div style="background-color: #F59E0B; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
+                    <div style="background-color: #94A3B8; height: 100%; width: ${stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * 100 : 0}%;"></div>
                   </div>
-                  <span style="min-width: 24px; font-weight: bold; color: #1e40af; font-size: 9px;">${stats.pctGeneral}%</span>
+                  <span style="min-width: 26px; font-weight: 900; color: #6D28D9; font-size: 9.5px;">${stats.pctGeneral}%</span>
                 </div>
               </td>
             </tr>
@@ -1880,13 +1989,13 @@ export const VincularEstudiante: React.FC = () => {
         </table>
         ` : ''}
 
-        <!-- PIE DE PÁGINA INSTITUCIONAL CON SOLO EL LOGO DEL MINISTERIO -->
-        <div style="border-top: 1.5px solid #e2e8f0; padding-top: 8px; margin-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+        <!-- PIE DE PÁGINA INSTITUCIONAL CON LOGO DEL MINISTERIO -->
+        <div style="border-top: 1.5px solid #e2e8f0; padding-top: 8px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between;">
           <div style="display: flex; align-items: center;">
-            <img src="/assets/img/logoMPPE.png" style="height: 32px; width: auto;" alt="MPPE" />
+            <img src="/assets/img/logoMPPE.png" style="height: 34px; width: auto;" alt="MPPE" />
           </div>
-          <div style="text-align: right; color: #94a3b8; font-size: 7.5px; line-height: 1.2;">
-            Dossier oficial de auditoría y avance de matrícula SIGAE.<br>
+          <div style="text-align: right; color: #64748b; font-size: 8px; line-height: 1.3;">
+            <strong style="color: #7C3AED;">SIGAE • Reporte Estadístico Oficial</strong><br>
             Documento de control académico generado automáticamente.
           </div>
         </div>
@@ -2366,28 +2475,36 @@ export const VincularEstudiante: React.FC = () => {
     printWin.document.close();
   };
 
-  const listaFiltrada = vinculaciones.filter(v => {
-    const q = busquedaDir.toLowerCase();
-    const matchBusqueda = (
-      v.cedula_estudiante?.toLowerCase().includes(q) ||
-      v.nombres_estudiante?.toLowerCase().includes(q) ||
-      v.apellidos_estudiante?.toLowerCase().includes(q) ||
-      v.cedula_representante?.toLowerCase().includes(q) ||
-      v.nombres_representante?.toLowerCase().includes(q)
-    );
-    const matchGrado = gradoFiltroDir === 'Todos' || v.grado_actual === gradoFiltroDir;
-    const matchEscuela = escuelaFiltro === 'ambas' || v.codigo_escuela === escuelaFiltro;
-    
-    let matchAvance = true;
-    if (avanceFiltroDir !== 'Todos') {
-      const avance = calcularAvanceActualizacion(v);
-      if (avanceFiltroDir === 'completado') matchAvance = avance.estado === 'completado';
-      else if (avanceFiltroDir === 'en_proceso') matchAvance = avance.estado === 'en_proceso';
-      else if (avanceFiltroDir === 'sin_iniciar') matchAvance = avance.estado === 'sin_iniciar';
-    }
+  const listaFiltrada = useMemo(() => {
+    const q = busquedaDir.trim().toLowerCase();
+    return vinculaciones.filter(v => {
+      if (escuelaFiltro !== 'ambas' && v.codigo_escuela !== escuelaFiltro) return false;
+      if (gradoFiltroDir !== 'Todos' && v.grado_actual !== gradoFiltroDir) return false;
 
-    return matchBusqueda && matchGrado && matchEscuela && matchAvance;
-  });
+      if (avanceFiltroDir !== 'Todos') {
+        const avance = calcularAvanceActualizacion(v);
+        if (avanceFiltroDir === 'completado' && avance.estado !== 'completado') return false;
+        if (avanceFiltroDir === 'en_proceso' && avance.estado !== 'en_proceso') return false;
+        if (avanceFiltroDir === 'sin_iniciar' && avance.estado !== 'sin_iniciar') return false;
+      }
+
+      if (!q) return true;
+
+      const repNombre = getNombreRepresentante(v).toLowerCase();
+      const estNombre = getNombreEstudiante(v).toLowerCase();
+
+      return (
+        (v.cedula_estudiante && v.cedula_estudiante.toLowerCase().includes(q)) ||
+        estNombre.includes(q) ||
+        (v.nombres_estudiante && v.nombres_estudiante.toLowerCase().includes(q)) ||
+        (v.apellidos_estudiante && v.apellidos_estudiante.toLowerCase().includes(q)) ||
+        (v.cedula_representante && v.cedula_representante.toLowerCase().includes(q)) ||
+        repNombre.includes(q) ||
+        (v.nombres_representante && v.nombres_representante.toLowerCase().includes(q)) ||
+        (v.apellidos_representante && v.apellidos_representante.toLowerCase().includes(q))
+      );
+    });
+  }, [vinculaciones, busquedaDir, gradoFiltroDir, escuelaFiltro, avanceFiltroDir, usuariosMap]);
 
   const indexUltimoDir = paginaActualDir * elementosPorPaginaDir;
   const indexPrimeroDir = indexUltimoDir - elementosPorPaginaDir;
@@ -2396,47 +2513,198 @@ export const VincularEstudiante: React.FC = () => {
 
   return (
     <>
-      <div className="container-fluid py-4 animate__animated animate__fadeIn">
-        {/* Encabezado Principal */}
-      <div 
-        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden" 
-        style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', borderRadius: '24px' }}
+      <div className="container-fluid py-4 animate__animated animate__fadeIn p-0">
+      {/* 1. Miga de Pan Chamilo */}
+      <ChamiloBreadcrumb
+        items={[
+          { label: 'Gestión Estudiantil', url: '/categoria/Gesti%C3%B3n%20Estudiantil', icon: 'bi-mortarboard-fill' },
+          { label: 'Vincular Estudiante', icon: 'bi-person-plus-fill' }
+        ]}
+      />
+
+      {/* Guía Contextual Chamilo */}
+      <ChamiloHelpCallout
+        title="Orientación para la Vinculación y Control de Matrícula"
+        storageKey="vincular_estudiante"
       >
-        <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.15)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-        <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
-        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative z-1">
-          <div>
-            <span className="badge bg-white text-primary fw-bold px-3 py-2 rounded-pill mb-3 shadow-sm text-uppercase" style={{ letterSpacing: '1px', fontSize: '0.75rem' }}>
-              <i className="bi bi-person-plus-fill me-2"></i>Módulo Escolar DEP Oriente
-            </span>
-            <h1 className="fw-bolder mb-2 display-6 text-white">
-              <i className="bi bi-person-plus-fill me-3"></i>Vincular Estudiante
-            </h1>
-            <p className="mb-0 text-white-50 fs-6" style={{ maxWidth: '750px' }}>
-              Asigne estudiantes a representantes o docentes previamente registrados. Al iniciar sesión en el portal, cada usuario verá sus representados bloqueados contra modificaciones indebidas.
-            </p>
-          </div>
-            <div className="mt-4 mt-md-0 d-flex gap-2">
-              <button 
-                className={`btn ${activeTab === 'individual' ? 'btn-light text-primary fw-bold shadow' : 'btn-outline-light'}`}
-                onClick={() => setActiveTab('individual')}
+        <p className="mb-1">
+          Asigne estudiantes a representantes registrados para otorgarles acceso seguro a la ficha censal, emisión de constancias y carnets digitales.
+        </p>
+        <small className="text-muted">
+          <i className="bi bi-lightbulb-fill text-warning me-1"></i> Tip: Utilice la pestaña <strong>Directorio General</strong> para buscar por cédula o grado y verificar el avance de actualización.
+        </small>
+      </ChamiloHelpCallout>
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      <div 
+        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
+        style={{ 
+          border: '2px solid #ddd6fe',
+          borderTop: '6px solid #8b5cf6',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
+          borderRadius: '26px'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono 3D Isométrico + Escudo Institucional */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm" style={{ border: '2px solid #ddd6fe' }}>
+                <div 
+                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ 
+                    width: '88px', 
+                    height: '88px',
+                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                    border: '1.5px solid #ddd6fe'
+                  }}
+                  title="Vincular Estudiante Chamilo Tech"
+                >
+                  <IconoVincularEstudiante size={58} color="#8b5cf6" />
+                </div>
+                <div 
+                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ width: '88px', height: '88px' }}
+                >
+                  <img 
+                    src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+                    alt="Escudo Institucional" 
+                    className="img-fluid"
+                    style={{ maxHeight: '72px', objectFit: 'contain' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#8B5CF6' }}>
+                  <i className="bi bi-person-plus-fill me-1"></i>Gestión Estudiantil & Matrícula
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-people-fill text-primary me-1"></i><b>{vinculaciones.length}</b> Estudiantes Registrados
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-building text-success me-1"></i>SB: <b>{countSB}</b>
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-building text-info me-1"></i>LB: <b>{countLB}</b>
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                  <span className="text-success fw-bold">Live</span> / Campus Conectado
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Vincular Estudiante y Control de Matrícula
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                Asignación de estudiantes a representantes o docentes. Al iniciar sesión en el portal, cada usuario verá únicamente sus representados con seguridad y control de acceso.
+              </p>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => window.location.href = '/categoria/Gesti%C3%B3n%20Estudiantil'}
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
               >
-                <i className="bi bi-person-plus me-2"></i>Individual
-              </button>
-              <button 
-                className={`btn ${activeTab === 'masiva' ? 'btn-light text-primary fw-bold shadow' : 'btn-outline-light'}`}
-                onClick={() => setActiveTab('masiva')}
-              >
-                <i className="bi bi-file-earmark-spreadsheet me-2"></i>Carga Masiva
-              </button>
-              <button 
-                className={`btn ${activeTab === 'directorio' ? 'btn-light text-primary fw-bold shadow' : 'btn-outline-light'}`}
-                onClick={() => setActiveTab('directorio')}
-              >
-                <i className="bi bi-table me-2"></i>Directorio
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver al Menú</span>
               </button>
             </div>
+
           </div>
+        </div>
+
+        {/* Barra de Modos de Trabajo Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'individual' 
+                  ? 'btn-primary text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'individual' ? '#8B5CF6' : undefined,
+                borderColor: activeTab === 'individual' ? '#8B5CF6' : undefined,
+                fontSize: '0.82rem'
+              }}
+              onClick={() => setActiveTab('individual')}
+            >
+              <i className="bi bi-person-plus me-1.5"></i>Vinculación Individual
+            </button>
+
+            <button
+              type="button"
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'masiva' 
+                  ? 'btn-primary text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'masiva' ? '#8B5CF6' : undefined,
+                borderColor: activeTab === 'masiva' ? '#8B5CF6' : undefined,
+                fontSize: '0.82rem'
+              }}
+              onClick={() => setActiveTab('masiva')}
+            >
+              <i className="bi bi-file-earmark-spreadsheet me-1.5"></i>Carga Masiva Excel/CSV
+            </button>
+
+            <button
+              type="button"
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+                activeTab === 'directorio' 
+                  ? 'btn-primary text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'directorio' ? '#8B5CF6' : undefined,
+                borderColor: activeTab === 'directorio' ? '#8B5CF6' : undefined,
+                fontSize: '0.82rem'
+              }}
+              onClick={() => setActiveTab('directorio')}
+            >
+              <i className="bi bi-table me-1.5"></i>Directorio General
+            </button>
+          </div>
+
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold extra-small shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              onClick={() => {
+                setEscuelaReporte(escuelaFiltro === 'ambas' ? 'ambas' : (escuelaFiltro === 'sb' ? 'sb' : 'lb'));
+                setShowEstadisticasModal(true);
+              }}
+              title="Generar y descargar reporte estadístico de actualización"
+            >
+              <i className="bi bi-bar-chart-line-fill"></i>
+              <span>Reporte de Estadística</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-white bg-white border text-dark rounded-pill px-3.5 py-1.5 fw-bold extra-small shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              onClick={cargarVinculaciones}
+              disabled={loading}
+              title="Actualizar datos de matrícula"
+            >
+              <i className={`bi bi-arrow-clockwise ${loading ? 'spinner-border spinner-border-sm me-1' : ''}`}></i>
+              <span>{loading ? 'Actualizando...' : 'Actualizar'}</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Pestaña 1: Vinculación Individual */}
@@ -2664,6 +2932,7 @@ export const VincularEstudiante: React.FC = () => {
                   <table className="table table-hover align-middle mb-0">
                     <thead className="table-light sticky-top">
                       <tr>
+                        <th style={{ width: '50px' }} className="text-center">#</th>
                         <th>Cédula Rep.</th>
                         <th>Nombre Representante</th>
                         <th>Cédula Estudiante</th>
@@ -2677,6 +2946,9 @@ export const VincularEstudiante: React.FC = () => {
                     <tbody>
                       {previewValidos.slice(0, 50).map((item, idx) => (
                         <tr key={idx}>
+                          <td className="text-center">
+                            <span className="badge bg-light text-muted border fw-bold">{idx + 1}</span>
+                          </td>
                           <td className="fw-bold text-primary">{item.cedula_representante}</td>
                           <td>{item.nombres_representante} {item.apellidos_representante}</td>
                           <td className="fw-bold text-dark">{item.cedula_estudiante}</td>
@@ -2740,15 +3012,26 @@ export const VincularEstudiante: React.FC = () => {
               </div>
             </div>
             <div className="col-lg-3 col-md-4">
-              <div className="input-group">
+              <div className="input-group position-relative">
                 <span className="input-group-text bg-light border-end-0"><i className="bi bi-search text-muted"></i></span>
                 <input 
                   type="text" 
-                  className="form-control border-start-0" 
+                  className="form-control border-start-0 pe-5" 
                   placeholder="Buscar cédula o nombre..." 
                   value={busquedaDir}
                   onChange={(e) => setBusquedaDir(e.target.value)}
                 />
+                {busquedaDir && (
+                  <button 
+                    type="button" 
+                    onClick={() => setBusquedaDir('')} 
+                    className="btn btn-sm text-muted position-absolute end-0 top-50 translate-middle-y me-1 border-0 bg-transparent" 
+                    style={{ zIndex: 5 }}
+                    title="Limpiar búsqueda"
+                  >
+                    <i className="bi bi-x-circle-fill text-secondary"></i>
+                  </button>
+                )}
               </div>
             </div>
             <div className="col-lg-2 col-md-4">
@@ -2776,17 +3059,6 @@ export const VincularEstudiante: React.FC = () => {
               </select>
             </div>
             <div className="col-lg-3 col-md-6 text-end d-flex gap-2 justify-content-end align-items-center">
-              <button 
-                className="btn btn-primary fw-bold shadow-sm rounded-pill px-3 d-flex align-items-center gap-1.5"
-                onClick={() => {
-                  setEscuelaReporte(escuelaFiltro === 'ambas' ? 'ambas' : (escuelaFiltro === 'sb' ? 'sb' : 'lb'));
-                  setShowEstadisticasModal(true);
-                }}
-                title="Ver y descargar reporte estadístico de actualización"
-              >
-                <i className="bi bi-bar-chart-fill"></i>
-                <span>Estadísticas</span>
-              </button>
               {seleccionados.length > 0 && (
                 <>
                   <button 
@@ -2827,6 +3099,7 @@ export const VincularEstudiante: React.FC = () => {
                       />
                     </div>
                   </th>
+                  <th style={{ width: '55px' }} className="text-center">#</th>
                   <th>Representante</th>
                   <th>Cédula Estudiante</th>
                   <th>Estudiante</th>
@@ -2840,20 +3113,20 @@ export const VincularEstudiante: React.FC = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-5">
+                    <td colSpan={10} className="text-center py-5">
                       <div className="spinner-border text-primary me-2" role="status"></div>
                       <span className="text-muted fw-bold">Cargando directorio de vinculaciones...</span>
                     </td>
                   </tr>
                 ) : listaFiltrada.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-5 text-muted">
+                    <td colSpan={10} className="text-center py-5 text-muted">
                       <i className="bi bi-folder2-open fs-1 d-block mb-2"></i>
                       No hay estudiantes vinculados con los filtros aplicados en {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : escuelaFiltro === 'lb' ? 'UE Libertador Bolívar' : 'el sistema'}.
                     </td>
                   </tr>
                 ) : (
-                  vinculacionesPaginadas.map((item) => (
+                  vinculacionesPaginadas.map((item, idx) => (
                     <tr key={item.id} className={seleccionados.includes(item.id) ? 'table-danger' : ''}>
                       <td>
                         <div className="form-check">
@@ -2865,13 +3138,18 @@ export const VincularEstudiante: React.FC = () => {
                           />
                         </div>
                       </td>
+                      <td className="text-center">
+                        <span className="badge bg-light text-secondary border fw-bold px-2 py-1" style={{ fontSize: '0.75rem' }}>
+                          {indexPrimeroDir + idx + 1}
+                        </span>
+                      </td>
                       <td>
-                        <div className="fw-bold text-dark">{toTitulo(`${item.nombres_representante} ${item.apellidos_representante}`)}</div>
+                        <div className="fw-bold text-dark">{getNombreRepresentante(item)}</div>
                         <small className="text-muted">C.I. {item.cedula_representante}</small>
                       </td>
                       <td><span className="badge bg-light text-dark border fw-bold px-2 py-1 fs-6">{item.cedula_estudiante}</span></td>
                       <td>
-                        <div className="fw-bold text-primary">{toTitulo(`${item.nombres_estudiante} ${item.apellidos_estudiante}`)}</div>
+                        <div className="fw-bold text-primary">{getNombreEstudiante(item)}</div>
                       </td>
                       <td>
                         <span className={`badge ${item.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-2 py-1 shadow-sm`}>
@@ -3041,7 +3319,7 @@ export const VincularEstudiante: React.FC = () => {
                       <i className="bi bi-info-circle-fill fs-4 text-info me-3"></i>
                       <div>
                         <small className="d-block fw-bold text-dark">Representante Actual:</small>
-                        <span className="text-secondary">{estudianteEditando.nombres_representante} {estudianteEditando.apellidos_representante} (C.I. {estudianteEditando.cedula_representante})</span>
+                        <span className="text-secondary">{getNombreRepresentante(estudianteEditando)} (C.I. {estudianteEditando.cedula_representante})</span>
                       </div>
                     </div>
                     <button 
@@ -3347,8 +3625,8 @@ export const VincularEstudiante: React.FC = () => {
 
                 return (
                   <>
-                    {/* ENCABEZADO INSTITUCIONAL OFICIAL CON LOGOS */}
-                    <div className="modal-header bg-white px-4 py-3 border-bottom shadow-sm d-block" style={{ borderBottom: '3px solid #1e40af' }}>
+                    {/* ENCABEZADO INSTITUCIONAL OFICIAL AL ESTILO CHAMILO LMS */}
+                    <div className="modal-header bg-white px-4 py-3 border-bottom shadow-sm d-block" style={{ borderTop: '4px solid #8B5CF6', borderBottom: '1px solid #e2e8f0' }}>
                       <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         {/* LOGOS IZQUIERDA: ESCUELA */}
                         <div className="d-flex align-items-center gap-2">
@@ -3364,22 +3642,22 @@ export const VincularEstudiante: React.FC = () => {
                           )}
                         </div>
 
-                        {/* MEMBRETE INSTITUCIONAL CENTRAL */}
+                        {/* MEMBRETE INSTITUCIONAL CENTRAL CHAMILO */}
                         <div className="text-center flex-grow-1 px-2">
                           <span className="text-muted text-uppercase fw-bold d-block" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>
                             República Bolivariana de Venezuela • Ministerio del Poder Popular para la Educación
                           </span>
-                          <span className="fw-bold text-primary text-uppercase d-block" style={{ fontSize: '0.72rem' }}>
+                          <span className="fw-bold text-uppercase d-block" style={{ fontSize: '0.72rem', color: '#7C3AED' }}>
                             Dirección Ejecutiva de Producción Oriente • Gestión Educativa
                           </span>
-                          <h5 className="fw-bolder text-dark mb-0 mt-0.5" style={{ letterSpacing: '-0.3px', color: '#1e40af' }}>
+                          <h5 className="fw-bolder text-dark mb-0 mt-0.5" style={{ letterSpacing: '-0.3px' }}>
                             {nombreInstitucion}
                           </h5>
                           <div className="d-flex align-items-center justify-content-center gap-2 mt-1">
-                            <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-0.5" style={{ fontSize: '0.7rem' }}>
-                              <i className="bi bi-bar-chart-line-fill me-1"></i> Control de Avance y Reporte Estadístico Oficial
+                            <span className="badge text-white rounded-pill px-3 py-1 fw-bold shadow-xs" style={{ backgroundColor: '#8B5CF6', fontSize: '0.72rem' }}>
+                              <i className="bi bi-bar-chart-line-fill me-1"></i> Control de Avance y Reporte Estadístico Chamilo
                             </span>
-                            <span className="text-muted small" style={{ fontSize: '0.7rem' }}>
+                            <span className="badge bg-light text-muted border rounded-pill px-2.5 py-1" style={{ fontSize: '0.7rem' }}>
                               <i className="bi bi-clock-history me-1"></i> {stats.fechaHoraReporte}
                             </span>
                           </div>
@@ -3404,43 +3682,43 @@ export const VincularEstudiante: React.FC = () => {
                     </div>
 
                     <div className="modal-body p-3 p-md-4">
-                      {/* BARRA DE CONTROL EJECUTIVA SIGAE: INSTITUCIÓN, VISUALIZACIÓN Y DESGLOSE */}
+                      {/* BARRA DE CONTROL EJECUTIVA ESTILO CHAMILO LMS */}
                       <div className="bg-white p-2.5 rounded-4 shadow-sm border mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2.5" style={{ borderColor: '#e2e8f0' }}>
                         
-                        {/* Selector de Escuela en Cápsula Azul SIGAE */}
+                        {/* Selector de Escuela en Cápsula Chamilo */}
                         <div className="d-flex align-items-center gap-1.5">
-                          <span className="small fw-bold text-primary me-1 d-none d-md-inline" style={{ fontSize: '0.75rem' }}>
+                          <span className="small fw-bold me-1 d-none d-md-inline" style={{ fontSize: '0.75rem', color: '#7C3AED' }}>
                             <i className="bi bi-building-fill me-1"></i>Ámbito:
                           </span>
                           <div className="btn-group btn-group-sm p-0.5 rounded-pill bg-light border" role="group">
                             <button 
                               type="button" 
-                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 ${escuelaReporte === 'ambas' ? 'btn-primary text-white shadow-sm' : 'text-secondary hover-primary'}`}
+                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 transition-all ${escuelaReporte === 'ambas' ? 'text-white shadow-xs' : 'text-secondary hover-efecto'}`}
                               onClick={() => setEscuelaReporte('ambas')}
-                              style={{ fontSize: '0.74rem' }}
+                              style={{ fontSize: '0.74rem', backgroundColor: escuelaReporte === 'ambas' ? '#8B5CF6' : 'transparent' }}
                             >
-                              🌐 Todas
+                              🌐 Todas ({stats.totalGeneral})
                             </button>
                             <button 
                               type="button" 
-                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 ${escuelaReporte === 'sb' ? 'btn-primary text-white shadow-sm' : 'text-secondary hover-primary'}`}
+                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 transition-all ${escuelaReporte === 'sb' ? 'text-white shadow-xs' : 'text-secondary hover-efecto'}`}
                               onClick={() => setEscuelaReporte('sb')}
-                              style={{ fontSize: '0.74rem' }}
+                              style={{ fontSize: '0.74rem', backgroundColor: escuelaReporte === 'sb' ? '#8B5CF6' : 'transparent' }}
                             >
                               🏫 Sta. Bárbara
                             </button>
                             <button 
                               type="button" 
-                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 ${escuelaReporte === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-secondary hover-primary'}`}
+                              className={`btn btn-sm rounded-pill px-3 fw-bold border-0 transition-all ${escuelaReporte === 'lb' ? 'text-white shadow-xs' : 'text-secondary hover-efecto'}`}
                               onClick={() => setEscuelaReporte('lb')}
-                              style={{ fontSize: '0.74rem' }}
+                              style={{ fontSize: '0.74rem', backgroundColor: escuelaReporte === 'lb' ? '#8B5CF6' : 'transparent' }}
                             >
                               🏫 Lib. Bolívar
                             </button>
                           </div>
                         </div>
 
-                        {/* Selector de Tipo de Gráfico */}
+                        {/* Selector de Tipo de Gráfico Chamilo */}
                         <div className="d-flex align-items-center gap-1 flex-wrap">
                           {[
                             { id: 'resumen_niveles', label: '📊 Resumen por Niveles', icon: 'bi-diagram-3-fill' },
@@ -3456,13 +3734,16 @@ export const VincularEstudiante: React.FC = () => {
                             <button
                               key={t.id}
                               type="button"
-                              className={`btn btn-sm px-2.5 py-1 rounded-3 fw-bold transition-all ${
+                              className={`btn btn-sm px-2.5 py-1 rounded-pill fw-bold transition-all ${
                                 tipoGrafico === t.id 
-                                  ? 'btn-primary text-white shadow-sm' 
-                                  : 'btn-outline-primary bg-white text-primary border-0 hover-primary'
+                                  ? 'text-white shadow-xs' 
+                                  : 'bg-light text-secondary border-0 hover-efecto'
                               }`}
                               onClick={() => setTipoGrafico(t.id as any)}
-                              style={{ fontSize: '0.76rem', backgroundColor: tipoGrafico === t.id ? '#1e40af' : '#f8fafc', borderColor: '#dbeafe' }}
+                              style={{ 
+                                fontSize: '0.76rem', 
+                                backgroundColor: tipoGrafico === t.id ? '#8B5CF6' : undefined 
+                              }}
                             >
                               <i className={`bi ${t.icon} me-1`}></i>
                               {t.label}
@@ -3476,7 +3757,7 @@ export const VincularEstudiante: React.FC = () => {
                             <span className="small fw-bold text-muted me-1 d-none d-lg-inline" style={{ fontSize: '0.75rem' }}>
                               <i className="bi bi-funnel-fill text-primary me-1"></i>Desglose:
                             </span>
-                            <div className="btn-group btn-group-sm bg-light p-0.5 rounded-3 border" role="group">
+                            <div className="btn-group btn-group-sm bg-light p-0.5 rounded-pill border" role="group">
                               {[
                                 { id: 'grados', label: 'Grados' },
                                 { id: 'niveles', label: 'Niveles' },
@@ -3487,13 +3768,16 @@ export const VincularEstudiante: React.FC = () => {
                                 <button
                                   key={g.id}
                                   type="button"
-                                  className={`btn btn-sm py-1 px-2.5 fw-bold rounded-2 border-0 ${
+                                  className={`btn btn-sm py-1 px-2.5 fw-bold rounded-pill border-0 transition-all ${
                                     criterioAgrupacion === g.id 
-                                      ? 'btn-primary text-white shadow-sm' 
-                                      : 'text-secondary hover-primary'
+                                      ? 'text-white shadow-xs' 
+                                      : 'text-secondary hover-efecto'
                                   }`}
                                   onClick={() => setCriterioAgrupacion(g.id as any)}
-                                  style={{ fontSize: '0.74rem', backgroundColor: criterioAgrupacion === g.id ? '#1e40af' : 'transparent' }}
+                                  style={{ 
+                                    fontSize: '0.74rem', 
+                                    backgroundColor: criterioAgrupacion === g.id ? '#7C3AED' : 'transparent' 
+                                  }}
                                 >
                                   {g.label}
                                 </button>
@@ -3503,66 +3787,85 @@ export const VincularEstudiante: React.FC = () => {
                         )}
                       </div>
 
-                      {/* FRANJA DE METRICAS KPIS (OCULTA EN RESUMEN POR NIVELES PARA MAYOR SÍNTESIS) */}
+                      {/* FRANJA DE METRICAS KPIS AL ESTILO CHAMILO */}
                       {tipoGrafico !== 'resumen_niveles' && (
-                        <div className="row g-2 mb-3">
+                        <div className="row g-3 mb-3">
+                          {/* 1. TOTAL MATRÍCULA */}
                           <div className="col-lg-3 col-6">
-                            <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
+                            <div className="bg-white p-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between" style={{ borderLeft: '4px solid #8B5CF6' }}>
                               <div>
-                                <span className="text-muted text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>Total Matrícula</span>
-                                <span className="fs-4 fw-bolder text-dark lh-1">{stats.totalGeneral}</span>
-                              </div>
-                              <div className="bg-primary bg-opacity-10 text-primary p-2 rounded-circle">
-                                <i className="bi bi-people-fill fs-5"></i>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="col-lg-3 col-6">
-                            <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
-                              <div>
-                                <span className="text-success text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>Actualizados (100%)</span>
-                                <div className="d-flex align-items-baseline gap-1.5">
-                                  <span className="fs-4 fw-bolder text-success lh-1">{stats.completadosGeneral}</span>
-                                  <span className="badge bg-success bg-opacity-15 text-success fw-bold" style={{ fontSize: '0.7rem' }}>{stats.pctGeneral}%</span>
+                                <span className="text-uppercase fw-bold d-block mb-1" style={{ fontSize: '0.7rem', letterSpacing: '0.5px', color: '#4B5563' }}>
+                                  Total Matrícula
+                                </span>
+                                <div className="d-flex align-items-baseline gap-2">
+                                  <span className="fs-2 fw-bolder lh-1" style={{ color: '#1E1B4B' }}>{stats.totalGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#EDE9FE', color: '#6D28D9', fontSize: '0.72rem' }}>
+                                    100%
+                                  </span>
                                 </div>
                               </div>
-                              <div className="bg-success bg-opacity-10 text-success p-2 rounded-circle">
-                                <i className="bi bi-check-circle-fill fs-5"></i>
+                              <div className="p-2.5 rounded-circle" style={{ backgroundColor: '#F3E8FF', color: '#7C3AED' }}>
+                                <i className="bi bi-people-fill fs-4"></i>
                               </div>
                             </div>
                           </div>
 
+                          {/* 2. ACTUALIZADOS (100%) */}
                           <div className="col-lg-3 col-6">
-                            <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
+                            <div className="bg-white p-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between" style={{ borderLeft: '4px solid #10B981' }}>
                               <div>
-                                <span className="text-warning text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px', color: '#b45309 !important' }}>En Proceso</span>
-                                <div className="d-flex align-items-baseline gap-1.5">
-                                  <span className="fs-4 fw-bolder text-warning lh-1" style={{ color: '#b45309 !important' }}>{stats.enProcesoGeneral}</span>
-                                  <span className="badge bg-warning bg-opacity-15 text-warning fw-bold" style={{ fontSize: '0.7rem', color: '#b45309 !important' }}>
+                                <span className="text-uppercase fw-bold d-block mb-1" style={{ fontSize: '0.7rem', letterSpacing: '0.5px', color: '#065F46' }}>
+                                  Actualizados (100%)
+                                </span>
+                                <div className="d-flex align-items-baseline gap-2">
+                                  <span className="fs-2 fw-bolder lh-1" style={{ color: '#065F46' }}>{stats.completadosGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#059669', color: '#FFFFFF', fontSize: '0.72rem' }}>
+                                    {stats.pctGeneral}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-2.5 rounded-circle" style={{ backgroundColor: '#D1FAE5', color: '#059669' }}>
+                                <i className="bi bi-check-circle-fill fs-4"></i>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3. EN PROCESO */}
+                          <div className="col-lg-3 col-6">
+                            <div className="bg-white p-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between" style={{ borderLeft: '4px solid #F59E0B' }}>
+                              <div>
+                                <span className="text-uppercase fw-bold d-block mb-1" style={{ fontSize: '0.7rem', letterSpacing: '0.5px', color: '#92400E' }}>
+                                  En Proceso
+                                </span>
+                                <div className="d-flex align-items-baseline gap-2">
+                                  <span className="fs-2 fw-bolder lh-1" style={{ color: '#92400E' }}>{stats.enProcesoGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#D97706', color: '#FFFFFF', fontSize: '0.72rem' }}>
                                     {stats.totalGeneral > 0 ? Math.round((stats.enProcesoGeneral / stats.totalGeneral) * 100) : 0}%
                                   </span>
                                 </div>
                               </div>
-                              <div className="bg-warning bg-opacity-10 text-warning p-2 rounded-circle">
-                                <i className="bi bi-hourglass-split fs-5"></i>
+                              <div className="p-2.5 rounded-circle" style={{ backgroundColor: '#FEF3C7', color: '#D97706' }}>
+                                <i className="bi bi-hourglass-split fs-4"></i>
                               </div>
                             </div>
                           </div>
 
+                          {/* 4. SIN INICIAR */}
                           <div className="col-lg-3 col-6">
-                            <div className="bg-white p-2.5 rounded-3 shadow-sm border border-light d-flex align-items-center justify-content-between">
+                            <div className="bg-white p-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between" style={{ borderLeft: '4px solid #64748B' }}>
                               <div>
-                                <span className="text-secondary text-uppercase fw-bold d-block" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>Sin Iniciar</span>
-                                <div className="d-flex align-items-baseline gap-1.5">
-                                  <span className="fs-4 fw-bolder text-secondary lh-1">{stats.sinIniciarGeneral}</span>
-                                  <span className="badge bg-secondary bg-opacity-15 text-secondary fw-bold" style={{ fontSize: '0.7rem' }}>
+                                <span className="text-uppercase fw-bold d-block mb-1" style={{ fontSize: '0.7rem', letterSpacing: '0.5px', color: '#334155' }}>
+                                  Sin Iniciar (0%)
+                                </span>
+                                <div className="d-flex align-items-baseline gap-2">
+                                  <span className="fs-2 fw-bolder lh-1" style={{ color: '#334155' }}>{stats.sinIniciarGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#475569', color: '#FFFFFF', fontSize: '0.72rem' }}>
                                     {stats.totalGeneral > 0 ? Math.round((stats.sinIniciarGeneral / stats.totalGeneral) * 100) : 0}%
                                   </span>
                                 </div>
                               </div>
-                              <div className="bg-secondary bg-opacity-10 text-secondary p-2 rounded-circle">
-                                <i className="bi bi-dash-circle fs-5"></i>
+                              <div className="p-2.5 rounded-circle" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
+                                <i className="bi bi-dash-circle fs-4"></i>
                               </div>
                             </div>
                           </div>
@@ -3580,7 +3883,7 @@ export const VincularEstudiante: React.FC = () => {
                               <div className="col-12">
                                 <div 
                                   className="card border-0 shadow-sm rounded-4 p-3.5 text-white overflow-hidden position-relative" 
-                                  style={{ background: escuelaReporte === 'ambas' ? 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)' : 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}
+                                  style={{ background: 'linear-gradient(135deg, #1E1B4B 0%, #4C1D95 50%, #7C3AED 100%)' }}
                                 >
                                   <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom border-white border-opacity-25">
                                     <div>
@@ -3735,7 +4038,12 @@ export const VincularEstudiante: React.FC = () => {
                                   </div>
                                   <div className="mt-1">
                                     <div className="fs-3 fw-bolder lh-1" style={{ color: gaugeColor }}>{stats.pctGeneral}%</div>
-                                    <span className={`badge px-2.5 py-0.5 rounded-pill fw-bold mt-1 ${pct >= 75 ? 'bg-success bg-opacity-10 text-success' : (pct >= 40 ? 'bg-warning bg-opacity-10 text-warning' : 'bg-danger bg-opacity-10 text-danger')}`} style={{ fontSize: '0.72rem' }}>
+                                    <span className="badge px-2.5 py-1 rounded-pill fw-bold mt-1" style={{ 
+                                      fontSize: '0.75rem',
+                                      backgroundColor: pct >= 75 ? '#DCFCE7' : (pct >= 40 ? '#FEF3C7' : '#FEE2E2'),
+                                      color: pct >= 75 ? '#166534' : (pct >= 40 ? '#92400E' : '#991B1B'),
+                                      border: `1px solid ${pct >= 75 ? '#BBF7D0' : (pct >= 40 ? '#FDE68A' : '#FECACA')}`
+                                    }}>
                                       {pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}
                                     </span>
                                   </div>
@@ -3762,9 +4070,9 @@ export const VincularEstudiante: React.FC = () => {
                                     </div>
                                   </div>
                                   <div className="d-flex justify-content-around text-center pt-1 border-top" style={{ fontSize: '0.72rem' }}>
-                                    <div><span className="fw-bold text-success d-block">{stats.completadosGeneral}</span><span className="text-muted">Listos</span></div>
-                                    <div><span className="fw-bold text-warning d-block" style={{ color: '#b45309 !important' }}>{stats.enProcesoGeneral}</span><span className="text-muted">Proceso</span></div>
-                                    <div><span className="fw-bold text-secondary d-block">{stats.sinIniciarGeneral}</span><span className="text-muted">Pend.</span></div>
+                                    <div><span className="fw-bold d-block" style={{ color: '#059669' }}>{stats.completadosGeneral}</span><span className="text-dark fw-bold">Listos</span></div>
+                                    <div><span className="fw-bold d-block" style={{ color: '#D97706' }}>{stats.enProcesoGeneral}</span><span className="text-dark fw-bold">Proceso</span></div>
+                                    <div><span className="fw-bold d-block" style={{ color: '#475569' }}>{stats.sinIniciarGeneral}</span><span className="text-dark fw-bold">Pend.</span></div>
                                   </div>
                                 </div>
                               </div>
@@ -4188,32 +4496,44 @@ export const VincularEstudiante: React.FC = () => {
                                 {stats.desglosePorGrado.map((g, idx) => (
                                   <tr key={idx}>
                                     <td className="ps-3 fw-bold text-dark">{g.grado}</td>
-                                    <td className="text-center fw-bold">{g.total}</td>
-                                    <td className="text-center"><span className="badge bg-success bg-opacity-10 text-success border border-success px-2 py-0.5 fw-bold">{g.completados}</span></td>
-                                    <td className="text-center"><span className="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-0.5 fw-bold" style={{ color: '#b45309 !important' }}>{g.enProceso}</span></td>
-                                    <td className="text-center"><span className="badge bg-light text-secondary border px-2 py-0.5">{g.sinIniciar}</span></td>
+                                    <td className="text-center fw-bold text-dark">{g.total}</td>
+                                    <td className="text-center">
+                                      <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #BBF7D0' }}>
+                                        {g.completados}
+                                      </span>
+                                    </td>
+                                    <td className="text-center">
+                                      <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                                        {g.enProceso}
+                                      </span>
+                                    </td>
+                                    <td className="text-center">
+                                      <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#F1F5F9', color: '#334155', border: '1px solid #E2E8F0' }}>
+                                        {g.sinIniciar}
+                                      </span>
+                                    </td>
                                     <td>
                                       <div className="d-flex align-items-center gap-1.5">
-                                        <div className="progress flex-grow-1 rounded-pill" style={{ height: '7px' }}>
-                                          <div className="progress-bar bg-success" role="progressbar" style={{ width: `${g.pctCompletado}%` }}></div>
+                                        <div className="progress flex-grow-1 rounded-pill" style={{ height: '7px', backgroundColor: '#E2E8F0' }}>
+                                          <div className="progress-bar" role="progressbar" style={{ width: `${g.pctCompletado}%`, backgroundColor: '#059669' }}></div>
                                         </div>
-                                        <span className="small fw-bold text-success" style={{ minWidth: '35px', fontSize: '0.75rem' }}>{g.pctCompletado}%</span>
+                                        <span className="small fw-bold" style={{ minWidth: '35px', fontSize: '0.75rem', color: '#059669' }}>{g.pctCompletado}%</span>
                                       </div>
                                     </td>
                                   </tr>
                                 ))}
-                                <tr className="table-light fw-bold border-top border-2" style={{ fontSize: '0.88rem' }}>
-                                  <td className="ps-3 text-primary">TOTAL GENERAL CONSOLIDADO</td>
-                                  <td className="text-center text-dark">{stats.totalGeneral}</td>
-                                  <td className="text-center text-success">{stats.completadosGeneral}</td>
-                                  <td className="text-center text-warning" style={{ color: '#b45309 !important' }}>{stats.enProcesoGeneral}</td>
-                                  <td className="text-center text-secondary">{stats.sinIniciarGeneral}</td>
+                                <tr className="fw-bold border-top border-2" style={{ fontSize: '0.88rem', backgroundColor: '#EDE9FE', color: '#4C1D95' }}>
+                                  <td className="ps-3" style={{ color: '#4C1D95' }}>TOTAL GENERAL CONSOLIDADO</td>
+                                  <td className="text-center" style={{ color: '#4C1D95' }}>{stats.totalGeneral}</td>
+                                  <td className="text-center" style={{ color: '#059669' }}>{stats.completadosGeneral}</td>
+                                  <td className="text-center" style={{ color: '#D97706' }}>{stats.enProcesoGeneral}</td>
+                                  <td className="text-center" style={{ color: '#475569' }}>{stats.sinIniciarGeneral}</td>
                                   <td>
                                     <div className="d-flex align-items-center gap-1.5">
-                                      <div className="progress flex-grow-1 rounded-pill" style={{ height: '9px' }}>
-                                        <div className="progress-bar bg-primary" role="progressbar" style={{ width: `${stats.pctGeneral}%` }}></div>
+                                      <div className="progress flex-grow-1 rounded-pill" style={{ height: '9px', backgroundColor: '#DDD6FE' }}>
+                                        <div className="progress-bar" role="progressbar" style={{ width: `${stats.pctGeneral}%`, backgroundColor: '#7C3AED' }}></div>
                                       </div>
-                                      <span className="small fw-bold text-primary" style={{ minWidth: '35px', fontSize: '0.78rem' }}>{stats.pctGeneral}%</span>
+                                      <span className="small fw-bold" style={{ minWidth: '35px', fontSize: '0.78rem', color: '#6D28D9' }}>{stats.pctGeneral}%</span>
                                     </div>
                                   </td>
                                 </tr>
@@ -4237,10 +4557,10 @@ export const VincularEstudiante: React.FC = () => {
 
                       <div className="d-flex gap-2 flex-wrap align-items-center">
                         {/* Exportar */}
-                        <div className="btn-group btn-group-sm shadow-sm" role="group">
+                        <div className="d-flex gap-1.5 flex-wrap">
                           <button 
                             type="button" 
-                            className="btn btn-danger fw-bold px-3 d-flex align-items-center gap-1.5"
+                            className="btn btn-danger rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs hover-efecto"
                             onClick={descargarReportePDF}
                             disabled={generandoPDF}
                             style={{ fontSize: '0.8rem' }}
@@ -4248,7 +4568,7 @@ export const VincularEstudiante: React.FC = () => {
                             {generandoPDF ? (
                               <>
                                 <span className="spinner-border spinner-border-sm"></span>
-                                <span>Generando PDF...</span>
+                                <span>Generando...</span>
                               </>
                             ) : (
                               <>
@@ -4259,36 +4579,38 @@ export const VincularEstudiante: React.FC = () => {
                           </button>
                           <button 
                             type="button" 
-                            className="btn btn-outline-success fw-bold px-2.5"
+                            className="btn btn-outline-success bg-white rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs hover-efecto"
                             onClick={exportarEstadisticasExcel}
                             style={{ fontSize: '0.8rem' }}
                           >
-                            <i className="bi bi-file-earmark-excel-fill me-1"></i> Excel
+                            <i className="bi bi-file-earmark-excel-fill"></i>
+                            <span>Excel</span>
                           </button>
                           <button 
                             type="button" 
-                            className="btn btn-outline-primary fw-bold px-2.5"
+                            className="btn btn-outline-primary bg-white rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs hover-efecto"
                             onClick={imprimirReporteEstadistico}
-                            style={{ fontSize: '0.8rem' }}
+                            style={{ fontSize: '0.8rem', borderColor: '#8B5CF6', color: '#8B5CF6' }}
                           >
-                            <i className="bi bi-printer-fill me-1"></i> Imprimir
+                            <i className="bi bi-printer-fill"></i>
+                            <span>Imprimir</span>
                           </button>
                         </div>
 
                         {/* Enviar WhatsApp y Correo */}
-                        <div className="btn-group btn-group-sm shadow-sm" role="group">
+                        <div className="d-flex gap-1.5 flex-wrap">
                           <button 
                             type="button" 
-                            className="btn btn-success fw-bold px-3 d-flex align-items-center gap-1.5"
+                            className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs hover-efecto"
                             style={{ backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', fontSize: '0.8rem' }}
                             onClick={handleEnviarWhatsApp}
                           >
                             <i className="bi bi-whatsapp"></i>
-                            <span>Enviar WhatsApp</span>
+                            <span>WhatsApp</span>
                           </button>
                           <button 
                             type="button" 
-                            className="btn btn-dark fw-bold px-2.5 d-flex align-items-center gap-1.5"
+                            className="btn btn-dark rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs hover-efecto"
                             onClick={handleEnviarCorreo}
                             style={{ fontSize: '0.8rem' }}
                           >
@@ -4299,7 +4621,7 @@ export const VincularEstudiante: React.FC = () => {
 
                         <button 
                           type="button" 
-                          className="btn btn-sm btn-secondary rounded-pill px-3 fw-bold"
+                          className="btn btn-light border rounded-pill px-4 py-1.5 fw-bold hover-efecto"
                           onClick={() => setShowEstadisticasModal(false)}
                           style={{ fontSize: '0.8rem' }}
                         >
@@ -4469,10 +4791,10 @@ export const VincularEstudiante: React.FC = () => {
             <div className="modal-content rounded-4 border-0 shadow-2xl overflow-hidden" style={{ background: '#f8fafc' }}>
               {(() => {
                 const d = estudianteDoc.datos_actualizados || {};
-                const nombreEstudianteCompleto = `${estudianteDoc.nombres_estudiante || d.estudiante_nombres || ''} ${estudianteDoc.apellidos_estudiante || d.estudiante_apellidos || ''}`.trim() || 'Estudiante';
+                const nombreEstudianteCompleto = getNombreEstudiante(estudianteDoc);
                 const cedulaEstudiante = estudianteDoc.cedula_estudiante || d.estudiante_cedula || 'No posee';
                 const gradoEstudiante = estudianteDoc.grado_actual || d.grado_solicitado || 'Grado asignado';
-                const representanteNombre = `${d.representante_nombres || estudianteDoc.nombres_representante || ''} ${d.representante_apellidos || estudianteDoc.apellidos_representante || ''}`.trim() || 'Representante Legal';
+                const representanteNombre = getNombreRepresentante(estudianteDoc);
                 const representanteCedula = d.representante_cedula || estudianteDoc.cedula_representante || 'No registrada';
 
                 const anoActual = new Date().getFullYear();
@@ -4564,14 +4886,26 @@ export const VincularEstudiante: React.FC = () => {
                     <div className="bg-white border-bottom p-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
                       {/* Pestañas de Documento */}
                       <div className="btn-group p-1 bg-light rounded-pill border shadow-sm">
-                        <button
-                          type="button"
-                          className={`btn rounded-pill px-3 py-1.5 fw-bold btn-sm ${vistaDocEstudiante === 'constancia' ? 'btn-primary shadow-sm' : 'btn-light text-muted'}`}
-                          onClick={() => setVistaDocEstudiante('constancia')}
-                        >
-                          <i className="bi bi-file-earmark-check-fill me-1.5"></i>
-                          Constancia de Inscripción
-                        </button>
+                        {(esDocumentoActivo('inscripcion', escuelaCodigo) || !esDocumentoActivo('estudio', escuelaCodigo)) && (
+                          <button
+                            type="button"
+                            className={`btn rounded-pill px-3 py-1.5 fw-bold btn-sm ${vistaDocEstudiante === 'constancia' ? 'btn-primary shadow-sm' : 'btn-light text-muted'}`}
+                            onClick={() => setVistaDocEstudiante('constancia')}
+                          >
+                            <i className="bi bi-file-earmark-check-fill me-1.5"></i>
+                            Constancia de Inscripción
+                          </button>
+                        )}
+                        {esDocumentoActivo('estudio', escuelaCodigo) && (
+                          <button
+                            type="button"
+                            className={`btn rounded-pill px-3 py-1.5 fw-bold btn-sm ${vistaDocEstudiante === 'estudio' ? 'btn-primary shadow-sm' : 'btn-light text-muted'}`}
+                            onClick={() => setVistaDocEstudiante('estudio' as any)}
+                          >
+                            <i className="bi bi-mortarboard-fill me-1.5"></i>
+                            Constancia de Estudio
+                          </button>
+                        )}
                         <button
                           type="button"
                           className={`btn rounded-pill px-3 py-1.5 fw-bold btn-sm ${vistaDocEstudiante === 'resumen' ? 'btn-success shadow-sm' : 'btn-light text-muted'}`}
@@ -4584,19 +4918,21 @@ export const VincularEstudiante: React.FC = () => {
 
                       {/* Botones de Acción */}
                       <div className="d-flex gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          className="btn btn-warning text-dark fw-bold rounded-pill px-3 shadow-sm btn-sm d-flex align-items-center gap-1.5 hover-efecto"
-                          onClick={() => {
-                            if (estudianteDoc) {
-                              mostrarModalCarnetEstudiantil(estudianteDoc);
-                            }
-                          }}
-                          title="Emitir y descargar Carnet Estudiantil oficial"
-                        >
-                          <i className="bi bi-person-badge-fill"></i>
-                          <span>Carnet Estudiantil</span>
-                        </button>
+                        {esDocumentoActivo('carnet', escuelaCodigo) && (
+                          <button
+                            type="button"
+                            className="btn btn-warning text-dark fw-bold rounded-pill px-3 shadow-sm btn-sm d-flex align-items-center gap-1.5 hover-efecto"
+                            onClick={() => {
+                              if (estudianteDoc) {
+                                mostrarModalCarnetEstudiantil(estudianteDoc);
+                              }
+                            }}
+                            title="Emitir y descargar Carnet Estudiantil oficial"
+                          >
+                            <i className="bi bi-person-badge-fill"></i>
+                            <span>Carnet Estudiantil</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -4667,7 +5003,7 @@ export const VincularEstudiante: React.FC = () => {
                           {/* TÍTULO DE LA CONSTANCIA */}
                           <div style={{ textAlign: 'center', margin: '28px 0 24px' }}>
                             <h2 style={{ margin: 0, fontSize: 21, fontWeight: 'bold', color: '#000000', letterSpacing: '0.5px' }}>
-                              Constancia de Inscripción
+                              {(vistaDocEstudiante as string) === 'estudio' ? 'Constancia de Estudio' : 'Constancia de Inscripción'}
                             </h2>
                           </div>
 
@@ -4694,7 +5030,7 @@ export const VincularEstudiante: React.FC = () => {
                                 return 'cédula escolar';
                               }
                               return 'cédula de identidad';
-                            })()} N.° <b>{cedulaEstudiante}</b>, fue {esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>{toTitulo(gradoLimpio)}</b> de <b>{nivelEducativo}</b> en este instituto durante el año escolar <b>{anoActual}-{anoProximo}</b>.
+                            })()} N.° <b>{cedulaEstudiante}</b>, {(vistaDocEstudiante as string) === 'estudio' ? `es estudiante regular y se encuentra cursando activamente el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>, demostrando buen rendimiento pedagógico y constante asistencia.` : `fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.`}
                           </p>
 
                           {/* PÁRRAFO 2: REPRESENTANTE */}
@@ -4868,15 +5204,17 @@ export const VincularEstudiante: React.FC = () => {
                         Cerrar Visor
                       </button>
                       <div className="d-flex align-items-center gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-warning text-dark fw-bold rounded-pill px-3 shadow-sm d-flex align-items-center gap-1.5"
-                          onClick={() => mostrarModalCarnetEstudiantil(estudianteDoc, estudianteDoc?.datos_actualizados)}
-                          title="Ver y emitir Carnet Estudiantil"
-                        >
-                          <i className="bi bi-person-badge-fill"></i>
-                          <span>Carnet Estudiantil</span>
-                        </button>
+                        {esDocumentoActivo('carnet', escuelaCodigo) && (
+                          <button
+                            type="button"
+                            className="btn btn-warning text-dark fw-bold rounded-pill px-3 shadow-sm d-flex align-items-center gap-1.5"
+                            onClick={() => mostrarModalCarnetEstudiantil(estudianteDoc, estudianteDoc?.datos_actualizados)}
+                            title="Ver y emitir Carnet Estudiantil"
+                          >
+                            <i className="bi bi-person-badge-fill"></i>
+                            <span>Carnet Estudiantil</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="btn btn-primary fw-bold rounded-pill px-4 shadow-sm d-flex align-items-center gap-1.5"

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
 
 export const AuditoriaSistema = () => {
   const navigate = useNavigate();
@@ -55,7 +56,7 @@ export const AuditoriaSistema = () => {
         const authorizedSchool = hasAccessSB ? 'sb' : 'lb';
         query = query.eq('escuela', authorizedSchool);
       }
-      const { data, error } = await query.order('fecha', { ascending: false });
+      const { data, error } = await query.order('fecha', { ascending: false }).limit(1000);
 
       if (error) throw error;
       setRegistros(data || []);
@@ -198,7 +199,7 @@ export const AuditoriaSistema = () => {
 
     const dataLimpia = datos.map(r => ({
       "Fecha y Hora": new Date(r.fecha).toLocaleString('es-VE'),
-      "Escuela": r.escuela === 'lb' ? 'Libertador Bolívar' : (r.escuela === 'sb' ? 'Santa Bárbara' : r.escuela),
+      "Escuela": r.escuela === 'lb' ? 'UE Libertador Bolívar' : (r.escuela === 'sb' ? 'UE Santa Bárbara' : r.escuela),
       "Usuario": r.usuario_nombre,
       "Cédula": r.usuario_cedula,
       "Módulo": r.modulo,
@@ -278,7 +279,7 @@ export const AuditoriaSistema = () => {
 
     const tituloMensaje = filtroEscuela === 'TODAS'
       ? 'Mantenimiento Total (Ambas Escuelas)'
-      : `Mantenimiento: ${filtroEscuela === 'lb' ? 'Libertador Bolívar' : 'Santa Bárbara'}`;
+      : `Mantenimiento: ${filtroEscuela === 'lb' ? 'UE Libertador Bolívar' : 'UE Santa Bárbara'}`;
 
     Swal.fire({
       title: tituloMensaje,
@@ -294,7 +295,7 @@ export const AuditoriaSistema = () => {
         // 1. Export Excel
         const dataLimpia = datosAfectados.map(r => ({
           "Fecha y Hora": new Date(r.fecha).toLocaleString('es-VE'),
-          "Escuela": r.escuela === 'lb' ? 'Libertador Bolívar' : (r.escuela === 'sb' ? 'Santa Bárbara' : r.escuela),
+          "Escuela": r.escuela === 'lb' ? 'UE Libertador Bolívar' : (r.escuela === 'sb' ? 'UE Santa Bárbara' : r.escuela),
           "Usuario": r.usuario_nombre,
           "Cédula": r.usuario_cedula,
           "Módulo": r.modulo,
@@ -336,57 +337,83 @@ export const AuditoriaSistema = () => {
 
   return (
     <div className="row g-4 container-fluid p-0 animate__animated animate__fadeIn">
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <div className="col-12">
+        <ChamiloBreadcrumb
+          category="Seguridad y Accesos"
+          currentModule="Auditoría del Sistema"
+        />
+
+        {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+        <ChamiloHelpCallout
+          id="ayuda_auditoria_sistema"
+          title="Guía de Auditoría y Bitácora de Operaciones"
+          content="Consulte la trazabilidad completa de eventos en el sistema: ingresos, modificaciones de datos, descargas de registros y cambios de configuración para cada institución educativa."
+          icon="bi-shield-check"
+        />
+      </div>
+
       {/* Banner */}
       <div className="col-12 animate__animated animate__fadeInDown">
         <div 
-          className="banner-modulo p-4 p-md-5 text-white shadow-sm" 
-          style={{ background: 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}
+          className="banner-modulo p-4 p-md-5 text-white shadow-sm position-relative overflow-hidden rounded-4" 
+          style={{ background: 'linear-gradient(135deg, #0066FF 0%, #00C3FF 100%)' }}
         >
-          <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.15)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-          <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
+          <div className="burbuja-3d burbuja-1"></div>
+          <div className="burbuja-3d burbuja-2"></div>
+          <div className="burbuja-3d burbuja-3"></div>
           <div className="row align-items-center position-relative z-1">
-            <div className="col-12 text-center text-md-start">
+            <div className="col-lg-9 text-center text-md-start mb-3 mb-lg-0">
               <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                <span className="badge bg-white text-secondary px-3 py-2 shadow-sm fw-bold" style={{ letterSpacing: '1px', fontSize: '0.85rem' }}>
-                  <i className="bi bi-shield-lock me-1"></i> SEGURIDAD Y ACCESOS
+                <span className="badge bg-white text-primary px-3 py-2 shadow-sm fw-bold rounded-pill badge-3d" style={{ letterSpacing: '0.5px' }}>
+                  <i className="bi bi-shield-lock me-1"></i> SEGURIDAD, TRAZABILIDAD & BITÁCORA
                 </span>
-                <div className="d-flex gap-2">
+                <div className="d-flex align-items-center gap-2">
                   {isDualAccess && (
                     <div className="btn-group bg-white p-1 rounded-pill shadow-sm">
                       <button 
                         onClick={() => { setFiltroEscuela('TODAS'); setPaginaActual(1); }} 
-                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'TODAS' ? 'btn-secondary text-white' : 'btn-light text-muted border-0'}`}
+                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'TODAS' ? 'btn-primary text-white shadow-xs' : 'btn-light text-muted border-0'}`}
                       >
                         Consolidado
                       </button>
                       <button 
                         onClick={() => { setFiltroEscuela('sb'); setPaginaActual(1); }} 
-                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'sb' ? 'btn-success text-white' : 'btn-light text-muted border-0'}`}
+                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'sb' ? 'btn-success text-white shadow-xs' : 'btn-light text-muted border-0'}`}
                       >
-                        Santa Bárbara
+                        UE Santa Bárbara
                       </button>
                       <button 
                         onClick={() => { setFiltroEscuela('lb'); setPaginaActual(1); }} 
-                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'lb' ? 'btn-primary text-white' : 'btn-light text-muted border-0'}`}
+                        className={`btn btn-sm rounded-pill px-3 fw-bold ${filtroEscuela === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-light text-muted border-0'}`}
                       >
-                        Libertador
+                        UE Libertador Bolívar
                       </button>
                     </div>
                   )}
                   <button 
                     onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
-                    className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
+                    className="btn btn-sm btn-white bg-white text-dark rounded-pill px-3 py-1.5 fw-bold shadow-sm hover-efecto btn-pill-3d"
                   >
-                    <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
+                    <i className="bi bi-arrow-left me-1"></i> Volver al Menú
                   </button>
                 </div>
               </div>
-              <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                <i className="bi bi-clock-history me-3"></i>Auditoría del Sistema
+              <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: 'calc(1.6rem + 1vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                <i className="bi bi-clock-history me-2"></i>Auditoría del Sistema
               </h1>
-              <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Historial detallado de movimientos y acciones de los usuarios para {filtroEscuela === 'TODAS' ? 'Ambas Instituciones' : (filtroEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar')}.
+              <p className="mb-0 fw-semibold fs-5 text-white text-opacity-90" style={{ maxWidth: '820px' }}>
+                Historial detallado de movimientos, accesos y operaciones para {filtroEscuela === 'TODAS' ? 'Ambas Instituciones' : (filtroEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar')}.
               </p>
+            </div>
+            <div className="col-lg-3 text-end d-none d-lg-block">
+              <img 
+                src={`/assets/img/logo_${filtroEscuela === 'TODAS' ? (localStorage.getItem('sigae_escuela_codigo') || 'sb') : filtroEscuela}.png`} 
+                alt="Logo Escuela" 
+                className="logo-escuela-banner"
+                onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+              />
             </div>
           </div>
         </div>
@@ -522,9 +549,9 @@ export const AuditoriaSistema = () => {
                             </td>
                             <td>
                               {r.escuela === 'lb' ? (
-                                <span className="badge bg-primary text-white">L.B.</span>
+                                <span className="badge bg-primary text-white">UE Libertador Bolívar</span>
                               ) : r.escuela === 'sb' ? (
-                                <span className="badge bg-success text-white">S.B.</span>
+                                <span className="badge bg-success text-white">UE Santa Bárbara</span>
                               ) : (
                                 <span className="badge bg-dark">N/A</span>
                               )}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoMensajesAdmision } from '../../components/chamilo';
 import type {
   PlantillaMensajeAdmision,
   EstadoAdmisionTipo,
@@ -329,60 +330,156 @@ export const RedactorMensajesAdmision: React.FC = () => {
     }
   };
 
+  const escuelaCodigo = (filtroEscuela === 'todas' ? (localStorage.getItem('sigae_escuela_codigo') || 'sb') : filtroEscuela);
+  const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
+
   return (
-    <div className="container-fluid py-4 px-xl-5">
-      {/* ── ENCABEZADO PRINCIPAL ── */}
-      <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
-        <div>
-          <div className="d-flex align-items-center gap-2">
-            <button
-              className="btn btn-outline-secondary btn-sm rounded-circle"
-              onClick={() => navigate('/categoria/Gestión%20Estudiantil/Gestión%20de%20Admisiones')}
-              title="Volver a Gestión de Admisiones"
-            >
-              <i className="bi bi-arrow-left"></i>
-            </button>
-            <h2 className="h4 fw-bold text-dark mb-0">
-              <i className="bi bi-chat-heart-fill text-primary me-2"></i>
-              Redactor de Mensajes de Admisión
-            </h2>
+    <div className="modulo-animado container-fluid py-4 px-3 px-md-4 animate__animated animate__fadeIn">
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Gestión Estudiantil"
+        currentModule="Redactor de Mensajes de Admisión"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_redactor_mensajes_admision"
+        title="Guía del Redactor de Mensajes y Plantillas de Admisión"
+        content="Personalice las notificaciones automáticas y plantillas oficiales enviadas por WhatsApp y correo electrónico a los representantes sobre el estado de sus solicitudes de cupo."
+        icon="bi-chat-heart-fill"
+      />
+
+      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      <div 
+        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
+        style={{ 
+          border: '2px solid #ddd6fe',
+          borderTop: '6px solid #8b5cf6',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
+          borderRadius: '26px'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono 3D Isométrico + Escudo Institucional */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm" style={{ border: '2px solid #ddd6fe' }}>
+                <div 
+                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ 
+                    width: '88px', 
+                    height: '88px',
+                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                    border: '1.5px solid #ddd6fe'
+                  }}
+                  title="Redactor de Mensajes de Admisión Chamilo Tech"
+                >
+                  <IconoMensajesAdmision size={58} color="#8b5cf6" />
+                </div>
+                <div 
+                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ width: '88px', height: '88px' }}
+                >
+                  <img 
+                    src={logoPath} 
+                    alt="Escudo Institucional" 
+                    className="img-fluid"
+                    style={{ maxHeight: '72px', objectFit: 'contain' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#8B5CF6' }}>
+                  <i className="bi bi-chat-heart-fill me-1"></i>Comunicación & Admisiones
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-file-earmark-text-fill text-primary me-1"></i><b>{plantillas.length}</b> Plantillas Activas
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-whatsapp text-success me-1"></i>WhatsApp & Email
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                  <span className="text-success fw-bold">Live</span> / Sincronizado
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Redactor de Mensajes de Admisión
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                Diseña, personaliza y simula los mensajes oficiales de Aprobación, Rechazo y Formalización para WhatsApp y Correo Electrónico.
+              </p>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Gestión%20Estudiantil/Gestión%20de%20Admisiones')}
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver a Admisiones</span>
+              </button>
+            </div>
+
           </div>
-          <p className="text-muted small mb-0 mt-1">
-            Diseña, personaliza y simula los mensajes oficiales de <strong>Aprobación</strong>, <strong>Rechazo</strong> y <strong>Formalización</strong> para WhatsApp y Correo.
-          </p>
         </div>
 
-        <div className="d-flex align-items-center flex-wrap gap-2">
-          <button
-            className="btn btn-outline-secondary rounded-pill px-3 fw-bold btn-sm"
-            onClick={handleRestaurarPredeterminados}
-            title="Restaurar textos predeterminados de fábrica"
-          >
-            <i className="bi bi-arrow-counterclockwise me-1"></i>Restaurar Originales
-          </button>
-          <button
-            className="btn btn-outline-primary rounded-pill px-3 fw-bold btn-sm"
-            onClick={handleCrearNuevaPlantilla}
-          >
-            <i className="bi bi-plus-lg me-1"></i>Nueva Plantilla
-          </button>
-          <button
-            className="btn btn-success rounded-pill px-4 fw-bold shadow-sm btn-sm d-flex align-items-center gap-2"
-            onClick={handleGuardarPlantilla}
-            disabled={guardando || !plantillaEdicion}
-          >
-            {guardando ? (
-              <span className="spinner-border spinner-border-sm"></span>
-            ) : (
-              <i className="bi bi-floppy-fill"></i>
-            )}
-            <span>Guardar y Aplicar al Sistema</span>
-          </button>
+        {/* Barra de Acciones Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
+              onClick={handleGuardarPlantilla}
+              disabled={guardando || !plantillaEdicion}
+            >
+              {guardando ? (
+                <span className="spinner-border spinner-border-sm"></span>
+              ) : (
+                <i className="bi bi-floppy-fill"></i>
+              )}
+              <span>Guardar y Aplicar Plantilla</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
+              onClick={handleCrearNuevaPlantilla}
+            >
+              <i className="bi bi-plus-lg text-primary"></i>
+              <span>Nueva Plantilla</span>
+            </button>
+          </div>
+
+          <div className="d-flex align-items-center gap-1.5">
+            <button
+              type="button"
+              className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold extra-small hover-efecto"
+              onClick={handleRestaurarPredeterminados}
+            >
+              <i className="bi bi-arrow-counterclockwise text-warning me-1"></i>
+              <span>Restablecer Originales</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ── BARRA DE FILTROS RÁPIDOS Y SELECTOR DE PLANTILLA ── */}
-      <div className="card border-0 shadow-sm rounded-4 p-3 bg-white mb-4">
+      <div className="card border-0 shadow-sm rounded-4 p-3 bg-white mb-4" style={{ border: '1px solid #ddd6fe' }}>
         <div className="row g-3 align-items-center">
           
           {/* Filtro por Escuela */}
@@ -551,6 +648,16 @@ export const RedactorMensajesAdmision: React.FC = () => {
                     onChange={(e) => plantillaEdicion && setPlantillaEdicion({ ...plantillaEdicion, asunto_email: e.target.value })}
                     placeholder="Ej. ¡Solicitud Admitida! Proceso de Admisión {{ano_escolar}}..."
                   />
+                </div>
+              )}
+
+              {/* Recomendación Anti-Spam para WhatsApp */}
+              {plantillaEdicion?.canal === 'whatsapp' && (
+                <div className="alert alert-success py-2 px-3 rounded-3 small d-flex align-items-center gap-2 mb-1" style={{ fontSize: '0.78rem', background: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534' }}>
+                  <i className="bi bi-shield-check fs-5 text-success flex-shrink-0"></i>
+                  <div>
+                    <b>Directriz Anti-Spam Institucional:</b> Redacción sobria sin mayúsculas sostenidas, máximo 2 o 3 emojis institucionales y un único enlace verificado para garantizar entregabilidad inmediata sin bloqueos.
+                  </div>
                 </div>
               )}
 

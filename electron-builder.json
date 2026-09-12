@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.sigae.app",
+  "productName": "SIGAE",
+  "copyright": "Copyright © 2026 SIGAE",
+  "npmRebuild": false,
+  "electronDist": "node_modules/electron/dist",
+  "forceCodeSigning": false,
+  "directories": {
+    "output": "release",
+    "buildResources": "public"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json"
+  ],
+  "extraMetadata": {
+    "main": "electron/main.cjs"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "dir",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "signAndEditExecutable": false,
+    "icon": "public/assets/img/icono_512.png"
+  },
+  "portable": {
+    "artifactName": "SIGAE_Portable_${version}.${ext}",
+    "requestExecutionLevel": "user"
+  },
+  "linux": {
+    "target": [
+      "AppImage"
+    ],
+    "category": "Education",
+    "icon": "public/assets/img/icono_512.png",
+    "description": "Sistema Integral de Gestión y Administración Escolar (Portable AppImage)"
+  }
+}

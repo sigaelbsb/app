@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SIGAE</string>
+    <string name="title_activity_main">SIGAE</string>
+    <string name="package_name">com.sigae.escolar</string>
+    <string name="custom_url_scheme">com.sigae.escolar</string>
+</resources>

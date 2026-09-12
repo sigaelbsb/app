@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { formatPhoneNumber } from '../../lib/formatters';
+import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
 
 interface DocenteFila {
   cedula: string;
@@ -104,84 +105,88 @@ export const GestorExpedientes = () => {
     return !!(doc.cedula && doc.titulo && doc.cv && doc.constancia);
   };
 
+  const cargarDocentes = async () => {
+    setLoading(true);
+    try {
+      const { data: dbUsuarios, error: userError } = await supabase
+        .from('usuarios')
+        .select('cedula, nombre_completo, rol, id_escuela, email, telefono, estado')
+        .order('nombre_completo', { ascending: true });
+
+      if (userError) throw userError;
+
+      const { data: dbExpedientes, error: expError } = await supabase
+        .from('expedientes_docentes')
+        .select('*');
+
+      if (expError) {
+        console.error("Error al cargar expedientes_docentes:", expError);
+      }
+
+      // Cruzar datos
+      const mapeados = (dbUsuarios || [])
+        .filter(u => u.rol === 'Docente' || u.rol === 'Docente Invitado' || u.rol === 'Administrador')
+        .map(u => {
+          const exp = (dbExpedientes || []).find(e => e.usuario_cedula === u.cedula);
+          return {
+            cedula: u.cedula,
+            nombre: u.nombre_completo || 'Sin nombre',
+            rol: u.rol,
+            escuela: u.id_escuela || 'sb',
+            email: u.email || '',
+            telefono: u.telefono || '',
+            estado: u.estado || 'Activo',
+            tipo_nomina: exp?.tipo_nomina || 'No registrado',
+            estatus_laboral: exp?.estatus_laboral || 'No registrado',
+            documentos: exp?.documentos || null,
+            datos_vivienda: exp?.datos_vivienda || null,
+            vacaciones_desde: exp?.vacaciones_desde || '',
+            vacaciones_hasta: exp?.vacaciones_hasta || '',
+            dias_habiles: exp?.dias_habiles || 0,
+            dias_continuos: exp?.dias_continuos || 0,
+            fecha_retorno: exp?.fecha_retorno || '',
+            fecha_aniversaria: exp?.fecha_aniversaria || '',
+            periodo_vacacional: exp?.periodo_vacacional || '',
+            cargo_actual: exp?.cargo_actual || '',
+            indicador: exp?.indicador || '',
+            supervisor_nombre: exp?.supervisor_nombre || '',
+            supervisor_cedula: exp?.supervisor_cedula || '',
+            supervisor_telefono: exp?.supervisor_telefono || '',
+            dias_antiguedad: exp?.dias_antiguedad || 0,
+            dias_bono: exp?.dias_bono || 0,
+            monto_paav: exp?.monto_paav || 0,
+            estado_paav: exp?.estado_paav || 'Planificado',
+            actualizado_en: exp?.actualizado_en || null
+          };
+        });
+
+      setDocentes(mapeados);
+      setIsDemoMode(false);
+    } catch (err: any) {
+      console.warn("Fallo al conectar con base de datos de expedientes (posible tabla faltante), activando modo demostrativo:", err.message);
+      setIsDemoMode(true);
+      // Intentar leer de localStorage si hay algún borrador general guardado
+      const localData = localStorage.getItem('sigae_gestor_expedientes_demo');
+      if (localData) {
+        try {
+          setDocentes(JSON.parse(localData));
+        } catch (e) {
+          setDocentes(DOCENTES_DEMO);
+        }
+      } else {
+        setDocentes(DOCENTES_DEMO);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (permLoading) return;
     if (!hasAccess) {
       setLoading(false);
       return;
     }
-
-    const cargarDocentes = async () => {
-      setLoading(true);
-      try {
-        const { data: dbUsuarios, error: userError } = await supabase
-          .from('usuarios')
-          .select('cedula, nombre_completo, rol, id_escuela, email, telefono, estado')
-          .order('nombre_completo', { ascending: true });
-
-        if (userError) throw userError;
-
-        const { data: dbExpedientes, error: expError } = await supabase
-          .from('expedientes_docentes')
-          .select('*');
-
-        if (expError) {
-          console.error("Error al cargar expedientes_docentes:", expError);
-        }
-
-        // Cruzar datos
-        const mapeados = (dbUsuarios || [])
-          .filter(u => u.rol === 'Docente' || u.rol === 'Docente Invitado' || u.rol === 'Administrador')
-          .map(u => {
-            const exp = (dbExpedientes || []).find(e => e.usuario_cedula === u.cedula);
-            return {
-              cedula: u.cedula,
-              nombre: u.nombre_completo || 'Sin nombre',
-              rol: u.rol,
-              escuela: u.id_escuela || 'sb',
-              email: u.email || '',
-              telefono: u.telefono || '',
-              estado: u.estado || 'Activo',
-              tipo_nomina: exp?.tipo_nomina || 'No registrado',
-              estatus_laboral: exp?.estatus_laboral || 'No registrado',
-              documentos: exp?.documentos || null,
-              datos_vivienda: exp?.datos_vivienda || null,
-              vacaciones_desde: exp?.vacaciones_desde || '',
-              vacaciones_hasta: exp?.vacaciones_hasta || '',
-              dias_habiles: exp?.dias_habiles || 0,
-              dias_continuos: exp?.dias_continuos || 0,
-              fecha_retorno: exp?.fecha_retorno || '',
-              fecha_aniversaria: exp?.fecha_aniversaria || '',
-              periodo_vacacional: exp?.periodo_vacacional || '',
-              cargo_actual: exp?.cargo_actual || '',
-              indicador: exp?.indicador || '',
-              supervisor_nombre: exp?.supervisor_nombre || '',
-              supervisor_cedula: exp?.supervisor_cedula || '',
-              supervisor_telefono: exp?.supervisor_telefono || '',
-              n_personal: exp?.n_personal || ''
-            };
-          });
-
-        setDocentes(mapeados);
-        setIsDemoMode(false);
-      } catch (err: any) {
-        console.warn("Falla al conectar a Supabase, cargando simulador local:", err.message);
-        setIsDemoMode(true);
-        // Intentar leer de localStorage si hay algún borrador general guardado
-        const localData = localStorage.getItem('sigae_gestor_expedientes_demo');
-        if (localData) {
-          try {
-            setDocentes(JSON.parse(localData));
-          } catch (e) {
-            setDocentes(DOCENTES_DEMO);
-          }
-        } else {
-          setDocentes(DOCENTES_DEMO);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
 
     cargarDocentes();
   }, [permLoading, hasAccess]);
@@ -372,33 +377,118 @@ export const GestorExpedientes = () => {
     );
   }
 
+  const escuelaCodigo = (filtroEscuela === 'todas' ? (localStorage.getItem('sigae_escuela_codigo') || 'sb') : filtroEscuela);
+  const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
+
   return (
-    <div className="modulo-animado container py-4 animate__animated animate__fadeIn">
-      {/* Header Banner */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div 
-            className="banner-modulo p-4 p-md-5 text-white position-relative overflow-hidden rounded-4 shadow-sm"
-            style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}
-          >
-            <div className="d-flex justify-content-between align-items-start flex-wrap gap-2">
-              <div>
-                <span className="badge bg-white text-success px-3 py-2 shadow-sm fw-bold mb-3">
-                  <i className="bi bi-folder-symlink me-1"></i> CONTROL ADMINISTRATIVO
-                </span>
-                <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: '2.4rem' }}>Gestor de Expedientes Docentes</h1>
-                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Administración de expedientes únicos, historial de carrera y planes vacacionales del personal.
-                </p>
+    <div className="modulo-animado container-fluid py-4 px-3 px-md-4 animate__animated animate__fadeIn">
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Gestión Docente"
+        currentModule="Gestor de Expedientes"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_gestor_expedientes"
+        title="Guía del Gestor de Expedientes Docentes"
+        content="Consulte la nómina completa del personal directivo y docente, gestione el historial curricular, actualice recaudos digitales y coordine la programación del Plan Anual de Asignación Vacacional (PAAV)."
+        icon="bi-folder2-open"
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO ── */}
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white border-top border-4" style={{ borderColor: '#00E676' }}>
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Logo de la Escuela */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" style={{ width: '105px', height: '105px' }}>
+                <img 
+                  src={logoPath} 
+                  alt="Escudo Institucional" 
+                  className="img-fluid"
+                  style={{ maxHeight: '85px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
               </div>
-              <div>
+            </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small" style={{ backgroundColor: '#059669' }}>
+                  <i className="bi bi-folder-symlink me-1"></i>Control Administrativo & RRHH
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-people-fill text-success me-1"></i><b>{totalDocentes}</b> Docentes Registrados
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-shield-check text-primary me-1"></i><b>{countValidados}</b> Validados
+                </span>
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                  <i className="bi bi-building me-1"></i>Sede: <b>{filtroEscuela === 'sb' ? 'Santa Bárbara' : (filtroEscuela === 'lb' ? 'Libertador Bolívar' : 'Todas las Sedes')}</b>
+                </span>
                 {isDemoMode && (
-                  <span className="badge bg-warning text-dark border shadow-sm px-3 py-2 fw-bold animate__animated animate__pulse animate__infinite">
-                    <i className="bi bi-sim-fill me-1"></i> Modo Simulación Activa
+                  <span className="badge bg-warning text-dark border px-2.5 py-1.5 fw-bold rounded-pill">
+                    <i className="bi bi-sim-fill me-1"></i>Modo Simulación
                   </span>
                 )}
               </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Gestor de Expedientes Docentes
+              </h1>
+
+              <p className="mb-0 text-muted small">
+                Administración de expedientes únicos, historial de carrera, carga de recaudos y planes vacacionales (PAAV) del personal escolar.
+              </p>
             </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Gestión%20Docente')}
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver al Menú</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Barra de Herramientas Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              onClick={exportarPlanPAAV}
+              className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
+            >
+              <i className="bi bi-file-earmark-spreadsheet-fill"></i>
+              <span>Exportar Plan PAAV Excel</span>
+            </button>
+
+            <button
+              onClick={cargarDocentes}
+              className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1"
+              style={{ fontSize: '0.82rem' }}
+              title="Recargar registros"
+            >
+              <i className="bi bi-arrow-clockwise"></i>
+              <span>Actualizar</span>
+            </button>
+          </div>
+
+          <div className="d-flex align-items-center gap-1.5">
+            <span className="text-muted extra-small">
+              <i className="bi bi-info-circle text-info me-1"></i>Listado en Tiempo Real
+            </span>
           </div>
         </div>
       </div>

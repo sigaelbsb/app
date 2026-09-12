@@ -45,9 +45,9 @@ export const usePermisos = () => {
     const userEsc = (usr.id_escuela || '').trim().toLowerCase();
     let currentEsc = localStorage.getItem('sigae_escuela_codigo') || userEsc || 'sb';
     
-    const isDirectivoRol = ['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora', 'Subdirector', 'Subdirectora'].includes((usr.rol || '').trim());
-    // Aislamiento estricto: solo para roles no directivos asignados a una escuela fija
-    if (!isDirectivoRol && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
+    const isSuperAdmin = (usr.rol || '').trim() === 'SuperAdmin';
+    // Aislamiento estricto: usuarios asignados a una escuela fija ('sb' o 'lb') siempre operan en su escuela
+    if (!isSuperAdmin && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
       currentEsc = userEsc;
       localStorage.setItem('sigae_escuela_codigo', userEsc);
       localStorage.setItem('sigae_escuela_activa', userEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
@@ -124,70 +124,81 @@ export const usePermisos = () => {
   const tieneAccesoEscuela = useCallback((escuelaCodigo: string) => {
     if (!user) return false;
     
-    // SuperAdmin, Administrador y Directores siempre tienen acceso a ambas escuelas
-    const rolTrim = (user.rol || '').trim();
-    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(rolTrim)) {
+    // SuperAdmin y Administradores tienen acceso irrestricto universal a ambos planteles
+    const rolNorm = (user.rol || '').trim().toLowerCase();
+    if (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora') {
       return true;
     }
 
-    const privsEscuela = fullPermisos ? fullPermisos[escuelaCodigo] : null;
+    const codNormalizado = escuelaCodigo.toLowerCase().trim();
+    const userEsc = (user.id_escuela || '').trim().toLowerCase();
 
-    // Si el rol está bloqueado explícitamente en este plantel, denegar
-    if (privsEscuela && privsEscuela.hasOwnProperty('__acceso_plantel__')) {
-      if (privsEscuela['__acceso_plantel__']?.ver === false || privsEscuela['__acceso_plantel__'] === false) {
+    // 1. AISLAMIENTO ESTRICTO POR PLANTEL ASIGNADO AL USUARIO:
+    // Si el usuario está asignado específicamente a una sola escuela, solo puede acceder a ella
+    if (userEsc === 'sb' || userEsc === 'lb') {
+      if (userEsc !== codNormalizado) {
         return false;
       }
     }
 
-    // Directivos generales
+    // 2. VERIFICACIÓN DEL PRIVILEGIO MAESTRO DEL ROL EN ESTE PLANTEL (__acceso_plantel__):
+    const privsEscuela = fullPermisos ? fullPermisos[codNormalizado] : null;
+
+    if (privsEscuela && privsEscuela.hasOwnProperty('__acceso_plantel__')) {
+      const acc = privsEscuela['__acceso_plantel__'];
+      if (typeof acc === 'boolean') return acc;
+      if (typeof acc === 'object' && acc !== null) {
+        return acc.ver === true;
+      }
+      return false;
+    }
+
+    // Si no está explícito el switch maestro pero hay permisos definidos en esta escuela:
+    if (privsEscuela && Object.keys(privsEscuela).length > 0) {
+      for (let mod in privsEscuela) {
+        if (privsEscuela[mod] && (privsEscuela[mod].ver === true || privsEscuela[mod] === true)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Para usuarios directivos sin restricción configurada aún:
     if (esDirectivo) {
       return true;
     }
 
-    // AISLAMIENTO ESTRICTO POR PLANTEL ASIGNADO:
-    const userEsc = (user.id_escuela || '').trim().toLowerCase();
-    if (userEsc === 'sb' || userEsc === 'lb') {
-      if (userEsc !== escuelaCodigo.toLowerCase()) return false;
-      if (privsEscuela && privsEscuela.hasOwnProperty('__acceso_plantel__')) {
-        return privsEscuela['__acceso_plantel__']?.ver === true;
-      }
-      return true;
-    }
-
-    // Representantes o usuarios especiales con asignación dual 'ambas'
-    if (userEsc === 'ambas' || userEsc === 'todas') {
-      if (!privsEscuela) return true;
-      if (privsEscuela.hasOwnProperty('__acceso_plantel__')) {
-        return privsEscuela['__acceso_plantel__']?.ver === true;
-      }
-      return true;
-    }
-
-    // Para cualquier otro caso, verificar permisos por plantel
-    if (!privsEscuela) return false;
-    
-    if (privsEscuela.hasOwnProperty('__acceso_plantel__')) {
-      return privsEscuela['__acceso_plantel__']?.ver === true;
-    }
-    
-    for (let mod in privsEscuela) {
-      if (privsEscuela[mod] && (privsEscuela[mod].ver === true || privsEscuela[mod] === true)) {
-        return true;
-      }
-    }
     return false;
   }, [user, fullPermisos, esDirectivo]);
 
   const tienePermiso = useCallback((modulo: string, accion: string = 'ver') => {
     if (!user || !user.rol) return false;
-    if (user.rol === 'SuperAdmin' || esDirectivo) return true;
+
+    // SuperAdmin siempre tiene acceso a todo
+    if (user.rol === 'SuperAdmin') {
+      return true;
+    }
 
     // Autogestión básica de cuenta disponible a todo usuario autenticado
     if (modulo === "Mi Perfil" || modulo === "Métodos de Acceso") {
       return true;
     }
 
-    const activeSchool = localStorage.getItem('sigae_escuela_codigo') || user.id_escuela || 'sb';
+    // Aislamiento estricto para el rol Formalizador: solo Formalización Física y su módulo contenedor
+    const esRolFormalizador = (user.rol || '').trim().toLowerCase() === 'formalizador';
+    if (esRolFormalizador) {
+      const modulosPermitidos = [
+        'Mi Perfil',
+        'Métodos de Acceso',
+        'Gestión Estudiantil',
+        'Gestión de Admisiones',
+        'Tarjeta: Formalización de Matrícula',
+        'Formalización Física'
+      ];
+      return modulosPermitidos.includes(modulo);
+    }
+
+    const activeSchool = (localStorage.getItem('sigae_escuela_codigo') || user.id_escuela || 'sb').toLowerCase();
 
     // Aislamiento de escuela: si el usuario no tiene acceso a este plantel, denegar inmediatamente
     if (!tieneAccesoEscuela(activeSchool)) {
@@ -195,10 +206,10 @@ export const usePermisos = () => {
     }
 
     const escPerms = fullPermisos?.[activeSchool] || permisos;
-    if (!escPerms) return false;
 
     // 1. Verificación directa del módulo en la matriz de la escuela activa
     const checkVal = (modName: string) => {
+      if (!escPerms) return undefined;
       const val = escPerms[modName];
       if (val === undefined) return undefined;
       if (typeof val === 'boolean') return val;
@@ -218,6 +229,8 @@ export const usePermisos = () => {
 
     // 2. Mapeo de alias o variantes de nombres comunes
     const aliasMap: Record<string, string[]> = {
+      "Configuración Escolar": ["Configuración del Sistema"],
+      "Configuración del Sistema": ["Configuración Escolar"],
       "Encuestas": ["Encuesta", "Constructor de Encuestas"],
       "Encuesta": ["Encuestas", "Constructor de Encuestas"],
       "Constructor de Encuestas": ["Encuesta", "Encuestas"],
@@ -235,7 +248,15 @@ export const usePermisos = () => {
       "Creador de Invitaciones": ["Diseños"],
       "Creador de Tapas": ["Diseños"],
       "Creador de Comunicados": ["Diseños"],
-      "Creador de Cumpleaños": ["Diseños"]
+      "Creador de Cumpleaños": ["Diseños"],
+      "Instalación y Descargas": ["Instalar SIGAE", "Descargas", "Instalador"],
+      "Instalar SIGAE": ["Instalación y Descargas", "Descargas", "Instalador"],
+      "Carta de Aceptación": ["Editor de Constancias"],
+      "Orientaciones Nuevos Ingresos": ["Diseños", "Gestión de Admisiones", "Mensajes de Admisión", "Solicitud de Cupos", "Editor de Constancias"],
+      "Tarjeta: Personal Institucional": ["Tarjeta: Personal Escolar DEP Oriente"],
+      "Tarjeta: Personal Escolar DEP Oriente": ["Tarjeta: Personal Institucional"],
+      "Tarjeta: Solicitudes de Cupos": ["Tarjeta: Solicitudes de Cupos por Plantel"],
+      "Tarjeta: Solicitudes de Cupos por Plantel": ["Tarjeta: Solicitudes de Cupos"]
     };
 
     if (aliasMap[modulo]) {
@@ -255,6 +276,36 @@ export const usePermisos = () => {
         }
         return val[accion] === true;
       }
+      return false;
+    }
+
+    // 4. Si el permiso no está explícitamente configurado (undefined):
+    // Defaults inteligentes para tarjetas del dashboard
+    const defaultPermsByCard: Record<string, boolean> = {
+      "Panel Principal": true,
+      "Identidad Institucional": true,
+      "Tarjeta: Misión Institucional": true,
+      "Tarjeta: Visión Institucional": true,
+      "Tarjeta: Valores Institucionales": true,
+      "Tarjeta: Proyecto Comunitario (PEIC)": true,
+      "Indicadores de Resumen": true,
+      "Tarjeta: Rol y Seguridad de Claves": true,
+      "Tarjeta: Estudiantes Vinculados y Avance": ['Representante'].includes(user?.rol),
+      "Tarjeta: Rutas Escolares de Representados": ['Representante'].includes(user?.rol),
+      "Tarjeta: Censo General de la Escuela": !['Representante', 'Estudiante'].includes(user?.rol),
+      "Tarjeta: Personal Institucional": !['Representante', 'Estudiante'].includes(user?.rol),
+      "Tarjeta: Solicitudes de Cupos": !['Representante', 'Estudiante'].includes(user?.rol),
+      "Tarjeta: Ruta y Parada del Trabajador/Personal": !['Representante', 'Estudiante'].includes(user?.rol),
+      "Tarjeta: Notificaciones y Avisos Activos": true,
+    };
+
+    if (defaultPermsByCard[modulo] !== undefined) {
+      return defaultPermsByCard[modulo];
+    }
+
+    // Para directivos, si una pantalla no tiene switch explícito se permite por omisión
+    if (esDirectivo) {
+      return true;
     }
 
     return false;
@@ -262,22 +313,38 @@ export const usePermisos = () => {
 
   const tienePermisoEnEscuela = useCallback((escuelaCodigo: string, modulo: string, accion: string = 'ver') => {
     if (!user) return false;
-    if (user.rol === 'SuperAdmin' || esDirectivo) return true;
-    if (!tieneAccesoEscuela(escuelaCodigo)) return false;
+    const rolNorm = (user.rol || '').trim().toLowerCase();
+    if (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora') return true;
 
-    if (!fullPermisos || !fullPermisos[escuelaCodigo]) return false;
-    const escPerms = fullPermisos[escuelaCodigo];
+    const esRolFormalizador = (user.rol || '').trim().toLowerCase() === 'formalizador';
+    if (esRolFormalizador) {
+      const modulosPermitidos = [
+        'Mi Perfil',
+        'Métodos de Acceso',
+        'Gestión Estudiantil',
+        'Gestión de Admisiones',
+        'Tarjeta: Formalización de Matrícula',
+        'Formalización Física'
+      ];
+      return modulosPermitidos.includes(modulo);
+    }
+
+    const codNormalizado = escuelaCodigo.toLowerCase().trim();
+    if (!tieneAccesoEscuela(codNormalizado)) return false;
+
+    if (!fullPermisos || !fullPermisos[codNormalizado]) return false;
+    const escPerms = fullPermisos[codNormalizado];
     const val = escPerms[modulo];
     if (val === undefined) return false;
     if (typeof val === 'boolean') return val;
     if (typeof val === 'object' && val !== null) {
       if (accion === 'ver') {
-        return val.ver === true || val.crear === true;
+        return val.ver === true || val.crear === true || val.modificar === true || val.eliminar === true;
       }
       return val[accion] === true;
     }
     return false;
-  }, [user, fullPermisos, tieneAccesoEscuela, esDirectivo]);
+  }, [user, fullPermisos, tieneAccesoEscuela]);
 
   return { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, fullPermisos, permisos, loading, user };
 };

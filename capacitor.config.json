@@ -1,0 +1,23 @@
+{
+  "appId": "com.sigae.escolar",
+  "appName": "SIGAE",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://app-delta-ten-80.vercel.app",
+    "cleartext": true,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#0f172a",
+      "showSpinner": false
+    }
+  }
+}

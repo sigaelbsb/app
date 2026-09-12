@@ -6,5 +6,133 @@
 
 body {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  background-color: #f0f4f8;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
+
+/* ==========================================================================
+   ESTILOS RESPONSIVOS PARA DOCUMENTOS Y HOJAS DE VERIFICACIÓN (MÓVIL & ESCRITORIO)
+   ========================================================================== */
+
+.hoja-verificacion-oficial {
+  width: 100%;
+  max-width: 800px;
+  background-color: #ffffff;
+  color: #000000;
+  border: 2px solid #94a3b8;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 22px 18px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (min-width: 768px) {
+  .hoja-verificacion-oficial {
+    padding: 42px 48px 35px 48px;
+    min-height: 1035px;
+  }
+}
+
+.hoja-doc-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 2px solid #cbd5e1;
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+  gap: 10px;
+  text-align: center;
+}
+
+@media (min-width: 576px) {
+  .hoja-doc-header {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 16px;
+  }
+}
+
+.hoja-doc-texto {
+  font-size: 13.5px;
+  line-height: 1.85;
+  color: #000000;
+  text-align: justify;
+  margin-bottom: 18px;
+  text-indent: 20px;
+}
+
+@media (min-width: 768px) {
+  .hoja-doc-texto {
+    font-size: 14.5px;
+    line-height: 2.15;
+    margin-bottom: 26px;
+    text-indent: 35px;
+  }
+}
+
+.hoja-doc-firmas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1.5px solid #cbd5e1;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .hoja-doc-firmas {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+  }
+}
+
+.hoja-doc-footer-mppe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 10px;
+  margin-top: 15px;
+  gap: 8px;
+  text-align: center;
+}
+
+@media (min-width: 576px) {
+  .hoja-doc-footer-mppe {
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: right;
+  }
+}
+
+/* Visor con desplazamiento suave en móvil para documentos multipágina */
+.contenedor-visor-movil {
+  width: 100%;
+  max-width: 850px;
+  margin: 0 auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 10px;
+}
+
+.contenedor-visor-movil::-webkit-scrollbar {
+  height: 6px;
+}
+.contenedor-visor-movil::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+

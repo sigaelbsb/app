@@ -5,20 +5,48 @@ import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 
 const ESTRUCTURA_ACCESOS = {
+  "Panel Principal": {
+    "Identidad Institucional": [
+      "Tarjeta: Misión Institucional",
+      "Tarjeta: Visión Institucional",
+      "Tarjeta: Valores Institucionales",
+      "Tarjeta: Proyecto Comunitario (PEIC)"
+    ],
+    "Indicadores de Resumen": [
+      "Tarjeta: Rol y Seguridad de Claves",
+      "Tarjeta: Estudiantes Vinculados y Avance",
+      "Tarjeta: Rutas Escolares de Representados",
+      "Tarjeta: Censo General de la Escuela",
+      "Tarjeta: Personal Institucional",
+      "Tarjeta: Solicitudes de Cupos",
+      "Tarjeta: Ruta y Parada del Trabajador/Personal",
+      "Tarjeta: Notificaciones y Avisos Activos"
+    ]
+  },
   "Dirección y Sistema": {
     "Perfil de la Escuela": [],
-    "Gestión de Registros": [],
-    "División Territorial": [],
-    "Configuración del Sistema": ["Tarjeta: Períodos Escolares", "Tarjeta: Lapsos Académicos", "Tarjeta: Niveles Educativos"],
+    "Configuración Escolar": ["Tarjeta: Períodos Escolares", "Tarjeta: Lapsos Académicos", "Tarjeta: Niveles Educativos"],
     "Cerebro de Sigma": [],
     "Calendario Escolar": ["Tarjeta: Calendario Oficial MPPE", "Tarjeta: Calendario Administrativo", "Tarjeta: Calendario Pedagógico", "Tarjeta: Planificador"],
-    "Panel de Control": ["Ingresar en Mantenimiento"] 
+    "División Territorial": [],
+    "Panel de Control": ["Ingresar en Mantenimiento"],
+    "Instalación y Descargas": []
   },
   "Organización Escolar": {
     "Cargos Institucionales": ["Tarjeta: Definir Cargos", "Tarjeta: Asignar Personal"],
     "Cadena Supervisoria": ["Función: Estructurar Cadena", "Función: Imprimir Organigrama"],
     "Gestión de Colectivos": [],
-    "Estructura Empresa": ["Diccionario: Nómina", "Diccionario: Parentesco", "Diccionario: Condición", "Diccionario: Negocio/Filial", "Diccionario: Organización/Gerencia", "Diccionario: Localidad", "Diccionario: Condición Neuro", "Diccionario: Condición Médica", "Diccionario: Alergias"]
+    "Estructura Empresa": [
+      "Diccionario: Nómina", 
+      "Diccionario: Parentesco", 
+      "Diccionario: Condición", 
+      "Diccionario: Negocio/Filial", 
+      "Diccionario: Organización/Gerencia", 
+      "Diccionario: Localidad", 
+      "Diccionario: Condición Neuro", 
+      "Diccionario: Condición Médica", 
+      "Diccionario: Alergias"
+    ]
   },
   "Control de Estudios": {
     "Grados y Salones": [
@@ -31,30 +59,50 @@ const ESTRUCTURA_ACCESOS = {
     ]
   },
   "Gestión Estudiantil": {
-    "Gestión de Admisiones": ["Tarjeta: Baremo y Clasificación", "Tarjeta: Auditoría Uno por Uno", "Tarjeta: Formalización de Matrícula", "Función: Enviar WhatsApp", "Función: Exportar Excel"], 
-    "Mensajes de Admisión": ["Función: Editar Plantillas", "Función: Probar Envíos", "Función: Restaurar Predeterminados"],
-    "Gestión de Matrícula": [], 
-    "Vincular Estudiante": ["Tarjeta: Registrar Vinculación", "Tarjeta: Lista de Matriculados", "Función: Descargar Ficha PDF", "Función: Exportar Ficha"],
-    "Expediente Estudiantil": [], 
+    "Gestión de Admisiones": [
+      "Tarjeta: Baremo y Clasificación", 
+      "Tarjeta: Auditoría Uno por Uno", 
+      "Tarjeta: Formalización de Matrícula", 
+      "Función: Enviar WhatsApp", 
+      "Función: Exportar Excel"
+    ], 
+    "Mensajes de Admisión": [
+      "Función: Editar Plantillas", 
+      "Función: Probar Envíos", 
+      "Función: Restaurar Predeterminados"
+    ],
+    "Vincular Estudiante": [
+      "Tarjeta: Registrar Vinculación", 
+      "Tarjeta: Lista de Matriculados", 
+      "Función: Descargar Ficha PDF", 
+      "Función: Exportar Ficha"
+    ],
     "Actualización de Datos": [], 
     "Solicitud de Cupos": [], 
     "Mis Solicitudes": [], 
-    "Verificaciones": ["Función: Escanear QR", "Función: Re-imprimir Comprobante"]
+    "Verificaciones": [
+      "Función: Escanear QR", 
+      "Función: Re-imprimir Comprobante"
+    ]
   },
   "Gestión Docente": {
     "Mi Expediente": ["Tarjeta: Modificar Ficha Docente"], 
-    "Gestor de Expedientes": ["Tarjeta: Expedientes Activos", "Tarjeta: Registro de Docente", "Función: Vacaciones", "Función: Descargar Reporte"]
-  },
-  "Formación y Capacitación": {
-    "Gestor de Catálogo": ["Función: Crear Cursos", "Función: Editar Cursos", "Función: Eliminar Cursos"],
-    "Oferta Académica": [], 
-    "Mis Certificados": [], 
-    "Creador de Certificados": []
+    "Gestor de Expedientes": [
+      "Tarjeta: Expedientes Activos", 
+      "Tarjeta: Registro de Docente", 
+      "Función: Vacaciones", 
+      "Función: Descargar Reporte"
+    ]
   },
   "Diseños": {
     "Galería y Plantillas": [],
     "Editor de Constancias": [
       "Función: Diseñar Plantillas",
+      "Función: Cargar Firmas y Sellos",
+      "Función: Descargar PDF"
+    ],
+    "Carta de Aceptación": [
+      "Función: Diseñar Carta",
       "Función: Cargar Firmas y Sellos",
       "Función: Descargar PDF"
     ],
@@ -78,7 +126,13 @@ const ESTRUCTURA_ACCESOS = {
     ]
   },
   "Servicios y Bienestar": {
-    "Transporte Escolar": ["Tarjeta: Gestión de Rutas", "Tarjeta: Gestión de Paradas", "Tarjeta: Operación (Tracking)", "Tarjeta: Visor de Recorrido", "Función: Control Coordinación"]
+    "Transporte Escolar": [
+      "Tarjeta: Gestión de Rutas", 
+      "Tarjeta: Gestión de Paradas", 
+      "Tarjeta: Operación (Tracking)", 
+      "Tarjeta: Visor de Recorrido", 
+      "Función: Control Coordinación"
+    ]
   },
   "Seguridad y Accesos": {
     "Mi Perfil": [], 
@@ -102,24 +156,34 @@ export const RolesPrivilegios = () => {
   const [loading, setLoading] = useState(true);
   const [rolSeleccionado, setRolSeleccionado] = useState<any>(null);
 
-  // Privileges matrix representation
-  // We represent it as a nested state object: { lb: { [nombre]: boolean }, sb: { [nombre]: boolean } }
+  // Privileges matrix representation: { lb: { [nombre]: boolean }, sb: { [nombre]: boolean } }
   const [permisosState, setPermisosState] = useState<any>({ lb: {}, sb: {} });
 
-  // Permisos por escuela para el módulo
-  const canRolesSB = tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'ver');
-  const canRolesLB = tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'ver');
+  // Pestaña activa para redimensionar y enfocar la vista: 'ambas' | 'lb' | 'sb'
+  const [pestanaEscuela, setPestanaEscuela] = useState<'ambas' | 'lb' | 'sb'>('ambas');
+
+  // Filtro de búsqueda rápida en tiempo real para módulos/tarjetas
+  const [busqueda, setBusqueda] = useState('');
+
+  // Control de categorías colapsadas
+  const [colapsadas, setColapsadas] = useState<Record<string, boolean>>({});
+
+  const isSuperAdminOrAdmin = ['superadmin', 'administrador', 'administradora', 'director', 'directora'].includes((user?.rol || '').trim().toLowerCase());
+
+  // Permisos por escuela para el módulo (con cobertura institucional total para administradores y directivos)
+  const canRolesSB = isSuperAdminOrAdmin || tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'ver') || tienePermiso('Roles y Privilegios', 'ver');
+  const canRolesLB = isSuperAdminOrAdmin || tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'ver') || tienePermiso('Roles y Privilegios', 'ver');
   const pRoles = canRolesSB || canRolesLB;
 
-  const canEditRolesSB = tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'crear');
-  const canEditRolesLB = tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'crear');
+  const canEditRolesSB = isSuperAdminOrAdmin || tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'crear') || tienePermiso('Roles y Privilegios', 'crear') || tienePermiso('Roles y Privilegios', 'modificar');
+  const canEditRolesLB = isSuperAdminOrAdmin || tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'crear') || tienePermiso('Roles y Privilegios', 'crear') || tienePermiso('Roles y Privilegios', 'modificar');
   const canEditAny = canEditRolesSB || canEditRolesLB;
 
-  const canDeleteRolesSB = tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'eliminar');
-  const canDeleteRolesLB = tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'eliminar');
+  const canDeleteRolesSB = isSuperAdminOrAdmin || tienePermisoEnEscuela('sb', 'Roles y Privilegios', 'eliminar') || tienePermiso('Roles y Privilegios', 'eliminar');
+  const canDeleteRolesLB = isSuperAdminOrAdmin || tienePermisoEnEscuela('lb', 'Roles y Privilegios', 'eliminar') || tienePermiso('Roles y Privilegios', 'eliminar');
 
   // Capacidad de emulación de roles
-  const canEmulate = user?.rol === 'SuperAdmin' || user?.rol === 'Administrador' || tienePermiso('Función: Emulación de Roles', 'ver') || tienePermiso('Roles y Privilegios', 'ver');
+  const canEmulate = isSuperAdminOrAdmin || tienePermiso('Función: Emulación de Roles', 'ver') || tienePermiso('Roles y Privilegios', 'ver');
 
   const Swal = (window as any).Swal;
 
@@ -170,9 +234,8 @@ export const RolesPrivilegios = () => {
     const rawLb = r.privilegios?.lb || {};
     const rawSb = r.privilegios?.sb || {};
 
-    // Map boolean values
     const mapBooleans = (raw: any, dest: any) => {
-      // Check Acceso Plantel (default true if raw has any permissions or is explicitly true)
+      // Check Acceso Plantel
       dest['__acceso_plantel__'] = raw.hasOwnProperty('__acceso_plantel__') 
         ? !!(raw['__acceso_plantel__']?.ver || raw['__acceso_plantel__'] === true)
         : (Object.keys(raw).length > 0);
@@ -182,12 +245,18 @@ export const RolesPrivilegios = () => {
           dest[subName] = !!(raw[subName]?.ver || raw[subName] === true);
           subcards.forEach(card => {
             let val = !!(raw[card]?.ver || raw[card] === true);
-            // Compatibilidad hacia atrás para nombres antiguos de encuestas:
+            // Compatibilidad hacia atrás:
             if (!val && card === "Función: Crear y Editar Encuestas") {
               val = !!(raw["Función: Crear Encuestas"]?.ver || raw["Función: Crear Encuestas"] === true);
             }
             if (!val && card === "Función: Ver Respuestas y Estadísticas") {
               val = !!(raw["Función: Ver Respuestas"]?.ver || raw["Función: Ver Respuestas"] === true);
+            }
+            if (!val && card === "Tarjeta: Personal Institucional") {
+              val = !!(raw["Tarjeta: Personal Escolar DEP Oriente"]?.ver || raw["Tarjeta: Personal Escolar DEP Oriente"] === true);
+            }
+            if (!val && card === "Tarjeta: Solicitudes de Cupos") {
+              val = !!(raw["Tarjeta: Solicitudes de Cupos por Plantel"]?.ver || raw["Tarjeta: Solicitudes de Cupos por Plantel"] === true);
             }
             dest[card] = val;
           });
@@ -259,7 +328,6 @@ export const RolesPrivilegios = () => {
   const handleToggleTodos = (escuela: 'lb' | 'sb', checked: boolean) => {
     setPermisosState((prev: any) => {
       const copyEsc = { ...prev[escuela] };
-      
       copyEsc['__acceso_plantel__'] = checked;
 
       for (const [_cat, submods] of Object.entries(ESTRUCTURA_ACCESOS)) {
@@ -281,8 +349,6 @@ export const RolesPrivilegios = () => {
   const isTodosMarcados = (escuela: 'lb' | 'sb') => {
     const list = permisosState[escuela];
     if (Object.keys(list).length === 0) return false;
-
-    // Check Acceso Plantel
     if (!list['__acceso_plantel__']) return false;
 
     for (const [_cat, submods] of Object.entries(ESTRUCTURA_ACCESOS)) {
@@ -296,6 +362,96 @@ export const RolesPrivilegios = () => {
     return true;
   };
 
+  // REPLICACIÓN RÁPIDA ENTRE PLANTELES
+  const copiarPermisos = (origen: 'lb' | 'sb', destino: 'lb' | 'sb') => {
+    const nombreOrigen = origen === 'lb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara';
+    const nombreDestino = destino === 'lb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara';
+
+    if (Swal) {
+      Swal.fire({
+        title: `¿Copiar configuración a ${nombreDestino}?`,
+        html: `Se replicarán exactamente todos los permisos de <b>${nombreOrigen}</b> hacia <b>${nombreDestino}</b> para el rol <b>${rolSeleccionado?.nombre}</b>.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="bi bi-copy me-1"></i> Sí, copiar permisos',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#0ea5e9'
+      }).then((res: any) => {
+        if (res.isConfirmed) {
+          setPermisosState((prev: any) => ({
+            ...prev,
+            [destino]: { ...prev[origen] }
+          }));
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: `Permisos copiados exitosamente a ${nombreDestino}. Recuerde pulsar Guardar.`,
+            showConfirmButton: false,
+            timer: 3000
+          });
+        }
+      });
+    }
+  };
+
+  // PRESETS RÁPIDOS DE ACCESO INSTITUCIONAL
+  const establecerAlcanceEscuelas = (modo: 'ambas' | 'solo_lb' | 'solo_sb' | 'bloquear_ambas') => {
+    setPermisosState((prev: any) => {
+      const copyLb = { ...prev.lb };
+      const copySb = { ...prev.sb };
+
+      if (modo === 'ambas') {
+        copyLb['__acceso_plantel__'] = true;
+        copySb['__acceso_plantel__'] = true;
+      } else if (modo === 'solo_lb') {
+        copyLb['__acceso_plantel__'] = true;
+        copySb['__acceso_plantel__'] = false;
+      } else if (modo === 'solo_sb') {
+        copySb['__acceso_plantel__'] = true;
+        copyLb['__acceso_plantel__'] = false;
+      } else if (modo === 'bloquear_ambas') {
+        copyLb['__acceso_plantel__'] = false;
+        copySb['__acceso_plantel__'] = false;
+      }
+
+      return {
+        lb: copyLb,
+        sb: copySb
+      };
+    });
+
+    if (Swal) {
+      const texto = modo === 'ambas' 
+        ? 'Rol habilitado para operar en Ambas Escuelas.' 
+        : modo === 'solo_lb' 
+          ? 'Rol habilitado EXCLUSIVAMENTE para U.E. Libertador Bolívar.' 
+          : modo === 'solo_sb' 
+            ? 'Rol habilitado EXCLUSIVAMENTE para U.E. Santa Bárbara.' 
+            : 'Acceso a ambas escuelas deshabilitado.';
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'info',
+        title: texto,
+        showConfirmButton: false,
+        timer: 2500
+      });
+    }
+  };
+
+  const toggleCategoria = (cat: string) => {
+    setColapsadas(prev => ({ ...prev, [cat]: !prev[cat] }));
+  };
+
+  const colapsarTodas = (estado: boolean) => {
+    const nuevo: Record<string, boolean> = {};
+    Object.keys(ESTRUCTURA_ACCESOS).forEach(cat => {
+      nuevo[cat] = estado;
+    });
+    setColapsadas(nuevo);
+  };
+
   const guardarPrivilegios = async () => {
     if (!rolSeleccionado) return;
 
@@ -306,7 +462,6 @@ export const RolesPrivilegios = () => {
 
     setLoading(true);
     try {
-      // Build permission payload matching the standard structure
       const buildEscPayload = (esc: 'lb' | 'sb') => {
         const raw = permisosState[esc];
         const dest: any = {};
@@ -316,18 +471,29 @@ export const RolesPrivilegios = () => {
 
         for (const [_cat, submods] of Object.entries(ESTRUCTURA_ACCESOS)) {
           for (const [subName, subcards] of Object.entries(submods)) {
-            if (raw[subName]) {
-              dest[subName] = { ...SUPER_PODERES };
-            }
+            const isSubActive = !!raw[subName];
+            dest[subName] = isSubActive 
+              ? { ...SUPER_PODERES }
+              : { ver: false, crear: false, modificar: false, eliminar: false };
+
             subcards.forEach(card => {
-              if (raw[card]) {
-                dest[card] = { ...SUPER_PODERES };
-                if (card === "Función: Crear y Editar Encuestas") {
-                  dest["Función: Crear Encuestas"] = { ...SUPER_PODERES };
-                }
-                if (card === "Función: Ver Respuestas y Estadísticas") {
-                  dest["Función: Ver Respuestas"] = { ...SUPER_PODERES };
-                }
+              const isCardActive = isSubActive && !!raw[card];
+              dest[card] = isCardActive 
+                ? { ...SUPER_PODERES }
+                : { ver: false, crear: false, modificar: false, eliminar: false };
+
+              // Alias automáticos para retrocompatibilidad
+              if (card === "Función: Crear y Editar Encuestas") {
+                dest["Función: Crear Encuestas"] = dest[card];
+              }
+              if (card === "Función: Ver Respuestas y Estadísticas") {
+                dest["Función: Ver Respuestas"] = dest[card];
+              }
+              if (card === "Tarjeta: Personal Institucional") {
+                dest["Tarjeta: Personal Escolar DEP Oriente"] = dest[card];
+              }
+              if (card === "Tarjeta: Solicitudes de Cupos") {
+                dest["Tarjeta: Solicitudes de Cupos por Plantel"] = dest[card];
               }
             });
           }
@@ -362,27 +528,23 @@ export const RolesPrivilegios = () => {
           ], { onConflict: 'clave' });
       }
 
+      // Limpiar caché de permisos inmediatamente para refrescar en caliente
+      localStorage.removeItem('sigae_cache_permisos');
+      localStorage.removeItem('sigae_cache_full_permisos');
+
       auditar('Roles y Privilegios', 'Actualizar Privilegios', `Accesos y estado por plantel actualizados para rol: ${rolSeleccionado.nombre}`);
 
       if (Swal) {
-        Swal.fire('¡Éxito!', 'Los accesos y privilegios se han guardado correctamente.', 'success').then(() => {
-          // Refresh current user's locally stored session permissions if modified
-          const stored = localStorage.getItem('usuario_sigae');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed.rol === rolSeleccionado.nombre) {
-              window.location.reload();
-            }
-          }
+        Swal.fire({
+          title: '¡Guardado Exitoso!',
+          text: `Los accesos y privilegios del rol "${rolSeleccionado.nombre}" se aplicaron correctamente.`,
+          icon: 'success',
+          confirmButtonText: 'Aceptar'
+        }).then(() => {
+          window.location.reload();
         });
       } else {
-        const stored = localStorage.getItem('usuario_sigae');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.rol === rolSeleccionado.nombre) {
-            window.location.reload();
-          }
-        }
+        window.location.reload();
       }
 
       cargarRoles();
@@ -401,7 +563,7 @@ export const RolesPrivilegios = () => {
       return;
     }
 
-    const escuelaNombre = escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const escuelaNombre = escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
     const rawEsc = rolObj.privilegios?.[escuela] || {};
     const estadoActual = rawEsc.hasOwnProperty('__acceso_plantel__')
       ? !!(rawEsc['__acceso_plantel__']?.ver || rawEsc['__acceso_plantel__'] === true)
@@ -422,7 +584,28 @@ export const RolesPrivilegios = () => {
 
       if (error) throw error;
 
-      // Si es el rol Invitado, sincronizar también en ajustes_globales para Auth
+      // Actualización optimista inmediata en la lista de roles
+      setRoles(prevRoles => prevRoles.map(item => {
+        if (item.nombre === rolObj.nombre) {
+          const updatedPrivs = JSON.parse(JSON.stringify(item.privilegios || {}));
+          if (!updatedPrivs[escuela]) updatedPrivs[escuela] = {};
+          updatedPrivs[escuela]['__acceso_plantel__'] = { ver: nuevoEstado };
+          return { ...item, privilegios: updatedPrivs };
+        }
+        return item;
+      }));
+
+      // Si es el rol actualmente seleccionado en el panel derecho, sincronizar permisosState
+      if (rolSeleccionado && rolSeleccionado.nombre === rolObj.nombre) {
+        setPermisosState((prev: any) => ({
+          ...prev,
+          [escuela]: {
+            ...prev[escuela],
+            '__acceso_plantel__': nuevoEstado
+          }
+        }));
+      }
+
       if (rolObj.nombre === 'Invitado') {
         const clave = escuela === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
         const otherEsc = escuela === 'sb' ? 'lb' : 'sb';
@@ -449,7 +632,7 @@ export const RolesPrivilegios = () => {
           toast: true,
           position: 'top-end',
           icon: nuevoEstado ? 'success' : 'warning',
-          title: `${rolObj.nombre} en ${escuela === 'sb' ? 'Santa Bárbara' : 'Libertador B.'}: ${nuevoEstado ? 'HABILITADO' : 'BLOQUEADO'}`,
+          title: `${rolObj.nombre} en ${escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}: ${nuevoEstado ? 'HABILITADO' : 'BLOQUEADO'}`,
           showConfirmButton: false,
           timer: 2000
         });
@@ -483,7 +666,6 @@ export const RolesPrivilegios = () => {
       ? !!(rawLb['__acceso_plantel__']?.ver || rawLb['__acceso_plantel__'] === true)
       : (Object.keys(rawLb).length > 0);
 
-    // Si ambas están activas -> desactivar ambas. En caso contrario -> activar ambas
     const nuevoEstado = !(sbActivo && lbActivo);
 
     setLoading(true);
@@ -502,7 +684,28 @@ export const RolesPrivilegios = () => {
 
       if (error) throw error;
 
-      // Si es el rol Invitado, sincronizar también en ajustes_globales para Auth
+      // Actualización optimista inmediata en la lista de roles
+      setRoles(prevRoles => prevRoles.map(item => {
+        if (item.nombre === rolObj.nombre) {
+          const updatedPrivs = JSON.parse(JSON.stringify(item.privilegios || {}));
+          if (!updatedPrivs.sb) updatedPrivs.sb = {};
+          if (!updatedPrivs.lb) updatedPrivs.lb = {};
+          updatedPrivs.sb['__acceso_plantel__'] = { ver: nuevoEstado };
+          updatedPrivs.lb['__acceso_plantel__'] = { ver: nuevoEstado };
+          return { ...item, privilegios: updatedPrivs };
+        }
+        return item;
+      }));
+
+      // Si es el rol actualmente seleccionado en el panel derecho, sincronizar permisosState
+      if (rolSeleccionado && rolSeleccionado.nombre === rolObj.nombre) {
+        setPermisosState((prev: any) => ({
+          ...prev,
+          sb: { ...prev.sb, '__acceso_plantel__': nuevoEstado },
+          lb: { ...prev.lb, '__acceso_plantel__': nuevoEstado }
+        }));
+      }
+
       if (rolObj.nombre === 'Invitado') {
         const isBlocked = !nuevoEstado;
         await supabase
@@ -545,7 +748,6 @@ export const RolesPrivilegios = () => {
     e.preventDefault();
 
     if (!user) return;
-
     const currentSchool = (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
 
     if (Swal) {
@@ -558,8 +760,8 @@ export const RolesPrivilegios = () => {
             </p>
             <label class="form-label fw-bold small text-dark"><i class="bi bi-building me-1"></i>Selecciona la Institución para la prueba:</label>
             <select id="swal-escuela-emulacion" class="form-select rounded-3 py-2">
-              <option value="sb" ${currentSchool === 'sb' ? 'selected' : ''}>U.E. Santa Bárbara</option>
-              <option value="lb" ${currentSchool === 'lb' ? 'selected' : ''}>U.E. Libertador Bolívar</option>
+              <option value="sb" ${currentSchool === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
+              <option value="lb" ${currentSchool === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
             </select>
           </div>
           <div class="alert alert-warning text-start small mb-0 py-2 border-0 rounded-3">
@@ -624,7 +826,7 @@ export const RolesPrivilegios = () => {
     Swal.fire({
       title: 'Nuevo Rol Global',
       input: 'text',
-      inputPlaceholder: 'Nombre del Rol (Ej. Coordinador)',
+      inputPlaceholder: 'Nombre del Rol (Ej. Coordinador Pedagógico)',
       showCancelButton: true,
       confirmButtonText: 'Crear Rol',
       cancelButtonText: 'Cancelar',
@@ -665,7 +867,6 @@ export const RolesPrivilegios = () => {
   const eliminarRolActual = () => {
     if (!rolSeleccionado || !Swal) return;
 
-    // Se requiere permiso de eliminación en al menos un plantel para borrar roles
     const hasDeletePermission = canDeleteRolesSB || canDeleteRolesLB;
     if (!hasDeletePermission) {
       Swal.fire('Error', 'No tiene suficientes privilegios para eliminar roles.', 'error');
@@ -704,11 +905,248 @@ export const RolesPrivilegios = () => {
     });
   };
 
+  // Renderizador de un panel de plantel (LB o SB)
+  const renderPlantelPanel = (escuela: 'lb' | 'sb') => {
+    const isLB = escuela === 'lb';
+    const canEdit = isLB ? canEditRolesLB : canEditRolesSB;
+    const escuelaNombre = isLB ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara';
+    const bgHeader = isLB ? 'bg-primary' : 'bg-success';
+    const borderTheme = isLB ? 'border-primary' : 'border-success';
+
+    const rawEsc = permisosState[escuela] || {};
+    const plantelHabilitado = !!rawEsc['__acceso_plantel__'];
+
+    // Filtrar por término de búsqueda si existe
+    const q = busqueda.toLowerCase().trim();
+
+    return (
+      <div className={`card border-0 shadow-sm rounded-4 h-100 border-top ${borderTheme} border-5`}>
+        {/* Cabecera del Plantel */}
+        <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4 flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <span className={`badge p-2 rounded-circle ${isLB ? 'bg-primary text-white' : 'bg-success text-white'}`}>
+              <i className={`bi ${isLB ? 'bi-mortarboard-fill' : 'bi-tree-fill'}`}></i>
+            </span>
+            <div>
+              <h6 className={`mb-0 fw-bold ${isLB ? 'text-primary' : 'text-success'}`}>
+                {escuelaNombre}
+              </h6>
+              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
+                Código: <strong className="text-dark">{escuela.toUpperCase()}</strong> &bull; Matriz de Permisos
+              </small>
+            </div>
+          </div>
+
+          <div className="d-flex align-items-center gap-2">
+            {/* Botón de Copiar a la otra escuela */}
+            <button
+              type="button"
+              onClick={() => copiarPermisos(escuela, isLB ? 'sb' : 'lb')}
+              className="btn btn-xs rounded-pill px-2.5 py-1 fw-bold border bg-white shadow-xs hover-efecto"
+              style={{ fontSize: '0.72rem', color: isLB ? '#0284c7' : '#059669', borderColor: isLB ? '#bae6fd' : '#a7f3d0' }}
+              title={`Copiar esta configuración hacia ${isLB ? 'Santa Bárbara' : 'Libertador Bolívar'}`}
+              disabled={!canEditAny}
+            >
+              <i className="bi bi-copy me-1"></i>
+              Copiar a {isLB ? 'SB' : 'LB'}
+            </button>
+
+            <div className="form-check form-switch m-0 d-flex align-items-center gap-1">
+              <input 
+                className="form-check-input hover-mano" 
+                type="checkbox" 
+                id={`chk-marcar-todos-${escuela}`}
+                checked={isTodosMarcados(escuela)}
+                onChange={(e) => handleToggleTodos(escuela, e.target.checked)}
+                disabled={!canEdit || !plantelHabilitado}
+              />
+              <label 
+                className="form-check-label small fw-bold text-dark hover-mano" 
+                htmlFor={`chk-marcar-todos-${escuela}`}
+                style={{ fontSize: '0.75rem' }}
+              >
+                Otorgar Todo
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="card-body p-3 bg-light">
+          {/* INTERRUPTOR MAESTRO DEL PLANTEL */}
+          <div className={`card border shadow-sm rounded-4 mb-3 p-3 transition-all ${plantelHabilitado ? 'border-success bg-white' : 'border-danger bg-danger bg-opacity-10'}`}>
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div className="d-flex align-items-center gap-3">
+                <div className={`p-2.5 rounded-circle ${plantelHabilitado ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-20 text-danger'}`}>
+                  <i className={`bi ${plantelHabilitado ? 'bi-shield-check' : 'bi-shield-slash-fill'} fs-4`}></i>
+                </div>
+                <div>
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <h6 className="mb-0 fw-bold text-dark">
+                      Acceso Institucional: {escuelaNombre}
+                    </h6>
+                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${plantelHabilitado ? 'bg-success text-white' : 'bg-danger text-white'}`} style={{ fontSize: '0.72rem' }}>
+                      {plantelHabilitado ? '● ROL HABILITADO' : '● ROL BLOQUEADO'}
+                    </span>
+                  </div>
+                  <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.76rem' }}>
+                    {plantelHabilitado
+                      ? `Los usuarios con rol "${rolSeleccionado?.nombre}" pueden iniciar sesión y operar en este plantel.`
+                      : `Bloqueo estricto: Ningún usuario con rol "${rolSeleccionado?.nombre}" podrá acceder a este plantel.`}
+                  </small>
+                </div>
+              </div>
+              <div className="d-flex align-items-center gap-3">
+                <button
+                  type="button"
+                  onClick={(e) => handleToggleEstadoRolEscuelaDirecto(e, rolSeleccionado, escuela, !plantelHabilitado)}
+                  disabled={!canEdit}
+                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold shadow-xs d-flex align-items-center gap-1.5 transition-all ${
+                    plantelHabilitado 
+                      ? 'btn-outline-danger hover-efecto' 
+                      : 'btn-success text-white shadow-sm'
+                  }`}
+                  style={{ fontSize: '0.78rem' }}
+                  title={plantelHabilitado ? `Inhabilitar acceso a ${escuelaNombre} inmediatamente` : `Habilitar acceso a ${escuelaNombre} inmediatamente`}
+                >
+                  <i className={`bi ${plantelHabilitado ? 'bi-slash-circle' : 'bi-check-circle-fill'}`}></i>
+                  <span>{plantelHabilitado ? 'Inhabilitar' : 'Habilitar'}</span>
+                </button>
+                <div className="form-check form-switch fs-4 m-0">
+                  <input 
+                    className="form-check-input hover-mano" 
+                    type="checkbox" 
+                    role="switch"
+                    checked={plantelHabilitado}
+                    onChange={() => handleCheckboxChange(escuela, '__acceso_plantel__', false)}
+                    disabled={!canEdit}
+                    title={plantelHabilitado ? 'Click para bloquear el acceso de este rol en este plantel' : 'Click para habilitar el acceso de este rol en este plantel'}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CONTENEDOR DE CATEGORÍAS Y MÓDULOS */}
+          <div style={{ opacity: plantelHabilitado ? 1 : 0.45, transition: 'opacity 0.2s ease-in-out' }}>
+            {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => {
+              // Filtrar si hay búsqueda
+              const matchesCategory = categoria.toLowerCase().includes(q);
+              const matchingSubmods = Object.entries(submods).filter(([subName, subcards]) => {
+                if (matchesCategory || !q) return true;
+                if (subName.toLowerCase().includes(q)) return true;
+                return subcards.some(c => c.toLowerCase().includes(q));
+              });
+
+              if (matchingSubmods.length === 0) return null;
+
+              // Conteo de items activos
+              const totalItems = Object.keys(submods).length;
+              const activosCount = Object.keys(submods).filter(sub => !!rawEsc[sub]).length;
+              const isColapsada = !!colapsadas[categoria];
+
+              return (
+                <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3 overflow-hidden">
+                  {/* Encabezado de la Categoría */}
+                  <div 
+                    onClick={() => toggleCategoria(categoria)}
+                    className={`card-header text-white py-2 px-3 d-flex justify-content-between align-items-center cursor-pointer ${bgHeader}`}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="d-flex align-items-center gap-2">
+                      <i className={`bi ${isColapsada ? 'bi-chevron-right' : 'bi-chevron-down'} text-white`}></i>
+                      <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.78rem', letterSpacing: '0.4px' }}>
+                        {categoria}
+                      </h6>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge bg-white text-dark rounded-pill fw-bold" style={{ fontSize: '0.67rem' }}>
+                        {activosCount}/{totalItems} Activos
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cuerpo de Módulos (si no está colapsada) */}
+                  {!isColapsada && (
+                    <div className="card-body p-2.5 bg-white rounded-bottom-4">
+                      <div className="row g-2">
+                        {matchingSubmods.map(([subName, subcards]) => {
+                          const isSubActivo = !!rawEsc[subName];
+
+                          return (
+                            <div key={subName} className="col-12">
+                              <div className={`p-2.5 border rounded-3 transition-all ${isSubActivo ? 'border-primary border-opacity-25 bg-white shadow-xs' : 'border-light bg-light'}`}>
+                                <div className="d-flex justify-content-between align-items-center">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <i className={`bi ${isSubActivo ? 'bi-check-square-fill text-primary' : 'bi-square text-muted'}`} style={{ fontSize: '0.95rem' }}></i>
+                                    <span className="fw-bold text-dark" style={{ fontSize: '0.84rem' }}>
+                                      {subName}
+                                    </span>
+                                  </div>
+                                  <div className="form-check form-switch m-0">
+                                    <input 
+                                      className="form-check-input hover-mano" 
+                                      type="checkbox"
+                                      checked={isSubActivo}
+                                      onChange={() => handleCheckboxChange(escuela, subName, true, undefined, subcards)}
+                                      disabled={!canEdit || !plantelHabilitado}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Sub-tarjetas / Funciones internas */}
+                                {subcards.length > 0 && isSubActivo && (
+                                  <div className="row g-1.5 mt-2 ps-3 border-start ms-1 border-2 border-primary border-opacity-25 animate__animated animate__fadeIn">
+                                    {subcards.map(card => {
+                                      // Si hay búsqueda, verificar si coincide
+                                      if (q && !matchesCategory && !subName.toLowerCase().includes(q) && !card.toLowerCase().includes(q)) {
+                                        return null;
+                                      }
+
+                                      const isCardActivo = !!rawEsc[card];
+
+                                      return (
+                                        <div key={card} className="col-12">
+                                          <div className={`d-flex justify-content-between align-items-center px-2 py-1.5 rounded-2 ${isCardActivo ? 'bg-primary bg-opacity-10 text-primary' : 'bg-light text-muted'}`}>
+                                            <span className="small fw-semibold text-truncate d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }} title={card}>
+                                              <i className="bi bi-arrow-return-right text-muted" style={{ fontSize: '0.65rem' }}></i>
+                                              <span>{card}</span>
+                                            </span>
+                                            <div className="form-check form-switch m-0">
+                                              <input 
+                                                className="form-check-input hover-mano" 
+                                                type="checkbox"
+                                                checked={isCardActivo}
+                                                onChange={() => handleCheckboxChange(escuela, card, false, subName)}
+                                                disabled={!canEdit || !plantelHabilitado}
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (permLoading || (loading && roles.length === 0)) {
     return (
-      <div className="d-flex justify-content-center align-items-center py-5 h-100">
+      <div className="d-flex justify-content-center align-items-center py-5 h-100" style={{ minHeight: '450px' }}>
         <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Cargando...</span>
+          <span className="visually-hidden">Cargando roles y privilegios...</span>
         </div>
       </div>
     );
@@ -728,7 +1166,7 @@ export const RolesPrivilegios = () => {
 
   return (
     <div className="row g-4 container-fluid p-0 animate__animated animate__fadeIn">
-      {/* Banner */}
+      {/* ── 1. BANNER INSTITUCIONAL ── */}
       <div className="col-12 animate__animated animate__fadeInDown">
         <div 
           className="banner-modulo p-4 p-md-5 text-white shadow-sm" 
@@ -749,25 +1187,27 @@ export const RolesPrivilegios = () => {
                   <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
                 </button>
               </div>
-              <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                <i className="bi bi-person-lines-fill me-3"></i>Roles y Privilegios
+              <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                <i className="bi bi-person-lines-fill me-3"></i>Roles y Privilegios Multiescuela
               </h1>
-              <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Controla a qué pantallas del sistema tiene acceso cada rol.
+              <p className="mb-0 fw-semibold fs-6" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Control granular de acceso por plantel para usuarios de ambas escuelas, solo Libertador Bolívar o solo Santa Bárbara.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="row g-4 animate__animated animate__fadeInUp align-items-start mt-2">
-        {/* Left Side List */}
-        <div className="col-md-5 col-xl-4">
+      {/* ── 2. CUERPO PRINCIPAL (LISTA DE ROLES + MATRIZ DE CONFIGURACIÓN) ── */}
+      <div className="row g-4 animate__animated animate__fadeInUp align-items-start mt-1">
+        
+        {/* PANEL IZQUIERDO: ROLES REGISTRADOS */}
+        <div className="col-12 col-lg-4 col-xl-4">
           <div className="card border-0 shadow-sm rounded-4">
             <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
               <div>
-                <h5 className="mb-0 fw-bold text-dark fs-6">Niveles de Acceso y Estado</h5>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Activa o desactiva el ingreso por escuela</small>
+                <h5 className="mb-0 fw-bold text-dark fs-6">Roles Institucionales</h5>
+                <small className="text-muted" style={{ fontSize: '0.74rem' }}>{roles.length} roles configurados</small>
               </div>
               <button 
                 className="btn btn-sm text-white fw-bold shadow-sm hover-efecto" 
@@ -775,10 +1215,11 @@ export const RolesPrivilegios = () => {
                 onClick={crearRol} 
                 title="Nuevo Rol"
               >
-                <i className="bi bi-plus-lg"></i>
+                <i className="bi bi-plus-lg me-1"></i>Nuevo Rol
               </button>
             </div>
-            <div className="card-body p-0" style={{ maxHeight: '560px', overflowY: 'auto' }}>
+
+            <div className="card-body p-0" style={{ maxHeight: '680px', overflowY: 'auto' }}>
               <div className="list-group list-group-flush p-2">
                 {roles.length === 0 ? (
                   <div className="p-4 text-center text-muted">
@@ -799,7 +1240,9 @@ export const RolesPrivilegios = () => {
                       : (Object.keys(rawLb).length > 0);
 
                     const ambasActivas = sbActivo && lbActivo;
-                    const ambasBloqueadas = !sbActivo && !lbActivo;
+                    const soloLB = lbActivo && !sbActivo;
+                    const soloSB = sbActivo && !lbActivo;
+                    const bloqueadoTotal = !sbActivo && !lbActivo;
 
                     return (
                       <div 
@@ -816,11 +1259,32 @@ export const RolesPrivilegios = () => {
                             </div>
                             <div>
                               <div className="fw-bold text-dark fs-6 mb-0">{r.nombre}</div>
-                              <small className="text-muted" style={{ fontSize: '0.72rem' }}>
-                                {ambasActivas ? '● Activo en ambas escuelas' : ambasBloqueadas ? '● Bloqueado globalmente' : '● Acceso parcial'}
-                              </small>
+                              {/* Badge de Estado por Escuela */}
+                              <div className="mt-0.5">
+                                {ambasActivas && (
+                                  <span className="badge rounded-pill px-2 py-0.5 text-white" style={{ background: 'linear-gradient(135deg, #10b981 0%, #0284c7 100%)', fontSize: '0.67rem' }}>
+                                    <i className="bi bi-buildings me-1"></i>Ambas Escuelas
+                                  </span>
+                                )}
+                                {soloLB && (
+                                  <span className="badge rounded-pill px-2 py-0.5 bg-primary text-white" style={{ fontSize: '0.67rem' }}>
+                                    <i className="bi bi-mortarboard-fill me-1"></i>Solo Libertador
+                                  </span>
+                                )}
+                                {soloSB && (
+                                  <span className="badge rounded-pill px-2 py-0.5 bg-success text-white" style={{ fontSize: '0.67rem' }}>
+                                    <i className="bi bi-tree-fill me-1"></i>Solo Santa Bárbara
+                                  </span>
+                                )}
+                                {bloqueadoTotal && (
+                                  <span className="badge rounded-pill px-2 py-0.5 bg-danger text-white" style={{ fontSize: '0.67rem' }}>
+                                    <i className="bi bi-slash-circle me-1"></i>Sin Acceso
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
+
                           <div className="d-flex align-items-center gap-1">
                             {canEmulate && (
                               <button
@@ -836,13 +1300,13 @@ export const RolesPrivilegios = () => {
                             )}
                             {esActivo && (
                               <span className="badge bg-primary bg-opacity-10 text-primary fw-bold" style={{ fontSize: '0.7rem' }}>
-                                Seleccionado
+                                Activo
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Fila de Controles de Activación / Desactivación en Escuelas */}
+                        {/* Botones de conmutación rápida de escuela */}
                         <div className="d-flex align-items-center justify-content-between pt-2 border-top border-light gap-1">
                           {/* Toggle SB */}
                           <button
@@ -853,12 +1317,12 @@ export const RolesPrivilegios = () => {
                                 ? 'btn-success text-white shadow-xs' 
                                 : 'btn-light border-danger text-danger bg-danger bg-opacity-10'
                             }`}
-                            style={{ fontSize: '0.68rem' }}
-                            title={sbActivo ? 'Acceso PERMITIDO a Santa Bárbara (Click para Bloquear)' : 'Acceso BLOQUEADO a Santa Bárbara (Click para Activar)'}
+                            style={{ fontSize: '0.67rem' }}
+                            title={sbActivo ? 'Acceso PERMITIDO a UE Santa Bárbara (Click para Bloquear)' : 'Acceso BLOQUEADO a UE Santa Bárbara (Click para Activar)'}
                             disabled={!canEditRolesSB}
                           >
                             <i className={`bi ${sbActivo ? 'bi-check-circle-fill' : 'bi-slash-circle-fill'}`}></i>
-                            <span>SB: {sbActivo ? 'Activo' : 'Bloqueado'}</span>
+                            <span>SB: {sbActivo ? 'ON' : 'OFF'}</span>
                           </button>
 
                           {/* Toggle LB */}
@@ -870,22 +1334,22 @@ export const RolesPrivilegios = () => {
                                 ? 'btn-primary text-white shadow-xs' 
                                 : 'btn-light border-danger text-danger bg-danger bg-opacity-10'
                             }`}
-                            style={{ fontSize: '0.68rem' }}
+                            style={{ fontSize: '0.67rem' }}
                             title={lbActivo ? 'Acceso PERMITIDO a Libertador Bolívar (Click para Bloquear)' : 'Acceso BLOQUEADO a Libertador Bolívar (Click para Activar)'}
                             disabled={!canEditRolesLB}
                           >
                             <i className={`bi ${lbActivo ? 'bi-check-circle-fill' : 'bi-slash-circle-fill'}`}></i>
-                            <span>LB: {lbActivo ? 'Activo' : 'Bloqueado'}</span>
+                            <span>LB: {lbActivo ? 'ON' : 'OFF'}</span>
                           </button>
 
-                          {/* Toggle Ambas Escuelas */}
+                          {/* Toggle Ambas */}
                           <button
                             type="button"
                             onClick={(e) => handleToggleAmbasEscuelasDirecto(e, r)}
                             className={`btn btn-xs rounded-pill px-2 py-1 fw-bold d-flex align-items-center gap-1 border transition-all ${
                               ambasActivas
                                 ? 'btn-dark text-white'
-                                : ambasBloqueadas
+                                : bloqueadoTotal
                                   ? 'btn-outline-secondary text-muted'
                                   : 'btn-outline-warning text-dark'
                             }`}
@@ -894,7 +1358,7 @@ export const RolesPrivilegios = () => {
                             disabled={!canEditAny}
                           >
                             <i className="bi bi-buildings"></i>
-                            <span>{ambasActivas ? 'Ambas ON' : ambasBloqueadas ? 'Ambas OFF' : 'Ambas'}</span>
+                            <span>{ambasActivas ? 'Ambas ON' : bloqueadoTotal ? 'Ambas OFF' : 'Ambas'}</span>
                           </button>
                         </div>
                       </div>
@@ -906,16 +1370,26 @@ export const RolesPrivilegios = () => {
           </div>
         </div>
 
-        {/* Right Side Matrix */}
-        <div className="col-md-7 col-xl-8">
+        {/* PANEL DERECHO: MATRIZ REDIMENSIONADA Y OPTIMIZADA */}
+        <div className="col-12 col-lg-8 col-xl-8">
           {rolSeleccionado ? (
             <div className="card border-0 shadow-sm rounded-4">
+              
+              {/* CABECERA DE CONFIGURACIÓN DEL ROL */}
               <div className="card-header bg-white border-bottom p-4 rounded-top-4">
-                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
                   <div>
-                    <h4 className="mb-0 fw-bold text-dark">{rolSeleccionado.nombre}</h4>
-                    <small className="text-muted">Activa o desactiva los submódulos a los que este rol puede acceder.</small>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      <h4 className="mb-0 fw-bold text-dark">{rolSeleccionado.nombre}</h4>
+                      <span className="badge bg-primary bg-opacity-10 text-primary fw-bold px-2.5 py-1">
+                        Matriz de Privilegios
+                      </span>
+                    </div>
+                    <small className="text-muted d-block mt-1">
+                      Configura con precisión qué pantallas y funciones puede ver u operar este rol en cada escuela.
+                    </small>
                   </div>
+
                   <div className="d-flex align-items-center flex-wrap gap-2">
                     {canEmulate && (
                       <button 
@@ -925,14 +1399,14 @@ export const RolesPrivilegios = () => {
                         onClick={(e) => handleIniciarEmulacion(e, rolSeleccionado.nombre)}
                         title="Probar cómo ve la aplicación este rol"
                       >
-                        <i className="bi bi-person-bounding-box me-1.5"></i>Probar / Emular este Rol
+                        <i className="bi bi-person-bounding-box me-1.5"></i>Emular Rol
                       </button>
                     )}
                     <button 
                       className="btn btn-outline-danger btn-sm rounded-pill fw-bold px-3 shadow-sm" 
                       onClick={eliminarRolActual}
                     >
-                      <i className="bi bi-trash3-fill me-1"></i>Borrar Rol
+                      <i className="bi bi-trash3-fill me-1"></i>Eliminar
                     </button>
                     <button 
                       className="btn btn-primary btn-sm fw-bold px-4 rounded-pill shadow-sm hover-efecto" 
@@ -943,270 +1417,172 @@ export const RolesPrivilegios = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* ── BARRA DE HERRAMIENTAS RÁPIDAS (ALCANCE INSTITUCIONAL & COPIA) ── */}
+                <div className="p-3 bg-light rounded-3 border mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                    <span className="fw-bold text-muted small me-1">Alcance Rápido:</span>
+                    <button
+                      type="button"
+                      onClick={() => establecerAlcanceEscuelas('ambas')}
+                      className="btn btn-xs btn-outline-dark rounded-pill px-2.5 py-1 fw-bold hover-efecto"
+                      style={{ fontSize: '0.73rem' }}
+                    >
+                      <i className="bi bi-buildings me-1"></i>Ambas Escuelas ON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => establecerAlcanceEscuelas('solo_lb')}
+                      className="btn btn-xs btn-outline-primary rounded-pill px-2.5 py-1 fw-bold hover-efecto"
+                      style={{ fontSize: '0.73rem' }}
+                    >
+                      <i className="bi bi-mortarboard-fill me-1"></i>Solo Libertador
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => establecerAlcanceEscuelas('solo_sb')}
+                      className="btn btn-xs btn-outline-success rounded-pill px-2.5 py-1 fw-bold hover-efecto"
+                      style={{ fontSize: '0.73rem' }}
+                    >
+                      <i className="bi bi-tree-fill me-1"></i>Solo Santa Bárbara
+                    </button>
+                  </div>
+
+                  <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                    <span className="fw-bold text-muted small me-1">Replicar:</span>
+                    <button
+                      type="button"
+                      onClick={() => copiarPermisos('lb', 'sb')}
+                      className="btn btn-xs btn-light border text-primary rounded-pill px-2.5 py-1 fw-bold shadow-xs hover-efecto"
+                      style={{ fontSize: '0.73rem' }}
+                      title="Copiar configuración de Libertador a Santa Bárbara"
+                    >
+                      <i className="bi bi-arrow-right-circle me-1"></i>LB ➔ SB
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => copiarPermisos('sb', 'lb')}
+                      className="btn btn-xs btn-light border text-success rounded-pill px-2.5 py-1 fw-bold shadow-xs hover-efecto"
+                      style={{ fontSize: '0.73rem' }}
+                      title="Copiar configuración de Santa Bárbara a Libertador"
+                    >
+                      <i className="bi bi-arrow-left-circle me-1"></i>SB ➔ LB
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── SELECTOR DE PESTAÑAS Y BUSCADOR EN VIVO ── */}
+                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 pt-2 border-top">
+                  {/* Pestañas de Vista */}
+                  <div className="btn-group p-1 bg-light rounded-pill border shadow-xs" role="group">
+                    <button
+                      type="button"
+                      onClick={() => setPestanaEscuela('ambas')}
+                      className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${pestanaEscuela === 'ambas' ? 'btn-dark text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+                      style={{ fontSize: '0.78rem' }}
+                    >
+                      <i className="bi bi-columns-gap me-1.5"></i>Ambas Escuelas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPestanaEscuela('lb')}
+                      className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${pestanaEscuela === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+                      style={{ fontSize: '0.78rem' }}
+                    >
+                      <i className="bi bi-mortarboard-fill me-1.5"></i>Libertador Bolívar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPestanaEscuela('sb')}
+                      className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${pestanaEscuela === 'sb' ? 'btn-success text-white shadow-sm' : 'btn-light text-muted border-0'}`}
+                      style={{ fontSize: '0.78rem' }}
+                    >
+                      <i className="bi bi-tree-fill me-1.5"></i>Santa Bárbara
+                    </button>
+                  </div>
+
+                  {/* Buscador Rápido y Control de Colapso */}
+                  <div className="d-flex align-items-center gap-2 flex-grow-1 flex-md-grow-0" style={{ minWidth: '260px' }}>
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text bg-white border-end-0 rounded-start-pill">
+                        <i className="bi bi-search text-muted"></i>
+                      </span>
+                      <input 
+                        type="text" 
+                        className="form-control border-start-0 rounded-end-pill"
+                        placeholder="Buscar módulo o función..."
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        style={{ fontSize: '0.8rem' }}
+                      />
+                      {busqueda && (
+                        <button 
+                          className="btn btn-sm btn-link text-muted position-absolute end-0 top-0 h-100 pe-3 text-decoration-none"
+                          onClick={() => setBusqueda('')}
+                          style={{ zIndex: 5 }}
+                        >
+                          <i className="bi bi-x-circle-fill"></i>
+                        </button>
+                      )}
+                    </div>
+
+                    <button 
+                      type="button"
+                      onClick={() => colapsarTodas(Object.values(colapsadas).some(v => !v))}
+                      className="btn btn-sm btn-outline-secondary rounded-pill px-2.5 fw-semibold d-none d-xl-inline"
+                      style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                      title="Expandir o contraer todas las categorías"
+                    >
+                      <i className="bi bi-arrows-expand me-1"></i>
+                      {Object.values(colapsadas).some(v => !v) ? 'Contraer' : 'Expandir'}
+                    </button>
+                  </div>
+                </div>
               </div>
-              
+
+              {/* CUERPO DE LA MATRIZ DE PERMISOS */}
               <div className="card-body p-4 bg-light rounded-bottom-4">
                 <div className="row g-4">
-                  {/* UE Libertador Bolívar Panel */}
-                  {canRolesLB && (
-                    <div className={canRolesSB ? "col-lg-6 col-12" : "col-12"}>
-                      <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-primary border-5">
-                        <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-                          <h6 className="mb-0 fw-bold text-primary"><i className="bi bi-building me-2"></i>UE Libertador Bolívar</h6>
-                          <div className="form-check form-switch m-0">
-                            <input 
-                              className="form-check-input" 
-                              type="checkbox" 
-                              id="chk-marcar-todos-lb"
-                              checked={isTodosMarcados('lb')}
-                              onChange={(e) => handleToggleTodos('lb', e.target.checked)}
-                              style={{ cursor: 'pointer' }}
-                              disabled={!canEditRolesLB}
-                            />
-                            <label className="form-check-label small fw-bold text-dark ms-1 mt-1" htmlFor="chk-marcar-todos-lb" style={{ cursor: 'pointer' }}>Otorgar Todo</label>
-                          </div>
+                  {/* Si la pestaña es 'ambas', se muestran ambas en 2 columnas; si es 'lb' o 'sb', se muestra una sola en pantalla ancha completa */}
+                  {pestanaEscuela === 'ambas' ? (
+                    <>
+                      {canRolesLB && (
+                        <div className={canRolesSB ? "col-12 col-xl-6" : "col-12"}>
+                          {renderPlantelPanel('lb')}
                         </div>
-                        
-                        <div className="card-body p-3 bg-light">
-                          {/* Tarjeta Maestra de Activación / Bloqueo del Rol en este Plantel */}
-                          <div className={`card border shadow-sm rounded-4 mb-3 p-3 transition-all ${permisosState.lb['__acceso_plantel__'] ? 'border-success bg-white' : 'border-danger bg-danger bg-opacity-10'}`}>
-                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                              <div className="d-flex align-items-center gap-3">
-                                <div className={`p-2.5 rounded-circle ${permisosState.lb['__acceso_plantel__'] ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-20 text-danger'}`}>
-                                  <i className={`bi ${permisosState.lb['__acceso_plantel__'] ? 'bi-shield-check' : 'bi-shield-slash-fill'} fs-4`}></i>
-                                </div>
-                                <div>
-                                  <div className="d-flex align-items-center gap-2 flex-wrap">
-                                    <h6 className="mb-0 fw-bold text-dark">
-                                      Estado en U.E. Libertador Bolívar
-                                    </h6>
-                                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${permisosState.lb['__acceso_plantel__'] ? 'bg-success text-white' : 'bg-danger text-white'}`} style={{ fontSize: '0.72rem' }}>
-                                      {permisosState.lb['__acceso_plantel__'] ? '● ROL HABILITADO' : '● ROL BLOQUEADO'}
-                                    </span>
-                                  </div>
-                                  <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.78rem' }}>
-                                    {permisosState.lb['__acceso_plantel__']
-                                      ? `El rol "${rolSeleccionado?.nombre}" tiene permitido el acceso a este plantel.`
-                                      : `Acceso restringido: Los usuarios con rol "${rolSeleccionado?.nombre}" no podrán operar en este plantel.`}
-                                  </small>
-                                </div>
-                              </div>
-                              <div className="form-check form-switch fs-4 m-0">
-                                <input 
-                                  className="form-check-input hover-mano" 
-                                  type="checkbox"
-                                  role="switch"
-                                  checked={!!permisosState.lb['__acceso_plantel__']}
-                                  onChange={() => handleCheckboxChange('lb', '__acceso_plantel__', false)}
-                                  disabled={!canEditRolesLB}
-                                  title={permisosState.lb['__acceso_plantel__'] ? 'Click para bloquear este rol en este plantel' : 'Click para activar este rol en este plantel'}
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Contenedor de Módulos (Atenuado si el rol está bloqueado) */}
-                          <div style={{ opacity: permisosState.lb['__acceso_plantel__'] ? 1 : 0.55, transition: 'opacity 0.2s ease-in-out' }}>
-                            {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
-                              <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
-                                <div className="card-header text-white py-2 rounded-top-4 bg-primary">
-                                  <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
-                                    <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
-                                  </h6>
-                                </div>
-                                <div className="card-body p-2 bg-white rounded-bottom-4">
-                                  <div className="row g-2">
-                                    {Object.entries(submods).map(([subName, subcards]) => (
-                                      <div key={subName} className="col-12">
-                                        <div className="p-2 border rounded-2 border-light">
-                                          <div className="d-flex justify-content-between align-items-center">
-                                            <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
-                                              <i className="bi bi-box me-2 text-primary"></i>{subName}
-                                            </div>
-                                            <div className="form-check form-switch m-0">
-                                              <input 
-                                                className="form-check-input" 
-                                                type="checkbox"
-                                                checked={!!permisosState.lb[subName]}
-                                                onChange={() => handleCheckboxChange('lb', subName, true, undefined, subcards)}
-                                                disabled={!canEditRolesLB || !permisosState.lb['__acceso_plantel__']}
-                                              />
-                                            </div>
-                                          </div>
-
-                                          {subcards.length > 0 && (
-                                            <div className="row g-1 mt-2 ps-3 border-start ms-1 border-primary border-opacity-25 animate__animated animate__fadeIn">
-                                              {subcards.map(card => (
-                                                <div key={card} className="col-12">
-                                                  <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
-                                                    <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
-                                                      <i className="bi bi-window-stack me-1 text-secondary"></i>
-                                                      {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
-                                                    </span>
-                                                    <div className="form-check form-switch m-0">
-                                                      <input 
-                                                        className="form-check-input" 
-                                                        type="checkbox"
-                                                        checked={!!permisosState.lb[card]}
-                                                        onChange={() => handleCheckboxChange('lb', card, false, subName)}
-                                                        disabled={!canEditRolesLB || !permisosState.lb['__acceso_plantel__']}
-                                                      />
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                      )}
+                      {canRolesSB && (
+                        <div className={canRolesLB ? "col-12 col-xl-6" : "col-12"}>
+                          {renderPlantelPanel('sb')}
                         </div>
-                      </div>
+                      )}
+                    </>
+                  ) : pestanaEscuela === 'lb' ? (
+                    <div className="col-12">
+                      {renderPlantelPanel('lb')}
                     </div>
-                  )}
-
-                  {/* UE Santa Bárbara Panel */}
-                  {canRolesSB && (
-                    <div className={canRolesLB ? "col-lg-6 col-12" : "col-12"}>
-                      <div className="card border-0 shadow-sm rounded-4 h-100 border-top border-success border-5">
-                        <div className="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center rounded-top-4">
-                          <h6 className="mb-0 fw-bold text-success"><i className="bi bi-building me-2"></i>UE Santa Bárbara</h6>
-                          <div className="form-check form-switch m-0">
-                            <input 
-                              className="form-check-input" 
-                              type="checkbox" 
-                              id="chk-marcar-todos-sb"
-                              checked={isTodosMarcados('sb')}
-                              onChange={(e) => handleToggleTodos('sb', e.target.checked)}
-                              style={{ cursor: 'pointer' }}
-                              disabled={!canEditRolesSB || !permisosState.sb['__acceso_plantel__']}
-                            />
-                            <label className="form-check-label small fw-bold text-dark ms-1 mt-1" htmlFor="chk-marcar-todos-sb" style={{ cursor: 'pointer' }}>Otorgar Todo</label>
-                          </div>
-                        </div>
-                        
-                        <div className="card-body p-3 bg-light">
-                          {/* Tarjeta Maestra de Activación / Bloqueo del Rol en este Plantel */}
-                          <div className={`card border shadow-sm rounded-4 mb-3 p-3 transition-all ${permisosState.sb['__acceso_plantel__'] ? 'border-success bg-white' : 'border-danger bg-danger bg-opacity-10'}`}>
-                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                              <div className="d-flex align-items-center gap-3">
-                                <div className={`p-2.5 rounded-circle ${permisosState.sb['__acceso_plantel__'] ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-20 text-danger'}`}>
-                                  <i className={`bi ${permisosState.sb['__acceso_plantel__'] ? 'bi-shield-check' : 'bi-shield-slash-fill'} fs-4`}></i>
-                                </div>
-                                <div>
-                                  <div className="d-flex align-items-center gap-2 flex-wrap">
-                                    <h6 className="mb-0 fw-bold text-dark">
-                                      Estado en U.E. Santa Bárbara
-                                    </h6>
-                                    <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${permisosState.sb['__acceso_plantel__'] ? 'bg-success text-white' : 'bg-danger text-white'}`} style={{ fontSize: '0.72rem' }}>
-                                      {permisosState.sb['__acceso_plantel__'] ? '● ROL HABILITADO' : '● ROL BLOQUEADO'}
-                                    </span>
-                                  </div>
-                                  <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.78rem' }}>
-                                    {permisosState.sb['__acceso_plantel__']
-                                      ? `El rol "${rolSeleccionado?.nombre}" tiene permitido el acceso a este plantel.`
-                                      : `Acceso restringido: Los usuarios con rol "${rolSeleccionado?.nombre}" no podrán operar en este plantel.`}
-                                  </small>
-                                </div>
-                              </div>
-                              <div className="form-check form-switch fs-4 m-0">
-                                <input 
-                                  className="form-check-input hover-mano" 
-                                  type="checkbox"
-                                  role="switch"
-                                  checked={!!permisosState.sb['__acceso_plantel__']}
-                                  onChange={() => handleCheckboxChange('sb', '__acceso_plantel__', false)}
-                                  disabled={!canEditRolesSB}
-                                  title={permisosState.sb['__acceso_plantel__'] ? 'Click para bloquear este rol en este plantel' : 'Click para activar este rol en este plantel'}
-                                />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Contenedor de Módulos (Atenuado si el rol está bloqueado) */}
-                          <div style={{ opacity: permisosState.sb['__acceso_plantel__'] ? 1 : 0.55, transition: 'opacity 0.2s ease-in-out' }}>
-                            {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => (
-                              <div key={categoria} className="card border-0 shadow-sm rounded-4 mb-3">
-                                <div className="card-header text-white py-2 rounded-top-4 bg-success">
-                                  <h6 className="mb-0 fw-bold text-uppercase" style={{ fontSize: '0.75rem' }}>
-                                    <i className="bi bi-folder-fill text-warning me-2"></i>{categoria}
-                                  </h6>
-                                </div>
-                                <div className="card-body p-2 bg-white rounded-bottom-4">
-                                  <div className="row g-2">
-                                    {Object.entries(submods).map(([subName, subcards]) => (
-                                      <div key={subName} className="col-12">
-                                        <div className="p-2 border rounded-2 border-light">
-                                          <div className="d-flex justify-content-between align-items-center">
-                                            <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
-                                              <i className="bi bi-box me-2 text-success"></i>{subName}
-                                            </div>
-                                            <div className="form-check form-switch m-0">
-                                              <input 
-                                                className="form-check-input" 
-                                                type="checkbox"
-                                                checked={!!permisosState.sb[subName]}
-                                                onChange={() => handleCheckboxChange('sb', subName, true, undefined, subcards)}
-                                                disabled={!canEditRolesSB || !permisosState.sb['__acceso_plantel__']}
-                                              />
-                                            </div>
-                                          </div>
-
-                                          {subcards.length > 0 && (
-                                            <div className="row g-1 mt-2 ps-3 border-start ms-1 border-success border-opacity-25 animate__animated animate__fadeIn">
-                                              {subcards.map(card => (
-                                                <div key={card} className="col-12">
-                                                  <div className="d-flex justify-content-between align-items-center bg-light p-1 rounded">
-                                                    <span className="small fw-bold text-muted text-truncate" style={{ fontSize: '0.75rem' }} title={card}>
-                                                      <i className="bi bi-window-stack me-1 text-secondary"></i>
-                                                      {card.replace('Tarjeta: ', '').replace('Función: ', '').replace('Diccionario: ', '')}
-                                                    </span>
-                                                    <div className="form-check form-switch m-0">
-                                                      <input 
-                                                        className="form-check-input" 
-                                                        type="checkbox"
-                                                        checked={!!permisosState.sb[card]}
-                                                        onChange={() => handleCheckboxChange('sb', card, false, subName)}
-                                                        disabled={!canEditRolesSB || !permisosState.sb['__acceso_plantel__']}
-                                                      />
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                  ) : (
+                    <div className="col-12">
+                      {renderPlantelPanel('sb')}
                     </div>
                   )}
                 </div>
               </div>
+
             </div>
           ) : (
-            <div id="panel-vacio-roles" className="panel-vacio-moderno d-flex flex-column align-items-center justify-content-center text-center animate__animated animate__fadeIn bg-white p-5 rounded-4 shadow-sm" style={{ minHeight: '350px' }}>
-              <div className="bg-light p-4 rounded-circle shadow-sm mb-4 d-flex align-items-center justify-content-center" style={{ width: '80px', height: '80px' }}>
-                <i className="bi bi-shield-lock-fill text-primary" style={{ fontSize: '2.5rem' }}></i>
+            <div id="panel-vacio-roles" className="panel-vacio-moderno d-flex flex-column align-items-center justify-content-center text-center animate__animated animate__fadeIn bg-white p-5 rounded-4 shadow-sm" style={{ minHeight: '400px' }}>
+              <div className="bg-light p-4 rounded-circle shadow-sm mb-4 d-flex align-items-center justify-content-center" style={{ width: '85px', height: '85px' }}>
+                <i className="bi bi-shield-lock-fill text-primary" style={{ fontSize: '2.8rem' }}></i>
               </div>
-              <h4 className="fw-bold text-dark mb-2">Área de Privilegios</h4>
-              <p className="text-muted mx-auto" style={{ maxWidth: '400px' }}>
-                Seleccione un rol del panel lateral para configurar detalladamente sus accesos al sistema.
+              <h4 className="fw-bold text-dark mb-2">Panel de Roles y Privilegios</h4>
+              <p className="text-muted mx-auto" style={{ maxWidth: '420px', fontSize: '0.9rem' }}>
+                Selecciona uno de los roles institucionales del listado izquierdo para configurar detalladamente los accesos de ambas escuelas o de forma individual.
               </p>
             </div>
           )}
         </div>
+
       </div>
     </div>
   );

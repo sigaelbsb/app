@@ -5,6 +5,7 @@ import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { compressImage } from '../../utils/imageCompression';
 import html2canvas from 'html2canvas';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoSolicitudCupos3D } from '../../components/chamilo';
 
 // ─── HELPER: MODO TÍTULO ────────────────────────────────────────────────────────
 // Convierte cada palabra a Title Case sin forzar mayúscula/minúscula sostenida,
@@ -1415,7 +1416,7 @@ export const SolicitudCupos = () => {
           });
         }
       } else {
-        canvas.toBlob(async (blob) => {
+        canvas.toBlob(async (blob: Blob | null) => {
           if (!blob) return;
           const file = new File([blob], nombreArchivo, { type: "image/png" });
 
@@ -3005,29 +3006,203 @@ export const SolicitudCupos = () => {
   // ─── RENDER PRINCIPAL ────────────────────────────────────────────────────────
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
-      {/* HEADER */}
+
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Gestión Estudiantil"
+        currentModule="Solicitud de Cupos"
+      />
+
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_solicitud_cupos"
+        title="Guía de Admisión y Solicitud de Cupos"
+        content="En este módulo puede registrar nuevas solicitudes de ingreso, consultar el estado de postulaciones y administrar los cupos escolares aprobados por la dirección institucional."
+        icon="bi-envelope-paper-heart-fill"
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
       <div 
-        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden" 
-        style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', borderRadius: '24px' }}
+        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
+        style={{ 
+          border: '2px solid #ddd6fe',
+          borderTop: '6px solid #8b5cf6',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
+          borderRadius: '26px'
+        }}
       >
-        <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.15)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-        <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
-        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative z-1">
-          <div>
-            <span className="badge bg-white text-success fw-bold px-3 py-2 rounded-pill mb-3 shadow-sm text-uppercase" style={{ letterSpacing: '1px', fontSize: '0.75rem' }}>
-              <i className="bi bi-mortarboard-fill me-2"></i>Módulo de Admisión DEP Oriente
-            </span>
-            <h1 className="fw-bolder mb-2 display-6 text-white">
-              <i className="bi bi-envelope-paper-fill me-3"></i>Solicitud de Cupos Escolares
-            </h1>
-            <p className="mb-0 text-white-50 fs-6" style={{ maxWidth: '750px' }}>
-              <i className="bi bi-building-fill text-white me-1"></i> {escNombre} &nbsp;|&nbsp; Año Escolar {new Date().getFullYear()} – {new Date().getFullYear() + 1}
-            </p>
-          </div>
-          <div className="mt-4 mt-md-0">
-            <button onClick={() => navigate(-1)} className="btn btn-outline-light rounded-pill px-4 fw-bold shadow-sm hover-efecto">
-              <i className="bi bi-arrow-left me-2"></i> Volver
-            </button>
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono 3D Personalizado + Switcher Dual Interactivo */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
+                {/* Icono Tech Personalizado */}
+                <div 
+                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
+                  style={{
+                    width: '95px',
+                    height: '95px',
+                    border: '2.5px solid #ddd6fe',
+                    boxShadow: '0 10px 24px rgba(139, 92, 246, 0.15)'
+                  }}
+                  title="Módulo de Solicitud de Cupos"
+                >
+                  <IconoSolicitudCupos3D size={60} color="#8b5cf6" />
+                </div>
+
+                {/* Selector Dual Interactivo de Escuelas */}
+                <div 
+                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
+                  style={{ borderColor: '#ddd6fe' }}
+                >
+                  {/* Switch Ambas */}
+                  <div 
+                    onClick={() => { setFiltroEscuela('todos'); setCurrentPage(1); }}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      filtroEscuela === 'todos' 
+                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '64px', height: '74px', cursor: 'pointer' }}
+                    title="Ver ambas instituciones"
+                  >
+                    <i className="bi bi-building fs-3 text-primary"></i>
+                    <span className={`badge ${filtroEscuela === 'todos' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.60rem' }}>
+                      Ambas {filtroEscuela === 'todos' ? '●' : ''}
+                    </span>
+                  </div>
+
+                  {/* Switch SB */}
+                  <div 
+                    onClick={() => { setFiltroEscuela('sb'); setCurrentPage(1); }}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      filtroEscuela === 'sb' 
+                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '64px', height: '74px', cursor: 'pointer' }}
+                    title="Filtrar por U.E. Santa Bárbara"
+                  >
+                    <img 
+                      src="/assets/img/logo_sb.png" 
+                      alt="UE Santa Bárbara" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${filtroEscuela === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      SB {filtroEscuela === 'sb' ? '●' : ''}
+                    </span>
+                  </div>
+
+                  {/* Switch LB */}
+                  <div 
+                    onClick={() => { setFiltroEscuela('lb'); setCurrentPage(1); }}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      filtroEscuela === 'lb' 
+                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '64px', height: '74px', cursor: 'pointer' }}
+                    title="Filtrar por U.E. Libertador Bolívar"
+                  >
+                    <img 
+                      src="/assets/img/logo_lb.png" 
+                      alt="UE Libertador Bolívar" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${filtroEscuela === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      LB {filtroEscuela === 'lb' ? '●' : ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+                <span 
+                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
+                  style={{ backgroundColor: '#8b5cf6', fontSize: '0.78rem' }}
+                >
+                  <i className="bi bi-mortarboard-fill"></i>Admisión & Solicitudes
+                </span>
+
+                <div 
+                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
+                  style={{ borderColor: '#ddd6fe' }}
+                >
+                  <span className="status-beacon-live" style={{ color: '#8b5cf6' }}></span>
+                  <span 
+                    className="extra-small fw-bold text-uppercase" 
+                    style={{ fontSize: '0.72rem', color: '#6d28d9', letterSpacing: '0.5px' }}
+                  >
+                    Campus Conectado &bull; {filtroEscuela === 'todos' ? 'Ambas Sedes' : (filtroEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar')}
+                  </span>
+                </div>
+
+                <span className={`badge ${estadoProceso.abierto ? 'bg-success bg-opacity-10 text-success border border-success-subtle' : 'bg-danger bg-opacity-10 text-danger border border-danger-subtle'} px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs`}>
+                  <i className={`bi ${estadoProceso.abierto ? 'bi-unlock-fill' : 'bi-lock-fill'} me-1`}></i>
+                  {estadoProceso.abierto ? 'Proceso Activo' : 'Proceso Restringido'}
+                </span>
+
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
+                  <i className="bi bi-inbox-fill text-primary me-1"></i><b>{solicitudes.length}</b> Solicitudes
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
+                  <i className="bi bi-check2-all text-success me-1"></i><b>{stats.aprobados}</b> Aprobadas
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Solicitud de Cupos Escolares
+              </h1>
+
+              <p className="mb-0 text-muted small" style={{ maxWidth: '820px' }}>
+                Registro digital y postulación de nuevos ingresos y traslados para el año escolar en curso en los planteles de la División Educativa PDVSA Oriente.
+              </p>
+
+              {/* Cinta de Telemetría Escolar Interactiva */}
+              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
+                <div 
+                  className="tech-pill-badge shadow-xs cursor-pointer" 
+                  title="Total de Solicitudes Registradas"
+                >
+                  <i className="bi bi-folder-fill text-primary"></i>
+                  <span className="font-monospace fw-bold text-dark">{solicitudes.length} Registradas</span>
+                </div>
+                <div 
+                  className="tech-pill-badge shadow-xs cursor-pointer" 
+                  title="Cupos Asignados y Aprobados"
+                >
+                  <i className="bi bi-check-circle-fill text-success"></i>
+                  <span className="text-secondary">{stats.aprobados} Cupos Aprobados</span>
+                </div>
+                <div 
+                  className="tech-pill-badge shadow-xs cursor-pointer" 
+                  title="Estado Operativo"
+                >
+                  <i className="bi bi-shield-fill-check text-info"></i>
+                  <span className="text-secondary">100% Operativo</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Gesti%C3%B3n%20Estudiantil')}
+                className="btn btn-white bg-white border rounded-pill px-4 py-2 fw-bold text-dark d-inline-flex align-items-center gap-2 shadow-xs hover-efecto"
+                style={{ fontSize: '0.84rem', borderColor: '#ddd6fe' }}
+              >
+                <i className="bi bi-arrow-left text-primary"></i>
+                <span>Volver al Menú</span>
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
@@ -3170,14 +3345,24 @@ export const SolicitudCupos = () => {
               </div>
               <div className="col-md-8">
                 <label className="small fw-bold text-muted mb-1">Buscar Solicitud</label>
-                <div className="input-group">
+                <div className="input-group position-relative">
                   <span className="input-group-text bg-white border-end-0 border-secondary border-opacity-25" style={{ borderRadius: '12px 0 0 12px' }}>
                     <i className="bi bi-search text-muted"></i>
                   </span>
-                  <input type="text" className="form-control border-start-0 border-secondary border-opacity-25"
+                  <input type="text" className="form-control border-start-0 border-secondary border-opacity-25 pe-5"
                     placeholder="Buscar por nombre, cédula, código..." value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{ borderRadius: '0 12px 12px 0', boxShadow: 'none' }} />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="btn btn-link position-absolute top-50 end-0 translate-middle-y me-2 p-0 text-muted border-0 z-3"
+                      onClick={() => setSearchQuery('')}
+                      title="Limpiar búsqueda"
+                    >
+                      <i className="bi bi-x-circle-fill text-secondary small"></i>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

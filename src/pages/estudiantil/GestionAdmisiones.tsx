@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
@@ -11,6 +13,13 @@ import {
   generarEnlaceWhatsAppAdmision,
   sincronizarPlantillasAdmisionDesdeBD
 } from '../../utils/plantillasAdmision';
+import {
+  PLANTILLAS_ACEPTACION_DEFAULT,
+  descargarCartaAceptacionPDF,
+  obtenerPlantillasCartaAceptacion,
+  type DatosAspiranteCartaAceptacion
+} from '../../utils/generadorCartaAceptacion';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoGestionAdmisiones } from '../../components/chamilo';
 
 const Swal = (window as any).Swal;
 
@@ -86,6 +95,8 @@ export interface SolicitudAdmision {
   whatsapp_notificado?: boolean;
   whatsapp_fecha?: string | null;
   whatsapp_estado?: string | null;
+  acceso_habilitado?: boolean;
+  acceso_fecha?: string | null;
   observaciones?: string;
   creado_por?: string;
   created_at?: string;
@@ -226,6 +237,47 @@ export const normalizarGrado = (g?: string): string => {
   return str.replace(/\s+/g, '_');
 };
 
+// ── VERIFICACIÓN EXHAUSTIVA DE ACCESO HABILITADO EN SIGAE ──────────────────────
+export const verificarAccesoHabilitado = (
+  sol?: SolicitudAdmision | null,
+  matriculaBD?: any[]
+): { habilitado: boolean; fecha?: string } => {
+  if (!sol) return { habilitado: false };
+  if (sol.estado === 'Formalizado') return { habilitado: true };
+  if (sol.acceso_habilitado) return { habilitado: true, fecha: sol.acceso_fecha || undefined };
+
+  const obs = sol.observaciones || '';
+  const matchAcceso = obs.match(/\[Acceso Habilitado en SIGAE(?: el ([^\]]+))?\]/i) ||
+                      obs.match(/\[Acceso SIGAE Habilitado(?: el ([^\]]+))?\]/i) ||
+                      obs.match(/\[Inscripción Física Formalizada(?: el ([^\]]+))?\]/i);
+  if (matchAcceso) {
+    return { habilitado: true, fecha: matchAcceso[1]?.trim() };
+  }
+
+  // Comprobar si existe en estudiantesMatriculaBD
+  if (matriculaBD && matriculaBD.length > 0) {
+    const cedEst = cleanCedula(sol.estudiante_cedula);
+    const codEst = `t-${(sol.codigo_unico || '').toLowerCase()}`;
+    const codEsc = `esc-${(sol.codigo_unico || '').toLowerCase()}`;
+    const cedRep = cleanCedula(sol.representante_cedula);
+
+    const vinc = matriculaBD.find((v: any) => {
+      const c = (v.cedula_estudiante || '').toLowerCase().trim();
+      const r = cleanCedula(v.cedula_representante);
+      const creadoPor = (v.creado_por || '').toLowerCase();
+
+      const matchEst = (cedEst && cleanCedula(c) === cedEst) || c === codEst || c === codEsc;
+      const matchRep = cedRep && r === cedRep;
+
+      return (matchEst && matchRep) || (matchEst && creadoPor.includes('admisiones'));
+    });
+
+    if (vinc) return { habilitado: true };
+  }
+
+  return { habilitado: false };
+};
+
 // ── PARSER Y SERIALIZADOR DE OBSERVACIONES / METADATOS ──────────────────────────
 export const parsearObservaciones = (obs?: string) => {
   let aptitud = 'En Evaluación';
@@ -236,6 +288,10 @@ export const parsearObservaciones = (obs?: string) => {
   let whatsapp_notificado = false;
   let whatsapp_fecha: string | null = null;
   let whatsapp_estado: string | null = null;
+  let whatsapp_orientaciones_notificado = false;
+  let whatsapp_orientaciones_fecha: string | null = null;
+  let acceso_habilitado = false;
+  let acceso_fecha: string | null = null;
   let textoLimpio = obs || '';
 
   if (obs) {
@@ -259,12 +315,27 @@ export const parsearObservaciones = (obs?: string) => {
       textoLimpio = textoLimpio.replace(matchPers[0], '').trim();
     }
 
-    const matchWA = obs.match(/\[WhatsApp:\s*([^|\]]+)(?:\|\s*Fecha:\s*([^|\]]+))?(?:\|\s*Estado:\s*([^|\]]+))?\]/i);
+    const matchWA = obs.match(/\[(?:WhatsApp Aceptación|WhatsApp):\s*([^|\]]+)(?:\|\s*Fecha:\s*([^|\]]+))?(?:\|\s*Estado:\s*([^|\]]+))?\]/i);
     if (matchWA) {
       whatsapp_notificado = matchWA[1].trim().toLowerCase() === 'enviado' || matchWA[1].trim().toLowerCase() === 'si' || matchWA[1].trim().toLowerCase() === 'sí';
       whatsapp_fecha = matchWA[2]?.trim() || null;
       whatsapp_estado = matchWA[3]?.trim() || null;
       textoLimpio = textoLimpio.replace(matchWA[0], '').trim();
+    }
+
+    const matchWAOrientaciones = obs.match(/\[(?:WhatsApp )?Orientaciones:\s*([^|\]]+)(?:\|\s*Fecha:\s*([^|\]]+))?(?:\|\s*Estado:\s*([^|\]]+))?\]/i);
+    if (matchWAOrientaciones) {
+      whatsapp_orientaciones_notificado = matchWAOrientaciones[1].trim().toLowerCase() === 'enviado' || matchWAOrientaciones[1].trim().toLowerCase() === 'si' || matchWAOrientaciones[1].trim().toLowerCase() === 'sí';
+      whatsapp_orientaciones_fecha = matchWAOrientaciones[2]?.trim() || null;
+      textoLimpio = textoLimpio.replace(matchWAOrientaciones[0], '').trim();
+    }
+
+    const matchAcceso = obs.match(/\[Acceso Habilitado en SIGAE(?: el ([^\]]+))?\]/i) ||
+                        obs.match(/\[Acceso SIGAE Habilitado(?: el ([^\]]+))?\]/i) ||
+                        obs.match(/\[Inscripción Física Formalizada(?: el ([^\]]+))?\]/i);
+    if (matchAcceso) {
+      acceso_habilitado = true;
+      acceso_fecha = matchAcceso[1]?.trim() || null;
     }
   }
 
@@ -277,6 +348,12 @@ export const parsearObservaciones = (obs?: string) => {
     whatsapp_notificado,
     whatsapp_fecha,
     whatsapp_estado,
+    whatsapp_aceptacion_notificado: whatsapp_notificado,
+    whatsapp_aceptacion_fecha: whatsapp_fecha,
+    whatsapp_orientaciones_notificado,
+    whatsapp_orientaciones_fecha,
+    acceso_habilitado,
+    acceso_fecha,
     textoLimpio
   };
 };
@@ -285,8 +362,8 @@ export const estructurarObservaciones = (
   textoBase: string,
   aptitud: string,
   esJerarquica: boolean,
-  quienInstruye?: string,
-  prioridad?: number,
+  quienInstruye?: string | null,
+  prioridad?: number | null,
   esPersonalEscuela?: boolean,
   whatsappNotificado?: boolean,
   whatsappFecha?: string | null,
@@ -497,9 +574,17 @@ export const calcularBaremoPrioridad = (
 };
 
 export const GestionAdmisiones: React.FC = () => {
-  const { tienePermiso, loading: permLoading } = usePermisos();
+  const { tienePermiso, loading: permLoading, user } = usePermisos();
   const navigate = useNavigate();
   const hasAccess = tienePermiso('Gestión de Admisiones', 'ver');
+
+  // Detección granular de permisos y aislamiento de Taquilla de Formalización
+  const isSuperAdmin = (user?.rol || '').trim() === 'SuperAdmin';
+  const esRolFormalizador = (user?.rol || '').trim().toLowerCase() === 'formalizador';
+  const puedeVerBaremo = isSuperAdmin || (!esRolFormalizador && tienePermiso('Tarjeta: Baremo y Clasificación', 'ver'));
+  const puedeVerUnoAUno = isSuperAdmin || (!esRolFormalizador && tienePermiso('Tarjeta: Auditoría Uno por Uno', 'ver'));
+  const puedeVerFormalizacion = isSuperAdmin || esRolFormalizador || tienePermiso('Tarjeta: Formalización de Matrícula', 'ver');
+  const esSoloFormalizador = esRolFormalizador || (puedeVerFormalizacion && !puedeVerBaremo && !puedeVerUnoAUno);
 
   const [solicitudes, setSolicitudes] = useState<SolicitudAdmision[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -507,11 +592,37 @@ export const GestionAdmisiones: React.FC = () => {
   const [modalAbierto, setModalAbierto] = useState<boolean>(false);
   const [guardandoEstado, setGuardandoEstado] = useState<boolean>(false);
 
+  // ── ESTADOS DEL REPORTE Y MODAL ESTADÍSTICO (ESTILO CHAMILO LMS) ───────────────
+  const [modalEstadisticas, setModalEstadisticas] = useState<boolean>(false);
+  const [escuelaReporte, setEscuelaReporte] = useState<'todas' | 'sb' | 'lb'>('todas');
+  const [tipoGrafico, setTipoGrafico] = useState<'dossier' | 'resumen_niveles' | 'torta' | 'anillos' | 'picos' | 'barras' | 'radar' | 'tacometro' | 'tabla'>('dossier');
+  const [criterioAgrupacion, setCriterioAgrupacion] = useState<'grados' | 'niveles' | 'estados' | 'nomina'>('grados');
+  const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
+
   // ── PERSONAL / DOCENTES DE LAS ESCUELAS (CARGADOS DE GESTIÓN DOCENTE) ───────────
   const [personalEscuelaMap, setPersonalEscuelaMap] = useState<Map<string, UsuarioPersonal>>(new Map());
 
   // ── MODO DE VISTAS ─────────────────────────────────────────────────────────────
-  const [vistaActiva, setVistaActiva] = useState<'tabla' | 'uno_a_uno' | 'formalizacion'>('tabla');
+  const [vistaActiva, setVistaActiva] = useState<'tabla' | 'uno_a_uno' | 'formalizacion'>(() => {
+    try {
+      const usrStr = localStorage.getItem('usuario_sigae');
+      if (usrStr) {
+        const u = JSON.parse(usrStr);
+        if ((u.rol || '').trim().toLowerCase() === 'formalizador') return 'formalizacion';
+      }
+    } catch (e) {}
+    return 'tabla';
+  });
+
+  useEffect(() => {
+    if (esSoloFormalizador && vistaActiva !== 'formalizacion') {
+      setVistaActiva('formalizacion');
+    }
+  }, [esSoloFormalizador, vistaActiva]);
+
+  // Filtros interactivos para la Taquilla de Formalización Física
+  const [busquedaFormalizacion, setBusquedaFormalizacion] = useState<string>('');
+  const [filtroEstadoFormalizacion, setFiltroEstadoFormalizacion] = useState<'todos' | 'pendientes' | 'formalizados'>('todos');
   const [indiceUnoAUno, setIndiceUnoAUno] = useState<number>(0);
 
   // ── MODO EDICIÓN EN UNO POR UNO ────────────────────────────────────────────────
@@ -523,6 +634,30 @@ export const GestionAdmisiones: React.FC = () => {
   const [solicitudParaFormalizar, setSolicitudParaFormalizar] = useState<SolicitudAdmision | null>(null);
   const [modalFormalizarAbierto, setModalFormalizarAbierto] = useState<boolean>(false);
   const [seccionFormalizacion, setSeccionFormalizacion] = useState<string>('A');
+  const [editandoDatosFormalizar, setEditandoDatosFormalizar] = useState<boolean>(false);
+  const [formDatosFormalizar, setFormDatosFormalizar] = useState<{
+    estudiante_nombres: string;
+    estudiante_apellidos: string;
+    estudiante_cedula: string;
+    grado_solicitado: string;
+    codigo_escuela: string;
+    representante_nombres: string;
+    representante_apellidos: string;
+    representante_cedula: string;
+    representante_telefono: string;
+    representante_email: string;
+  }>({
+    estudiante_nombres: '',
+    estudiante_apellidos: '',
+    estudiante_cedula: '',
+    grado_solicitado: '',
+    codigo_escuela: 'sb',
+    representante_nombres: '',
+    representante_apellidos: '',
+    representante_cedula: '',
+    representante_telefono: '',
+    representante_email: ''
+  });
   const [recaudosVerificados, setRecaudosVerificados] = useState<{ [key: string]: boolean }>({
     partida_nacimiento: true,
     cedula_estudiante: true,
@@ -536,6 +671,54 @@ export const GestionAdmisiones: React.FC = () => {
   // ── MODAL CONSTANCIA / RESUMEN IMPRIMIBLE ──────────────────────────────────────
   const [solicitudConstancia, setSolicitudConstancia] = useState<SolicitudAdmision | null>(null);
   const [modalConstanciaAbierto, setModalConstanciaAbierto] = useState<boolean>(false);
+
+  // ── HABILITACIÓN DE ACCESO DE REPRESENTANTE Y ESTUDIANTE (UNO A UNO) ─────────
+  const [modalHabilitarAccesoAbierto, setModalHabilitarAccesoAbierto] = useState<boolean>(false);
+  const [solicitudHabilitar, setSolicitudHabilitar] = useState<SolicitudAdmision | null>(null);
+  const [formHabilitar, setFormHabilitar] = useState({
+    representante_cedula: '',
+    representante_nombres: '',
+    representante_apellidos: '',
+    representante_telefono: '',
+    representante_email: '',
+    estudiante_cedula: '',
+    estudiante_nombres: '',
+    estudiante_apellidos: '',
+    grado_solicitado: '',
+    codigo_escuela: 'sb'
+  });
+  const [repExistenteInfo, setRepExistenteInfo] = useState<{
+    existe: boolean;
+    nombre_completo?: string;
+    rol?: string;
+    id_escuela?: string;
+  } | null>(null);
+  const [verificandoCedulaRep, setVerificandoCedulaRep] = useState<boolean>(false);
+  const [procesandoHabilitacion, setProcesandoHabilitacion] = useState<boolean>(false);
+
+  // ── HABILITACIÓN MASIVA DE ACCESO SIGAE (NUEVOS INGRESOS APROBADOS) ─────────
+  const [modalHabilitarMasivoAbierto, setModalHabilitarMasivoAbierto] = useState<boolean>(false);
+  const [seleccionadosHabilitarMasivo, setSeleccionadosHabilitarMasivo] = useState<Set<string | number>>(new Set());
+  const [filtroEscuelaHabilitarMasivo, setFiltroEscuelaHabilitarMasivo] = useState<string>('todas');
+  const [filtroGradoHabilitarMasivo, setFiltroGradoHabilitarMasivo] = useState<string>('todos');
+  const [filtroEstadoAccesoMasivo, setFiltroEstadoAccesoMasivo] = useState<'pendientes' | 'todos' | 'habilitados'>('pendientes');
+  const [procesandoHabilitacionMasiva, setProcesandoHabilitacionMasiva] = useState<boolean>(false);
+  const [progresoHabilitacionMasiva, setProgresoHabilitacionMasiva] = useState<{
+    actual: number;
+    total: number;
+    nombreEstudiante: string;
+    creadosNuevos: number;
+    vinculadosExistentes: number;
+    completado: boolean;
+  } | null>(null);
+
+  // ── DIFUSIÓN MASIVA WHATSAPP PARA NUEVOS INGRESOS APROBADOS ─────────────────
+  const [modalDifusionAbierto, setModalDifusionAbierto] = useState<boolean>(false);
+  const [filtroEscuelaDifusion, setFiltroEscuelaDifusion] = useState<string>('todas');
+  const [filtroGradoDifusion, setFiltroGradoDifusion] = useState<string>('todos');
+  const [filtroEstadoEnvioDifusion, setFiltroEstadoEnvioDifusion] = useState<'todos' | 'pendientes' | 'enviados'>('todos');
+  const [mensajePlantillaDifusion, setMensajePlantillaDifusion] = useState<string>('');
+  const [aspiranteActivoDifusionIdx, setAspiranteActivoDifusionIdx] = useState<number>(0);
 
   // ── VISOR INTERACTIVO DE DOCUMENTOS Y RECAUDOS ─────────────────────────────────
   const [solicitudVisorDocs, setSolicitudVisorDocs] = useState<SolicitudAdmision | null>(null);
@@ -622,6 +805,9 @@ export const GestionAdmisiones: React.FC = () => {
   const algunModalAbierto = Boolean(
     modalMatrizCapacidadAbierto ||
     modalFormalizarAbierto ||
+    modalHabilitarAccesoAbierto ||
+    modalHabilitarMasivoAbierto ||
+    modalDifusionAbierto ||
     modalConstanciaAbierto ||
     modalAbierto ||
     modalDuplicadosAbierto ||
@@ -789,6 +975,8 @@ export const GestionAdmisiones: React.FC = () => {
             whatsapp_notificado: parsed.whatsapp_notificado,
             whatsapp_fecha: parsed.whatsapp_fecha,
             whatsapp_estado: parsed.whatsapp_estado,
+            acceso_habilitado: parsed.acceso_habilitado,
+            acceso_fecha: parsed.acceso_fecha,
           };
         });
         setSolicitudes(mapeadas);
@@ -816,34 +1004,14 @@ export const GestionAdmisiones: React.FC = () => {
       if (salRes.data) setSalonesBD(salRes.data);
       if (espRes.data) setEspaciosBD(espRes.data);
 
-      // Cargar estudiantes vinculados con paginación
-      let todosEst: any[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      // Cargar estudiantes vinculados con paginación paralela completa
+      const chunks = await Promise.all([
+        supabase.from('estudiantes_vinculaciones').select('id, cedula_estudiante, grado_actual, seccion_actual, codigo_escuela, estado').eq('estado', 'Activo').range(0, 999),
+        supabase.from('estudiantes_vinculaciones').select('id, cedula_estudiante, grado_actual, seccion_actual, codigo_escuela, estado').eq('estado', 'Activo').range(1000, 1999),
+        supabase.from('estudiantes_vinculaciones').select('id, cedula_estudiante, grado_actual, seccion_actual, codigo_escuela, estado').eq('estado', 'Activo').range(2000, 2999),
+      ]);
 
-      while (hasMore) {
-        const { data: estData, error: estErr } = await supabase
-          .from('estudiantes_vinculaciones')
-          .select('id, cedula_estudiante, grado_actual, seccion_actual, codigo_escuela, estado')
-          .eq('estado', 'Activo')
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (estErr) {
-          console.warn('Error al cargar matrícula para cálculo de cupos:', estErr);
-          hasMore = false;
-        } else if (estData && estData.length > 0) {
-          todosEst = [...todosEst, ...estData];
-          if (estData.length < pageSize) {
-            hasMore = false;
-          } else {
-            page++;
-          }
-        } else {
-          hasMore = false;
-        }
-      }
-
+      const todosEst = chunks.flatMap(c => c.data || []);
       setEstudiantesMatriculaBD(todosEst);
     } catch (e) {
       console.error('Error cargando datos de capacidad y matrícula:', e);
@@ -1306,6 +1474,33 @@ export const GestionAdmisiones: React.FC = () => {
     });
   }, [solicitudes]);
 
+  // Lista filtrada específicamente para la Taquilla de Formalización Física
+  const solicitudesFormalizacionFiltradas = useMemo(() => {
+    return solicitudesAceptadasParaFormalizar.filter(sol => {
+      if (filtroEscuela !== 'todas' && sol.codigo_escuela !== filtroEscuela) return false;
+      const esFormalizado = sol.estado === 'Formalizado' || sol.estado === 'Inscrito';
+      if (filtroEstadoFormalizacion === 'pendientes' && esFormalizado) return false;
+      if (filtroEstadoFormalizacion === 'formalizados' && !esFormalizado) return false;
+      if (busquedaFormalizacion.trim()) {
+        const q = busquedaFormalizacion.toLowerCase().trim();
+        const nomEst = `${sol.estudiante_nombres || ''} ${sol.estudiante_apellidos || ''}`.toLowerCase();
+        const nomRep = `${sol.representante_nombres || ''} ${sol.representante_apellidos || ''}`.toLowerCase();
+        const cedEst = (sol.estudiante_cedula || '').toLowerCase();
+        const cedRep = (sol.representante_cedula || '').toLowerCase();
+        const cod = (sol.codigo_unico || '').toLowerCase();
+        return nomEst.includes(q) || nomRep.includes(q) || cedEst.includes(q) || cedRep.includes(q) || cod.includes(q);
+      }
+      return true;
+    });
+  }, [solicitudesAceptadasParaFormalizar, filtroEscuela, filtroEstadoFormalizacion, busquedaFormalizacion]);
+
+  const kpisFormalizacion = useMemo(() => {
+    const base = solicitudesAceptadasParaFormalizar.filter(s => filtroEscuela === 'todas' || s.codigo_escuela === filtroEscuela);
+    const formalizados = base.filter(s => s.estado === 'Formalizado' || s.estado === 'Inscrito').length;
+    const pendientes = base.length - formalizados;
+    return { total: base.length, formalizados, pendientes };
+  }, [solicitudesAceptadasParaFormalizar, filtroEscuela]);
+
   // ── ESTADÍSTICAS E INDICADORES KPI ──────────────────────────────────────────────
   const kpis = useMemo(() => {
     const total = solicitudesFiltradas.length;
@@ -1377,18 +1572,33 @@ export const GestionAdmisiones: React.FC = () => {
     auditar('Gestión de Admisiones', 'Exportar Excel', `Exportadas ${solicitudesFiltradas.length} solicitudes con baremo`);
   };
 
-  // ── ENVIAR MENSAJE OFICIAL POR WHATSAPP AL REPRESENTANTE (SIN BAREMO Y SIN "LE") ─
-  const notificarRepresentanteWhatsApp = async (sol: SolicitudAdmision) => {
-    const telRaw = (sol.representante_telefono || sol.representante_telefono2 || '').replace(/\D/g, '');
+  // ── ENVIAR MENSAJE OFICIAL POR WHATSAPP AL REPRESENTANTE (SOPORTE MULTITELÉFONO) ─
+  const notificarRepresentanteWhatsApp = async (sol: SolicitudAdmision, telefonoDirecto?: string) => {
     const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
-    const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
+    const estado = sol.estado || 'Pendiente';
+    const esAceptacion = estado === 'Aprobado' || estado === 'Formalizado';
 
-    if (!telRaw) {
+    // Recopilar todos los números de teléfono registrados para este aspirante
+    const telefonosDisponibles: { etiqueta: string; numero: string }[] = [];
+    const pushTel = (etiqueta: string, val?: string) => {
+      if (!val) return;
+      const clean = val.replace(/\D/g, '');
+      if (clean.length >= 7 && !telefonosDisponibles.some(t => t.numero.replace(/\D/g, '') === clean)) {
+        telefonosDisponibles.push({ etiqueta, numero: val.trim() });
+      }
+    };
+
+    pushTel(`Representante (${sol.representante_parentesco || 'Principal'})`, sol.representante_telefono);
+    pushTel('Teléfono Alternativo / Contacto', sol.representante_telefono2);
+    pushTel(`Madre${sol.madre_nombres ? `: ${sol.madre_nombres}` : ''}`, sol.madre_telefono);
+    pushTel(`Padre${sol.padre_nombres ? `: ${sol.padre_nombres}` : ''}`, sol.padre_telefono);
+
+    if (telefonosDisponibles.length === 0) {
       if (Swal) {
         Swal.fire({
           icon: 'warning',
           title: 'Sin Teléfono Registrado',
-          text: `La solicitud de ${nomEst} no cuenta con un número de teléfono válido registrado.`,
+          text: `La solicitud de ${nomEst} no cuenta con ningún número de teléfono válido registrado.`,
         });
       } else {
         alert('No hay un número de teléfono registrado para el representante.');
@@ -1396,76 +1606,164 @@ export const GestionAdmisiones: React.FC = () => {
       return;
     }
 
-    let tel = telRaw;
-    if (tel.startsWith('0')) {
-      tel = '58' + tel.substring(1);
-    } else if (!tel.startsWith('58') && tel.length === 10) {
-      tel = '58' + tel;
+    const enviarANumero = async (telRaw: string, etiquetaTel: string) => {
+      const nombreEscuela = NOMBRE_ESCUELA_MAP[sol.codigo_escuela] || 'U.E. Santa Bárbara / U.E. Libertador Bolívar';
+      const plantilla = buscarPlantillaAdmision(sol.codigo_escuela, estado, 'whatsapp');
+      const msg = renderizarMensajeAdmision(plantilla.cuerpo_mensaje, sol, nombreEscuela);
+
+      const waUrl = generarEnlaceWhatsAppAdmision(telRaw, msg);
+      window.open(waUrl, '_blank');
+
+      const ahora = new Date();
+      const fechaHoraStr = ahora.toLocaleDateString('es-VE') + ' ' + ahora.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+      
+      const parsed = parsearObservaciones(sol.observaciones);
+      const nuevasObsConWA = estructurarObservaciones(
+        parsed.textoLimpio,
+        sol.aptitud || parsed.aptitud,
+        sol.instruccion_jerarquica !== undefined ? !!sol.instruccion_jerarquica : parsed.instruccion_jerarquica,
+        sol.instruccion_quien || parsed.instruccion_quien || undefined,
+        sol.prioridad_manual !== undefined && sol.prioridad_manual !== null ? sol.prioridad_manual : (parsed.prioridad_manual ?? undefined),
+        sol.es_personal_escuela !== undefined ? !!sol.es_personal_escuela : parsed.es_personal_escuela,
+        true,
+        fechaHoraStr,
+        estado
+      );
+
+      try {
+        await supabase
+          .from('solicitud_cupos')
+          .update({ observaciones: nuevasObsConWA })
+          .eq('id', sol.id);
+
+        const updateData = {
+          observaciones: nuevasObsConWA,
+          whatsapp_notificado: true,
+          whatsapp_fecha: fechaHoraStr,
+          whatsapp_estado: estado
+        };
+
+        setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, ...updateData } : s));
+        
+        if (solicitudSeleccionada && solicitudSeleccionada.id === sol.id) {
+          setSolicitudSeleccionada(prev => prev ? { ...prev, ...updateData } : null);
+        }
+
+        auditar('Gestión de Admisiones', 'Notificación WhatsApp', `Enviada notificación por WhatsApp (${esAceptacion ? 'Carta de Aceptación' : estado}) a ${etiquetaTel} (${telRaw}) para ${nomEst}`);
+
+        if (Swal) {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: `WhatsApp enviado a ${etiquetaTel}`,
+            text: `${esAceptacion ? 'Carta de Aceptación Notificada' : `Estatus: ${estado}`} (${fechaHoraStr})`,
+            showConfirmButton: false,
+            timer: 2500
+          });
+        }
+      } catch (errWA) {
+        console.warn('Error guardando registro de WhatsApp en BD:', errWA);
+      }
+    };
+
+    // Si se especificó un número directo, enviarlo
+    if (telefonoDirecto) {
+      return enviarANumero(telefonoDirecto, 'Teléfono');
     }
 
-    const nombreEscuela = NOMBRE_ESCUELA_MAP[sol.codigo_escuela] || 'U.E. Santa Bárbara / U.E. Libertador Bolívar';
-    const estado = sol.estado || 'Pendiente';
+    // Si solo hay un número registrado, enviar directo
+    if (telefonosDisponibles.length === 1) {
+      return enviarANumero(telefonosDisponibles[0].numero, telefonosDisponibles[0].etiqueta);
+    }
 
-    // Obtener plantilla personalizada del redactor o predeterminada
-    const plantilla = buscarPlantillaAdmision(sol.codigo_escuela, estado, 'whatsapp');
-    const msg = renderizarMensajeAdmision(plantilla.cuerpo_mensaje, sol, nombreEscuela);
+    // Si hay múltiples números registrados, permitir elegir a cuál o a todos
+    if (Swal) {
+      Swal.fire({
+        title: esAceptacion ? 'Notificar Carta de Aceptación' : 'Notificar por WhatsApp',
+        html: `
+          <div class="text-start">
+            <p class="small text-muted mb-3">
+              El aspirante <b>${nomEst}</b> tiene <b>${telefonosDisponibles.length}</b> números telefónicos registrados. Haz clic en el número al que deseas enviar el mensaje oficial:
+            </p>
+            <div class="d-grid gap-2">
+              ${telefonosDisponibles.map((t, idx) => `
+                <button type="button" id="btn-wa-sel-${idx}" class="btn btn-outline-success p-2.5 rounded-3 d-flex align-items-center justify-content-between text-start hover-efecto shadow-xs">
+                  <div>
+                    <div class="fw-bold text-dark fs-6">${t.etiqueta}</div>
+                    <small class="text-muted font-monospace"><i class="bi bi-telephone me-1"></i>${t.numero}</small>
+                  </div>
+                  <span class="badge bg-success text-white rounded-pill px-2.5 py-1.5 d-flex align-items-center gap-1">
+                    <i class="bi bi-whatsapp"></i> Enviar
+                  </span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        `,
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: 'Cerrar',
+        didOpen: () => {
+          telefonosDisponibles.forEach((t, idx) => {
+            const btn = document.getElementById(`btn-wa-sel-${idx}`);
+            if (btn) {
+              btn.onclick = () => {
+                Swal.close();
+                enviarANumero(t.numero, t.etiqueta);
+              };
+            }
+          });
+        }
+      });
+    } else {
+      enviarANumero(telefonosDisponibles[0].numero, telefonosDisponibles[0].etiqueta);
+    }
+  };
 
-    const waUrl = generarEnlaceWhatsAppAdmision(telRaw, msg);
-    window.open(waUrl, '_blank');
-
-    // Registrar fecha y hora de notificación
-    const ahora = new Date();
-    const fechaHoraStr = ahora.toLocaleDateString('es-VE') + ' ' + ahora.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
-    
-    // Parsear observaciones actuales y estructurar con el tag de WhatsApp
-    const parsed = parsearObservaciones(sol.observaciones);
-    const nuevasObsConWA = estructurarObservaciones(
-      parsed.textoLimpio,
-      sol.aptitud || parsed.aptitud,
-      sol.instruccion_jerarquica !== undefined ? !!sol.instruccion_jerarquica : parsed.instruccion_jerarquica,
-      sol.instruccion_quien || parsed.instruccion_quien || undefined,
-      sol.prioridad_manual !== undefined && sol.prioridad_manual !== null ? sol.prioridad_manual : (parsed.prioridad_manual ?? undefined),
-      sol.es_personal_escuela !== undefined ? !!sol.es_personal_escuela : parsed.es_personal_escuela,
-      true,
-      fechaHoraStr,
-      estado
-    );
-
+  // ── DESCARGA DE CARTA DE ACEPTACIÓN OFICIAL (PDF 3 PÁGINAS) ───────────────────
+  const descargarCartaAceptacionAspirante = async (sol: SolicitudAdmision) => {
     try {
-      await supabase
-        .from('solicitud_cupos')
-        .update({ observaciones: nuevasObsConWA })
-        .eq('id', sol.id);
+      const escCode: 'sb' | 'lb' = (sol.codigo_escuela === 'sb' ? 'sb' : 'lb');
+      const baseConfig = PLANTILLAS_ACEPTACION_DEFAULT[escCode];
 
-      // Actualizar estado local
-      const updateData = {
-        observaciones: nuevasObsConWA,
-        whatsapp_notificado: true,
-        whatsapp_fecha: fechaHoraStr,
-        whatsapp_estado: estado
+      let config = baseConfig;
+      try {
+        const plantillas = obtenerPlantillasCartaAceptacion();
+        const encontrada = plantillas.find(p => p.id_escuela === escCode);
+        if (encontrada) {
+          config = encontrada;
+        }
+      } catch (e) {
+        console.warn('Usando configuración predeterminada de carta de aceptación:', e);
+      }
+
+      const datosAspirante: DatosAspiranteCartaAceptacion = {
+        codigo_unico: sol.codigo_unico || `CR-${escCode.toUpperCase()}-2025-${sol.id}`,
+        codigo_escuela: escCode,
+        representante_nombres: sol.representante_nombres || '',
+        representante_apellidos: sol.representante_apellidos || '',
+        representante_cedula: sol.representante_cedula || '',
+        representante_telefono: sol.representante_telefono || sol.representante_telefono2 || '',
+        representante_email: sol.representante_email || '',
+        representante_email_empresa: sol.pdvsa_email_empresa || '',
+        estudiante_nombres: sol.estudiante_nombres || '',
+        estudiante_apellidos: sol.estudiante_apellidos || '',
+        estudiante_cedula: sol.estudiante_cedula || '',
+        grado_solicitado: sol.grado_solicitado || '1er Grado',
+        parentesco: sol.representante_parentesco || sol.parentesco || 'Madre / Padre / Representante',
+        trabajador_nombre: sol.representante_nombres ? `${sol.representante_nombres} ${sol.representante_apellidos}` : '',
+        trabajador_cedula: sol.representante_cedula || '',
+        observaciones: typeof sol.observaciones === 'string' ? sol.observaciones : ''
       };
 
-      setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, ...updateData } : s));
-      
-      if (solicitudSeleccionada && solicitudSeleccionada.id === sol.id) {
-        setSolicitudSeleccionada(prev => prev ? { ...prev, ...updateData } : null);
-      }
-
-      auditar('Gestión de Admisiones', 'Notificación WhatsApp', `Enviada notificación por WhatsApp a ${nomRep} (${telRaw}) para ${nomEst} - Estado: ${estado}`);
-
+      await descargarCartaAceptacionPDF(config, datosAspirante);
+      auditar('Gestión de Admisiones', 'Descarga Carta de Aceptación', `Descargó Carta de Aceptación para ${sol.estudiante_nombres} ${sol.estudiante_apellidos} (${sol.codigo_unico})`);
+    } catch (err) {
+      console.error('Error generando Carta de Aceptación PDF:', err);
       if (Swal) {
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: `WhatsApp registrado para ${nomEst}`,
-          text: `Estatus notificado: ${estado} (${fechaHoraStr})`,
-          showConfirmButton: false,
-          timer: 2500
-        });
+        Swal.fire('Error', 'No se pudo generar el documento PDF de la Carta de Aceptación.', 'error');
       }
-    } catch (errWA) {
-      console.warn('Error guardando registro de WhatsApp en BD:', errWA);
     }
   };
 
@@ -1700,6 +1998,19 @@ export const GestionAdmisiones: React.FC = () => {
   const abrirModalFormalizar = (sol: SolicitudAdmision) => {
     setSolicitudParaFormalizar(sol);
     setSeccionFormalizacion('A');
+    setEditandoDatosFormalizar(false);
+    setFormDatosFormalizar({
+      estudiante_nombres: sol.estudiante_nombres || '',
+      estudiante_apellidos: sol.estudiante_apellidos || '',
+      estudiante_cedula: sol.estudiante_cedula || '',
+      grado_solicitado: sol.grado_solicitado || '1er Grado',
+      codigo_escuela: sol.codigo_escuela || 'sb',
+      representante_nombres: sol.representante_nombres || '',
+      representante_apellidos: sol.representante_apellidos || '',
+      representante_cedula: cleanCedula(sol.representante_cedula) || (sol.representante_cedula || ''),
+      representante_telefono: sol.representante_telefono || '',
+      representante_email: sol.representante_email || ''
+    });
     setRecaudosVerificados({
       partida_nacimiento: true,
       cedula_estudiante: true,
@@ -1713,14 +2024,38 @@ export const GestionAdmisiones: React.FC = () => {
 
   const ejecutarFormalizacion = async () => {
     if (!solicitudParaFormalizar) return;
+
+    // Tomar los datos posiblemente corregidos del formulario
+    const cedRep = cleanCedula(formDatosFormalizar.representante_cedula) || (solicitudParaFormalizar.representante_cedula || '').trim();
+    const nomRep = formDatosFormalizar.representante_nombres.trim() || (solicitudParaFormalizar.representante_nombres || '').trim();
+    const apeRep = formDatosFormalizar.representante_apellidos.trim() || (solicitudParaFormalizar.representante_apellidos || '').trim();
+    const cedEst = cleanCedula(formDatosFormalizar.estudiante_cedula) || (solicitudParaFormalizar.estudiante_cedula || '').trim() || `ESC-${solicitudParaFormalizar.codigo_unico}`;
+    const nomEst = formDatosFormalizar.estudiante_nombres.trim() || (solicitudParaFormalizar.estudiante_nombres || '').trim();
+    const apeEst = formDatosFormalizar.estudiante_apellidos.trim() || (solicitudParaFormalizar.estudiante_apellidos || '').trim();
+    const gradoEst = formDatosFormalizar.grado_solicitado.trim() || solicitudParaFormalizar.grado_solicitado;
+    const escEst = formDatosFormalizar.codigo_escuela || solicitudParaFormalizar.codigo_escuela || 'sb';
+    const telRep = formDatosFormalizar.representante_telefono.trim();
+    const emailRep = formDatosFormalizar.representante_email.trim();
+
+    if (!cedRep) {
+      if (Swal) Swal.fire('Cédula Requerida', 'La cédula del representante no puede estar vacía.', 'warning');
+      return;
+    }
+    if (!nomRep || !apeRep) {
+      if (Swal) Swal.fire('Datos Requeridos', 'Indique nombres y apellidos del representante legal.', 'warning');
+      return;
+    }
+    if (!nomEst || !apeEst) {
+      if (Swal) Swal.fire('Datos Requeridos', 'Indique nombres y apellidos del estudiante a inscribir.', 'warning');
+      return;
+    }
+
     setProcesandoFormalizacion(true);
 
     try {
       const sol = solicitudParaFormalizar;
-      const cedRep = (sol.representante_cedula || '').trim();
-      const cedEst = (sol.estudiante_cedula && sol.estudiante_cedula.trim()) || `ESC-${sol.codigo_unico}`;
-      const nomCompletoRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
-      const nomCompletoEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
+      const nomCompletoRep = `${nomRep} ${apeRep}`.trim();
+      const nomCompletoEst = `${nomEst} ${apeEst}`.trim();
 
       // 1. Crear o Asegurar Usuario en tabla `usuarios`
       const { data: usuarioExistente } = await supabase
@@ -1741,7 +2076,7 @@ export const GestionAdmisiones: React.FC = () => {
             telefono: sol.representante_telefono?.trim() || null,
             estado: 'Activo',
             primer_ingreso: true,
-            clave: cedRep,
+            clave: null, // El usuario definirá su contraseña en su primer ingreso
             solicito_reseteo: false
           }]);
 
@@ -1752,31 +2087,32 @@ export const GestionAdmisiones: React.FC = () => {
         await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', cedRep);
       }
 
-      // 2. Vincular Estudiante en `estudiantes_vinculaciones`
+      // 2. Vincular Estudiante en `estudiantes_vinculaciones` con datos corregidos
       const { error: errVinculo } = await supabase
         .from('estudiantes_vinculaciones')
         .upsert([{
           cedula_representante: cedRep,
-          nombres_representante: (sol.representante_nombres || '').trim(),
-          apellidos_representante: (sol.representante_apellidos || '').trim(),
+          nombres_representante: nomRep,
+          apellidos_representante: apeRep,
           cedula_estudiante: cedEst,
-          nombres_estudiante: (sol.estudiante_nombres || '').trim(),
-          apellidos_estudiante: (sol.estudiante_apellidos || '').trim(),
-          grado_actual: sol.grado_solicitado,
+          nombres_estudiante: nomEst,
+          apellidos_estudiante: apeEst,
+          grado_actual: gradoEst,
           seccion_actual: seccionFormalizacion || 'A',
-          codigo_escuela: sol.codigo_escuela,
+          codigo_escuela: escEst,
           estado: 'Activo',
           datos_actualizados: {
-            estudiante_nombres: sol.estudiante_nombres,
-            estudiante_apellidos: sol.estudiante_apellidos,
-            estudiante_cedula: sol.estudiante_cedula,
-            estudiante_fecha_nacimiento: sol.estudiante_fecha_nacimiento,
-            estudiante_sexo: sol.estudiante_sexo,
-            representante_nombres: sol.representante_nombres,
-            representante_apellidos: sol.representante_apellidos,
-            representante_cedula: sol.representante_cedula,
-            representante_telefono: sol.representante_telefono,
-            representante_email: sol.representante_email,
+            ...sol,
+            estudiante_nombres: nomEst,
+            estudiante_apellidos: apeEst,
+            estudiante_cedula: cedEst,
+            grado_solicitado: gradoEst,
+            codigo_escuela: escEst,
+            representante_nombres: nomRep,
+            representante_apellidos: apeRep,
+            representante_cedula: cedRep,
+            representante_telefono: telRep || sol.representante_telefono,
+            representante_email: emailRep || sol.representante_email,
             direccion_habitacion: sol.direccion_habitacion,
             estado_habitacion: sol.estado_habitacion,
             municipio_habitacion: sol.municipio_habitacion,
@@ -1787,18 +2123,30 @@ export const GestionAdmisiones: React.FC = () => {
             madre_nombres: sol.madre_nombres,
             madre_cedula: sol.madre_cedula,
             padre_nombres: sol.padre_nombres,
-            padre_cedula: sol.padre_cedula
+            padre_cedula: sol.padre_cedula,
+            origen_admision: 'nuevo_ingreso',
+            formalizado_en_fisico: true // Desbloquea la Constancia de Inscripción
           },
-          creado_por: 'Docente / Admisiones SIGAE'
+          creado_por: 'Docente / Admisiones SIGAE - Formalización'
         }], { onConflict: 'cedula_estudiante' });
 
       if (errVinculo) throw errVinculo;
 
-      // 3. Actualizar Estado en `solicitud_cupos` a 'Formalizado'
+      // 3. Actualizar Datos y Estado en `solicitud_cupos` a 'Formalizado'
       const obsFormalizacion = `[Inscripción Física Formalizada el ${new Date().toLocaleDateString('es-VE')} en Sección ${seccionFormalizacion}]`;
       const { error: errSol } = await supabase
         .from('solicitud_cupos')
         .update({
+          estudiante_nombres: nomEst,
+          estudiante_apellidos: apeEst,
+          estudiante_cedula: cleanCedula(cedEst) || null,
+          grado_solicitado: gradoEst,
+          codigo_escuela: escEst,
+          representante_nombres: nomRep,
+          representante_apellidos: apeRep,
+          representante_cedula: cedRep,
+          representante_telefono: telRep || null,
+          representante_email: emailRep || null,
           estado: 'Formalizado',
           observaciones: sol.observaciones ? `${sol.observaciones} | ${obsFormalizacion}` : obsFormalizacion
         })
@@ -1813,9 +2161,19 @@ export const GestionAdmisiones: React.FC = () => {
         `Estudiante ${nomCompletoEst} formalizado en ${sol.grado_solicitado} sección ${seccionFormalizacion}`
       );
 
-      // Actualizar memoria local
+      // Actualizar memoria local con datos posiblemente modificados
       const solActualizada: SolicitudAdmision = {
         ...sol,
+        estudiante_nombres: nomEst,
+        estudiante_apellidos: apeEst,
+        estudiante_cedula: cedEst,
+        grado_solicitado: gradoEst,
+        codigo_escuela: escEst,
+        representante_nombres: nomRep,
+        representante_apellidos: apeRep,
+        representante_cedula: cedRep,
+        representante_telefono: telRep || sol.representante_telefono,
+        representante_email: emailRep || sol.representante_email,
         estado: 'Formalizado',
         observaciones: sol.observaciones ? `${sol.observaciones} | ${obsFormalizacion}` : obsFormalizacion
       };
@@ -1838,7 +2196,7 @@ export const GestionAdmisiones: React.FC = () => {
             <div class="text-start small">
               <p>✅ <b>Estudiante matriculado:</b> ${nomCompletoEst}</p>
               <p>✅ <b>Vínculo registrado:</b> Representante C.I. ${cedRep}</p>
-              <p>🔑 <b>Usuario habilitado en SIGAE:</b> <code>${cedRep}</code> (Clave temporal: <code>${cedRep}</code>)</p>
+              <p>🔑 <b>Usuario habilitado en SIGAE:</b> <code>${cedRep}</code> (Primer ingreso: define su clave al acceder)</p>
             </div>
           `,
           confirmButtonText: 'Ver e Imprimir Constancia',
@@ -1855,6 +2213,642 @@ export const GestionAdmisiones: React.FC = () => {
       }
     } finally {
       setProcesandoFormalizacion(false);
+    }
+  };
+
+  // ── LÓGICA: HABILITACIÓN DE ACCESO DE REPRESENTANTE Y ESTUDIANTE (UNO A UNO) ────
+  const abrirModalHabilitarAcceso = async (sol: SolicitudAdmision) => {
+    setSolicitudHabilitar(sol);
+    const cedulaLimpiaRep = cleanCedula(sol.representante_cedula);
+    const cedulaLimpiaEst = cleanCedula(sol.estudiante_cedula);
+
+    setFormHabilitar({
+      representante_cedula: cedulaLimpiaRep || (sol.representante_cedula || '').trim(),
+      representante_nombres: (sol.representante_nombres || '').trim(),
+      representante_apellidos: (sol.representante_apellidos || '').trim(),
+      representante_telefono: (sol.representante_telefono || sol.representante_telefono2 || '').trim(),
+      representante_email: (sol.representante_email || '').trim(),
+      estudiante_cedula: cedulaLimpiaEst || (sol.estudiante_cedula || '').trim(),
+      estudiante_nombres: (sol.estudiante_nombres || '').trim(),
+      estudiante_apellidos: (sol.estudiante_apellidos || '').trim(),
+      grado_solicitado: sol.grado_solicitado || '1er Grado',
+      codigo_escuela: sol.codigo_escuela || 'sb'
+    });
+
+    setModalHabilitarAccesoAbierto(true);
+
+    // Verificar en la BD si el usuario ya existe
+    if (cedulaLimpiaRep) {
+      setVerificandoCedulaRep(true);
+      try {
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('cedula, nombre_completo, rol, id_escuela')
+          .eq('cedula', cedulaLimpiaRep)
+          .maybeSingle();
+
+        if (usuario) {
+          setRepExistenteInfo({
+            existe: true,
+            nombre_completo: usuario.nombre_completo,
+            rol: usuario.rol,
+            id_escuela: usuario.id_escuela
+          });
+        } else {
+          setRepExistenteInfo({ existe: false });
+        }
+      } catch (err) {
+        console.warn('Error verificando usuario existente:', err);
+        setRepExistenteInfo(null);
+      } finally {
+        setVerificandoCedulaRep(false);
+      }
+    } else {
+      setRepExistenteInfo(null);
+    }
+  };
+
+  const verificarCedulaRepEnVivo = async (cedula: string) => {
+    const cedLimpia = cleanCedula(cedula);
+    if (!cedLimpia || cedLimpia.length < 5) {
+      setRepExistenteInfo(null);
+      return;
+    }
+    setVerificandoCedulaRep(true);
+    try {
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('cedula, nombre_completo, rol, id_escuela')
+        .eq('cedula', cedLimpia)
+        .maybeSingle();
+
+      if (usuario) {
+        setRepExistenteInfo({
+          existe: true,
+          nombre_completo: usuario.nombre_completo,
+          rol: usuario.rol,
+          id_escuela: usuario.id_escuela
+        });
+      } else {
+        setRepExistenteInfo({ existe: false });
+      }
+    } catch (e) {
+      console.warn('Error en verificación en vivo:', e);
+    } finally {
+      setVerificandoCedulaRep(false);
+    }
+  };
+
+  const ejecutarHabilitacionAcceso = async () => {
+    if (!solicitudHabilitar) return;
+
+    const cedRep = cleanCedula(formHabilitar.representante_cedula);
+    const nomRep = formHabilitar.representante_nombres.trim();
+    const apeRep = formHabilitar.representante_apellidos.trim();
+
+    const cedEst = cleanCedula(formHabilitar.estudiante_cedula) || `T-${solicitudHabilitar.codigo_unico}`;
+    const nomEst = formHabilitar.estudiante_nombres.trim();
+    const apeEst = formHabilitar.estudiante_apellidos.trim();
+
+    if (!cedRep) {
+      if (Swal) Swal.fire('Cédula Requerida', 'La cédula del representante no puede estar vacía.', 'warning');
+      return;
+    }
+    if (!nomRep || !apeRep) {
+      if (Swal) Swal.fire('Nombres Requeridos', 'Indica nombres y apellidos completos del representante.', 'warning');
+      return;
+    }
+    if (!nomEst || !apeEst) {
+      if (Swal) Swal.fire('Datos de Aspirante Requeridos', 'Indica nombres y apellidos del estudiante.', 'warning');
+      return;
+    }
+
+    setProcesandoHabilitacion(true);
+    try {
+      // 1. Consultar si el usuario ya existe en `usuarios`
+      const { data: usuarioExistente } = await supabase
+        .from('usuarios')
+        .select('cedula, rol, id_escuela, nombre_completo')
+        .eq('cedula', cedRep)
+        .maybeSingle();
+
+      let usuarioCreadoNuevo = false;
+
+      if (!usuarioExistente) {
+        // CREAR USUARIO NUEVO SIN CONTRASEÑA PREVIA (primer_ingreso: true, clave: null)
+        const { error: errCrearUsuario } = await supabase
+          .from('usuarios')
+          .insert([{
+            cedula: cedRep,
+            nombre_completo: `${nomRep} ${apeRep}`,
+            rol: 'representante',
+            id_escuela: formHabilitar.codigo_escuela,
+            email: formHabilitar.representante_email?.trim() || null,
+            telefono: formHabilitar.representante_telefono?.trim() || null,
+            estado: 'Activo',
+            primer_ingreso: true,
+            clave: null, // NO lleva contraseña: la crea en su primer inicio
+            solicito_reseteo: false
+          }]);
+
+        if (errCrearUsuario) throw errCrearUsuario;
+        usuarioCreadoNuevo = true;
+      } else {
+        // USUARIO EXISTENTE: NO MODIFICAR CLAVE, PREGUNTAS NI ROL
+        // Únicamente si pertenece a otra escuela, ampliar id_escuela a 'ambas'
+        if (usuarioExistente.id_escuela && usuarioExistente.id_escuela !== formHabilitar.codigo_escuela && usuarioExistente.id_escuela !== 'ambas') {
+          await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', cedRep);
+        }
+      }
+
+      // 2. Vincular al Estudiante en `estudiantes_vinculaciones`
+      // La constancia permanece bloqueada en datos_actualizados (formalizado_en_fisico: false)
+      const { error: errVinculo } = await supabase
+        .from('estudiantes_vinculaciones')
+        .upsert([{
+          cedula_representante: cedRep,
+          nombres_representante: nomRep,
+          apellidos_representante: apeRep,
+          cedula_estudiante: cedEst,
+          nombres_estudiante: nomEst,
+          apellidos_estudiante: apeEst,
+          grado_actual: formHabilitar.grado_solicitado,
+          seccion_actual: 'A',
+          codigo_escuela: formHabilitar.codigo_escuela,
+          estado: 'Activo',
+          datos_actualizados: {
+            ...(solicitudHabilitar.datos_actualizados || {}),
+            ...solicitudHabilitar,
+            representante_cedula: cedRep,
+            representante_nombres: nomRep,
+            representante_apellidos: apeRep,
+            representante_telefono: formHabilitar.representante_telefono?.trim() || '',
+            representante_email: formHabilitar.representante_email?.trim() || '',
+            estudiante_cedula: cedEst,
+            estudiante_nombres: nomEst,
+            estudiante_apellidos: apeEst,
+            grado_solicitado: formHabilitar.grado_solicitado,
+            codigo_escuela: formHabilitar.codigo_escuela,
+            origen_admision: 'nuevo_ingreso',
+            formalizado_en_fisico: false // Bloquea la constancia de inscripción hasta que se formalice en físico
+          },
+          creado_por: 'Admisiones SIGAE - Alta de Representante'
+        }], { onConflict: 'cedula_estudiante' });
+
+      if (errVinculo) throw errVinculo;
+
+      // 3. Sincronizar cambios en `solicitud_cupos` en caso de correcciones
+      const obsRegistro = `[Acceso Habilitado en SIGAE el ${new Date().toLocaleDateString('es-VE')}]`;
+      const nuevasObservaciones = solicitudHabilitar.observaciones
+        ? (solicitudHabilitar.observaciones.includes('[Acceso Habilitado en SIGAE')
+            ? solicitudHabilitar.observaciones
+            : `${solicitudHabilitar.observaciones} | ${obsRegistro}`)
+        : obsRegistro;
+
+      await supabase
+        .from('solicitud_cupos')
+        .update({
+          representante_cedula: cedRep,
+          representante_nombres: nomRep,
+          representante_apellidos: apeRep,
+          representante_telefono: formHabilitar.representante_telefono?.trim() || null,
+          representante_email: formHabilitar.representante_email?.trim() || null,
+          estudiante_cedula: cleanCedula(formHabilitar.estudiante_cedula) || null,
+          estudiante_nombres: nomEst,
+          estudiante_apellidos: apeEst,
+          grado_solicitado: formHabilitar.grado_solicitado,
+          codigo_escuela: formHabilitar.codigo_escuela,
+          observaciones: nuevasObservaciones
+        })
+        .eq('id', solicitudHabilitar.id);
+
+      // 4. Auditar acción
+      await auditar(
+        'Gestión de Admisiones',
+        'Habilitar Acceso SIGAE',
+        `Acceso habilitado para Rep. ${nomRep} ${apeRep} (C.I. ${cedRep}) con estudiante ${nomEst} ${apeEst} (${formHabilitar.grado_solicitado})`
+      );
+
+      // 5. Actualizar estado en memoria local
+      const solActualizada: SolicitudAdmision = {
+        ...solicitudHabilitar,
+        representante_cedula: cedRep,
+        representante_nombres: nomRep,
+        representante_apellidos: apeRep,
+        representante_telefono: formHabilitar.representante_telefono?.trim() || '',
+        representante_email: formHabilitar.representante_email?.trim() || '',
+        estudiante_cedula: cleanCedula(formHabilitar.estudiante_cedula) || '',
+        estudiante_nombres: nomEst,
+        estudiante_apellidos: apeEst,
+        grado_solicitado: formHabilitar.grado_solicitado,
+        codigo_escuela: formHabilitar.codigo_escuela,
+        observaciones: nuevasObservaciones,
+        acceso_habilitado: true,
+        acceso_fecha: new Date().toLocaleDateString('es-VE')
+      };
+
+      setSolicitudes(prev => prev.map(s => (s.id === solicitudHabilitar.id ? solActualizada : s)));
+      await cargarCapacidadEscolar(); // Sincronizar vinculaciones en memoria inmediatamente
+      setModalHabilitarAccesoAbierto(false);
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: usuarioCreadoNuevo ? '¡Usuario Creado y Vinculado!' : '¡Estudiante Vinculado a Usuario Existente!',
+          html: `
+            <div class="text-start small">
+              <p>👤 <b>Representante:</b> ${nomRep} ${apeRep} (C.I. <code>${cedRep}</code>)</p>
+              <p>🎓 <b>Estudiante:</b> ${nomEst} ${apeEst} (Grado: <b>${formHabilitar.grado_solicitado}</b>)</p>
+              ${usuarioCreadoNuevo ? `
+                <div class="alert alert-primary p-2.5 rounded-3 mb-2">
+                  <i class="bi bi-shield-lock-fill me-1"></i> <b>Nuevo Usuario SIGAE:</b><br/>
+                  El representante ingresará con su C.I. <code>${cedRep}</code>. En su primer inicio definirá su propia clave y preguntas de seguridad.
+                </div>
+              ` : `
+                <div class="alert alert-success p-2.5 rounded-3 mb-2">
+                  <i class="bi bi-person-check-fill me-1"></i> <b>Usuario ya registrado:</b><br/>
+                  Sus credenciales y claves no sufrieron modificaciones. El estudiante ya está visible en su portal.
+                </div>
+              `}
+              <div class="alert alert-warning p-2.5 rounded-3 mb-0">
+                <i class="bi bi-lock-fill me-1"></i> <b>Constancia de Inscripción:</b><br/>
+                Permanecerá bloqueada en el portal del representante con candado oficial hasta la formalización presencial en la institución.
+              </div>
+            </div>
+          `,
+          confirmButtonText: 'Entendido'
+        });
+      }
+    } catch (err: any) {
+      console.error('Error al habilitar acceso:', err);
+      if (Swal) {
+        Swal.fire('Error', 'No se pudo habilitar el acceso: ' + (err.message || 'Error desconocido'), 'error');
+      }
+    } finally {
+      setProcesandoHabilitacion(false);
+    }
+  };
+
+  // ── LÓGICA: HABILITACIÓN MASIVA DE ACCESO SIGAE (SELECCIÓN MÚLTIPLE) ───────
+  const abrirModalHabilitarMasivo = () => {
+    // Por defecto seleccionar todos los aspirantes aprobados o formalizados pendientes de acceso
+    const pendientes = solicitudes.filter(s => {
+      const esAprobado = s.estado === 'Aprobado' || s.estado === 'Formalizado';
+      if (!esAprobado) return false;
+      const acc = verificarAccesoHabilitado(s, estudiantesMatriculaBD);
+      return !acc.habilitado;
+    });
+
+    const idsPendientes = new Set<string | number>();
+    pendientes.forEach(s => { if (s.id) idsPendientes.add(s.id); });
+    setSeleccionadosHabilitarMasivo(idsPendientes);
+    setFiltroEscuelaHabilitarMasivo('todas');
+    setFiltroGradoHabilitarMasivo('todos');
+    setFiltroEstadoAccesoMasivo('pendientes');
+    setModalHabilitarMasivoAbierto(true);
+  };
+
+  const toggleSeleccionHabilitarMasivo = (id: string | number) => {
+    setSeleccionadosHabilitarMasivo(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const ejecutarHabilitacionMasiva = async () => {
+    if (seleccionadosHabilitarMasivo.size === 0) {
+      if (Swal) Swal.fire('Sin Selecciones', 'Por favor selecciona al menos un aspirante en la lista para habilitar su acceso.', 'warning');
+      return;
+    }
+
+    const solParaProcesar = solicitudes.filter(s => seleccionadosHabilitarMasivo.has(s.id));
+    if (solParaProcesar.length === 0) return;
+
+    setProcesandoHabilitacionMasiva(true);
+    setProgresoHabilitacionMasiva({
+      actual: 0,
+      total: solParaProcesar.length,
+      nombreEstudiante: 'Iniciando verificación en el servidor...',
+      creadosNuevos: 0,
+      vinculadosExistentes: 0,
+      completado: false
+    });
+    let creadosNuevos = 0;
+    let vinculadosExistentes = 0;
+    let errores = 0;
+    const fechaHora = new Date().toLocaleDateString('es-VE');
+
+    try {
+      const cedulasReps = Array.from(new Set(solParaProcesar.map(s => cleanCedula(s.representante_cedula)).filter(Boolean)));
+      const { data: usuariosExistentesBD } = await supabase
+        .from('usuarios')
+        .select('cedula, rol, id_escuela, nombre_completo')
+        .in('cedula', cedulasReps);
+
+      const mapUsuarios = new Map<string, any>();
+      (usuariosExistentesBD || []).forEach((u: any) => {
+        mapUsuarios.set(cleanCedula(u.cedula), u);
+      });
+
+      const solActualizadasList: SolicitudAdmision[] = [];
+
+      for (let i = 0; i < solParaProcesar.length; i++) {
+        const sol = solParaProcesar[i];
+        const nomCompletoEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
+        setProgresoHabilitacionMasiva({
+          actual: i + 1,
+          total: solParaProcesar.length,
+          nombreEstudiante: nomCompletoEst,
+          creadosNuevos,
+          vinculadosExistentes,
+          completado: false
+        });
+
+        // Pequeño retardo de 75ms para animación visual fluida del porcentaje
+        await new Promise(r => setTimeout(r, 75));
+
+        try {
+          const cedRep = cleanCedula(sol.representante_cedula);
+          const nomRep = (sol.representante_nombres || '').trim();
+          const apeRep = (sol.representante_apellidos || '').trim();
+          const cedEst = cleanCedula(sol.estudiante_cedula) || `T-${sol.codigo_unico}`;
+          const nomEst = (sol.estudiante_nombres || '').trim();
+          const apeEst = (sol.estudiante_apellidos || '').trim();
+
+          if (!cedRep) {
+            errores++;
+            continue;
+          }
+
+          const usuarioExistente = mapUsuarios.get(cedRep);
+
+          if (!usuarioExistente) {
+            // Usuario nuevo: sin contraseña previa (primer_ingreso = true, clave = null)
+            const { error: errInsertUser } = await supabase
+              .from('usuarios')
+              .insert([{
+                cedula: cedRep,
+                nombre_completo: `${nomRep} ${apeRep}`.trim() || 'Representante',
+                rol: 'representante',
+                id_escuela: sol.codigo_escuela || 'sb',
+                email: sol.representante_email?.trim() || null,
+                telefono: sol.representante_telefono?.trim() || null,
+                estado: 'Activo',
+                primer_ingreso: true,
+                clave: null,
+                solicito_reseteo: false
+              }]);
+
+            if (!errInsertUser) {
+              creadosNuevos++;
+              mapUsuarios.set(cedRep, { cedula: cedRep, rol: 'representante', id_escuela: sol.codigo_escuela });
+            } else {
+              vinculadosExistentes++;
+            }
+          } else {
+            vinculadosExistentes++;
+            if (usuarioExistente.id_escuela && usuarioExistente.id_escuela !== sol.codigo_escuela && usuarioExistente.id_escuela !== 'ambas') {
+              await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', cedRep);
+            }
+          }
+
+          // Vincular en estudiantes_vinculaciones
+          const { error: errVinculo } = await supabase
+            .from('estudiantes_vinculaciones')
+            .upsert([{
+              cedula_representante: cedRep,
+              nombres_representante: nomRep,
+              apellidos_representante: apeRep,
+              cedula_estudiante: cedEst,
+              nombres_estudiante: nomEst,
+              apellidos_estudiante: apeEst,
+              grado_actual: sol.grado_solicitado || '1er Grado',
+              seccion_actual: 'A',
+              codigo_escuela: sol.codigo_escuela || 'sb',
+              estado: 'Activo',
+              datos_actualizados: {
+                ...(sol.datos_actualizados || {}),
+                ...sol,
+                representante_cedula: cedRep,
+                representante_nombres: nomRep,
+                representante_apellidos: apeRep,
+                estudiante_cedula: cedEst,
+                estudiante_nombres: nomEst,
+                estudiante_apellidos: apeEst,
+                grado_solicitado: sol.grado_solicitado,
+                codigo_escuela: sol.codigo_escuela,
+                origen_admision: 'nuevo_ingreso',
+                formalizado_en_fisico: false
+              },
+              creado_por: 'Admisiones SIGAE - Habilitación Masiva'
+            }], { onConflict: 'cedula_estudiante' });
+
+          if (errVinculo) {
+            console.error('Error en vinculo masivo:', errVinculo);
+            errores++;
+            continue;
+          }
+
+          // Actualizar observaciones en solicitud_cupos
+          const obsRegistro = `[Acceso Habilitado en SIGAE el ${fechaHora}]`;
+          const obsNuevas = sol.observaciones
+            ? (sol.observaciones.includes('[Acceso Habilitado en SIGAE')
+                ? sol.observaciones
+                : `${sol.observaciones} | ${obsRegistro}`)
+            : obsRegistro;
+
+          await supabase
+            .from('solicitud_cupos')
+            .update({ observaciones: obsNuevas })
+            .eq('id', sol.id);
+
+          solActualizadasList.push({
+            ...sol,
+            observaciones: obsNuevas,
+            acceso_habilitado: true,
+            acceso_fecha: fechaHora
+          });
+        } catch (eSol) {
+          console.error('Error procesando aspirante:', eSol);
+          errores++;
+        }
+      }
+
+      await auditar(
+        'Gestión de Admisiones',
+        'Habilitación Masiva de Accesos SIGAE',
+        `Se procesó habilitación masiva de ${solActualizadasList.length} aspirantes (${creadosNuevos} nuevos usuarios, ${vinculadosExistentes} vinculaciones existentes)`
+      );
+
+      const actualizadosMap = new Map(solActualizadasList.map(s => [s.id, s]));
+      setSolicitudes(prev => prev.map(s => actualizadosMap.get(s.id) || s));
+
+      await cargarCapacidadEscolar();
+      
+      setProgresoHabilitacionMasiva({
+        actual: solParaProcesar.length,
+        total: solParaProcesar.length,
+        nombreEstudiante: '¡Todos los registros procesados con éxito!',
+        creadosNuevos,
+        vinculadosExistentes,
+        completado: true
+      });
+      setProcesandoHabilitacionMasiva(false);
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Habilitación Masiva Completada al 100%!',
+          html: `
+            <div class="text-start small">
+              <p class="mb-1">✅ <b>Aspirantes Procesados con Éxito:</b> ${solActualizadasList.length}</p>
+              <p class="mb-1">👤 <b>Nuevos Usuarios Creados:</b> ${creadosNuevos} (sin contraseña previa)</p>
+              <p class="mb-1">🔗 <b>Vinculados a Usuarios Ya Existentes:</b> ${vinculadosExistentes} (claves intactas)</p>
+              ${errores > 0 ? `<p class="mb-1 text-danger">⚠️ <b>Errores / Omitidos:</b> ${errores}</p>` : ''}
+              <div class="alert alert-warning p-2.5 rounded-3 mt-2 mb-0">
+                <i class="bi bi-lock-fill me-1"></i> <b>Constancias de Inscripción:</b><br/>
+                Permanecen bloqueadas con candado en el portal del representante hasta la formalización presencial.
+              </div>
+            </div>
+          `,
+          confirmButtonText: 'Entendido'
+        });
+      }
+    } catch (err: any) {
+      console.error('Error general en habilitación masiva:', err);
+      if (Swal) Swal.fire('Error', 'Ocurrió un error en el proceso masivo: ' + (err.message || 'Error desconocido'), 'error');
+    } finally {
+      setProcesandoHabilitacionMasiva(false);
+      setProgresoHabilitacionMasiva(null);
+    }
+  };
+
+  // ── LÓGICA: DIFUSIÓN MASIVA WHATSAPP PARA CUPOS APROBADOS ───────────────────
+  const PLANTILLA_WHATSAPP_DIFUSION_DEFAULT = `*Comunicado oficial • Comité de admisiones*
+*{ESCUELA}*
+_Sistema Integral de Gestión y Administración Escolar (SIGAE)_
+
+Estimado(a) Representante: *{REPRESENTANTE}* (C.I. *{CEDULA_REP}*)
+
+En seguimiento a la confirmación de asignación y aceptación de cupo para su representado(a) *{ESTUDIANTE}* en el nivel *{GRADO}*, le hacemos llegar las *orientaciones oficiales y la guía paso a paso* para la actualización de datos y formalización de su inscripción:
+
+*1️⃣ Paso 1: Ingreso al sistema y creación de contraseña*
+• Ingrese desde su teléfono o computadora a nuestro portal web:
+🌐 *https://sigaelbsb.vercel.app/*
+• En la casilla *Usuario*, ingrese su número de cédula de identidad: *{CEDULA_REP}* (sin puntos ni letras).
+• *Primer ingreso:* Si es su primera vez en el sistema, cree su contraseña segura y configure sus preguntas de seguridad personalizadas. Si ya posee cuenta en SIGAE, ingrese con su clave habitual.
+
+*2️⃣ Paso 2: Gestión estudiantil y actualización de ficha*
+• Ingrese al módulo de *Gestión Estudiantil* (o Mis Representados).
+• Seleccione al estudiante y proceda a actualizar y completar detalladamente la *Ficha del Estudiante*.
+
+*3️⃣ Paso 3: Descarga de recaudos digitales*
+• Al finalizar la actualización de la ficha, descargue los siguientes tres (3) documentos obligatorios:
+   📄 *Hoja de Resumen de Admisión*
+   📜 *Carta de Aceptación Oficial*
+   📑 *Normas Internas de Convivencia Escolar*
+
+*4️⃣ Paso 4: Impresión y recaudos físicos en carpeta*
+• Imprima los documentos descargados en el Paso 3.
+• Arme una carpeta de manila adjuntando dichos recaudos impresos conjuntamente con todos los recaudos físicos requeridos en el documento de la Carta de Aceptación.
+
+*5️⃣ Paso 5: Convocatoria presencial en la escuela*
+• Asista a la escuela en las fechas y horarios de la convocatoria oficial para la revisión y validación de la documentación física ante Control de Estudios.
+
+*6️⃣ Paso 6: Constancia de inscripción (12 horas)*
+• En un lapso de doce (12) horas posteriores a la verificación presencial de sus documentos, ingrese nuevamente al sistema SIGAE y descargue su *Constancia de Inscripción Definitiva*.
+
+*¡Bienvenidos a la {ESCUELA}!*
+Para dudas o asistencia técnica, comuníquese con los canales autorizados de la institución.`;
+
+  const abrirModalDifusion = () => {
+    if (!mensajePlantillaDifusion) {
+      setMensajePlantillaDifusion(PLANTILLA_WHATSAPP_DIFUSION_DEFAULT);
+    }
+    setFiltroEscuelaDifusion(filtroEscuela !== 'todas' ? filtroEscuela : 'todas');
+    setFiltroGradoDifusion(filtroGrado !== 'todos' ? filtroGrado : 'todos');
+    setFiltroEstadoEnvioDifusion('todos');
+    setAspiranteActivoDifusionIdx(0);
+    setModalDifusionAbierto(true);
+  };
+
+  const generarMensajeDifusionWhatsApp = (sol: SolicitudAdmision, plantillaPersonalizada?: string): string => {
+    const template = plantillaPersonalizada || mensajePlantillaDifusion || PLANTILLA_WHATSAPP_DIFUSION_DEFAULT;
+    const escNom = sol.codigo_escuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
+    const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
+    const cedRep = cleanCedula(sol.representante_cedula);
+    const grd = sol.grado_solicitado || 'Grado Asignado';
+
+    return template
+      .replace(/{ESCUELA}/g, escNom)
+      .replace(/{REPRESENTANTE}/g, nomRep)
+      .replace(/{ESTUDIANTE}/g, nomEst)
+      .replace(/{CEDULA_REP}/g, cedRep)
+      .replace(/{GRADO}/g, grd)
+      .replace(/{CODIGO}/g, sol.codigo_unico || '');
+  };
+
+  const enviarWhatsAppIndividualDifusion = async (sol: SolicitudAdmision, numDirecto?: string) => {
+    const telefono = numDirecto || sol.representante_telefono || sol.representante_telefono2 || '';
+    const telLimpio = cleanCedula(telefono);
+
+    if (!telLimpio || telLimpio.length < 7) {
+      if (Swal) Swal.fire('Teléfono Inválido', 'Este aspirante no posee un número de teléfono válido registrado.', 'warning');
+      return;
+    }
+
+    let numWA = telLimpio;
+    if (numWA.startsWith('0')) numWA = '58' + numWA.substring(1);
+    if (!numWA.startsWith('58')) numWA = '58' + numWA;
+
+    const textoMensaje = generarMensajeDifusionWhatsApp(sol);
+    const urlWA = `https://wa.me/${numWA}?text=${encodeURIComponent(textoMensaje)}`;
+
+    window.open(urlWA, '_blank');
+
+    // Registrar notificación en la BD
+    await marcarEstadoWhatsAppDifusion(sol.id, true);
+  };
+
+  const marcarEstadoWhatsAppDifusion = async (solId: string | number, notificado: boolean) => {
+    const sol = solicitudes.find(s => s.id === solId);
+    if (!sol) return;
+
+    const parsed = parsearObservaciones(sol.observaciones);
+    const fechaHora = new Date().toLocaleDateString('es-VE') + ' ' + new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+
+    const obsEstructuradas = estructurarObservaciones(
+      parsed.textoLimpio,
+      sol.aptitud || parsed.aptitud || 'Apto',
+      sol.instruccion_jerarquica ?? parsed.instruccion_jerarquica,
+      sol.instruccion_quien ?? parsed.instruccion_quien,
+      sol.prioridad_manual ?? parsed.prioridad_manual,
+      sol.es_personal_escuela ?? parsed.es_personal_escuela,
+      notificado,
+      notificado ? fechaHora : null,
+      notificado ? 'Difusión Masiva Enviada' : null
+    );
+
+    try {
+      await supabase
+        .from('solicitud_cupos')
+        .update({ observaciones: obsEstructuradas })
+        .eq('id', solId);
+
+      const solActualizada: SolicitudAdmision = {
+        ...sol,
+        observaciones: obsEstructuradas,
+        whatsapp_notificado: notificado,
+        whatsapp_fecha: notificado ? fechaHora : null,
+        whatsapp_estado: notificado ? 'Difusión Masiva Enviada' : null
+      };
+
+      setSolicitudes(prev => prev.map(s => (s.id === solId ? solActualizada : s)));
+    } catch (e) {
+      console.warn('Error actualizando estatus WhatsApp:', e);
     }
   };
 
@@ -1879,73 +2873,859 @@ export const GestionAdmisiones: React.FC = () => {
     setVistaActiva('uno_a_uno');
   };
 
-  // ── AUXILIARES DE BADGES ───────────────────────────────────────────────────────
+  // ── AUXILIARES DE BADGES (ALTO CONTRASTE Y ESTILO CHAMILO) ─────────────────────
   const renderBadgeEstado = (estado: string) => {
     switch (estado?.toLowerCase()) {
       case 'formalizado':
       case 'inscrito':
-        return <span className="badge bg-primary text-white px-2.5 py-1 rounded-pill"><i className="bi bi-person-check-fill me-1"></i>Formalizado</span>;
+        return (
+          <span className="badge rounded-pill fw-bold px-2.5 py-1 text-white shadow-xs" style={{ backgroundColor: '#7C3AED', fontSize: '11px' }}>
+            <i className="bi bi-person-check-fill me-1"></i>Formalizado
+          </span>
+        );
       case 'aprobado':
-        return <span className="badge bg-success text-white px-2.5 py-1 rounded-pill"><i className="bi bi-check-circle-fill me-1"></i>Aprobado</span>;
+        return (
+          <span className="badge rounded-pill fw-bold px-2.5 py-1 text-white shadow-xs" style={{ backgroundColor: '#059669', fontSize: '11px' }}>
+            <i className="bi bi-check-circle-fill me-1"></i>Aprobado
+          </span>
+        );
       case 'rechazado':
-        return <span className="badge bg-danger text-white px-2.5 py-1 rounded-pill"><i className="bi bi-x-circle-fill me-1"></i>Rechazado</span>;
+        return (
+          <span className="badge rounded-pill fw-bold px-2.5 py-1 text-white shadow-xs" style={{ backgroundColor: '#DC2626', fontSize: '11px' }}>
+            <i className="bi bi-x-circle-fill me-1"></i>Rechazado
+          </span>
+        );
       case 'en evaluación':
       case 'en evaluacion':
-        return <span className="badge bg-info text-dark px-2.5 py-1 rounded-pill"><i className="bi bi-hourglass-split me-1"></i>En Evaluación</span>;
+        return (
+          <span className="badge rounded-pill fw-bold px-2.5 py-1 text-white shadow-xs" style={{ backgroundColor: '#0284C7', fontSize: '11px' }}>
+            <i className="bi bi-hourglass-split me-1"></i>En Evaluación
+          </span>
+        );
       case 'borrador':
-        return <span className="badge bg-secondary text-white px-2.5 py-1 rounded-pill"><i className="bi bi-pencil-square me-1"></i>Borrador</span>;
+        return (
+          <span className="badge rounded-pill fw-bold px-2.5 py-1 text-white shadow-xs" style={{ backgroundColor: '#475569', fontSize: '11px' }}>
+            <i className="bi bi-pencil-square me-1"></i>Borrador
+          </span>
+        );
       default:
-        return <span className="badge bg-warning text-dark px-2.5 py-1 rounded-pill"><i className="bi bi-clock-history me-1"></i>Pendiente</span>;
+        return (
+          <span className="badge rounded-pill fw-bold px-2.5 py-1 text-white shadow-xs" style={{ backgroundColor: '#D97706', fontSize: '11px' }}>
+            <i className="bi bi-clock-history me-1"></i>Pendiente
+          </span>
+        );
+    }
+  };
+
+  // ── CLASIFICADOR OFICIAL DE GRADO Y ETAPA PARA ADMISIONES ───────────────────────
+  const clasificarGradoAdmision = (gradoRaw?: string): { canonical: string; etapa: 'Educación Inicial' | 'Educación Primaria' | 'Educación Media General' } => {
+    if (!gradoRaw) return { canonical: 'Sin Grado Asignado', etapa: 'Educación Primaria' };
+    const str = gradoRaw.toLowerCase().trim()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[°º]/g, '');
+
+    // 1. Maternal / Lactante
+    if (str.includes('maternal') || str.includes('lactante') || str.includes('guarder') || str.includes('sala cuna') || str.includes('cunas')) {
+      return { canonical: 'Maternal', etapa: 'Educación Inicial' };
+    }
+
+    // 2. Inicial - III Grupo / 3er Nivel (Revisar III antes de II para evitar colisión de subcadenas)
+    if (
+      str.includes('iii') ||
+      str.includes('3 grupo') ||
+      str.includes('3er grupo') ||
+      str.includes('3ro grupo') ||
+      str.includes('3er nivel') ||
+      str.includes('3ro nivel') ||
+      str.includes('3 nivel') ||
+      str.includes('tercer grupo') ||
+      str.includes('tercer nivel') ||
+      (str.includes('3') && (str.includes('inicial') || str.includes('preescolar') || str.includes('kinder') || str.includes('sala de 5')))
+    ) {
+      return { canonical: 'III Grupo (Inicial)', etapa: 'Educación Inicial' };
+    }
+
+    // 3. Inicial - II Grupo / 2do Nivel
+    if (
+      str.includes('ii') ||
+      str.includes('2 grupo') ||
+      str.includes('2do grupo') ||
+      str.includes('2da grupo') ||
+      str.includes('2do nivel') ||
+      str.includes('2da nivel') ||
+      str.includes('2 nivel') ||
+      str.includes('segundo grupo') ||
+      str.includes('segundo nivel') ||
+      (str.includes('2') && (str.includes('inicial') || str.includes('preescolar') || str.includes('kinder') || str.includes('sala de 4')))
+    ) {
+      return { canonical: 'II Grupo (Inicial)', etapa: 'Educación Inicial' };
+    }
+
+    // 4. Inicial - I Grupo / 1er Nivel
+    if (
+      str.includes('i grupo') ||
+      str.includes('1 grupo') ||
+      str.includes('1er grupo') ||
+      str.includes('1ra grupo') ||
+      str.includes('1er nivel') ||
+      str.includes('1ra nivel') ||
+      str.includes('1 nivel') ||
+      str.includes('primer grupo') ||
+      str.includes('primer nivel') ||
+      (str.includes('1') && (str.includes('inicial') || str.includes('preescolar') || str.includes('kinder') || str.includes('sala de 3')))
+    ) {
+      return { canonical: 'I Grupo (Inicial)', etapa: 'Educación Inicial' };
+    }
+
+    // Si dice Inicial o Preescolar genérico
+    if (str.includes('inicial') || str.includes('preescolar') || str.includes('pre-escolar')) {
+      return { canonical: 'Educación Inicial', etapa: 'Educación Inicial' };
+    }
+
+    // 5. Media General / Bachillerato (Años)
+    if (str.includes('ano') || str.includes('anio') || str.includes('media') || str.includes('secundaria') || str.includes('bachillerato') || str.includes('emg')) {
+      if (str.includes('5') || str.includes('quinto')) return { canonical: '5° Año', etapa: 'Educación Media General' };
+      if (str.includes('4') || str.includes('cuarto')) return { canonical: '4° Año', etapa: 'Educación Media General' };
+      if (str.includes('3') || str.includes('tercer')) return { canonical: '3° Año', etapa: 'Educación Media General' };
+      if (str.includes('2') || str.includes('segundo')) return { canonical: '2° Año', etapa: 'Educación Media General' };
+      if (str.includes('1') || str.includes('primer')) return { canonical: '1° Año', etapa: 'Educación Media General' };
+      return { canonical: 'Educación Media General', etapa: 'Educación Media General' };
+    }
+
+    // 6. Primaria (Grados)
+    if (str.includes('6') || str.includes('sexto') || str.includes('sexta')) return { canonical: '6° Grado', etapa: 'Educación Primaria' };
+    if (str.includes('5') || str.includes('quinto') || str.includes('quinta')) return { canonical: '5° Grado', etapa: 'Educación Primaria' };
+    if (str.includes('4') || str.includes('cuarto') || str.includes('cuarta')) return { canonical: '4° Grado', etapa: 'Educación Primaria' };
+    if (str.includes('3') || str.includes('tercer') || str.includes('tercera')) return { canonical: '3° Grado', etapa: 'Educación Primaria' };
+    if (str.includes('2') || str.includes('segundo') || str.includes('segunda')) return { canonical: '2° Grado', etapa: 'Educación Primaria' };
+    if (str.includes('1') || str.includes('primer') || str.includes('primera')) return { canonical: '1° Grado', etapa: 'Educación Primaria' };
+
+    return { canonical: gradoRaw.trim() || 'Otros Grados', etapa: 'Educación Primaria' };
+  };
+
+  // ── MOTOR DE CÁLCULO ESTADÍSTICO DE ADMISIONES (CHAMILO LMS) ───────────────────
+  const calcularEstadisticasAdmisiones = (escuela: 'todas' | 'sb' | 'lb' = 'todas') => {
+    let dataset = solicitudes;
+    if (escuela === 'sb') {
+      dataset = solicitudes.filter(s => (s.codigo_escuela || '').trim().toLowerCase() === 'sb');
+    } else if (escuela === 'lb') {
+      dataset = solicitudes.filter(s => (s.codigo_escuela || '').trim().toLowerCase() === 'lb');
+    }
+
+    const totalGeneral = dataset.length;
+    let aprobadosGeneral = 0;
+    let formalizadosGeneral = 0;
+    let enEvaluacionGeneral = 0;
+    let pendientesGeneral = 0;
+    let rechazadosGeneral = 0;
+    let borradorGeneral = 0;
+    let aptosGeneral = 0;
+    let notificadosGeneral = 0;
+
+    // Mapa de etapas acumulativo
+    const etapasMap: Record<string, { total: number; aprobados: number; enEvaluacion: number; rechazados: number }> = {
+      'Educación Inicial': { total: 0, aprobados: 0, enEvaluacion: 0, rechazados: 0 },
+      'Educación Primaria': { total: 0, aprobados: 0, enEvaluacion: 0, rechazados: 0 },
+      'Educación Media General': { total: 0, aprobados: 0, enEvaluacion: 0, rechazados: 0 }
+    };
+
+    // Conteo por Grados Canónicos
+    const GRADOS_ORDEN = [
+      'Maternal', 'I Grupo (Inicial)', 'II Grupo (Inicial)', 'III Grupo (Inicial)',
+      '1° Grado', '2° Grado', '3° Grado', '4° Grado', '5° Grado', '6° Grado',
+      '1° Año', '2° Año', '3° Año', '4° Año', '5° Año'
+    ];
+
+    const mapaGrados: Record<string, { total: number; aprobados: number; enEvaluacion: number; rechazados: number; etapa: string }> = {};
+    GRADOS_ORDEN.forEach(g => {
+      const etapa = g.includes('Grupo') || g.includes('Maternal') 
+        ? 'Educación Inicial' 
+        : (g.includes('Año') ? 'Educación Media General' : 'Educación Primaria');
+      mapaGrados[g] = { total: 0, aprobados: 0, enEvaluacion: 0, rechazados: 0, etapa };
+    });
+
+    // Conteo por Nómina
+    const mapaNomina: Record<string, { total: number; aprobados: number }> = {
+      'PDVSA Contractual': { total: 0, aprobados: 0 },
+      'PDVSA No Contractual': { total: 0, aprobados: 0 },
+      'Filiales / Mixtas': { total: 0, aprobados: 0 },
+      'Comunidad General': { total: 0, aprobados: 0 }
+    };
+
+    dataset.forEach(s => {
+      const st = (s.estado || '').trim().toLowerCase();
+      const esAprobado = ['aprobado', 'aprobada', 'formalizado', 'formalizada', 'inscrito', 'inscrita', 'admitido', 'admitida', 'aceptado', 'aceptada'].includes(st);
+      const esFormalizado = ['formalizado', 'formalizada', 'inscrito', 'inscrita'].includes(st);
+      const esEnEvaluacion = ['en evaluación', 'en evaluacion', 'evaluación', 'evaluacion', 'en proceso', 'proceso', 'en revisión', 'revision', 'revisión'].includes(st);
+      const esRechazado = ['rechazado', 'rechazada', 'no apto', 'no admitido', 'no admitida', 'desestimado', 'desestimada'].includes(st);
+      const esBorrador = ['borrador', 'incompleto', 'incompleta'].includes(st);
+
+      if (esAprobado) {
+        aprobadosGeneral++;
+        if (esFormalizado) formalizadosGeneral++;
+      } else if (esEnEvaluacion) {
+        enEvaluacionGeneral++;
+      } else if (esRechazado) {
+        rechazadosGeneral++;
+      } else if (esBorrador) {
+        borradorGeneral++;
+      } else {
+        pendientesGeneral++;
+      }
+
+      if (s.aptitud === 'Apto') aptosGeneral++;
+      const parsed = parsearObservaciones(s.observaciones);
+      if (parsed.whatsapp_notificado) notificadosGeneral++;
+
+      // Clasificación del grado y etapa
+      const infoGrado = clasificarGradoAdmision(s.grado_solicitado);
+      const keyGrado = infoGrado.canonical;
+      const keyEtapa = infoGrado.etapa;
+
+      if (!mapaGrados[keyGrado]) {
+        mapaGrados[keyGrado] = { total: 0, aprobados: 0, enEvaluacion: 0, rechazados: 0, etapa: keyEtapa };
+      }
+      mapaGrados[keyGrado].total++;
+
+      if (!etapasMap[keyEtapa]) {
+        etapasMap[keyEtapa] = { total: 0, aprobados: 0, enEvaluacion: 0, rechazados: 0 };
+      }
+      etapasMap[keyEtapa].total++;
+
+      if (esAprobado) {
+        mapaGrados[keyGrado].aprobados++;
+        etapasMap[keyEtapa].aprobados++;
+      } else if (esEnEvaluacion || (!esRechazado && !esBorrador)) {
+        mapaGrados[keyGrado].enEvaluacion++;
+        etapasMap[keyEtapa].enEvaluacion++;
+      } else {
+        mapaGrados[keyGrado].rechazados++;
+        etapasMap[keyEtapa].rechazados++;
+      }
+
+      // Clasificación de nómina
+      const tn = (s.pdvsa_tipo_nomina || '').trim().toLowerCase();
+      let keyNom = 'Comunidad General';
+      if (tn.includes('contractual') && !tn.includes('no contractual')) keyNom = 'PDVSA Contractual';
+      else if (tn.includes('no contractual') || tn.includes('no-contractual')) keyNom = 'PDVSA No Contractual';
+      else if (tn.includes('filial') || tn.includes('mixta')) keyNom = 'Filiales / Mixtas';
+      else if (s.representante_trabaja_pdvsa === true || s.representante_trabaja_pdvsa === 'Sí' || s.representante_trabaja_pdvsa === 'si') keyNom = 'PDVSA Contractual';
+
+      mapaNomina[keyNom].total++;
+      if (esAprobado) {
+        mapaNomina[keyNom].aprobados++;
+      }
+    });
+
+    const listosTotal = aprobadosGeneral;
+    const enTramiteTotal = enEvaluacionGeneral + pendientesGeneral;
+    const noConformesTotal = rechazadosGeneral + borradorGeneral;
+
+    const pctGeneral = totalGeneral > 0 ? Math.round((listosTotal / totalGeneral) * 100) : 0;
+    const pctEnTramite = totalGeneral > 0 ? Math.round((enTramiteTotal / totalGeneral) * 100) : 0;
+    const pctNoConformes = totalGeneral > 0 ? Math.round((noConformesTotal / totalGeneral) * 100) : 0;
+
+    const desglosePorGrado = Object.keys(mapaGrados)
+      .filter(k => mapaGrados[k].total > 0 || GRADOS_ORDEN.includes(k))
+      .map(grado => {
+        const d = mapaGrados[grado];
+        const pctCompletado = d.total > 0 ? Math.round((d.aprobados / d.total) * 100) : 0;
+        return {
+          grado,
+          total: d.total,
+          completados: d.aprobados,
+          enProceso: d.enEvaluacion,
+          sinIniciar: d.rechazados,
+          pctCompletado,
+          etapa: d.etapa
+        };
+      });
+
+    const desgloseEtapas = [
+      {
+        etapa: 'Educación Inicial',
+        total: etapasMap['Educación Inicial']?.total || 0,
+        completados: etapasMap['Educación Inicial']?.aprobados || 0,
+        enProceso: etapasMap['Educación Inicial']?.enEvaluacion || 0,
+        sinIniciar: etapasMap['Educación Inicial']?.rechazados || 0,
+        pct: (etapasMap['Educación Inicial']?.total || 0) > 0 ? Math.round(((etapasMap['Educación Inicial']?.aprobados || 0) / (etapasMap['Educación Inicial']?.total || 1)) * 100) : 0
+      },
+      {
+        etapa: 'Educación Primaria',
+        total: etapasMap['Educación Primaria']?.total || 0,
+        completados: etapasMap['Educación Primaria']?.aprobados || 0,
+        enProceso: etapasMap['Educación Primaria']?.enEvaluacion || 0,
+        sinIniciar: etapasMap['Educación Primaria']?.rechazados || 0,
+        pct: (etapasMap['Educación Primaria']?.total || 0) > 0 ? Math.round(((etapasMap['Educación Primaria']?.aprobados || 0) / (etapasMap['Educación Primaria']?.total || 1)) * 100) : 0
+      },
+      {
+        etapa: 'Educación Media General',
+        total: etapasMap['Educación Media General']?.total || 0,
+        completados: etapasMap['Educación Media General']?.aprobados || 0,
+        enProceso: etapasMap['Educación Media General']?.enEvaluacion || 0,
+        sinIniciar: etapasMap['Educación Media General']?.rechazados || 0,
+        pct: (etapasMap['Educación Media General']?.total || 0) > 0 ? Math.round(((etapasMap['Educación Media General']?.aprobados || 0) / (etapasMap['Educación Media General']?.total || 1)) * 100) : 0
+      }
+    ];
+
+    const desgloseEstados = [
+      { nombre: 'Aprobados / Formalizados', total: aprobadosGeneral, completados: aprobadosGeneral, pct: totalGeneral > 0 ? Math.round((aprobadosGeneral / totalGeneral) * 100) : 0, color: '#059669' },
+      { nombre: 'En Evaluación', total: enEvaluacionGeneral, completados: enEvaluacionGeneral, pct: totalGeneral > 0 ? Math.round((enEvaluacionGeneral / totalGeneral) * 100) : 0, color: '#0284C7' },
+      { nombre: 'En Evaluación / Trámite', total: pendientesGeneral, completados: pendientesGeneral, pct: totalGeneral > 0 ? Math.round((pendientesGeneral / totalGeneral) * 100) : 0, color: '#D97706' },
+      { nombre: 'Rechazados / No Admitidos', total: rechazadosGeneral, completados: rechazadosGeneral, pct: totalGeneral > 0 ? Math.round((rechazadosGeneral / totalGeneral) * 100) : 0, color: '#DC2626' },
+      { nombre: 'Borrador / Incompleto', total: borradorGeneral, completados: borradorGeneral, pct: totalGeneral > 0 ? Math.round((borradorGeneral / totalGeneral) * 100) : 0, color: '#475569' }
+    ];
+
+    const desgloseNomina = Object.keys(mapaNomina).map(k => {
+      const it = mapaNomina[k];
+      return {
+        nombre: k,
+        total: it.total,
+        completados: it.aprobados,
+        pct: it.total > 0 ? Math.round((it.aprobados / it.total) * 100) : 0,
+        color: k === 'PDVSA Contractual' ? '#8B5CF6' : (k === 'PDVSA No Contractual' ? '#0284C7' : (k === 'Filiales / Mixtas' ? '#10B981' : '#F59E0B'))
+      };
+    });
+
+    // Desglose por Escuelas
+    const totalSB = solicitudes.filter(s => (s.codigo_escuela || '').trim().toLowerCase() === 'sb').length;
+    const aprobSB = solicitudes.filter(s => (s.codigo_escuela || '').trim().toLowerCase() === 'sb' && ['aprobado', 'formalizado', 'inscrito'].includes((s.estado || '').toLowerCase())).length;
+    const pctSB = totalSB > 0 ? Math.round((aprobSB / totalSB) * 100) : 0;
+
+    const totalLB = solicitudes.filter(s => (s.codigo_escuela || '').trim().toLowerCase() === 'lb').length;
+    const aprobLB = solicitudes.filter(s => (s.codigo_escuela || '').trim().toLowerCase() === 'lb' && ['aprobado', 'formalizado', 'inscrito'].includes((s.estado || '').toLowerCase())).length;
+    const pctLB = totalLB > 0 ? Math.round((aprobLB / totalLB) * 100) : 0;
+
+    const fechaHoraReporte = new Date().toLocaleString('es-VE', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    return {
+      totalGeneral,
+      completadosGeneral: listosTotal,
+      enProcesoGeneral: enTramiteTotal,
+      sinIniciarGeneral: noConformesTotal,
+      aprobadosGeneral,
+      formalizadosGeneral,
+      enEvaluacionGeneral,
+      pendientesGeneral,
+      rechazadosGeneral,
+      borradorGeneral,
+      aptosGeneral,
+      notificadosGeneral,
+      pctGeneral,
+      pctEnTramite,
+      pctNoConformes,
+      desglosePorGrado,
+      desgloseEtapas,
+      desgloseEstados,
+      desgloseNomina,
+      totalSB,
+      aprobSB,
+      pctSB,
+      totalLB,
+      aprobLB,
+      pctLB,
+      fechaHoraReporte
+    };
+  };
+
+  // ── EXPORTACIÓN A EXCEL DE ADMISIONES ───────────────────────────────────────────
+  const exportarEstadisticasExcel = () => {
+    const stats = calcularEstadisticasAdmisiones(escuelaReporte);
+    const nombreInstitucion = escuelaReporte === 'todas' 
+      ? 'GENERAL ESCUELAS DEP ORIENTE' 
+      : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
+
+    const wb = XLSX.utils.book_new();
+
+    const wsData: any[][] = [
+      ['SISTEMA INTEGRAL DE ADMINISTRACIÓN ESCOLAR (SIGAE) - DEP ORIENTE'],
+      ['REPORTE ESTADÍSTICO DE GESTIÓN Y ADMISIÓN DE ASPIRANTES'],
+      [],
+      ['ÁMBITO INSTITUCIONAL:', nombreInstitucion],
+      ['FECHA Y HORA DEL REPORTE:', stats.fechaHoraReporte.toUpperCase()],
+      ['EMITIDO POR:', (user?.nombre_completo || user?.cedula || 'Comité de Admisiones').toUpperCase()],
+      [],
+      ['=== RESUMEN GENERAL DE ADMISIONES ==='],
+      ['Métrica', 'Cantidad', 'Porcentaje'],
+      ['Total Solicitudes Registradas', stats.totalGeneral, '100%'],
+      ['Aprobadas / Formalizadas', stats.aprobadosGeneral, `${stats.pctGeneral}%`],
+      ['En Evaluación / En Trámite', stats.enProcesoGeneral, `${stats.pctEnTramite}%`],
+      ['Rechazadas / No Conformes', stats.rechazadosGeneral, `${stats.pctNoConformes}%`],
+      ['Aptos Calificados', stats.aptosGeneral, `${stats.totalGeneral > 0 ? Math.round((stats.aptosGeneral / stats.totalGeneral) * 100) : 0}%`],
+      ['Notificados vía WhatsApp', stats.notificadosGeneral, `${stats.totalGeneral > 0 ? Math.round((stats.notificadosGeneral / stats.totalGeneral) * 100) : 0}%`],
+      [],
+      ['=== DESGLOSE POR GRUPO, GRADO O AÑO ESCOLAR ==='],
+      ['Grupo / Grado / Año Escolar', 'Total Solicitudes', 'Aprobadas (100%)', 'En Trámite', 'Rechazadas / Borrador', '% Aprobación']
+    ];
+
+    stats.desglosePorGrado.forEach(g => {
+      wsData.push([
+        g.grado,
+        g.total,
+        g.completados,
+        g.enProceso,
+        g.sinIniciar,
+        `${g.pctCompletado}%`
+      ]);
+    });
+
+    wsData.push([
+      'TOTAL GENERAL CONSOLIDADO',
+      stats.totalGeneral,
+      stats.completadosGeneral,
+      stats.enProcesoGeneral,
+      stats.sinIniciarGeneral,
+      `${stats.pctGeneral}%`
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Estadísticas Admisión');
+
+    const filename = `Reporte_Estadistico_Admision_${escuelaReporte.toUpperCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  };
+
+  // ── GENERADOR HTML OFICIAL DE ALTO CONTRASTE (PDF / IMPRESIÓN / IMAGEN) ─────────
+  const generarReporteHTML = (stats: any, nombreInstitucion: string, tipo: string = 'dossier', agrupacion: string = 'grados') => {
+    let itemsDesglose: any[] = [];
+    let tituloDesglose = 'Por Grados / Años Solicitados';
+    if (agrupacion === 'niveles') {
+      itemsDesglose = stats.desgloseEtapas || [];
+      tituloDesglose = 'Por Niveles y Etapas Educativas';
+    } else if (agrupacion === 'estados') {
+      itemsDesglose = stats.desgloseEstados || [];
+      tituloDesglose = 'Por Estatus de Admisión';
+    } else if (agrupacion === 'nomina') {
+      itemsDesglose = stats.desgloseNomina || [];
+      tituloDesglose = 'Por Tipo de Nómina / Comunidad';
+    } else {
+      itemsDesglose = stats.desglosePorGrado || [];
+      tituloDesglose = 'Por Grados / Años Solicitados';
+    }
+
+    return `
+      <div style="font-family: 'Segoe UI', Helvetica, Arial, sans-serif; color: #0F172A; background-color: #ffffff; padding: 20px 24px; max-width: 800px; margin: 0 auto; line-height: 1.35; font-size: 11px;">
+        
+        <!-- MEMBRETE OFICIAL INSTITUCIONAL CON BORDE MORADO CHAMILO -->
+        <div style="border-top: 4px solid #8B5CF6; border-bottom: 2px solid #8B5CF6; padding: 12px 14px; margin-bottom: 14px; background-color: #F8FAFC; border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="/assets/img/logoEscuelas.png" style="height: 48px; width: auto;" alt="Escudo" />
+              <div>
+                <div style="font-size: 11.5px; font-weight: 900; color: #6D28D9; text-transform: uppercase; letter-spacing: 0.5px;">REPÚBLICA BOLIVARIANA DE VENEZUELA</div>
+                <div style="font-size: 10px; font-weight: 700; color: #334155;">MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN</div>
+                <div style="font-size: 9px; font-weight: 600; color: #64748B;">DIRECCIÓN EJECUTIVA DE PRODUCCIÓN ORIENTE • SIGAE</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <span style="display: inline-block; background-color: #EDE9FE; color: #6D28D9; border: 1px solid #DDD6FE; font-size: 9px; font-weight: 800; padding: 3px 10px; border-radius: 9999px; text-transform: uppercase;">
+                ${nombreInstitucion}
+              </span>
+              <div style="font-size: 8.5px; color: #334155; font-weight: 700; margin-top: 4px;">${stats.fechaHoraReporte}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TÍTULO DEL REPORTE -->
+        <div style="text-align: center; margin-bottom: 12px;">
+          <h2 style="margin: 0; font-size: 14.5px; font-weight: 900; color: #4C1D95; text-transform: uppercase; letter-spacing: 0.5px;">
+            📊 Reporte Oficial de Gestión y Admisión de Aspirantes
+          </h2>
+          <div style="font-size: 9.5px; font-weight: 700; color: #334155; margin-top: 3px;">
+            Auditoría de Solicitudes y Control de Matrícula
+          </div>
+        </div>
+
+        <!-- 4 TARJETAS KPIS CON ACENTO LATERAL Y MÁXIMO CONTRASTE -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;">
+          <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-left: 4.5px solid #8B5CF6; border-radius: 8px; padding: 8px 10px;">
+            <div style="font-size: 8.5px; font-weight: 800; color: #4B5563; text-transform: uppercase;">Total Solicitudes</div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 2px;">
+              <span style="font-size: 20px; font-weight: 900; color: #1E1B4B;">${stats.totalGeneral}</span>
+              <span style="background-color: #EDE9FE; color: #6D28D9; font-weight: 800; font-size: 8.5px; padding: 1px 6px; border-radius: 9999px;">100%</span>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-left: 4.5px solid #10B981; border-radius: 8px; padding: 8px 10px;">
+            <div style="font-size: 8.5px; font-weight: 800; color: #065F46; text-transform: uppercase;">Aprobadas / Listas</div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 2px;">
+              <span style="font-size: 20px; font-weight: 900; color: #065F46;">${stats.completadosGeneral}</span>
+              <span style="background-color: #059669; color: #FFFFFF; font-weight: 800; font-size: 8.5px; padding: 1px 6px; border-radius: 9999px;">${stats.pctGeneral}%</span>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-left: 4.5px solid #F59E0B; border-radius: 8px; padding: 8px 10px;">
+            <div style="font-size: 8.5px; font-weight: 800; color: #92400E; text-transform: uppercase;">En Evaluación</div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 2px;">
+              <span style="font-size: 20px; font-weight: 900; color: #92400E;">${stats.enProcesoGeneral}</span>
+              <span style="background-color: #D97706; color: #FFFFFF; font-weight: 800; font-size: 8.5px; padding: 1px 6px; border-radius: 9999px;">${stats.pctEnTramite}%</span>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-left: 4.5px solid #64748B; border-radius: 8px; padding: 8px 10px;">
+            <div style="font-size: 8.5px; font-weight: 800; color: #334155; text-transform: uppercase;">Rechazadas / Borrador</div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 2px;">
+              <span style="font-size: 20px; font-weight: 900; color: #334155;">${stats.sinIniciarGeneral}</span>
+              <span style="background-color: #475569; color: #FFFFFF; font-weight: 800; font-size: 8.5px; padding: 1px 6px; border-radius: 9999px;">${stats.pctNoConformes}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- GRÁFICO DINÁMICO SEGÚN VISTA -->
+        ${tipo === 'dossier' || tipo === 'resumen_niveles' ? `
+        <div style="background-color: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+          <div style="font-size: 10px; font-weight: 800; color: #4C1D95; text-transform: uppercase; margin-bottom: 8px;">
+            📈 Desglose por Etapas y Niveles Educativos
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            ${(stats.desgloseEtapas || []).map((et: any) => `
+              <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-top: 3.5px solid ${et.pct >= 75 ? '#10B981' : (et.pct >= 40 ? '#F59E0B' : '#EF4444')}; border-radius: 6px; padding: 8px;">
+                <div style="font-weight: 900; font-size: 9.5px; color: #0F172A;">${et.etapa}</div>
+                <div style="font-size: 8px; color: #64748B; margin-bottom: 4px;">Total: <strong>${et.total}</strong> aspirantes</div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #047857;">🟢 Aprobados: <strong>${et.completados}</strong> (${et.pct}%)</div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #B45309;">🟡 En Trámite: <strong>${et.enProceso}</strong></div>
+                <div style="font-size: 8.5px; font-weight: 700; color: #475569;">⚪ No Conformes: <strong>${et.sinIniciar}</strong></div>
+                <div style="background: #E2E8F0; border-radius: 9999px; height: 6px; overflow: hidden; margin-top: 6px; display: flex;">
+                  <div style="background: #10B981; width: ${et.pct}%; height: 100%;"></div>
+                  <div style="background: #F59E0B; width: ${et.total > 0 ? (et.enProceso / et.total) * 100 : 0}%; height: 100%;"></div>
+                  <div style="background: #94A3B8; width: ${et.total > 0 ? (et.sinIniciar / et.total) * 100 : 0}%; height: 100%;"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- TABLA DETALLADA CON ALTO CONTRASTE -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 12px; border: 1.5px solid #CBD5E1;">
+          <thead>
+            <tr style="background-color: #7C3AED; color: #FFFFFF; text-align: center; font-weight: 800;">
+              <th style="padding: 6px 8px; text-align: left;">${tituloDesglose}</th>
+              <th style="padding: 6px 4px; width: 65px;">Total</th>
+              <th style="padding: 6px 4px; width: 85px;">Aprobadas</th>
+              <th style="padding: 6px 4px; width: 80px;">En Trámite</th>
+              <th style="padding: 6px 4px; width: 80px;">Rechazadas</th>
+              <th style="padding: 6px 6px; width: 125px;">% Aprobación</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsDesglose.map((it: any, idx: number) => {
+              const label = it.grado || it.etapa || it.nombre || `Ítem ${idx + 1}`;
+              const tot = it.total || 0;
+              const comp = it.completados || 0;
+              const proc = it.enProceso || (tot - comp);
+              const sin = it.sinIniciar || 0;
+              const p = it.pctCompletado ?? it.pct ?? (tot > 0 ? Math.round((comp / tot) * 100) : 0);
+              const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+
+              return `
+              <tr style="background-color: ${bg}; border-bottom: 1px solid #E2E8F0; text-align: center;">
+                <td style="padding: 5px 8px; text-align: left; font-weight: 700; color: #0F172A;">${label}</td>
+                <td style="padding: 5px 4px; font-weight: 800; color: #0F172A;">${tot}</td>
+                <td style="padding: 5px 4px;">
+                  <span style="background-color: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; font-weight: 800; padding: 1px 6px; border-radius: 9999px; font-size: 8.5px;">${comp}</span>
+                </td>
+                <td style="padding: 5px 4px;">
+                  <span style="background-color: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-weight: 800; padding: 1px 6px; border-radius: 9999px; font-size: 8.5px;">${proc}</span>
+                </td>
+                <td style="padding: 5px 4px;">
+                  <span style="background-color: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; font-weight: 700; padding: 1px 6px; border-radius: 9999px; font-size: 8.5px;">${sin}</span>
+                </td>
+                <td style="padding: 5px 6px;">
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="background-color: #E2E8F0; border-radius: 9999px; height: 6px; overflow: hidden; width: 100%;">
+                      <div style="background-color: #10B981; height: 100%; width: ${p}%;"></div>
+                    </div>
+                    <span style="min-width: 26px; font-weight: 800; color: #047857; font-size: 9px;">${p}%</span>
+                  </div>
+                </td>
+              </tr>
+              `;
+            }).join('')}
+
+            <!-- TOTAL CONSOLIDADO -->
+            <tr style="background-color: #EDE9FE; text-align: center; font-weight: 900; border-top: 2px solid #8B5CF6; color: #4C1D95;">
+              <td style="padding: 6px 8px; text-align: left;">TOTAL GENERAL CONSOLIDADO</td>
+              <td style="padding: 6px 4px;">${stats.totalGeneral}</td>
+              <td style="padding: 6px 4px; color: #15803D;">${stats.completadosGeneral}</td>
+              <td style="padding: 6px 4px; color: #B45309;">${stats.enProcesoGeneral}</td>
+              <td style="padding: 6px 4px; color: #475569;">${stats.sinIniciarGeneral}</td>
+              <td style="padding: 6px 6px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <div style="background-color: #DDD6FE; border-radius: 9999px; height: 7px; overflow: hidden; width: 100%;">
+                    <div style="background-color: #10B981; height: 100%; width: ${stats.pctGeneral}%;"></div>
+                  </div>
+                  <span style="min-width: 26px; font-weight: 900; color: #6D28D9; font-size: 9.5px;">${stats.pctGeneral}%</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- PIE INSTITUCIONAL -->
+        <div style="border-top: 1.5px solid #CBD5E1; padding-top: 8px; margin-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center;">
+            <img src="/assets/img/logoMPPE.png" style="height: 32px; width: auto;" alt="MPPE" />
+          </div>
+          <div style="text-align: right; color: #64748B; font-size: 8px; line-height: 1.3;">
+            <strong style="color: #7C3AED;">SIGAE • Gestión de Admisiones</strong><br>
+            Documento de control académico emitido automáticamente.
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  const generarReportePDFBlob = async (stats: any, nombreInstitucion: string, tipo: string = 'dossier', agrupacion: string = 'grados'): Promise<{ blob: Blob; nombreArchivo: string }> => {
+    const contenedor = document.createElement('div');
+    contenedor.style.position = 'fixed';
+    contenedor.style.left = '-9999px';
+    contenedor.style.top = '0';
+    contenedor.style.width = '800px';
+    contenedor.style.backgroundColor = '#ffffff';
+    contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion, tipo, agrupacion);
+
+    document.body.appendChild(contenedor);
+    await new Promise(r => setTimeout(r, 80));
+
+    const canvas = await html2canvas(contenedor, {
+      scale: 1.5,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true,
+      allowTaint: true
+    });
+
+    document.body.removeChild(contenedor);
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'letter',
+      compress: true
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    
+    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, Math.min(imgHeight, pdfHeight), undefined, 'FAST');
+
+    const nombreArchivo = `Reporte_Admisiones_${escuelaReporte.toUpperCase()}_${tipo}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const blob = pdf.output('blob');
+    return { blob, nombreArchivo };
+  };
+
+  const descargarReportePDF = async () => {
+    try {
+      setGenerandoPDF(true);
+      const stats = calcularEstadisticasAdmisiones(escuelaReporte);
+      const nombreInstitucion = escuelaReporte === 'todas' 
+        ? 'GENERAL ESCUELAS DEP ORIENTE' 
+        : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
+
+      const { blob, nombreArchivo } = await generarReportePDFBlob(stats, nombreInstitucion, tipoGrafico, criterioAgrupacion);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombreArchivo;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Error al generar PDF de admisiones:', err);
+      alert('Ocurrió un error al generar el archivo PDF.');
+    } finally {
+      setGenerandoPDF(false);
+    }
+  };
+
+  const imprimirReporteEstadistico = () => {
+    const stats = calcularEstadisticasAdmisiones(escuelaReporte);
+    const nombreInstitucion = escuelaReporte === 'todas' 
+      ? 'GENERAL ESCUELAS DEP ORIENTE' 
+      : (escuelaReporte === 'sb' ? 'U.E. SANTA BÁRBARA' : 'U.E. LIBERTADOR BOLÍVAR');
+
+    const contenidoHTML = generarReporteHTML(stats, nombreInstitucion, tipoGrafico, criterioAgrupacion);
+    const ventana = window.open('', '_blank', 'width=900,height=700');
+    if (!ventana) return;
+
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Reporte Estadístico de Admisiones - SIGAE</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { size: letter portrait; margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${contenidoHTML}
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    ventana.document.close();
+  };
+
+  const enviarWhatsAppImagen = async (
+    stats: any, 
+    nombreInstitucion: string, 
+    tipo: string = 'dossier', 
+    agrupacion: string = 'grados'
+  ) => {
+    try {
+      const contenedor = document.createElement('div');
+      contenedor.style.position = 'fixed';
+      contenedor.style.left = '-9999px';
+      contenedor.style.top = '0';
+      contenedor.style.width = '800px';
+      contenedor.style.backgroundColor = '#ffffff';
+      contenedor.innerHTML = generarReporteHTML(stats, nombreInstitucion, tipo, agrupacion);
+
+      document.body.appendChild(contenedor);
+      await new Promise(r => setTimeout(r, 100));
+
+      const canvas = await html2canvas(contenedor, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+
+      document.body.removeChild(contenedor);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          alert('No se pudo generar la imagen del reporte.');
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && (window as any).ClipboardItem) {
+            await navigator.clipboard.write([
+              new (window as any).ClipboardItem({ 'image/png': blob })
+            ]);
+            if (Swal) {
+              Swal.fire({
+                icon: 'success',
+                title: '¡Imagen Copiada al Portapapeles!',
+                text: 'La imagen del reporte de admisiones está lista. Abre WhatsApp Web y presiona Ctrl + V para enviarla.',
+                confirmButtonColor: '#8B5CF6'
+              });
+            } else {
+              alert('Imagen copiada al portapapeles. Abre WhatsApp y presiona Ctrl + V.');
+            }
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Reporte_Admisiones_${new Date().toISOString().slice(0, 10)}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            if (Swal) {
+              Swal.fire({
+                icon: 'info',
+                title: 'Imagen Descargada',
+                text: 'Se descargó la imagen PNG del reporte para que puedas adjuntarla en WhatsApp.',
+                confirmButtonColor: '#8B5CF6'
+              });
+            }
+          }
+        } catch (errCopy) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Reporte_Admisiones_${new Date().toISOString().slice(0, 10)}.png`;
+          a.click();
+          URL.revokeObjectURL(url);
+          if (Swal) {
+            Swal.fire({
+              icon: 'info',
+              title: 'Imagen Descargada',
+              text: 'Se descargó la imagen PNG del reporte para que puedas compartirla.',
+              confirmButtonColor: '#8B5CF6'
+            });
+          }
+        }
+      }, 'image/png');
+    } catch (err: any) {
+      console.error('Error al generar imagen para WhatsApp:', err);
+      alert('Ocurrió un error al preparar la imagen del reporte.');
     }
   };
 
   // ── DETECCIÓN DE DUPLICADOS ─────────────────────────────────────────────────────
   const detectarDuplicados = () => {
-    const porRepresentante: Record<string, SolicitudAdmision[]> = {};
+    const mapaDuplicados: Record<string, SolicitudAdmision[]> = {};
 
     solicitudes.forEach(s => {
-      const cedRep = (s.representante_cedula || '').trim();
-      if (!cedRep) return;
+      const cedEst = cleanCedula(s.estudiante_cedula);
+      const nomEst = (s.estudiante_nombres || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const apeEst = (s.estudiante_apellidos || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const fullNomEst = `${nomEst} ${apeEst}`.trim();
+      const cedRep = cleanCedula(s.representante_cedula);
+      const esc = (s.codigo_escuela || '').trim().toLowerCase();
 
-      const cedEst = (s.estudiante_cedula || '').trim();
-      const nomEst = nombreCompleto(s.estudiante_nombres, s.estudiante_apellidos).trim();
-      if (!cedEst && !nomEst) return;
+      // Criterio de clave de duplicado:
+      // 1. Cédula del estudiante si tiene al menos 4 dígitos
+      // 2. Si no tiene cédula, nombre completo del estudiante + escuela
+      // 3. Cédula del representante + nombre completo del estudiante
+      let clave = '';
+      if (cedEst && cedEst.length >= 4) {
+        clave = `ced_est:${cedEst}`;
+      } else if (fullNomEst && fullNomEst.length >= 5) {
+        clave = `nom_est:${fullNomEst}|esc:${esc}`;
+      } else if (cedRep && cedRep.length >= 4 && nomEst) {
+        clave = `rep:${cedRep}|nom_est:${nomEst}`;
+      }
 
-      if (!porRepresentante[cedRep]) porRepresentante[cedRep] = [];
-      porRepresentante[cedRep].push(s);
+      if (!clave) return;
+
+      if (!mapaDuplicados[clave]) mapaDuplicados[clave] = [];
+      mapaDuplicados[clave].push(s);
     });
 
     const gruposDetectados: SolicitudAdmision[][] = [];
-
-    Object.values(porRepresentante).forEach(registrosRep => {
-      const porEstudiante: Record<string, SolicitudAdmision[]> = {};
-
-      registrosRep.forEach(s => {
-        const cedEst = (s.estudiante_cedula || '').trim();
-        const nomEst = nombreCompleto(s.estudiante_nombres, s.estudiante_apellidos).trim().toLowerCase();
-        const escuela = (s.codigo_escuela || '').trim().toLowerCase();
-
-        const claveEst = cedEst
-          ? `ci:${cedEst}|esc:${escuela}`
-          : `nom:${nomEst}|esc:${escuela}`;
-
-        if (!porEstudiante[claveEst]) porEstudiante[claveEst] = [];
-        porEstudiante[claveEst].push(s);
-      });
-
-      Object.values(porEstudiante).forEach(grupo => {
-        if (grupo.length > 1) {
-          grupo.sort((a, b) =>
-            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-          );
-          gruposDetectados.push(grupo);
-        }
-      });
+    Object.values(mapaDuplicados).forEach(grupo => {
+      if (grupo.length > 1) {
+        // Ordenar del más reciente al más antiguo
+        grupo.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        gruposDetectados.push(grupo);
+      }
     });
 
     gruposDetectados.sort((a, b) => b.length - a.length);
     setGruposDuplicados(gruposDetectados);
 
+    if (gruposDetectados.length === 0) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Sin Duplicados!',
+          text: 'No se detectaron solicitudes duplicadas en la base de datos de admisiones.',
+          confirmButtonColor: '#8B5CF6'
+        });
+      }
+      return;
+    }
+
+    // Preseleccionar los duplicados más antiguos (todos excepto el primero/más reciente)
     const preseleccion = new Set<string | number>();
     gruposDetectados.forEach(grupo => {
       grupo.slice(1).forEach(s => {
@@ -1966,19 +3746,10 @@ export const GestionAdmisiones: React.FC = () => {
   };
 
   const eliminarSeleccionados = async () => {
-    if (seleccionadosParaEliminar.size === 0) return;
-
-    const confirmar = await (Swal ? Swal.fire({
-      icon: 'warning',
-      title: `¿Eliminar ${seleccionadosParaEliminar.size} registro(s) duplicado(s)?`,
-      html: `<p>Esta acción eliminará de forma permanente los duplicados seleccionados.</p>`,
-      showCancelButton: true,
-      confirmButtonColor: '#dc2626',
-      confirmButtonText: 'Sí, eliminar duplicados',
-      cancelButtonText: 'Cancelar',
-    }) : { isConfirmed: confirm(`¿Eliminar ${seleccionadosParaEliminar.size} registros duplicados?`) });
-
-    if (!confirmar?.isConfirmed && confirmar !== true) return;
+    if (seleccionadosParaEliminar.size === 0) {
+      if (Swal) Swal.fire('Atención', 'No has seleccionado ningún registro para eliminar.', 'warning');
+      return;
+    }
 
     setEliminandoDuplicados(true);
     try {
@@ -1990,13 +3761,25 @@ export const GestionAdmisiones: React.FC = () => {
 
       if (error) throw error;
 
-      await auditar('Gestión de Admisiones', 'Eliminar Duplicados', `Se eliminaron ${idsArray.length} registros duplicados`);
-      setSolicitudes(prev => prev.filter(s => !seleccionadosParaEliminar.has(s.id as any)));
+      await auditar('Gestión de Admisiones', 'Eliminar Duplicados', `Se eliminaron ${idsArray.length} registros duplicados de solicitud_cupos`);
+      
+      const idsSet = new Set(idsArray.map(String));
+      setSolicitudes(prev => prev.filter(s => !idsSet.has(String(s.id))));
       setModalDuplicadosAbierto(false);
       setGruposDuplicados([]);
       setSeleccionadosParaEliminar(new Set());
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Duplicados Eliminados!',
+          text: `Se eliminaron con éxito ${idsArray.length} registro(s) duplicado(s).`,
+          confirmButtonColor: '#8B5CF6'
+        });
+      }
     } catch (err: any) {
       console.error('Error al eliminar duplicados:', err);
+      if (Swal) Swal.fire('Error', 'No se pudieron eliminar los registros: ' + (err.message || 'Error de base de datos'), 'error');
     } finally {
       setEliminandoDuplicados(false);
     }
@@ -2010,14 +3793,26 @@ export const GestionAdmisiones: React.FC = () => {
         const nom = (s.representante_nombres || '').trim();
         const ape = (s.representante_apellidos || '').trim();
         const ced = (s.representante_cedula || '').trim();
-        return !nom && !ape && !ced;
+        return (!nom && !ape && !ced) || nom === 'Sin nombre' || (nom.length < 2 && ced.length < 3);
       } else {
         const nom = (s.estudiante_nombres || '').trim();
         const ape = (s.estudiante_apellidos || '').trim();
         const ced = (s.estudiante_cedula || '').trim();
-        return !nom && !ape && !ced;
+        return (!nom && !ape && !ced) || nom === 'Sin nombre' || (nom.length < 2 && ced.length < 3);
       }
     });
+
+    if (vacios.length === 0) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin Registros Vacíos',
+          text: `Todas las solicitudes contienen información válida de ${tipo === 'representante' ? 'representantes' : 'aspirantes'}.`,
+          confirmButtonColor: '#8B5CF6'
+        });
+      }
+      return;
+    }
 
     setRegistrosVacios(vacios);
     const todosIds = new Set<string | number>();
@@ -2036,19 +3831,10 @@ export const GestionAdmisiones: React.FC = () => {
   };
 
   const eliminarVaciosSeleccionados = async () => {
-    if (seleccionadosVacios.size === 0) return;
-
-    const confirmar = await (Swal ? Swal.fire({
-      icon: 'warning',
-      title: `¿Eliminar ${seleccionadosVacios.size} registro(s) vacíos?`,
-      html: `<p>Esta acción eliminará de forma permanente los registros que no contienen datos válidos.</p>`,
-      showCancelButton: true,
-      confirmButtonColor: '#dc2626',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
-    }) : { isConfirmed: confirm(`¿Eliminar ${seleccionadosVacios.size} registros vacíos?`) });
-
-    if (!confirmar?.isConfirmed && confirmar !== true) return;
+    if (seleccionadosVacios.size === 0) {
+      if (Swal) Swal.fire('Atención', 'No has seleccionado ningún registro para eliminar.', 'warning');
+      return;
+    }
 
     setEliminandoVacios(true);
     try {
@@ -2060,12 +3846,25 @@ export const GestionAdmisiones: React.FC = () => {
 
       if (error) throw error;
 
-      setSolicitudes(prev => prev.filter(s => !seleccionadosVacios.has(s.id as any)));
+      await auditar('Gestión de Admisiones', 'Eliminar Vacíos', `Se eliminaron ${idsArray.length} registros vacíos`);
+      
+      const idsSet = new Set(idsArray.map(String));
+      setSolicitudes(prev => prev.filter(s => !idsSet.has(String(s.id))));
       setModalVaciosAbierto(false);
       setRegistrosVacios([]);
       setSeleccionadosVacios(new Set());
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Registros Vacíos Eliminados!',
+          text: `Se eliminaron con éxito ${idsArray.length} registro(s) vacíos.`,
+          confirmButtonColor: '#8B5CF6'
+        });
+      }
     } catch (err: any) {
       console.error('Error al eliminar vacíos:', err);
+      if (Swal) Swal.fire('Error', 'No se pudieron eliminar los registros: ' + (err.message || 'Error de base de datos'), 'error');
     } finally {
       setEliminandoVacios(false);
     }
@@ -2075,28 +3874,52 @@ export const GestionAdmisiones: React.FC = () => {
   const detectarRegulares = async () => {
     setDetectandoRegulares(true);
     try {
-      const { data: estRegulares, error } = await supabase
-        .from('estudiantes')
-        .select('cedula_estudiante, nombres, apellidos, codigo_escuela');
-
-      if (error) throw error;
+      // 1. Obtener matrícula regular completa desde estudiantes_vinculaciones
+      const chunksReg = await Promise.all([
+        supabase.from('estudiantes_vinculaciones').select('cedula_estudiante, nombres_estudiante, apellidos_estudiante, codigo_escuela, grado_actual').range(0, 999),
+        supabase.from('estudiantes_vinculaciones').select('cedula_estudiante, nombres_estudiante, apellidos_estudiante, codigo_escuela, grado_actual').range(1000, 1999),
+        supabase.from('estudiantes_vinculaciones').select('cedula_estudiante, nombres_estudiante, apellidos_estudiante, codigo_escuela, grado_actual').range(2000, 2999),
+      ]);
+      const estRegulares = chunksReg.flatMap(c => c.data || []);
 
       const setCedulas = new Set<string>();
       const setNombres = new Set<string>();
 
-      (estRegulares || []).forEach((e: any) => {
-        if (e.cedula_estudiante?.trim()) setCedulas.add(e.cedula_estudiante.trim().toLowerCase());
-        const fullNom = `${e.nombres || ''} ${e.apellidos || ''}`.trim().toLowerCase();
-        if (fullNom) setNombres.add(fullNom);
+      // Combinar los de la consulta y los de memoria local
+      const matriculaCombinada = [...(estRegulares || []), ...estudiantesMatriculaBD];
+
+      matriculaCombinada.forEach((e: any) => {
+        const c = cleanCedula(e.cedula_estudiante);
+        if (c && c.length >= 4) setCedulas.add(c);
+
+        const nom = (e.nombres_estudiante || e.nombres || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const ape = (e.apellidos_estudiante || e.apellidos || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const fullNom = `${nom} ${ape}`.trim();
+        if (fullNom && fullNom.length >= 5) setNombres.add(fullNom);
       });
 
       const encontrados = solicitudes.filter(s => {
-        const ced = (s.estudiante_cedula || '').trim().toLowerCase();
-        const nom = nombreCompleto(s.estudiante_nombres, s.estudiante_apellidos).trim().toLowerCase();
-        if (ced && setCedulas.has(ced)) return true;
-        if (nom && setNombres.has(nom)) return true;
+        const ced = cleanCedula(s.estudiante_cedula);
+        const nom = (s.estudiante_nombres || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const ape = (s.estudiante_apellidos || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const fullNom = `${nom} ${ape}`.trim();
+
+        if (ced && ced.length >= 4 && setCedulas.has(ced)) return true;
+        if (fullNom && fullNom.length >= 5 && setNombres.has(fullNom)) return true;
         return false;
       });
+
+      if (encontrados.length === 0) {
+        if (Swal) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Sin Coincidencias de Regulares',
+            text: 'Ninguno de los aspirantes solicitantes coincide con estudiantes que ya estén matriculados como regulares.',
+            confirmButtonColor: '#0D9488'
+          });
+        }
+        return;
+      }
 
       setRegistrosRegulares(encontrados);
       const todosIds = new Set<string | number>();
@@ -2105,6 +3928,7 @@ export const GestionAdmisiones: React.FC = () => {
       setModalRegularesAbierto(true);
     } catch (err: any) {
       console.error('Error detectando regulares:', err);
+      if (Swal) Swal.fire('Error', 'Falla al consultar la matrícula de regulares: ' + err.message, 'error');
     } finally {
       setDetectandoRegulares(false);
     }
@@ -2120,19 +3944,10 @@ export const GestionAdmisiones: React.FC = () => {
   };
 
   const eliminarRegularesSeleccionados = async () => {
-    if (seleccionadosRegulares.size === 0) return;
-
-    const confirmar = await (Swal ? Swal.fire({
-      icon: 'warning',
-      title: `¿Eliminar ${seleccionadosRegulares.size} solicitudes de estudiantes regulares?`,
-      html: `<p>Estos estudiantes ya forman parte de la matrícula regular de la escuela.</p>`,
-      showCancelButton: true,
-      confirmButtonColor: '#0284c7',
-      confirmButtonText: 'Sí, depurar',
-      cancelButtonText: 'Cancelar',
-    }) : { isConfirmed: confirm(`¿Eliminar ${seleccionadosRegulares.size} solicitudes regulares?`) });
-
-    if (!confirmar?.isConfirmed && confirmar !== true) return;
+    if (seleccionadosRegulares.size === 0) {
+      if (Swal) Swal.fire('Atención', 'No has seleccionado ningún registro para depurar.', 'warning');
+      return;
+    }
 
     setEliminandoRegulares(true);
     try {
@@ -2140,12 +3955,25 @@ export const GestionAdmisiones: React.FC = () => {
       const { error } = await supabase.from('solicitud_cupos').delete().in('id', idsArray);
       if (error) throw error;
 
-      setSolicitudes(prev => prev.filter(s => !seleccionadosRegulares.has(s.id as any)));
+      await auditar('Gestión de Admisiones', 'Depurar Regulares', `Se depuraron ${idsArray.length} solicitudes de estudiantes que ya eran regulares`);
+      
+      const idsSet = new Set(idsArray.map(String));
+      setSolicitudes(prev => prev.filter(s => !idsSet.has(String(s.id))));
       setModalRegularesAbierto(false);
       setRegistrosRegulares([]);
       setSeleccionadosRegulares(new Set());
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Solicitudes de Regulares Depuradas!',
+          text: `Se depuraron con éxito ${idsArray.length} solicitud(es).`,
+          confirmButtonColor: '#0284c7'
+        });
+      }
     } catch (err: any) {
       console.error('Error al eliminar regulares:', err);
+      if (Swal) Swal.fire('Error', 'No se pudieron depurar las solicitudes: ' + (err.message || 'Error de base de datos'), 'error');
     } finally {
       setEliminandoRegulares(false);
     }
@@ -2172,220 +4000,466 @@ export const GestionAdmisiones: React.FC = () => {
           <i className="bi bi-shield-lock-fill text-danger fs-1 mb-3"></i>
           <h4 className="fw-bold text-dark">Acceso Restringido</h4>
           <p className="text-muted mb-0">
-            No posees privilegios suficientes para ingresar al módulo de <b>Gestión de Admisiones y Baremos</b>. Contacta al administrador del sistema.
+            No posees privilegios suficientes para ingresar al módulo de <b>Gestión de Admisiones</b>. Contacta al administrador del sistema.
           </p>
         </div>
       </div>
     );
   }
 
+  const escuelaCodigo = (filtroEscuela === 'todas' ? (localStorage.getItem('sigae_escuela_codigo') || 'sb') : filtroEscuela);
+  const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
+
   return (
-    <div className="container-fluid px-2 px-sm-3 px-md-4 py-3" style={{ backgroundColor: '#f8fafc', minHeight: '100vh' }}>
-      {/* ── ENCABEZADO DE LA VISTA ────────────────────────────────────────────── */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between mb-3 pb-2.5 border-bottom gap-2">
-        <div className="d-flex align-items-center gap-2">
-          <span
-            className="p-2 rounded-3 text-white shadow-sm d-flex align-items-center justify-content-center"
-            style={{ backgroundColor: '#8B5CF6', width: '40px', height: '40px' }}
-          >
-            <i className="bi bi-ui-checks-grid fs-5"></i>
-          </span>
-          <div>
-            <h4 className="fw-bold mb-0 text-dark" style={{ fontSize: 'calc(1.1rem + 0.3vw)' }}>
-              Gestión, Baremo y Admisiones
-            </h4>
-            <p className="text-muted extra-small mb-0 d-none d-sm-block">
-              Clasificación de prelación, auditoría con edición de datos, formalización de matrícula y credenciales
-            </p>
+    <div className="modulo-animado container-fluid px-2 px-sm-3 px-md-4 py-3 animate__animated animate__fadeIn p-0" style={{ backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+      {/* 1. Miga de Pan Chamilo */}
+      <ChamiloBreadcrumb
+        items={[
+          { label: 'Gestión Estudiantil', url: '/categoria/Gesti%C3%B3n%20Estudiantil', icon: 'bi-mortarboard-fill' },
+          { label: 'Gestión de Admisiones', icon: 'bi-ui-checks' }
+        ]}
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      <div 
+        className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 border-top border-4" 
+        style={{ 
+          borderColor: '#8B5CF6',
+          background: 'linear-gradient(135deg, #ffffff 0%, #faf5ff 50%, #f5f3ff 100%)'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono 3D Isométrico + Escudo Institucional */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm border border-purple-subtle" style={{ borderColor: '#ddd6fe' }}>
+                <div 
+                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ 
+                    width: '88px', 
+                    height: '88px',
+                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                    border: '1px solid #ddd6fe'
+                  }}
+                  title="Gestión de Admisiones Chamilo Tech"
+                >
+                  <IconoGestionAdmisiones size={58} color="#8b5cf6" />
+                </div>
+                <div 
+                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ width: '88px', height: '88px' }}
+                >
+                  <img 
+                    src={logoPath} 
+                    alt="Escudo Institucional" 
+                    className="img-fluid"
+                    style={{ maxHeight: '72px', objectFit: 'contain' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#8B5CF6' }}>
+                  <i className="bi bi-mortarboard-fill me-1"></i>Gestión de Admisiones
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-file-earmark-person-fill text-primary me-1"></i><b>{kpis.total}</b> Solicitudes
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-check-circle-fill text-success me-1"></i><b>{kpis.aprobados}</b> Aprobados
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-journal-check text-info me-1"></i><b>{kpis.formalizados}</b> Formalizados
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                  <span className="text-success fw-bold">Live</span> / Sincronizado
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Gestión de Admisiones
+              </h1>
+
+              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
+                Auditoría y revisión de solicitudes con baremo PDVSA/Comunidad, evaluación uno a uno en vivo, formalización de matrícula física y notificaciones oficiales.
+              </p>
+            </div>
+
+            {/* Selector de Sede Interactivo y Volver al Menú */}
+            <div className="col-12 col-md-auto text-md-end text-center d-flex flex-column align-items-md-end align-items-center gap-2">
+              <div className="d-inline-flex p-1 bg-white rounded-pill border shadow-xs" style={{ borderColor: '#ddd6fe' }}>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('todas')}
+                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'todas' ? 'text-white shadow-xs' : 'text-muted'}`}
+                  style={{
+                    backgroundColor: filtroEscuela === 'todas' ? '#8B5CF6' : 'transparent',
+                    fontSize: '0.78rem'
+                  }}
+                >
+                  Todas las Sedes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('sb')}
+                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'sb' ? 'text-white shadow-xs' : 'text-muted'}`}
+                  style={{
+                    backgroundColor: filtroEscuela === 'sb' ? '#8B5CF6' : 'transparent',
+                    fontSize: '0.78rem'
+                  }}
+                >
+                  Santa Bárbara
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('lb')}
+                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'lb' ? 'text-white shadow-xs' : 'text-muted'}`}
+                  style={{
+                    backgroundColor: filtroEscuela === 'lb' ? '#8B5CF6' : 'transparent',
+                    fontSize: '0.78rem'
+                  }}
+                >
+                  Libertador Bolívar
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Gesti%C3%B3n%20Estudiantil')}
+                className="btn btn-white bg-white rounded-pill px-3.5 py-1.5 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto border shadow-xs"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver al Menú</span>
+              </button>
+            </div>
+
           </div>
         </div>
 
-        {/* Acciones del encabezado */}
-        <div className="d-flex gap-1.5 flex-wrap align-items-center ms-auto">
-          <button
-            className="btn btn-outline-primary btn-sm fw-bold shadow-xs d-flex align-items-center gap-1.5 py-1 px-2.5"
-            onClick={() => navigate('/categoria/Gestión%20Estudiantil/Mensajes%20de%20Admisión')}
-            title="Configurar y redactar mensajes oficiales de admisión"
-          >
-            <i className="bi bi-chat-heart-fill text-primary"></i>
-            <span className="d-none d-sm-inline">Redactor de Mensajes</span>
-            <span className="d-inline d-sm-none">Mensajes</span>
-          </button>
-
-          <button
-            className="btn btn-outline-secondary btn-sm shadow-xs py-1 px-2"
-            onClick={cargarSolicitudes}
-            title="Recargar registros"
-          >
-            <i className="bi bi-arrow-clockwise"></i>
-            <span className="d-none d-md-inline ms-1">Actualizar</span>
-          </button>
-
-          {/* Botones completos en Desktop */}
-          <div className="d-none d-lg-flex gap-1.5 align-items-center">
-            <button className="btn btn-outline-warning btn-sm fw-bold shadow-xs py-1 px-2.5 text-dark" onClick={detectarDuplicados}>
-              <i className="bi bi-copy me-1"></i> Duplicados
-              {gruposDuplicados.length > 0 && (
-                <span className="badge bg-danger ms-1">{gruposDuplicados.length}</span>
-              )}
-            </button>
-            <button className="btn btn-outline-danger btn-sm fw-bold shadow-xs py-1 px-2.5" onClick={() => detectarVacios('representante')}>
-              <i className="bi bi-person-x me-1"></i> Vacíos
-            </button>
-            <button className="btn btn-outline-info btn-sm fw-bold text-dark shadow-xs py-1 px-2.5" onClick={detectarRegulares} disabled={detectandoRegulares}>
-              <i className="bi bi-shield-check me-1"></i> Depurar Regulares
-            </button>
-            <button className="btn btn-success btn-sm fw-bold text-white shadow-xs py-1 px-2.5" onClick={exportarExcel}>
-              <i className="bi bi-file-earmark-excel-fill me-1"></i> Exportar Baremo Excel
-            </button>
-          </div>
-
-          {/* Menú de Herramientas desplegable en Móvil/Tablet */}
-          <div className="dropdown d-inline-block d-lg-none">
-            <button
-              className="btn btn-outline-secondary btn-sm dropdown-toggle fw-bold py-1 px-2 shadow-xs"
-              type="button"
-              id="dropdownHerramientasMobile"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              <i className="bi bi-tools me-1"></i> Herramientas
-            </button>
-            <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 small p-2" aria-labelledby="dropdownHerramientasMobile">
-              <li>
-                <button className="dropdown-item py-2 d-flex align-items-center gap-2" onClick={detectarDuplicados}>
-                  <i className="bi bi-copy text-warning"></i>
-                  <span>Detectar Duplicados</span>
-                  {gruposDuplicados.length > 0 && <span className="badge bg-danger ms-auto">{gruposDuplicados.length}</span>}
+        {/* Barra de Herramientas de Admisión Chamilo */}
+        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            {!esSoloFormalizador && (
+              <>
+                <button
+                  className="btn btn-white bg-white text-primary border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                  style={{ fontSize: '0.82rem' }}
+                  onClick={() => navigate('/categoria/Gestión%20Estudiantil/Mensajes%20de%20Admisión')}
+                  title="Configurar y redactar mensajes oficiales de admisión"
+                >
+                  <i className="bi bi-chat-heart-fill text-danger"></i>
+                  <span>Redactor de Mensajes</span>
                 </button>
-              </li>
-              <li>
-                <button className="dropdown-item py-2 d-flex align-items-center gap-2" onClick={() => detectarVacios('representante')}>
-                  <i className="bi bi-person-x text-danger"></i>
-                  <span>Detectar Registros Vacíos</span>
-                </button>
-              </li>
-              <li>
-                <button className="dropdown-item py-2 d-flex align-items-center gap-2" onClick={detectarRegulares} disabled={detectandoRegulares}>
-                  <i className="bi bi-shield-check text-info"></i>
-                  <span>Depurar Estudiantes Regulares</span>
-                </button>
-              </li>
-              <li><hr className="dropdown-divider my-1" /></li>
-              <li>
-                <button className="dropdown-item py-2 d-flex align-items-center gap-2 text-success fw-bold" onClick={exportarExcel}>
+
+                <button
+                  className="btn btn-success rounded-pill px-3 py-1.5 fw-bold text-white shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                  style={{ fontSize: '0.82rem' }}
+                  onClick={exportarExcel}
+                >
                   <i className="bi bi-file-earmark-excel-fill"></i>
-                  <span>Exportar Baremo a Excel</span>
+                  <span>Exportar Excel</span>
                 </button>
-              </li>
-            </ul>
+
+                <button
+                  className="btn rounded-pill px-3.5 py-1.5 fw-bold text-white shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                  style={{ fontSize: '0.82rem', backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }}
+                  onClick={() => setModalEstadisticas(true)}
+                  title="Ver análisis estadístico, gráficos interactivos y reporte oficial Chamilo"
+                >
+                  <i className="bi bi-bar-chart-fill"></i>
+                  <span>Reporte de Estadística</span>
+                </button>
+              </>
+            )}
+
+            <button
+              className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1"
+              style={{ fontSize: '0.82rem' }}
+              onClick={cargarSolicitudes}
+              title="Recargar registros y validar nuevas admisiones"
+            >
+              <i className="bi bi-arrow-clockwise"></i>
+              <span>Actualizar</span>
+            </button>
+
+            {!esSoloFormalizador && (
+              <>
+                <button
+                  className="btn text-white rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                  style={{ fontSize: '0.82rem', backgroundColor: '#6366F1', borderColor: '#4F46E5' }}
+                  onClick={abrirModalHabilitarMasivo}
+                  title="Habilitar Acceso Masivo en SIGAE seleccionando aspirantes aprobados"
+                >
+                  <i className="bi bi-people-fill"></i>
+                  <span>Habilitación Masiva</span>
+                </button>
+
+                <button
+                  className="btn text-white rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                  style={{ fontSize: '0.82rem', backgroundColor: '#10B981', borderColor: '#059669' }}
+                  onClick={abrirModalDifusion}
+                  title="Difusión Masiva por WhatsApp a Aspirantes con Cupos Aprobados"
+                >
+                  <i className="bi bi-whatsapp"></i>
+                  <span>Difusión WhatsApp</span>
+                  {kpis.aprobados + kpis.formalizados > 0 && (
+                    <span className="badge bg-white text-success rounded-pill px-1.5 py-0.5" style={{ fontSize: '9.5px' }}>
+                      {kpis.aprobados + kpis.formalizados}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  className="btn text-white rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                  style={{ fontSize: '0.82rem', backgroundColor: '#059669', borderColor: '#047857' }}
+                  onClick={() => navigate(`/categoria/Diseños/Orientaciones%20Nuevos%20Ingresos?escuela=${filtroEscuela === 'todas' ? 'sb' : filtroEscuela}`)}
+                  title="Módulo Completo de Orientaciones Paso a Paso y Despacho Masivo con Escudo Anti-Spam"
+                >
+                  <i className="bi bi-shield-check"></i>
+                  <span>WhatsApp Anti-Spam</span>
+                  <span className="badge bg-warning text-dark rounded-pill px-1.5 py-0.5" style={{ fontSize: '9px' }}>
+                    NUEVO
+                  </span>
+                </button>
+              </>
+            )}
           </div>
+
+          {!esSoloFormalizador && (
+            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+              <button 
+                className="btn btn-white bg-white text-muted border rounded-pill px-2.5 py-1 fw-bold extra-small hover-efecto"
+                onClick={detectarDuplicados}
+              >
+                <i className="bi bi-copy text-warning me-1"></i>
+                <span>Duplicados</span>
+                {gruposDuplicados.length > 0 && (
+                  <span className="badge bg-danger rounded-pill ms-1">{gruposDuplicados.length}</span>
+                )}
+              </button>
+
+              <button 
+                className="btn btn-white bg-white text-muted border rounded-pill px-2.5 py-1 fw-bold extra-small hover-efecto"
+                onClick={() => detectarVacios('representante')}
+              >
+                <i className="bi bi-person-x text-warning me-1"></i>
+                <span>Vacíos</span>
+              </button>
+
+              <button 
+                className="btn btn-white bg-white text-muted border rounded-pill px-2.5 py-1 fw-bold extra-small hover-efecto"
+                onClick={detectarRegulares} 
+                disabled={detectandoRegulares}
+              >
+                <i className="bi bi-shield-check text-info me-1"></i>
+                <span>Depurar Regulares</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── SELECTOR DE PESTAÑAS DE VISTA (DESLIZABLE EN MÓVIL) ────────────────── */}
-      <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 gap-2">
-        <ul className="nav nav-pills flex-nowrap overflow-x-auto text-nowrap pb-1 gap-1.5 w-100" style={{ scrollbarWidth: 'none' }}>
-          <li className="nav-item">
-            <button
-              className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'tabla' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
-              onClick={() => setVistaActiva('tabla')}
-              style={{ backgroundColor: vistaActiva === 'tabla' ? '#8B5CF6' : undefined, fontSize: '13px' }}
-            >
-              <i className="bi bi-table me-1.5"></i>
-              <span>1. Listado General <span className="d-none d-sm-inline">y Baremo</span></span>
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'uno_a_uno' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
-              onClick={() => cambiarVistaUnoAUno(indiceUnoAUno)}
-              style={{ backgroundColor: vistaActiva === 'uno_a_uno' ? '#0284C7' : undefined, fontSize: '13px' }}
-            >
-              <i className="bi bi-person-bounding-box me-1.5"></i>
-              <span>2. Auditoría <span className="d-none d-sm-inline">Uno por Uno</span></span>
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'formalizacion' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
-              onClick={() => setVistaActiva('formalizacion')}
-              style={{ backgroundColor: vistaActiva === 'formalizacion' ? '#0D9488' : undefined, fontSize: '13px' }}
-            >
-              <i className="bi bi-journal-check me-1.5"></i>
-              <span>3. Formalización <span className="d-none d-sm-inline">Física</span></span>
-              <span className="badge bg-white text-dark ms-1.5" style={{ fontSize: '10px' }}>
-                {solicitudesAceptadasParaFormalizar.length}
-              </span>
-            </button>
-          </li>
-        </ul>
+      {/* 3. Guía contextual de ayuda estilo Chamilo */}
+      <ChamiloHelpCallout
+        title="Orientación para el Proceso de Admisión"
+        storageKey="gestion_admisiones"
+      >
+        <p className="mb-1">
+          Este centro de admisiones clasifica a los aspirantes según el <strong>Nivel de Prioridad Oficial PDVSA / Comunidad (P1 a P5)</strong>.
+          Permite evaluar expedientes uno por uno, validar cupos y vacantes por grado, formalizar la inscripción física y notificar a los representantes mediante WhatsApp.
+        </p>
+        <small className="text-muted">
+          <i className="bi bi-lightbulb-fill text-warning me-1"></i> Tip: Utiliza la pestaña <strong>2. Auditoría Uno por Uno</strong> para revisar y corregir recaudos en tiempo real con visor de documentos adjuntos.
+        </small>
+      </ChamiloHelpCallout>
 
-        {vistaActiva === 'uno_a_uno' && (
-          <div className="d-none d-md-flex align-items-center gap-2 flex-shrink-0">
-            <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-bold">
-              Aspirante {solicitudesFiltradas.length > 0 ? indiceUnoAUno + 1 : 0} de {solicitudesFiltradas.length}
+      {/* ── SELECTOR DE PESTAÑAS O BANNER DE FORMALIZACIÓN EXCLUSIVO ──────────── */}
+      {!esSoloFormalizador ? (
+        <div className="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2 gap-2">
+          <ul className="nav nav-pills flex-nowrap overflow-x-auto text-nowrap pb-1 gap-1.5 w-100" style={{ scrollbarWidth: 'none' }}>
+            {puedeVerBaremo && (
+              <li className="nav-item">
+                <button
+                  className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'tabla' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
+                  onClick={() => setVistaActiva('tabla')}
+                  style={{ backgroundColor: vistaActiva === 'tabla' ? '#8B5CF6' : undefined, fontSize: '13px' }}
+                >
+                  <i className="bi bi-table me-1.5"></i>
+                  <span>1. Listado General <span className="d-none d-sm-inline">de Solicitudes</span></span>
+                </button>
+              </li>
+            )}
+            {puedeVerUnoAUno && (
+              <li className="nav-item">
+                <button
+                  className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'uno_a_uno' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
+                  onClick={() => cambiarVistaUnoAUno(indiceUnoAUno)}
+                  style={{ backgroundColor: vistaActiva === 'uno_a_uno' ? '#0284C7' : undefined, fontSize: '13px' }}
+                >
+                  <i className="bi bi-person-bounding-box me-1.5"></i>
+                  <span>2. Auditoría <span className="d-none d-sm-inline">Uno por Uno</span></span>
+                </button>
+              </li>
+            )}
+            {puedeVerFormalizacion && (
+              <li className="nav-item">
+                <button
+                  className={`nav-link fw-bold px-3 py-1.5 ${vistaActiva === 'formalizacion' ? 'active shadow-xs text-white' : 'bg-white text-secondary border'}`}
+                  onClick={() => setVistaActiva('formalizacion')}
+                  style={{ backgroundColor: vistaActiva === 'formalizacion' ? '#0D9488' : undefined, fontSize: '13px' }}
+                >
+                  <i className="bi bi-journal-check me-1.5"></i>
+                  <span>3. Formalización <span className="d-none d-sm-inline">Física</span></span>
+                  <span className="badge bg-white text-dark ms-1.5" style={{ fontSize: '10px' }}>
+                    {solicitudesAceptadasParaFormalizar.length}
+                  </span>
+                </button>
+              </li>
+            )}
+          </ul>
+
+          {vistaActiva === 'uno_a_uno' && (
+            <div className="d-none d-md-flex align-items-center gap-2 flex-shrink-0">
+              <span className="badge bg-light text-dark border px-2.5 py-1.5 fw-bold">
+                Aspirante {solicitudesFiltradas.length > 0 ? indiceUnoAUno + 1 : 0} de {solicitudesFiltradas.length}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="d-flex align-items-center justify-content-between mb-3 p-3 bg-white rounded-3 border shadow-xs flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2.5">
+            <div className="rounded-circle p-2 d-flex align-items-center justify-content-center text-white shadow-xs" style={{ backgroundColor: '#0D9488', width: '40px', height: '40px' }}>
+              <i className="bi bi-journal-check fs-5"></i>
+            </div>
+            <div>
+              <h6 className="mb-0 fw-bold text-dark">Taquilla de Formalización Presencial de Matrícula</h6>
+              <small className="text-muted">Módulo exclusivo de verificación y formalización física de cupos admitidos</small>
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <span className="badge px-3 py-2 rounded-pill fw-bold text-white shadow-xs" style={{ backgroundColor: '#0D9488', fontSize: '0.82rem' }}>
+              <i className="bi bi-person-check-fill me-1"></i> {kpisFormalizacion.total} Aspirantes Admitidos
             </span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── TARJETAS KPI / MÉTRICAS COMPACTAS ─────────────────────────────────── */}
-      <div className="row g-2 mb-3">
-        <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #8B5CF6' }}>
-            <div className="card-body p-2 p-sm-2.5">
-              <div className="text-muted extra-small fw-bold text-uppercase text-truncate">Total Solicitudes</div>
-              <div className="fs-5 fw-bold text-dark mt-0.5 lh-1">{kpis.total}</div>
+      {!esSoloFormalizador ? (
+        <div className="row g-2 mb-3">
+          <div className="col-6 col-md-4 col-xl-2">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #8B5CF6' }}>
+              <div className="card-body p-2 p-sm-2.5">
+                <div className="text-muted extra-small fw-bold text-uppercase text-truncate">Total Solicitudes</div>
+                <div className="fs-5 fw-bold text-dark mt-0.5 lh-1">{kpis.total}</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #16a34a' }}>
-            <div className="card-body p-2 p-sm-2.5">
-              <div className="text-muted extra-small fw-bold text-uppercase text-success text-truncate">Aprobados</div>
-              <div className="fs-5 fw-bold text-success mt-0.5 lh-1">{kpis.aprobados}</div>
+          <div className="col-6 col-md-4 col-xl-2">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #16a34a' }}>
+              <div className="card-body p-2 p-sm-2.5">
+                <div className="text-muted extra-small fw-bold text-uppercase text-success text-truncate">Aprobados</div>
+                <div className="fs-5 fw-bold text-success mt-0.5 lh-1">{kpis.aprobados}</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0D9488' }}>
-            <div className="card-body p-2 p-sm-2.5">
-              <div className="text-muted extra-small fw-bold text-uppercase text-truncate" style={{ color: '#0D9488' }}>Formalizados</div>
-              <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#0D9488' }}>{kpis.formalizados}</div>
+          <div className="col-6 col-md-4 col-xl-2">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0D9488' }}>
+              <div className="card-body p-2 p-sm-2.5">
+                <div className="text-muted extra-small fw-bold text-uppercase text-truncate" style={{ color: '#0D9488' }}>Formalizados</div>
+                <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#0D9488' }}>{kpis.formalizados}</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0284C7' }}>
-            <div className="card-body p-2 p-sm-2.5">
-              <div className="text-muted extra-small fw-bold text-uppercase text-primary text-truncate">Aptos Calificados</div>
-              <div className="fs-5 fw-bold text-primary mt-0.5 lh-1">{kpis.aptos}</div>
+          <div className="col-6 col-md-4 col-xl-2">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0284C7' }}>
+              <div className="card-body p-2 p-sm-2.5">
+                <div className="text-muted extra-small fw-bold text-uppercase text-primary text-truncate">Aptos Calificados</div>
+                <div className="fs-5 fw-bold text-primary mt-0.5 lh-1">{kpis.aptos}</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #eab308' }}>
-            <div className="card-body p-2 p-sm-2.5">
-              <div className="text-muted extra-small fw-bold text-uppercase text-warning text-truncate">Pendientes</div>
-              <div className="fs-5 fw-bold text-warning mt-0.5 lh-1">{kpis.pendientes}</div>
+          <div className="col-6 col-md-4 col-xl-2">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #eab308' }}>
+              <div className="card-body p-2 p-sm-2.5">
+                <div className="text-muted extra-small fw-bold text-uppercase text-warning text-truncate">Pendientes</div>
+                <div className="fs-5 fw-bold text-warning mt-0.5 lh-1">{kpis.pendientes}</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="col-6 col-md-4 col-xl-2">
-          <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #dc2626' }}>
-            <div className="card-body p-2 p-sm-2.5">
-              <div className="text-muted extra-small fw-bold text-uppercase text-danger text-truncate">Rechazados</div>
-              <div className="fs-5 fw-bold text-danger mt-0.5 lh-1">{kpis.rechazados}</div>
+          <div className="col-6 col-md-4 col-xl-2">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #dc2626' }}>
+              <div className="card-body p-2 p-sm-2.5">
+                <div className="text-muted extra-small fw-bold text-uppercase text-danger text-truncate">Rechazados</div>
+                <div className="fs-5 fw-bold text-danger mt-0.5 lh-1">{kpis.rechazados}</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="row g-2 mb-3">
+          <div className="col-12 col-md-4">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '5px solid #0D9488' }}>
+              <div className="card-body p-3">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div className="text-muted small fw-bold text-uppercase">Total Admitidos para Formalizar</div>
+                    <div className="fs-3 fw-bold mt-1 lh-1" style={{ color: '#0D9488' }}>{kpisFormalizacion.total}</div>
+                  </div>
+                  <div className="rounded-circle p-2 bg-light text-muted">
+                    <i className="bi bi-people-fill fs-4" style={{ color: '#0D9488' }}></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '5px solid #eab308' }}>
+              <div className="card-body p-3">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div className="text-muted small fw-bold text-uppercase text-warning">Pendientes por Consignar Físico</div>
+                    <div className="fs-3 fw-bold text-warning mt-1 lh-1">{kpisFormalizacion.pendientes}</div>
+                  </div>
+                  <div className="rounded-circle p-2 bg-light text-muted">
+                    <i className="bi bi-clock-history fs-4 text-warning"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="col-12 col-md-4">
+            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '5px solid #16a34a' }}>
+              <div className="card-body p-3">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div className="text-muted small fw-bold text-uppercase text-success">Formalizados en Plantel</div>
+                    <div className="fs-3 fw-bold text-success mt-1 lh-1">{kpisFormalizacion.formalizados}</div>
+                  </div>
+                  <div className="rounded-circle p-2 bg-light text-muted">
+                    <i className="bi bi-check-circle-fill fs-4 text-success"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── BARRA DE FILTROS BAREMO Y MULTICRITERIO (Visible en pestañas 1 y 2) ─── */}
       {vistaActiva !== 'formalizacion' && (
@@ -2408,12 +4482,12 @@ export const GestionAdmisiones: React.FC = () => {
                   />
                   {busqueda && (
                     <button
-                      className="btn btn-outline-secondary"
+                      className="btn btn-outline-secondary border-start-0"
                       type="button"
                       onClick={() => setBusqueda('')}
                       title="Limpiar búsqueda"
                     >
-                      <i className="bi bi-x"></i>
+                      <i className="bi bi-x-circle-fill text-muted"></i>
                     </button>
                   )}
                 </div>
@@ -2505,7 +4579,7 @@ export const GestionAdmisiones: React.FC = () => {
 
                 {filtroPrioridad !== 'todas' && (
                   <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
-                    Baremo: {filtroPrioridad}
+                    Prioridad: {filtroPrioridad}
                     <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroPrioridad('todas')}></button>
                   </span>
                 )}
@@ -2574,7 +4648,7 @@ export const GestionAdmisiones: React.FC = () => {
               <div className="mt-3 pt-3 border-top bg-light p-3 rounded-3">
                 <div className="d-flex align-items-center justify-content-between mb-2">
                   <span className="fw-bold small text-dark d-flex align-items-center gap-1.5">
-                    <i className="bi bi-sliders text-primary"></i> Filtros Multicriterio y Baremo
+                    <i className="bi bi-sliders text-primary"></i> Filtros Multicriterio
                   </span>
                   <button
                     type="button"
@@ -2588,7 +4662,7 @@ export const GestionAdmisiones: React.FC = () => {
                 <div className="row g-2.5">
                   <div className="col-12 col-sm-6 col-md-4 col-lg-3">
                     <label className="form-label extra-small fw-bold text-secondary mb-1">
-                      <i className="bi bi-sort-numeric-down me-1"></i> Baremo de Prioridad
+                      <i className="bi bi-sort-numeric-down me-1"></i> Nivel de Prioridad
                     </label>
                     <select
                       className="form-select form-select-sm"
@@ -3028,7 +5102,7 @@ export const GestionAdmisiones: React.FC = () => {
         <div className="card border-0 shadow-sm rounded-3">
           <div className="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div className="fw-bold text-dark d-flex align-items-center gap-2">
-              <span>Listado de Aspirantes por Orden de Baremo</span>
+              <span>Listado General de Aspirantes</span>
               <span className="badge bg-primary rounded-pill px-2.5 py-1">
                 {solicitudesFiltradas.length} {solicitudesFiltradas.length === 1 ? 'registro' : 'registros'}
               </span>
@@ -3061,7 +5135,7 @@ export const GestionAdmisiones: React.FC = () => {
                     <thead className="table-light">
                       <tr>
                         <th style={{ width: '45px' }} className="text-center">#</th>
-                        <th style={{ width: '135px' }}>Baremo / Nivel</th>
+                        <th style={{ width: '135px' }}>Prioridad / Nivel</th>
                         <th>Código Único</th>
                         <th>Escuela</th>
                         <th>Aspirante</th>
@@ -3110,6 +5184,18 @@ export const GestionAdmisiones: React.FC = () => {
                               <div className="fw-bold text-dark">{nomEst}</div>
                               <div className="text-muted extra-small">C.I: {sol.estudiante_cedula || 'En trámite'}</div>
                               {(() => {
+                                const acc = verificarAccesoHabilitado(sol, estudiantesMatriculaBD);
+                                return acc.habilitado ? (
+                                  <span
+                                    className="badge rounded-pill extra-small px-2 py-0.5 fw-bold d-inline-flex align-items-center gap-1 mt-1 shadow-xs"
+                                    style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontSize: '9.5px' }}
+                                    title={`Acceso habilitado en SIGAE${acc.fecha ? ` el ${acc.fecha}` : ''}`}
+                                  >
+                                    <i className="bi bi-person-check-fill"></i> Acceso Habilitado
+                                  </span>
+                                ) : null;
+                              })()}
+                              {(() => {
                                 const docsSol = obtenerDocumentosSolicitud(sol);
                                 return docsSol.length > 0 ? (
                                   <button
@@ -3142,31 +5228,65 @@ export const GestionAdmisiones: React.FC = () => {
                               <div className="text-muted extra-small">{sol.pdvsa_condicion_laboral || 'N/A'}</div>
                             </td>
                             <td className="text-center">
-                              <span className={`badge extra-small ${sol.aptitud === 'Apto' ? 'bg-success-subtle text-success border border-success' : sol.aptitud === 'No Apto' ? 'bg-danger-subtle text-danger border border-danger' : 'bg-warning-subtle text-warning-emphasis border border-warning'}`}>
-                                {sol.aptitud || 'Pendiente'}
-                              </span>
+                              {sol.aptitud === 'Apto' ? (
+                                <span className="badge extra-small rounded-pill fw-bold px-2 py-0.5" style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}>
+                                  Apto
+                                </span>
+                              ) : sol.aptitud === 'No Apto' ? (
+                                <span className="badge extra-small rounded-pill fw-bold px-2 py-0.5" style={{ backgroundColor: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA' }}>
+                                  No Apto
+                                </span>
+                              ) : (
+                                <span className="badge extra-small rounded-pill fw-bold px-2 py-0.5" style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                                  {sol.aptitud || 'Pendiente'}
+                                </span>
+                              )}
                             </td>
                             <td className="text-center">
                               <div className="d-flex flex-column align-items-center gap-1">
                                 {renderBadgeEstado(sol.estado)}
                                 {(() => {
                                   const parsed = parsearObservaciones(sol.observaciones);
-                                  return parsed.whatsapp_notificado ? (
-                                    <span
-                                      className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5 shadow-xs"
-                                      style={{ fontSize: '9.5px', cursor: 'help' }}
-                                      title={`Notificación oficial enviada por WhatsApp${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}${parsed.whatsapp_estado ? ` (${parsed.whatsapp_estado})` : ''}`}
-                                    >
-                                      <i className="bi bi-whatsapp"></i> Notificado
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className="badge bg-light text-muted border extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-1.5"
-                                      style={{ fontSize: '9px' }}
-                                      title="Pendiente por enviar notificación de estatus por WhatsApp"
-                                    >
-                                      <i className="bi bi-clock-history"></i> Sin Notificar
-                                    </span>
+                                  return (
+                                    <div className="d-flex flex-column align-items-center gap-1">
+                                      {/* Marca 1: Aceptación */}
+                                      {parsed.whatsapp_notificado ? (
+                                        <span
+                                          className="badge extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-2 fw-bold"
+                                          style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontSize: '9px', cursor: 'help' }}
+                                          title={`1. Mensaje de Aceptación enviado por WhatsApp${parsed.whatsapp_fecha ? ` el ${parsed.whatsapp_fecha}` : ''}`}
+                                        >
+                                          <i className="bi bi-check2-circle"></i> Aceptación Enviada
+                                        </span>
+                                      ) : (
+                                        <span
+                                          className="badge extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-2 fw-semibold"
+                                          style={{ backgroundColor: '#F8FAFC', color: '#64748B', border: '1px solid #CBD5E1', fontSize: '9px' }}
+                                          title="Pendiente por enviar mensaje de Aceptación"
+                                        >
+                                          <i className="bi bi-clock"></i> Aceptación Pendiente
+                                        </span>
+                                      )}
+
+                                      {/* Marca 2: Orientaciones */}
+                                      {parsed.whatsapp_orientaciones_notificado ? (
+                                        <span
+                                          className="badge extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-2 fw-bold"
+                                          style={{ backgroundColor: '#EFF6FF', color: '#1E40AF', border: '1px solid #BFDBFE', fontSize: '9px', cursor: 'help' }}
+                                          title={`2. Mensaje de Orientaciones Paso a Paso enviado por WhatsApp${parsed.whatsapp_orientaciones_fecha ? ` el ${parsed.whatsapp_orientaciones_fecha}` : ''}`}
+                                        >
+                                          <i className="bi bi-signpost-split-fill"></i> Orientaciones Enviadas
+                                        </span>
+                                      ) : (
+                                        <span
+                                          className="badge extra-small rounded-pill d-inline-flex align-items-center gap-1 py-0.5 px-2 fw-semibold"
+                                          style={{ backgroundColor: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', fontSize: '9px' }}
+                                          title="Pendiente por enviar mensaje de Orientaciones Paso a Paso"
+                                        >
+                                          <i className="bi bi-hourglass-split"></i> Orientaciones Pendiente
+                                        </span>
+                                      )}
+                                    </div>
                                   );
                                 })()}
                               </div>
@@ -3205,6 +5325,30 @@ export const GestionAdmisiones: React.FC = () => {
                                 >
                                   <i className="bi bi-eye"></i>
                                 </button>
+                                {(sol.estado === 'Aprobado' || sol.estado === 'Formalizado') && (
+                                  <>
+                                    <button
+                                      className="btn btn-outline-info"
+                                      onClick={() => descargarCartaAceptacionAspirante(sol)}
+                                      title="Descargar Carta de Aceptación Oficial (PDF 3 Páginas)"
+                                    >
+                                      <i className="bi bi-file-earmark-check"></i>
+                                    </button>
+                                    {(() => {
+                                      const acc = verificarAccesoHabilitado(sol, estudiantesMatriculaBD);
+                                      return (
+                                        <button
+                                          className={`btn ${acc.habilitado ? 'btn-success text-white shadow-xs' : 'btn-outline-primary'}`}
+                                          style={!acc.habilitado ? { borderColor: '#6366F1', color: '#4F46E5' } : undefined}
+                                          onClick={() => abrirModalHabilitarAcceso(sol)}
+                                          title={acc.habilitado ? `✅ Acceso SIGAE ya Habilitado${acc.fecha ? ` el ${acc.fecha}` : ''}. Clic para ver o modificar datos.` : 'Habilitar o Vincular Usuario en SIGAE para el Representante y Estudiante'}
+                                        >
+                                          <i className={`bi ${acc.habilitado ? 'bi-check-circle-fill' : 'bi-person-plus-fill'}`}></i>
+                                        </button>
+                                      );
+                                    })()}
+                                  </>
+                                )}
                                 {(() => {
                                   const parsed = parsearObservaciones(sol.observaciones);
                                   return (
@@ -3279,6 +5423,18 @@ export const GestionAdmisiones: React.FC = () => {
                                 <small className="text-muted extra-small d-block">
                                   C.I: <b>{sol.estudiante_cedula || 'En trámite'}</b> • Cód: <b className="font-monospace text-primary">{sol.codigo_unico || 'N/A'}</b>
                                 </small>
+                                {(() => {
+                                  const acc = verificarAccesoHabilitado(sol, estudiantesMatriculaBD);
+                                  return acc.habilitado ? (
+                                    <span
+                                      className="badge rounded-pill extra-small px-2 py-0.5 fw-bold d-inline-flex align-items-center gap-1 mt-1 shadow-xs"
+                                      style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontSize: '9.5px' }}
+                                      title={`Acceso habilitado en SIGAE${acc.fecha ? ` el ${acc.fecha}` : ''}`}
+                                    >
+                                      <i className="bi bi-person-check-fill"></i> Acceso Habilitado
+                                    </span>
+                                  ) : null;
+                                })()}
                               </div>
 
                               <span className="badge bg-light text-dark border extra-small flex-shrink-0">
@@ -3326,11 +5482,11 @@ export const GestionAdmisiones: React.FC = () => {
                               )}
 
                               {parsed.whatsapp_notificado ? (
-                                <span className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill py-0.5 px-2">
+                                <span className="badge extra-small rounded-pill py-0.5 px-2 fw-bold" style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}>
                                   <i className="bi bi-whatsapp me-1"></i> WA Notificado
                                 </span>
                               ) : (
-                                <span className="badge bg-light text-muted border extra-small rounded-pill py-0.5 px-1.5">
+                                <span className="badge extra-small rounded-pill py-0.5 px-2 fw-semibold" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #CBD5E1' }}>
                                   <i className="bi bi-clock-history me-1"></i> WA Pendiente
                                 </span>
                               )}
@@ -3356,6 +5512,44 @@ export const GestionAdmisiones: React.FC = () => {
                             >
                               <i className="bi bi-eye me-1"></i>Ficha
                             </button>
+
+                            {(sol.estado === 'Aprobado' || sol.estado === 'Formalizado') && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-info btn-sm py-1 px-2.5 extra-small fw-bold"
+                                  onClick={() => descargarCartaAceptacionAspirante(sol)}
+                                  title="Descargar Carta de Aceptación Oficial (PDF)"
+                                >
+                                  <i className="bi bi-file-earmark-check me-1"></i>Carta
+                                </button>
+                                {(() => {
+                                  const acc = verificarAccesoHabilitado(sol, estudiantesMatriculaBD);
+                                  return acc.habilitado ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-success btn-sm py-1 px-2.5 extra-small fw-bold text-white shadow-xs d-inline-flex align-items-center gap-1"
+                                      onClick={() => abrirModalHabilitarAcceso(sol)}
+                                      title={`✅ Acceso SIGAE Habilitado${acc.fecha ? ` el ${acc.fecha}` : ''}. Clic para ver o modificar.`}
+                                    >
+                                      <i className="bi bi-check-circle-fill"></i>
+                                      <span>Habilitado</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-primary btn-sm py-1 px-2.5 extra-small fw-bold d-inline-flex align-items-center gap-1"
+                                      style={{ borderColor: '#6366F1', color: '#4F46E5' }}
+                                      onClick={() => abrirModalHabilitarAcceso(sol)}
+                                      title="Habilitar Acceso SIGAE para Representante y Estudiante"
+                                    >
+                                      <i className="bi bi-person-plus-fill"></i>
+                                      <span>Acceso</span>
+                                    </button>
+                                  );
+                                })()}
+                              </>
+                            )}
 
                             <button
                               type="button"
@@ -3925,10 +6119,10 @@ export const GestionAdmisiones: React.FC = () => {
                   </div>
 
                   <div className="card-body p-3.5">
-                    {/* BAREMO DETALLE */}
+                    {/* DETALLE DE PRIORIDAD */}
                     <div className="alert alert-light border p-2.5 mb-3 small">
                       <div className="d-flex justify-content-between align-items-center mb-1">
-                        <span className="fw-bold text-dark">Baremo Prelación:</span>
+                        <span className="fw-bold text-dark">Nivel Prelación:</span>
                         <span className="badge fw-bold" style={{ backgroundColor: baremoUnoAUno?.badgeBg, color: '#fff' }}>
                           {baremoUnoAUno?.codigo}
                         </span>
@@ -4114,6 +6308,46 @@ export const GestionAdmisiones: React.FC = () => {
                         </button>
                       )}
 
+                      {(solicitudUnoAUno.estado === 'Aprobado' || solicitudUnoAUno.estado === 'Formalizado') && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-outline-info btn-sm fw-bold py-2 mt-2 w-100 d-flex align-items-center justify-content-center gap-1"
+                            onClick={() => descargarCartaAceptacionAspirante(solicitudUnoAUno)}
+                          >
+                            <i className="bi bi-file-earmark-check-fill text-info"></i>
+                            <span>Descargar Carta de Aceptación (PDF Oficial)</span>
+                          </button>
+                          {(() => {
+                            const accUno = verificarAccesoHabilitado(solicitudUnoAUno, estudiantesMatriculaBD);
+                            return (
+                              <>
+                                {accUno.habilitado && (
+                                  <div className="alert alert-success border-0 shadow-xs p-2.5 rounded-3 mt-2 mb-1 d-flex align-items-center gap-2" style={{ backgroundColor: '#F0FDF4', borderLeft: '4px solid #16A34A' }}>
+                                    <i className="bi bi-check-circle-fill text-success fs-5"></i>
+                                    <div className="small">
+                                      <strong className="text-success d-block">Acceso SIGAE Habilitado</strong>
+                                      <span className="text-muted extra-small">Este estudiante ya cuenta con acceso activo en el portal del representante.</span>
+                                    </div>
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`btn btn-sm fw-bold py-2 mt-2 w-100 text-white shadow-sm d-flex align-items-center justify-content-center gap-1.5 ${
+                                    accUno.habilitado ? 'btn-success' : ''
+                                  }`}
+                                  style={{ backgroundColor: accUno.habilitado ? '#16A34A' : '#6366F1' }}
+                                  onClick={() => abrirModalHabilitarAcceso(solicitudUnoAUno)}
+                                >
+                                  <i className={`bi ${accUno.habilitado ? 'bi-check-circle-fill' : 'bi-person-plus-fill'}`}></i>
+                                  <span>{accUno.habilitado ? 'Acceso Habilitado (Ver / Modificar)' : 'Habilitar / Vincular Acceso Representante'}</span>
+                                </button>
+                              </>
+                            );
+                          })()}
+                        </>
+                      )}
+
                       {(() => {
                         const parsed = parsearObservaciones(solicitudUnoAUno.observaciones);
                         return (
@@ -4123,11 +6357,11 @@ export const GestionAdmisiones: React.FC = () => {
                                 <i className="bi bi-whatsapp text-success me-1"></i> Estado Notificación WhatsApp:
                               </small>
                               {parsed.whatsapp_notificado ? (
-                                <span className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill py-0.5 px-2">
+                                <span className="badge extra-small rounded-pill py-0.5 px-2 fw-bold" style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}>
                                   <i className="bi bi-check-circle-fill me-1"></i> Enviado ({parsed.whatsapp_estado || 'Notificado'})
                                 </span>
                               ) : (
-                                <span className="badge bg-secondary bg-opacity-10 text-secondary border extra-small rounded-pill py-0.5 px-2">
+                                <span className="badge extra-small rounded-pill py-0.5 px-2 fw-semibold" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #CBD5E1' }}>
                                   <i className="bi bi-clock-history me-1"></i> Sin Notificar
                                 </span>
                               )}
@@ -4144,7 +6378,7 @@ export const GestionAdmisiones: React.FC = () => {
                               onClick={() => notificarRepresentanteWhatsApp(solicitudUnoAUno)}
                             >
                               <i className="bi bi-whatsapp"></i>
-                              <span>{parsed.whatsapp_notificado ? '📲 Reenviar Notificación por WhatsApp' : '📲 Enviar Notificación por WhatsApp'}</span>
+                              <span>{solicitudUnoAUno.estado === 'Aprobado' || solicitudUnoAUno.estado === 'Formalizado' ? (parsed.whatsapp_notificado ? '📲 Reenviar Carta de Aceptación por WhatsApp' : '📲 Notificar Carta de Aceptación por WhatsApp') : (parsed.whatsapp_notificado ? '📲 Reenviar Notificación por WhatsApp' : '📲 Enviar Notificación por WhatsApp')}</span>
                             </button>
                           </div>
                         );
@@ -4174,13 +6408,71 @@ export const GestionAdmisiones: React.FC = () => {
               </small>
             </div>
 
-            <span className="badge px-3 py-2 fw-bold" style={{ backgroundColor: '#0D9488', color: '#fff' }}>
-              {solicitudesAceptadasParaFormalizar.length} Aceptados en Total
-            </span>
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <span className="badge px-3 py-2 fw-bold" style={{ backgroundColor: '#0D9488', color: '#fff' }}>
+                {solicitudesFormalizacionFiltradas.length} de {solicitudesAceptadasParaFormalizar.length} Aceptados
+              </span>
+            </div>
+          </div>
+
+          {/* Barra interactiva de Búsqueda y Filtro de Estado para Formalización */}
+          <div className="p-3 bg-light border-bottom">
+            <div className="row g-2 align-items-center">
+              <div className="col-12 col-md-7">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white text-muted border-end-0">
+                    <i className="bi bi-search"></i>
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control border-start-0 ps-0"
+                    placeholder="Buscar aspirante por nombre, cédula, representante o código único..."
+                    value={busquedaFormalizacion}
+                    onChange={e => setBusquedaFormalizacion(e.target.value)}
+                  />
+                  {busquedaFormalizacion && (
+                    <button
+                      className="btn btn-outline-secondary border-start-0 bg-white"
+                      type="button"
+                      onClick={() => setBusquedaFormalizacion('')}
+                    >
+                      <i className="bi bi-x-lg"></i>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="col-12 col-md-5 d-flex justify-content-md-end gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstadoFormalizacion('todos')}
+                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEstadoFormalizacion === 'todos' ? 'text-white shadow-xs' : 'bg-white text-muted border'}`}
+                  style={{ backgroundColor: filtroEstadoFormalizacion === 'todos' ? '#0D9488' : undefined, fontSize: '0.78rem' }}
+                >
+                  Todos ({solicitudesAceptadasParaFormalizar.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstadoFormalizacion('pendientes')}
+                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEstadoFormalizacion === 'pendientes' ? 'text-white shadow-xs' : 'bg-white text-muted border'}`}
+                  style={{ backgroundColor: filtroEstadoFormalizacion === 'pendientes' ? '#eab308' : undefined, fontSize: '0.78rem' }}
+                >
+                  Pendientes ({kpisFormalizacion.pendientes})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltroEstadoFormalizacion('formalizados')}
+                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEstadoFormalizacion === 'formalizados' ? 'text-white shadow-xs' : 'bg-white text-muted border'}`}
+                  style={{ backgroundColor: filtroEstadoFormalizacion === 'formalizados' ? '#16a34a' : undefined, fontSize: '0.78rem' }}
+                >
+                  Formalizados ({kpisFormalizacion.formalizados})
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="card-body p-0">
-            {solicitudesAceptadasParaFormalizar.length === 0 ? (
+            {solicitudesFormalizacionFiltradas.length === 0 ? (
               <div className="text-center py-5">
                 <i className="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
                 <h6 className="fw-bold text-dark mb-1">No hay aspirantes con estatus Aprobado o Formalizado</h6>
@@ -4207,7 +6499,7 @@ export const GestionAdmisiones: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {solicitudesAceptadasParaFormalizar.map((sol, idx) => {
+                      {solicitudesFormalizacionFiltradas.map((sol, idx) => {
                         const esFormalizado = sol.estado === 'Formalizado' || sol.estado === 'Inscrito';
                         const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
                         const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
@@ -4273,6 +6565,19 @@ export const GestionAdmisiones: React.FC = () => {
                                     <i className="bi bi-printer-fill me-1"></i> Constancia
                                   </button>
                                 )}
+                                {(() => {
+                                  const accF = verificarAccesoHabilitado(sol, estudiantesMatriculaBD);
+                                  return (
+                                    <button
+                                      className={`btn btn-sm ${accF.habilitado ? 'btn-success text-white shadow-xs' : 'btn-outline-primary'}`}
+                                      style={!accF.habilitado ? { borderColor: '#6366F1', color: '#4F46E5' } : undefined}
+                                      onClick={() => abrirModalHabilitarAcceso(sol)}
+                                      title={accF.habilitado ? `✅ Acceso SIGAE Habilitado${accF.fecha ? ` el ${accF.fecha}` : ''}. Clic para ver o modificar.` : 'Habilitar o Vincular Acceso Representante en SIGAE'}
+                                    >
+                                      <i className={`bi ${accF.habilitado ? 'bi-check-circle-fill' : 'bi-person-plus-fill'}`}></i>
+                                    </button>
+                                  );
+                                })()}
                                 <button
                                   className="btn btn-sm btn-outline-success"
                                   onClick={() => notificarRepresentanteWhatsApp(sol)}
@@ -4387,6 +6692,31 @@ export const GestionAdmisiones: React.FC = () => {
                               </button>
                             )}
 
+                            {(() => {
+                              const accFM = verificarAccesoHabilitado(sol, estudiantesMatriculaBD);
+                              return accFM.habilitado ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-success btn-sm py-1.5 px-2.5 extra-small fw-bold text-white shadow-xs d-inline-flex align-items-center gap-1"
+                                  onClick={() => abrirModalHabilitarAcceso(sol)}
+                                  title={`✅ Acceso SIGAE Habilitado${accFM.fecha ? ` el ${accFM.fecha}` : ''}. Clic para ver o modificar.`}
+                                >
+                                  <i className="bi bi-check-circle-fill"></i>
+                                  <span>Habilitado</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-primary btn-sm py-1.5 px-2.5 extra-small fw-bold d-inline-flex align-items-center gap-1"
+                                  style={{ borderColor: '#6366F1', color: '#4F46E5' }}
+                                  onClick={() => abrirModalHabilitarAcceso(sol)}
+                                  title="Habilitar Acceso SIGAE para Representante y Estudiante"
+                                >
+                                  <i className="bi bi-person-plus-fill"></i>
+                                  <span>Acceso</span>
+                                </button>
+                              );
+                            })()}
                             <button
                               type="button"
                               className="btn btn-outline-success btn-sm py-1.5 px-2.5 extra-small fw-bold"
@@ -4424,7 +6754,7 @@ export const GestionAdmisiones: React.FC = () => {
             height: '100vh',
             backgroundColor: 'rgba(15, 23, 42, 0.85)',
             backdropFilter: 'blur(6px)',
-            zIndex: 99999,
+            zIndex: 1060,
             overflowY: 'auto',
             padding: '12px'
           }}
@@ -4443,29 +6773,237 @@ export const GestionAdmisiones: React.FC = () => {
               </div>
 
               <div className="modal-body p-4" style={{ fontSize: '13.5px' }}>
-                {/* RESUMEN DEL ASPIRANTE */}
-                <div className="alert alert-light border p-3 mb-3">
-                  <div className="row g-2">
-                    <div className="col-12 col-md-6">
-                      <span className="text-muted d-block extra-small">Estudiante a Inscribir:</span>
-                      <strong className="text-dark fs-6">{nombreCompleto(solicitudParaFormalizar.estudiante_nombres, solicitudParaFormalizar.estudiante_apellidos)}</strong>
+                {/* 1. VERIFICACIÓN Y CONSULTA DE DATOS CON OPCIÓN DE MODIFICACIÓN */}
+                <div className="card mb-3 border shadow-xs overflow-hidden rounded-3">
+                  <div className="card-header py-2.5 px-3 bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge rounded-circle p-1.5 text-white" style={{ backgroundColor: '#0D9488' }}>
+                        <i className="bi bi-person-check-fill fs-6"></i>
+                      </span>
+                      <div>
+                        <strong className="small text-dark d-block">1. Verificación de Datos del Estudiante y Representante</strong>
+                        <small className="text-muted extra-small">
+                          ¿Los datos del aspirante o representante son correctos? Modifíquelos de ser necesario.
+                        </small>
+                      </div>
                     </div>
-                    <div className="col-6 col-md-3">
-                      <span className="text-muted d-block extra-small">Grado:</span>
-                      <strong className="text-primary">{solicitudParaFormalizar.grado_solicitado}</strong>
-                    </div>
-                    <div className="col-6 col-md-3">
-                      <span className="text-muted d-block extra-small">Escuela:</span>
-                      <strong className="text-dark">{NOMBRE_ESCUELA_MAP[solicitudParaFormalizar.codigo_escuela] || solicitudParaFormalizar.codigo_escuela}</strong>
-                    </div>
-                    <div className="col-12 col-md-6 mt-2">
-                      <span className="text-muted d-block extra-small">Representante Legal:</span>
-                      <strong className="text-dark">{nombreCompleto(solicitudParaFormalizar.representante_nombres, solicitudParaFormalizar.representante_apellidos)} (C.I. {solicitudParaFormalizar.representante_cedula})</strong>
-                    </div>
-                    <div className="col-12 col-md-6 mt-2">
-                      <span className="text-muted d-block extra-small">Teléfono Contacto:</span>
-                      <strong className="text-dark">{solicitudParaFormalizar.representante_telefono || 'N/A'}</strong>
-                    </div>
+
+                    <button
+                      type="button"
+                      className={`btn btn-xs rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-2xs ${editandoDatosFormalizar ? 'btn-success text-white' : 'btn-outline-primary bg-white'}`}
+                      onClick={() => setEditandoDatosFormalizar(!editandoDatosFormalizar)}
+                      title={editandoDatosFormalizar ? 'Finalizar edición' : 'Permite corregir nombres, cédulas, teléfonos o grado asignado'}
+                    >
+                      <i className={`bi ${editandoDatosFormalizar ? 'bi-check-lg' : 'bi-pencil-square'}`}></i>
+                      <span>{editandoDatosFormalizar ? 'Guardar Cambios' : 'Modificar Datos'}</span>
+                    </button>
+                  </div>
+
+                  <div className="card-body p-3 bg-white">
+                    {editandoDatosFormalizar ? (
+                      /* FORMULARIO DE MODIFICACIÓN ACTIVO */
+                      <div className="p-3 rounded-3 border" style={{ backgroundColor: '#F8FAFC' }}>
+                        <div className="alert alert-warning py-2 px-3 mb-3 small d-flex align-items-center gap-2 border-0">
+                          <i className="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+                          <span>
+                            <b>Modo de corrección activo:</b> Los cambios que aplique aquí actualizarán el expediente en la matrícula oficial, en el usuario del representante y en la constancia de inscripción física.
+                          </span>
+                        </div>
+
+                        <div className="row g-3">
+                          {/* Columna Estudiante */}
+                          <div className="col-12 col-md-6 border-end-md">
+                            <h6 className="fw-bold text-primary small mb-2.5 d-flex align-items-center gap-1.5">
+                              <i className="bi bi-mortarboard-fill"></i>
+                              <span>Datos del Estudiante / Aspirante</span>
+                            </h6>
+
+                            <div className="mb-2">
+                              <label className="form-label extra-small fw-bold text-secondary mb-1">Cédula / Identificador Escolar:</label>
+                              <input
+                                type="text"
+                                className="form-control form-control-sm font-monospace"
+                                value={formDatosFormalizar.estudiante_cedula}
+                                onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, estudiante_cedula: e.target.value })}
+                                placeholder="Cédula de identidad o escolar"
+                              />
+                            </div>
+
+                            <div className="row g-2 mb-2">
+                              <div className="col-6">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Nombres *:</label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  value={formDatosFormalizar.estudiante_nombres}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, estudiante_nombres: e.target.value })}
+                                />
+                              </div>
+                              <div className="col-6">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Apellidos *:</label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  value={formDatosFormalizar.estudiante_apellidos}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, estudiante_apellidos: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="row g-2">
+                              <div className="col-7">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Grado Solicitado *:</label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  value={formDatosFormalizar.grado_solicitado}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, grado_solicitado: e.target.value })}
+                                />
+                              </div>
+                              <div className="col-5">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Plantel *:</label>
+                                <select
+                                  className="form-select form-select-sm"
+                                  value={formDatosFormalizar.codigo_escuela}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, codigo_escuela: e.target.value })}
+                                >
+                                  <option value="sb">Santa Bárbara</option>
+                                  <option value="lb">Libertador B.</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Columna Representante */}
+                          <div className="col-12 col-md-6">
+                            <h6 className="fw-bold text-primary small mb-2.5 d-flex align-items-center gap-1.5">
+                              <i className="bi bi-person-fill"></i>
+                              <span>Datos del Representante Legal</span>
+                            </h6>
+
+                            <div className="mb-2">
+                              <label className="form-label extra-small fw-bold text-secondary mb-1">Cédula del Representante *:</label>
+                              <input
+                                type="text"
+                                className="form-control form-control-sm font-monospace"
+                                value={formDatosFormalizar.representante_cedula}
+                                onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, representante_cedula: e.target.value })}
+                                placeholder="V-12345678"
+                              />
+                            </div>
+
+                            <div className="row g-2 mb-2">
+                              <div className="col-6">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Nombres *:</label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  value={formDatosFormalizar.representante_nombres}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, representante_nombres: e.target.value })}
+                                />
+                              </div>
+                              <div className="col-6">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Apellidos *:</label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm"
+                                  value={formDatosFormalizar.representante_apellidos}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, representante_apellidos: e.target.value })}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="row g-2">
+                              <div className="col-6">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Teléfono:</label>
+                                <input
+                                  type="text"
+                                  className="form-control form-control-sm font-monospace"
+                                  value={formDatosFormalizar.representante_telefono}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, representante_telefono: e.target.value })}
+                                  placeholder="04141234567"
+                                />
+                              </div>
+                              <div className="col-6">
+                                <label className="form-label extra-small fw-bold text-secondary mb-1">Correo Electrónico:</label>
+                                <input
+                                  type="email"
+                                  className="form-control form-control-sm"
+                                  value={formDatosFormalizar.representante_email}
+                                  onChange={e => setFormDatosFormalizar({ ...formDatosFormalizar, representante_email: e.target.value })}
+                                  placeholder="correo@ejemplo.com"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* VISTA DE LECTURA Y CONFIRMACIÓN RÁPIDA */
+                      <div className="p-3 rounded-3 border bg-light">
+                        <div className="row g-3">
+                          <div className="col-12 col-md-6 border-end-md">
+                            <span className="text-muted d-block extra-small fw-bold text-uppercase mb-1">Estudiante a Inscribir:</span>
+                            <div className="d-flex align-items-baseline gap-2">
+                              <strong className="text-dark fs-6">
+                                {formDatosFormalizar.estudiante_nombres || formDatosFormalizar.estudiante_apellidos
+                                  ? `${formDatosFormalizar.estudiante_nombres} ${formDatosFormalizar.estudiante_apellidos}`.trim()
+                                  : nombreCompleto(solicitudParaFormalizar.estudiante_nombres, solicitudParaFormalizar.estudiante_apellidos)}
+                              </strong>
+                              <span className="badge bg-light text-dark border extra-small">
+                                C.I: {formDatosFormalizar.estudiante_cedula || solicitudParaFormalizar.estudiante_cedula || `T-${solicitudParaFormalizar.codigo_unico}`}
+                              </span>
+                            </div>
+                            <div className="d-flex align-items-center gap-2 mt-1.5">
+                              <span className="badge bg-primary-subtle text-primary border border-primary-subtle extra-small">
+                                Grado: {formDatosFormalizar.grado_solicitado || solicitudParaFormalizar.grado_solicitado}
+                              </span>
+                              <span className="badge bg-success-subtle text-success border border-success-subtle extra-small">
+                                Plantel: {formDatosFormalizar.codigo_escuela?.toUpperCase() || solicitudParaFormalizar.codigo_escuela?.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="col-12 col-md-6">
+                            <span className="text-muted d-block extra-small fw-bold text-uppercase mb-1">Representante Legal:</span>
+                            <div className="d-flex align-items-baseline gap-2">
+                              <strong className="text-dark fs-6">
+                                {formDatosFormalizar.representante_nombres || formDatosFormalizar.representante_apellidos
+                                  ? `${formDatosFormalizar.representante_nombres} ${formDatosFormalizar.representante_apellidos}`.trim()
+                                  : nombreCompleto(solicitudParaFormalizar.representante_nombres, solicitudParaFormalizar.representante_apellidos)}
+                              </strong>
+                              <span className="badge bg-light text-dark border extra-small">
+                                C.I: {formDatosFormalizar.representante_cedula || solicitudParaFormalizar.representante_cedula}
+                              </span>
+                            </div>
+                            <div className="small text-muted mt-1.5 font-monospace">
+                              <i className="bi bi-telephone-fill me-1 text-secondary"></i>
+                              <span>{formDatosFormalizar.representante_telefono || solicitudParaFormalizar.representante_telefono || 'Sin teléfono'}</span>
+                              {formDatosFormalizar.representante_email && (
+                                <span className="ms-2">
+                                  <i className="bi bi-envelope-fill me-1 text-secondary"></i>
+                                  {formDatosFormalizar.representante_email}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 pt-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                          <span className="extra-small text-success fw-bold d-flex align-items-center gap-1">
+                            <i className="bi bi-check-circle-fill"></i>
+                            <span>Verifique si los nombres, cédula o teléfono coinciden con los documentos físicos.</span>
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-link btn-xs p-0 text-decoration-none fw-bold extra-small text-primary"
+                            onClick={() => setEditandoDatosFormalizar(true)}
+                          >
+                            <i className="bi bi-pencil me-1"></i> Corregir algún dato
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -5017,13 +7555,23 @@ export const GestionAdmisiones: React.FC = () => {
                           <span>{parsed.whatsapp_notificado ? 'Reenviar WhatsApp' : 'Notificar por WhatsApp'}</span>
                         </button>
                         {parsed.whatsapp_notificado ? (
-                          <span className="badge bg-success bg-opacity-15 text-success border border-success extra-small rounded-pill py-1 px-2">
+                          <span className="badge extra-small rounded-pill py-1 px-2 fw-bold" style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}>
                             <i className="bi bi-check-all me-1"></i> Enviado: {parsed.whatsapp_fecha} ({parsed.whatsapp_estado || 'Notificado'})
                           </span>
                         ) : (
-                          <span className="badge bg-light text-muted border extra-small rounded-pill py-1 px-2">
+                          <span className="badge extra-small rounded-pill py-1 px-2 fw-semibold" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #CBD5E1' }}>
                             <i className="bi bi-clock me-1"></i> Sin Notificar
                           </span>
+                        )}
+                        {(solicitudSeleccionada.estado === 'Aprobado' || solicitudSeleccionada.estado === 'Formalizado') && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-info btn-sm fw-bold d-flex align-items-center gap-1 ms-1"
+                            onClick={() => descargarCartaAceptacionAspirante(solicitudSeleccionada)}
+                          >
+                            <i className="bi bi-file-earmark-check-fill text-info"></i>
+                            <span>Carta de Aceptación (PDF)</span>
+                          </button>
                         )}
                       </>
                     );
@@ -5071,41 +7619,122 @@ export const GestionAdmisiones: React.FC = () => {
             padding: '12px'
           }}
         >
-          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '1000px', maxHeight: '92vh' }}>
+          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '1050px', maxHeight: '92vh' }}>
             <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
-              <div className="modal-header py-3 bg-danger text-white">
-                <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
-                  <i className="bi bi-copy fs-5"></i> Detector de Duplicados ({gruposDuplicados.length} grupos)
+              <div className="modal-header py-3 bg-danger text-white d-flex align-items-center justify-content-between">
+                <h5 className="modal-title fw-bold d-flex align-items-center gap-2 mb-0">
+                  <i className="bi bi-copy fs-5"></i> Detector y Depurador de Duplicados ({gruposDuplicados.length} grupos detectados)
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setModalDuplicadosAbierto(false)}></button>
               </div>
-              <div className="modal-body p-3">
-                <p className="small text-muted mb-2">Selecciona los duplicados más antiguos para depurar.</p>
-                {gruposDuplicados.map((g, gi) => (
-                  <div key={gi} className="card mb-2 border">
-                    <div className="card-header py-1 bg-light small fw-bold">
-                      Grupo {gi + 1}: {nombreCompleto(g[0].estudiante_nombres, g[0].estudiante_apellidos)}
-                    </div>
-                    <div className="card-body p-2">
-                      {g.map(sol => (
-                        <div key={sol.id} className="d-flex align-items-center gap-2 mb-1 small">
-                          <input
-                            type="checkbox"
-                            checked={seleccionadosParaEliminar.has(sol.id)}
-                            onChange={() => toggleSeleccion(sol.id)}
-                          />
-                          <span>{sol.codigo_unico} - {sol.created_at ? new Date(sol.created_at).toLocaleDateString() : ''}</span>
-                        </div>
-                      ))}
-                    </div>
+              <div className="modal-body p-3 p-md-4">
+                <div className="alert alert-warning border-0 shadow-xs rounded-3 p-2.5 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-2 small">
+                    <i className="bi bi-info-circle-fill fs-5 text-warning"></i>
+                    <span>Por seguridad, el sistema preselecciona automáticamente las copias más antiguas para su eliminación, conservando el registro más reciente.</span>
                   </div>
-                ))}
+                  <div className="d-flex gap-1.5">
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-white bg-white border fw-bold rounded-pill px-2.5 py-1"
+                      onClick={() => {
+                        const todos = new Set<string | number>();
+                        gruposDuplicados.forEach(g => g.slice(1).forEach(s => { if (s.id) todos.add(s.id); }));
+                        setSeleccionadosParaEliminar(todos);
+                      }}
+                    >
+                      Sugeridos (Antiguos)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-white bg-white border fw-bold rounded-pill px-2.5 py-1"
+                      onClick={() => setSeleccionadosParaEliminar(new Set())}
+                    >
+                      Desmarcar Todo
+                    </button>
+                  </div>
+                </div>
+
+                <div className="d-flex flex-column gap-3">
+                  {gruposDuplicados.map((g, gi) => (
+                    <div key={gi} className="card border rounded-3 overflow-hidden shadow-xs">
+                      <div className="card-header py-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span className="fw-bold text-dark small">
+                          <i className="bi bi-person-fill text-danger me-1"></i>
+                          Grupo {gi + 1}: {nombreCompleto(g[0].estudiante_nombres, g[0].estudiante_apellidos)}
+                          {g[0].estudiante_cedula && <span className="badge bg-secondary ms-2">C.I: {g[0].estudiante_cedula}</span>}
+                        </span>
+                        <span className="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-2 py-0.5 extra-small">
+                          {g.length} solicitudes coincidentes
+                        </span>
+                      </div>
+                      <div className="card-body p-2 p-md-3">
+                        <div className="list-group list-group-flush gap-1">
+                          {g.map((sol, solIdx) => {
+                            const esMasReciente = solIdx === 0;
+                            const isChecked = seleccionadosParaEliminar.has(sol.id);
+                            return (
+                              <label
+                                key={sol.id}
+                                className={`list-group-item list-group-item-action rounded-3 border d-flex align-items-center justify-content-between p-2.5 cursor-pointer ${
+                                  isChecked ? 'bg-danger bg-opacity-10 border-danger' : (esMasReciente ? 'bg-success bg-opacity-10 border-success' : 'bg-white')
+                                }`}
+                              >
+                                <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                                  <input
+                                    type="checkbox"
+                                    className="form-check-input flex-shrink-0"
+                                    checked={isChecked}
+                                    onChange={() => toggleSeleccion(sol.id)}
+                                  />
+                                  <div className="overflow-hidden">
+                                    <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                      <span className="font-monospace fw-bold small text-primary">{sol.codigo_unico}</span>
+                                      <span className="badge bg-light text-dark border extra-small">{sol.grado_solicitado}</span>
+                                      <span className={`badge ${sol.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white extra-small`}>
+                                        {sol.codigo_escuela?.toUpperCase()}
+                                      </span>
+                                      <span className="badge bg-secondary extra-small">{sol.estado}</span>
+                                      {esMasReciente && (
+                                        <span className="badge bg-success text-white extra-small">
+                                          <i className="bi bi-star-fill me-1"></i>Más Reciente (Conservar)
+                                        </span>
+                                      )}
+                                    </div>
+                                    <small className="text-muted extra-small d-block text-truncate mt-0.5">
+                                      Rep: <b>{nombreCompleto(sol.representante_nombres, sol.representante_apellidos)}</b> (C.I. {sol.representante_cedula || 'S/N'}) | Tel: {sol.representante_telefono || 'N/A'} | Fecha: {sol.created_at ? new Date(sol.created_at).toLocaleString('es-VE') : 'Sin fecha'}
+                                    </small>
+                                  </div>
+                                </div>
+
+                                <span className={`badge rounded-pill px-2 py-1 extra-small ms-2 flex-shrink-0 ${isChecked ? 'bg-danger text-white' : 'bg-light text-muted border'}`}>
+                                  {isChecked ? 'Para Eliminar' : 'Conservar'}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="modal-footer bg-light py-2">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setModalDuplicadosAbierto(false)}>Cerrar</button>
-                <button type="button" className="btn btn-danger btn-sm" onClick={eliminarSeleccionados} disabled={eliminandoDuplicados}>
-                  Eliminar Seleccionados ({seleccionadosParaEliminar.size})
-                </button>
+              <div className="modal-footer bg-light py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span className="small text-muted fw-bold">
+                  {seleccionadosParaEliminar.size} solicitud(es) seleccionada(s) para eliminación definitiva.
+                </span>
+                <div className="d-flex gap-2">
+                  <button type="button" className="btn btn-secondary btn-sm rounded-pill px-3" onClick={() => setModalDuplicadosAbierto(false)}>Cerrar</button>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm rounded-pill px-4 fw-bold shadow-xs"
+                    onClick={eliminarSeleccionados}
+                    disabled={eliminandoDuplicados || seleccionadosParaEliminar.size === 0}
+                  >
+                    {eliminandoDuplicados ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-trash-fill me-1"></i>}
+                    Eliminar Seleccionados ({seleccionadosParaEliminar.size})
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -5136,31 +7765,76 @@ export const GestionAdmisiones: React.FC = () => {
         >
           <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '900px', maxHeight: '92vh' }}>
             <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
-              <div className="modal-header py-3 bg-danger text-white">
-                <h5 className="modal-title fw-bold">Registros Vacíos ({registrosVacios.length})</h5>
+              <div className="modal-header py-3 bg-danger text-white d-flex align-items-center justify-content-between">
+                <h5 className="modal-title fw-bold d-flex align-items-center gap-2 mb-0">
+                  <i className="bi bi-person-x fs-5"></i> Solicitudes con Datos Vacíos ({registrosVacios.length})
+                </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setModalVaciosAbierto(false)}></button>
               </div>
-              <div className="modal-body p-3" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                <p className="small text-muted">Se encontraron {registrosVacios.length} registros sin datos de {tipoVacios}.</p>
-                <div className="list-group">
+              <div className="modal-body p-3 p-md-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <p className="small text-muted mb-0">Se encontraron {registrosVacios.length} registros sin datos válidos de {tipoVacios}.</p>
+                  <div className="d-flex gap-1.5">
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline-secondary rounded-pill px-2 py-0.5"
+                      onClick={() => {
+                        const todos = new Set<string | number>();
+                        registrosVacios.forEach(s => { if (s.id) todos.add(s.id); });
+                        setSeleccionadosVacios(todos);
+                      }}
+                    >
+                      Seleccionar Todo
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline-secondary rounded-pill px-2 py-0.5"
+                      onClick={() => setSeleccionadosVacios(new Set())}
+                    >
+                      Desmarcar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="list-group gap-1.5">
                   {registrosVacios.map(sol => (
-                    <label key={sol.id} className="list-group-item list-group-item-action d-flex align-items-center gap-2 small">
+                    <label key={sol.id} className="list-group-item list-group-item-action rounded-3 border d-flex align-items-center gap-2.5 small p-2.5">
                       <input
                         type="checkbox"
                         className="form-check-input me-1"
                         checked={seleccionadosVacios.has(sol.id)}
                         onChange={() => toggleSeleccionVacio(sol.id)}
                       />
-                      <span><b>{sol.codigo_unico}</b> - {nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos)} ({sol.created_at ? new Date(sol.created_at).toLocaleDateString() : 'Sin fecha'})</span>
+                      <div className="overflow-hidden flex-grow-1">
+                        <div className="d-flex align-items-center gap-1.5">
+                          <span className="font-monospace fw-bold text-primary">{sol.codigo_unico}</span>
+                          <span className="badge bg-light text-dark border extra-small">{sol.codigo_escuela?.toUpperCase()}</span>
+                          <span className="badge bg-secondary extra-small">{sol.grado_solicitado || 'Sin grado'}</span>
+                        </div>
+                        <small className="text-muted extra-small d-block mt-0.5">
+                          Aspirante: {nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos)} | Rep: {nombreCompleto(sol.representante_nombres, sol.representante_apellidos)} ({sol.created_at ? new Date(sol.created_at).toLocaleDateString('es-VE') : 'Sin fecha'})
+                        </small>
+                      </div>
                     </label>
                   ))}
                 </div>
               </div>
-              <div className="modal-footer bg-light py-2">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setModalVaciosAbierto(false)}>Cerrar</button>
-                <button type="button" className="btn btn-danger btn-sm" onClick={eliminarVaciosSeleccionados} disabled={eliminandoVacios}>
-                  Eliminar ({seleccionadosVacios.size})
-                </button>
+              <div className="modal-footer bg-light py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span className="small text-muted fw-bold">
+                  {seleccionadosVacios.size} registro(s) seleccionados.
+                </span>
+                <div className="d-flex gap-2">
+                  <button type="button" className="btn btn-secondary btn-sm rounded-pill px-3" onClick={() => setModalVaciosAbierto(false)}>Cerrar</button>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm rounded-pill px-4 fw-bold shadow-xs"
+                    onClick={eliminarVaciosSeleccionados}
+                    disabled={eliminandoVacios || seleccionadosVacios.size === 0}
+                  >
+                    {eliminandoVacios ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-trash-fill me-1"></i>}
+                    Eliminar ({seleccionadosVacios.size})
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -5189,33 +7863,87 @@ export const GestionAdmisiones: React.FC = () => {
             padding: '12px'
           }}
         >
-          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '900px', maxHeight: '92vh' }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '950px', maxHeight: '92vh' }}>
             <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
-              <div className="modal-header py-3 bg-info text-dark">
-                <h5 className="modal-title fw-bold">Solicitudes de Estudiantes Regulares ({registrosRegulares.length})</h5>
+              <div className="modal-header py-3 bg-info text-dark d-flex align-items-center justify-content-between">
+                <h5 className="modal-title fw-bold d-flex align-items-center gap-2 mb-0">
+                  <i className="bi bi-shield-check fs-5"></i> Solicitudes de Estudiantes ya Matriculados / Regulares ({registrosRegulares.length})
+                </h5>
                 <button type="button" className="btn-close" onClick={() => setModalRegularesAbierto(false)}></button>
               </div>
-              <div className="modal-body p-3" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                <p className="small text-muted">Estudiantes que ya existen en la matrícula activa.</p>
-                <div className="list-group">
+              <div className="modal-body p-3 p-md-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <div className="alert alert-info border-0 shadow-xs rounded-3 p-2.5 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <span className="small">Estos estudiantes ya cuentan con matrícula activa en el sistema. Puedes depurar sus solicitudes para no duplicar cupos ni alterar estadísticas de nuevo ingreso.</span>
+                  <div className="d-flex gap-1.5">
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-white bg-white border fw-bold rounded-pill px-2.5 py-1"
+                      onClick={() => {
+                        const todos = new Set<string | number>();
+                        registrosRegulares.forEach(s => { if (s.id) todos.add(s.id); });
+                        setSeleccionadosRegulares(todos);
+                      }}
+                    >
+                      Seleccionar Todo
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-white bg-white border fw-bold rounded-pill px-2.5 py-1"
+                      onClick={() => setSeleccionadosRegulares(new Set())}
+                    >
+                      Desmarcar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="list-group gap-1.5">
                   {registrosRegulares.map(sol => (
-                    <label key={sol.id} className="list-group-item list-group-item-action d-flex align-items-center gap-2 small">
-                      <input
-                        type="checkbox"
-                        className="form-check-input me-1"
-                        checked={seleccionadosRegulares.has(sol.id)}
-                        onChange={() => toggleSeleccionRegular(sol.id)}
-                      />
-                      <span><b>{sol.codigo_unico}</b> - {nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos)} (C.I: {sol.estudiante_cedula || 'N/A'})</span>
+                    <label key={sol.id} className="list-group-item list-group-item-action rounded-3 border d-flex align-items-center justify-content-between p-2.5 cursor-pointer">
+                      <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                        <input
+                          type="checkbox"
+                          className="form-check-input flex-shrink-0 me-1"
+                          checked={seleccionadosRegulares.has(sol.id)}
+                          onChange={() => toggleSeleccionRegular(sol.id)}
+                        />
+                        <div className="overflow-hidden">
+                          <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                            <span className="fw-bold text-dark">{nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos)}</span>
+                            {sol.estudiante_cedula && <span className="badge bg-secondary extra-small">C.I: {sol.estudiante_cedula}</span>}
+                            <span className={`badge ${sol.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white extra-small`}>
+                              {sol.codigo_escuela?.toUpperCase()}
+                            </span>
+                            <span className="badge bg-light text-dark border extra-small">{sol.grado_solicitado}</span>
+                          </div>
+                          <small className="text-muted extra-small d-block mt-0.5">
+                            Código: <span className="font-monospace text-primary fw-bold">{sol.codigo_unico}</span> | Rep: {nombreCompleto(sol.representante_nombres, sol.representante_apellidos)} | Estado Actual: {sol.estado}
+                          </small>
+                        </div>
+                      </div>
+
+                      <span className="badge bg-info text-dark rounded-pill px-2 py-1 extra-small ms-2 flex-shrink-0">
+                        Regular en BD
+                      </span>
                     </label>
                   ))}
                 </div>
               </div>
-              <div className="modal-footer bg-light py-2">
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setModalRegularesAbierto(false)}>Cerrar</button>
-                <button type="button" className="btn btn-info text-dark btn-sm" onClick={eliminarRegularesSeleccionados} disabled={eliminandoRegulares}>
-                  Eliminar ({seleccionadosRegulares.size})
-                </button>
+              <div className="modal-footer bg-light py-2.5 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span className="small text-muted fw-bold">
+                  {seleccionadosRegulares.size} solicitud(es) seleccionada(s) para depuración.
+                </span>
+                <div className="d-flex gap-2">
+                  <button type="button" className="btn btn-secondary btn-sm rounded-pill px-3" onClick={() => setModalRegularesAbierto(false)}>Cerrar</button>
+                  <button
+                    type="button"
+                    className="btn btn-info text-dark btn-sm rounded-pill px-4 fw-bold shadow-xs"
+                    onClick={eliminarRegularesSeleccionados}
+                    disabled={eliminandoRegulares || seleccionadosRegulares.size === 0}
+                  >
+                    {eliminandoRegulares ? <span className="spinner-border spinner-border-sm me-1"></span> : <i className="bi bi-trash-fill me-1"></i>}
+                    Depurar Solicitudes ({seleccionadosRegulares.size})
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -5688,6 +8416,2128 @@ export const GestionAdmisiones: React.FC = () => {
         </div>,
         document.body
       )}
+
+      {/* ── MODAL INTERACTIVO DE ESTADÍSTICAS Y GRÁFICOS CHAMILO LMS ──────────── */}
+      {modalEstadisticas && (() => {
+        const stats = calcularEstadisticasAdmisiones(escuelaReporte);
+        const nombreInstitucion = escuelaReporte === 'todas'
+          ? 'Todas las Escuelas (DEP Oriente)'
+          : (escuelaReporte === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar');
+
+        let dataset: any[] = [];
+        let tituloVista = 'Por Grados / Años Solicitados';
+        if (criterioAgrupacion === 'niveles') {
+          dataset = stats.desgloseEtapas || [];
+          tituloVista = 'Por Niveles y Etapas Educativas';
+        } else if (criterioAgrupacion === 'estados') {
+          dataset = stats.desgloseEstados || [];
+          tituloVista = 'Por Estatus de Admisión';
+        } else if (criterioAgrupacion === 'nomina') {
+          dataset = stats.desgloseNomina || [];
+          tituloVista = 'Por Tipo de Nómina / Comunidad';
+        } else {
+          dataset = stats.desglosePorGrado || [];
+          tituloVista = 'Por Grados / Años Solicitados';
+        }
+
+        return createPortal(
+          <div 
+            className="modal fade show d-block" 
+            tabIndex={-1} 
+            style={{ 
+              backgroundColor: 'rgba(15, 23, 42, 0.78)', 
+              backdropFilter: 'blur(5px)', 
+              zIndex: 1060,
+              padding: '0.25rem'
+            }}
+          >
+            <div className="modal-dialog modal-fullscreen-sm-down modal-xl modal-dialog-centered modal-dialog-scrollable my-sm-3">
+              <div className="modal-content rounded-4 border-0 shadow-lg overflow-hidden" style={{ borderTop: '5px solid #8B5CF6' }}>
+                
+                {/* CABECERA DEL MODAL */}
+                <div className="modal-header bg-white px-3 px-md-4 py-3 border-bottom d-flex align-items-center justify-content-between">
+                  <div className="d-flex align-items-center gap-2.5">
+                    <div className="p-2 rounded-circle flex-shrink-0" style={{ backgroundColor: '#EDE9FE', color: '#7C3AED' }}>
+                      <i className="bi bi-bar-chart-line-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <h5 className="modal-title fw-bolder mb-0 d-flex align-items-center gap-2 flex-wrap" style={{ color: '#0F172A', fontSize: '1.05rem' }}>
+                        <span>Reporte Estadístico de Admisiones</span>
+                        <span className="badge rounded-pill fw-bold" style={{ backgroundColor: '#EDE9FE', color: '#6D28D9', fontSize: '0.7rem' }}>
+                          Chamilo LMS
+                        </span>
+                      </h5>
+                      <small className="fw-semibold d-block mt-0.5" style={{ fontSize: '0.72rem', color: '#475569' }}>
+                        Consolidado oficial • <span className="fw-bold" style={{ color: '#1E1B4B' }}>{stats.fechaHoraReporte}</span>
+                      </small>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn-close" 
+                    onClick={() => setModalEstadisticas(false)}
+                    aria-label="Cerrar"
+                  ></button>
+                </div>
+
+                {/* CUERPO DEL MODAL (RESPONSIVE TOUCH SCROLL) */}
+                <div className="modal-body p-2 p-sm-3 p-md-4 bg-light">
+                  <div className="d-flex flex-column gap-2.5">
+                    
+                    {/* BARRA DE HERRAMIENTAS Y SELECTORES MÓVIL-FRIENDLY */}
+                    <div className="card border-0 shadow-sm rounded-4 p-2.5 p-sm-3 bg-white">
+                      <div className="d-flex flex-column gap-2.5">
+                        
+                        {/* Fila 1: Ámbito Escolar y Desglose */}
+                        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                          {/* Selector de Ámbito Escolar */}
+                          <div className="d-flex align-items-center gap-1.5 overflow-x-auto text-nowrap pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+                            <span className="fw-bold text-uppercase me-1 d-none d-sm-inline" style={{ fontSize: '0.7rem', color: '#475569' }}>
+                              <i className="bi bi-building me-1 text-primary"></i>Ámbito:
+                            </span>
+                            <div className="btn-group btn-group-sm bg-light p-0.5 rounded-pill border" role="group">
+                              {[
+                                { id: 'todas', label: 'Ambas Escuelas' },
+                                { id: 'sb', label: 'Santa Bárbara' },
+                                { id: 'lb', label: 'Libertador Bolívar' },
+                              ].map((esc) => (
+                                <button
+                                  key={esc.id}
+                                  type="button"
+                                  className={`btn btn-sm px-2.5 px-sm-3 py-1 rounded-pill fw-bold border-0 transition-all ${
+                                    escuelaReporte === esc.id 
+                                      ? 'text-white shadow-xs' 
+                                      : 'text-secondary hover-efecto'
+                                  }`}
+                                  onClick={() => setEscuelaReporte(esc.id as any)}
+                                  style={{ 
+                                    fontSize: '0.75rem',
+                                    backgroundColor: escuelaReporte === esc.id ? '#8B5CF6' : 'transparent' 
+                                  }}
+                                >
+                                  {esc.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Selector de Desglose / Agrupación */}
+                          {tipoGrafico !== 'resumen_niveles' && (
+                            <div className="d-flex align-items-center gap-1 overflow-x-auto text-nowrap pb-1 ms-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                              <span className="fw-bold text-muted me-1 d-none d-md-inline" style={{ fontSize: '0.72rem' }}>
+                                <i className="bi bi-funnel-fill text-primary me-1"></i>Desglose:
+                              </span>
+                              <div className="btn-group btn-group-sm bg-light p-0.5 rounded-pill border" role="group">
+                                {[
+                                  { id: 'grados', label: 'Grados' },
+                                  { id: 'niveles', label: 'Niveles' },
+                                  { id: 'estados', label: 'Estatus' },
+                                  { id: 'nomina', label: 'Nómina' },
+                                ].map((g) => (
+                                  <button
+                                    key={g.id}
+                                    type="button"
+                                    className={`btn btn-sm py-1 px-2 px-sm-2.5 fw-bold rounded-pill border-0 transition-all ${
+                                      criterioAgrupacion === g.id 
+                                        ? 'text-white shadow-xs' 
+                                        : 'text-secondary hover-efecto'
+                                    }`}
+                                    onClick={() => setCriterioAgrupacion(g.id as any)}
+                                    style={{ 
+                                      fontSize: '0.72rem', 
+                                      backgroundColor: criterioAgrupacion === g.id ? '#7C3AED' : 'transparent' 
+                                    }}
+                                  >
+                                    {g.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Fila 2: Carrusel Horizontal de Tipos de Gráficas (Chamilo LMS) */}
+                        <div className="d-flex align-items-center gap-1.5 overflow-x-auto text-nowrap pb-1 pt-1 border-top" style={{ WebkitOverflowScrolling: 'touch' }}>
+                          {[
+                            { id: 'resumen_niveles', label: 'Por Niveles', icon: 'bi-diagram-3-fill' },
+                            { id: 'dossier', label: 'Dossier 360°', icon: 'bi-grid-1x2-fill' },
+                            { id: 'torta', label: 'Torta 3D', icon: 'bi-pie-chart-fill' },
+                            { id: 'anillos', label: 'Anillos', icon: 'bi-record-circle' },
+                            { id: 'picos', label: 'Picos', icon: 'bi-graph-up' },
+                            { id: 'barras', label: 'Barras', icon: 'bi-bar-chart-steps' },
+                            { id: 'radar', label: 'Radar', icon: 'bi-bullseye' },
+                            { id: 'tacometro', label: 'Tacómetro', icon: 'bi-speedometer2' },
+                            { id: 'tabla', label: 'Tabla', icon: 'bi-table' },
+                          ].map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              className={`btn btn-sm px-2.5 py-1 rounded-pill fw-bold flex-shrink-0 transition-all ${
+                                tipoGrafico === t.id 
+                                  ? 'text-white shadow-xs' 
+                                  : 'bg-light text-secondary border-0 hover-efecto'
+                              }`}
+                              onClick={() => setTipoGrafico(t.id as any)}
+                              style={{ 
+                                fontSize: '0.75rem', 
+                                backgroundColor: tipoGrafico === t.id ? '#8B5CF6' : undefined 
+                              }}
+                            >
+                              <i className={`bi ${t.icon} me-1`}></i>
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* FRANJA DE METRICAS KPIS AL ESTILO CHAMILO */}
+                      {tipoGrafico !== 'resumen_niveles' && (
+                        <div className="row g-2 g-sm-3 mt-1">
+                          {/* 1. TOTAL SOLICITUDES */}
+                          <div className="col-6 col-md-3">
+                            <div className="bg-white p-2.5 p-sm-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between h-100" style={{ borderLeft: '4px solid #8B5CF6' }}>
+                              <div>
+                                <span className="text-uppercase fw-bolder d-block mb-1" style={{ fontSize: '0.65rem', letterSpacing: '0.5px', color: '#475569' }}>
+                                  Total Solicitudes
+                                </span>
+                                <div className="d-flex align-items-baseline gap-1.5">
+                                  <span className="fs-3 fw-bolder lh-1" style={{ color: '#1E1B4B' }}>{stats.totalGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2 py-0.5" style={{ backgroundColor: '#EDE9FE', color: '#5B21B6', fontSize: '0.7rem' }}>
+                                    100%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-2 rounded-circle d-none d-sm-block" style={{ backgroundColor: '#F3E8FF', color: '#7C3AED' }}>
+                                <i className="bi bi-people-fill fs-5"></i>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2. APROBADAS / FORMALIZADAS */}
+                          <div className="col-6 col-md-3">
+                            <div className="bg-white p-2.5 p-sm-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between h-100" style={{ borderLeft: '4px solid #059669' }}>
+                              <div>
+                                <span className="text-uppercase fw-bolder d-block mb-1" style={{ fontSize: '0.65rem', letterSpacing: '0.5px', color: '#065F46' }}>
+                                  Aprobadas / Listas
+                                </span>
+                                <div className="d-flex align-items-baseline gap-1.5">
+                                  <span className="fs-3 fw-bolder lh-1" style={{ color: '#065F46' }}>{stats.completadosGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2 py-0.5" style={{ backgroundColor: '#059669', color: '#FFFFFF', fontSize: '0.7rem' }}>
+                                    {stats.pctGeneral}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-2 rounded-circle d-none d-sm-block" style={{ backgroundColor: '#D1FAE5', color: '#059669' }}>
+                                <i className="bi bi-check-circle-fill fs-5"></i>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3. EN EVALUACIÓN */}
+                          <div className="col-6 col-md-3">
+                            <div className="bg-white p-2.5 p-sm-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between h-100" style={{ borderLeft: '4px solid #D97706' }}>
+                              <div>
+                                <span className="text-uppercase fw-bolder d-block mb-1" style={{ fontSize: '0.65rem', letterSpacing: '0.5px', color: '#78350F' }}>
+                                  En Evaluación
+                                </span>
+                                <div className="d-flex align-items-baseline gap-1.5">
+                                  <span className="fs-3 fw-bolder lh-1" style={{ color: '#78350F' }}>{stats.enProcesoGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2 py-0.5" style={{ backgroundColor: '#D97706', color: '#FFFFFF', fontSize: '0.7rem' }}>
+                                    {stats.pctEnTramite}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-2 rounded-circle d-none d-sm-block" style={{ backgroundColor: '#FEF3C7', color: '#D97706' }}>
+                                <i className="bi bi-hourglass-split fs-5"></i>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 4. RECHAZADAS / BORRADOR */}
+                          <div className="col-6 col-md-3">
+                            <div className="bg-white p-2.5 p-sm-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between h-100" style={{ borderLeft: '4px solid #475569' }}>
+                              <div>
+                                <span className="text-uppercase fw-bolder d-block mb-1" style={{ fontSize: '0.65rem', letterSpacing: '0.5px', color: '#1E293B' }}>
+                                  Rechazadas / Borrador
+                                </span>
+                                <div className="d-flex align-items-baseline gap-1.5">
+                                  <span className="fs-3 fw-bolder lh-1" style={{ color: '#1E293B' }}>{stats.sinIniciarGeneral}</span>
+                                  <span className="badge rounded-pill fw-bold px-2 py-0.5" style={{ backgroundColor: '#475569', color: '#FFFFFF', fontSize: '0.7rem' }}>
+                                    {stats.pctNoConformes}%
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="p-2 rounded-circle d-none d-sm-block" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
+                                <i className="bi bi-dash-circle fs-5"></i>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* ─── LIENZO CENTRAL DINÁMICO SEGÚN TIPO DE GRÁFICO ─── */}
+
+                    {/* 0. REPORTE SINTÉTICO POR NIVELES (VISTA PRINCIPAL MÓVIL) */}
+                    {tipoGrafico === 'resumen_niveles' && (
+                      <div className="animate__animated animate__fadeIn">
+                        <div className="row g-2.5 g-sm-3">
+                          {/* BANNER INSTITUCIONAL CON TARJETAS EN BLANCO SÓLIDO (MÁXIMO CONTRASTE) */}
+                          <div className="col-12">
+                            <div 
+                              className="card border-0 shadow-sm rounded-4 p-3 p-sm-3.5 text-white overflow-hidden position-relative" 
+                              style={{ 
+                                background: 'linear-gradient(135deg, #4C1D95 0%, #6D28D9 50%, #4338CA 100%)' 
+                              }}
+                            >
+                              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 position-relative" style={{ zIndex: 1 }}>
+                                <div>
+                                  <span className="badge rounded-pill px-3 py-1.5 mb-2 fw-bolder text-uppercase shadow-xs" style={{ backgroundColor: '#FFFFFF', color: '#5B21B6', fontSize: '0.72rem' }}>
+                                    {nombreInstitucion}
+                                  </span>
+                                  <h4 className="fw-bolder mb-1 text-white" style={{ fontSize: '1.2rem' }}>Resumen Global de Admisiones</h4>
+                                  <p className="mb-0 small" style={{ color: '#E0E7FF', fontSize: '0.82rem' }}>
+                                    Total de <strong className="text-white">{stats.totalGeneral} solicitudes</strong> evaluadas en el proceso.
+                                  </p>
+                                </div>
+
+                                <div className="d-flex align-items-center gap-2 w-100 w-sm-auto justify-content-between justify-content-sm-end mt-1 mt-sm-0">
+                                  <div className="text-center bg-white p-2 px-3 rounded-4 shadow-sm" style={{ minWidth: '95px' }}>
+                                    <div className="fs-3 fw-bolder lh-1" style={{ color: '#059669' }}>{stats.pctGeneral}%</div>
+                                    <small className="fw-bolder text-uppercase d-block mt-1" style={{ fontSize: '0.65rem', color: '#475569', letterSpacing: '0.5px' }}>Aprobadas</small>
+                                  </div>
+                                  <div className="text-center bg-white p-2 px-3 rounded-4 shadow-sm" style={{ minWidth: '95px' }}>
+                                    <div className="fs-3 fw-bolder lh-1" style={{ color: '#1E1B4B' }}>{stats.completadosGeneral}</div>
+                                    <small className="fw-bolder text-uppercase d-block mt-1" style={{ fontSize: '0.65rem', color: '#475569', letterSpacing: '0.5px' }}>Listas</small>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Tarjetas por Etapa / Nivel (Inicial, Primaria, Media General) */}
+                          <div className="col-12">
+                            <div className="row g-2.5 g-sm-3">
+                              {(stats.desgloseEtapas || []).map((et: any, idx: number) => {
+                                const c = et.pct >= 75 ? '#059669' : (et.pct >= 40 ? '#D97706' : '#DC2626');
+                                const icono = et.etapa.includes('Inicial') ? 'bi-emoji-smile-fill' : (et.etapa.includes('Primaria') ? 'bi-backpack2-fill' : 'bi-mortarboard-fill');
+                                const pComp = et.pct;
+                                const pProc = et.total > 0 ? Math.round((et.enProceso / et.total) * 100) : 0;
+                                const pSin = et.total > 0 ? Math.round((et.sinIniciar / et.total) * 100) : 0;
+
+                                return (
+                                  <div key={idx} className="col-12 col-md-4">
+                                    <div className="card border-0 shadow-sm rounded-4 p-3 p-sm-3.5 h-100 bg-white" style={{ borderTop: `4px solid ${c}` }}>
+                                      <div className="d-flex align-items-center justify-content-between pb-2 mb-2 border-bottom">
+                                        <div className="d-flex align-items-center gap-2">
+                                          <div className="p-2 rounded-circle" style={{ backgroundColor: `${c}15`, color: c }}>
+                                            <i className={`bi ${icono} fs-5`}></i>
+                                          </div>
+                                          <div>
+                                            <h6 className="fw-bolder mb-0" style={{ color: '#0F172A', fontSize: '0.95rem' }}>{et.etapa}</h6>
+                                            <small className="fw-bold" style={{ fontSize: '0.72rem', color: '#475569' }}>Total: {et.total} aspirantes</small>
+                                          </div>
+                                        </div>
+                                        <div className="text-end">
+                                          <span className="fs-4 fw-bolder lh-1 d-block" style={{ color: c }}>{et.pct}%</span>
+                                        </div>
+                                      </div>
+
+                                      {/* Estados detallados con valores y badges bien separados */}
+                                      <div className="d-flex flex-column gap-1.5 my-2">
+                                        {/* Aprobadas */}
+                                        <div className="p-2 px-2.5 rounded-3 d-flex justify-content-between align-items-center" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                                          <span className="fw-bold" style={{ color: '#14532D', fontSize: '0.8rem' }}>🟢 Aprobadas:</span>
+                                          <div className="d-flex align-items-center gap-2">
+                                            <span className="fw-bolder" style={{ color: '#0F172A', fontSize: '0.88rem' }}>{et.completados}</span>
+                                            <span className="badge rounded-pill fw-bolder px-2 py-0.5" style={{ backgroundColor: '#059669', color: '#FFFFFF', fontSize: '0.72rem', minWidth: '46px', textAlign: 'center' }}>
+                                              {pComp}%
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* En Trámite */}
+                                        <div className="p-2 px-2.5 rounded-3 d-flex justify-content-between align-items-center" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                                          <span className="fw-bold" style={{ color: '#78350F', fontSize: '0.8rem' }}>🟡 En Trámite:</span>
+                                          <div className="d-flex align-items-center gap-2">
+                                            <span className="fw-bolder" style={{ color: '#0F172A', fontSize: '0.88rem' }}>{et.enProceso}</span>
+                                            <span className="badge rounded-pill fw-bolder px-2 py-0.5" style={{ backgroundColor: '#D97706', color: '#FFFFFF', fontSize: '0.72rem', minWidth: '46px', textAlign: 'center' }}>
+                                              {pProc}%
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* No Conformes */}
+                                        <div className="p-2 px-2.5 rounded-3 d-flex justify-content-between align-items-center" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                                          <span className="fw-bold" style={{ color: '#1E293B', fontSize: '0.8rem' }}>⚪ No Conformes:</span>
+                                          <div className="d-flex align-items-center gap-2">
+                                            <span className="fw-bolder" style={{ color: '#0F172A', fontSize: '0.88rem' }}>{et.sinIniciar}</span>
+                                            <span className="badge rounded-pill fw-bolder px-2 py-0.5" style={{ backgroundColor: '#475569', color: '#FFFFFF', fontSize: '0.72rem', minWidth: '46px', textAlign: 'center' }}>
+                                              {pSin}%
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Barra Multicolor Compuesta */}
+                                      <div className="progress rounded-pill shadow-inner mt-auto" style={{ height: '9px', backgroundColor: '#E2E8F0' }}>
+                                        <div className="progress-bar" style={{ width: `${pComp}%`, backgroundColor: '#059669' }} title={`Aprobadas: ${pComp}%`}></div>
+                                        <div className="progress-bar" style={{ width: `${pProc}%`, backgroundColor: '#D97706' }} title={`En Trámite: ${pProc}%`}></div>
+                                        <div className="progress-bar" style={{ width: `${pSin}%`, backgroundColor: '#64748B' }} title={`Rechazadas: ${pSin}%`}></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 1. DOSSIER 360° EJECUTIVO */}
+                    {tipoGrafico === 'dossier' && (() => {
+                      const R = 48;
+                      const C = 2 * Math.PI * R;
+                      const lenComp = stats.totalGeneral > 0 ? (stats.completadosGeneral / stats.totalGeneral) * C : 0;
+                      const lenProc = stats.totalGeneral > 0 ? (stats.enProcesoGeneral / stats.totalGeneral) * C : 0;
+                      const lenSin = stats.totalGeneral > 0 ? (stats.sinIniciarGeneral / stats.totalGeneral) * C : 0;
+                      const pct = stats.pctGeneral;
+                      const needleAngle = -90 + (pct / 100) * 180;
+                      const gaugeColor = pct >= 75 ? '#059669' : (pct >= 40 ? '#D97706' : '#DC2626');
+
+                      return (
+                        <div className="animate__animated animate__fadeIn">
+                          <div className="row g-2.5 g-sm-3 mb-3">
+                            {/* Tacómetro Radial */}
+                            <div className="col-12 col-md-4">
+                              <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 text-center d-flex flex-column justify-content-between">
+                                <div className="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                                  <span className="fw-bold small" style={{ color: '#0F172A' }}><i className="bi bi-speedometer2 text-primary me-1"></i>Meta de Aprobación</span>
+                                  <span className="badge bg-light text-dark border">100%</span>
+                                </div>
+                                <div className="py-1 position-relative d-flex justify-content-center align-items-center" style={{ height: '95px' }}>
+                                  <svg width="170" height="95" viewBox="0 0 140 85">
+                                    <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="#e2e8f0" strokeWidth="12" strokeLinecap="round" />
+                                    <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke={gaugeColor} strokeWidth="12" strokeLinecap="round" strokeDasharray="172.78" strokeDashoffset={172.78 * (1 - pct / 100)} />
+                                    <g transform={`translate(70, 75) rotate(${needleAngle})`}>
+                                      <line x1="0" y1="0" x2="0" y2="-40" stroke="#1e40af" strokeWidth="3.5" strokeLinecap="round" />
+                                      <circle cx="0" cy="0" r="4.5" fill="#1e40af" />
+                                    </g>
+                                  </svg>
+                                </div>
+                                <div className="mt-1">
+                                  <div className="fs-3 fw-bolder lh-1" style={{ color: gaugeColor }}>{stats.pctGeneral}%</div>
+                                  <span className="badge px-2.5 py-1 rounded-pill fw-bold mt-1" style={{ 
+                                    fontSize: '0.75rem',
+                                    backgroundColor: pct >= 75 ? '#DCFCE7' : (pct >= 40 ? '#FEF3C7' : '#FEE2E2'),
+                                    color: pct >= 75 ? '#14532D' : (pct >= 40 ? '#78350F' : '#7F1D1D'),
+                                    border: `1px solid ${pct >= 75 ? '#86EFAC' : (pct >= 40 ? '#FCD34D' : '#FCA5A5')}`
+                                  }}>
+                                    {pct >= 75 ? '🟢 Nivel Óptimo' : (pct >= 40 ? '🟡 En Progreso' : '🔴 Atención Prioritaria')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Donut Concéntrico */}
+                            <div className="col-12 col-md-4">
+                              <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 text-center d-flex flex-column justify-content-between">
+                                <div className="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom">
+                                  <span className="fw-bold small" style={{ color: '#0F172A' }}><i className="bi bi-pie-chart-fill text-primary me-1"></i>Distribución</span>
+                                  <span className="badge bg-light text-dark border">Proporción</span>
+                                </div>
+                                <div className="py-1 position-relative d-flex justify-content-center align-items-center">
+                                  <svg width="115" height="115" viewBox="0 0 130 130" style={{ transform: 'rotate(-90deg)' }}>
+                                    <circle cx="65" cy="65" r={R} fill="none" stroke="#f1f5f9" strokeWidth="16" />
+                                    {lenComp > 0 && <circle cx="65" cy="65" r={R} fill="none" stroke="#059669" strokeWidth="16" strokeDasharray={`${lenComp} ${C - lenComp}`} strokeDashoffset={0} />}
+                                    {lenProc > 0 && <circle cx="65" cy="65" r={R} fill="none" stroke="#D97706" strokeWidth="16" strokeDasharray={`${lenProc} ${C - lenProc}`} strokeDashoffset={-lenComp} />}
+                                    {lenSin > 0 && <circle cx="65" cy="65" r={R} fill="none" stroke="#475569" strokeWidth="16" strokeDasharray={`${lenSin} ${C - lenSin}`} strokeDashoffset={-(lenComp + lenProc)} />}
+                                  </svg>
+                                  <div className="position-absolute text-center">
+                                    <span className="fs-5 fw-bolder text-dark d-block lh-1">{stats.totalGeneral}</span>
+                                    <span className="fw-bold" style={{ fontSize: '0.65rem', color: '#475569' }}>SOLICITUDES</span>
+                                  </div>
+                                </div>
+                                <div className="d-flex justify-content-around text-center pt-1 border-top" style={{ fontSize: '0.74rem' }}>
+                                  <div><span className="fw-bolder d-block" style={{ color: '#059669' }}>{stats.completadosGeneral}</span><span className="fw-bold" style={{ color: '#0F172A' }}>Listas</span></div>
+                                  <div><span className="fw-bolder d-block" style={{ color: '#D97706' }}>{stats.enProcesoGeneral}</span><span className="fw-bold" style={{ color: '#0F172A' }}>Trámite</span></div>
+                                  <div><span className="fw-bolder d-block" style={{ color: '#475569' }}>{stats.sinIniciarGeneral}</span><span className="fw-bold" style={{ color: '#0F172A' }}>Rechaz.</span></div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Niveles Educativos */}
+                            <div className="col-12 col-md-4">
+                              <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-column justify-content-between">
+                                <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                                  <span className="fw-bold small" style={{ color: '#0F172A' }}><i className="bi bi-diagram-3-fill text-primary me-1"></i>Avance por Nivel</span>
+                                  <span className="badge bg-primary bg-opacity-10 text-primary border">Etapas</span>
+                                </div>
+                                <div className="d-flex flex-column gap-2">
+                                  {stats.desgloseEtapas?.map((et: any, idx: number) => (
+                                    <div key={idx} className="p-2 rounded-3 bg-light border">
+                                      <div className="d-flex justify-content-between align-items-center mb-1" style={{ fontSize: '0.78rem' }}>
+                                        <span className="fw-bold" style={{ color: '#0F172A' }}>{et.etapa}</span>
+                                        <span className="badge rounded-pill fw-bold" style={{ backgroundColor: '#DCFCE7', color: '#14532D', border: '1px solid #86EFAC' }}>
+                                          {et.completados}/{et.total} ({et.pct}%)
+                                        </span>
+                                      </div>
+                                      <div className="progress rounded-pill shadow-inner" style={{ height: '7px', backgroundColor: '#E2E8F0' }}>
+                                        <div className="progress-bar" style={{ width: `${et.pct}%`, backgroundColor: '#059669' }}></div>
+                                        <div className="progress-bar" style={{ width: `${et.total > 0 ? (et.enProceso / et.total) * 100 : 0}%`, backgroundColor: '#D97706' }}></div>
+                                        <div className="progress-bar" style={{ width: `${et.total > 0 ? (et.sinIniciar / et.total) * 100 : 0}%`, backgroundColor: '#64748B' }}></div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Picos Skyline por Grado */}
+                          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                            <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
+                              <span className="fw-bold small" style={{ color: '#0F172A' }}><i className="bi bi-graph-up text-primary me-1"></i>Picos de Demanda por Grado ({stats.desglosePorGrado.length} Grados)</span>
+                              <span className="badge bg-light text-dark border">Maternal a 5to Año</span>
+                            </div>
+                            <div style={{ height: '110px' }} className="d-flex align-items-flex-end gap-1.5 pt-3 px-1 border-bottom bg-light rounded-3">
+                              {stats.desglosePorGrado.map((g: any, idx: number) => {
+                                const h = Math.max(g.pctCompletado, 6);
+                                const color = g.pctCompletado >= 75 ? '#059669' : (g.pctCompletado >= 40 ? '#D97706' : '#DC2626');
+                                return (
+                                  <div key={idx} className="flex-grow-1 d-flex flex-column align-items-center justify-content-end h-100 position-relative">
+                                    <span className="fw-bold" style={{ fontSize: '0.64rem', color: color, marginBottom: '1px' }}>{g.pctCompletado}%</span>
+                                    <div className="w-100 rounded-top shadow-sm" style={{ height: `${h}%`, backgroundColor: color, maxWidth: '24px' }}></div>
+                                    <span className="fw-bold text-truncate mt-1" style={{ fontSize: '0.62rem', maxWidth: '36px', color: '#334155' }} title={g.grado}>
+                                      {g.grado.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* 2. TORTA 3D ISOMÉTRICA */}
+                    {tipoGrafico === 'torta' && (() => {
+                      const palette = [
+                        '#00C3FF', '#8B5CF6', '#00E676', '#FF8D00', '#EC4899', '#3B82F6', 
+                        '#10B981', '#F59E0B', '#06B6D4', '#6366F1', '#14B8A6', '#84CC16'
+                      ];
+                      const darkPalette = [
+                        '#0095C2', '#6D28D9', '#00B359', '#CC7000', '#BE185D', '#1D4ED8', 
+                        '#059669', '#D97706', '#0891B2', '#4338CA', '#0D9488', '#65A30D'
+                      ];
+
+                      const totalVal = dataset.reduce((acc, it) => acc + (it.completados || it.total || it.pct || 1), 0);
+                      let accumAngle = -Math.PI / 2;
+                      const cx = 155;
+                      const cy = 95;
+                      const rx = 120;
+                      const ry = 58;
+                      const depth = 22;
+
+                      const slices = dataset.map((it, idx) => {
+                        const val = it.completados !== undefined ? (it.completados || (it.total ? 0.01 : 1)) : (it.pct || 1);
+                        const fraction = totalVal > 0 ? (val / totalVal) : (1 / dataset.length);
+                        const angleSpan = fraction * 2 * Math.PI;
+                        const startAngle = accumAngle;
+                        const endAngle = accumAngle + angleSpan;
+                        accumAngle = endAngle;
+
+                        const x1 = cx + rx * Math.cos(startAngle);
+                        const y1 = cy + ry * Math.sin(startAngle);
+                        const x2 = cx + rx * Math.cos(endAngle);
+                        const y2 = cy + ry * Math.sin(endAngle);
+                        const largeArc = angleSpan > Math.PI ? 1 : 0;
+                        const midAngle = startAngle + angleSpan / 2;
+                        const color = it.color || palette[idx % palette.length];
+                        const darkColor = darkPalette[idx % darkPalette.length];
+                        const label = it.grado || it.etapa || it.nombre || `Segmento ${idx + 1}`;
+                        const pctDisplay = it.pctCompletado ?? it.pct ?? Math.round(fraction * 100);
+
+                        return {
+                          it, idx, val, fraction, startAngle, endAngle, angleSpan,
+                          x1, y1, x2, y2, largeArc, midAngle, color, darkColor, label, pctDisplay
+                        };
+                      });
+
+                      return (
+                        <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+                            <div>
+                              <h6 className="fw-bold mb-0" style={{ color: '#0F172A' }}>
+                                <i className="bi bi-pie-chart-fill text-primary me-2"></i>
+                                Torta 3D Volumétrica: {tituloVista}
+                              </h6>
+                              <small className="fw-bold" style={{ color: '#475569' }}>Proporciones volumétricas con valores proyectados por color.</small>
+                            </div>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border px-3 py-1 fw-bold">{nombreInstitucion}</span>
+                          </div>
+
+                          <div className="row align-items-center g-4">
+                            {/* SVG 3D */}
+                            <div className="col-12 col-lg-6 text-center">
+                              <div className="position-relative d-inline-block">
+                                <svg width="290" height="210" viewBox="0 0 310 230" style={{ overflow: 'visible', maxWidth: '100%' }}>
+                                  {/* Capa de Profundidad 3D */}
+                                  <g id="pie3d-depth">
+                                    {slices.map((s) => {
+                                      if (Math.sin(s.midAngle) <= -0.15 && Math.sin(s.startAngle) < 0 && Math.sin(s.endAngle) < 0) return null;
+                                      return (
+                                        <path
+                                          key={`depth-${s.idx}`}
+                                          d={`
+                                            M ${s.x1} ${s.y1}
+                                            A ${rx} ${ry} 0 ${s.largeArc} 1 ${s.x2} ${s.y2}
+                                            L ${s.x2} ${s.y2 + depth}
+                                            A ${rx} ${ry} 0 ${s.largeArc} 0 ${s.x1} ${s.y1 + depth}
+                                            Z
+                                          `}
+                                          fill={s.darkColor}
+                                          opacity="0.95"
+                                        />
+                                      );
+                                    })}
+                                  </g>
+
+                                  {/* Capa Superior de la Torta */}
+                                  <g id="pie3d-top">
+                                    {slices.map((s) => (
+                                      <path
+                                        key={`top-${s.idx}`}
+                                        d={`
+                                          M ${cx} ${cy}
+                                          L ${s.x1} ${s.y1}
+                                          A ${rx} ${ry} 0 ${s.largeArc} 1 ${s.x2} ${s.y2}
+                                          Z
+                                        `}
+                                        fill={s.color}
+                                        stroke="#ffffff"
+                                        strokeWidth="1.5"
+                                      />
+                                    ))}
+                                  </g>
+
+                                  {/* Etiquetas flotantes */}
+                                  <g id="pie3d-labels">
+                                    {slices.map((s) => {
+                                      if (s.fraction < 0.04) return null;
+                                      const labelRadiusX = rx * 0.7;
+                                      const labelRadiusY = ry * 0.7;
+                                      const lx = cx + labelRadiusX * Math.cos(s.midAngle);
+                                      const ly = cy + labelRadiusY * Math.sin(s.midAngle);
+                                      return (
+                                        <g key={`lbl-${s.idx}`}>
+                                          <rect
+                                            x={lx - 16}
+                                            y={ly - 9}
+                                            width="32"
+                                            height="18"
+                                            rx="9"
+                                            fill="#ffffff"
+                                            stroke={s.color}
+                                            strokeWidth="1.5"
+                                            filter="drop-shadow(0px 2px 3px rgba(0,0,0,0.15))"
+                                          />
+                                          <text
+                                            x={lx}
+                                            y={ly + 4}
+                                            textAnchor="middle"
+                                            fill="#0f172a"
+                                            fontSize="9.5"
+                                            fontWeight="900"
+                                          >
+                                            {s.pctDisplay}%
+                                          </text>
+                                        </g>
+                                      );
+                                    })}
+                                  </g>
+                                </svg>
+                              </div>
+                            </div>
+
+                            {/* LEYENDA */}
+                            <div className="col-12 col-lg-6">
+                              <div className="d-flex flex-column gap-1.5" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                                {slices.map((s) => (
+                                  <div key={s.idx} className="p-2 rounded-3 bg-light border d-flex align-items-center justify-content-between">
+                                    <div className="d-flex align-items-center gap-2 overflow-hidden">
+                                      <div className="rounded-circle flex-shrink-0" style={{ width: '12px', height: '12px', backgroundColor: s.color }}></div>
+                                      <span className="fw-bold small text-truncate" title={s.label} style={{ fontSize: '0.8rem', color: '#0F172A' }}>{s.label}</span>
+                                    </div>
+                                    <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                                      <small className="fw-bold" style={{ fontSize: '0.72rem', color: '#475569' }}>
+                                        {s.it.completados !== undefined ? `${s.it.completados}/${s.it.total || stats.totalGeneral}` : ''}
+                                      </small>
+                                      <span className="badge fw-bold" style={{ backgroundColor: s.color, color: '#ffffff', fontSize: '0.72rem' }}>
+                                        {s.pctDisplay}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* 3. ANILLOS DONUT */}
+                    {tipoGrafico === 'anillos' && (() => {
+                      const R = 38;
+                      const C = 2 * Math.PI * R;
+                      return (
+                        <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                            <h6 className="fw-bold mb-0" style={{ color: '#0F172A' }}><i className="bi bi-record-circle text-primary me-2"></i>Gráfica en Anillos: {tituloVista}</h6>
+                            <span className="badge bg-primary bg-opacity-10 text-primary border">{dataset.length} Categorías</span>
+                          </div>
+                          <div className="row g-2.5">
+                            {dataset.map((it, idx) => {
+                              const label = it.grado || it.etapa || it.nombre || '';
+                              const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                              const itemColor = itemPct >= 75 ? '#059669' : (itemPct >= 40 ? '#D97706' : '#DC2626');
+                              const itTot = it.total || stats.totalGeneral || 0;
+                              const itComp = it.completados || 0;
+                              const itemLen = itTot > 0 ? (itComp / itTot) * C : 0;
+                              return (
+                                <div key={idx} className="col-6 col-md-4 col-lg-3">
+                                  <div className="p-2.5 rounded-3 bg-light border text-center h-100">
+                                    <div className="fw-bold small text-truncate mb-1" title={label} style={{ fontSize: '0.78rem', color: '#0F172A' }}>{label}</div>
+                                    <div className="position-relative d-flex justify-content-center align-items-center my-1">
+                                      <svg width="85" height="85" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                                        <circle cx="50" cy="50" r={R} fill="none" stroke="#e2e8f0" strokeWidth="12" />
+                                        <circle cx="50" cy="50" r={R} fill="none" stroke={itemColor} strokeWidth="12" strokeDasharray={`${itemLen} ${C - itemLen}`} strokeDashoffset={0} />
+                                      </svg>
+                                      <div className="position-absolute text-center">
+                                        <span className="fw-bolder" style={{ color: itemColor, fontSize: '0.88rem' }}>{itemPct}%</span>
+                                      </div>
+                                    </div>
+                                    <span className="badge bg-white border fw-bold" style={{ fontSize: '0.7rem', color: '#334155' }}>{itComp} / {itTot} listos</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* 4. PICOS DE RENDIMIENTO */}
+                    {tipoGrafico === 'picos' && (
+                      <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                        <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                          <div>
+                            <h6 className="fw-bold mb-0" style={{ color: '#0F172A' }}><i className="bi bi-graph-up text-primary me-2"></i>Picos de Demanda y Admisión: {tituloVista}</h6>
+                            <small className="fw-bold" style={{ color: '#475569' }}>Cimas porcentuales alcanzadas en la asignación de cupos.</small>
+                          </div>
+                          <span className="badge bg-primary bg-opacity-10 text-primary border">0% - 100%</span>
+                        </div>
+
+                        <div style={{ height: '140px', overflowX: 'auto' }} className="d-flex align-items-flex-end gap-1.5 pt-4 px-2 border-bottom bg-light rounded-3 mb-3">
+                          {dataset.map((it, idx) => {
+                            const label = it.grado || it.etapa || it.nombre || '';
+                            const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                            const h = Math.max(itemPct, 6);
+                            const color = itemPct >= 75 ? '#059669' : (itemPct >= 40 ? '#D97706' : '#DC2626');
+                            return (
+                              <div key={idx} className="flex-grow-1 d-flex flex-column align-items-center justify-content-end h-100 position-relative" style={{ minWidth: '32px' }}>
+                                <span className="fw-bold" style={{ fontSize: '0.65rem', color: color, marginBottom: '2px' }}>{itemPct}%</span>
+                                <div className="w-100 rounded-top shadow-sm" style={{ height: `${h}%`, backgroundColor: color, maxWidth: '28px' }}></div>
+                                <span className="fw-bold text-truncate mt-1" style={{ fontSize: '0.62rem', maxWidth: '38px', color: '#334155' }} title={label}>
+                                  {label.replace('Educación ', '').replace('Grado', 'G').replace('Año', 'A')}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 5. BARRAS COMPARATIVAS */}
+                    {tipoGrafico === 'barras' && (
+                      <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                        <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                          <h6 className="fw-bold mb-0" style={{ color: '#0F172A' }}><i className="bi bi-bar-chart-steps text-primary me-2"></i>Barras de Avance: {tituloVista}</h6>
+                          <span className="badge bg-primary bg-opacity-10 text-primary border">{dataset.length} Registros</span>
+                        </div>
+                        <div className="row g-2.5">
+                          {dataset.map((it, idx) => {
+                            const label = it.grado || it.etapa || it.nombre || '';
+                            const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                            const itTot = it.total || stats.totalGeneral || 0;
+                            const itComp = it.completados || 0;
+                            const colorHex = itemPct >= 75 ? '#059669' : (itemPct >= 40 ? '#D97706' : '#DC2626');
+                            return (
+                              <div key={idx} className="col-12 col-md-6">
+                                <div className="p-2.5 rounded-3 bg-light border h-100">
+                                  <div className="d-flex justify-content-between align-items-center mb-1">
+                                    <span className="fw-bold small text-truncate" title={label} style={{ fontSize: '0.8rem', color: '#0F172A' }}>{label}</span>
+                                    <span className="badge fw-bold" style={{ fontSize: '0.72rem', backgroundColor: colorHex, color: '#ffffff' }}>{itemPct}%</span>
+                                  </div>
+                                  <div className="progress rounded-pill shadow-inner mb-1" style={{ height: '8px', backgroundColor: '#E2E8F0' }}>
+                                    <div className="progress-bar" style={{ width: `${itemPct}%`, backgroundColor: colorHex }}></div>
+                                  </div>
+                                  <div className="d-flex justify-content-between fw-bold" style={{ fontSize: '0.7rem', color: '#475569' }}>
+                                    <span style={{ color: '#059669' }}>🟢 {itComp} aprobados</span>
+                                    <span>Total: {itTot}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 6. RADAR */}
+                    {tipoGrafico === 'radar' && (
+                      <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                        <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                          <div>
+                            <h6 className="fw-bold mb-0" style={{ color: '#0F172A' }}><i className="bi bi-bullseye text-primary me-2"></i>Radar Multidimensional: {tituloVista}</h6>
+                            <small className="fw-bold" style={{ color: '#475569' }}>Balance de solicitudes y adjudicación en todas las dimensiones evaluadas.</small>
+                          </div>
+                          <span className="badge bg-primary bg-opacity-10 text-primary border">{stats.totalGeneral} Solicitudes</span>
+                        </div>
+
+                        <div className="row g-2.5">
+                          {dataset.map((it, idx) => {
+                            const label = it.grado || it.etapa || it.nombre || '';
+                            const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                            const itTot = it.total || stats.totalGeneral || 0;
+                            const itComp = it.completados || 0;
+                            const colorHex = itemPct >= 75 ? '#059669' : (itemPct >= 40 ? '#D97706' : '#DC2626');
+                            return (
+                              <div key={idx} className="col-12 col-md-6">
+                                <div className="p-2.5 rounded-3 bg-light border h-100">
+                                  <div className="d-flex align-items-center justify-content-between mb-1.5">
+                                    <div className="d-flex align-items-center gap-2">
+                                      <div className="p-1.5 rounded-circle bg-primary bg-opacity-10 text-primary">
+                                        <i className="bi bi-compass-fill" style={{ fontSize: '0.85rem' }}></i>
+                                      </div>
+                                      <div>
+                                        <span className="fw-bold d-block small" style={{ fontSize: '0.8rem', color: '#0F172A' }}>{label}</span>
+                                        <small className="fw-bold" style={{ fontSize: '0.7rem', color: '#475569' }}>{itComp} de {itTot} aprobados</small>
+                                      </div>
+                                    </div>
+                                    <span className="fw-bolder" style={{ fontSize: '0.92rem', color: '#4338CA' }}>{itemPct}%</span>
+                                  </div>
+                                  <div className="progress rounded-pill shadow-inner" style={{ height: '7px', backgroundColor: '#E2E8F0' }}>
+                                    <div className="progress-bar" style={{ width: `${itemPct}%`, backgroundColor: colorHex }}></div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 7. TACÓMETROS */}
+                    {tipoGrafico === 'tacometro' && (
+                      <div className="card border-0 shadow-sm rounded-4 p-3 p-md-4 bg-white animate__animated animate__fadeIn">
+                        <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                          <h6 className="fw-bold mb-0" style={{ color: '#0F172A' }}><i className="bi bi-speedometer2 text-primary me-2"></i>Tacómetros de Meta: {tituloVista}</h6>
+                          <span className="badge bg-primary bg-opacity-10 text-primary border">180° Gauges</span>
+                        </div>
+                        <div className="row g-2.5">
+                          {dataset.map((it, idx) => {
+                            const label = it.grado || it.etapa || it.nombre || '';
+                            const itemPct = it.pctCompletado ?? it.pct ?? 0;
+                            const itemColor = itemPct >= 75 ? '#059669' : (itemPct >= 40 ? '#D97706' : '#DC2626');
+                            const needleAngle = -90 + (itemPct / 100) * 180;
+                            const itTot = it.total || stats.totalGeneral || 0;
+                            const itComp = it.completados || 0;
+                            return (
+                              <div key={idx} className="col-6 col-md-4 col-lg-3">
+                                <div className="p-2.5 rounded-3 bg-light border text-center h-100">
+                                  <div className="fw-bold small text-truncate mb-1" title={label} style={{ fontSize: '0.78rem', color: '#0F172A' }}>{label}</div>
+                                  <div className="position-relative d-flex justify-content-center align-items-center my-1" style={{ height: '70px' }}>
+                                    <svg width="120" height="70" viewBox="0 0 140 85">
+                                      <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke="#e2e8f0" strokeWidth="12" strokeLinecap="round" />
+                                      <path d="M 15 75 A 55 55 0 0 1 125 75" fill="none" stroke={itemColor} strokeWidth="12" strokeLinecap="round" strokeDasharray="172.78" strokeDashoffset={172.78 * (1 - itemPct / 100)} />
+                                      <g transform={`translate(70, 75) rotate(${needleAngle})`}>
+                                        <line x1="0" y1="0" x2="0" y2="-40" stroke="#1e40af" strokeWidth="3" strokeLinecap="round" />
+                                        <circle cx="0" cy="0" r="4.5" fill="#1e40af" />
+                                      </g>
+                                    </svg>
+                                  </div>
+                                  <div className="fw-bolder" style={{ color: itemColor, fontSize: '0.92rem' }}>{itemPct}%</div>
+                                  <span className="badge bg-white border fw-bold" style={{ fontSize: '0.7rem', color: '#334155' }}>{itComp}/{itTot}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 8. TABLA DETALLADA CON ALTO CONTRASTE */}
+                    {tipoGrafico === 'tabla' && (
+                      <div className="bg-white rounded-4 shadow-sm border overflow-hidden animate__animated animate__fadeIn mb-2">
+                        <div className="p-2.5 bg-light border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                          <span className="fw-bold small" style={{ color: '#0F172A' }}>
+                            <i className="bi bi-table me-2 text-primary"></i>
+                            Matriz Tabular Consolidada: {tituloVista}
+                          </span>
+                          <span className="badge bg-dark bg-opacity-10 text-dark border px-2.5 py-1 fw-bold" style={{ fontSize: '0.72rem' }}>{nombreInstitucion}</span>
+                        </div>
+                        <div className="table-responsive">
+                          <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
+                            <thead style={{ backgroundColor: '#EDE9FE', color: '#4C1D95' }} className="small">
+                              <tr>
+                                <th className="ps-3 fw-bolder" style={{ color: '#4C1D95' }}>{tituloVista}</th>
+                                <th className="text-center fw-bolder" style={{ color: '#4C1D95' }}>Total</th>
+                                <th className="text-center fw-bolder" style={{ color: '#065F46' }}>Aprobadas / Listas</th>
+                                <th className="text-center fw-bolder" style={{ color: '#92400E' }}>En Trámite</th>
+                                <th className="text-center fw-bolder" style={{ color: '#334155' }}>Rechazadas / Borrador</th>
+                                <th style={{ width: '180px', color: '#4C1D95' }} className="fw-bolder">Progreso</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {dataset.map((it: any, idx: number) => {
+                                const label = it.grado || it.etapa || it.nombre || `Ítem ${idx + 1}`;
+                                const tot = it.total || 0;
+                                const comp = it.completados || 0;
+                                const proc = it.enProceso || (tot - comp);
+                                const sin = it.sinIniciar || 0;
+                                const p = it.pctCompletado ?? it.pct ?? (tot > 0 ? Math.round((comp / tot) * 100) : 0);
+
+                                return (
+                                  <tr key={idx}>
+                                    <td className="ps-3 fw-bold" style={{ color: '#0F172A' }}>{label}</td>
+                                    <td className="text-center fw-bolder" style={{ color: '#0F172A' }}>{tot}</td>
+                                    <td className="text-center">
+                                      <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#059669', color: '#FFFFFF' }}>
+                                        {comp}
+                                      </span>
+                                    </td>
+                                    <td className="text-center">
+                                      <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#D97706', color: '#FFFFFF' }}>
+                                        {proc}
+                                      </span>
+                                    </td>
+                                    <td className="text-center">
+                                      <span className="badge rounded-pill fw-bold px-2.5 py-1" style={{ backgroundColor: '#475569', color: '#FFFFFF' }}>
+                                        {sin}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <div className="d-flex align-items-center gap-1.5">
+                                        <div className="progress flex-grow-1 rounded-pill" style={{ height: '7px', backgroundColor: '#E2E8F0' }}>
+                                          <div className="progress-bar" role="progressbar" style={{ width: `${p}%`, backgroundColor: '#059669' }}></div>
+                                        </div>
+                                        <span className="small fw-bolder" style={{ minWidth: '35px', fontSize: '0.76rem', color: '#059669' }}>{p}%</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              <tr className="fw-bold border-top border-2" style={{ fontSize: '0.88rem', backgroundColor: '#EDE9FE', color: '#3B0764' }}>
+                                <td className="ps-3" style={{ color: '#3B0764' }}>TOTAL GENERAL CONSOLIDADO</td>
+                                <td className="text-center" style={{ color: '#3B0764' }}>{stats.totalGeneral}</td>
+                                <td className="text-center" style={{ color: '#047857' }}>{stats.completadosGeneral}</td>
+                                <td className="text-center" style={{ color: '#B45309' }}>{stats.enProcesoGeneral}</td>
+                                <td className="text-center" style={{ color: '#334155' }}>{stats.sinIniciarGeneral}</td>
+                                <td>
+                                  <div className="d-flex align-items-center gap-1.5">
+                                    <div className="progress flex-grow-1 rounded-pill" style={{ height: '9px', backgroundColor: '#DDD6FE' }}>
+                                      <div className="progress-bar" role="progressbar" style={{ width: `${stats.pctGeneral}%`, backgroundColor: '#7C3AED' }}></div>
+                                    </div>
+                                    <span className="small fw-bolder" style={{ minWidth: '35px', fontSize: '0.8rem', color: '#5B21B6' }}>{stats.pctGeneral}%</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PIE DEL MODAL CON ACCIONES DE EXPORTACIÓN (MOBILE RESPONSIVE) */}
+                  <div className="modal-footer bg-white border-top px-3 px-md-4 py-2.5 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2.5 mt-2 rounded-bottom-4">
+                    <div className="d-flex align-items-center justify-content-center w-100 w-sm-auto">
+                      <img src="/assets/img/logoMPPE.png" style={{ height: '26px', width: 'auto' }} alt="MPPE" className="opacity-75" />
+                    </div>
+
+                    <div className="d-flex align-items-center justify-content-center justify-content-sm-end gap-1.5 flex-wrap w-100 w-sm-auto">
+                      <button
+                        type="button"
+                        className="btn btn-outline-success btn-sm rounded-pill px-2.5 px-sm-3 py-1.5 fw-bold d-flex align-items-center gap-1 shadow-xs flex-grow-1 flex-sm-grow-0 justify-content-center"
+                        onClick={exportarEstadisticasExcel}
+                        title="Exportar archivo Excel estructurado"
+                      >
+                        <i className="bi bi-file-earmark-excel-fill text-success"></i>
+                        <span>Excel</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm rounded-pill px-2.5 px-sm-3 py-1.5 fw-bold d-flex align-items-center gap-1 shadow-xs flex-grow-1 flex-sm-grow-0 justify-content-center"
+                        onClick={imprimirReporteEstadistico}
+                        title="Imprimir reporte en hoja carta"
+                      >
+                        <i className="bi bi-printer-fill"></i>
+                        <span>Imprimir</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-outline-success btn-sm rounded-pill px-2.5 px-sm-3 py-1.5 fw-bold d-flex align-items-center gap-1 shadow-xs flex-grow-1 flex-sm-grow-0 justify-content-center"
+                        onClick={() => enviarWhatsAppImagen(stats, nombreInstitucion, tipoGrafico, criterioAgrupacion)}
+                        title="Copiar imagen PNG del reporte para WhatsApp"
+                      >
+                        <i className="bi bi-whatsapp"></i>
+                        <span>WhatsApp</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1 shadow-xs flex-grow-1 flex-sm-grow-0 justify-content-center"
+                        onClick={descargarReportePDF}
+                        disabled={generandoPDF}
+                        style={{ backgroundColor: '#7C3AED', borderColor: '#7C3AED' }}
+                        title="Descargar documento PDF oficial con membrete institucional"
+                      >
+                        {generandoPDF ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>PDF...</span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-file-earmark-pdf-fill"></i>
+                            <span>Descargar PDF</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-light border btn-sm rounded-pill px-3 py-1.5 fw-bold text-muted flex-grow-1 flex-sm-grow-0 justify-content-center"
+                        onClick={() => setModalEstadisticas(false)}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
+
+      {/* ── MODAL HABILITAR ACCESO DE REPRESENTANTE Y ESTUDIANTE EN SIGAE ───────── */}
+      {modalHabilitarAccesoAbierto && solicitudHabilitar && createPortal(
+        <div
+          className="modal fade show d-flex align-items-center justify-content-center"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '850px', maxHeight: '94vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden bg-white">
+              {/* Header */}
+              <div className="modal-header py-3 px-4 text-white d-flex align-items-center justify-content-between" style={{ backgroundColor: '#4F46E5' }}>
+                <div className="d-flex align-items-center gap-2.5">
+                  <span className="p-2 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center shadow-xs">
+                    <i className="bi bi-person-check-fill fs-5"></i>
+                  </span>
+                  <div>
+                    <h5 className="modal-title fw-bold mb-0" style={{ fontSize: '1.1rem' }}>
+                      Habilitar Acceso SIGAE al Representante
+                    </h5>
+                    <small className="opacity-75 extra-small">
+                      Alta y vinculación oficial de usuarios para primer ingreso al sistema
+                    </small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setModalHabilitarAccesoAbierto(false)}
+                  disabled={procesandoHabilitacion}
+                ></button>
+              </div>
+
+              {/* Body */}
+              <div className="modal-body p-3 p-md-4" style={{ fontSize: '13.5px' }}>
+                {/* Banner Reactivo de Verificación de Cédula */}
+                <div className="mb-3">
+                  {verificandoCedulaRep ? (
+                    <div className="alert alert-light border d-flex align-items-center gap-2 p-2.5 rounded-3 mb-0">
+                      <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                      <span className="small text-muted">Consultando estado del usuario en la base de datos...</span>
+                    </div>
+                  ) : repExistenteInfo?.existe ? (
+                    <div className="alert alert-success border-0 shadow-xs p-3 rounded-3 mb-0 d-flex align-items-start gap-2.5" style={{ backgroundColor: '#F0FDF4', borderLeft: '4px solid #16A34A' }}>
+                      <i className="bi bi-check-circle-fill text-success fs-5 flex-shrink-0 mt-0.5"></i>
+                      <div>
+                        <strong className="d-block text-success">Usuario Existente Registrado en SIGAE</strong>
+                        <span className="small text-dark d-block mt-0.5">
+                          La cédula <b>{cleanCedula(formHabilitar.representante_cedula)}</b> ya pertenece al usuario <b>{repExistenteInfo.nombre_completo || 'Representante'}</b> con rol <span className="badge bg-success-subtle text-success border border-success-subtle">{repExistenteInfo.rol}</span>.
+                        </span>
+                        <small className="text-muted extra-small d-block mt-1">
+                          <i className="bi bi-shield-check text-success me-1"></i>
+                          <b>Seguridad garantizada:</b> No se modificará su contraseña, preguntas de seguridad ni datos personales registrados previamente. Al confirmar, <b>únicamente se le vinculará el estudiante</b>.
+                        </small>
+                      </div>
+                    </div>
+                  ) : repExistenteInfo && !repExistenteInfo.existe ? (
+                    <div className="alert alert-primary border-0 shadow-xs p-3 rounded-3 mb-0 d-flex align-items-start gap-2.5" style={{ backgroundColor: '#EEF2FF', borderLeft: '4px solid #6366F1' }}>
+                      <i className="bi bi-person-plus-fill text-primary fs-5 flex-shrink-0 mt-0.5"></i>
+                      <div>
+                        <strong className="d-block text-primary">Nuevo Usuario para Primer Ingreso en SIGAE</strong>
+                        <span className="small text-dark d-block mt-0.5">
+                          No existe cuenta previa registrada para la cédula <b>{cleanCedula(formHabilitar.representante_cedula)}</b>. Se creará su usuario oficial con rol <b>representante</b>.
+                        </span>
+                        <small className="text-muted extra-small d-block mt-1">
+                          <i className="bi bi-key-fill text-primary me-1"></i>
+                          <b>Sin clave previa:</b> Se registrará con <code>clave: null</code> y <code>primer_ingreso: true</code>. El representante creará su propia contraseña confidencial y preguntas de seguridad al ingresar por primera vez con su cédula.
+                        </small>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Formulario Editable en 2 Columnas */}
+                <div className="row g-3">
+                  {/* Columna 1: Representante Legal */}
+                  <div className="col-12 col-md-6">
+                    <div className="p-3 bg-light rounded-3 border h-100">
+                      <h6 className="fw-bold text-dark border-bottom pb-2 mb-2.5 d-flex align-items-center gap-1.5" style={{ fontSize: '13px' }}>
+                        <i className="bi bi-person-badge text-primary"></i>
+                        <span>Datos del Representante Legal</span>
+                      </h6>
+
+                      <div className="mb-2">
+                        <label className="form-label extra-small fw-bold text-secondary mb-1">
+                          Cédula de Identidad *
+                        </label>
+                        <div className="input-group input-group-sm">
+                          <span className="input-group-text bg-white text-muted">V / E</span>
+                          <input
+                            type="text"
+                            className="form-control fw-bold font-monospace"
+                            placeholder="Ej: 12345678"
+                            value={formHabilitar.representante_cedula}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setFormHabilitar(prev => ({ ...prev, representante_cedula: val }));
+                              verificarCedulaRepEnVivo(val);
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="row g-2 mb-2">
+                        <div className="col-6">
+                          <label className="form-label extra-small fw-bold text-secondary mb-1">
+                            Nombres *
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            value={formHabilitar.representante_nombres}
+                            onChange={e => setFormHabilitar(prev => ({ ...prev, representante_nombres: e.target.value }))}
+                          />
+                        </div>
+                        <div className="col-6">
+                          <label className="form-label extra-small fw-bold text-secondary mb-1">
+                            Apellidos *
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            value={formHabilitar.representante_apellidos}
+                            onChange={e => setFormHabilitar(prev => ({ ...prev, representante_apellidos: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-2">
+                        <label className="form-label extra-small fw-bold text-secondary mb-1">
+                          Teléfono de Contacto (WhatsApp)
+                        </label>
+                        <div className="input-group input-group-sm">
+                          <span className="input-group-text bg-white text-success">
+                            <i className="bi bi-whatsapp"></i>
+                          </span>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Ej: 04141234567"
+                            value={formHabilitar.representante_telefono}
+                            onChange={e => setFormHabilitar(prev => ({ ...prev, representante_telefono: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-0">
+                        <label className="form-label extra-small fw-bold text-secondary mb-1">
+                          Correo Electrónico
+                        </label>
+                        <input
+                          type="email"
+                          className="form-control form-control-sm"
+                          placeholder="representante@email.com"
+                          value={formHabilitar.representante_email}
+                          onChange={e => setFormHabilitar(prev => ({ ...prev, representante_email: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Columna 2: Aspirante / Estudiante */}
+                  <div className="col-12 col-md-6">
+                    <div className="p-3 bg-light rounded-3 border h-100">
+                      <h6 className="fw-bold text-dark border-bottom pb-2 mb-2.5 d-flex align-items-center gap-1.5" style={{ fontSize: '13px' }}>
+                        <i className="bi bi-mortarboard text-info"></i>
+                        <span>Datos del Aspirante a Vincular</span>
+                      </h6>
+
+                      <div className="row g-2 mb-2">
+                        <div className="col-6">
+                          <label className="form-label extra-small fw-bold text-secondary mb-1">
+                            Nombres *
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm fw-bold"
+                            value={formHabilitar.estudiante_nombres}
+                            onChange={e => setFormHabilitar(prev => ({ ...prev, estudiante_nombres: e.target.value }))}
+                          />
+                        </div>
+                        <div className="col-6">
+                          <label className="form-label extra-small fw-bold text-secondary mb-1">
+                            Apellidos *
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm fw-bold"
+                            value={formHabilitar.estudiante_apellidos}
+                            onChange={e => setFormHabilitar(prev => ({ ...prev, estudiante_apellidos: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-2">
+                        <label className="form-label extra-small fw-bold text-secondary mb-1">
+                          Cédula / Identificador Escolar
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm font-monospace"
+                          placeholder={`Por defecto: T-${solicitudHabilitar.codigo_unico}`}
+                          value={formHabilitar.estudiante_cedula}
+                          onChange={e => setFormHabilitar(prev => ({ ...prev, estudiante_cedula: e.target.value }))}
+                        />
+                        <small className="text-muted extra-small">
+                          Si no posee cédula de identidad, se registrará con código temporal.
+                        </small>
+                      </div>
+
+                      <div className="row g-2 mb-0">
+                        <div className="col-7">
+                          <label className="form-label extra-small fw-bold text-secondary mb-1">
+                            Grado Asignado *
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            value={formHabilitar.grado_solicitado}
+                            onChange={e => setFormHabilitar(prev => ({ ...prev, grado_solicitado: e.target.value }))}
+                          />
+                        </div>
+                        <div className="col-5">
+                          <label className="form-label extra-small fw-bold text-secondary mb-1">
+                            Escuela *
+                          </label>
+                          <select
+                            className="form-select form-select-sm"
+                            value={formHabilitar.codigo_escuela}
+                            onChange={e => setFormHabilitar(prev => ({ ...prev, codigo_escuela: e.target.value }))}
+                          >
+                            <option value="sb">Santa Bárbara</option>
+                            <option value="lb">Libertador B.</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nota de Políticas de Documentación y Constancia Bloqueada */}
+                <div className="alert alert-warning border-0 shadow-xs p-3 rounded-3 mt-3 mb-0 d-flex align-items-start gap-2.5" style={{ backgroundColor: '#FFFBEB', borderLeft: '4px solid #F59E0B' }}>
+                  <i className="bi bi-lock-fill text-warning fs-5 flex-shrink-0 mt-0.5"></i>
+                  <div className="small">
+                    <strong className="text-dark d-block">Política de Descarga de Documentos y Bloqueo de Constancia:</strong>
+                    <span className="text-secondary d-block mt-0.5">
+                      Al completar esta habilitación, el representante podrá ingresar a SIGAE para descargar su <b>Carta de Aceptación Oficial</b>, la <b>Hoja de Resumen de Admisión</b> y las <b>Normas Internas</b>.
+                    </span>
+                    <span className="text-dark fw-bold d-block mt-1">
+                      🔒 La Constancia Oficial de Inscripción permanecerá bloqueada con candado institucional en el portal del representante hasta que la escuela confirme la formalización física en la sede.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer bg-light py-2.5 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm rounded-pill px-3"
+                  onClick={() => setModalHabilitarAccesoAbierto(false)}
+                  disabled={procesandoHabilitacion}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-1.5 text-white"
+                  style={{ backgroundColor: '#4F46E5', borderColor: '#4338CA' }}
+                  onClick={ejecutarHabilitacionAcceso}
+                  disabled={procesandoHabilitacion}
+                >
+                  {procesandoHabilitacion ? (
+                    <><span className="spinner-border spinner-border-sm" role="status"></span> Guardando...</>
+                  ) : (
+                    <><i className="bi bi-person-check-fill"></i> Confirmar y Habilitar Acceso en SIGAE</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── MODAL DIFUSIÓN MASIVA WHATSAPP PARA CUPOS APROBADOS ───────────────── */}
+      {modalDifusionAbierto && (() => {
+        // Filtrar aspirantes con cupo Aprobado o Formalizado
+        const aspirantesAprobados = solicitudes.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado');
+        const aspirantesFiltradosDifusion = aspirantesAprobados.filter(s => {
+          if (filtroEscuelaDifusion !== 'todas' && s.codigo_escuela !== filtroEscuelaDifusion) return false;
+          if (filtroGradoDifusion !== 'todos' && s.grado_solicitado !== filtroGradoDifusion) return false;
+          const parsed = parsearObservaciones(s.observaciones);
+          if (filtroEstadoEnvioDifusion === 'pendientes' && parsed.whatsapp_notificado) return false;
+          if (filtroEstadoEnvioDifusion === 'enviados' && !parsed.whatsapp_notificado) return false;
+          return true;
+        });
+
+        const totalAprobados = aspirantesAprobados.length;
+        const totalConTel = aspirantesAprobados.filter(s => {
+          const t = cleanCedula(s.representante_telefono || s.representante_telefono2);
+          return t && t.length >= 7;
+        }).length;
+        const totalNotificados = aspirantesAprobados.filter(s => parsearObservaciones(s.observaciones).whatsapp_notificado).length;
+        const totalPendientes = totalAprobados - totalNotificados;
+
+        const aspActual = aspirantesFiltradosDifusion[aspiranteActivoDifusionIdx] || aspirantesFiltradosDifusion[0];
+
+        return createPortal(
+          <div
+            className="modal fade show d-flex align-items-center justify-content-center"
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 99999,
+              overflowY: 'auto',
+              padding: '12px'
+            }}
+          >
+            <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '1100px', maxHeight: '94vh' }}>
+              <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden bg-white">
+                {/* Header */}
+                <div className="modal-header py-3 px-4 text-white d-flex align-items-center justify-content-between" style={{ backgroundColor: '#10B981' }}>
+                  <div className="d-flex align-items-center gap-2.5">
+                    <span className="p-2 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center shadow-xs">
+                      <i className="bi bi-whatsapp fs-5"></i>
+                    </span>
+                    <div>
+                      <h5 className="modal-title fw-bold mb-0" style={{ fontSize: '1.1rem' }}>
+                        Difusión Masiva por WhatsApp • Orientaciones de Inscripción
+                      </h5>
+                      <small className="opacity-90 extra-small">
+                        Notificación estructurada paso a paso para aspirantes con cupo aprobado
+                      </small>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-close btn-close-white"
+                    onClick={() => setModalDifusionAbierto(false)}
+                  ></button>
+                </div>
+
+                {/* Body */}
+                <div className="modal-body p-3 p-md-4" style={{ fontSize: '13.5px' }}>
+                  {/* Banner de Acceso al Despachador Anti-Spam Avanzado */}
+                  <div className="alert alert-success border-0 shadow-xs rounded-3 p-3 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2" style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="p-2 bg-success text-white rounded-circle d-flex align-items-center justify-content-center shadow-xs" style={{ width: '36px', height: '36px' }}>
+                        <i className="bi bi-shield-lock-fill fs-5"></i>
+                      </div>
+                      <div>
+                        <div className="fw-bold text-dark" style={{ fontSize: '13.5px' }}>
+                          ¿Quieres evitar bloqueos o reportes de spam por Meta/WhatsApp?
+                        </div>
+                        <small className="text-muted" style={{ fontSize: '12px' }}>
+                          Usa el nuevo módulo <strong>Orientaciones Nuevos Ingresos</strong> con rotación Spintax, retardo humano programable y lotes seguros.
+                        </small>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-bold shadow-xs d-flex align-items-center gap-1.5"
+                      onClick={() => {
+                        setModalDifusionAbierto(false);
+                        navigate(`/categoria/Diseños/Orientaciones%20Nuevos%20Ingresos?escuela=${filtroEscuela === 'todas' ? 'sb' : filtroEscuela}`);
+                      }}
+                    >
+                      <i className="bi bi-box-arrow-up-right"></i>
+                      <span>Abrir Despachador Anti-Spam</span>
+                    </button>
+                  </div>
+
+                  {/* KPIs de Difusión */}
+                  <div className="row g-2 mb-3">
+                    <div className="col-6 col-md-3">
+                      <div className="p-2.5 rounded-3 border bg-light text-center">
+                        <small className="text-muted extra-small fw-bold text-uppercase d-block">Total Aprobados</small>
+                        <strong className="fs-5 text-dark">{totalAprobados}</strong>
+                      </div>
+                    </div>
+                    <div className="col-6 col-md-3">
+                      <div className="p-2.5 rounded-3 border bg-light text-center">
+                        <small className="text-muted extra-small fw-bold text-uppercase d-block">Con Teléfono</small>
+                        <strong className="fs-5 text-primary">{totalConTel}</strong>
+                      </div>
+                    </div>
+                    <div className="col-6 col-md-3">
+                      <div className="p-2.5 rounded-3 border text-center" style={{ backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }}>
+                        <small className="extra-small fw-bold text-uppercase d-block text-success">Notificados WA</small>
+                        <strong className="fs-5 text-success">{totalNotificados}</strong>
+                      </div>
+                    </div>
+                    <div className="col-6 col-md-3">
+                      <div className="p-2.5 rounded-3 border text-center" style={{ backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}>
+                        <small className="extra-small fw-bold text-uppercase d-block text-warning">Pendientes</small>
+                        <strong className="fs-5 text-warning">{totalPendientes}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Barra de Filtros */}
+                  <div className="p-2.5 bg-light border rounded-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="extra-small fw-bold text-secondary">Escuela:</span>
+                        <select
+                          className="form-select form-select-sm"
+                          style={{ width: '160px' }}
+                          value={filtroEscuelaDifusion}
+                          onChange={e => {
+                            setFiltroEscuelaDifusion(e.target.value);
+                            setAspiranteActivoDifusionIdx(0);
+                          }}
+                        >
+                          <option value="todas">Todas</option>
+                          <option value="sb">Santa Bárbara</option>
+                          <option value="lb">Libertador B.</option>
+                        </select>
+                      </div>
+
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="extra-small fw-bold text-secondary">Grado:</span>
+                        <select
+                          className="form-select form-select-sm"
+                          style={{ width: '160px' }}
+                          value={filtroGradoDifusion}
+                          onChange={e => {
+                            setFiltroGradoDifusion(e.target.value);
+                            setAspiranteActivoDifusionIdx(0);
+                          }}
+                        >
+                          <option value="todos">Todos los Grados</option>
+                          {opcionesGradoEnriquecidos.map(g => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="extra-small fw-bold text-secondary">Estado Envío:</span>
+                        <select
+                          className="form-select form-select-sm"
+                          style={{ width: '170px' }}
+                          value={filtroEstadoEnvioDifusion}
+                          onChange={e => {
+                            setFiltroEstadoEnvioDifusion(e.target.value as any);
+                            setAspiranteActivoDifusionIdx(0);
+                          }}
+                        >
+                          <option value="todos">Todos ({aspirantesAprobados.length})</option>
+                          <option value="pendientes">Pendientes ({totalPendientes})</option>
+                          <option value="enviados">Ya Enviados ({totalNotificados})</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <span className="badge bg-white text-dark border px-2.5 py-1.5 fw-bold">
+                      {aspirantesFiltradosDifusion.length} destinatarios
+                    </span>
+                  </div>
+
+                  {/* Asistente Secuencial de Envío Rápido */}
+                  {aspActual && (
+                    <div className="card border-0 shadow-xs rounded-3 mb-3 text-white overflow-hidden" style={{ background: 'linear-gradient(135deg, #065F46 0%, #047857 100%)' }}>
+                      <div className="card-body p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                          <span className="badge bg-white text-success rounded-pill px-2 py-0.5 extra-small fw-bold mb-1">
+                            Aspirante {aspiranteActivoDifusionIdx + 1} de {aspirantesFiltradosDifusion.length}
+                          </span>
+                          <h6 className="fw-bold mb-0 text-white fs-6">
+                            {nombreCompleto(aspActual.estudiante_nombres, aspActual.estudiante_apellidos)}
+                          </h6>
+                          <small className="opacity-90 extra-small d-block">
+                            Grado: <b>{aspActual.grado_solicitado}</b> • Plantel: <b>{aspActual.codigo_escuela?.toUpperCase() === 'SB' ? 'Santa Bárbara' : 'Libertador B.'}</b> • Rep: <b>{nombreCompleto(aspActual.representante_nombres, aspActual.representante_apellidos)}</b> ({aspActual.representante_telefono || 'Sin teléfono'})
+                          </small>
+                        </div>
+
+                        <div className="d-flex align-items-center gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-light btn-sm fw-bold px-3 py-1.5 shadow-sm d-flex align-items-center gap-1.5 text-success"
+                            onClick={() => {
+                              enviarWhatsAppIndividualDifusion(aspActual);
+                              if (aspiranteActivoDifusionIdx < aspirantesFiltradosDifusion.length - 1) {
+                                setAspiranteActivoDifusionIdx(prev => prev + 1);
+                              }
+                            }}
+                          >
+                            <i className="bi bi-whatsapp fs-6"></i>
+                            <span>Enviar WA y Avanzar ⏩</span>
+                          </button>
+
+                          <div className="btn-group btn-group-sm">
+                            <button
+                              type="button"
+                              className="btn btn-outline-light"
+                              disabled={aspiranteActivoDifusionIdx === 0}
+                              onClick={() => setAspiranteActivoDifusionIdx(prev => Math.max(0, prev - 1))}
+                            >
+                              <i className="bi bi-chevron-left"></i>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-light"
+                              disabled={aspiranteActivoDifusionIdx >= aspirantesFiltradosDifusion.length - 1}
+                              onClick={() => setAspiranteActivoDifusionIdx(prev => Math.min(aspirantesFiltradosDifusion.length - 1, prev + 1))}
+                            >
+                              <i className="bi bi-chevron-right"></i>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tabla de Destinatarios */}
+                  <div className="card border rounded-3 overflow-hidden">
+                    <div className="card-header bg-light py-2 px-3 border-bottom d-flex align-items-center justify-content-between">
+                      <span className="fw-bold small text-dark d-flex align-items-center gap-1.5">
+                        <i className="bi bi-people-fill text-primary"></i>
+                        <span>Lista de Destinatarios de Difusión ({aspirantesFiltradosDifusion.length})</span>
+                      </span>
+                      <small className="text-muted extra-small">
+                        Haz clic en Enviar para abrir WhatsApp con el mensaje preformateado
+                      </small>
+                    </div>
+
+                    <div className="table-responsive" style={{ maxHeight: '340px' }}>
+                      <table className="table table-hover align-middle mb-0" style={{ fontSize: '12.5px' }}>
+                        <thead className="table-light extra-small text-uppercase">
+                          <tr>
+                            <th className="ps-3">#</th>
+                            <th>Aspirante / Grado</th>
+                            <th>Plantel</th>
+                            <th>Representante / Cédula</th>
+                            <th>Teléfono WhatsApp</th>
+                            <th className="text-center">Estado Envío</th>
+                            <th className="text-end pe-3">Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {aspirantesFiltradosDifusion.map((s, idx) => {
+                            const parsed = parsearObservaciones(s.observaciones);
+                            const tel = s.representante_telefono || s.representante_telefono2 || '';
+                            const telClean = cleanCedula(tel);
+                            const tieneTelValido = Boolean(telClean && telClean.length >= 7);
+
+                            return (
+                              <tr key={s.id || s.codigo_unico} className={aspiranteActivoDifusionIdx === idx ? 'table-primary bg-opacity-10' : ''}>
+                                <td className="ps-3 fw-bold text-muted extra-small">{idx + 1}</td>
+                                <td>
+                                  <strong className="d-block text-dark">{nombreCompleto(s.estudiante_nombres, s.estudiante_apellidos)}</strong>
+                                  <small className="text-muted extra-small">{s.grado_solicitado}</small>
+                                </td>
+                                <td>
+                                  <span className={`badge ${s.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white extra-small`}>
+                                    {s.codigo_escuela?.toUpperCase()}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="text-dark">{nombreCompleto(s.representante_nombres, s.representante_apellidos)}</div>
+                                  <small className="text-muted extra-small">C.I. {cleanCedula(s.representante_cedula)}</small>
+                                </td>
+                                <td>
+                                  {tieneTelValido ? (
+                                    <span className="font-monospace text-dark fw-bold">
+                                      <i className="bi bi-telephone text-success me-1"></i>{tel}
+                                    </span>
+                                  ) : (
+                                    <span className="badge bg-danger-subtle text-danger extra-small">
+                                      Sin teléfono válido
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="text-center">
+                                  {parsed.whatsapp_notificado ? (
+                                    <span className="badge extra-small rounded-pill py-1 px-2 fw-bold" style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}>
+                                      <i className="bi bi-check-circle-fill me-1"></i> Enviado
+                                    </span>
+                                  ) : (
+                                    <span className="badge extra-small rounded-pill py-1 px-2 fw-semibold" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #CBD5E1' }}>
+                                      <i className="bi bi-clock-history me-1"></i> Pendiente
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="text-end pe-3">
+                                  <div className="btn-group btn-group-sm">
+                                    <button
+                                      type="button"
+                                      className={`btn btn-sm ${parsed.whatsapp_notificado ? 'btn-success text-white' : 'btn-outline-success'} fw-bold px-2.5 d-inline-flex align-items-center gap-1`}
+                                      disabled={!tieneTelValido}
+                                      onClick={() => {
+                                        setAspiranteActivoDifusionIdx(idx);
+                                        enviarWhatsAppIndividualDifusion(s);
+                                      }}
+                                      title="Enviar mensaje oficial por WhatsApp"
+                                    >
+                                      <i className="bi bi-whatsapp"></i>
+                                      <span className="d-none d-sm-inline">Enviar</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-secondary btn-sm"
+                                      onClick={() => marcarEstadoWhatsAppDifusion(s.id, !parsed.whatsapp_notificado)}
+                                      title={parsed.whatsapp_notificado ? 'Marcar como pendiente' : 'Marcar como enviado'}
+                                    >
+                                      <i className={`bi bi-${parsed.whatsapp_notificado ? 'arrow-counterclockwise' : 'check2'}`}></i>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="modal-footer bg-light py-2.5 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <small className="text-muted">
+                    <i className="bi bi-shield-check text-success me-1"></i>
+                    El mensaje orienta a los representantes a ingresar con su cédula para definir clave y descargar la Carta de Aceptación, Hoja de Resumen y Normas Internas.
+                  </small>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm rounded-pill px-4 fw-bold"
+                    onClick={() => setModalDifusionAbierto(false)}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
+
+      {/* ── MODAL DE HABILITACIÓN MASIVA DE ACCESO SIGAE ─────────────────────────── */}
+      {modalHabilitarMasivoAbierto && (() => {
+        // Filtrar aspirantes aprobados o formalizados
+        const aprobados = solicitudes.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado');
+        const filtradosMasivo = aprobados.filter(s => {
+          if (filtroEscuelaHabilitarMasivo !== 'todas' && s.codigo_escuela !== filtroEscuelaHabilitarMasivo) return false;
+          if (filtroGradoHabilitarMasivo !== 'todos' && s.grado_solicitado !== filtroGradoHabilitarMasivo) return false;
+          const acc = verificarAccesoHabilitado(s, estudiantesMatriculaBD);
+          if (filtroEstadoAccesoMasivo === 'pendientes' && acc.habilitado) return false;
+          if (filtroEstadoAccesoMasivo === 'habilitados' && !acc.habilitado) return false;
+          return true;
+        });
+
+        const totalAprob = aprobados.length;
+        const totalYaHabilitados = aprobados.filter(s => verificarAccesoHabilitado(s, estudiantesMatriculaBD).habilitado).length;
+        const totalPendientesAcc = totalAprob - totalYaHabilitados;
+
+        const todosSeleccionados = filtradosMasivo.length > 0 && filtradosMasivo.every(s => seleccionadosHabilitarMasivo.has(s.id));
+
+        const porcentajeAvance = progresoHabilitacionMasiva && progresoHabilitacionMasiva.total > 0
+          ? Math.round((progresoHabilitacionMasiva.actual / progresoHabilitacionMasiva.total) * 100)
+          : 0;
+
+        const estaEnProgreso = procesandoHabilitacionMasiva || (progresoHabilitacionMasiva !== null);
+
+        return createPortal(
+          <div
+            className="modal fade show d-flex align-items-center justify-content-center"
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 1060,
+              overflowY: 'auto',
+              padding: '12px'
+            }}
+          >
+            <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down my-auto mx-auto w-100" style={{ maxWidth: '1100px', maxHeight: '94vh' }}>
+              <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden bg-white">
+                {/* Header */}
+                <div className="modal-header py-3 px-4 text-white d-flex align-items-center justify-content-between" style={{ backgroundColor: '#4F46E5' }}>
+                  <div className="d-flex align-items-center gap-2.5">
+                    <span className="p-2 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center shadow-xs">
+                      <i className="bi bi-people-fill fs-5"></i>
+                    </span>
+                    <div>
+                      <h5 className="modal-title fw-bold mb-0" style={{ fontSize: '1.1rem' }}>
+                        Habilitación Masiva de Acceso SIGAE
+                      </h5>
+                      <small className="opacity-90 extra-small">
+                        {estaEnProgreso 
+                          ? 'Ejecución en lote con verificación reactiva y vinculación de matrícula' 
+                          : 'Selecciona múltiples aspirantes para dar de alta a sus representantes y vincular a los estudiantes'}
+                      </small>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-close btn-close-white"
+                    onClick={() => {
+                      if (!procesandoHabilitacionMasiva) {
+                        setModalHabilitarMasivoAbierto(false);
+                        setProgresoHabilitacionMasiva(null);
+                      }
+                    }}
+                    disabled={procesandoHabilitacionMasiva}
+                  ></button>
+                </div>
+
+                {/* Body */}
+                <div className="modal-body p-3 p-md-4" style={{ fontSize: '13.5px' }}>
+                  {/* SI ESTÁ PROCESANDO O COMPLETADO: MOSTRAR PANEL CENTRAL DE PORCENTAJE DE AVANCE */}
+                  {estaEnProgreso && progresoHabilitacionMasiva ? (
+                    <div className="py-4 px-3 px-md-5 text-center animate__animated animate__fadeIn">
+                      {/* Icono de Estado */}
+                      <div className="mb-3">
+                        {progresoHabilitacionMasiva.completado ? (
+                          <div className="d-inline-flex p-3 rounded-circle shadow-sm" style={{ backgroundColor: '#DCFCE7' }}>
+                            <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '3rem' }}></i>
+                          </div>
+                        ) : (
+                          <div className="d-inline-flex p-3 rounded-circle shadow-sm" style={{ backgroundColor: '#EEF2FF' }}>
+                            <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem', borderWidth: '4px' }} role="status"></div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Porcentaje Numérico Destacado */}
+                      <div className="mb-2">
+                        <span 
+                          className="fw-bolder" 
+                          style={{ 
+                            fontSize: '3.5rem', 
+                            lineHeight: '1',
+                            color: progresoHabilitacionMasiva.completado ? '#10B981' : '#4F46E5',
+                            letterSpacing: '-1.5px'
+                          }}
+                        >
+                          {porcentajeAvance}%
+                        </span>
+                        <span className="text-muted fs-6 d-block mt-1 fw-bold text-uppercase">
+                          {progresoHabilitacionMasiva.completado ? '¡Completado al 100%!' : 'Porcentaje de Avance'}
+                        </span>
+                      </div>
+
+                      {/* Barra de Porcentajes de Avance */}
+                      <div className="my-3 mx-auto" style={{ maxWidth: '650px' }}>
+                        <div className="progress rounded-pill shadow-inner" style={{ height: '26px', backgroundColor: '#E2E8F0', padding: '3px' }}>
+                          <div
+                            className="progress-bar progress-bar-striped progress-bar-animated rounded-pill fw-bold text-white d-flex align-items-center justify-content-center shadow-sm"
+                            role="progressbar"
+                            style={{
+                              width: `${porcentajeAvance}%`,
+                              backgroundColor: progresoHabilitacionMasiva.completado ? '#10B981' : '#4F46E5',
+                              fontSize: '12px',
+                              transition: 'width 0.25s ease'
+                            }}
+                          >
+                            {porcentajeAvance > 8 ? `${porcentajeAvance}%` : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Información del Aspirante en Proceso */}
+                      <div className="p-3 bg-light border rounded-4 mb-4 mx-auto text-start shadow-2xs" style={{ maxWidth: '650px' }}>
+                        <div className="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                          <small className="text-muted fw-bold text-uppercase extra-small">
+                            {progresoHabilitacionMasiva.completado ? 'Resumen Final' : 'Aspirante en Proceso'}
+                          </small>
+                          <span className="badge bg-primary rounded-pill px-2.5 py-1 extra-small fw-bold">
+                            {progresoHabilitacionMasiva.actual} de {progresoHabilitacionMasiva.total} Estudiantes
+                          </span>
+                        </div>
+                        <h6 className="fw-bold text-dark mb-1 d-flex align-items-center gap-1.5">
+                          <i className="bi bi-person-badge text-primary"></i>
+                          <span>{progresoHabilitacionMasiva.nombreEstudiante}</span>
+                        </h6>
+                        <small className="text-muted d-block">
+                          {progresoHabilitacionMasiva.completado
+                            ? 'Todos los aspirantes fueron validados y sincronizados en la base de datos de SIGAE.'
+                            : 'Verificando cédula en usuarios, aplicando rol representante sin clave previa y vinculando matrícula...'}
+                        </small>
+                      </div>
+
+                      {/* Métricas en Vivo */}
+                      <div className="row g-2 justify-content-center mx-auto mb-4" style={{ maxWidth: '650px' }}>
+                        <div className="col-6 col-sm-4">
+                          <div className="p-2.5 rounded-3 border text-center" style={{ backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }}>
+                            <small className="extra-small fw-bold text-uppercase d-block" style={{ color: '#7E22CE' }}>Nuevos Usuarios</small>
+                            <strong className="fs-5" style={{ color: '#6B21A8' }}>{progresoHabilitacionMasiva.creadosNuevos}</strong>
+                          </div>
+                        </div>
+                        <div className="col-6 col-sm-4">
+                          <div className="p-2.5 rounded-3 border text-center" style={{ backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }}>
+                            <small className="extra-small fw-bold text-uppercase d-block text-primary">Existentes Vinculados</small>
+                            <strong className="fs-5 text-primary">{progresoHabilitacionMasiva.vinculadosExistentes}</strong>
+                          </div>
+                        </div>
+                        <div className="col-12 col-sm-4">
+                          <div className="p-2.5 rounded-3 border text-center" style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }}>
+                            <small className="extra-small fw-bold text-uppercase d-block" style={{ color: '#92400E' }}>Constancias Bloqueadas</small>
+                            <strong className="fs-5" style={{ color: '#B45309' }}>{progresoHabilitacionMasiva.actual}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Botón de Finalización cuando está al 100% */}
+                      {progresoHabilitacionMasiva.completado && (
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            className="btn btn-success btn-lg rounded-pill px-5 py-2.5 fw-bold shadow-sm d-inline-flex align-items-center gap-2 hover-efecto"
+                            onClick={() => {
+                              setModalHabilitarMasivoAbierto(false);
+                              setProgresoHabilitacionMasiva(null);
+                              setSeleccionadosHabilitarMasivo(new Set());
+                            }}
+                          >
+                            <i className="bi bi-check-lg fs-5"></i>
+                            <span>Aceptar y Ver Resultados en la Tabla</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* SI NO ESTÁ PROCESANDO: MOSTRAR FILTROS Y TABLA DE SELECCIÓN */
+                    <>
+                      {/* Resumen métrico */}
+                      <div className="row g-2 mb-3">
+                        <div className="col-6 col-md-4">
+                          <div className="p-2.5 rounded-3 border bg-light text-center">
+                            <small className="text-muted extra-small fw-bold text-uppercase d-block">Aprobados Totales</small>
+                            <strong className="fs-5 text-dark">{totalAprob}</strong>
+                          </div>
+                        </div>
+                        <div className="col-6 col-md-4">
+                          <div className="p-2.5 rounded-3 border text-center" style={{ backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }}>
+                            <small className="extra-small fw-bold text-uppercase d-block text-success">Acceso Ya Habilitado</small>
+                            <strong className="fs-5 text-success">{totalYaHabilitados}</strong>
+                          </div>
+                        </div>
+                        <div className="col-12 col-md-4">
+                          <div className="p-2.5 rounded-3 border text-center" style={{ backgroundColor: '#EEF2FF', borderColor: '#C7D2FE' }}>
+                            <small className="extra-small fw-bold text-uppercase d-block text-primary">Pendientes por Habilitar</small>
+                            <strong className="fs-5 text-primary">{totalPendientesAcc}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Barra de Filtros y Acciones Rápidas */}
+                      <div className="p-2.5 bg-light border rounded-3 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1">
+                          <div className="d-flex align-items-center gap-1">
+                            <span className="extra-small fw-bold text-secondary">Escuela:</span>
+                            <select
+                              className="form-select form-select-sm"
+                              style={{ width: '150px' }}
+                              value={filtroEscuelaHabilitarMasivo}
+                              onChange={e => setFiltroEscuelaHabilitarMasivo(e.target.value)}
+                            >
+                              <option value="todas">Todas</option>
+                              <option value="sb">Santa Bárbara</option>
+                              <option value="lb">Libertador B.</option>
+                            </select>
+                          </div>
+
+                          <div className="d-flex align-items-center gap-1">
+                            <span className="extra-small fw-bold text-secondary">Grado:</span>
+                            <select
+                              className="form-select form-select-sm"
+                              style={{ width: '160px' }}
+                              value={filtroGradoHabilitarMasivo}
+                              onChange={e => setFiltroGradoHabilitarMasivo(e.target.value)}
+                            >
+                              <option value="todos">Todos los Grados</option>
+                              {opcionesGradoEnriquecidos.map(g => (
+                                <option key={g} value={g}>{g}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="d-flex align-items-center gap-1">
+                            <span className="extra-small fw-bold text-secondary">Mostrar:</span>
+                            <select
+                              className="form-select form-select-sm"
+                              style={{ width: '170px' }}
+                              value={filtroEstadoAccesoMasivo}
+                              onChange={e => setFiltroEstadoAccesoMasivo(e.target.value as any)}
+                            >
+                              <option value="pendientes">Solo Pendientes ({totalPendientesAcc})</option>
+                              <option value="habilitados">Ya Habilitados ({totalYaHabilitados})</option>
+                              <option value="todos">Todos ({totalAprob})</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-white bg-white border fw-bold rounded-pill px-2.5 py-1 extra-small"
+                            onClick={() => {
+                              const ids = new Set<string | number>(seleccionadosHabilitarMasivo);
+                              filtradosMasivo.forEach(s => { if (s.id) ids.add(s.id); });
+                              setSeleccionadosHabilitarMasivo(ids);
+                            }}
+                          >
+                            <i className="bi bi-check2-all me-1 text-primary"></i>
+                            Seleccionar Filtrados ({filtradosMasivo.length})
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-white bg-white border fw-bold rounded-pill px-2.5 py-1 extra-small text-danger"
+                            onClick={() => setSeleccionadosHabilitarMasivo(new Set())}
+                          >
+                            Desmarcar
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Tabla de Aspirantes con Checkboxes */}
+                      <div className="card border rounded-3 overflow-hidden">
+                        <div className="card-header bg-light py-2 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-1">
+                          <span className="fw-bold small text-dark d-flex align-items-center gap-1.5">
+                            <i className="bi bi-list-check text-primary"></i>
+                            <span>Aspirantes Disponibles ({filtradosMasivo.length})</span>
+                          </span>
+                          <span className="badge bg-primary text-white rounded-pill px-2.5 py-1 extra-small fw-bold">
+                            {seleccionadosHabilitarMasivo.size} seleccionado(s)
+                          </span>
+                        </div>
+
+                        <div className="table-responsive" style={{ maxHeight: '360px' }}>
+                          <table className="table table-hover align-middle mb-0" style={{ fontSize: '12.5px' }}>
+                            <thead className="table-light extra-small text-uppercase">
+                              <tr>
+                                <th className="ps-3" style={{ width: '40px' }}>
+                                  <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    checked={todosSeleccionados}
+                                    onChange={() => {
+                                      if (todosSeleccionados) {
+                                        setSeleccionadosHabilitarMasivo(new Set());
+                                      } else {
+                                        const next = new Set<string | number>(seleccionadosHabilitarMasivo);
+                                        filtradosMasivo.forEach(s => { if (s.id) next.add(s.id); });
+                                        setSeleccionadosHabilitarMasivo(next);
+                                      }
+                                    }}
+                                  />
+                                </th>
+                                <th>Aspirante / Cédula</th>
+                                <th>Grado</th>
+                                <th>Escuela</th>
+                                <th>Representante / Cédula</th>
+                                <th>Teléfono</th>
+                                <th className="text-center pe-3">Estado Acceso</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filtradosMasivo.map(s => {
+                                const acc = verificarAccesoHabilitado(s, estudiantesMatriculaBD);
+                                const seleccionado = seleccionadosHabilitarMasivo.has(s.id);
+
+                                return (
+                                  <tr
+                                    key={s.id || s.codigo_unico}
+                                    className={seleccionado ? 'table-primary bg-opacity-10' : ''}
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => toggleSeleccionHabilitarMasivo(s.id)}
+                                  >
+                                    <td className="ps-3" onClick={e => e.stopPropagation()}>
+                                      <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        checked={seleccionado}
+                                        onChange={() => toggleSeleccionHabilitarMasivo(s.id)}
+                                      />
+                                    </td>
+                                    <td>
+                                      <strong className="d-block text-dark">{nombreCompleto(s.estudiante_nombres, s.estudiante_apellidos)}</strong>
+                                      <small className="text-muted extra-small">C.I: {s.estudiante_cedula || `T-${s.codigo_unico}`}</small>
+                                    </td>
+                                    <td>
+                                      <span className="badge bg-light text-dark border extra-small">{s.grado_solicitado}</span>
+                                    </td>
+                                    <td>
+                                      <span className={`badge ${s.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white extra-small`}>
+                                        {s.codigo_escuela?.toUpperCase()}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <div className="text-dark">{nombreCompleto(s.representante_nombres, s.representante_apellidos)}</div>
+                                      <small className="text-muted extra-small">C.I. {cleanCedula(s.representante_cedula)}</small>
+                                    </td>
+                                    <td>
+                                      <small className="font-monospace text-dark">{s.representante_telefono || 'N/A'}</small>
+                                    </td>
+                                    <td className="text-center pe-3">
+                                      {acc.habilitado ? (
+                                        <span
+                                          className="badge extra-small rounded-pill py-1 px-2.5 fw-bold d-inline-flex align-items-center gap-1"
+                                          style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}
+                                        >
+                                          <i className="bi bi-check-circle-fill"></i> Habilitado
+                                        </span>
+                                      ) : (
+                                        <span
+                                          className="badge extra-small rounded-pill py-1 px-2.5 fw-semibold d-inline-flex align-items-center gap-1"
+                                          style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}
+                                        >
+                                          <i className="bi bi-clock-history"></i> Pendiente
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Footer */}
+                {!estaEnProgreso && (
+                  <div className="modal-footer bg-light py-2.5 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="small text-muted fw-bold">
+                        {seleccionadosHabilitarMasivo.size} aspirante(s) seleccionado(s).
+                      </span>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm rounded-pill px-3"
+                        onClick={() => {
+                          setModalHabilitarMasivoAbierto(false);
+                          setProgresoHabilitacionMasiva(null);
+                        }}
+                      >
+                        Cerrar
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-1.5 text-white"
+                        style={{ backgroundColor: '#4F46E5', borderColor: '#4338CA' }}
+                        onClick={ejecutarHabilitacionMasiva}
+                        disabled={seleccionadosHabilitarMasivo.size === 0}
+                      >
+                        <i className="bi bi-person-check-fill"></i>
+                        <span>Habilitar Accesos ({seleccionadosHabilitarMasivo.size})</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 };

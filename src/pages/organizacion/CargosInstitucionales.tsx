@@ -1,8 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { 
+  ChamiloBreadcrumb, 
+  ChamiloHelpCallout, 
+  IconoCargosInstitucionales,
+  IconoCrearCargo,
+  IconoListaCargos,
+  IconoAsignarPersonal
+} from '../../components/chamilo';
+import { esCargoInterinstitucional } from './CadenaSupervisoria';
 
 interface Cargo {
   id_cargo: string;
@@ -51,6 +60,27 @@ export const CargosInstitucionales = () => {
   const [busquedaPersonal, setBusquedaPersonal] = useState('');
   const [loadingUsuarios, setLoadingUsuarios] = useState(true);
   const [filtroEscuela, setFiltroEscuela] = useState<string>(localStorage.getItem('sigae_escuela_codigo') || 'todos');
+
+  // Escuela Activa y Dual Switcher
+  const [escuelaCodigo, setEscuelaCodigo] = useState<string>(() => localStorage.getItem('sigae_escuela_codigo') || 'sb');
+  const [filtroTipoTab, setFiltroTipoTab] = useState<string>('todos');
+
+  const cambiarEscuelaActiva = (nuevaEscuela: 'sb' | 'lb') => {
+    if (nuevaEscuela === escuelaCodigo) return;
+    setEscuelaCodigo(nuevaEscuela);
+    localStorage.setItem('sigae_escuela_codigo', nuevaEscuela);
+    localStorage.setItem('sigae_escuela_activa', nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    try {
+      const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+      u.id_escuela = nuevaEscuela;
+      u.nombre_escuela = nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+      localStorage.setItem('usuario_sigae', JSON.stringify(u));
+    } catch {
+      // ignorar
+    }
+    setFiltroEscuela(nuevaEscuela);
+    window.location.reload();
+  };
 
   // Pagination for personal
   const [paginaUsuarios, setPaginaUsuarios] = useState(1);
@@ -134,12 +164,12 @@ export const CargosInstitucionales = () => {
       const rolesExcluidos = ['Estudiante', 'Representante', 'Invitado', 'Visitante'];
       let validUsers = (data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
 
-      // Filtrar por permisos de asignación por escuela
+      // Filtrar por permisos de asignación por escuela (Líder y Apoyo son comunes a ambas instituciones)
       if (!isDualAccess) {
         if (canAsignarSB) {
-          validUsers = validUsers.filter((u: any) => u.id_escuela === 'sb');
+          validUsers = validUsers.filter((u: any) => u.id_escuela === 'sb' || (u.cargo && esCargoInterinstitucional(u.cargo)));
         } else if (canAsignarLB) {
-          validUsers = validUsers.filter((u: any) => u.id_escuela === 'lb');
+          validUsers = validUsers.filter((u: any) => u.id_escuela === 'lb' || (u.cargo && esCargoInterinstitucional(u.cargo)));
         } else {
           validUsers = [];
         }
@@ -173,7 +203,7 @@ export const CargosInstitucionales = () => {
       u =>
         (u.nombre_completo.toLowerCase().includes(search) ||
          u.cedula.toLowerCase().includes(search)) &&
-        (filtroEscuela === 'todos' || u.id_escuela === filtroEscuela)
+        (filtroEscuela === 'todos' || u.id_escuela === filtroEscuela || (u.cargo && esCargoInterinstitucional(u.cargo)))
     );
     setUsuariosFiltrados(filtrados);
     setPaginaUsuarios(1);
@@ -409,10 +439,15 @@ export const CargosInstitucionales = () => {
   };
 
   // Filtering lists of cargos
-  const filteredCargos = cargos.filter(c =>
-    c.nombre_cargo.toLowerCase().includes(busquedaCargo.toLowerCase()) &&
-    (filtroEscuela === 'todos' || c.id_escuela === filtroEscuela || !c.id_escuela)
-  );
+  const filteredCargos = cargos.filter(c => {
+    const matchBusqueda = c.nombre_cargo.toLowerCase().includes(busquedaCargo.toLowerCase()) || (c.descripcion || '').toLowerCase().includes(busquedaCargo.toLowerCase());
+    const matchEscuela = filtroEscuela === 'todos' || c.id_escuela === filtroEscuela || !c.id_escuela;
+    const matchTipo = filtroTipoTab === 'todos' || c.tipo_cargo === filtroTipoTab;
+    return matchBusqueda && matchEscuela && matchTipo;
+  });
+
+  const personalAsignado = usuarios.filter(u => u.cargo).length;
+  const porcentajeAsignados = usuarios.length > 0 ? Math.round((personalAsignado / usuarios.length) * 100) : 0;
 
   const startCargos = (paginaCargos - 1) * itemsPorPaginaCargos;
   const pageCargos = filteredCargos.slice(startCargos, startCargos + itemsPorPaginaCargos);
@@ -443,62 +478,225 @@ export const CargosInstitucionales = () => {
   }
 
   return (
-    <div className="modulo-animado container-fluid p-0">
-      {/* Banner */}
-      <div className="row mb-4 animate__animated animate__fadeInDown">
-        <div className="col-12">
-          <div 
-            className="banner-modulo p-4 p-md-5 text-white shadow-sm" 
-            style={{ background: 'linear-gradient(135deg, #0066FF 0%, #003399 100%)', borderRadius: '24px', position: 'relative', overflow: 'hidden' }}
-          >
-            <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.06)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
-            <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.04)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
-            <div className="row align-items-center position-relative z-1">
-              <div className="col-12 text-center text-md-start">
-                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                  <span className="badge bg-white mb-0 px-3 py-2 shadow-sm fw-bold" style={{ color: '#0066FF', letterSpacing: '1px', fontSize: '0.85rem' }}>
-                    <i className="bi bi-briefcase-fill me-1"></i> ORGANIZACIÓN INSTITUCIONAL
-                  </span>
-                  <button 
-                    onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')} 
-                    className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                  >
-                    <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                  </button>
+    <div className="modulo-animado container-fluid p-0 animate__animated animate__fadeIn">
+
+      {/* 1. MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Organización Escolar"
+        currentModule="Cargos Institucionales"
+      />
+
+      {/* 2. CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_cargos_institucionales"
+        title="Guía de Cargos y Responsabilidades Institucionales"
+        content="Defina el catálogo oficial de puestos de trabajo directivos, coordinaciones docentes, personal administrativo y obrero. Asigne responsabilidades específicas a los miembros de la nómina activa."
+        icon="bi-briefcase-fill"
+      />
+
+      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO (TECH-CARD) ── */}
+      <div 
+        className="tech-card mb-4 rounded-4 overflow-hidden shadow-sm"
+        style={{
+          borderTop: '6px solid #2563eb',
+          border: '2px solid #bfdbfe',
+          background: 'linear-gradient(135deg, #ffffff 0%, #eff6ff 45%, #dbeafe 100%)',
+          boxShadow: '0 10px 24px rgba(37, 99, 235, 0.12)'
+        }}
+      >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
+                {/* Icono Tech Personalizado */}
+                <div 
+                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
+                  style={{
+                    width: '95px',
+                    height: '95px',
+                    border: '2.5px solid #bfdbfe',
+                    boxShadow: '0 10px 24px rgba(37, 99, 235, 0.15)'
+                  }}
+                  title="Módulo de Cargos Institucionales"
+                >
+                  <IconoCargosInstitucionales size={60} color="#2563eb" />
                 </div>
-                <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.8rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                  <i className="bi bi-briefcase-fill me-3"></i>Cargos Institucionales
-                </h1>
-                <p className="mb-0 fw-bold fs-5" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Definición y asignación de responsabilidades al personal docente y administrativo.
-                </p>
+
+                {/* Selector Dual Interactivo de Escuelas */}
+                <div 
+                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
+                  style={{ borderColor: '#bfdbfe' }}
+                >
+                  {/* Switch SB */}
+                  <div 
+                    onClick={() => cambiarEscuelaActiva('sb')}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      escuelaCodigo === 'sb' 
+                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
+                    title="Activar U.E. Santa Bárbara"
+                  >
+                    <img 
+                      src="/assets/img/logo_sb.png" 
+                      alt="UE Santa Bárbara" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      SB {escuelaCodigo === 'sb' ? '●' : ''}
+                    </span>
+                  </div>
+
+                  {/* Switch LB */}
+                  <div 
+                    onClick={() => cambiarEscuelaActiva('lb')}
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                      escuelaCodigo === 'lb' 
+                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
+                        : 'bg-white border-transparent opacity-60 hover-efecto'
+                    }`}
+                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
+                    title="Activar U.E. Libertador Bolívar"
+                  >
+                    <img 
+                      src="/assets/img/logo_lb.png" 
+                      alt="UE Libertador Bolívar" 
+                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${escuelaCodigo === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
+                      LB {escuelaCodigo === 'lb' ? '●' : ''}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+                <span 
+                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
+                  style={{ backgroundColor: '#2563eb', fontSize: '0.78rem' }}
+                >
+                  <i className="bi bi-briefcase-fill"></i>Planta Docente & Cargos
+                </span>
+
+                <div 
+                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
+                  style={{ borderColor: '#bfdbfe' }}
+                >
+                  <span className="status-beacon-live" style={{ color: '#2563eb' }}></span>
+                  <span 
+                    className="extra-small fw-bold text-uppercase" 
+                    style={{ fontSize: '0.72rem', color: '#1d4ed8', letterSpacing: '0.5px' }}
+                  >
+                    Campus Conectado &bull; Cargos Activos
+                  </span>
+                </div>
+
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bfdbfe' }}>
+                  <i className="bi bi-briefcase-fill text-primary me-1"></i><b>{cargos.length}</b> Cargos Creados
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bfdbfe' }}>
+                  <i className="bi bi-people-fill text-success me-1"></i><b>{usuarios.length}</b> Personal Registrado
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bfdbfe' }}>
+                  <i className="bi bi-check-circle-fill text-info me-1"></i><b>{personalAsignado}</b> Asignados ({porcentajeAsignados}%)
+                </span>
+              </div>
+
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Cargos Institucionales
+              </h1>
+
+              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
+                Definición del catálogo de puestos de trabajo y asignación de responsabilidades al personal docente, administrativo y obrero.
+              </p>
+
+              {/* Barra de Cobertura Nominal de Cargos */}
+              <div className="mt-3" style={{ maxWidth: '440px' }}>
+                <div className="d-flex justify-content-between align-items-center small fw-bold text-muted mb-1">
+                  <span><i className="bi bi-person-check-fill text-primary me-1"></i>Cobertura Nominal de Personal</span>
+                  <span className="text-primary">{porcentajeAsignados}%</span>
+                </div>
+                <div className="progress rounded-pill shadow-xs" style={{ height: '7px', backgroundColor: '#e2e8f0' }}>
+                  <div 
+                    className="progress-bar rounded-pill" 
+                    role="progressbar" 
+                    style={{ 
+                      width: `${porcentajeAsignados}%`, 
+                      background: 'linear-gradient(90deg, #60a5fa 0%, #2563eb 100%)',
+                      transition: 'width 0.6s ease'
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')}
+                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
+                style={{ borderColor: '#bfdbfe', fontSize: '0.85rem' }}
+              >
+                <i className="bi bi-arrow-left" style={{ color: '#1d4ed8' }}></i>
+                <span>Volver a Organización</span>
+              </button>
+            </div>
+
           </div>
         </div>
-      </div>
 
-      {/* Selector de Pestañas */}
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="bg-white p-2 rounded-4 shadow-sm border d-inline-flex gap-2">
-            {pDefinirVer && (
-              <button 
-                onClick={() => setActiveTab('definir')} 
-                className={`btn rounded-pill px-4 fw-bold hover-efecto ${activeTab === 'definir' ? 'btn-primary' : 'btn-light text-muted'}`}
-              >
-                <i className="bi bi-sliders2-vertical me-2"></i> Definir Cargos
-              </button>
-            )}
-            {pAsignarVer && (
-              <button 
-                onClick={() => setActiveTab('asignar')} 
-                className={`btn rounded-pill px-4 fw-bold hover-efecto ${activeTab === 'asignar' ? 'btn-primary' : 'btn-light text-muted'}`}
-              >
-                <i className="bi bi-people-fill me-2"></i> Asignar Personal
-              </button>
-            )}
-          </div>
+        {/* Barra de Pestañas Chamilo */}
+        <div 
+          className="px-4 py-2.5 border-top d-flex justify-content-start align-items-center flex-wrap gap-2"
+          style={{ backgroundColor: 'rgba(239, 246, 255, 0.7)', borderColor: '#bfdbfe' }}
+        >
+          {pDefinirVer && (
+            <button 
+              onClick={() => setActiveTab('definir')} 
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+                activeTab === 'definir' 
+                  ? 'btn-primary text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'definir' ? '#2563eb' : '#ffffff',
+                borderColor: activeTab === 'definir' ? '#2563eb' : '#bfdbfe',
+                color: activeTab === 'definir' ? '#ffffff' : '#475569',
+                fontSize: '0.82rem'
+              }}
+            >
+              <IconoListaCargos size={18} color={activeTab === 'definir' ? '#ffffff' : '#2563eb'} />
+              <span>1. Definir Catálogo de Cargos</span>
+            </button>
+          )}
+          {pAsignarVer && (
+            <button 
+              onClick={() => setActiveTab('asignar')} 
+              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+                activeTab === 'asignar' 
+                  ? 'btn-primary text-white shadow-xs' 
+                  : 'btn-white bg-white text-muted border hover-efecto'
+              }`}
+              style={{
+                backgroundColor: activeTab === 'asignar' ? '#2563eb' : '#ffffff',
+                borderColor: activeTab === 'asignar' ? '#2563eb' : '#bfdbfe',
+                color: activeTab === 'asignar' ? '#ffffff' : '#475569',
+                fontSize: '0.82rem'
+              }}
+            >
+              <IconoAsignarPersonal size={18} color={activeTab === 'asignar' ? '#ffffff' : '#2563eb'} />
+              <span>2. Asignar Personal a Cargos</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -509,10 +707,22 @@ export const CargosInstitucionales = () => {
           <div className="col-lg-4">
             <div className="card border-0 shadow-sm rounded-4 h-100">
               <div className="card-header bg-white border-bottom p-4">
-                <h5 className="mb-0 fw-bold text-dark">
-                  <i className={`bi ${formId ? 'bi-pencil-square text-success' : 'bi-plus-circle-fill text-primary'} me-2`}></i>
-                  {formId ? 'Actualizar Cargo' : 'Registrar Nuevo Cargo'}
-                </h5>
+                <div className="d-flex align-items-center gap-3">
+                  <div 
+                    className="p-2 rounded-3 d-flex align-items-center justify-content-center shadow-xs" 
+                    style={{ backgroundColor: '#eff6ff', border: '1.5px solid #bfdbfe', width: '44px', height: '44px' }}
+                  >
+                    <IconoCrearCargo size={26} color="#2563eb" />
+                  </div>
+                  <div>
+                    <h5 className="mb-0 fw-bold text-dark">
+                      {formId ? 'Actualizar Cargo' : 'Registrar Nuevo Cargo'}
+                    </h5>
+                    <span className="text-muted extra-small" style={{ fontSize: '0.75rem' }}>
+                      {formId ? 'Modificar perfil y nivel jerárquico' : 'Creación de nuevo puesto en el catálogo'}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="card-body p-4">
                 {pDefinirCrear ? (
@@ -569,10 +779,11 @@ export const CargosInstitucionales = () => {
                     <div className="d-flex gap-2">
                       <button 
                         type="submit" 
-                        className={`btn w-100 rounded-pill fw-bold ${formId ? 'btn-success' : 'btn-primary'}`}
+                        className="btn w-100 rounded-pill fw-bold text-white shadow-xs hover-efecto"
+                        style={{ backgroundColor: formId ? '#16a34a' : '#2563eb', borderColor: formId ? '#16a34a' : '#2563eb' }}
                       >
                         <i className={`bi ${formId ? 'bi-save-fill' : 'bi-floppy-fill'} me-2`}></i>
-                        {formId ? 'Actualizar' : 'Guardar'}
+                        {formId ? 'Actualizar' : 'Guardar Cargo'}
                       </button>
                       {formId && (
                         <button 
@@ -599,18 +810,58 @@ export const CargosInstitucionales = () => {
           <div className="col-lg-8">
             <div className="card border-0 shadow-sm rounded-4 h-100">
               <div className="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <h5 className="mb-0 fw-bold text-dark">Listado de Cargos</h5>
-                <div className="position-relative" style={{ maxWidth: '280px', width: '100%' }}>
-                  <span className="position-absolute start-0 top-50 translate-middle-y ms-3 text-muted">
-                    <i className="bi bi-search"></i>
-                  </span>
-                  <input 
-                    type="text" 
-                    className="form-control form-control-sm rounded-pill ps-5 input-moderno" 
-                    placeholder="Buscar cargo..." 
-                    value={busquedaCargo}
-                    onChange={(e) => { setBusquedaCargo(e.target.value); setPaginaCargos(1); }}
-                  />
+                <div className="d-flex align-items-center gap-3">
+                  <div 
+                    className="p-2 rounded-3 d-flex align-items-center justify-content-center shadow-xs" 
+                    style={{ backgroundColor: '#eff6ff', border: '1.5px solid #bfdbfe', width: '44px', height: '44px' }}
+                  >
+                    <IconoListaCargos size={26} color="#2563eb" />
+                  </div>
+                  <div>
+                    <h5 className="mb-0 fw-bold text-dark">Listado de Cargos</h5>
+                    <span className="text-muted extra-small" style={{ fontSize: '0.75rem' }}>Puestos registrados en la institución</span>
+                  </div>
+                </div>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  {/* Píldoras de Clasificación */}
+                  <div className="btn-group btn-group-sm rounded-pill border bg-light p-0.5" role="group">
+                    {['todos', 'Directivo', 'Supervisorio', 'Docente/Administrativo', 'Obrero/Apoyo'].map(tipo => (
+                      <button
+                        key={tipo}
+                        type="button"
+                        onClick={() => { setFiltroTipoTab(tipo); setPaginaCargos(1); }}
+                        className={`btn btn-xs rounded-pill px-2.5 py-1 fw-bold transition-all ${
+                          filtroTipoTab === tipo ? 'btn-primary text-white shadow-xs' : 'btn-light text-muted'
+                        }`}
+                        style={{ fontSize: '0.72rem' }}
+                      >
+                        {tipo === 'todos' ? 'Todos' : tipo.split('/')[0]}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="position-relative" style={{ minWidth: '220px' }}>
+                    <span className="position-absolute start-0 top-50 translate-middle-y ms-3 text-muted">
+                      <i className="bi bi-search"></i>
+                    </span>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm rounded-pill ps-5 pe-4 input-moderno" 
+                      placeholder="Buscar cargo..." 
+                      value={busquedaCargo}
+                      onChange={(e) => { setBusquedaCargo(e.target.value); setPaginaCargos(1); }}
+                    />
+                    {busquedaCargo && (
+                      <button
+                        type="button"
+                        onClick={() => { setBusquedaCargo(''); setPaginaCargos(1); }}
+                        className="btn btn-link position-absolute end-0 top-50 translate-middle-y p-0 me-2 text-muted border-0"
+                        title="Limpiar búsqueda"
+                      >
+                        <i className="bi bi-x-circle-fill small"></i>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="card-body p-0">
@@ -723,38 +974,49 @@ export const CargosInstitucionales = () => {
             <div className="card border-0 shadow-sm rounded-4">
               <div className="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div className="d-flex align-items-center gap-3 flex-wrap">
-                  <h5 className="mb-0 fw-bold text-dark">Asignación de Cargos al Personal</h5>
+                  <div className="d-flex align-items-center gap-3">
+                    <div 
+                      className="p-2 rounded-3 d-flex align-items-center justify-content-center shadow-xs" 
+                      style={{ backgroundColor: '#eff6ff', border: '1.5px solid #bfdbfe', width: '44px', height: '44px' }}
+                    >
+                      <IconoAsignarPersonal size={26} color="#2563eb" />
+                    </div>
+                    <div>
+                      <h5 className="mb-0 fw-bold text-dark">Asignación de Cargos al Personal</h5>
+                      <span className="text-muted extra-small" style={{ fontSize: '0.75rem' }}>Vinculación nominal y responsabilidades de nómina</span>
+                    </div>
+                  </div>
                   
                   {/* Selector de escuela */}
-                  <div className="btn-group btn-group-sm shadow-sm border rounded-pill overflow-hidden" role="group">
+                  <div className="btn-group btn-group-sm shadow-xs border rounded-pill overflow-hidden bg-white" role="group">
                     {isDualAccess && (
                       <button 
                         type="button" 
                         onClick={() => setFiltroEscuela('todos')} 
-                        className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'todos' ? 'btn-primary' : 'btn-light text-muted'}`}
-                        style={{ border: 'none' }}
+                        className={`btn btn-sm px-3 fw-bold transition-all ${filtroEscuela === 'todos' ? 'text-white' : 'text-muted'}`}
+                        style={{ backgroundColor: filtroEscuela === 'todos' ? '#e11d48' : 'transparent', border: 'none' }}
                       >
-                        Todos
+                        🏢 Todas las Sedes
                       </button>
                     )}
                     {(canAsignarSB || isDualAccess) && (
                       <button 
                         type="button" 
                         onClick={() => setFiltroEscuela('sb')} 
-                        className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'sb' ? 'btn-primary' : 'btn-light text-muted'}`}
-                        style={{ border: 'none' }}
+                        className={`btn btn-sm px-3 fw-bold transition-all ${filtroEscuela === 'sb' ? 'text-white' : 'text-muted'}`}
+                        style={{ backgroundColor: filtroEscuela === 'sb' ? '#10b981' : 'transparent', border: 'none' }}
                       >
-                        UE Santa Bárbara
+                        🟢 UE Santa Bárbara
                       </button>
                     )}
                     {(canAsignarLB || isDualAccess) && (
                       <button 
                         type="button" 
                         onClick={() => setFiltroEscuela('lb')} 
-                        className={`btn btn-sm px-3 fw-bold ${filtroEscuela === 'lb' ? 'btn-primary' : 'btn-light text-muted'}`}
-                        style={{ border: 'none' }}
+                        className={`btn btn-sm px-3 fw-bold transition-all ${filtroEscuela === 'lb' ? 'text-white' : 'text-muted'}`}
+                        style={{ backgroundColor: filtroEscuela === 'lb' ? '#0284c7' : 'transparent', border: 'none' }}
                       >
-                        UE Libertador Bolívar
+                        🔵 UE Libertador Bolívar
                       </button>
                     )}
                   </div>
@@ -767,11 +1029,21 @@ export const CargosInstitucionales = () => {
                     </span>
                     <input 
                       type="text" 
-                      className="form-control rounded-pill ps-5 input-moderno" 
+                      className="form-control rounded-pill ps-5 pe-4 input-moderno" 
                       placeholder="Buscar personal (Nombre o C.I.)..." 
                       value={busquedaPersonal}
                       onChange={(e) => handleFiltrarPersonal(e.target.value)}
                     />
+                    {busquedaPersonal && (
+                      <button
+                        type="button"
+                        onClick={() => handleFiltrarPersonal('')}
+                        className="btn btn-link position-absolute end-0 top-50 translate-middle-y p-0 me-3 text-muted border-0"
+                        title="Limpiar búsqueda"
+                      >
+                        <i className="bi bi-x-circle-fill small"></i>
+                      </button>
+                    )}
                   </div>
                   {pAsignarMasivo && (
                     <button 

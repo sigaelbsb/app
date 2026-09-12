@@ -1,58 +1,37 @@
 /**
- * SIGAE - SERVICE WORKER (PWA)
- * Gestiona la instalación de la app y el caché básico.
+ * SIGAE - SERVICE WORKER (PWA & LIVE AUTO-UPDATE)
+ * Garantiza auto-actualizaciones instantáneas en línea y soporte offline.
  */
 
-const CACHE_NAME = 'sigae-cache-v9-20260708';
+const CACHE_NAME = 'sigae-live-v10';
 
 const urlsToCache = [
   '/',
   '/index.html',
-  '/assets/img/sigae.png?v=8',
-  '/assets/img/icono.png?v=8',
+  '/assets/img/sigae.png',
+  '/assets/img/icono.png',
   '/assets/img/logoMPPE.png'
 ];
 
 self.addEventListener('install', function(event) {
-  // Fuerza a que el nuevo service worker se active inmediatamente
+  // Activar inmediatamente el nuevo Service Worker sin esperar cierre de pestañas
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(function(cache) {
-        console.log('Caché abierto');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-self.addEventListener('fetch', function(event) {
-  if (event.request.url.includes('supabase.co')) {
-    return;
-  }
-
-  event.respondWith(
-    fetch(event.request)
-      .then(function(response) {
-        return response;
-      })
-      .catch(function() {
-        return caches.match(event.request).then(function(res) {
-          return res || new Response("Offline");
-        });
-      })
+    caches.open(CACHE_NAME).then(function(cache) {
+      return cache.addAll(urlsToCache);
+    })
   );
 });
 
 self.addEventListener('activate', function(event) {
-  var cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     Promise.all([
-      // Reclamar control de los clientes de inmediato
       self.clients.claim(),
+      // Eliminar cachés antiguos para no mantener código desactualizado
       caches.keys().then(function(cacheNames) {
         return Promise.all(
           cacheNames.map(function(cacheName) {
-            if (cacheWhitelist.indexOf(cacheName) === -1) {
+            if (cacheName !== CACHE_NAME) {
               return caches.delete(cacheName);
             }
           })
@@ -62,7 +41,54 @@ self.addEventListener('activate', function(event) {
   );
 });
 
+self.addEventListener('fetch', function(event) {
+  // No interceptar peticiones a la base de datos Supabase
+  if (event.request.url.includes('supabase.co')) {
+    return;
+  }
 
+  // Estrategia Network-First para navegación y documentos HTML
+  // Garantiza que siempre se descargue la última versión desplegada en Vercel
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then(function(response) {
+          if (response && response.status === 200) {
+            var responseClone = response.clone();
+            caches.open(CACHE_NAME).then(function(cache) {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(function() {
+          return caches.match(event.request).then(function(res) {
+            return res || caches.match('/index.html');
+          });
+        })
+    );
+    return;
+  }
+
+  // Para otros recursos (JS con hash, CSS, imágenes):
+  event.respondWith(
+    fetch(event.request)
+      .then(function(response) {
+        if (response && response.status === 200 && event.request.method === 'GET') {
+          var responseClone = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(function() {
+        return caches.match(event.request);
+      })
+  );
+});
+
+// GESTIÓN DE NOTIFICACIONES PUSH
 self.addEventListener('push', function(event) {
   if (event.data) {
     var data = event.data.json();
@@ -76,7 +102,6 @@ self.addEventListener('push', function(event) {
       }
     };
     
-    // Activar el punto rojo (App Badge) en el icono de la app
     if (navigator.setAppBadge) {
       navigator.setAppBadge(1).catch(console.error);
     }

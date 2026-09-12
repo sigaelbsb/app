@@ -10,6 +10,19 @@ import { auditar } from '../../lib/audit';
 import { toTitulo } from '../../lib/formatters';
 import { obtenerFirmaDirectorProtegida, obtenerDatosDirectorAsync, resolverEscuelaEstudiante } from '../../utils/firmasSeguras';
 import { mostrarModalCarnetEstudiantil, esCarnetActivo, toggleCarnetActivo, cargarAjustesCarnetBD } from '../../utils/generadorCarnet';
+import { esDocumentoActivo, obtenerConfiguracionDocumentos, cargarConfiguracionDocumentosBD } from '../../utils/gestorDocumentosActivos';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, ChamiloStepWizard, IconoActualizacionDatos } from '../../components/chamilo';
+import { 
+  descargarCartaAceptacionPDF, 
+  obtenerPlantillasCartaAceptacion, 
+  PLANTILLAS_ACEPTACION_DEFAULT, 
+  type DatosAspiranteCartaAceptacion 
+} from '../../utils/generadorCartaAceptacion';
+import { 
+  descargarNormasInternasPDF, 
+  obtenerPlantillaNormasInternas,
+  type DatosEstudianteNormasInternas 
+} from '../../utils/generadorNormasInternas';
 
 
 
@@ -327,6 +340,7 @@ export const ActualizacionDatos: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const [misRepresentados, setMisRepresentados] = useState<any[]>([]);
+  const [solicitudesAdmisionMap, setSolicitudesAdmisionMap] = useState<Record<string, any>>({});
 
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState<any | null>(null);
 
@@ -337,6 +351,7 @@ export const ActualizacionDatos: React.FC = () => {
   const [form, setForm] = useState<SolicitudForm>(defaultForm());
   const [savingStatus, setSavingStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [carnetActivoGlobal, setCarnetActivoGlobal] = useState<boolean>(esCarnetActivo());
+  const [, setConfigDocumentos] = useState(obtenerConfiguracionDocumentos());
 
   const handleToggleCarnetGlobal = async () => {
     const nuevo = await toggleCarnetActivo();
@@ -405,9 +420,21 @@ export const ActualizacionDatos: React.FC = () => {
   useEffect(() => {
     cargarCatalogos();
     cargarAjustesCarnetBD().then(() => setCarnetActivoGlobal(esCarnetActivo()));
+    cargarConfiguracionDocumentosBD().then(cfg => setConfigDocumentos(cfg));
+
+    const handleConfigChanged = () => {
+      setConfigDocumentos(obtenerConfiguracionDocumentos());
+      setCarnetActivoGlobal(esCarnetActivo());
+    };
+    window.addEventListener('sigae-documentos-config-changed', handleConfigChanged);
+
     if (user?.cedula) {
       cargarMisRepresentados(user.cedula);
     }
+
+    return () => {
+      window.removeEventListener('sigae-documentos-config-changed', handleConfigChanged);
+    };
   }, [user]);
 
   // Sincronizar objetos de Ruta y Parada cuando hay datos cargados en el formulario
@@ -508,17 +535,281 @@ export const ActualizacionDatos: React.FC = () => {
     });
   };
 
-  const manejarOpcionesConstancia = (datosEst: any, formDatos: SolicitudForm) => {
+  // ─── CONTROL DE ADMISIÓN Y ACCESO A CONSTANCIAS PARA NUEVOS INGRESOS ────────
+  const obtenerInfoAdmision = (est: any) => {
+    if (!est) {
+      return { esNuevoIngreso: false, solicitud: null, estadoAdmision: null, estaFormalizado: true, puedeDescargarConstancia: true };
+    }
+    const d = est.datos_actualizados || {};
+    const cedLim = (est.cedula_estudiante || d.estudiante_cedula || '').replace(/\D/g, '');
+    const nomNorm = `${(est.nombres_estudiante || d.estudiante_nombres || '').trim()} ${(est.apellidos_estudiante || d.estudiante_apellidos || '').trim()}`.toLowerCase();
+    
+    const sol = (est.id && solicitudesAdmisionMap[est.id]) ||
+                (est.id_solicitud && solicitudesAdmisionMap[`sol_${est.id_solicitud}`]) ||
+                (est.codigo_unico && solicitudesAdmisionMap[est.codigo_unico]) ||
+                (d.codigo_unico && solicitudesAdmisionMap[d.codigo_unico]) ||
+                (cedLim && solicitudesAdmisionMap[cedLim]) ||
+                (nomNorm && solicitudesAdmisionMap[nomNorm]) ||
+                null;
+
+    const esMarcaNuevoIngreso = est.origen_admision === 'nuevo_ingreso' || d.origen_admision === 'nuevo_ingreso';
+    const estaFormalizadoEnFisico = est.formalizado_en_fisico === true || d.formalizado_en_fisico === true || est.estado === 'Formalizado' || d.estado === 'Formalizado';
+
+    if (sol) {
+      const estadoSol = sol.estado || 'Aprobado';
+      const estaFormalizado = ['formalizado', 'formalizada', 'inscrito', 'inscrita'].includes(estadoSol.toLowerCase()) || estaFormalizadoEnFisico;
+      return {
+        esNuevoIngreso: true,
+        solicitud: sol,
+        estadoAdmision: estadoSol,
+        estaFormalizado,
+        // Nuevos Ingresos solo pueden descargar constancias oficiales una vez formalizada la inscripción física
+        puedeDescargarConstancia: estaFormalizado
+      };
+    }
+
+    if (esMarcaNuevoIngreso) {
+      return {
+        esNuevoIngreso: true,
+        solicitud: null,
+        estadoAdmision: estaFormalizadoEnFisico ? 'Formalizado' : 'Aprobado',
+        estaFormalizado: estaFormalizadoEnFisico,
+        puedeDescargarConstancia: estaFormalizadoEnFisico
+      };
+    }
+
+    // Estudiante regular ya matriculado
+    return {
+      esNuevoIngreso: false,
+      solicitud: null,
+      estadoAdmision: null,
+      estaFormalizado: true,
+      puedeDescargarConstancia: true
+    };
+  };
+
+  const handleDescargarCartaAceptacion = async (datosEst: any, formDatos: any) => {
+    try {
+      const escEst = resolverEscuelaEstudiante(datosEst, formDatos);
+      const plantillas = await obtenerPlantillasCartaAceptacion();
+      const plantilla = plantillas.find(p => p.id_escuela === escEst) || 
+                        (escEst === 'sb' ? PLANTILLAS_ACEPTACION_DEFAULT.sb : PLANTILLAS_ACEPTACION_DEFAULT.lb);
+
+      const cedRep = formDatos.representante_cedula || datosEst.cedula_representante || user?.cedula || '';
+      const nomRep = formDatos.representante_nombres || datosEst.nombres_representante || user?.nombre_completo || '';
+      const apeRep = formDatos.representante_apellidos || datosEst.apellidos_representante || '';
+      const nomEst = formDatos.estudiante_nombres || datosEst.nombres_estudiante || '';
+      const apeEst = formDatos.estudiante_apellidos || datosEst.apellidos_estudiante || '';
+      const cedEst = formDatos.estudiante_cedula || datosEst.cedula_estudiante || '';
+      const grado = formDatos.grado_solicitado || datosEst.grado_actual || '1er Grado';
+      const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `ADM-${escEst.toUpperCase()}-${cedRep.replace(/\D/g, '')}`;
+
+      const datosAspirante: DatosAspiranteCartaAceptacion = {
+        codigo_unico: codigoUnico,
+        codigo_escuela: escEst,
+        representante_nombres: nomRep,
+        representante_apellidos: apeRep,
+        representante_cedula: cedRep,
+        representante_telefono: formDatos.representante_telefono || datosEst.telefono || '',
+        representante_email: formDatos.representante_email || datosEst.email || user?.email || '',
+        representante_email_empresa: formDatos.pdvsa_email_empresa || '',
+        estudiante_nombres: nomEst,
+        estudiante_apellidos: apeEst,
+        estudiante_cedula: cedEst,
+        grado_solicitado: grado,
+        parentesco: formDatos.representante_parentesco || formDatos.parentesco || 'Representante Legal',
+        trabajador_nombre: formDatos.pdvsa_nombre_trabajador || '',
+        trabajador_cedula: formDatos.pdvsa_cedula_trabajador || '',
+        fecha_emision: new Date().toLocaleDateString('es-VE')
+      };
+
+      await descargarCartaAceptacionPDF(plantilla, datosAspirante);
+    } catch (err: any) {
+      console.error('Error al descargar Carta de Aceptación:', err);
+      if ((window as any).Swal) {
+        (window as any).Swal.fire('Error', 'No se pudo generar la Carta de Aceptación: ' + (err.message || ''), 'error');
+      }
+    }
+  };
+
+  const handleDescargarNormasInternas = async (datosEst: any, formDatos: any, modo: 'pdf' | 'whatsapp' | 'email' = 'pdf') => {
+    try {
+      const escEst = resolverEscuelaEstudiante(datosEst, formDatos);
+      const plantilla = obtenerPlantillaNormasInternas(escEst);
+
+      const cedRep = formDatos.representante_cedula || datosEst.cedula_representante || user?.cedula || '';
+      const nomRep = formDatos.representante_nombres || datosEst.nombres_representante || user?.nombre_completo || '';
+      const apeRep = formDatos.representante_apellidos || datosEst.apellidos_representante || '';
+      const nomEst = formDatos.estudiante_nombres || datosEst.nombres_estudiante || '';
+      const apeEst = formDatos.estudiante_apellidos || datosEst.apellidos_estudiante || '';
+      const cedEst = formDatos.estudiante_cedula || datosEst.cedula_estudiante || '';
+      const grado = formDatos.grado_solicitado || datosEst.grado_actual || '1er Grado';
+      const ano = new Date().getFullYear();
+      const cedRef = (cedEst || cedRep).toString().replace(/\D/g, '').slice(-8) || Math.floor(1000 + Math.random() * 9000).toString();
+      const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `NI-${escEst.toUpperCase()}-${cedRef}-${ano}`;
+
+      const datosNormas: DatosEstudianteNormasInternas = {
+        codigo_unico: codigoUnico,
+        codigo_escuela: escEst,
+        estudiante_nombres: nomEst,
+        estudiante_apellidos: apeEst,
+        estudiante_cedula: cedEst,
+        grado_solicitado: grado,
+        representante_nombres: nomRep,
+        representante_apellidos: apeRep,
+        representante_cedula: cedRep,
+        representante_telefono: formDatos.representante_telefono || datosEst.telefono || '',
+        parentesco: formDatos.representante_parentesco || formDatos.parentesco || 'Representante Legal',
+        fecha_emision: new Date().toLocaleDateString('es-VE')
+      };
+
+      if (modo === 'pdf') {
+        await descargarNormasInternasPDF(plantilla, datosNormas);
+      } else if (modo === 'email') {
+        await descargarNormasInternasPDF(plantilla, datosNormas);
+        const emailDestino = formDatos.representante_email || datosEst.email || user?.email || '';
+        const asunto = encodeURIComponent(`Normativa Interna - ${nomEst} ${apeEst}`);
+        const cuerpo = encodeURIComponent(`Estimad@ Representante,\n\nAdjunto remitimos la Normativa Interna Institucional de ${nomEst} ${apeEst} para el Año Escolar ${plantilla.periodo_escolar}.\n\nEl archivo PDF ha sido descargado en su equipo.\n\nCódigo de Verificación: ${codigoUnico}\n\nAtentamente,\n${escEst === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}\nSistema SIGAE.`);
+        window.location.href = `mailto:${emailDestino}?subject=${asunto}&body=${cuerpo}`;
+      } else {
+        await descargarNormasInternasPDF(plantilla, datosNormas);
+        if ((window as any).Swal) {
+          (window as any).Swal.fire({
+            title: '¡Normativa Interna Descargada!',
+            html: `<p>El documento ha sido generado y descargado en tu dispositivo.</p><p class="small text-muted">Puedes adjuntarlo y compartirlo a través de WhatsApp.</p>`,
+            icon: 'success',
+            confirmButtonColor: '#16a34a'
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('Error al descargar Normativa Interna:', err);
+      if ((window as any).Swal) {
+        (window as any).Swal.fire('Error', 'No se pudo generar la Normativa Interna: ' + (err.message || ''), 'error');
+      }
+    }
+  };
+
+  const manejarOpcionesNormasInternas = (datosEst: any, formDatos: any) => {
     const Swal = (window as any).Swal;
     if (!Swal) return;
 
     Swal.fire({
-      title: 'Constancia de Inscripción Oficial',
+      title: 'Normativa Interna Institucional',
       html: `
-        <p class="text-muted small mb-3">Se generará la constancia oficial firmada digitalmente y verificable públicamente vía código QR.</p>
+        <p class="text-muted small mb-3">Descargue o comparta el formato oficial de 2 páginas de la Normativa Interna (horarios, uniformes, transporte y deberes de corresponsabilidad).</p>
         <div class="d-flex flex-column gap-3">
-          <button id="btn-const-pdf" class="btn btn-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
-            <i class="bi bi-file-earmark-check-fill fs-5 me-2"></i> Descargar Constancia de Inscripción (PDF)
+          <button id="btn-normas-pdf" class="btn btn-warning text-dark w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3 shadow-sm">
+            <i class="bi bi-file-earmark-ruled-fill fs-5 me-2 text-dark"></i> Descargar Normativa Interna (PDF)
+          </button>
+          <button id="btn-normas-wa" class="btn btn-outline-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-whatsapp fs-5 me-2"></i> Enviar por WhatsApp
+          </button>
+          <button id="btn-normas-email" class="btn btn-outline-info text-dark w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
+            <i class="bi bi-envelope-fill fs-5 me-2"></i> Enviar por Correo Electrónico
+          </button>
+        </div>
+      `,
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: 'Cerrar',
+      didOpen: () => {
+        document.getElementById('btn-normas-pdf')?.addEventListener('click', () => {
+          Swal.close();
+          handleDescargarNormasInternas(datosEst, formDatos, 'pdf');
+        });
+        document.getElementById('btn-normas-wa')?.addEventListener('click', () => {
+          Swal.close();
+          handleDescargarNormasInternas(datosEst, formDatos, 'whatsapp');
+        });
+        document.getElementById('btn-normas-email')?.addEventListener('click', () => {
+          Swal.close();
+          handleDescargarNormasInternas(datosEst, formDatos, 'email');
+        });
+      }
+    });
+  };
+
+  const mostrarAvisoBloqueoNuevoIngreso = (datosEst: any, formDatos: any, tipoDoc: string = 'inscripcion') => {
+    const Swal = (window as any).Swal;
+    if (!Swal) return;
+
+    const escEst = resolverEscuelaEstudiante(datosEst, formDatos);
+    const escNombre = escEst === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+    const nombreEst = `${formDatos.estudiante_nombres || datosEst.nombres_estudiante || ''} ${formDatos.estudiante_apellidos || datosEst.apellidos_estudiante || ''}`.trim();
+    const docNombre = tipoDoc === 'estudio' ? 'Constancia de Estudio' : 'Constancia de Inscripción Oficial';
+
+    Swal.fire({
+      title: `<span style="font-size: 20px; font-weight: 800; color: #1e293b;"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Validación Escolar Requerida</span>`,
+      html: `
+        <div class="text-start p-2" style="font-size: 13.5px; color: #334155; line-height: 1.55;">
+          <div class="alert alert-warning border-0 rounded-3 mb-3 d-flex align-items-start py-2.5 px-3">
+            <i class="bi bi-exclamation-triangle-fill text-warning fs-4 me-2.5 flex-shrink-0 mt-0.5"></i>
+            <div>
+              <div class="fw-bold text-dark">Aspirante Nuevo Ingreso: ${nombreEst}</div>
+              <div class="small text-muted">Plantel asignado: <b>${escNombre}</b></div>
+            </div>
+          </div>
+
+          <p class="mb-2">
+            La <b>${docNombre}</b> se emite formalmente una vez que el Departamento de Control de Estudios valide la <b>Fase 3: Formalización y Consignación de Expediente Físico</b>.
+          </p>
+
+          <div class="bg-light p-3 rounded-3 mb-3 border">
+            <div class="fw-bold text-dark mb-2"><i class="bi bi-journal-check me-1 text-primary"></i> Pasos para formalizar la matrícula:</div>
+            <ol class="mb-0 ps-3 small text-secondary">
+              <li class="mb-1">Descargue e imprima su <b>Resumen de Ficha Integral (Carta)</b> (comprobante de la Fase 2).</li>
+              <li class="mb-1">Descargue e imprima su <b>Carta de Aceptación Oficial</b> con firmas y código QR.</li>
+              <li>Consigne en el plantel la carpeta marrón con los recaudos originales solicitados en las fechas fijadas.</li>
+            </ol>
+          </div>
+
+          <div class="p-2.5 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 text-success small d-flex align-items-center">
+            <i class="bi bi-unlock-fill me-2 fs-5 flex-shrink-0"></i>
+            <span>Una vez que Control de Estudios valide su expediente en el plantel, esta constancia se <b>habilitará automáticamente</b> en su portal.</span>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      showConfirmButton: true,
+      confirmButtonText: '<i class="bi bi-file-earmark-pdf-fill me-1"></i> Descargar Carta de Aceptación',
+      cancelButtonText: 'Entendido',
+      confirmButtonColor: '#1d4ed8',
+      cancelButtonColor: '#64748b'
+    }).then((result: any) => {
+      if (result.isConfirmed) {
+        handleDescargarCartaAceptacion(datosEst, formDatos);
+      }
+    });
+  };
+
+  const manejarOpcionesConstancia = (datosEst: any, formDatos: SolicitudForm, tipoDoc: 'inscripcion' | 'estudio' | 'conducta' = 'inscripcion') => {
+    const Swal = (window as any).Swal;
+    if (!Swal) return;
+
+    // Bloqueo condicional para Nuevo Ingreso pendiente de formalización escolar
+    if (!esAdmin && (tipoDoc === 'inscripcion' || tipoDoc === 'estudio')) {
+      const infoAdm = obtenerInfoAdmision(datosEst);
+      if (infoAdm.esNuevoIngreso && !infoAdm.puedeDescargarConstancia) {
+        mostrarAvisoBloqueoNuevoIngreso(datosEst, formDatos, tipoDoc);
+        return;
+      }
+    }
+
+    const nombreTipo = tipoDoc === 'estudio' 
+      ? 'Constancia de Estudio Regular' 
+      : (tipoDoc === 'conducta' ? 'Constancia de Buena Conducta' : 'Constancia de Inscripción Oficial');
+
+    const btnColorClass = tipoDoc === 'estudio' ? 'btn-primary' : (tipoDoc === 'conducta' ? 'btn-info text-dark' : 'btn-success');
+    const iconoDoc = tipoDoc === 'estudio' ? 'bi-mortarboard-fill' : (tipoDoc === 'conducta' ? 'bi-award-fill' : 'bi-file-earmark-check-fill');
+
+    Swal.fire({
+      title: nombreTipo,
+      html: `
+        <p class="text-muted small mb-3">Se generará el documento oficial firmado digitalmente y verificable con código QR.</p>
+        <div class="d-flex flex-column gap-3">
+          <button id="btn-const-pdf" class="btn ${btnColorClass} w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3 shadow-sm">
+            <i class="bi ${iconoDoc} fs-5 me-2"></i> Descargar ${nombreTipo} (PDF)
           </button>
           <button id="btn-const-wa" class="btn btn-outline-success w-100 py-2 d-flex align-items-center justify-content-center fw-bold rounded-3">
             <i class="bi bi-whatsapp fs-5 me-2"></i> Enviar por WhatsApp
@@ -534,21 +825,35 @@ export const ActualizacionDatos: React.FC = () => {
       didOpen: () => {
         document.getElementById('btn-const-pdf')?.addEventListener('click', () => {
           Swal.close();
-          generarConstanciaInscripcion(datosEst, formDatos, 'pdf');
+          generarConstanciaDocumento(datosEst, formDatos, 'pdf', tipoDoc);
         });
         document.getElementById('btn-const-wa')?.addEventListener('click', () => {
           Swal.close();
-          generarConstanciaInscripcion(datosEst, formDatos, 'whatsapp');
+          generarConstanciaDocumento(datosEst, formDatos, 'whatsapp', tipoDoc);
         });
         document.getElementById('btn-const-email')?.addEventListener('click', () => {
           Swal.close();
-          generarConstanciaInscripcion(datosEst, formDatos, 'email');
+          generarConstanciaDocumento(datosEst, formDatos, 'email', tipoDoc);
         });
       }
     });
   };
 
-  const generarConstanciaInscripcion = async (datosEst: any, formDatos: SolicitudForm, modo: 'pdf' | 'whatsapp' | 'email') => {
+  const generarConstanciaDocumento = async (
+    datosEst: any, 
+    formDatos: SolicitudForm, 
+    modo: 'pdf' | 'whatsapp' | 'email',
+    tipoDoc: 'inscripcion' | 'estudio' | 'conducta' = 'inscripcion'
+  ) => {
+    // Bloqueo condicional para Nuevo Ingreso pendiente de formalización escolar
+    if (!esAdmin && (tipoDoc === 'inscripcion' || tipoDoc === 'estudio')) {
+      const infoAdm = obtenerInfoAdmision(datosEst);
+      if (infoAdm.esNuevoIngreso && !infoAdm.puedeDescargarConstancia) {
+        mostrarAvisoBloqueoNuevoIngreso(datosEst, formDatos, tipoDoc);
+        return;
+      }
+    }
+
     const escCodigo = resolverEscuelaEstudiante(datosEst, formDatos);
     const escNombre = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
     const anoActual = new Date().getFullYear();
@@ -590,7 +895,11 @@ export const ActualizacionDatos: React.FC = () => {
     }
 
     const cedulaLimpia = (cedulaEstudiante).toString().replace(/\D/g, '');
-    const codigoUnico = formDatos.codigo_unico || datosEst.codigo_unico || `CI-${escCodigo.toUpperCase()}-${cedulaLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoActual}`;
+    const prefijoConst = tipoDoc === 'estudio' ? 'CE' : (tipoDoc === 'conducta' ? 'CC' : 'CI');
+    const codigoUnicoFallback = `${prefijoConst}-${escCodigo.toUpperCase()}-${cedulaLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoActual}`;
+    const codigoUnico = (formDatos.codigo_unico && formDatos.codigo_unico.startsWith(`${prefijoConst}-`))
+      ? formDatos.codigo_unico
+      : (datosEst.codigo_unico && datosEst.codigo_unico.startsWith(`${prefijoConst}-`) ? datosEst.codigo_unico : codigoUnicoFallback);
     
     const esLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = esLocal ? 'https://app-delta-ten-80.vercel.app' : window.location.origin;
@@ -702,6 +1011,28 @@ export const ActualizacionDatos: React.FC = () => {
 
     const tipoCedulaTexto = determinarTipoCedula(formDatos.estudiante_tipo_documento || (datosEst as any)?.estudiante_tipo_documento, cedulaEstudiante);
 
+    const tituloConstancia = tipoDoc === 'estudio'
+      ? 'Constancia de Estudio'
+      : (tipoDoc === 'conducta' ? 'Constancia de Buena Conducta' : 'Constancia de Inscripción');
+
+    let parrafo1 = '';
+    let parrafo2 = '';
+    let parrafo3 = '';
+
+    if (tipoDoc === 'estudio') {
+      parrafo1 = `Quien suscribe, <b>${tituloDirectorTexto}</b>, ${cargoDirectorTexto.toLowerCase()} de la <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, es estudiante regular y se encuentra cursando activamente el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>, demostrando buen rendimiento pedagógico y constante asistencia a las actividades académicas.`;
+      parrafo2 = `Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>${toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>.`;
+      parrafo3 = `Constancia que se expide a solicitud de la parte interesada para los efectos y fines consiguientes en <b>${toTitulo(ciudadExpedicion)}</b>, a los ${diaExpedicion} días del mes de ${mesExpedicion} del año ${anoExpedicion}.`;
+    } else if (tipoDoc === 'conducta') {
+      parrafo1 = `Quien suscribe, <b>${tituloDirectorTexto}</b>, ${cargoDirectorTexto.toLowerCase()} de la <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, cursante del <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> durante el año escolar <b>${anoActual}-${anoProximo}</b>, ha observado durante su permanencia en nuestra institución una <b>EXCELENTE CONDUCTA</b>, demostrando respeto por los valores y normas de convivencia escolar.`;
+      parrafo2 = `Asimismo, se deja constancia de su intachable colaboración en las actividades pedagógicas y formativas de la institución.`;
+      parrafo3 = `Constancia que se expide para los efectos y fines consiguientes en <b>${toTitulo(ciudadExpedicion)}</b>, a los ${diaExpedicion} días del mes de ${mesExpedicion} del año ${anoExpedicion}.`;
+    } else {
+      parrafo1 = `Quien suscribe, <b>${tituloDirectorTexto}</b>, ${cargoDirectorTexto.toLowerCase()} de la <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.`;
+      parrafo2 = `Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>${toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.`;
+      parrafo3 = `Constancia que se expide para los efectos y fines consiguientes en <b>${toTitulo(ciudadExpedicion)}</b>, a los ${diaExpedicion} días del mes de ${mesExpedicion} del año ${anoExpedicion}.`;
+    }
+
     const htmlConstancia = `
       <div style="border: 2px solid #94a3b8; border-radius: 12px; padding: 42px 48px 35px 48px; background: #ffffff; width: 800px; font-family: Arial, Helvetica, sans-serif; color: #000000; box-sizing: border-box; min-height: 1035px; display: flex; flex-direction: column; justify-content: space-between; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
         <div>
@@ -729,22 +1060,22 @@ export const ActualizacionDatos: React.FC = () => {
 
           <!-- TÍTULO DE LA CONSTANCIA -->
           <div style="text-align: center; margin: 32px 0 28px;">
-            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; letter-spacing: 0.5px;">Constancia de Inscripción</h2>
+            <h2 style="margin: 0; font-size: 21px; font-weight: bold; color: #000000; letter-spacing: 0.5px;">${tituloConstancia}</h2>
           </div>
 
           <!-- PÁRRAFO 1: CERTIFICACIÓN DEL ESTUDIANTE -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
-            Quien suscribe, <b>${tituloDirectorTexto}</b>, ${cargoDirectorTexto.toLowerCase()} de la <b>${toTitulo(dirData.nombreEscuela)}</b>, que funciona en <b>${toTitulo(dirData.ubicacionEscuela || 'Monagas, Venezuela')}</b>, por medio de la presente hace constar que ${esFemenino ? 'la estudiante:' : 'el estudiante:'} <b>${toTitulo(nombreCompleto)}</b>, natural de <b>${toTitulo(ciudadNac)}</b>, estado <b>${toTitulo(estadoNac)}</b>, ${edadTexto}titular de la ${tipoCedulaTexto} N.° <b>${cedulaEstudiante}</b>, fue ${esFemenino ? 'inscrita' : 'inscrito'} para cursar el <b>${toTitulo(gradoLimpio)}</b> de <b>${nivelEducativo}</b> en este instituto durante el año escolar <b>${anoActual}-${anoProximo}</b>.
+            ${parrafo1}
           </p>
 
           <!-- PÁRRAFO 2: REPRESENTANTE LEGAL -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 26px; text-indent: 35px;">
-            Asimismo, se deja constancia que el representante legal ${esFemenino ? 'de la estudiante' : 'del estudiante'} es <b>${toTitulo(representanteNombre)}</b>, titular de la cédula de identidad N.° <b>${representanteCedula}</b>, quien ha cumplido con los requisitos establecidos para la formalización de la inscripción.
+            ${parrafo2}
           </p>
 
           <!-- PÁRRAFO 3: EXPEDICIÓN Y FECHA -->
           <p style="font-size: 14.5px; line-height: 2.15; color: #000000; text-align: justify; margin-bottom: 35px; text-indent: 35px;">
-            Constancia que se expide para los efectos y fines consiguientes en <b>${toTitulo(ciudadExpedicion)}</b>, a los ${diaExpedicion} días del mes de ${mesExpedicion} del año ${anoExpedicion}.
+            ${parrafo3}
           </p>
         </div>
 
@@ -774,7 +1105,7 @@ export const ActualizacionDatos: React.FC = () => {
               <img src="${base64Mppe}" style="height: 40px; width: auto;" />
             </div>
             <div style="text-align: right; font-size: 8.5px; color: #64748b;">
-              SIGAE - Control Estudiantil | Constancia Oficial de Inscripción Verificable mediante Código QR<br/>
+              SIGAE - Control Estudiantil | ${tituloConstancia} Oficial Verificable mediante Código QR<br/>
               Cód. Autenticidad: <b style="color: #166534; font-family: monospace;">${codigoUnico}</b>
             </div>
           </div>
@@ -1400,14 +1731,102 @@ export const ActualizacionDatos: React.FC = () => {
   const cargarMisRepresentados = async (cedulaConsulta: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('estudiantes_vinculaciones')
-        .select('*')
-        .eq('cedula_representante', cedulaConsulta)
-        .order('created_at', { ascending: false });
+      const cedLimRep = cedulaConsulta.trim().replace(/\D/g, '');
 
-      if (error) throw error;
-      setMisRepresentados(data || []);
+      // 1. Consultar vinculaciones existentes y solicitudes de cupos en paralelo
+      const [vincRes, solsRes] = await Promise.all([
+        supabase
+          .from('estudiantes_vinculaciones')
+          .select('*')
+          .or(`cedula_representante.eq.${cedulaConsulta},cedula_representante.eq.${cedLimRep}`)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('solicitud_cupos')
+          .select('*')
+          .or(`representante_cedula.eq.${cedulaConsulta},representante_cedula.eq.${cedLimRep}`)
+          .order('created_at', { ascending: false })
+      ]);
+
+      if (vincRes.error) throw vincRes.error;
+
+      const vincs = vincRes.data || [];
+      const sols = solsRes.data || [];
+
+      // Mapeo exhaustivo de solicitudes para rápida indexación
+      const solMap: Record<string, any> = {};
+      sols.forEach(s => {
+        if (s.id) solMap[`sol_${s.id}`] = s;
+        if (s.codigo_unico) solMap[s.codigo_unico] = s;
+        if (s.estudiante_cedula) {
+          const cLim = s.estudiante_cedula.replace(/\D/g, '');
+          if (cLim) solMap[cLim] = s;
+          solMap[s.estudiante_cedula.trim()] = s;
+        }
+        const nomNorm = `${(s.estudiante_nombres || '').trim()} ${(s.estudiante_apellidos || '').trim()}`.toLowerCase();
+        if (nomNorm) solMap[nomNorm] = s;
+      });
+      setSolicitudesAdmisionMap(solMap);
+
+      // Combinar: Si hay aspirantes de cupo (Aprobados o Formalizados) que aún no figuran en vinculaciones,
+      // sintetizamos un registro virtual para permitirle completar su Ficha Integral
+      const listaFinal = [...vincs];
+      sols.forEach(s => {
+        const estSol = (s.estado || '').toLowerCase();
+        if (['aprobado', 'aprobada', 'formalizado', 'formalizada', 'inscrito', 'inscrita'].includes(estSol)) {
+          const cedLim = (s.estudiante_cedula || '').replace(/\D/g, '');
+          const nomNorm = `${(s.estudiante_nombres || '').trim()} ${(s.estudiante_apellidos || '').trim()}`.toLowerCase();
+          
+          const yaExiste = vincs.some(v => {
+            const vCed = (v.cedula_estudiante || '').replace(/\D/g, '');
+            if (cedLim && vCed && cedLim === vCed) return true;
+            if (s.codigo_unico && v.codigo_unico && s.codigo_unico === v.codigo_unico) return true;
+            const vNom = `${(v.nombres_estudiante || '').trim()} ${(v.apellidos_estudiante || '').trim()}`.toLowerCase();
+            return Boolean(nomNorm && vNom && nomNorm === vNom);
+          });
+
+          if (!yaExiste) {
+            listaFinal.push({
+              id: `sol_${s.id}`,
+              id_solicitud: s.id,
+              cedula_representante: s.representante_cedula,
+              nombres_representante: s.representante_nombres,
+              apellidos_representante: s.representante_apellidos,
+              cedula_estudiante: s.estudiante_cedula || `ESC-${s.codigo_unico}`,
+              nombres_estudiante: s.estudiante_nombres,
+              apellidos_estudiante: s.estudiante_apellidos,
+              grado_actual: s.grado_solicitado,
+              codigo_escuela: s.codigo_escuela,
+              codigo_unico: s.codigo_unico,
+              datos_actualizados: s.datos_actualizados || {
+                estudiante_nombres: s.estudiante_nombres,
+                estudiante_apellidos: s.estudiante_apellidos,
+                estudiante_cedula: s.estudiante_cedula,
+                estudiante_fecha_nacimiento: s.estudiante_fecha_nacimiento,
+                estudiante_sexo: s.estudiante_sexo,
+                grado_solicitado: s.grado_solicitado,
+                representante_nombres: s.representante_nombres,
+                representante_apellidos: s.representante_apellidos,
+                representante_cedula: s.representante_cedula,
+                representante_telefono: s.representante_telefono,
+                representante_email: s.representante_email,
+                estado_habitacion: s.estado_habitacion,
+                municipio_habitacion: s.municipio_habitacion,
+                parroquia_habitacion: s.parroquia_habitacion,
+                direccion_habitacion: s.direccion_habitacion,
+                madre_nombres: s.madre_nombres,
+                madre_cedula: s.madre_cedula,
+                padre_nombres: s.padre_nombres,
+                padre_cedula: s.padre_cedula,
+              },
+              fecha_ultima_actualizacion: s.updated_at || s.created_at,
+              es_nuevo_ingreso_virtual: true,
+              estado_admision: s.estado
+            });
+          }
+        }
+      });
+
+      setMisRepresentados(listaFinal);
     } catch (err: any) {
       console.error('Error al cargar representados:', err);
     } finally {
@@ -1449,25 +1868,31 @@ export const ActualizacionDatos: React.FC = () => {
       
 
       let allGeoData: any[] = [];
-
-      let from = 0;
-
-      const limit = 1000;
-
-      while (true) {
-
-        const geoRes = await supabase.from('div_pol_vzla').select('*').order('estado', { ascending: true }).range(from, from + limit - 1);
-
-        if (geoRes.error) throw geoRes.error;
-
-        if (!geoRes.data || geoRes.data.length === 0) break;
-
-        allGeoData = [...allGeoData, ...geoRes.data];
-
-        if (geoRes.data.length < limit) break;
-
-        from += limit;
-
+      try {
+        const cachedGeo = sessionStorage.getItem('sigae_div_pol_vzla');
+        if (cachedGeo) {
+          allGeoData = JSON.parse(cachedGeo);
+        } else {
+          let from = 0;
+          const limit = 1000;
+          while (true) {
+            const geoRes = await supabase
+              .from('div_pol_vzla')
+              .select('estado, municipio, parroquia')
+              .order('estado', { ascending: true })
+              .range(from, from + limit - 1);
+            if (geoRes.error) throw geoRes.error;
+            if (!geoRes.data || geoRes.data.length === 0) break;
+            allGeoData = [...allGeoData, ...geoRes.data];
+            if (geoRes.data.length < limit) break;
+            from += limit;
+          }
+          if (allGeoData.length > 0) {
+            try { sessionStorage.setItem('sigae_div_pol_vzla', JSON.stringify(allGeoData)); } catch (e) {}
+          }
+        }
+      } catch (errGeo) {
+        console.error('Error cargando división territorial:', errGeo);
       }
 
 
@@ -1606,28 +2031,56 @@ export const ActualizacionDatos: React.FC = () => {
         ? 'Cédula Escolar'
         : 'Cédula de Identidad';
 
-    if (est.datos_actualizados && Object.keys(est.datos_actualizados).length > 0) {
-      setForm({ ...defaultForm(), ...est.datos_actualizados,
+    const dAct = (est.datos_actualizados && typeof est.datos_actualizados === 'object') ? est.datos_actualizados : {};
+    
+    // Obtener nombre del representante verídico
+    const repNombreUser = user?.nombre_completo || '';
+    let repNomFinal = dAct.representante_nombres || est.nombres_representante || '';
+    let repApeFinal = dAct.representante_apellidos || est.apellidos_representante || '';
+    if (repNombreUser && (!repNomFinal || repNomFinal === est.nombres_estudiante)) {
+      const partes = repNombreUser.trim().split(' ');
+      if (partes.length >= 2) {
+        repNomFinal = partes.slice(0, Math.ceil(partes.length / 2)).join(' ');
+        repApeFinal = partes.slice(Math.ceil(partes.length / 2)).join(' ');
+      } else {
+        repNomFinal = repNombreUser;
+      }
+    }
+
+    // Proteger nombre del estudiante si la fila raíz fue guardada erróneamente con los datos del representante
+    let estNomFinal = est.nombres_estudiante || '';
+    let estApeFinal = est.apellidos_estudiante || '';
+    if (dAct.estudiante_nombres && (
+      !estNomFinal ||
+      estNomFinal === est.nombres_representante ||
+      (repNombreUser && estNomFinal.toLowerCase() === repNombreUser.toLowerCase())
+    )) {
+      estNomFinal = dAct.estudiante_nombres;
+      estApeFinal = dAct.estudiante_apellidos || estApeFinal;
+    }
+
+    if (Object.keys(dAct).length > 0) {
+      setForm({ ...defaultForm(), ...dAct,
         estudiante_tipo_documento: tipoDocDefecto,
-        estudiante_nombres: est.nombres_estudiante,
-        estudiante_apellidos: est.apellidos_estudiante,
-        estudiante_cedula: est.cedula_estudiante,
-        grado_solicitado: est.grado_actual,
-        representante_nombres: est.nombres_representante,
-        representante_apellidos: est.apellidos_representante,
-        representante_cedula: est.cedula_representante,
+        estudiante_nombres: estNomFinal,
+        estudiante_apellidos: estApeFinal,
+        estudiante_cedula: dAct.estudiante_cedula || est.cedula_estudiante,
+        grado_solicitado: est.grado_actual || dAct.grado_solicitado,
+        representante_nombres: repNomFinal,
+        representante_apellidos: repApeFinal,
+        representante_cedula: est.cedula_representante || dAct.representante_cedula,
         tiene_otros_inscritos: misRepresentados.length > 1
        });
     } else {
       setForm({
         ...defaultForm(),
         estudiante_tipo_documento: tipoDocDefecto,
-        estudiante_nombres: est.nombres_estudiante,
-        estudiante_apellidos: est.apellidos_estudiante,
+        estudiante_nombres: estNomFinal,
+        estudiante_apellidos: estApeFinal,
         estudiante_cedula: est.cedula_estudiante,
         grado_solicitado: est.grado_actual,
-        representante_nombres: est.nombres_representante,
-        representante_apellidos: est.apellidos_representante,
+        representante_nombres: repNomFinal,
+        representante_apellidos: repApeFinal,
         representante_cedula: est.cedula_representante,
         tiene_otros_inscritos: misRepresentados.length > 1
       });
@@ -1778,12 +2231,21 @@ export const ActualizacionDatos: React.FC = () => {
           codigo_escuela: escEst,
           fecha_ultima_actualizacion: new Date().toISOString()
         };
-        const { error } = await supabase
-          .from('estudiantes_vinculaciones')
-          .update(payload)
-          .eq('id', estudianteSeleccionado.id);
-        
-        if (error) throw error;
+
+        const isVirtualSol = estudianteSeleccionado.id && estudianteSeleccionado.id.toString().startsWith('sol_');
+        if (isVirtualSol) {
+          const solId = estudianteSeleccionado.id_solicitud || estudianteSeleccionado.id.replace('sol_', '');
+          await supabase
+            .from('solicitud_cupos')
+            .update({ datos_actualizados: payload.datos_actualizados, updated_at: payload.fecha_ultima_actualizacion })
+            .eq('id', solId);
+        } else {
+          const { error } = await supabase
+            .from('estudiantes_vinculaciones')
+            .update(payload)
+            .eq('id', estudianteSeleccionado.id);
+          if (error) throw error;
+        }
         
         // Actualizamos la lista local silenciosamente
         setMisRepresentados(prev => prev.map(m => m.id === estudianteSeleccionado.id ? { ...m, ...payload } : m));
@@ -1817,14 +2279,42 @@ export const ActualizacionDatos: React.FC = () => {
         fecha_ultima_actualizacion: nowIso
       };
 
-      const { error } = await supabase
-        .from('estudiantes_vinculaciones')
-        .update(payload)
-        .eq('id', estudianteSeleccionado.id);
+      const isVirtualSol = estudianteSeleccionado.id && estudianteSeleccionado.id.toString().startsWith('sol_');
+      if (isVirtualSol) {
+        const solId = estudianteSeleccionado.id_solicitud || estudianteSeleccionado.id.replace('sol_', '');
+        await supabase
+          .from('solicitud_cupos')
+          .update({
+            datos_actualizados: payload.datos_actualizados,
+            updated_at: nowIso
+          })
+          .eq('id', solId);
 
+        const { error: errUpsert } = await supabase
+          .from('estudiantes_vinculaciones')
+          .upsert([{
+            cedula_representante: form.representante_cedula || estudianteSeleccionado.cedula_representante || user?.cedula,
+            nombres_representante: form.representante_nombres || estudianteSeleccionado.nombres_representante,
+            apellidos_representante: form.representante_apellidos || estudianteSeleccionado.apellidos_representante,
+            cedula_estudiante: form.estudiante_cedula || estudianteSeleccionado.cedula_estudiante,
+            nombres_estudiante: form.estudiante_nombres || estudianteSeleccionado.nombres_estudiante,
+            apellidos_estudiante: form.estudiante_apellidos || estudianteSeleccionado.apellidos_estudiante,
+            grado_actual: form.grado_solicitado || estudianteSeleccionado.grado_actual,
+            codigo_escuela: escKey.toLowerCase(),
+            codigo_unico: codigoGenerado,
+            datos_actualizados: payload.datos_actualizados,
+            fecha_ultima_actualizacion: nowIso
+          }], { onConflict: 'cedula_estudiante' });
 
+        if (errUpsert) console.warn('Nota al sincronizar vinculación:', errUpsert.message);
+      } else {
+        const { error } = await supabase
+          .from('estudiantes_vinculaciones')
+          .update(payload)
+          .eq('id', estudianteSeleccionado.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
 
 
@@ -2115,6 +2605,7 @@ export const ActualizacionDatos: React.FC = () => {
       return;
     }
     setStep(siguientePaso);
+    window.scrollTo({ top: 220, behavior: 'smooth' });
   };
 
 const STEPS = [
@@ -2131,36 +2622,41 @@ const STEPS = [
 ];
 
   const renderStepper = () => (
-    <div className="d-flex align-items-center justify-content-between mb-4 px-2" style={{ overflowX: 'auto' }}>
-      {STEPS.map((s, idx) => (
-        <React.Fragment key={s.num}>
-          <div className="d-flex flex-column align-items-center" style={{ minWidth: 60 }}>
-            <div
-              className={`rounded-circle d-flex align-items-center justify-content-center fw-bold mb-1 ${step === s.num ? 'bg-success text-white shadow' : step > s.num ? 'bg-success bg-opacity-25 text-success' : 'bg-light text-muted border'}`}
-              style={{ width: 40, height: 40, fontSize: 16, transition: 'all 0.3s', cursor: 'pointer' }}
-              onClick={() => {
-                if (s.num > step) {
-                  intentarAvanzar(s.num, step);
-                } else {
-                  setStep(s.num);
-                }
-              }}
-            >
-              {step > s.num ? <i className="bi bi-check-lg"></i> : <i className={`bi ${s.icon}`}></i>}
-            </div>
-            <span style={{ fontSize: '0.65rem', color: step >= s.num ? '#166534' : '#9ca3af', fontWeight: 600, textAlign: 'center' }}>
-              {s.label}
-            </span>
-          </div>
-          {idx < STEPS.length - 1 && (
-            <div
-              className="flex-grow-1 mx-1"
-              style={{ height: 3, borderRadius: 4, background: step > s.num ? 'linear-gradient(90deg,#16a34a,#22c55e)' : '#e5e7eb', transition: 'background 0.4s' }}
-            />
-          )}
-        </React.Fragment>
-      ))}
-    </div>
+    <>
+      {/* Barra de Progreso Fija en Móvil */}
+      <div className="d-block d-md-none mb-3 p-2 bg-light rounded-3 border shadow-xs">
+        <div className="d-flex justify-content-between align-items-center mb-1">
+          <span className="fw-bold text-dark small">Paso {step} de 10: <span className="text-primary">{STEPS[step - 1]?.label}</span></span>
+          <span className="badge bg-primary text-white rounded-pill">{step * 10}%</span>
+        </div>
+        <div className="progress" style={{ height: '6px' }}>
+          <div 
+            className="progress-bar bg-primary progress-bar-striped progress-bar-animated" 
+            role="progressbar" 
+            style={{ width: `${step * 10}%` }}
+          ></div>
+        </div>
+      </div>
+
+      <ChamiloStepWizard
+        steps={STEPS.map(s => ({
+          id: s.num,
+          title: s.label,
+          icon: s.icon,
+          description: `Paso ${s.num}`
+        }))}
+        currentStep={step - 1}
+        onStepClick={(num) => {
+          const target = (typeof num === 'number' ? num : Number(num)) + 1;
+          if (target > step) {
+            intentarAvanzar(target, step);
+          } else {
+            setStep(target);
+            window.scrollTo({ top: 220, behavior: 'smooth' });
+          }
+        }}
+      />
+    </>
   );
 
   // ─── PASO 1: DECLARACIÓN ──────────────────────────────────────────────────────
@@ -4488,83 +4984,201 @@ const STEPS = [
     mostrarModalCarnetEstudiantil(datosEstDemo, formDemo);
   };
 
+  const abrirModeloNormas = (esc: 'sb' | 'lb' = 'sb') => {
+    const ano = new Date().getFullYear();
+    const datosEstDemo = {
+      cedula_estudiante: '31.456.789',
+      nombres_estudiante: 'Alejandro José',
+      apellidos_estudiante: 'Pérez Silva',
+      grado_actual: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+      codigo_escuela: esc,
+      nombre_escuela: esc === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar',
+      cedula_representante: '15.987.654',
+      nombres_representante: 'Carlos Eduardo',
+      apellidos_representante: 'Pérez Mendoza',
+      telefono_representante: '0414-1234567',
+      codigo_unico: `NORM-${esc.toUpperCase()}-31456789-${ano}`
+    };
+
+    const formDemo = {
+      estudiante_nombres: 'Alejandro José',
+      estudiante_apellidos: 'Pérez Silva',
+      estudiante_cedula: '31.456.789',
+      grado_solicitado: esc === 'sb' ? '4to Grado de Educación Primaria' : '1er Año de Educación Media General',
+      representante_nombres: 'Carlos Eduardo',
+      representante_apellidos: 'Pérez Mendoza',
+      representante_cedula: '15.987.654',
+      representante_telefono: '0414-1234567',
+      codigo_unico: `NORM-${esc.toUpperCase()}-31456789-${ano}`
+    } as unknown as SolicitudForm;
+
+    manejarOpcionesNormasInternas(datosEstDemo, formDemo);
+  };
+
   return (
     <div className="container-fluid py-4 animate__animated animate__fadeIn">
 
-      {/* Encabezado Principal */}
+      {/* MIGAS DE PAN CHAMILO */}
+      <ChamiloBreadcrumb
+        category="Gestión Estudiantil"
+        currentModule="Actualización de Datos"
+      />
 
+      {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
+      <ChamiloHelpCallout
+        id="ayuda_actualizacion_datos"
+        title="Guía de Actualización de Ficha Integral y Carnetización"
+        content="Este asistente interactivo por pasos le permite actualizar la ficha del estudiante en 10 etapas estructuradas con validación automática y guardado progresivo. Los cambios se reflejarán inmediatamente en la emisión de carnets y constancias oficiales."
+        icon="bi-lightbulb-fill"
+      />
+
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
       <div 
-
-        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden" 
-
-        style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderRadius: '24px' }}
-
+        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
+        style={{ 
+          border: '2px solid #ddd6fe',
+          borderTop: '6px solid #8b5cf6',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
+          borderRadius: '26px'
+        }}
       >
+        <div className="p-4 p-md-5">
+          <div className="row align-items-center g-4">
+            
+            {/* Contenedor Dual: Icono 3D Isométrico + Escudo Institucional */}
+            <div className="col-12 col-md-auto text-center text-md-start">
+              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm" style={{ border: '2px solid #ddd6fe' }}>
+                <div 
+                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ 
+                    width: '88px', 
+                    height: '88px',
+                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                    border: '1.5px solid #ddd6fe'
+                  }}
+                  title="Actualización de Datos Chamilo Tech"
+                >
+                  <IconoActualizacionDatos size={58} color="#8b5cf6" />
+                </div>
+                <div 
+                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ width: '88px', height: '88px' }}
+                >
+                  <img 
+                    src={`/assets/img/logo_${(estudianteSeleccionado?.codigo_escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb')}.png`} 
+                    alt="Escudo Institucional" 
+                    className="img-fluid"
+                    style={{ maxHeight: '72px', objectFit: 'contain' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
+            </div>
 
-        <div className="burbuja-3d burbuja-1" style={{ width: '150px', height: '150px', background: 'rgba(255,255,255,0.15)', position: 'absolute', top: '-50px', right: '-20px', borderRadius: '50%' }}></div>
+            {/* Título y Métricas Clave */}
+            <div className="col-12 col-md">
+              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#8B5CF6' }}>
+                  <i className="bi bi-file-earmark-person-fill me-1"></i>Ficha Integral & Carnetización
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-people-fill text-primary me-1"></i><b>{misRepresentados.length}</b> Representados
+                </span>
+                {estudianteSeleccionado && (
+                  <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                    <i className="bi bi-mortarboard-fill text-success me-1"></i>Editando: <b>{estudianteSeleccionado.nombres_estudiante || ''} {estudianteSeleccionado.apellidos_estudiante || ''}</b>
+                  </span>
+                )}
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                  <span className="text-success fw-bold">Live</span> / Sincronizado
+                </span>
+              </div>
 
-        <div className="burbuja-3d burbuja-2" style={{ width: '80px', height: '80px', background: 'rgba(255,255,255,0.08)', position: 'absolute', bottom: '-20px', left: '20px', borderRadius: '50%' }}></div>
+              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
+                Actualización de Datos
+              </h1>
 
-        <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative z-1">
+              <p className="mb-0 text-muted small">
+                Mantenga al día la información médica, biométrica, residencial y de contacto de sus representados para la emisión de carnets y constancias.
+              </p>
+            </div>
 
-          <div>
-
-            <span className="badge bg-white text-dark fw-bold px-3 py-2 rounded-pill mb-3 shadow-sm text-uppercase" style={{ letterSpacing: '1px', fontSize: '0.75rem' }}>
-
-              <i className="bi bi-person-lines-fill me-2 text-primary"></i>Ficha Integral Estudiantil
-
-            </span>
-
-            <h1 className="fw-bolder mb-2 display-6 text-white">
-
-              <i className="bi bi-file-earmark-person-fill me-3"></i>Actualización de Datos
-
-            </h1>
-
-            <p className="mb-0 text-white-50 fs-6" style={{ maxWidth: '750px' }}>
-
-              Mantenga al día la información médica, biométrica y de contacto de sus representados.
-
-            </p>
-
-          </div>
-
-          {estudianteSeleccionado && (
-            <div className="mt-4 mt-md-0 d-flex gap-2 align-items-center flex-wrap">
-              {estudianteSeleccionado.fecha_ultima_actualizacion && form.estado_habitacion && form.direccion_habitacion && form.estudiante_grupo_sanguineo && (
-                <>
-                  <button
-                    className="btn btn-warning text-dark rounded-pill px-3.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-1.5"
-                    onClick={() => mostrarModalCarnetEstudiantil(estudianteSeleccionado, form)}
-                    title="Descargar Carnet Estudiantil oficial con QR y firma digital"
-                  >
-                    <i className="bi bi-person-badge-fill fs-5"></i>
-                    <span>Descargar Carnet</span>
-                  </button>
-                  <button
-                    className="btn btn-success rounded-pill px-3.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-1.5"
-                    onClick={() => manejarOpcionesResumen(estudianteSeleccionado, form)}
-                  >
-                    <i className="bi bi-file-earmark-pdf-fill fs-5"></i>
-                    <span>Descargar Resumen</span>
-                  </button>
-                </>
-              )}
+            {/* Acciones Rápidas */}
+            <div className="col-12 col-md-auto text-md-end text-center">
               <button
-                className="btn btn-outline-light rounded-pill px-4 fw-bold shadow-sm hover-efecto"
+                type="button"
                 onClick={() => {
-                  sessionStorage.removeItem('sigae_act_draft_estudiante_id');
-                  sessionStorage.removeItem('sigae_act_draft_step');
-                  setEstudianteSeleccionado(null);
+                  if (estudianteSeleccionado) {
+                    sessionStorage.removeItem('sigae_act_draft_estudiante_id');
+                    sessionStorage.removeItem('sigae_act_draft_step');
+                    setEstudianteSeleccionado(null);
+                  } else {
+                    window.location.href = '/categoria/Gesti%C3%B3n%20Estudiantil';
+                  }
                 }}
+                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                style={{ fontSize: '0.82rem' }}
               >
-                <i className="bi bi-arrow-left me-2"></i>Volver a Mis Representados
+                <i className="bi bi-arrow-left"></i>
+                <span>{estudianteSeleccionado ? 'Volver a Representados' : 'Volver al Menú'}</span>
               </button>
             </div>
-          )}
 
+          </div>
         </div>
 
+        {/* Barra de Acciones del Estudiante Seleccionado Chamilo */}
+        {estudianteSeleccionado && estudianteSeleccionado.fecha_ultima_actualizacion && form.estado_habitacion && form.direccion_habitacion && form.estudiante_grupo_sanguineo && (
+          <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-start align-items-center flex-wrap gap-2">
+            {obtenerInfoAdmision(estudianteSeleccionado).esNuevoIngreso && (
+              <button
+                type="button"
+                className="btn btn-outline-primary rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                style={{ fontSize: '0.82rem' }}
+                onClick={() => handleDescargarCartaAceptacion(estudianteSeleccionado, form)}
+                title="Descargar Carta de Aceptación oficial de 3 páginas con firmas y código QR"
+              >
+                <i className="bi bi-file-earmark-text-fill"></i>
+                <span>Carta de Aceptación</span>
+              </button>
+            )}
+
+            {esDocumentoActivo('carnet', resolverEscuelaEstudiante(estudianteSeleccionado, form)) && (
+              <button
+                type="button"
+                className="btn btn-warning text-dark rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                style={{ fontSize: '0.82rem' }}
+                onClick={() => mostrarModalCarnetEstudiantil(estudianteSeleccionado, form)}
+                title="Descargar Carnet Estudiantil oficial con QR y firma digital"
+              >
+                <i className="bi bi-person-badge-fill"></i>
+                <span>Descargar Carnet</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
+              onClick={() => manejarOpcionesResumen(estudianteSeleccionado, form)}
+            >
+              <i className="bi bi-file-earmark-pdf-fill"></i>
+              <span>Descargar Resumen</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-outline-danger rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem' }}
+              onClick={() => manejarOpcionesNormasInternas(estudianteSeleccionado, form)}
+              title="Descargar Normativa Interna oficial con firmas y código QR"
+            >
+              <i className="bi bi-file-earmark-ruled-fill text-danger"></i>
+              <span>Normativa Interna</span>
+            </button>
+          </div>
+        )}
       </div>
 
 
@@ -4581,22 +5195,25 @@ const STEPS = [
 
             </div>
 
-            <div className="col-md-4">
-
+            <div className="col-md-4 position-relative">
               <input 
-
                 type="text" 
-
-                className="form-control bg-white" 
-
+                className="form-control bg-white pe-5" 
                 placeholder="Buscar representados por Cédula del Representante..."
-
                 value={cedulaBusquedaAdmin}
-
                 onChange={(e) => setCedulaBusquedaAdmin(e.target.value)}
-
               />
-
+              {cedulaBusquedaAdmin && (
+                <button 
+                  type="button" 
+                  onClick={() => setCedulaBusquedaAdmin('')} 
+                  className="btn btn-sm text-muted position-absolute end-0 top-50 translate-middle-y me-3 border-0 bg-transparent" 
+                  style={{ zIndex: 5 }}
+                  title="Limpiar búsqueda"
+                >
+                  <i className="bi bi-x-circle-fill text-secondary"></i>
+                </button>
+              )}
             </div>
 
             <div className="col-md-auto">
@@ -4645,24 +5262,51 @@ const STEPS = [
                 </button>
               </div>
 
+              {(esDocumentoActivo('carnet', 'sb') || esDocumentoActivo('carnet', 'lb')) && (
+                <div className="btn-group shadow-sm" role="group">
+                  {esDocumentoActivo('carnet', 'sb') && (
+                    <button 
+                      type="button" 
+                      className="btn btn-warning text-dark fw-bold d-flex align-items-center gap-1.5"
+                      onClick={() => abrirModeloCarnet('sb')}
+                      title="Ver y descargar modelo de Carnet Estudiantil (UE Santa Bárbara)"
+                    >
+                      <i className="bi bi-person-badge-fill"></i>
+                      <span>Carnet SB</span>
+                    </button>
+                  )}
+                  {esDocumentoActivo('carnet', 'lb') && (
+                    <button 
+                      type="button" 
+                      className="btn btn-dark text-warning fw-bold d-flex align-items-center gap-1.5"
+                      onClick={() => abrirModeloCarnet('lb')}
+                      title="Ver y descargar modelo de Carnet Estudiantil (UE Libertador Bolívar)"
+                    >
+                      <i className="bi bi-person-badge-fill"></i>
+                      <span>Carnet LB</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="btn-group shadow-sm" role="group">
                 <button 
                   type="button" 
-                  className="btn btn-warning text-dark fw-bold d-flex align-items-center gap-1.5"
-                  onClick={() => abrirModeloCarnet('sb')}
-                  title="Ver y descargar modelo de Carnet Estudiantil (UE Santa Bárbara)"
+                  className="btn btn-outline-danger fw-bold d-flex align-items-center gap-1.5"
+                  onClick={() => abrirModeloNormas('sb')}
+                  title="Ver y descargar modelo de Normativa Interna (UE Santa Bárbara)"
                 >
-                  <i className="bi bi-person-badge-fill"></i>
-                  <span>Carnet SB</span>
+                  <i className="bi bi-file-earmark-ruled-fill"></i>
+                  <span>Normativa SB</span>
                 </button>
                 <button 
                   type="button" 
-                  className="btn btn-dark text-warning fw-bold d-flex align-items-center gap-1.5"
-                  onClick={() => abrirModeloCarnet('lb')}
-                  title="Ver y descargar modelo de Carnet Estudiantil (UE Libertador Bolívar)"
+                  className="btn btn-danger text-white fw-bold d-flex align-items-center gap-1.5"
+                  onClick={() => abrirModeloNormas('lb')}
+                  title="Ver y descargar modelo de Normativa Interna (UE Libertador Bolívar)"
                 >
-                  <i className="bi bi-person-badge-fill"></i>
-                  <span>Carnet LB</span>
+                  <i className="bi bi-file-earmark-ruled-fill"></i>
+                  <span>Normativa LB</span>
                 </button>
               </div>
             </div>
@@ -4777,6 +5421,7 @@ const STEPS = [
 
                 const escEst = resolverEscuelaEstudiante(est, d);
                 const datosFormEst = d && Object.keys(d).length > 0 ? d : est;
+                const infoAdm = obtenerInfoAdmision(est);
 
                 return (
                   <div className="col-12 col-md-6 col-lg-4" key={est.id}>
@@ -4785,9 +5430,20 @@ const STEPS = [
                       <div>
                         <div className="p-4 pb-0 d-flex justify-content-between align-items-start">
                           <div>
-                            <span className="badge bg-light text-dark border px-3 py-1.5 rounded-pill fw-bold mb-2">
-                              {est.grado_actual || d.grado_solicitado || 'Sin Grado'}
-                            </span>
+                            <div className="d-flex align-items-center flex-wrap gap-1.5 mb-2">
+                              <span className="badge bg-light text-dark border px-3 py-1.5 rounded-pill fw-bold">
+                                {est.grado_actual || d.grado_solicitado || 'Sin Grado'}
+                              </span>
+                              {infoAdm.esNuevoIngreso && (
+                                <span 
+                                  className={`badge ${infoAdm.estaFormalizado ? 'bg-success bg-opacity-10 text-success border border-success' : 'bg-warning bg-opacity-15 text-dark border border-warning'} px-2.5 py-1.5 rounded-pill fw-bold small`}
+                                  title={infoAdm.estaFormalizado ? 'Inscripción formalizada físicamente por Control de Estudios' : 'Aspirante con cupo asignado pendiente por formalización física en el plantel'}
+                                >
+                                  <i className={`bi ${infoAdm.estaFormalizado ? 'bi-patch-check-fill text-success' : 'bi-hourglass-split text-warning'} me-1`}></i>
+                                  {infoAdm.estaFormalizado ? 'Nuevo Ingreso • Formalizado' : 'Nuevo Ingreso • Pendiente'}
+                                </span>
+                              )}
+                            </div>
                             <h5 className="fw-bolder text-dark mb-1">
                               {est.nombres_estudiante} {est.apellidos_estudiante}
                             </h5>
@@ -4850,7 +5506,19 @@ const STEPS = [
 
                           {estadoFicha === 'actualizado' && (
                             <>
-                              {(esCarnetActivo(escEst) || esAdmin) && (
+                              {/* Carta de Aceptación Oficial para Nuevos Ingresos */}
+                              {infoAdm.esNuevoIngreso && (
+                                <button
+                                  className="btn btn-outline-primary w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center hover-efecto"
+                                  onClick={() => handleDescargarCartaAceptacion(est, datosFormEst)}
+                                  title="Descargar Carta de Aceptación Oficial de 3 páginas con firmas y código QR"
+                                >
+                                  <i className="bi bi-file-earmark-text-fill me-2 fs-5"></i>
+                                  Descargar Carta de Aceptación (PDF)
+                                </button>
+                              )}
+
+                              {esDocumentoActivo('carnet', escEst) && (
                                 <button
                                   className="btn btn-warning w-100 py-2 fw-bold text-dark rounded-3 shadow-sm d-flex align-items-center justify-content-center hover-efecto"
                                   onClick={() => mostrarModalCarnetEstudiantil(est, datosFormEst)}
@@ -4860,20 +5528,83 @@ const STEPS = [
                                   Descargar Carnet Estudiantil
                                 </button>
                               )}
-                              <button
-                                className="btn btn-outline-success w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
-                                onClick={() => manejarOpcionesResumen(est, datosFormEst)}
-                              >
-                                <i className="bi bi-file-earmark-pdf-fill me-2 fs-5"></i>
-                                Descargar Resumen (Carta)
-                              </button>
-                              <button
-                                className="btn btn-success w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
-                                onClick={() => manejarOpcionesConstancia(est, datosFormEst)}
-                              >
-                                <i className="bi bi-file-earmark-check-fill me-2 fs-5"></i>
-                                Descargar Constancia de Inscripción
-                              </button>
+
+                              {(esDocumentoActivo('resumen', escEst) || esAdmin) && (
+                                <button
+                                  className="btn btn-outline-success w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
+                                  onClick={() => manejarOpcionesResumen(est, datosFormEst)}
+                                >
+                                  <i className="bi bi-file-earmark-pdf-fill me-2 fs-5"></i>
+                                  Descargar Resumen (Carta)
+                                </button>
+                              )}
+
+                              {/* Constancia de Inscripción (Validación requerida para nuevos ingresos) */}
+                              {(esDocumentoActivo('inscripcion', escEst) || esAdmin) && (
+                                infoAdm.puedeDescargarConstancia || esAdmin ? (
+                                  <button
+                                    className="btn btn-success w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
+                                    onClick={() => manejarOpcionesConstancia(est, datosFormEst, 'inscripcion')}
+                                  >
+                                    <i className="bi bi-file-earmark-check-fill me-2 fs-5"></i>
+                                    Descargar Constancia de Inscripción
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="btn btn-secondary bg-opacity-75 w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center text-white"
+                                    onClick={() => mostrarAvisoBloqueoNuevoIngreso(est, datosFormEst, 'inscripcion')}
+                                    title="Pendiente: Requiere consignar recaudos físicos en la escuela para formalizar la matrícula"
+                                  >
+                                    <i className="bi bi-lock-fill me-2 fs-5 text-warning"></i>
+                                    Constancia de Inscripción (Pendiente Validación)
+                                  </button>
+                                )
+                              )}
+
+                              {/* Normativa Interna Institucional */}
+                              {(esDocumentoActivo('normas', escEst) || esAdmin) && (
+                                <button
+                                  className="btn btn-outline-danger w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center hover-efecto"
+                                  onClick={() => manejarOpcionesNormasInternas(est, datosFormEst)}
+                                  title="Descargar Normativa Interna Oficial (2 Páginas con firmas y QR)"
+                                >
+                                  <i className="bi bi-file-earmark-ruled-fill me-2 fs-5 text-danger"></i>
+                                  Descargar Normativa Interna
+                                </button>
+                              )}
+
+                              {/* Constancia de Estudio Regular */}
+                              {(esDocumentoActivo('estudio', escEst) || esAdmin) && (
+                                infoAdm.puedeDescargarConstancia || esAdmin ? (
+                                  <button
+                                    className="btn btn-primary w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
+                                    onClick={() => manejarOpcionesConstancia(est, datosFormEst, 'estudio')}
+                                  >
+                                    <i className="bi bi-mortarboard-fill me-2 fs-5"></i>
+                                    Descargar Constancia de Estudio
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="btn btn-secondary bg-opacity-75 w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center text-white"
+                                    onClick={() => mostrarAvisoBloqueoNuevoIngreso(est, datosFormEst, 'estudio')}
+                                    title="Pendiente: Requiere consignar recaudos físicos en la escuela para formalizar la matrícula"
+                                  >
+                                    <i className="bi bi-lock-fill me-2 fs-5 text-warning"></i>
+                                    Constancia de Estudio (Pendiente Validación)
+                                  </button>
+                                )
+                              )}
+
+                              {/* Constancia de Buena Conducta (Si está activa) */}
+                              {esDocumentoActivo('conducta', escEst) && (
+                                <button
+                                  className="btn btn-info text-dark w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center"
+                                  onClick={() => manejarOpcionesConstancia(est, datosFormEst, 'conducta')}
+                                >
+                                  <i className="bi bi-award-fill me-2 fs-5"></i>
+                                  Descargar Constancia de Buena Conducta
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
