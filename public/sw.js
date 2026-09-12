@@ -3,7 +3,7 @@
  * Garantiza auto-actualizaciones instantáneas en línea y soporte offline.
  */
 
-const CACHE_NAME = 'sigae-live-v11';
+const CACHE_NAME = 'sigae-live-v12';
 
 const urlsToCache = [
   '/',
@@ -12,6 +12,12 @@ const urlsToCache = [
   '/assets/img/icono.png',
   '/assets/img/logoMPPE.png'
 ];
+
+self.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener('install', function(event) {
   // Activar inmediatamente el nuevo Service Worker sin esperar cierre de pestañas

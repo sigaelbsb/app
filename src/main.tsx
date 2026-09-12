@@ -9,19 +9,31 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-// REGISTRO Y AUTO-ACTUALIZACIÓN SILENCIOSA DEL SERVICE WORKER (PWA)
+// REGISTRO Y AUTO-ACTUALIZACIÓN INMEDIATA DEL SERVICE WORKER (PWA & MÓVIL)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then((reg) => {
       // Verificar si hay nueva versión inmediatamente al iniciar
       reg.update();
 
-      // Chequeo periódico de actualizaciones cada 10 minutos
+      // Chequeo activo al detectar nueva versión
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        }
+      });
+
+      // Chequeo periódico de actualizaciones cada 60 segundos
       setInterval(() => {
         reg.update();
-      }, 10 * 60 * 1000);
+      }, 60 * 1000);
 
-      // Chequeo al volver a la pestaña o app
+      // Chequeo inmediato al volver a la pestaña o abrir la app en el teléfono
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
           reg.update();
@@ -29,12 +41,12 @@ if ('serviceWorker' in navigator) {
       });
     }).catch((err) => console.log('SW registration failed: ', err));
 
-    // Si un nuevo Service Worker toma el control, actualizar sin recargar forzosamente
+    // Si un nuevo Service Worker toma el control, recargar inmediatamente para servir el nuevo código
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
         refreshing = true;
-        console.log('Nueva versión de SIGAE detectada e instalada en segundo plano.');
+        window.location.reload();
       }
     });
   });
