@@ -9,6 +9,27 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
+// PURGA TOTAL DE CACHÉ Y FORZADO DE ACTUALIZACIÓN EN TODOS LOS DISPOSITIVOS
+const SIGAE_BUILD_VERSION = 'v1.2.0-brand-escudo-3d';
+try {
+  const currentVer = localStorage.getItem('sigae_cached_build_version');
+  if (currentVer !== SIGAE_BUILD_VERSION) {
+    console.log('[SIGAE Update] Nueva versión detectada:', SIGAE_BUILD_VERSION);
+    localStorage.setItem('sigae_cached_build_version', SIGAE_BUILD_VERSION);
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        return Promise.all(names.map((name) => caches.delete(name)));
+      }).then(() => {
+        if (currentVer) {
+          window.location.reload();
+        }
+      });
+    }
+  }
+} catch (e) {
+  console.error('[SIGAE Update] Error verificando versión:', e);
+}
+
 // REGISTRO Y AUTO-ACTUALIZACIÓN INMEDIATA DEL SERVICE WORKER (PWA & MÓVIL)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

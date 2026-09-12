@@ -1128,7 +1128,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         
         {view === 'selector' && (
           <div id="vista-selector" className="vista-seleccion-escuela activa animate__animated animate__fadeIn">
-            <img src="/assets/img/sigae.png" alt="SIGAE" className="mb-3 img-fluid logo-selector-escuela" />
+            <img src="/assets/img/sigae.png?v=escudo3d" alt="SIGAE" className="mb-3 img-fluid logo-selector-escuela" />
             <h1 className="fw-bolder text-white mb-1 mt-2 selector-titulo">Escuelas DEP Oriente</h1>
             <h4 className="text-white mb-5 fw-normal selector-subtitulo">Seleccione su Institución</h4>
 
@@ -1186,7 +1186,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                 <div className="logo-login-container">
                   <div className="logo-destello"></div>
                   <img 
-                    src={school === 'sb' ? '/assets/img/logo_sb.png' : school === 'lb' ? '/assets/img/logo_lb.png' : '/assets/img/sigae.png'} 
+                    src={school === 'sb' ? '/assets/img/logo_sb.png' : school === 'lb' ? '/assets/img/logo_lb.png' : '/assets/img/sigae.png?v=escudo3d'} 
                     id="img-logo-login" 
                     alt="Logo Escuela" 
                     className="logo-login-animado" 
