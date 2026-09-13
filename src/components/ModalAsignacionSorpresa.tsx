@@ -1793,9 +1793,19 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
 
   return (
     <div
-      className="modal fade show d-block"
+      className="modal fade show d-flex align-items-center justify-content-center"
       tabIndex={-1}
-      style={{ backgroundColor: 'rgba(15, 23, 42, 0.88)', zIndex: 1060, backdropFilter: 'blur(10px)' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(15, 23, 42, 0.88)',
+        zIndex: 1060,
+        backdropFilter: 'blur(10px)',
+        overflow: 'hidden',
+        padding: '16px'
+      }}
     >
       {/* Canvas de fuegos artificiales y confeti festivo 3D */}
       <canvas
@@ -1804,21 +1814,30 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
       />
 
       <div
-        className="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down m-auto p-2 p-md-0"
-        style={{ maxWidth: '860px', width: '100%', zIndex: 1062 }}
+        className="modal-dialog modal-dialog-centered modal-lg modal-fullscreen-sm-down m-0"
+        style={{
+          maxWidth: '860px',
+          width: '100%',
+          maxHeight: '94vh',
+          zIndex: 1062,
+          display: 'flex',
+          flexDirection: 'column',
+          margin: 'auto'
+        }}
       >
         <div
-          className="modal-content border-0 rounded-4 shadow-lg overflow-hidden bg-white w-100"
+          className="modal-content border-0 rounded-4 shadow-lg overflow-hidden bg-white w-100 d-flex flex-column"
           style={{
             boxShadow: '0 25px 60px -15px rgba(245, 158, 11, 0.45), 0 0 50px rgba(99, 102, 241, 0.35)',
             border: '2px solid rgba(251, 191, 36, 0.4)',
-            maxHeight: 'calc(100vh - 20px)'
+            maxHeight: '94vh',
+            height: 'auto'
           }}
         >
 
           {/* Header Festivo con Logo de la Escuela sobre base Blanca Limpia */}
           <div
-            className="p-3 p-md-4 text-white text-center position-relative overflow-hidden"
+            className="p-3 p-md-3.5 text-white text-center position-relative overflow-hidden flex-shrink-0"
             style={{
               background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 35%, #0284c7 80%, #0369a1 100%)',
               borderBottom: '4px solid #f59e0b'
@@ -1826,10 +1845,10 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
           >
             {/* Logo de la Escuela (Superior Izquierdo - Contenedor Blanco Puro Limpio) */}
             <div
-              className="position-absolute top-0 start-0 m-2 m-md-3 p-1.5 bg-white rounded-3 rounded-md-4 shadow-sm d-flex align-items-center justify-content-center"
+              className="position-absolute top-0 start-0 m-2 m-md-2.5 p-1 bg-white rounded-3 rounded-md-4 shadow-sm d-flex align-items-center justify-content-center"
               style={{
-                width: 'clamp(44px, 10vw, 58px)',
-                height: 'clamp(44px, 10vw, 58px)',
+                width: 'clamp(40px, 9vw, 50px)',
+                height: 'clamp(40px, 9vw, 50px)',
                 zIndex: 1063
               }}
             >
@@ -1840,8 +1859,8 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
               />
             </div>
 
-            {/* Controles de Sonido (Superior Derecho) */}
-            <div className="position-absolute top-0 end-0 m-2 m-md-3 d-flex align-items-center gap-1.5" style={{ zIndex: 1063 }}>
+            {/* Controles de Sonido y Cerrar (Superior Derecho) */}
+            <div className="position-absolute top-0 end-0 m-2 m-md-2.5 d-flex align-items-center gap-1.5" style={{ zIndex: 1063 }}>
               <button
                 type="button"
                 onClick={() => abrirModalProbarSonidos(Swal, (nuevoTipo) => {
@@ -1852,7 +1871,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
                 title="Probar y elegir estilo de audio de bienvenida"
               >
                 <i className="bi bi-music-note-beamed text-primary"></i>
-                <span className="extra-small fw-bold d-none d-sm-inline">Probar Audios</span>
+                <span className="extra-small fw-bold d-none d-sm-inline">Audios</span>
               </button>
 
               <button
@@ -1862,7 +1881,17 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
                 title={silenciado ? 'Activar sonido de celebración' : 'Silenciar sonido'}
               >
                 <i className={`bi ${silenciado ? 'bi-volume-mute-fill text-danger' : 'bi-volume-up-fill text-warning'} me-1`}></i>
-                <span className="extra-small fw-bold d-none d-sm-inline">{silenciado ? 'Silenciado' : 'Sonido Activo'}</span>
+                <span className="extra-small fw-bold d-none d-sm-inline">{silenciado ? 'Mute' : 'Sonido'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmarYContinuar}
+                className="btn btn-sm btn-dark bg-opacity-60 text-white rounded-circle p-1 d-flex align-items-center justify-content-center shadow-xs border border-light border-opacity-25 hover-efecto"
+                style={{ width: '28px', height: '28px' }}
+                title="Cerrar modal"
+              >
+                <i className="bi bi-x-lg fw-bold" style={{ fontSize: '0.75rem' }}></i>
               </button>
             </div>
 
@@ -1885,9 +1914,10 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
 
           {/* Cuerpo del Modal con Visuales y Tarjetas Ricas */}
           <div
-            className="modal-body p-3 p-md-4.5"
+            className="modal-body p-3 p-md-4"
             style={{
-              maxHeight: '62vh',
+              maxHeight: 'calc(94vh - 170px)',
+              flex: '1 1 auto',
               overflowY: 'auto',
               WebkitOverflowScrolling: 'touch'
             }}
@@ -2115,7 +2145,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
           </div>
 
           {/* Footer con Logo del Ministerio sobre fondo blanco limpio y botones de acción */}
-          <div className="modal-footer bg-light p-2.5 p-md-3 border-top d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2.5">
+          <div className="modal-footer bg-light p-2.5 p-md-3 border-top d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2.5 flex-shrink-0">
             <div className="d-flex align-items-center justify-content-between justify-content-sm-start gap-2.5 w-100 w-sm-auto">
 
               {/* Logo del Ministerio con Base Blanca Limpia */}
