@@ -1,4 +1,4 @@
-﻿/* =========================================================================
+/* =========================================================================
    SIGAE - ESTILOS DE VISTAS (vistas.css)
    ========================================================================= */
 
@@ -726,3 +726,49 @@
         font-size: 1.8rem !important;
     }
 }
+
+/* =========================================================================
+   CARGADOR INSTITUCIONAL SIGAE (PANTALLAS EN CARGA DE MÓDULOS)
+   ========================================================================= */
+.text-center.py-5:has(> .spinner-border.text-primary) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    position: relative;
+    padding: 3rem 1rem !important;
+}
+
+.text-center.py-5:has(> .spinner-border.text-primary)::before {
+    content: '';
+    width: 68px;
+    height: 68px;
+    background: url('/assets/img/sigae.png?v=escudo3d') no-repeat center center;
+    background-size: contain;
+    margin-bottom: 16px;
+    animation: sigae-module-loader-pulse 2s infinite ease-in-out;
+    filter: drop-shadow(0 6px 16px rgba(0, 102, 255, 0.28));
+}
+
+.text-center.py-5:has(> .spinner-border.text-primary)::after {
+    content: 'Cargando registros escolares de la institución...';
+    display: block;
+    margin-top: 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.2px;
+}
+
+@keyframes sigae-module-loader-pulse {
+    0%, 100% {
+        transform: scale(0.96) translateY(0);
+    }
+    50% {
+        transform: scale(1.05) translateY(-3px);
+        filter: drop-shadow(0 10px 22px rgba(0, 195, 255, 0.45));
+    }
+}
+
