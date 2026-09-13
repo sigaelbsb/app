@@ -192,17 +192,15 @@ export const ChatbotSigma = () => {
     }, 450);
   };
 
-  const iniciarBusquedaInteractiva = () => {
+  const abrirChatSigma = () => {
     marcarInteraccionUsuario();
     setMinimizado(false);
     setActivo(true);
     setHablando(true);
-    setTimeout(() => setHablando(false), 1500);
+    setTimeout(() => setHablando(false), 1200);
 
-    const destacados = toolsIndex.slice(0, 4);
-    setMensaje(`🔍 <b>Navegadora Inteligente de SIGAE</b><br><br>
-      ¡Dime qué módulo buscas o qué necesitas gestionar hoy! Estoy lista para orientarte y llevarte directo al lugar indicado. Escribe una palabra clave o toca un acceso rápido:`);
-    setModulosRecomendados(destacados);
+    setMensaje(`¡Hola! Dime qué necesitas gestionar o qué duda tienes sobre SIGAE. Como tu asistente virtual con IA, puedo orientarte y acompañarte directamente a cualquier sección:`);
+    setModulosRecomendados(toolsIndex.slice(0, 4));
     setAcciones([]);
     setChipsSugeridos([
       { texto: '🚌 Transporte Escolar', accion: () => procesarPreguntaUsuario('transporte') },
@@ -210,12 +208,12 @@ export const ChatbotSigma = () => {
       { texto: '🏫 Grados y Salones', accion: () => procesarPreguntaUsuario('grados') },
       { texto: '📝 Carga de Notas', accion: () => procesarPreguntaUsuario('notas') },
       { texto: '⚙️ Configuración Escolar', accion: () => procesarPreguntaUsuario('configuracion') },
-      { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') }
+      { texto: '📋 Ver mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') }
     ]);
     setTimeout(() => chatInputRef.current?.focus(), 80);
   };
 
-  // Cargar datos al montar y escuchar eventos de cambio de conocimiento y apertura de búsqueda interactiva
+  // Cargar datos al montar y escuchar eventos de cambio de conocimiento y apertura de chat
   useEffect(() => {
     cargarConocimiento();
 
@@ -223,15 +221,15 @@ export const ChatbotSigma = () => {
       cargarConocimiento();
     };
 
-    const handleAbrirBusqueda = () => {
-      iniciarBusquedaInteractiva();
+    const handleAbrirChat = () => {
+      abrirChatSigma();
     };
 
     window.addEventListener('sigae-sigma-refresh', refrescarCanal);
-    window.addEventListener('sigae-abrir-sigma-busqueda', handleAbrirBusqueda);
+    window.addEventListener('sigae-abrir-sigma-busqueda', handleAbrirChat);
     return () => {
       window.removeEventListener('sigae-sigma-refresh', refrescarCanal);
-      window.removeEventListener('sigae-abrir-sigma-busqueda', handleAbrirBusqueda);
+      window.removeEventListener('sigae-abrir-sigma-busqueda', handleAbrirChat);
       if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
     };
   }, [toolsIndex]);
@@ -268,7 +266,7 @@ export const ChatbotSigma = () => {
     setAcciones([]);
     setModulosRecomendados([]);
     setChipsSugeridos([
-      { texto: '🔍 Buscar módulo (Ctrl K)', accion: () => iniciarBusquedaInteractiva() },
+      { texto: '💬 ¿Qué puedes hacer?', accion: () => procesarPreguntaUsuario('que puedes hacer') },
       { texto: '🧭 Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
       { texto: '🚀 Mis módulos activos', accion: () => procesarPreguntaUsuario('mis modulos') },
       { texto: '🏫 ¿En qué escuela estoy?', accion: () => procesarPreguntaUsuario('escuela') }
@@ -466,7 +464,36 @@ export const ChatbotSigma = () => {
 
     const queryClean = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    // 0. BÚSQUEDA INTERACTIVA EN EL ÍNDICE DE MÓDULOS DE SIGAE
+    // Si pregunta por capacidades o qué puede hacer
+    const pideCapacidades = /\b(que puedes hacer|que haces|para que sirves|ayuda|funciones|capacidades|quien eres)\b/i.test(queryClean);
+    if (pideCapacidades) {
+      setTimeout(() => {
+        setPensando(false);
+        setHablando(true);
+        setTimeout(() => setHablando(false), 1500);
+        setMensaje(`¡Hola! Soy <b>SIGMA</b>, tu asistente de Inteligencia Artificial para SIGAE.<br><br>
+          Puedo orientarte sobre cualquier proceso escolar, explicarte términos del sistema y acompañarte al instante al módulo que necesites. Solo dime qué deseas hacer (por ejemplo: <i>"cargar notas"</i>, <i>"gestionar colectivos"</i>, <i>"ver transporte"</i> o <i>"crear usuarios"</i>).<br><br>
+          Aquí tienes algunos accesos recomendados para tu perfil:`);
+        setModulosRecomendados(toolsIndex.slice(0, 4));
+        setAcciones([]);
+        setChipsSugeridos([
+          { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') },
+          { texto: '🏫 ¿En qué escuela estoy?', accion: () => procesarPreguntaUsuario('escuela') },
+          { texto: '🧭 Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } }
+        ]);
+      }, 350);
+      return;
+    }
+
+    // Limpiamos preámbulos y palabras de relleno para detectar el tema/módulo central
+    const queryFiltrada = queryClean
+      .replace(/\b(donde|dónde|puedo|ver|esta|está|estan|están|como|cómo|hago|para|quiero|necesito|muestrame|muéstrame|abrir|ir|al|a|la|el|los|las|de|del|en|un|una|por|favor|busca|buscame|búscame|consultar|gestionar)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const terminoBusqueda = queryFiltrada.length >= 2 ? queryFiltrada : queryClean;
+
+    // 0. BÚSQUEDA INTELIGENTE DE MÓDULOS INTEGRADA EN LAS RESPUESTAS
     const modulosCoincidentes = toolsIndex.filter(t => {
       const sub = t.submodulo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const cat = t.categoria.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -474,11 +501,12 @@ export const ChatbotSigma = () => {
       const keys = (t.keywords || []).map(k => k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 
       const matchExacto = sub.includes(queryClean) || cat.includes(queryClean) || desc.includes(queryClean);
-      const matchKeywords = keys.some(k => queryClean.includes(k) || k.includes(queryClean));
-      return matchExacto || matchKeywords;
+      const matchFiltrado = terminoBusqueda ? (sub.includes(terminoBusqueda) || cat.includes(terminoBusqueda) || desc.includes(terminoBusqueda)) : false;
+      const matchKeywords = keys.some(k => queryClean.includes(k) || k.includes(queryClean) || (terminoBusqueda && (terminoBusqueda.includes(k) || k.includes(terminoBusqueda))));
+      return matchExacto || matchFiltrado || matchKeywords;
     });
 
-    // Si coincide con herramientas del sistema:
+    // Si coincide con herramientas del sistema, responder conversacionalmente como IA:
     if (modulosCoincidentes.length > 0) {
       setTimeout(() => {
         setPensando(false);
@@ -487,20 +515,18 @@ export const ChatbotSigma = () => {
 
         if (modulosCoincidentes.length === 1) {
           const m = modulosCoincidentes[0];
-          setMensaje(`✨ <b>¡Excelente! He encontrado el módulo que buscas:</b><br>
-            Toca la tarjeta interactiva a continuación y te llevaré de inmediato a <b>${m.submodulo}</b>:`);
+          const descHtml = m.desc ? `<div class="p-2 my-2 rounded bg-light border-start border-3 border-primary text-secondary small">${m.desc}</div>` : '';
+          setMensaje(`¡Por supuesto! Para gestionar eso, el módulo indicado es <b>${m.submodulo}</b> (en la sección de <i>${m.categoria}</i>).${descHtml}Toca la tarjeta a continuación y te llevaré de inmediato:`);
           setModulosRecomendados([m]);
         } else {
-          setMensaje(`🔍 <b>He localizado ${modulosCoincidentes.length} herramientas disponibles</b> para ti:<br>
-            Toca el módulo que deseas abrir y te acompañaré de inmediato:`);
+          setMensaje(`¡Entendido! Encontré <b>${modulosCoincidentes.length} secciones</b> en SIGAE disponibles para tu rol que pueden ayudarte. Pulsa sobre la que deseas abrir:`);
           setModulosRecomendados(modulosCoincidentes.slice(0, 4));
         }
 
         setAcciones([]);
         setChipsSugeridos([
-          { texto: '🔄 Buscar otro módulo', accion: () => iniciarBusquedaInteractiva() },
-          { texto: '📋 Ver mis módulos activos', accion: () => procesarPreguntaUsuario('mis modulos') },
-          { texto: '❓ Hacer otra pregunta', accion: () => { setModulosRecomendados([]); setMensaje('¿Qué otra consulta tienes? Escríbela y con gusto te oriento:'); } }
+          { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') },
+          { texto: '💬 Hacer otra consulta', accion: () => { setModulosRecomendados([]); setMensaje('Dime qué otra duda o requerimiento tienes y con gusto te oriento:'); } }
         ]);
       }, 400);
       return;
@@ -585,7 +611,7 @@ export const ChatbotSigma = () => {
           }
           setAcciones([]);
           setChipsSugeridos([
-            { texto: '🔍 Buscar módulo específico', accion: () => iniciarBusquedaInteractiva() },
+            { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') },
             { texto: '🏫 Ver datos de la escuela', accion: () => procesarPreguntaUsuario('escuela') }
           ]);
         } else {
@@ -622,7 +648,7 @@ export const ChatbotSigma = () => {
     setAcciones([]);
     setModulosRecomendados(toolsIndex.slice(0, 3));
     setChipsSugeridos([
-      { texto: '🔍 Buscar otra herramienta', accion: () => iniciarBusquedaInteractiva() },
+      { texto: '📋 Ver módulos disponibles', accion: () => procesarPreguntaUsuario('mis modulos') },
       { texto: '🧭 Iniciar Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } }
     ]);
     try {
@@ -813,17 +839,6 @@ export const ChatbotSigma = () => {
           </div>
 
           <div className="d-flex align-items-center gap-1.5">
-            <button 
-              type="button"
-              onClick={iniciarBusquedaInteractiva}
-              className="btn btn-xs rounded-pill px-2 py-0.5 border text-muted bg-light d-flex align-items-center gap-1 shadow-2xs hover-efecto" 
-              style={{ fontSize: '0.68rem' }}
-              title="Buscar herramientas interactivamente (Ctrl+K)"
-            >
-              <i className="bi bi-search text-primary"></i>
-              <span>Buscar</span>
-              <kbd className="bg-white border rounded px-1 text-secondary" style={{ fontSize: '0.6rem' }}>Ctrl K</kbd>
-            </button>
             <button className="sigma-bubble-close" onClick={() => { marcarInteraccionUsuario(); setActivo(false); }}>&times;</button>
           </div>
         </div>
@@ -996,7 +1011,7 @@ export const ChatbotSigma = () => {
             }}
             onKeyDown={(e) => { if (e.key === 'Enter') procesarPreguntaUsuario(); }}
             className="sigma-input" 
-            placeholder="Pregúntame algo o dime qué módulo buscas..."
+            placeholder="Pregúntame lo que necesites o qué deseas gestionar..."
           />
           <button onClick={() => procesarPreguntaUsuario()} className="sigma-btn-send" title="Consultar a SIGMA">
             <i className="bi bi-send-fill"></i>
