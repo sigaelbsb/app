@@ -440,15 +440,27 @@ export const ActualizacionDatos: React.FC = () => {
   // Sincronizar objetos de Ruta y Parada cuando hay datos cargados en el formulario
   useEffect(() => {
     if (rutasTransporteDB.length > 0 && form.ruta_transporte) {
-      const rObj = rutasTransporteDB.find(r => form.ruta_transporte.includes(r.nombre));
+      const nombreRutaLimpio = form.ruta_transporte.split(' - Parada: ')[0].trim();
+      const rObj = rutasTransporteDB.find(r => r.nombre === nombreRutaLimpio || form.ruta_transporte.startsWith(r.nombre));
       if (rObj && rObj.id !== selectedRutaObj?.id) {
         setSelectedRutaObj(rObj);
       }
     }
-    if (paradasTransporteDB.length > 0 && (form.parada_transporte || form.ruta_transporte)) {
-      const pObj = paradasTransporteDB.find(p => (form.parada_transporte && p.nombre_parada === form.parada_transporte) || form.ruta_transporte.includes(p.nombre_parada));
-      if (pObj && pObj.id !== selectedParadaObj?.id) {
-        setSelectedParadaObj(pObj);
+    if (paradasTransporteDB.length > 0) {
+      let paradaName = (form.parada_transporte || '').trim();
+      if (!paradaName && form.ruta_transporte && form.ruta_transporte.includes(' - Parada: ')) {
+        paradaName = form.ruta_transporte.split(' - Parada: ')[1]?.trim() || '';
+      }
+      if (paradaName) {
+        const pObj = paradasTransporteDB.find(p => p.nombre_parada === paradaName);
+        if (pObj) {
+          if (pObj.id !== selectedParadaObj?.id) {
+            setSelectedParadaObj(pObj);
+          }
+          if (!form.parada_transporte) {
+            setForm(prev => ({ ...prev, parada_transporte: pObj.nombre_parada }));
+          }
+        }
       }
     }
   }, [form.ruta_transporte, form.parada_transporte, rutasTransporteDB, paradasTransporteDB]);
@@ -2059,8 +2071,14 @@ export const ActualizacionDatos: React.FC = () => {
       estApeFinal = dAct.estudiante_apellidos || estApeFinal;
     }
 
+    let paradaCargada = dAct.parada_transporte || '';
+    if (!paradaCargada && dAct.ruta_transporte && dAct.ruta_transporte.includes(' - Parada: ')) {
+      paradaCargada = dAct.ruta_transporte.split(' - Parada: ')[1]?.trim() || '';
+    }
+
     if (Object.keys(dAct).length > 0) {
       setForm({ ...defaultForm(), ...dAct,
+        parada_transporte: paradaCargada,
         estudiante_tipo_documento: tipoDocDefecto,
         estudiante_nombres: estNomFinal,
         estudiante_apellidos: estApeFinal,
@@ -2527,8 +2545,32 @@ export const ActualizacionDatos: React.FC = () => {
 
       case 5: // Ruta Escolar (renderStep6)
         if (form.requiere_transporte) {
-          if (!form.ruta_transporte) faltantes.push('Ruta de Transporte');
-          if (rutasTransporteDB.length > 0 && !form.parada_transporte) faltantes.push('Parada de Transporte');
+          if (!form.ruta_transporte && !selectedRutaObj) {
+            faltantes.push('Ruta de Transporte');
+          }
+
+          let paradaEfectiva = (form.parada_transporte || '').trim();
+          if (!paradaEfectiva && selectedParadaObj?.nombre_parada) {
+            paradaEfectiva = selectedParadaObj.nombre_parada;
+          }
+          if (!paradaEfectiva && form.ruta_transporte && form.ruta_transporte.includes(' - Parada: ')) {
+            paradaEfectiva = form.ruta_transporte.split(' - Parada: ')[1]?.trim() || '';
+          }
+
+          if (rutasTransporteDB.length > 0) {
+            if (!paradaEfectiva) {
+              faltantes.push('Parada de Transporte');
+            } else if (!form.parada_transporte) {
+              // Auto-sincronizar en el estado del formulario para que no quede vacía
+              setForm(prev => ({
+                ...prev,
+                parada_transporte: paradaEfectiva,
+                ruta_transporte: selectedRutaObj && !prev.ruta_transporte.includes(' - Parada: ')
+                  ? `${selectedRutaObj.nombre} - Parada: ${paradaEfectiva}`
+                  : prev.ruta_transporte
+              }));
+            }
+          }
         }
         break;
 
@@ -4161,8 +4203,11 @@ const STEPS = [
                           const rObj = rutasTransporteDB.find(r => r.id === routeId);
                           setSelectedRutaObj(rObj || null);
                           setSelectedParadaObj(null);
-                          updateForm('ruta_transporte', rObj ? rObj.nombre : '');
-                          updateForm('parada_transporte', '');
+                          setForm(prev => ({
+                            ...prev,
+                            ruta_transporte: rObj ? rObj.nombre : '',
+                            parada_transporte: ''
+                          }));
                         }}>
                         <option value="">-- Seleccionar Ruta --</option>
                         {rutasTransporteDB.map(r => (
@@ -4179,12 +4224,11 @@ const STEPS = [
                           const stopId = e.target.value;
                           const pObj = paradasTransporteDB.find(p => p.id === stopId);
                           setSelectedParadaObj(pObj || null);
-                          if (selectedRutaObj && pObj) {
-                            updateForm('ruta_transporte', `${selectedRutaObj.nombre} - Parada: ${pObj.nombre_parada}`);
-                            updateForm('parada_transporte', pObj.nombre_parada);
-                          } else {
-                            updateForm('parada_transporte', '');
-                          }
+                          setForm(prev => ({
+                            ...prev,
+                            ruta_transporte: selectedRutaObj && pObj ? `${selectedRutaObj.nombre} - Parada: ${pObj.nombre_parada}` : (selectedRutaObj?.nombre || prev.ruta_transporte),
+                            parada_transporte: pObj ? pObj.nombre_parada : ''
+                          }));
                         }}>
                         <option value="">-- Seleccionar Parada --</option>
                         {selectedRutaObj && paradasTransporteDB
