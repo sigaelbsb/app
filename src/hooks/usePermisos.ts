@@ -139,6 +139,21 @@ export const usePermisos = () => {
     const codNormalizado = escuelaCodigo.toLowerCase().trim();
     const userEsc = (user.id_escuela || '').trim().toLowerCase();
 
+    // MODO EMULACIÓN: Si el usuario está emulando un rol (como Invitado) o una cuenta de usuario,
+    // debe tener acceso irrestricto a la escuela seleccionada para la prueba,
+    // aun si el rol se encuentra inhabilitado en dicho plantel (__acceso_plantel__ === false)
+    const esModoEmulacion = !!(
+      user.es_emulacion ||
+      localStorage.getItem('sigae_usuario_original_admin') ||
+      sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+    );
+
+    if (esModoEmulacion) {
+      if (!userEsc || userEsc === 'ambas' || userEsc === 'todas' || userEsc === codNormalizado) {
+        return true;
+      }
+    }
+
     // 1. AISLAMIENTO ESTRICTO POR PLANTEL ASIGNADO AL USUARIO:
     // Si el usuario está asignado específicamente a una sola escuela, solo puede acceder a ella
     if (userEsc === 'sb' || userEsc === 'lb') {

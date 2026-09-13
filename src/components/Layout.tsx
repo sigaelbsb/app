@@ -44,6 +44,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const misRutasRef = useRef<string[]>([]);
   misRutasRef.current = misRutasRepresentante;
   const [mantenimientoActivo, setMantenimientoActivo] = useState<boolean>(false);
+  const [invitadosBloqueados, setInvitadosBloqueados] = useState<boolean>(false);
 
   const toggleSilenciarTransporte = () => {
     setSilenciarTransporte(prev => {
@@ -165,17 +166,27 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       const { data: ajustes } = await supabase
         .from('ajustes_globales')
         .select('clave, valor')
-        .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo']);
+        .in('clave', [
+          'mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo',
+          'bloquear_invitados_sb', 'bloquear_invitados_lb', 'bloquear_invitados'
+        ]);
 
       const maintKey = activeSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
       const schoolMaint = ajustes?.find(x => x.clave === maintKey);
       const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
       const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
 
-      setMantenimientoActivo(isSchoolInMaint);
+      const guestKey = activeSchool === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
+      const guestSchool = ajustes?.find(x => x.clave === guestKey);
+      const guestGlobal = ajustes?.find(x => x.clave === 'bloquear_invitados');
+      const isGuestBlocked = guestSchool ? (guestSchool.valor === 'true') : (guestGlobal?.valor === 'true');
 
-      // Si se está emulando un rol o un usuario, el sistema debe permitir operar y navegar
-      // libremente sin desconexión ni bloqueos aunque la institución o el sistema estén en mantenimiento.
+      setMantenimientoActivo(isSchoolInMaint);
+      setInvitadosBloqueados(isGuestBlocked);
+
+      // Si se está emulando un rol (incluido Invitado) o una cuenta de usuario, el sistema debe permitir
+      // operar y navegar libremente sin desconexión ni bloqueos aunque la institución o el sistema estén
+      // en mantenimiento o el rol de invitados esté inhabilitado por la dirección.
       const esEmulacion = !!(
         usr?.es_emulacion ||
         localStorage.getItem('sigae_usuario_original_admin') ||
@@ -184,6 +195,35 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
       if (esEmulacion) {
         // Acceso técnico concedido: la sesión emulada permanece activa
+        return;
+      }
+
+      // Verificación en caliente para usuarios reales con rol 'Invitado' cuando está inhabilitado
+      if (usr.rol === 'Invitado' && isGuestBlocked) {
+        const disconnectUser = () => {
+          localStorage.removeItem('sesion_sigae');
+          localStorage.removeItem('usuario_sigae');
+          onLogout();
+          navigate('/login');
+        };
+
+        const Swal = (window as any).Swal;
+        if (Swal) {
+          Swal.fire({
+            title: 'Acceso de Invitados Inhabilitado',
+            text: `La institución ${schoolNombre} ha inhabilitado temporalmente el acceso para visitantes e invitados. Tu sesión ha sido finalizada.`,
+            icon: 'warning',
+            confirmButtonColor: '#FF8D00',
+            confirmButtonText: 'Entendido',
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          }).then(() => {
+            disconnectUser();
+          });
+        } else {
+          alert(`La institución ${schoolNombre} ha inhabilitado temporalmente el acceso para visitantes e invitados.`);
+          disconnectUser();
+        }
         return;
       }
 
@@ -1238,6 +1278,15 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   >
                     <i className="bi bi-cone-striped me-1"></i>
                     Modo Mantenimiento (Acceso Habilitado en Emulación)
+                  </span>
+                )}
+                {invitadosBloqueados && usuario?.rol === 'Invitado' && (
+                  <span 
+                    className="badge bg-warning text-dark fw-bold px-2.5 py-1 ms-1 shadow-sm animate__animated animate__pulse animate__infinite"
+                    title="El rol Invitado se encuentra inhabilitado en esta institución para visitantes públicos, pero la emulación está permitida sin restricciones"
+                  >
+                    <i className="bi bi-person-x-fill me-1"></i>
+                    Invitado Inhabilitado (Acceso Habilitado en Emulación)
                   </span>
                 )}
                 <span className="d-none d-lg-inline ms-2 text-white-50 small">
