@@ -115,8 +115,18 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
   // Estados de Despacho Asistido
   const [despachandoAutomatico, setDespachandoAutomatico] = useState<boolean>(false);
   const [indiceActualDespacho, setIndiceActualDespacho] = useState<number>(0);
+  const [totalEnCola, setTotalEnCola] = useState<number>(0);
   const [segundosRestantes, setSegundosRestantes] = useState<number>(0);
   const [mensajesEnviadosEnLoteActual, setMensajesEnviadosEnLoteActual] = useState<number>(0);
+  const [bloqueoPopupPendiente, setBloqueoPopupPendiente] = useState<{
+    asp: AspiranteWhatsApp;
+    index: number;
+    countEnLote: number;
+    url: string;
+  } | null>(null);
+
+  const listaDespachoRef = useRef<AspiranteWhatsApp[]>([]);
+  const dispatchWindowRef = useRef<Window | null>(null);
 
   // Previsualización y flyer
   const flyerRef = useRef<HTMLDivElement>(null);
@@ -401,8 +411,19 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
 
     const mensaje = generarMensajeAntiSpam(asp, idxRelativo);
     const url = `https://wa.me/${telWA}?text=${encodeURIComponent(mensaje)}`;
-    window.open(url, '_blank');
-    registrarEnvioOrientacionesEnBD(asp.id);
+    const win = window.open(url, '_blank');
+    if (win) {
+      registrarEnvioOrientacionesEnBD(asp.id);
+    } else {
+      if (Swal) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Ventana Emergente Bloqueada',
+          text: 'Tu navegador bloqueó la apertura de WhatsApp. Por favor permite las ventanas emergentes (pop-ups) en este sitio para enviar los mensajes.',
+          confirmButtonColor: '#10B981'
+        });
+      }
+    }
   };
 
   // Copiar mensaje individual
@@ -432,11 +453,18 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
       return;
     }
 
+    // Congelar la lista para que la actualización del estado de "pendiente" a "enviado"
+    // no altere los índices ni encoja el array durante la difusión
+    const listaFija = [...aspirantesFiltrados];
+    listaDespachoRef.current = listaFija;
+
+    setTotalEnCola(listaFija.length);
     setDespachandoAutomatico(true);
     setIndiceActualDespacho(0);
     setMensajesEnviadosEnLoteActual(0);
+    setBloqueoPopupPendiente(null);
 
-    // Enviar primer mensaje inmediatamente
+    // Enviar primer mensaje inmediatamente aprovechando el clic directo del usuario
     ejecutarPasoDespacho(0, 0);
   };
 
@@ -444,16 +472,18 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setDespachandoAutomatico(false);
     setSegundosRestantes(0);
+    setBloqueoPopupPendiente(null);
   };
 
   const ejecutarPasoDespacho = (index: number, countEnLote: number) => {
-    if (index >= aspirantesFiltrados.length) {
+    const lista = listaDespachoRef.current;
+    if (index >= lista.length) {
       detenerDespachoSecuencial();
       if (Swal) {
         Swal.fire({
           icon: 'success',
           title: '¡Difusión Completada!',
-          text: 'Se ha completado el despacho a todos los aspirantes de la lista con la protección anti-spam activa.',
+          text: `Se ha completado el despacho a los ${lista.length} aspirantes de la lista con la protección anti-spam activa.`,
           confirmButtonColor: '#10B981'
         });
       }
@@ -483,44 +513,145 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
       return;
     }
 
-    const aspActual = aspirantesFiltrados[index];
-    enviarWhatsAppIndividual(aspActual, index);
+    const aspActual = lista[index];
+    const telWA = formatearTelefonoWA(aspActual.representante_telefono);
+    if (!telWA) {
+      // Sin teléfono válido, omitir y avanzar al siguiente
+      setIndiceActualDespacho(index + 1);
+      programarSiguientePaso(index + 1, countEnLote);
+      return;
+    }
 
-    // Incrementar contadores
-    const siguienteIndice = index + 1;
-    const nuevoLoteCount = countEnLote + 1;
+    const mensaje = generarMensajeAntiSpam(aspActual, index);
+    const url = `https://wa.me/${telWA}?text=${encodeURIComponent(mensaje)}`;
+
+    let ventanaAbierta = false;
+    try {
+      if (dispatchWindowRef.current && !dispatchWindowRef.current.closed) {
+        dispatchWindowRef.current.location.href = url;
+        dispatchWindowRef.current.focus();
+        ventanaAbierta = true;
+      } else {
+        const nuevaVentana = window.open(url, 'SIGAE_Despacho_WhatsApp');
+        if (nuevaVentana && !nuevaVentana.closed && typeof nuevaVentana.closed !== 'undefined') {
+          dispatchWindowRef.current = nuevaVentana;
+          ventanaAbierta = true;
+        }
+      }
+    } catch (e) {
+      ventanaAbierta = false;
+    }
+
+    if (ventanaAbierta) {
+      // Apertura confirmada: registrar en la BD y avanzar
+      registrarEnvioOrientacionesEnBD(aspActual.id);
+      const siguienteIndice = index + 1;
+      const nuevoLoteCount = countEnLote + 1;
+      setIndiceActualDespacho(siguienteIndice);
+      setMensajesEnviadosEnLoteActual(nuevoLoteCount);
+      setBloqueoPopupPendiente(null);
+
+      if (siguienteIndice < lista.length) {
+        programarSiguientePaso(siguienteIndice, nuevoLoteCount);
+      } else {
+        detenerDespachoSecuencial();
+        if (Swal) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Difusión Finalizada con Éxito!',
+            text: `Se han procesado exitosamente los ${lista.length} aspirantes seleccionados.`,
+            confirmButtonColor: '#10B981'
+          });
+        }
+      }
+    } else {
+      // El navegador bloqueó la ventana emergente automática en segundo plano
+      // NO marcar en BD. Pausar y ofrecer al usuario el botón de envío asistido en 1 clic
+      if (timerRef.current) clearInterval(timerRef.current);
+      setSegundosRestantes(0);
+      setBloqueoPopupPendiente({
+        asp: aspActual,
+        index,
+        countEnLote,
+        url
+      });
+    }
+  };
+
+  const programarSiguientePaso = (siguienteIndice: number, nuevoLoteCount: number) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    const delay = activarAntiSpam 
+      ? Math.floor(Math.random() * 3) + segundosRetardo
+      : 4;
+
+    setSegundosRestantes(delay);
+
+    timerRef.current = setInterval(() => {
+      setSegundosRestantes(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          ejecutarPasoDespacho(siguienteIndice, nuevoLoteCount);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Despacho asistido manual con 1 clic (cuando el navegador requiere gesto de usuario)
+  const despacharContactoManual = (pendiente: { asp: AspiranteWhatsApp; index: number; countEnLote: number; url: string }) => {
+    try {
+      const win = window.open(pendiente.url, 'SIGAE_Despacho_WhatsApp');
+      if (win) {
+        dispatchWindowRef.current = win;
+      }
+    } catch (e) {
+      window.open(pendiente.url, '_blank');
+    }
+    registrarEnvioOrientacionesEnBD(pendiente.asp.id);
+
+    const siguienteIndice = pendiente.index + 1;
+    const nuevoLoteCount = pendiente.countEnLote + 1;
     setIndiceActualDespacho(siguienteIndice);
     setMensajesEnviadosEnLoteActual(nuevoLoteCount);
+    setBloqueoPopupPendiente(null);
 
-    if (siguienteIndice < aspirantesFiltrados.length) {
-      // Configurar cuenta regresiva de retardo humano aleatorio
-      const delay = activarAntiSpam 
-        ? Math.floor(Math.random() * 4) + segundosRetardo
-        : 4;
-
-      setSegundosRestantes(delay);
-
-      timerRef.current = setInterval(() => {
-        setSegundosRestantes(prev => {
-          if (prev <= 1) {
-            if (timerRef.current) clearInterval(timerRef.current);
-            ejecutarPasoDespacho(siguienteIndice, nuevoLoteCount);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    const lista = listaDespachoRef.current;
+    if (siguienteIndice < lista.length) {
+      programarSiguientePaso(siguienteIndice, nuevoLoteCount);
     } else {
       detenerDespachoSecuencial();
       if (Swal) {
         Swal.fire({
           icon: 'success',
           title: '¡Difusión Finalizada con Éxito!',
-          text: 'Se han procesado todos los aspirantes de la lista seleccionada.',
+          text: `Se han completado todos los aspirantes de la lista.`,
           confirmButtonColor: '#10B981'
         });
       }
     }
+  };
+
+  const omitirContactoActual = () => {
+    if (!bloqueoPopupPendiente) return;
+    const siguienteIndice = bloqueoPopupPendiente.index + 1;
+    const countEnLote = bloqueoPopupPendiente.countEnLote;
+    setIndiceActualDespacho(siguienteIndice);
+    setBloqueoPopupPendiente(null);
+
+    const lista = listaDespachoRef.current;
+    if (siguienteIndice < lista.length) {
+      programarSiguientePaso(siguienteIndice, countEnLote);
+    } else {
+      detenerDespachoSecuencial();
+    }
+  };
+
+  const forzarEnvioInmediato = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setSegundosRestantes(0);
+    ejecutarPasoDespacho(indiceActualDespacho, mensajesEnviadosEnLoteActual);
   };
 
   // Descarga del flyer como imagen PNG
@@ -870,22 +1001,92 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
               {/* BARRA DE PROGRESO DE ENVÍO ACTIVO */}
               {despachandoAutomatico && (
                 <div className="mt-3 pt-3 border-top animate__animated animate__fadeIn">
-                  <div className="d-flex justify-content-between align-items-center mb-1.5 flex-wrap gap-2">
+                  <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                     <span className="fw-bold small text-dark d-flex align-items-center gap-2">
                       <span className="spinner-grow spinner-grow-sm text-success" role="status"></span>
-                      Despachando aspirante {indiceActualDespacho} de {aspirantesFiltrados.length}
+                      Despachando aspirante <b>{Math.min(indiceActualDespacho + 1, totalEnCola || 1)}</b> de <b>{totalEnCola || aspirantesFiltrados.length}</b>
+                      {listaDespachoRef.current[indiceActualDespacho] && (
+                        <span className="text-muted fw-normal d-none d-md-inline ms-1">
+                          &bull; {listaDespachoRef.current[indiceActualDespacho].representante_nombres} {listaDespachoRef.current[indiceActualDespacho].representante_apellidos} (Rep. de {listaDespachoRef.current[indiceActualDespacho].estudiante_nombres})
+                        </span>
+                      )}
                     </span>
-                    {segundosRestantes > 0 && (
-                      <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1 fw-bold">
-                        <i className="bi bi-hourglass-split me-1"></i>Pausa Anti-Spam: enviando el siguiente en {segundosRestantes}s... (Lote: {mensajesEnviadosEnLoteActual}/{tamanoLoteSeguridad})
-                      </span>
-                    )}
+                    <div className="d-flex align-items-center gap-2">
+                      {segundosRestantes > 0 ? (
+                        <>
+                          <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5">
+                            <i className="bi bi-hourglass-split"></i>
+                            <span>Pausa Anti-Spam: siguiente en <b>{segundosRestantes}s</b></span>
+                            <span className="badge bg-warning text-dark rounded-pill ms-1">Lote: {mensajesEnviadosEnLoteActual}/{tamanoLoteSeguridad}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={forzarEnvioInmediato}
+                            className="btn btn-xs btn-outline-success rounded-pill px-2.5 py-1 fw-bold shadow-xs hover-efecto"
+                            title="Omitir tiempo de espera y enviar de inmediato"
+                          >
+                            <i className="bi bi-lightning-charge-fill me-1"></i>Enviar Ya
+                          </button>
+                        </>
+                      ) : (
+                        <span className="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-3 py-1 fw-bold">
+                          <i className="bi bi-check2-circle me-1"></i>Enviando...
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="progress rounded-pill shadow-inner" style={{ height: '14px', backgroundColor: '#e2e8f0' }}>
+
+                  <div className="progress rounded-pill shadow-inner mb-3" style={{ height: '14px', backgroundColor: '#e2e8f0' }}>
                     <div 
                       className="progress-bar progress-bar-striped progress-bar-animated bg-success rounded-pill"
-                      style={{ width: `${Math.round((indiceActualDespacho / aspirantesFiltrados.length) * 100)}%` }}
+                      style={{ width: `${Math.round(((indiceActualDespacho) / Math.max(totalEnCola || 1, 1)) * 100)}%` }}
                     ></div>
+                  </div>
+
+                  {/* ALERTA DE BLOQUEO DE POPUP CON BOTÓN DIRECTO 1-CLIC */}
+                  {bloqueoPopupPendiente && (
+                    <div className="alert alert-warning border border-warning-subtle rounded-4 p-3 d-flex align-items-center justify-content-between flex-wrap gap-3 shadow-xs animate__animated animate__headShake">
+                      <div className="d-flex align-items-center gap-2.5">
+                        <div className="p-2 bg-warning bg-opacity-25 rounded-circle text-warning-emphasis">
+                          <i className="bi bi-exclamation-triangle-fill fs-5"></i>
+                        </div>
+                        <div>
+                          <div className="fw-bold text-dark small">
+                            Ventana automática detenida por el navegador para: <u>{bloqueoPopupPendiente.asp.representante_nombres} {bloqueoPopupPendiente.asp.representante_apellidos}</u>
+                          </div>
+                          <div className="extra-small text-muted">
+                            Por seguridad, los navegadores impiden ventanas emergentes automáticas en temporizadores. Haz clic en el botón verde para abrir WhatsApp y continuar el lote.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => despacharContactoManual(bloqueoPopupPendiente)}
+                          className="btn btn-success rounded-pill px-3.5 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-2 animate__animated animate__pulse animate__infinite"
+                        >
+                          <i className="bi bi-whatsapp fs-5"></i>
+                          <span>Enviar a {bloqueoPopupPendiente.asp.representante_nombres.split(' ')[0]}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={omitirContactoActual}
+                          className="btn btn-outline-secondary rounded-pill px-3 py-2 fw-bold"
+                          title="Omitir este contacto y continuar con el siguiente"
+                        >
+                          Omitir
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="extra-small text-muted d-flex align-items-center justify-content-between flex-wrap gap-2 pt-1 border-top">
+                    <span>
+                      <i className="bi bi-info-circle me-1"></i><b>Tip para 100% automático:</b> Activa <i>"Permitir siempre ventanas emergentes y redirecciones"</i> en la barra de direcciones de tu navegador para que los mensajes se despachen solos.
+                    </span>
+                    <span>
+                      <i className="bi bi-window-stack me-1"></i>Ventana única de despacho: <b>reutiliza la misma pestaña</b> para no saturar tu equipo.
+                    </span>
                   </div>
                 </div>
               )}
