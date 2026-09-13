@@ -1284,16 +1284,20 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
         if (usr) usuarioData = usr;
       }
 
+      let expDocData: any = null;
       if (usuarioData && targetCedula) {
         let sexoExp = usuarioData.sexo || usuarioData.genero || '';
         try {
           const { data: expDoc } = await supabase
             .from('expedientes_docentes')
-            .select('sexo')
+            .select('*')
             .eq('usuario_cedula', targetCedula)
             .maybeSingle();
-          if (expDoc?.sexo) {
-            sexoExp = expDoc.sexo;
+          if (expDoc) {
+            expDocData = expDoc;
+            if (expDoc.sexo) {
+              sexoExp = expDoc.sexo;
+            }
           }
         } catch (e) { }
 
@@ -1303,6 +1307,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
             if (rawDemo) {
               const pDemo = JSON.parse(rawDemo);
               if (pDemo.sexo) sexoExp = pDemo.sexo;
+              if (!expDocData) expDocData = pDemo;
             }
           } catch (e) { }
         }
@@ -1313,6 +1318,26 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
         setLoading(false);
         return;
       }
+
+      // DETERMINACIÓN RIGUROSA DEL GÉNERO Y TRATAMIENTO SEGÚN EXPEDIENTE
+      const primerNombreUsuario = (usuarioData.nombre_completo || '').trim().split(/\s+/)[0];
+      const rawSexo = String(expDocData?.sexo || usuarioData.sexo || usuarioData.genero || '').trim().toLowerCase();
+      let esFemenino = false;
+      if (rawSexo.startsWith('f') || rawSexo === 'mujer') {
+        esFemenino = true;
+      } else if (rawSexo.startsWith('m') || rawSexo === 'hombre') {
+        esFemenino = false;
+      } else {
+        const tituloAcad = String(expDocData?.titulo_obtenido || '').toLowerCase();
+        if (tituloAcad.includes('profesora') || tituloAcad.includes('licenciada') || tituloAcad.includes('especialista femenina') || tituloAcad.includes('abogada') || tituloAcad.includes('ingeniera')) {
+          esFemenino = true;
+        } else if (tituloAcad.includes('profesor') || tituloAcad.includes('licenciado') || tituloAcad.includes('abogado') || tituloAcad.includes('ingeniero')) {
+          esFemenino = false;
+        } else {
+          esFemenino = esGeneroFemeninoDocente(rawSexo, usuarioData.nombre_completo, primerNombreUsuario);
+        }
+      }
+      const tituloTratamiento = esFemenino ? 'Profesora' : 'Profesor';
 
       const escCodigo = usuarioData.id_escuela || localStorage.getItem('sigae_escuela_codigo') || 'sb';
 
@@ -1328,7 +1353,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
       const { data: estudiantesData } = await supabase.from('estudiantes_vinculaciones').select('*');
       const { data: docentesData } = await supabase.from('usuarios').select('cedula, nombre_completo, telefono, email, cargo, rol');
 
-      // 1. Salones
+      // 1. Salones y Docente Guía
       const misSalones: any[] = [];
       if (salonesData && salonesData.length > 0) {
         salonesData.forEach(sal => {
@@ -1342,7 +1367,9 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
             ).length;
 
             const idxEnGuia = guias.indexOf(targetCedula);
-            const rolEnAula = idxEnGuia === 0 ? 'Docente Titular' : 'Docente Auxiliar / Co-Docente';
+            const rolEnAula = idxEnGuia === 0 
+              ? 'Docente Guía Titular' 
+              : 'Docente Guía Co-Docente';
 
             const ciColega = guias.find(ci => ci !== targetCedula);
             const docColega = ciColega ? (docentesData || []).find(d => d.cedula === ciColega) : null;
@@ -1352,6 +1379,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
               espacio: espacioAsig,
               totalEstudiantes: totalEstudiantes,
               rolEnAula: rolEnAula,
+              esTitular: idxEnGuia === 0,
               colega: docColega ? docColega.nombre_completo : ciColega ? `C.I. ${ciColega}` : 'Titular Único'
             });
           }
@@ -1367,6 +1395,18 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
       if (respList.length === 0) {
         const localResp = localStorage.getItem('sigae_responsabilidades_docentes');
         if (localResp) respList = JSON.parse(localResp);
+      }
+      if (respList.length === 0) {
+        try {
+          const { data: ajResp } = await supabase
+            .from('ajustes_globales')
+            .select('valor')
+            .eq('clave', 'responsabilidades_docentes')
+            .maybeSingle();
+          if (ajResp?.valor) {
+            respList = typeof ajResp.valor === 'string' ? JSON.parse(ajResp.valor) : ajResp.valor;
+          }
+        } catch (e) { }
       }
 
       const misEspecialidades: any[] = [];
@@ -1386,30 +1426,44 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
         });
       }
 
-      // 3. Colectivos / Brigadas
+      // 3. Colectivos / Brigadas (Vocero o Participante)
       const { data: colectivosData } = await supabase.from('colectivos').select('*');
+      let colecList = colectivosData || [];
+      if (!colecList || colecList.length === 0) {
+        try {
+          const rawColLocal = localStorage.getItem('sigae_colectivos');
+          if (rawColLocal) colecList = JSON.parse(rawColLocal);
+        } catch (e) { }
+      }
+
       const misColectivos: any[] = [];
-      if (colectivosData && colectivosData.length > 0) {
-        colectivosData.forEach(col => {
+      if (colecList && colecList.length > 0) {
+        colecList.forEach((col: any) => {
           const esVocero = String(col.vocero_cedula || '').trim() === String(targetCedula).trim();
-          const miembros: any[] = Array.isArray(col.miembros) ? col.miembros : [];
+          const miembros: any[] = Array.isArray(col.integrantes) ? col.integrantes : (Array.isArray(col.miembros) ? col.miembros : []);
           const esMiembro = miembros.some((m: any) => {
             if (typeof m === 'string') return m.trim() === targetCedula.trim();
             return String(m.cedula || m.ci || '').trim() === targetCedula.trim();
           });
 
           if (esVocero || esMiembro) {
+            const nombreCol = col.nombre_colectivo || col.nombre || 'Colectivo Pedagógico';
+            const rolTexto = esVocero 
+              ? (esFemenino ? '👑 Vocera Principal' : '👑 Vocero Principal')
+              : '🤝 Participante / Integrante';
+
             misColectivos.push({
-              nombre: col.nombre,
+              nombre: nombreCol,
               categoria: col.categoria || 'Colectivo Pedagógico',
-              rol: esVocero ? '👑 Vocero(a) Principal' : '🤝 Miembro Integrante',
+              rol: rolTexto,
+              esVocero: esVocero,
               descripcion: col.descripcion || 'Comité Institucional'
             });
           }
         });
       }
 
-      // 4. Organigrama
+      // 4. Organigrama y Cadena Supervisoria
       const { data: cargosData } = await supabase.from('cargos').select('*');
       let miPuestoOrganigrama: any = null;
       if (cargosData && cargosData.length > 0) {
@@ -1447,13 +1501,29 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
         };
       }
 
+      const esDocenteGuia = misSalones.length > 0;
+      const esVoceroColectivo = misColectivos.some((c: any) => c.esVocero);
+      const tieneEspecialidadesAsignadas = misEspecialidades.length > 0;
+      const esEspecialista = tieneEspecialidadesAsignadas ||
+        (usuarioData.cargo || '').toLowerCase().includes('especialista') ||
+        (expDocData?.titulo_obtenido || '').toLowerCase().includes('especialista') ||
+        (expDocData?.titulo_obtenido || '').toLowerCase().includes('educación física') ||
+        (expDocData?.titulo_obtenido || '').toLowerCase().includes('idiomas') ||
+        (expDocData?.titulo_obtenido || '').toLowerCase().includes('inglés');
+
       setDatosAsignacion({
         usuario: usuarioData,
+        expediente: expDocData,
+        esFemenino,
+        tituloTratamiento,
         salones: misSalones,
         especialidades: misEspecialidades,
         colectivos: misColectivos,
         organigrama: miPuestoOrganigrama,
-        escuelaCodigo: escCodigo
+        escuelaCodigo: escCodigo,
+        esDocenteGuia,
+        esVoceroColectivo,
+        esEspecialista
       });
 
       setVisible(true);
@@ -1705,24 +1775,55 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
           </div>
         </div>
 
-        <!-- Ficha del Funcionario -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 10.5px;">
-          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px;">
-            <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Nombres y Apellidos:</span><b>${u?.nombre_completo || 'Funcionario'}</b></div>
+        <!-- Ficha del Funcionario / Docente con Género del Expediente -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 10.5px;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+            <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Docente Asignado(a):</span><b>${datosAsignacion.tituloTratamiento} ${u?.nombre_completo || 'Docente'}</b></div>
             <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Cédula de Identidad:</span><b>${u?.cedula || '-'}</b></div>
-            <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Rol en Plataforma:</span><b>${u?.rol || 'Docente'}</b></div>
+            <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Género en Expediente:</span><b>${datosAsignacion.esFemenino ? 'Femenino (Mujer)' : 'Masculino (Hombre)'}</b></div>
             <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Teléfono:</span><b>${u?.telefono ? formatPhoneNumber(u.telefono) : 'No registrado'}</b></div>
+          </div>
+          ${datosAsignacion.expediente?.titulo_obtenido ? `
+            <div style="margin-top: 5px; padding-top: 5px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between; font-size: 9.5px; color: #334155;">
+              <div><span style="color: #64748b;">Título Académico (Expediente):</span> <b>${datosAsignacion.expediente.titulo_obtenido}</b></div>
+              <div><span style="color: #64748b;">Nivel Instrucción:</span> <b>${datosAsignacion.expediente.nivel_instruccion || 'Universitario'}</b></div>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Resumen de Responsabilidades y Funciones Otorgadas -->
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 9px 14px; margin-bottom: 12px; font-size: 10px;">
+          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #166534; margin-bottom: 5px; letter-spacing: 0.5px;">
+            Matriz de Responsabilidades Asignadas (Año Escolar ${periodoActivo})
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+              <span style="color: #64748b; display: block; font-size: 8px; text-transform: uppercase;">1. Docencia Guía de Aula:</span>
+              <b style="color: #0f172a;">${datosAsignacion.esDocenteGuia ? `Asignado(a) como Guía (${datosAsignacion.salones.map((s: any) => `${s.grado_anio} "${s.seccion}" - ${s.rolEnAula}`).join(', ')})` : 'Sin aula guía asignada (Especialista / Apoyo Académico)'}</b>
+            </div>
+            <div>
+              <span style="color: #64748b; display: block; font-size: 8px; text-transform: uppercase;">2. Colectivos Pedagógicos:</span>
+              <b style="color: #0f172a;">${datosAsignacion.colectivos.length > 0 ? datosAsignacion.colectivos.map((c: any) => `${c.nombre} [${c.rol}]`).join('; ') : 'Sin colectivo pedagógico asignado'}</b>
+            </div>
+            <div>
+              <span style="color: #64748b; display: block; font-size: 8px; text-transform: uppercase;">3. Docente Especialista / Áreas:</span>
+              <b style="color: #0f172a;">${datosAsignacion.especialidades.length > 0 ? datosAsignacion.especialidades.map((e: any) => `${e.nombre} (${e.horas || 0} hrs)`).join(', ') : (datosAsignacion.esEspecialista ? 'Docente Especialista' : 'Docente de Aula Regular')}</b>
+            </div>
+            <div>
+              <span style="color: #64748b; display: block; font-size: 8px; text-transform: uppercase;">4. Cargo Institucional y Supervisión:</span>
+              <b style="color: #0f172a;">${org?.cargoOficial} (Supervisado por: ${org?.supervisor})</b>
+            </div>
           </div>
         </div>
 
         <!-- Puesto en el Organigrama -->
-        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 10.5px;">
-          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #1e40af; margin-bottom: 4px;">
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 9px 14px; margin-bottom: 12px; font-size: 10px;">
+          <div style="font-size: 9.5px; font-weight: 800; text-transform: uppercase; color: #1e40af; margin-bottom: 4px;">
             Estructura Organizacional y Cadena Supervisoria
           </div>
           <div style="display: grid; grid-template-columns: 2fr 2fr; gap: 8px;">
-            <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Puesto / Cargo Oficial:</span><b>${org?.cargoOficial}</b> (${org?.tipoCargo})</div>
-            <div><span style="color: #64748b; display: block; font-size: 8.5px; text-transform: uppercase;">Línea de Reporte (Supervisor Inmediato):</span><b>${org?.supervisor}</b></div>
+            <div><span style="color: #64748b; display: block; font-size: 8px; text-transform: uppercase;">Puesto / Cargo Oficial:</span><b>${org?.cargoOficial}</b> (${org?.tipoCargo})</div>
+            <div><span style="color: #64748b; display: block; font-size: 8px; text-transform: uppercase;">Línea de Reporte (Supervisor Inmediato):</span><b>${org?.supervisor}</b></div>
           </div>
         </div>
 
@@ -1756,13 +1857,13 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
           <b>Compromiso Institucional:</b> La presente asignación responde a la planificación curricular del Plantel para el Año Escolar <b>${periodoActivo}</b>, en estricto apego a las directrices del Ministerio del Poder Popular para la Educación y el Proyecto Educativo Integral Comunitario (PEIC).
         </div>
 
-        <!-- Firmas y Sellos -->
+        <!-- Firmas y Sellos con Concordancia de Género -->
         <div style="display: flex; justify-content: space-around; margin-top: 30px; text-align: center; font-size: 10.5px;">
-          <div style="width: 200px; border-top: 1px solid #475569; padding-top: 5px;">
-            <b>${u?.nombre_completo || 'Docente / Personal'}</b>
-            <div style="font-size: 8.5px; color: #64748b;">Firma del Funcionario / C.I. ${u?.cedula || ''}</div>
+          <div style="width: 210px; border-top: 1px solid #475569; padding-top: 5px;">
+            <b>${datosAsignacion.tituloTratamiento} ${u?.nombre_completo || 'Docente'}</b>
+            <div style="font-size: 8.5px; color: #64748b;">Firma de la ${datosAsignacion.tituloTratamiento} / C.I. ${u?.cedula || ''}</div>
           </div>
-          <div style="width: 200px; border-top: 1px solid #475569; padding-top: 5px;">
+          <div style="width: 210px; border-top: 1px solid #475569; padding-top: 5px;">
             <b>Dirección del Plantel</b>
             <div style="font-size: 8.5px; color: #64748b;">Firma y Sello Oficial / ${escNom}</div>
           </div>
@@ -1900,7 +2001,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
                 className="badge bg-warning text-dark px-3 py-1 rounded-pill fw-bolder shadow-xs text-uppercase extra-small"
                 style={{ letterSpacing: '0.5px' }}
               >
-                <i className="bi bi-stars me-1 text-danger"></i>¡Bienvenido(a) al Nuevo Año Escolar {periodoActivo}!
+                <i className="bi bi-stars me-1 text-danger"></i>{datosAsignacion.esFemenino ? '¡Bienvenida' : '¡Bienvenido'} al Nuevo Año Escolar {periodoActivo}!
               </span>
             </div>
 
@@ -1908,7 +2009,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
               🎉 Asignación Oficial de Responsabilidades
             </h3>
             <p className="text-light opacity-90 extra-small small-md mb-0 font-monospace text-truncate px-2">
-              {escNombre} • Ministerio del Poder Popular para la Educación
+              {escNombre} • {datosAsignacion.esFemenino ? 'Profesora de la Institución' : 'Profesor de la Institución'}
             </p>
           </div>
 
@@ -1923,7 +2024,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
             }}
           >
 
-            {/* 1. Saludo y Ficha de Identidad */}
+            {/* 1. Saludo y Ficha de Identidad con Género del Expediente */}
             <div className="d-flex align-items-center gap-2.5 gap-md-3 p-2.5 p-md-3.5 bg-light rounded-4 border mb-3 mb-md-4 shadow-xs">
               <div
                 className="rounded-circle bg-gradient text-white d-flex align-items-center justify-content-center fw-bolder shadow-sm flex-shrink-0"
@@ -1931,19 +2032,33 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
                   width: 'clamp(46px, 11vw, 58px)',
                   height: 'clamp(46px, 11vw, 58px)',
                   fontSize: 'clamp(1.1rem, 3.5vw, 1.4rem)',
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)'
+                  background: datosAsignacion.esFemenino 
+                    ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' 
+                    : 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)'
                 }}
               >
-                {u.nombre_completo ? u.nombre_completo.charAt(0) : 'P'}
+                {datosAsignacion.esFemenino ? '👩‍🏫' : '👨‍🏫'}
               </div>
               <div className="flex-grow-1 overflow-hidden">
-                <div className="extra-small text-muted text-uppercase fw-bold">Personal Docente / Funcionario</div>
-                <h6 className="fw-bolder text-dark mb-0 text-truncate fs-6">{u.nombre_completo}</h6>
+                <div className="extra-small text-muted text-uppercase fw-bold d-flex align-items-center gap-1.5 flex-wrap">
+                  <span>{datosAsignacion.esFemenino ? 'Personal Docente • Profesora' : 'Personal Docente • Profesor'}</span>
+                  <span className={`badge rounded-pill px-2 py-0.5 extra-small ${datosAsignacion.esFemenino ? 'bg-danger bg-opacity-10 text-danger' : 'bg-primary bg-opacity-10 text-primary'}`}>
+                    {datosAsignacion.esFemenino ? '♀ Femenino' : '♂ Masculino'} (Expediente)
+                  </span>
+                </div>
+                <h6 className="fw-bolder text-dark mb-0 text-truncate fs-6">
+                  {datosAsignacion.tituloTratamiento} {u.nombre_completo}
+                </h6>
                 <div className="d-flex align-items-center gap-1.5 flex-wrap mt-1">
                   <span className="badge bg-white text-dark border extra-small">C.I. {u.cedula}</span>
                   <span className="badge bg-primary bg-opacity-10 text-primary fw-bold extra-small text-truncate">
-                    <i className="bi bi-shield-lock me-1"></i>Rol en Sistema: {u.rol || 'Docente'}
+                    <i className="bi bi-shield-lock me-1"></i>Rol: {u.rol || 'Docente'}
                   </span>
+                  {datosAsignacion.expediente?.titulo_obtenido && (
+                    <span className="badge bg-info bg-opacity-10 text-info fw-bold extra-small text-truncate" title={datosAsignacion.expediente.titulo_obtenido}>
+                      <i className="bi bi-mortarboard me-1"></i>{datosAsignacion.expediente.titulo_obtenido}
+                    </span>
+                  )}
                   <span className="badge bg-warning bg-opacity-20 text-dark fw-bold extra-small">
                     <i className="bi bi-calendar-check me-1 text-warning"></i>Período {periodoActivo}
                   </span>
@@ -1951,7 +2066,126 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
               </div>
             </div>
 
-            {/* 2. Puesto en el Organigrama y Cadena Supervisoria */}
+            {/* 2. Resumen Integral de Responsabilidades Asignadas (Docente Guía, Colectivos, Especialista y Puesto) */}
+            <div className="card border-0 rounded-4 p-3 p-md-3.5 mb-3 mb-md-4 shadow-xs" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div className="d-flex align-items-center justify-content-between mb-2.5 flex-wrap gap-1">
+                <span className="fw-bolder extra-small small-md text-dark text-uppercase d-flex align-items-center gap-1.5">
+                  <i className="bi bi-card-checklist text-primary fs-6"></i>
+                  Responsabilidades y Funciones Otorgadas (2026 - 2027)
+                </span>
+                <span className="badge bg-primary text-white rounded-pill px-2.5 py-1 extra-small">
+                  Oficial MPPE
+                </span>
+              </div>
+
+              <div className="row g-2">
+                {/* 1. Docente Guía */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div className={`p-2.5 rounded-3 border h-100 ${datosAsignacion.esDocenteGuia ? 'bg-success bg-opacity-10 border-success border-opacity-30' : 'bg-white'}`}>
+                    <div className="d-flex align-items-center gap-1.5 mb-1">
+                      <i className={`bi bi-mortarboard-fill ${datosAsignacion.esDocenteGuia ? 'text-success' : 'text-muted'}`}></i>
+                      <span className="extra-small fw-bold text-uppercase text-muted">Docente Guía</span>
+                    </div>
+                    {datosAsignacion.esDocenteGuia ? (
+                      <div>
+                        <span className="badge bg-success text-white rounded-pill px-2 py-0.5 extra-small fw-bold mb-1 d-inline-block">
+                          {salonesAsig[0]?.rolEnAula || 'Docente Guía Titular'}
+                        </span>
+                        <div className="extra-small fw-bold text-dark text-truncate" title={salonesAsig.map((s: any) => `${s.grado_anio} "${s.seccion}"`).join(', ')}>
+                          {salonesAsig.map((s: any) => `${s.grado_anio} "${s.seccion}"`).join(', ')}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="badge bg-light text-muted border rounded-pill px-2 py-0.5 extra-small mb-1 d-inline-block">
+                          Sin Aula Guía
+                        </span>
+                        <div className="extra-small text-muted">Especialista / Apoyo</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Colectivo Pedagógico */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div className={`p-2.5 rounded-3 border h-100 ${colectivosAsig.length > 0 ? (datosAsignacion.esVoceroColectivo ? 'bg-warning bg-opacity-10 border-warning border-opacity-40' : 'bg-primary bg-opacity-10 border-primary border-opacity-30') : 'bg-white'}`}>
+                    <div className="d-flex align-items-center gap-1.5 mb-1">
+                      <i className={`bi bi-people-fill ${colectivosAsig.length > 0 ? (datosAsignacion.esVoceroColectivo ? 'text-warning' : 'text-primary') : 'text-muted'}`}></i>
+                      <span className="extra-small fw-bold text-uppercase text-muted">Colectivos</span>
+                    </div>
+                    {colectivosAsig.length > 0 ? (
+                      <div>
+                        <span className={`badge rounded-pill px-2 py-0.5 extra-small fw-bold mb-1 d-inline-block ${datosAsignacion.esVoceroColectivo ? 'bg-warning text-dark' : 'bg-primary text-white'}`}>
+                          {colectivosAsig[0]?.rol}
+                        </span>
+                        <div className="extra-small fw-bold text-dark text-truncate" title={colectivosAsig.map((c: any) => c.nombre).join(', ')}>
+                          {colectivosAsig[0]?.nombre}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="badge bg-light text-muted border rounded-pill px-2 py-0.5 extra-small mb-1 d-inline-block">
+                          Sin Colectivo
+                        </span>
+                        <div className="extra-small text-muted">No asignado en comités</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Docente Especialista / Áreas */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div className={`p-2.5 rounded-3 border h-100 ${especialidadesAsig.length > 0 || datosAsignacion.esEspecialista ? 'bg-info bg-opacity-10 border-info border-opacity-30' : 'bg-white'}`}>
+                    <div className="d-flex align-items-center gap-1.5 mb-1">
+                      <i className={`bi bi-award-fill ${especialidadesAsig.length > 0 || datosAsignacion.esEspecialista ? 'text-info' : 'text-muted'}`}></i>
+                      <span className="extra-small fw-bold text-uppercase text-muted">Especialidad</span>
+                    </div>
+                    {especialidadesAsig.length > 0 ? (
+                      <div>
+                        <span className="badge bg-info text-dark rounded-pill px-2 py-0.5 extra-small fw-bold mb-1 d-inline-block text-truncate" style={{ maxWidth: '100%' }}>
+                          {especialidadesAsig[0]?.nombre}
+                        </span>
+                        <div className="extra-small fw-bold text-dark text-truncate">
+                          {especialidadesAsig[0]?.nivel || 'Área de Formación'}
+                        </div>
+                      </div>
+                    ) : datosAsignacion.esEspecialista ? (
+                      <div>
+                        <span className="badge bg-info text-dark rounded-pill px-2 py-0.5 extra-small fw-bold mb-1 d-inline-block">
+                          Docente Especialista
+                        </span>
+                        <div className="extra-small text-muted">Según Expediente</div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="badge bg-light text-muted border rounded-pill px-2 py-0.5 extra-small mb-1 d-inline-block">
+                          Docente Regular
+                        </span>
+                        <div className="extra-small text-muted">Atención de Aula</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Puesto en Organigrama */}
+                <div className="col-12 col-sm-6 col-lg-3">
+                  <div className="p-2.5 rounded-3 border h-100 bg-white">
+                    <div className="d-flex align-items-center gap-1.5 mb-1">
+                      <i className="bi bi-diagram-3-fill text-danger"></i>
+                      <span className="extra-small fw-bold text-uppercase text-muted">Cargo Oficial</span>
+                    </div>
+                    <span className="badge bg-dark bg-opacity-10 text-dark rounded-pill px-2 py-0.5 extra-small fw-bold mb-1 d-inline-block text-truncate" style={{ maxWidth: '100%' }}>
+                      {organigramaAsig?.cargoOficial}
+                    </span>
+                    <div className="extra-small text-muted text-truncate" title={`Supervisor: ${organigramaAsig?.supervisor}`}>
+                      Sup: {organigramaAsig?.supervisor}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Puesto en el Organigrama y Cadena Supervisoria Detallada */}
             <div className="card border-0 bg-light rounded-4 p-3 p-md-3.5 mb-3 mb-md-4 shadow-xs">
               <div className="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-1">
                 <span className="fw-bolder extra-small small-md text-dark text-uppercase d-flex align-items-center gap-1.5">
@@ -2175,7 +2409,9 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
               style={{ backgroundColor: '#4f46e5', borderColor: '#4f46e5' }}
             >
               <i className="bi bi-check2-circle fs-5"></i>
-              <span className="extra-small small-sm">¡Entendido y Listo para Iniciar! 🎉</span>
+              <span className="extra-small small-sm">
+                {datosAsignacion.esFemenino ? '¡Entendida y Lista para Iniciar! 🎉' : '¡Entendido y Listo para Iniciar! 🎉'}
+              </span>
             </button>
           </div>
 
