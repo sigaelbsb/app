@@ -27,6 +27,14 @@ export const CONFIG_SORPRESA_DEFAULT: ConfigSorpresaAsignacion = {
   tipoSonido: 'campanas'
 };
 
+export const getFechaHoyLocal = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const obtenerConfigSorpresa = (): ConfigSorpresaAsignacion => {
   try {
     const raw = localStorage.getItem('sigae_config_sorpresa_2026_2027');
@@ -35,9 +43,42 @@ export const obtenerConfigSorpresa = (): ConfigSorpresaAsignacion => {
   return CONFIG_SORPRESA_DEFAULT;
 };
 
-export const guardarConfigSorpresa = (cfg: ConfigSorpresaAsignacion) => {
+export const cargarConfigSorpresaGlobal = async (): Promise<ConfigSorpresaAsignacion> => {
+  let config = obtenerConfigSorpresa();
+  try {
+    const { data, error } = await supabase
+      .from('ajustes_globales')
+      .select('valor')
+      .eq('clave', 'config_sorpresa_bienvenida')
+      .maybeSingle();
+
+    if (!error && data?.valor) {
+      const parsed = typeof data.valor === 'string' ? JSON.parse(data.valor) : data.valor;
+      config = { ...CONFIG_SORPRESA_DEFAULT, ...parsed };
+      localStorage.setItem('sigae_config_sorpresa_2026_2027', JSON.stringify(config));
+    }
+  } catch (e) {
+    console.error('Error cargando config_sorpresa_bienvenida de Supabase:', e);
+  }
+  return config;
+};
+
+export const guardarConfigSorpresa = async (cfg: ConfigSorpresaAsignacion) => {
   localStorage.setItem('sigae_config_sorpresa_2026_2027', JSON.stringify(cfg));
   window.dispatchEvent(new CustomEvent('sigae-config-sorpresa-actualizada', { detail: cfg }));
+
+  try {
+    await supabase
+      .from('ajustes_globales')
+      .upsert({
+        clave: 'config_sorpresa_bienvenida',
+        valor: JSON.stringify(cfg),
+        descripcion: 'Configuración global de la notificación sorpresa y bienvenida del personal escolar (2026-2027)',
+        actualizado_en: new Date().toISOString()
+      }, { onConflict: 'clave' });
+  } catch (e) {
+    console.error('Error persistiendo config_sorpresa_bienvenida en Supabase:', e);
+  }
 };
 
 // ── CONTROL GLOBAL DE REPRODUCCIÓN (EVITA SUPERPOSICIÓN DE AUDIOS) ──
@@ -861,9 +902,45 @@ export const abrirModalProbarSonidos = (Swal: any, onSeleccionado?: (tipo: TipoS
   });
 };
 
-export const abrirModalParametrizarSorpresa = (Swal: any, onGuardado?: () => void) => {
+export const abrirModalParametrizarSorpresa = async (Swal: any, onGuardado?: () => void) => {
   if (!Swal) return;
-  const cfgActual = obtenerConfigSorpresa();
+  const cfgActual = await cargarConfigSorpresaGlobal();
+  const hoyStr = getFechaHoyLocal();
+
+  const calcularEstado = (hab: boolean, ini?: string, fin?: string) => {
+    if (!hab) {
+      return {
+        clase: 'bg-secondary bg-opacity-10 border-secondary text-secondary',
+        icono: 'bi-pause-circle-fill',
+        titulo: '🔴 Campaña Bloqueada / Desactivada',
+        subtitulo: 'El interruptor general está apagado. Ningún funcionario verá la notificación sorpresa.'
+      };
+    }
+    if (ini && hoyStr < ini) {
+      return {
+        clase: 'bg-warning bg-opacity-10 border-warning text-dark',
+        icono: 'bi-clock-history text-warning',
+        titulo: '🟡 Campaña Bloqueada (Programada)',
+        subtitulo: `Iniciará el ${ini}. Actualmente bloqueada para todo el personal.`
+      };
+    }
+    if (fin && hoyStr > fin) {
+      return {
+        clase: 'bg-danger bg-opacity-10 border-danger text-danger',
+        icono: 'bi-lock-fill',
+        titulo: '🔴 Campaña Bloqueada / Caducada por Fecha',
+        subtitulo: `La fecha límite fue el ${fin}. Ya venció y permanece bloqueada.`
+      };
+    }
+    return {
+      clase: 'bg-success bg-opacity-10 border-success text-success',
+      icono: 'bi-check-circle-fill',
+      titulo: '🟢 Campaña Vigente y Activa',
+      subtitulo: `Hoy (${hoyStr}) se encuentra dentro del rango de vigencia oficial.`
+    };
+  };
+
+  const stInicial = calcularEstado(cfgActual.habilitado, cfgActual.fechaInicio, cfgActual.fechaFin);
 
   Swal.fire({
     title: '<div class="d-flex align-items-center justify-content-center gap-2 text-dark"><i class="bi bi-sliders text-primary"></i> <span class="fw-bold">Parametrizar Notificación Sorpresa (2026 - 2027)</span></div>',
@@ -874,6 +951,15 @@ export const abrirModalParametrizarSorpresa = (Swal: any, onGuardado?: () => voi
           Configure cómo y con qué frecuencia se presentará la plantilla de asignación a todo el personal docente y administrativo en la plataforma:
         </p>
 
+        <!-- Indicador de Estado en Tiempo Real -->
+        <div id="cfg-sorpresa-status-box" class="p-3 rounded-3 border mb-3 d-flex align-items-center gap-3 ${stInicial.clase}">
+          <i id="cfg-sorpresa-status-icon" class="bi ${stInicial.icono} fs-3"></i>
+          <div>
+            <div id="cfg-sorpresa-status-title" class="fw-bold small text-uppercase">${stInicial.titulo}</div>
+            <div id="cfg-sorpresa-status-sub" class="extra-small">${stInicial.subtitulo}</div>
+          </div>
+        </div>
+
         <!-- Estado General -->
         <div class="p-3 bg-light rounded-3 border mb-3 d-flex align-items-center justify-content-between">
           <div>
@@ -882,6 +968,26 @@ export const abrirModalParametrizarSorpresa = (Swal: any, onGuardado?: () => voi
           </div>
           <div class="form-check form-switch fs-5 mb-0">
             <input class="form-check-input" type="checkbox" id="cfg-sorpresa-habilitado" ${cfgActual.habilitado ? 'checked' : ''} style="cursor: pointer;">
+          </div>
+        </div>
+
+        <!-- Rango de Fechas (Vigencia Oficial de la Campaña) -->
+        <div class="p-3 bg-light rounded-3 border mb-3">
+          <label class="fw-bold text-dark small mb-1 d-block">
+            <i class="bi bi-calendar2-range-fill text-primary me-1"></i>Vigencia Oficial de la Campaña (Inicio y Cierre):
+          </label>
+          <span class="extra-small text-muted d-block mb-2">
+            Fuera de estas fechas, la notificación sorpresa permanecerá automáticamente <b>bloqueada</b> para todo el personal.
+          </span>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label extra-small fw-bold text-muted mb-1">Fecha de Inicio:</label>
+              <input type="date" id="cfg-sorpresa-fecha-inicio" class="form-control form-control-sm rounded-3" value="${cfgActual.fechaInicio || '2026-09-01'}">
+            </div>
+            <div class="col-6">
+              <label class="form-label extra-small fw-bold text-muted mb-1">Fecha de Finalización:</label>
+              <input type="date" id="cfg-sorpresa-fecha-fin" class="form-control form-control-sm rounded-3" value="${cfgActual.fechaFin || '2026-10-31'}">
+            </div>
           </div>
         </div>
 
@@ -921,32 +1027,20 @@ export const abrirModalParametrizarSorpresa = (Swal: any, onGuardado?: () => voi
           <label class="form-label fw-bold small text-dark mb-1">
             <i class="bi bi-clock-history me-1 text-primary"></i>Frecuencia de Aparición al Ingresar:
           </label>
+          <span class="extra-small text-muted d-block mb-1">
+            Aplica únicamente mientras la campaña se encuentre dentro de las fechas vigentes:
+          </span>
           <select id="cfg-sorpresa-frecuencia" class="form-select form-select-sm rounded-3">
-            <option value="solo_primera_vez" ${cfgActual.modoFrecuencia === 'solo_primera_vez' ? 'selected' : ''}>
+            <option value="solo_primera_vez" ${cfgActual.modoFrecuencia === 'solo_primera_vez' || cfgActual.modoFrecuencia === 'rango_fechas' ? 'selected' : ''}>
               🌟 Solo una vez (Al primer ingreso / hasta confirmar lectura)
-            </option>
-            <option value="siempre" ${cfgActual.modoFrecuencia === 'siempre' ? 'selected' : ''}>
-              🔁 En cada ingreso al sistema (Cada vez que entre cualquier personal)
             </option>
             <option value="una_vez_al_dia" ${cfgActual.modoFrecuencia === 'una_vez_al_dia' ? 'selected' : ''}>
               📅 Una vez al día por cada funcionario
             </option>
-            <option value="rango_fechas" ${cfgActual.modoFrecuencia === 'rango_fechas' ? 'selected' : ''}>
-              ⏳ Durante un rango de fechas de inicio de clases
+            <option value="siempre" ${cfgActual.modoFrecuencia === 'siempre' ? 'selected' : ''}>
+              🔁 En cada ingreso al sistema (Cada vez que entre cualquier personal)
             </option>
           </select>
-        </div>
-
-        <!-- Rango de Fechas -->
-        <div id="cfg-contenedor-fechas" class="row g-2 mb-3 ${cfgActual.modoFrecuencia === 'rango_fechas' ? '' : 'd-none'}">
-          <div class="col-6">
-            <label class="form-label extra-small fw-bold text-muted mb-1">Fecha de Inicio:</label>
-            <input type="date" id="cfg-sorpresa-fecha-inicio" class="form-control form-control-sm rounded-3" value="${cfgActual.fechaInicio || '2026-09-01'}">
-          </div>
-          <div class="col-6">
-            <label class="form-label extra-small fw-bold text-muted mb-1">Fecha de Finalización:</label>
-            <input type="date" id="cfg-sorpresa-fecha-fin" class="form-control form-control-sm rounded-3" value="${cfgActual.fechaFin || '2026-10-31'}">
-          </div>
         </div>
 
         <!-- Mensaje de la Dirección -->
@@ -975,27 +1069,41 @@ export const abrirModalParametrizarSorpresa = (Swal: any, onGuardado?: () => voi
     confirmButtonColor: '#4f46e5',
     cancelButtonColor: '#64748b',
     didOpen: () => {
-      const selectFrec = document.getElementById('cfg-sorpresa-frecuencia') as HTMLSelectElement;
-      const contFechas = document.getElementById('cfg-contenedor-fechas');
       const btnReset = document.getElementById('btn-reset-vistos');
       const btnProbarAudios = document.getElementById('btn-probar-audios-modal');
       const selectTipoSonido = document.getElementById('cfg-sorpresa-tipo-sonido') as HTMLSelectElement;
+      const inputHabilitado = document.getElementById('cfg-sorpresa-habilitado') as HTMLInputElement;
+      const inputInicio = document.getElementById('cfg-sorpresa-fecha-inicio') as HTMLInputElement;
+      const inputFin = document.getElementById('cfg-sorpresa-fecha-fin') as HTMLInputElement;
+
+      const refrescarEstadoLive = () => {
+        const hab = inputHabilitado ? inputHabilitado.checked : true;
+        const ini = inputInicio ? inputInicio.value : '';
+        const fin = inputFin ? inputFin.value : '';
+        const st = calcularEstado(hab, ini, fin);
+
+        const box = document.getElementById('cfg-sorpresa-status-box');
+        const icon = document.getElementById('cfg-sorpresa-status-icon');
+        const title = document.getElementById('cfg-sorpresa-status-title');
+        const sub = document.getElementById('cfg-sorpresa-status-sub');
+
+        if (box && icon && title && sub) {
+          box.className = `p-3 rounded-3 border mb-3 d-flex align-items-center gap-3 ${st.clase}`;
+          icon.className = `bi ${st.icono} fs-3`;
+          title.innerText = st.titulo;
+          sub.innerText = st.subtitulo;
+        }
+      };
+
+      if (inputHabilitado) inputHabilitado.onchange = refrescarEstadoLive;
+      if (inputInicio) inputInicio.oninput = refrescarEstadoLive;
+      if (inputFin) inputFin.oninput = refrescarEstadoLive;
 
       if (btnProbarAudios) {
         btnProbarAudios.onclick = () => {
           abrirModalProbarSonidos(Swal, (tipo) => {
             if (selectTipoSonido) selectTipoSonido.value = tipo;
           });
-        };
-      }
-
-      if (selectFrec && contFechas) {
-        selectFrec.onchange = () => {
-          if (selectFrec.value === 'rango_fechas') {
-            contFechas.classList.remove('d-none');
-          } else {
-            contFechas.classList.add('d-none');
-          }
         };
       }
 
@@ -1038,14 +1146,14 @@ export const abrirModalParametrizarSorpresa = (Swal: any, onGuardado?: () => voi
         mensajePersonalizado: mensajePersonalizado?.trim() || cfgActual.mensajePersonalizado
       };
     }
-  }).then((res: any) => {
+  }).then(async (res: any) => {
     if (res.isConfirmed && res.value) {
-      guardarConfigSorpresa(res.value);
-      auditar('Personal', 'Parametrizar Sorpresa Asignación', `Configuró frecuencia: ${res.value.modoFrecuencia}, sonido: ${res.value.tipoSonido}`);
+      await guardarConfigSorpresa(res.value);
+      auditar('Personal', 'Parametrizar Sorpresa Asignación', `Configuró habilitado: ${res.value.habilitado}, rango: ${res.value.fechaInicio} al ${res.value.fechaFin}, frecuencia: ${res.value.modoFrecuencia}`);
       Swal.fire({
         icon: 'success',
-        title: '¡Parámetros Guardados!',
-        text: 'La configuración de la notificación sorpresa ha sido actualizada con éxito.',
+        title: '¡Parámetros Guardados y Sincronizados!',
+        text: 'La configuración de la notificación sorpresa ha sido guardada en la base de datos oficial.',
         confirmButtonColor: '#4f46e5'
       });
       if (onGuardado) onGuardado();
@@ -1086,47 +1194,82 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
   const rolUsuario = usuarioSesion?.rol || '';
 
   useEffect(() => {
-    const config = obtenerConfigSorpresa();
-    setConfigActual(config);
+    let cancelado = false;
 
-    if (!forzarApertura) {
-      if (!config.habilitado) return;
+    const verificarYMostrar = async () => {
+      // 1. Cargar configuración actualizada (BD Supabase + LocalStorage)
+      const config = await cargarConfigSorpresaGlobal();
+      if (cancelado) return;
+      setConfigActual(config);
 
-      const rolLower = (rolUsuario || '').toLowerCase();
-      const esPersonal = rolLower.includes('docente') ||
-        rolLower.includes('profesor') ||
-        rolLower.includes('maestr') ||
-        rolLower.includes('direct') ||
-        rolLower.includes('coordinad') ||
-        rolLower.includes('administra') ||
-        rolLower.includes('obrero') ||
-        rolLower.includes('especialista') ||
-        rolLower.includes('control') ||
-        rolLower.includes('secretar') ||
-        rolLower.includes('subdirector');
+      if (!forzarApertura) {
+        // A. Si está inhabilitada en la parametrización -> BLOQUEADA
+        if (!config.habilitado) {
+          console.log('[Sorpresa] Campaña inhabilitada manualmente en la parametrización.');
+          return;
+        }
 
-      if (!esPersonal) return;
+        // B. Solo para personal escolar (docentes, directivos, administrativos, obreros)
+        const rolLower = (rolUsuario || '').toLowerCase();
+        const esPersonal = rolLower.includes('docente') ||
+          rolLower.includes('profesor') ||
+          rolLower.includes('maestr') ||
+          rolLower.includes('direct') ||
+          rolLower.includes('coordinad') ||
+          rolLower.includes('administra') ||
+          rolLower.includes('obrero') ||
+          rolLower.includes('especialista') ||
+          rolLower.includes('control') ||
+          rolLower.includes('secretar') ||
+          rolLower.includes('subdirector');
 
-      const hoyStr = new Date().toISOString().split('T')[0];
+        if (!esPersonal) return;
 
-      if (config.modoFrecuencia === 'rango_fechas') {
-        if (config.fechaInicio && hoyStr < config.fechaInicio) return;
-        if (config.fechaFin && hoyStr > config.fechaFin) return;
+        // C. VIGENCIA DE LA CAMPAÑA (BLOQUEO ESTRICTO POR FECHAS)
+        // La fecha de inicio y fin determina si la campaña está activa o bloqueada.
+        const hoyStr = getFechaHoyLocal();
+
+        if (config.fechaInicio && hoyStr < config.fechaInicio) {
+          console.log(`[Sorpresa] Campaña bloqueada por fecha: hoy (${hoyStr}) es anterior a inicio (${config.fechaInicio}).`);
+          return;
+        }
+
+        if (config.fechaFin && hoyStr > config.fechaFin) {
+          console.log(`[Sorpresa] Campaña bloqueada por fecha: hoy (${hoyStr}) es posterior a fin (${config.fechaFin}).`);
+          return;
+        }
+
+        // D. Control de Frecuencia dentro del período de vigencia
+        if (config.modoFrecuencia === 'solo_primera_vez' || config.modoFrecuencia === 'rango_fechas') {
+          const storageKey = `sigae_asignacion_vista_2026_2027_${targetCedula}`;
+          const yaVisto = localStorage.getItem(storageKey);
+          if (yaVisto === 'true') return;
+        } else if (config.modoFrecuencia === 'una_vez_al_dia') {
+          const storageKeyFecha = `sigae_asignacion_fecha_vista_${targetCedula}`;
+          const ultimaFecha = localStorage.getItem(storageKeyFecha);
+          if (ultimaFecha === hoyStr) return;
+        }
       }
 
-      if (config.modoFrecuencia === 'solo_primera_vez') {
-        const storageKey = `sigae_asignacion_vista_2026_2027_${targetCedula}`;
-        const yaVisto = localStorage.getItem(storageKey);
-        if (yaVisto === 'true') return;
-      } else if (config.modoFrecuencia === 'una_vez_al_dia') {
-        const storageKeyFecha = `sigae_asignacion_fecha_vista_${targetCedula}`;
-        const ultimaFecha = localStorage.getItem(storageKeyFecha);
-        if (ultimaFecha === hoyStr) return;
+      if (!cancelado) {
+        cargarDatosAsignacion();
       }
-    }
+    };
 
-    cargarDatosAsignacion();
-  }, [forzarApertura, targetCedula]);
+    verificarYMostrar();
+
+    const handleConfigActualizada = (e: any) => {
+      if (e.detail && !cancelado) {
+        setConfigActual(e.detail);
+      }
+    };
+    window.addEventListener('sigae-config-sorpresa-actualizada', handleConfigActualizada);
+
+    return () => {
+      cancelado = true;
+      window.removeEventListener('sigae-config-sorpresa-actualizada', handleConfigActualizada);
+    };
+  }, [forzarApertura, targetCedula, rolUsuario]);
 
   const cargarDatosAsignacion = async () => {
     setLoading(true);
