@@ -236,7 +236,7 @@ export const ChatbotSigma = () => {
 
   // Saludo de bienvenida y presentación automática al ingresar
   useEffect(() => {
-    let saludo = "¡Hola! Soy <b>SIGMA</b>, tu <b>Asistente Virtual e Inteligencia Artificial</b> de SIGAE. Estoy <b>lista y encantada</b> de ayudarte a gestionar cualquier proceso del sistema. Desplázame por la pantalla o pregúntame lo que necesites.";
+    let saludo = "¡Hola! Soy <b>SIGMA</b>. Tócame si necesitas ayuda o deseas ir a algún módulo.";
     
     if (conocimientoCache.length > 0) {
       const saludoBD = conocimientoCache.find(c => 
@@ -287,7 +287,7 @@ export const ChatbotSigma = () => {
     const presentandoAhora = sessionStorage.getItem('sigma_presentando_ahora') === 'true';
 
     if (!yaPresentado || presentandoAhora) {
-      // Al ingresar al sistema: mostrar a Sigma activo y presentándose
+      // Al ingresar al sistema: breve saludo discreto que se retira rápido
       setMinimizado(false);
       setActivo(true);
       sessionStorage.setItem('sigma_presentado', 'true');
@@ -299,7 +299,7 @@ export const ChatbotSigma = () => {
 
       if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
 
-      // Programar el retiro/ocultamiento automático después de 8 segundos si el usuario no ha interactuado
+      // Desaparecer rápidamente tras 2.5 segundos para no interferir con la pantalla
       autoRetireTimerRef.current = setTimeout(() => {
         if (!userInteractedRef.current) {
           sessionStorage.removeItem('sigma_presentando_ahora');
@@ -309,7 +309,7 @@ export const ChatbotSigma = () => {
         } else {
           sessionStorage.removeItem('sigma_presentando_ahora');
         }
-      }, 8000);
+      }, 2500);
     } else {
       // Si ya se presentó previamente en la sesión, respetar el estado guardado
       const isMin = localStorage.getItem('sigma_minimizada') === 'true';
@@ -318,40 +318,11 @@ export const ChatbotSigma = () => {
     }
   }, [conocimientoCache]);
 
-  // Notificar cambio de sección
+  // Registro de cambio de sección silencioso (sin desplegar mensajes invasivos en pantalla)
   useEffect(() => {
     if (location.pathname === lastPath.current) return;
     lastPath.current = location.pathname;
-
-    const pathParts = location.pathname.split('/');
-    let currentModule = '';
-    if (location.pathname === '/') {
-      currentModule = 'Inicio';
-    } else if (pathParts.includes('categoria')) {
-      const category = decodeURIComponent(pathParts[pathParts.indexOf('categoria') + 1] || '');
-      const view = decodeURIComponent(pathParts[pathParts.indexOf('categoria') + 2] || '');
-      currentModule = view || category;
-    }
-
-    if (currentModule && !minimizado) {
-      const schoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
-      const schoolName = schoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
-      
-      setMensaje(`Has ingresado al módulo de <b>${currentModule}</b> en la <b>${schoolName}</b>. Si tienes alguna duda sobre cómo utilizar esta sección, pregúntame y te guiaré con mucho gusto.`);
-      setAcciones([]);
-      setActivo(true);
-
-      // Si no está minimizado al cambiar de módulo, ocultar automáticamente tras 8 segundos de inactividad
-      if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
-      autoRetireTimerRef.current = setTimeout(() => {
-        if (!userInteractedRef.current) {
-          setActivo(false);
-          setMinimizado(true);
-          localStorage.setItem('sigma_minimizada', 'true');
-        }
-      }, 8000);
-    }
-  }, [location.pathname, minimizado]);
+  }, [location.pathname]);
 
   const marcarInteraccionUsuario = () => {
     userInteractedRef.current = true;
