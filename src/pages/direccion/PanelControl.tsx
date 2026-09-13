@@ -13,6 +13,7 @@ import {
   IconoModoMantenimiento,
   IconoVentanaCupos
 } from '../../components/chamilo';
+import { abrirModalParametrizarSorpresa } from '../../components/ModalAsignacionSorpresa';
 import { 
   CONFIGURACION_DEFAULT,
   cargarConfiguracionDocumentosBD,
@@ -914,6 +915,16 @@ export const PanelControl = () => {
                     >
                       <i className="bi bi-mortarboard-fill"></i>
                       <span>Clases Regulares</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => abrirModalParametrizarSorpresa(Swal)}
+                      className="btn btn-outline-secondary bg-white text-dark rounded-pill px-3.5 py-2 fw-bold shadow-xs hover-efecto d-inline-flex align-items-center gap-1.5 border"
+                      style={{ fontSize: '0.84rem' }}
+                      title="Configurar fechas, mensaje motivacional y vigencia de la sorpresa de bienvenida al personal"
+                    >
+                      <i className="bi bi-sliders text-primary"></i>
+                      <span>Bienvenida Personal</span>
                     </button>
                   </div>
                 </div>
