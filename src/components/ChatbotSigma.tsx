@@ -15,15 +15,15 @@ export const SigmaFiguraVisual: React.FC<{
 }> = ({ style, className = "", animado = true }) => (
   <div className={`sigma-mascot-container ${className}`} style={style}>
     <img 
-      src="/sigma-avatar.png?v=sigma-orbe-v6" 
-      alt="SIGMA - Asistente de IA" 
+      src="/sigma-avatar.png?v=opcion4-mentora-doble-mano" 
+      alt="SIGMA - La Mentora Esbelta" 
       className="sigma-mascot-base"
       draggable={false}
     />
     {animado && (
       <div className="sigma-anim-layer">
-        {/* Destello sutil de energía propulsora */}
-        <div className="sigma-quantum-core-glow" style={{ top: '53%', left: '44%', width: '12%', height: '12%' }} />
+        {/* Destello de energía en el símbolo Sigma levitante */}
+        <div className="sigma-quantum-core-glow" style={{ top: '40%', left: '32%', width: '14%', height: '14%' }} />
       </div>
     )}
   </div>
@@ -854,10 +854,10 @@ export const ChatbotSigma = () => {
         <div className="sigma-bubble-header d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center gap-2">
             <img 
-              src="/sigma-avatar.png?v=sigma-orbe-v6" 
+              src="/sigma-avatar.png?v=opcion4-mentora-doble-mano" 
               alt="SIGMA" 
               className="rounded-circle shadow-xs border border-white" 
-              style={{ width: '24px', height: '24px', objectFit: 'cover', objectPosition: 'center 22%' }} 
+              style={{ width: '24px', height: '24px', objectFit: 'cover', objectPosition: 'center 20%' }} 
             />
             <span className="sigma-bubble-title">
               <i className="bi bi-stars text-warning me-1"></i> SIGMA &bull; Asistente Virtual
@@ -1087,7 +1087,7 @@ export const ChatbotSigma = () => {
         title="Hablar con SIGMA"
       >
         <img 
-          src="/sigma-avatar.png?v=sigma-orbe-v6" 
+          src="/sigma-avatar.png?v=opcion4-mentora-doble-mano" 
           alt="SIGMA" 
           className="sigma-launcher-img" 
           draggable={false}
