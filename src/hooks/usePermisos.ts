@@ -94,7 +94,13 @@ export const usePermisos = () => {
           localStorage.setItem('sigae_cache_permisos', JSON.stringify(escPerms));
 
           // Verificación de bloqueo de rol en tiempo real para sesiones activas (no emuladas):
-          if (!usr.es_emulacion && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(usr.rol)) {
+          const esModoEmulacion = !!(
+            usr?.es_emulacion ||
+            localStorage.getItem('sigae_usuario_original_admin') ||
+            sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+          );
+
+          if (!esModoEmulacion && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(usr.rol)) {
             if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
               console.warn("Rol suspendido para este plantel. Cerrando sesión...");
               localStorage.removeItem('sesion_sigae');

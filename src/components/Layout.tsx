@@ -43,6 +43,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const [misRutasRepresentante, setMisRutasRepresentante] = useState<string[]>([]);
   const misRutasRef = useRef<string[]>([]);
   misRutasRef.current = misRutasRepresentante;
+  const [mantenimientoActivo, setMantenimientoActivo] = useState<boolean>(false);
 
   const toggleSilenciarTransporte = () => {
     setSilenciarTransporte(prev => {
@@ -170,6 +171,21 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       const schoolMaint = ajustes?.find(x => x.clave === maintKey);
       const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
       const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
+
+      setMantenimientoActivo(isSchoolInMaint);
+
+      // Si se está emulando un rol o un usuario, el sistema debe permitir operar y navegar
+      // libremente sin desconexión ni bloqueos aunque la institución o el sistema estén en mantenimiento.
+      const esEmulacion = !!(
+        usr?.es_emulacion ||
+        localStorage.getItem('sigae_usuario_original_admin') ||
+        sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+      );
+
+      if (esEmulacion) {
+        // Acceso técnico concedido: la sesión emulada permanece activa
+        return;
+      }
 
       if (isSchoolInMaint) {
         let hasAccess = false;
@@ -1215,6 +1231,15 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   <i className="bi bi-building me-1"></i>
                   {escuelaNombre}
                 </span>
+                {mantenimientoActivo && (
+                  <span 
+                    className="badge bg-danger text-white fw-bold px-2.5 py-1 ms-1 shadow-sm animate__animated animate__pulse animate__infinite"
+                    title="Plantel en Modo Mantenimiento para usuarios normales. Acceso de emulación técnica habilitado sin restricciones."
+                  >
+                    <i className="bi bi-cone-striped me-1"></i>
+                    Modo Mantenimiento (Acceso Habilitado en Emulación)
+                  </span>
+                )}
                 <span className="d-none d-lg-inline ms-2 text-white-50 small">
                   (Sesión real de administrador segura)
                 </span>
