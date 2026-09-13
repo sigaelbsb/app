@@ -10,7 +10,7 @@ createRoot(document.getElementById('root')!).render(
 )
 
 // PURGA TOTAL DE CACHÉ Y FORZADO DE ACTUALIZACIÓN EN TODOS LOS DISPOSITIVOS
-const SIGAE_BUILD_VERSION = 'v1.2.0-brand-escudo-3d';
+const SIGAE_BUILD_VERSION = 'v1.3.0-sigma-orbe-v6';
 try {
   const currentVer = localStorage.getItem('sigae_cached_build_version');
   if (currentVer !== SIGAE_BUILD_VERSION) {

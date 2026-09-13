@@ -15,7 +15,7 @@ export const SigmaFiguraVisual: React.FC<{
 }> = ({ style, className = "", animado = true }) => (
   <div className={`sigma-mascot-container ${className}`} style={style}>
     <img 
-      src="/sigma-avatar.png?v=sigma-pink-bot" 
+      src="/sigma-avatar.png?v=sigma-orbe-v6" 
       alt="SIGMA - Asistente de IA" 
       className="sigma-mascot-base"
       draggable={false}
@@ -802,7 +802,7 @@ export const ChatbotSigma = () => {
         <div className="sigma-bubble-header d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center gap-2">
             <img 
-              src="/sigma-avatar.png?v=sigma-pink-bot" 
+              src="/sigma-avatar.png?v=sigma-orbe-v6" 
               alt="SIGMA" 
               className="rounded-circle shadow-xs border border-white" 
               style={{ width: '24px', height: '24px', objectFit: 'cover', objectPosition: 'center 22%' }} 
@@ -1029,7 +1029,7 @@ export const ChatbotSigma = () => {
         title="Hablar con SIGMA"
       >
         <img 
-          src="/sigma-avatar.png?v=sigma-pink-bot" 
+          src="/sigma-avatar.png?v=sigma-orbe-v6" 
           alt="SIGMA" 
           className="sigma-launcher-img" 
           draggable={false}

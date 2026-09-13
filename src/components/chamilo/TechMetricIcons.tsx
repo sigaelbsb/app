@@ -533,15 +533,17 @@ export const IconoCerebroSigma: React.FC<{ size?: number; color?: string }> = ({
     }}
   >
     <img 
-      src="/sigma-avatar.png?v=sigma-pink-bot" 
-      alt="IA Sigma" 
+      src="/sigma-avatar.png?v=sigma-orbe-v6" 
+      alt="SIGMA AI" 
+      className="tech-metric-sigma-avatar"
       style={{ 
         width: '100%', 
         height: '100%', 
         objectFit: 'contain'
       }}
       onError={(e) => {
-        (e.target as HTMLImageElement).src = '/sigma-avatar.jpg?v=sigma-pink-bot';
+        // Fallback robusto a jpg por si se requiere
+        (e.target as HTMLImageElement).src = '/sigma-avatar.jpg?v=sigma-orbe-v6';
       }}
     />
     {/* Indicador LED neural de IA activa */}
