@@ -59,6 +59,10 @@ export const ChatbotSigma = () => {
   const userInteractedRef = useRef(false);
   const autoRetireTimerRef = useRef<any>(null);
   
+  const inactividadTimerRef = useRef<any>(null);
+  const isHoveringBubbleRef = useRef(false);
+  const isInputFocusedRef = useRef(false);
+  
   const [conocimientoCache, setConocimientoCache] = useState<any[]>([]);
   const [fuseInstance, setFuseInstance] = useState<Fuse<any> | null>(null);
 
@@ -324,10 +328,44 @@ export const ChatbotSigma = () => {
     lastPath.current = location.pathname;
   }, [location.pathname]);
 
+  const cancelarTemporizadorInactividad = () => {
+    if (inactividadTimerRef.current) {
+      clearTimeout(inactividadTimerRef.current);
+      inactividadTimerRef.current = null;
+    }
+  };
+
+  const reiniciarTemporizadorInactividad = (segundos = 10) => {
+    cancelarTemporizadorInactividad();
+
+    // Si el usuario tiene el cursor sobre la conversación o está con el input enfocado, no cerrar
+    if (isHoveringBubbleRef.current || isInputFocusedRef.current) {
+      return;
+    }
+
+    inactividadTimerRef.current = setTimeout(() => {
+      if (!isHoveringBubbleRef.current && !isInputFocusedRef.current) {
+        setActivo(false);
+      }
+    }, segundos * 1000);
+  };
+
+  useEffect(() => {
+    if (activo) {
+      reiniciarTemporizadorInactividad(10);
+    } else {
+      cancelarTemporizadorInactividad();
+    }
+    return () => {
+      cancelarTemporizadorInactividad();
+    };
+  }, [activo, mensaje]);
+
   const marcarInteraccionUsuario = () => {
     userInteractedRef.current = true;
     if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
     sessionStorage.removeItem('sigma_presentando_ahora');
+    reiniciarTemporizadorInactividad(10);
   };
 
   // Drag logic handlers
@@ -795,7 +833,24 @@ export const ChatbotSigma = () => {
       style={stylePosition}
     >
       {/* Burbuja de Diálogo Interactiva */}
-      <div className={`sigma-speech-bubble ${activo ? 'active' : ''}`} id="sigma-speech-bubble">
+      <div 
+        className={`sigma-speech-bubble ${activo ? 'active' : ''}`} 
+        id="sigma-speech-bubble"
+        onMouseEnter={() => {
+          isHoveringBubbleRef.current = true;
+          cancelarTemporizadorInactividad();
+        }}
+        onMouseMove={() => {
+          isHoveringBubbleRef.current = true;
+          cancelarTemporizadorInactividad();
+        }}
+        onMouseLeave={() => {
+          isHoveringBubbleRef.current = false;
+          if (activo) {
+            reiniciarTemporizadorInactividad(10);
+          }
+        }}
+      >
         <div className="sigma-bubble-header d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center gap-2">
             <img 
@@ -975,12 +1030,29 @@ export const ChatbotSigma = () => {
             ref={chatInputRef}
             type="text" 
             value={inputValue}
-            onFocus={marcarInteraccionUsuario}
+            onFocus={() => {
+              isInputFocusedRef.current = true;
+              marcarInteraccionUsuario();
+              cancelarTemporizadorInactividad();
+            }}
+            onBlur={() => {
+              isInputFocusedRef.current = false;
+              if (activo) {
+                reiniciarTemporizadorInactividad(10);
+              }
+            }}
             onChange={(e) => {
               marcarInteraccionUsuario();
               setInputValue(e.target.value);
+              cancelarTemporizadorInactividad();
             }}
-            onKeyDown={(e) => { if (e.key === 'Enter') procesarPreguntaUsuario(); }}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter') {
+                procesarPreguntaUsuario(); 
+              } else {
+                cancelarTemporizadorInactividad();
+              }
+            }}
             className="sigma-input" 
             placeholder="Pregúntame lo que necesites o qué deseas gestionar..."
           />
