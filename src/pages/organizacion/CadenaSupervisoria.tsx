@@ -273,14 +273,23 @@ export const CadenaSupervisoria = () => {
     try {
       const [resCargos, resUsers] = await Promise.all([
         supabase.from('cargos').select('*').order('nombre_cargo', { ascending: true }),
-        supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, cargo, id_escuela')
+        supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, cargo, id_escuela, rol')
       ]);
 
       if (resCargos.error) throw resCargos.error;
       if (resUsers.error) throw resUsers.error;
 
+      const rolesNoPersonal = ['representante', 'estudiante', 'alumno', 'alumna', 'invitado', 'visitante'];
+      const personalValido = (resUsers.data || []).filter((u: any) => {
+        const r = String(u.rol || '').trim().toLowerCase();
+        if (!r) return false;
+        if (rolesNoPersonal.includes(r)) return false;
+        if (r.includes('representante') || r.includes('estudiante') || r.includes('invitado') || r.includes('visitante')) return false;
+        return true;
+      });
+
       setCargos(resCargos.data || []);
-      setUsuarios(resUsers.data || []);
+      setUsuarios(personalValido);
     } catch (e: any) {
       console.error('Error cargando datos de cadena supervisoria:', e);
       if (Swal) Swal.fire('Error', 'No se pudieron cargar los datos de la cadena supervisoria.', 'error');

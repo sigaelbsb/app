@@ -470,8 +470,10 @@ export const TransporteEscolar = () => {
       const p4 = Promise.resolve(supabase.from('usuarios').select('id_usuario, cedula, nombre_completo, rol, cargo, telefono').eq('id_escuela', escCodigo))
         .then(res => {
           if (res.error) throw res.error;
-          const rolesExcluidos = ['Estudiante', 'Representante', 'Invitado'];
-          const docs = (res.data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
+          const docs = (res.data || []).filter((u: any) => {
+            const r = String(u.rol || '').trim().toLowerCase();
+            return r !== '' && !r.includes('representante') && !r.includes('estudiante') && !r.includes('invitado') && !r.includes('visitante');
+          });
           setDocentes(docs);
         })
         .catch((err: any) => { console.error("Error al cargar docentes:", err); throw err; });

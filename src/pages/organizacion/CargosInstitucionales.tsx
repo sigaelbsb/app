@@ -160,9 +160,28 @@ export const CargosInstitucionales = () => {
 
       if (error) throw error;
       
-      // Excluir estudiantes, representantes, visitantes
-      const rolesExcluidos = ['Estudiante', 'Representante', 'Invitado', 'Visitante'];
-      let validUsers = (data || []).filter((u: any) => !rolesExcluidos.includes(u.rol));
+      // Excluir taxativamente representantes, estudiantes, invitados y visitantes (sin importar mayúsculas/minúsculas)
+      const rolesNoPersonal = [
+        'representante',
+        'estudiante',
+        'alumno',
+        'alumna',
+        'invitado',
+        'visitante',
+        'padre',
+        'madre',
+        'tutor',
+        'apoderado'
+      ];
+      let validUsers = (data || []).filter((u: any) => {
+        const r = String(u.rol || '').trim().toLowerCase();
+        if (!r) return false;
+        if (rolesNoPersonal.includes(r)) return false;
+        if (r.includes('representante') || r.includes('estudiante') || r.includes('alumno') || r.includes('invitado') || r.includes('visitante')) {
+          return false;
+        }
+        return true;
+      });
 
       // Filtrar por permisos de asignación por escuela (Líder y Apoyo son comunes a ambas instituciones)
       if (!isDualAccess) {

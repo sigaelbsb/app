@@ -556,7 +556,10 @@ export const Dashboard = () => {
               .from('usuarios')
               .select('id_usuario, id_escuela, rol');
             if (!errUsers && usersData && usersData.length > 0) {
-              const personal = usersData.filter((u: { rol?: string; id_escuela?: string }) => u.rol !== 'Representante' && u.rol !== 'Estudiante');
+              const personal = usersData.filter((u: { rol?: string; id_escuela?: string }) => {
+                const r = String(u.rol || '').trim().toLowerCase();
+                return r !== '' && !r.includes('representante') && !r.includes('estudiante') && !r.includes('invitado') && !r.includes('visitante');
+              });
               const sbCount = personal.filter((u: { id_escuela?: string }) => u.id_escuela === 'sb' || u.id_escuela === 'ambas').length;
               const lbCount = personal.filter((u: { id_escuela?: string }) => u.id_escuela === 'lb' || u.id_escuela === 'ambas').length;
               setPersonalEscuelas({
