@@ -2070,7 +2070,7 @@ export const GestionAdmisiones: React.FC = () => {
           .insert([{
             cedula: cedRep,
             nombre_completo: nomCompletoRep,
-            rol: 'representante',
+            rol: 'Representante',
             id_escuela: sol.codigo_escuela,
             email: sol.representante_email?.trim() || null,
             telefono: sol.representante_telefono?.trim() || null,
@@ -2341,7 +2341,7 @@ export const GestionAdmisiones: React.FC = () => {
           .insert([{
             cedula: cedRep,
             nombre_completo: `${nomRep} ${apeRep}`,
-            rol: 'representante',
+            rol: 'Representante',
             id_escuela: formHabilitar.codigo_escuela,
             email: formHabilitar.representante_email?.trim() || null,
             telefono: formHabilitar.representante_telefono?.trim() || null,
@@ -2591,7 +2591,7 @@ export const GestionAdmisiones: React.FC = () => {
               .insert([{
                 cedula: cedRep,
                 nombre_completo: `${nomRep} ${apeRep}`.trim() || 'Representante',
-                rol: 'representante',
+                rol: 'Representante',
                 id_escuela: sol.codigo_escuela || 'sb',
                 email: sol.representante_email?.trim() || null,
                 telefono: sol.representante_telefono?.trim() || null,
@@ -2603,7 +2603,7 @@ export const GestionAdmisiones: React.FC = () => {
 
             if (!errInsertUser) {
               creadosNuevos++;
-              mapUsuarios.set(cedRep, { cedula: cedRep, rol: 'representante', id_escuela: sol.codigo_escuela });
+              mapUsuarios.set(cedRep, { cedula: cedRep, rol: 'Representante', id_escuela: sol.codigo_escuela });
             } else {
               vinculadosExistentes++;
             }

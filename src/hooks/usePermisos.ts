@@ -58,14 +58,30 @@ export const usePermisos = () => {
 
     const fetchPermisos = async () => {
       try {
-        let targetRol = usr.rol;
+        let targetRol = (usr.rol || '').trim();
         let { data, error } = await supabase
           .from('roles')
           .select('permisos')
-          .eq('nombre', targetRol)
+          .ilike('nombre', targetRol)
           .maybeSingle();
 
-        if (!data && ['SuperAdmin', 'Administrador', 'Director', 'Directora', 'Subdirector', 'Coordinador'].includes(usr.rol)) {
+        if (!data && targetRol.toLowerCase() === 'representante') {
+          const fallbackRep = await supabase
+            .from('roles')
+            .select('permisos')
+            .eq('nombre', 'Representante')
+            .maybeSingle();
+          if (fallbackRep.data) data = fallbackRep.data;
+        } else if (!data && targetRol.toLowerCase() === 'docente') {
+          const fallbackDoc = await supabase
+            .from('roles')
+            .select('permisos')
+            .eq('nombre', 'Docente')
+            .maybeSingle();
+          if (fallbackDoc.data) data = fallbackDoc.data;
+        }
+
+        if (!data && ['superadmin', 'administrador', 'administradora', 'director', 'directora', 'subdirector', 'coordinador'].includes(targetRol.toLowerCase())) {
           const fallback = await supabase
             .from('roles')
             .select('permisos')
@@ -292,6 +308,10 @@ export const usePermisos = () => {
     }
 
     // 4. Si el permiso no está explícitamente configurado (undefined):
+    const rolLower = (user?.rol || '').toLowerCase();
+    const esRep = rolLower === 'representante';
+    const esEst = rolLower === 'estudiante';
+
     // Defaults inteligentes para tarjetas del dashboard
     const defaultPermsByCard: Record<string, boolean> = {
       "Panel Principal": true,
@@ -302,12 +322,12 @@ export const usePermisos = () => {
       "Tarjeta: Proyecto Comunitario (PEIC)": true,
       "Indicadores de Resumen": true,
       "Tarjeta: Rol y Seguridad de Claves": true,
-      "Tarjeta: Estudiantes Vinculados y Avance": ['Representante'].includes(user?.rol),
-      "Tarjeta: Rutas Escolares de Representados": ['Representante'].includes(user?.rol),
-      "Tarjeta: Censo General de la Escuela": !['Representante', 'Estudiante'].includes(user?.rol),
-      "Tarjeta: Personal Institucional": !['Representante', 'Estudiante'].includes(user?.rol),
-      "Tarjeta: Solicitudes de Cupos": !['Representante', 'Estudiante'].includes(user?.rol),
-      "Tarjeta: Ruta y Parada del Trabajador/Personal": !['Representante', 'Estudiante'].includes(user?.rol),
+      "Tarjeta: Estudiantes Vinculados y Avance": esRep,
+      "Tarjeta: Rutas Escolares de Representados": esRep,
+      "Tarjeta: Censo General de la Escuela": !esRep && !esEst,
+      "Tarjeta: Personal Institucional": !esRep && !esEst,
+      "Tarjeta: Solicitudes de Cupos": !esRep && !esEst,
+      "Tarjeta: Ruta y Parada del Trabajador/Personal": !esRep && !esEst,
       "Tarjeta: Notificaciones y Avisos Activos": true,
     };
 

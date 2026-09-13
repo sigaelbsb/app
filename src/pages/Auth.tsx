@@ -329,11 +329,16 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
             if (data.rol === 'SuperAdmin') {
               hasMaintAccess = true;
             } else {
-              const { data: roleData } = await supabase
+              let { data: roleData } = await supabase
                 .from('roles')
                 .select('permisos')
-                .eq('nombre', data.rol)
+                .ilike('nombre', data.rol)
                 .maybeSingle();
+
+              if (!roleData && data.rol?.toLowerCase() === 'representante') {
+                const { data: repRole } = await supabase.from('roles').select('permisos').eq('nombre', 'Representante').maybeSingle();
+                roleData = repRole;
+              }
 
               if (roleData && roleData.permisos) {
                 const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
@@ -352,12 +357,18 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           }
 
           // Verificar si el rol del usuario está inhabilitado en la institución seleccionada
-          if (data.rol && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(data.rol)) {
-            const { data: roleData } = await supabase
+          const userRolStr = (data.rol || '').trim();
+          if (userRolStr && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].some(r => r.toLowerCase() === userRolStr.toLowerCase())) {
+            let { data: roleData } = await supabase
               .from('roles')
-              .select('permisos')
-              .eq('nombre', data.rol)
+              .select('permisos, nombre')
+              .ilike('nombre', userRolStr)
               .maybeSingle();
+
+            if (!roleData && userRolStr.toLowerCase() === 'representante') {
+              const { data: repRole } = await supabase.from('roles').select('permisos, nombre').eq('nombre', 'Representante').maybeSingle();
+              roleData = repRole;
+            }
 
             if (roleData && roleData.permisos) {
               const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
@@ -367,7 +378,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                 : false;
 
               if (isRoleBlocked) {
-                setErrorMsg(`El acceso para el rol "${data.rol}" en ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
+                setErrorMsg(`El acceso para el rol "${roleData.nombre || userRolStr}" en ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
                 setLoading(false);
                 return;
               }
@@ -483,19 +494,33 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
   };
 
   const verifySchoolAccess = async (userData: any): Promise<'sb' | 'lb' | null> => {
-    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(userData.rol)) {
+    const rolStr = (userData.rol || '').trim();
+    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].some(r => r.toLowerCase() === rolStr.toLowerCase())) {
       return school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
     }
 
     try {
-      const { data: roleData, error: roleError } = await supabase
+      let { data: roleData, error: roleError } = await supabase
         .from('roles')
-        .select('permisos')
-        .eq('nombre', userData.rol)
+        .select('permisos, nombre')
+        .ilike('nombre', rolStr)
         .maybeSingle();
 
+      if (!roleData && rolStr.toLowerCase() === 'representante') {
+        const { data: repRole } = await supabase.from('roles').select('permisos, nombre').eq('nombre', 'Representante').maybeSingle();
+        roleData = repRole;
+      } else if (!roleData && rolStr.toLowerCase() === 'docente') {
+        const { data: docRole } = await supabase.from('roles').select('permisos, nombre').eq('nombre', 'Docente').maybeSingle();
+        roleData = docRole;
+      }
+
       if (roleError || !roleData) {
-        return null;
+        // Si no se encontró registro puntual del rol, permitir acceso a su escuela asignada
+        const userSchool = (userData.id_escuela || '').trim().toLowerCase();
+        if (userSchool === 'sb' || userSchool === 'lb') {
+          return userSchool as 'sb' | 'lb';
+        }
+        return (school || localStorage.getItem('sigae_escuela_codigo') || 'sb') as 'sb' | 'lb';
       }
 
       let rolePerms: any = {};
@@ -561,11 +586,16 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         if (userData.rol === 'SuperAdmin') {
           hasMaintAccess = true;
         } else {
-          const { data: roleData } = await supabase
+          let { data: roleData } = await supabase
             .from('roles')
             .select('permisos')
-            .eq('nombre', userData.rol)
+            .ilike('nombre', userData.rol)
             .maybeSingle();
+
+          if (!roleData && userData.rol?.toLowerCase() === 'representante') {
+            const { data: repRole } = await supabase.from('roles').select('permisos').eq('nombre', 'Representante').maybeSingle();
+            roleData = repRole;
+          }
 
           if (roleData && roleData.permisos) {
             const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
@@ -586,11 +616,22 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       console.error("Error al comprobar mantenimiento en login:", err);
     }
 
+    // Normalizar rol al formato canónico
+    let rolCanonico = userData.rol;
+    if (rolCanonico?.toLowerCase() === 'representante') rolCanonico = 'Representante';
+    else if (rolCanonico?.toLowerCase() === 'docente') rolCanonico = 'Docente';
+    else if (rolCanonico?.toLowerCase() === 'administrador') rolCanonico = 'Administrador';
+
+    // Si en la base de datos estaba con otra capitalización, normalizar en segundo plano
+    if (userData.cedula && userData.rol !== rolCanonico) {
+      supabase.from('usuarios').update({ rol: rolCanonico }).eq('cedula', userData.cedula).then();
+    }
+
     const cleanUserData = {
       id: userData.id || userData.id_usuario,
       nombre: userData.nombre_completo || userData.nombre,
       cedula: userData.cedula,
-      rol: userData.rol,
+      rol: rolCanonico,
       cargo: userData.cargo || '',
       id_escuela: activeSchool,
       nombre_escuela: activeSchool === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar',

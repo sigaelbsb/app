@@ -235,7 +235,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           const { data: roleData } = await supabase
             .from('roles')
             .select('permisos')
-            .eq('nombre', usr.rol)
+            .ilike('nombre', usr.rol)
             .maybeSingle();
 
           if (roleData && roleData.permisos) {
