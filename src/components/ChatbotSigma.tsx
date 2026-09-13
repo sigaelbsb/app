@@ -12,20 +12,14 @@ export const SigmaFiguraVisual: React.FC<{
   style?: React.CSSProperties; 
   className?: string;
   animado?: boolean;
-}> = ({ style, className = "", animado = true }) => (
+}> = ({ style, className = "" }) => (
   <div className={`sigma-mascot-container ${className}`} style={style}>
     <img 
-      src="/sigma-avatar.png?v=opcion4-mentora-doble-mano" 
+      src="/sigma-avatar.png?v=opcion4-globo-rosado" 
       alt="SIGMA - La Mentora Esbelta" 
       className="sigma-mascot-base"
       draggable={false}
     />
-    {animado && (
-      <div className="sigma-anim-layer">
-        {/* Destello de energía en el símbolo Sigma levitante */}
-        <div className="sigma-quantum-core-glow" style={{ top: '40%', left: '32%', width: '14%', height: '14%' }} />
-      </div>
-    )}
   </div>
 );
 
@@ -1087,7 +1081,7 @@ export const ChatbotSigma = () => {
         title="Hablar con SIGMA"
       >
         <img 
-          src="/sigma-avatar.png?v=opcion4-mentora-doble-mano" 
+          src="/sigma-avatar.png?v=opcion4-globo-rosado" 
           alt="SIGMA" 
           className="sigma-launcher-img" 
           draggable={false}
