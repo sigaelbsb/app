@@ -301,16 +301,6 @@ export const ModulosSistema = {
         hint: "Admisiones & Cupos U.E. LB y SB"
       },
       { 
-        vista: "Orientaciones Nuevos Ingresos", 
-        icono: "bi-whatsapp", 
-        color: "#10b981", 
-        desc: "Guía oficial paso a paso y difusión masiva anti-spam por WhatsApp para nuevos ingresos.",
-        tag: "WhatsApp Masivo",
-        badgeText: "Anti-Spam Meta",
-        badgeType: "active",
-        hint: "Paso a Paso Nuevos Ingresos"
-      },
-      { 
         vista: "Carnet Estudiantil", 
         icono: "bi-person-badge-fill", 
         color: "#10b981", 

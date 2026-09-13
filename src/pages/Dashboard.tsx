@@ -1986,57 +1986,59 @@ export const Dashboard = () => {
       )}
 
       {/* ── 5. PIE DE PÁGINA: ORGANIGRAMA Y ESTRUCTURA INSTITUCIONAL (TECNOLÓGICO) ── */}
-      <div 
-        className="tech-card p-4 bg-white mb-3"
-        style={{
-          borderRadius: '26px',
-          border: '1.5px solid #e2e8f0',
-          borderTop: '5px solid #10b981'
-        }}
-      >
-        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <div className="d-flex align-items-center gap-3">
-            <div 
-              className="tech-icon-wrapper flex-shrink-0" 
-              style={{ 
-                width: '58px', 
-                height: '58px', 
-                fontSize: '1.65rem',
-                backgroundColor: '#ecfdf5',
-                color: '#10b981',
-                border: '2px solid #a7f3d0',
-                borderRadius: '18px',
-                boxShadow: '0 6px 16px rgba(16, 185, 129, 0.2)'
-              }}
-            >
-              <i className="bi bi-diagram-3-fill"></i>
-            </div>
-            <div>
-              <div className="d-flex align-items-center gap-2 mb-1">
-                <span className="status-beacon-live" style={{ color: '#10b981' }}></span>
-                <span className="extra-small fw-bold text-success text-uppercase" style={{ fontSize: '0.72rem' }}>
-                  Red Escolar Interconectada
-                </span>
+      {tienePermiso('Cadena Supervisoria', 'ver') && (
+        <div 
+          className="tech-card p-4 bg-white mb-3"
+          style={{
+            borderRadius: '26px',
+            border: '1.5px solid #e2e8f0',
+            borderTop: '5px solid #10b981'
+          }}
+        >
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div className="d-flex align-items-center gap-3">
+              <div 
+                className="tech-icon-wrapper flex-shrink-0" 
+                style={{ 
+                  width: '58px', 
+                  height: '58px', 
+                  fontSize: '1.65rem',
+                  backgroundColor: '#ecfdf5',
+                  color: '#10b981',
+                  border: '2px solid #a7f3d0',
+                  borderRadius: '18px',
+                  boxShadow: '0 6px 16px rgba(16, 185, 129, 0.2)'
+                }}
+              >
+                <i className="bi bi-diagram-3-fill"></i>
               </div>
-              <h5 className="fw-bolder mb-0.5 text-dark">Estructura Organizativa Institucional</h5>
-              <p className="text-muted small mb-0 d-none d-md-block">Consulte en tiempo real el mapa de dependencias, la cadena supervisoria y el personal activo de ambas instituciones.</p>
+              <div>
+                <div className="d-flex align-items-center gap-2 mb-1">
+                  <span className="status-beacon-live" style={{ color: '#10b981' }}></span>
+                  <span className="extra-small fw-bold text-success text-uppercase" style={{ fontSize: '0.72rem' }}>
+                    Red Escolar Interconectada
+                  </span>
+                </div>
+                <h5 className="fw-bolder mb-0.5 text-dark">Estructura Organizativa Institucional</h5>
+                <p className="text-muted small mb-0 d-none d-md-block">Consulte en tiempo real el mapa de dependencias, la cadena supervisoria y el personal activo de ambas instituciones.</p>
+              </div>
             </div>
+            <button 
+              className="btn text-white rounded-pill px-4 py-2.5 fw-bold shadow hover-efecto d-flex align-items-center gap-2" 
+              style={{ 
+                backgroundColor: '#10b981',
+                borderRadius: '50px',
+                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.3)' 
+              }}
+              onClick={() => navigate('/categoria/Organización%20Escolar/Cadena%20Supervisoria')}
+            >
+              <i className="bi bi-diagram-2"></i>
+              <span>Explorar Organigrama Dinámico</span>
+              <i className="bi bi-arrow-right extra-small"></i>
+            </button>
           </div>
-          <button 
-            className="btn text-white rounded-pill px-4 py-2.5 fw-bold shadow hover-efecto d-flex align-items-center gap-2" 
-            style={{ 
-              backgroundColor: '#10b981',
-              borderRadius: '50px',
-              boxShadow: '0 6px 18px rgba(16, 185, 129, 0.3)' 
-            }}
-            onClick={() => navigate('/categoria/Organización%20Escolar/Cadena%20Supervisoria')}
-          >
-            <i className="bi bi-diagram-2"></i>
-            <span>Explorar Organigrama Dinámico</span>
-            <i className="bi bi-arrow-right extra-small"></i>
-          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 };

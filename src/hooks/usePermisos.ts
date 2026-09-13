@@ -248,7 +248,7 @@ export const usePermisos = () => {
       return directResult;
     }
 
-    // 2. Mapeo de alias o variantes de nombres comunes
+    // 2. Mapeo de alias o variantes de nombres comunes (únicamente sinónimos de nomenclatura)
     const aliasMap: Record<string, string[]> = {
       "Configuración Escolar": ["Configuración del Sistema"],
       "Configuración del Sistema": ["Configuración Escolar"],
@@ -263,17 +263,8 @@ export const usePermisos = () => {
       "Función: Ver Respuestas": ["Función: Ver Respuestas y Estadísticas"],
       "Cerebro de Sigma": ["Cerebro Sigma"],
       "Cerebro Sigma": ["Cerebro de Sigma"],
-      "Galería y Plantillas": ["Diseños"],
-      "Creador de Certificados": ["Diseños"],
-      "Creador de Flyers": ["Diseños"],
-      "Creador de Invitaciones": ["Diseños"],
-      "Creador de Tapas": ["Diseños"],
-      "Creador de Comunicados": ["Diseños"],
-      "Creador de Cumpleaños": ["Diseños"],
       "Instalación y Descargas": ["Instalar SIGAE", "Descargas", "Instalador"],
       "Instalar SIGAE": ["Instalación y Descargas", "Descargas", "Instalador"],
-      "Carta de Aceptación": ["Editor de Constancias"],
-      "Orientaciones Nuevos Ingresos": ["Diseños", "Gestión de Admisiones", "Mensajes de Admisión", "Solicitud de Cupos", "Editor de Constancias"],
       "Tarjeta: Personal Institucional": ["Tarjeta: Personal Escolar DEP Oriente"],
       "Tarjeta: Personal Escolar DEP Oriente": ["Tarjeta: Personal Institucional"],
       "Tarjeta: Solicitudes de Cupos": ["Tarjeta: Solicitudes de Cupos por Plantel"],

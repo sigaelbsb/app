@@ -71,6 +71,10 @@ const ESTRUCTURA_ACCESOS = {
       "Función: Probar Envíos", 
       "Función: Restaurar Predeterminados"
     ],
+    "Orientaciones Nuevos Ingresos": [
+      "Función: Difusión Masiva WhatsApp",
+      "Función: Descargar Guía de Orientación"
+    ],
     "Vincular Estudiante": [
       "Tarjeta: Registrar Vinculación", 
       "Tarjeta: Lista de Matriculados", 
