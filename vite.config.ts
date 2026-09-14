@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   base: './', // Soporte para Electron (file://), Capacitor (nativo) y Web
   server: {
+    port: 5173,
     watch: {
       ignored: [
         '**/release/**',

@@ -806,6 +806,7 @@ export const RolesPrivilegios = () => {
       };
 
       localStorage.setItem('usuario_sigae', JSON.stringify(usuarioEmulado));
+      localStorage.setItem('sesion_sigae', 'activa');
       localStorage.setItem('sigae_escuela_codigo', targetEscuela);
       localStorage.setItem('sigae_escuela_activa', targetEscuelaNombre);
       sessionStorage.setItem('sigae_emulacion_activa', 'true');

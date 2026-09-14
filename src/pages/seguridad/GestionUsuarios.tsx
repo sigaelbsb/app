@@ -507,14 +507,16 @@ export const GestionUsuarios = () => {
     };
 
     localStorage.setItem('usuario_sigae', JSON.stringify(usuarioEmulado));
+    localStorage.setItem('sesion_sigae', 'activa');
     sessionStorage.setItem('sigae_emulacion_activa', 'true');
     localStorage.removeItem('sigae_cache_permisos');
     localStorage.removeItem('sigae_cache_full_permisos');
 
-    if (u.id_escuela && u.id_escuela !== 'ambas' && u.id_escuela !== 'todas') {
-      localStorage.setItem('sigae_escuela_codigo', u.id_escuela);
-      localStorage.setItem('sigae_escuela_activa', u.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
-    }
+    const targetEscuela = (u.id_escuela && u.id_escuela !== 'ambas' && u.id_escuela !== 'todas')
+      ? u.id_escuela
+      : (localStorage.getItem('sigae_escuela_codigo') || 'sb');
+    localStorage.setItem('sigae_escuela_codigo', targetEscuela);
+    localStorage.setItem('sigae_escuela_activa', targetEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
 
     auditar('Gestión de Usuarios', 'Virtualizar Ingreso', `El usuario ${user?.nombre} virtualizó la cuenta de: ${u.nombre_completo} (${u.cedula})`);
     window.location.href = '/';
