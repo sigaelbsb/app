@@ -623,6 +623,10 @@ export const GestionAdmisiones: React.FC = () => {
   // Filtros interactivos para la Taquilla de Formalización Física
   const [busquedaFormalizacion, setBusquedaFormalizacion] = useState<string>('');
   const [filtroEstadoFormalizacion, setFiltroEstadoFormalizacion] = useState<'todos' | 'pendientes' | 'formalizados'>('todos');
+  const [filtroEscuelaFormalizacion, setFiltroEscuelaFormalizacion] = useState<string>('todas');
+  const [filtroGradoFormalizacion, setFiltroGradoFormalizacion] = useState<string>('todos');
+  const [filtroSeccionFormalizacion, setFiltroSeccionFormalizacion] = useState<string>('todas');
+  const [filtroWhatsAppFormalizacion, setFiltroWhatsAppFormalizacion] = useState<string>('todos');
   const [indiceUnoAUno, setIndiceUnoAUno] = useState<number>(0);
 
   // ── MODO EDICIÓN EN UNO POR UNO ────────────────────────────────────────────────
@@ -1474,32 +1478,100 @@ export const GestionAdmisiones: React.FC = () => {
     });
   }, [solicitudes]);
 
+  // Listados dinámicos de opciones disponibles para los filtros de Formalización
+  const gradosDisponiblesFormalizacion = useMemo(() => {
+    const setG = new Set<string>();
+    solicitudesAceptadasParaFormalizar.forEach(s => {
+      if (s.grado_solicitado) setG.add(s.grado_solicitado.trim());
+    });
+    return Array.from(setG).sort();
+  }, [solicitudesAceptadasParaFormalizar]);
+
   // Lista filtrada específicamente para la Taquilla de Formalización Física
   const solicitudesFormalizacionFiltradas = useMemo(() => {
     return solicitudesAceptadasParaFormalizar.filter(sol => {
-      if (filtroEscuela !== 'todas' && sol.codigo_escuela !== filtroEscuela) return false;
+      // 1. Filtro por Escuela (específico de formalización o global)
+      const escFiltro = filtroEscuelaFormalizacion !== 'todas' ? filtroEscuelaFormalizacion : filtroEscuela;
+      if (escFiltro !== 'todas' && sol.codigo_escuela !== escFiltro) return false;
+
+      // 2. Filtro por Estado (Pendientes / Formalizados)
       const esFormalizado = sol.estado === 'Formalizado' || sol.estado === 'Inscrito';
       if (filtroEstadoFormalizacion === 'pendientes' && esFormalizado) return false;
       if (filtroEstadoFormalizacion === 'formalizados' && !esFormalizado) return false;
+
+      // 3. Filtro por Grado Solicitado
+      if (filtroGradoFormalizacion !== 'todos' && (sol.grado_solicitado || '').trim() !== filtroGradoFormalizacion) {
+        return false;
+      }
+
+      // 4. Filtro por Sección Asignada
+      if (filtroSeccionFormalizacion !== 'todas') {
+        const obs = sol.observaciones || '';
+        const matchForm = obs.match(/\[Inscripción Física Formalizada(?: el [^\]\s]+)?(?: en Sección ([^\]]+))?\]/i);
+        const secAsig = (matchForm?.[2] || sol.datos_actualizados?.seccion_actual || '').trim().toUpperCase();
+        if (filtroSeccionFormalizacion === 'sin_seccion') {
+          if (secAsig) return false;
+        } else if (secAsig !== filtroSeccionFormalizacion.toUpperCase()) {
+          return false;
+        }
+      }
+
+      // 5. Filtro por Estado de Notificación WhatsApp
+      if (filtroWhatsAppFormalizacion !== 'todos') {
+        const parsed = parsearObservaciones(sol.observaciones);
+        if (filtroWhatsAppFormalizacion === 'enviado' && !parsed.whatsapp_notificado) return false;
+        if (filtroWhatsAppFormalizacion === 'pendiente' && parsed.whatsapp_notificado) return false;
+      }
+
+      // 6. Búsqueda inteligente multi-campo en tiempo real
       if (busquedaFormalizacion.trim()) {
         const q = busquedaFormalizacion.toLowerCase().trim();
         const nomEst = `${sol.estudiante_nombres || ''} ${sol.estudiante_apellidos || ''}`.toLowerCase();
         const nomRep = `${sol.representante_nombres || ''} ${sol.representante_apellidos || ''}`.toLowerCase();
         const cedEst = (sol.estudiante_cedula || '').toLowerCase();
         const cedRep = (sol.representante_cedula || '').toLowerCase();
+        const telRep = (sol.representante_telefono || '').toLowerCase();
         const cod = (sol.codigo_unico || '').toLowerCase();
-        return nomEst.includes(q) || nomRep.includes(q) || cedEst.includes(q) || cedRep.includes(q) || cod.includes(q);
+        const grado = (sol.grado_solicitado || '').toLowerCase();
+        return (
+          nomEst.includes(q) ||
+          nomRep.includes(q) ||
+          cedEst.includes(q) ||
+          cedRep.includes(q) ||
+          telRep.includes(q) ||
+          cod.includes(q) ||
+          grado.includes(q)
+        );
       }
       return true;
     });
-  }, [solicitudesAceptadasParaFormalizar, filtroEscuela, filtroEstadoFormalizacion, busquedaFormalizacion]);
+  }, [
+    solicitudesAceptadasParaFormalizar,
+    filtroEscuelaFormalizacion,
+    filtroEscuela,
+    filtroEstadoFormalizacion,
+    filtroGradoFormalizacion,
+    filtroSeccionFormalizacion,
+    filtroWhatsAppFormalizacion,
+    busquedaFormalizacion
+  ]);
 
   const kpisFormalizacion = useMemo(() => {
-    const base = solicitudesAceptadasParaFormalizar.filter(s => filtroEscuela === 'todas' || s.codigo_escuela === filtroEscuela);
+    const escFiltro = filtroEscuelaFormalizacion !== 'todas' ? filtroEscuelaFormalizacion : filtroEscuela;
+    const base = solicitudesAceptadasParaFormalizar.filter(s => escFiltro === 'todas' || s.codigo_escuela === escFiltro);
     const formalizados = base.filter(s => s.estado === 'Formalizado' || s.estado === 'Inscrito').length;
     const pendientes = base.length - formalizados;
     return { total: base.length, formalizados, pendientes };
-  }, [solicitudesAceptadasParaFormalizar, filtroEscuela]);
+  }, [solicitudesAceptadasParaFormalizar, filtroEscuelaFormalizacion, filtroEscuela]);
+
+  const limpiarFiltrosFormalizacion = () => {
+    setBusquedaFormalizacion('');
+    setFiltroEstadoFormalizacion('todos');
+    setFiltroEscuelaFormalizacion('todas');
+    setFiltroGradoFormalizacion('todos');
+    setFiltroSeccionFormalizacion('todas');
+    setFiltroWhatsAppFormalizacion('todos');
+  };
 
   // ── ESTADÍSTICAS E INDICADORES KPI ──────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -1570,6 +1642,83 @@ export const GestionAdmisiones: React.FC = () => {
     XLSX.writeFile(wb, `SIGAE_Baremo_Admisiones_${fechaStr}.xlsx`);
 
     auditar('Gestión de Admisiones', 'Exportar Excel', `Exportadas ${solicitudesFiltradas.length} solicitudes con baremo`);
+  };
+
+  // ── EXPORTAR A EXCEL FORMALIZACIÓN FÍSICA DE MATRÍCULA ──────────────────────────
+  const exportarExcelFormalizacion = () => {
+    if (solicitudesFormalizacionFiltradas.length === 0) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sin Registros',
+          text: 'No hay registros en la lista de formalización para exportar con los filtros actuales.'
+        });
+      }
+      return;
+    }
+
+    const dataExcel = solicitudesFormalizacionFiltradas.map((sol, idx) => {
+      const esFormalizado = sol.estado === 'Formalizado' || sol.estado === 'Inscrito';
+      const parsed = parsearObservaciones(sol.observaciones);
+      const matchForm = (sol.observaciones || '').match(/\[Inscripción Física Formalizada(?: el ([^\]\s]+))?(?: en Sección ([^\]]+))?\]/i);
+      const fechaForm = matchForm?.[1] || (esFormalizado && sol.created_at ? new Date(sol.created_at).toLocaleDateString('es-VE') : (esFormalizado ? 'Registrado' : 'Pendiente'));
+      const seccion = matchForm?.[2]?.trim() || sol.datos_actualizados?.seccion_actual || (esFormalizado ? 'A' : 'Sin Asignar');
+      const accF = verificarAccesoHabilitado(sol, estudiantesMatriculaBD);
+
+      return {
+        'N.°': idx + 1,
+        'Código Único': sol.codigo_unico || 'N/A',
+        'Sede Institucional': NOMBRE_ESCUELA_MAP[sol.codigo_escuela] || sol.codigo_escuela,
+        'Estatus Formalización': esFormalizado ? 'Inscrito / Formalizado' : 'Pendiente por Consignar Físico',
+        'Fecha Formalización': fechaForm,
+        'Grado Solicitado': sol.grado_solicitado || 'N/A',
+        'Sección Asignada': seccion,
+        'Aspirante / Estudiante': nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos),
+        'Cédula Estudiante': sol.estudiante_cedula || 'En trámite',
+        'Representante Legal': nombreCompleto(sol.representante_nombres, sol.representante_apellidos),
+        'Cédula Representante': sol.representante_cedula || 'N/A',
+        'Parentesco': sol.representante_parentesco || sol.parentesco || 'Representante',
+        'Teléfono Principal': sol.representante_telefono || 'N/A',
+        'Teléfono Alternativo': sol.representante_telefono2 || 'N/A',
+        'Correo Electrónico': sol.representante_email || 'N/A',
+        'Notificación WhatsApp': parsed.whatsapp_notificado ? `Enviado (${parsed.whatsapp_fecha || ''})` : 'Pendiente',
+        'Acceso SIGAE': accF.habilitado ? `Habilitado${accF.fecha ? ` (${accF.fecha})` : ''}` : 'Pendiente',
+        'Trabaja en PDVSA': sol.representante_trabaja_pdvsa ? 'Sí' : 'No',
+        'Nómina': sol.pdvsa_tipo_nomina || 'N/A',
+        'Localidad': sol.pdvsa_localidad_trabajo || 'N/A',
+        'Observaciones': parsed.textoLimpio || sol.observaciones || ''
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(dataExcel);
+
+    // Ajuste automático y estético del ancho de columnas
+    const colWidths = Object.keys(dataExcel[0] || {}).map(key => ({
+      wch: Math.max(key.length + 3, ...dataExcel.map(r => String((r as any)[key] || '').length + 2).slice(0, 100))
+    }));
+    ws['!cols'] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Formalizacion_Matricula');
+    const fechaStr = new Date().toISOString().slice(0, 10);
+    const escuelaSufijo = filtroEscuelaFormalizacion !== 'todas' ? `_${filtroEscuelaFormalizacion.toUpperCase()}` : '';
+    XLSX.writeFile(wb, `SIGAE_Formalizacion_Matricula${escuelaSufijo}_${fechaStr}.xlsx`);
+
+    auditar(
+      'Formalización de Admisiones',
+      'Exportar Excel',
+      `Exportados ${solicitudesFormalizacionFiltradas.length} aspirantes en formalización a Excel (.xlsx)`
+    );
+
+    if (Swal) {
+      Swal.fire({
+        icon: 'success',
+        title: '¡Descarga Exitosa!',
+        text: `Se exportaron ${solicitudesFormalizacionFiltradas.length} registros de formalización en formato Excel (.xlsx).`,
+        timer: 2500,
+        showConfirmButton: false
+      });
+    }
   };
 
   // ── ENVIAR MENSAJE OFICIAL POR WHATSAPP AL REPRESENTANTE (SOPORTE MULTITELÉFONO) ─
@@ -6412,13 +6561,24 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
               <span className="badge px-3 py-2 fw-bold" style={{ backgroundColor: '#0D9488', color: '#fff' }}>
                 {solicitudesFormalizacionFiltradas.length} de {solicitudesAceptadasParaFormalizar.length} Aceptados
               </span>
+              <button
+                type="button"
+                onClick={exportarExcelFormalizacion}
+                className="btn btn-sm btn-success fw-bold px-3 py-1.5 shadow-sm d-flex align-items-center gap-1.5 hover-efecto"
+                style={{ backgroundColor: '#107c41', borderColor: '#107c41' }}
+                title="Descargar data filtrada de formalización a Excel (.xlsx)"
+              >
+                <i className="bi bi-file-earmark-excel-fill"></i>
+                <span>Descargar Excel ({solicitudesFormalizacionFiltradas.length})</span>
+              </button>
             </div>
           </div>
 
-          {/* Barra interactiva de Búsqueda y Filtro de Estado para Formalización */}
+          {/* Barra interactiva de Búsqueda, Filtros Avanzados y Acciones para Formalización */}
           <div className="p-3 bg-light border-bottom">
-            <div className="row g-2 align-items-center">
-              <div className="col-12 col-md-7">
+            {/* Fila 1: Búsqueda y Filtro de Estado Rápido */}
+            <div className="row g-2 align-items-center mb-2.5">
+              <div className="col-12 col-lg-6">
                 <div className="input-group input-group-sm">
                   <span className="input-group-text bg-white text-muted border-end-0">
                     <i className="bi bi-search"></i>
@@ -6426,7 +6586,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   <input
                     type="text"
                     className="form-control border-start-0 ps-0"
-                    placeholder="Buscar aspirante por nombre, cédula, representante o código único..."
+                    placeholder="Buscar por estudiante, cédula, representante, teléfono, código..."
                     value={busquedaFormalizacion}
                     onChange={e => setBusquedaFormalizacion(e.target.value)}
                   />
@@ -6435,6 +6595,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                       className="btn btn-outline-secondary border-start-0 bg-white"
                       type="button"
                       onClick={() => setBusquedaFormalizacion('')}
+                      title="Borrar texto de búsqueda"
                     >
                       <i className="bi bi-x-lg"></i>
                     </button>
@@ -6442,7 +6603,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                 </div>
               </div>
 
-              <div className="col-12 col-md-5 d-flex justify-content-md-end gap-1.5 flex-wrap">
+              <div className="col-12 col-lg-6 d-flex justify-content-lg-end align-items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setFiltroEstadoFormalizacion('todos')}
@@ -6467,6 +6628,95 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                 >
                   Formalizados ({kpisFormalizacion.formalizados})
                 </button>
+                {(busquedaFormalizacion || filtroEstadoFormalizacion !== 'todos' || filtroEscuelaFormalizacion !== 'todas' || filtroGradoFormalizacion !== 'todos' || filtroSeccionFormalizacion !== 'todas' || filtroWhatsAppFormalizacion !== 'todos') && (
+                  <button
+                    type="button"
+                    onClick={limpiarFiltrosFormalizacion}
+                    className="btn btn-sm btn-outline-danger rounded-pill px-2.5 py-1 extra-small fw-bold"
+                    title="Restablecer todos los filtros"
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1"></i>Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Fila 2: Filtros Selectores Específicos (Sede, Grado, Sección, WhatsApp) */}
+            <div className="row g-2 align-items-center">
+              {/* Filtro Sede / Escuela */}
+              <div className="col-6 col-md-3">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white text-secondary extra-small fw-bold">
+                    <i className="bi bi-building me-1"></i>Sede
+                  </span>
+                  <select
+                    className="form-select form-select-sm"
+                    value={filtroEscuelaFormalizacion}
+                    onChange={e => setFiltroEscuelaFormalizacion(e.target.value)}
+                  >
+                    <option value="todas">Todas las Sedes</option>
+                    <option value="sb">U.E. Santa Bárbara</option>
+                    <option value="lb">U.E. Libertador Bolívar</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Filtro Grado */}
+              <div className="col-6 col-md-3">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white text-secondary extra-small fw-bold">
+                    <i className="bi bi-mortarboard me-1"></i>Grado
+                  </span>
+                  <select
+                    className="form-select form-select-sm"
+                    value={filtroGradoFormalizacion}
+                    onChange={e => setFiltroGradoFormalizacion(e.target.value)}
+                  >
+                    <option value="todos">Todos los Grados</option>
+                    {gradosDisponiblesFormalizacion.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Filtro Sección */}
+              <div className="col-6 col-md-3">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white text-secondary extra-small fw-bold">
+                    <i className="bi bi-grid-3x3 me-1"></i>Sección
+                  </span>
+                  <select
+                    className="form-select form-select-sm"
+                    value={filtroSeccionFormalizacion}
+                    onChange={e => setFiltroSeccionFormalizacion(e.target.value)}
+                  >
+                    <option value="todas">Todas las Secciones</option>
+                    <option value="A">Sección A</option>
+                    <option value="B">Sección B</option>
+                    <option value="C">Sección C</option>
+                    <option value="D">Sección D</option>
+                    <option value="sin_seccion">Sin Asignar</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Filtro Notificación WhatsApp */}
+              <div className="col-6 col-md-3">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white text-secondary extra-small fw-bold">
+                    <i className="bi bi-whatsapp text-success me-1"></i>Aviso
+                  </span>
+                  <select
+                    className="form-select form-select-sm"
+                    value={filtroWhatsAppFormalizacion}
+                    onChange={e => setFiltroWhatsAppFormalizacion(e.target.value)}
+                  >
+                    <option value="todos">Todos los Avisos</option>
+                    <option value="enviado">Notificados por WhatsApp</option>
+                    <option value="pendiente">Sin Notificar por WhatsApp</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -6597,7 +6847,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                 {/* ── VISTA MÓVIL: TARJETAS DE FORMALIZACIÓN (< lg) ───────────── */}
                 <div className="d-block d-lg-none p-2 p-sm-3 bg-light">
                   <div className="d-flex flex-column gap-2.5">
-                    {solicitudesAceptadasParaFormalizar.map((sol, idx) => {
+                    {solicitudesFormalizacionFiltradas.map((sol, idx) => {
                       const esFormalizado = sol.estado === 'Formalizado' || sol.estado === 'Inscrito';
                       const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
                       const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
