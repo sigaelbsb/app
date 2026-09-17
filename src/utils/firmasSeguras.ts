@@ -50,7 +50,11 @@ export const obtenerDatosDirectorAsync = async (escCodigo: string): Promise<Dato
 };
 
 export const resolverEscuelaEstudiante = (est: any, form?: any): 'sb' | 'lb' => {
-  if (!est && !form) return 'sb';
+  if (!est && !form) {
+    const savedEsc = (typeof window !== 'undefined' ? localStorage.getItem('sigae_escuela_codigo') || '' : '').toLowerCase().trim();
+    if (savedEsc.includes('lb') || savedEsc.includes('libertador')) return 'lb';
+    return 'sb';
+  }
 
   const candidates = [
     est?.codigo_escuela,
@@ -82,6 +86,11 @@ export const resolverEscuelaEstudiante = (est: any, form?: any): 'sb' | 'lb' => 
       str.includes('bárbara') ||
       str.includes('tejero') ||
       str.includes('ci-sb') ||
+      str.includes('ce-sb') ||
+      str.includes('cc-sb') ||
+      str.includes('sc-sb') ||
+      str.includes('adm-sb') ||
+      str.includes('ni-sb') ||
       str.includes('fi-sb') ||
       str.includes('sol-sb')
     ) {
@@ -96,6 +105,11 @@ export const resolverEscuelaEstudiante = (est: any, form?: any): 'sb' | 'lb' => 
       str.includes('bolívar') ||
       str.includes('miraflores') ||
       str.includes('ci-lb') ||
+      str.includes('ce-lb') ||
+      str.includes('cc-lb') ||
+      str.includes('sc-lb') ||
+      str.includes('adm-lb') ||
+      str.includes('ni-lb') ||
       str.includes('fi-lb') ||
       str.includes('sol-lb')
     ) {

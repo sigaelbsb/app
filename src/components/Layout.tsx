@@ -15,6 +15,21 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
   const usuarioStr = localStorage.getItem('usuario_sigae');
   const usuario = usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
+  const rolNorm = (usuario?.rol || '').toLowerCase();
+  const esPersonalEscuela = !['representante', 'estudiante', 'visitante', 'invitado'].includes(rolNorm) && (
+    rolNorm.includes('docente') ||
+    rolNorm.includes('profesor') ||
+    rolNorm.includes('maestr') ||
+    rolNorm.includes('direct') ||
+    rolNorm.includes('coordinad') ||
+    rolNorm.includes('administra') ||
+    rolNorm.includes('obrero') ||
+    rolNorm.includes('especialista') ||
+    rolNorm.includes('control') ||
+    rolNorm.includes('secretar') ||
+    rolNorm.includes('subdirector') ||
+    usuario?.rol === 'SuperAdmin'
+  );
   const escuelaCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
   const escuelaNombre = escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
   const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
@@ -1641,18 +1656,20 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                     <span>Mi Perfil y Cuenta</span>
                   </button>
 
-                  {/* Ver Asignación de Responsabilidades */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMostrarUserDropdown(false);
-                      setMostrarAsignacionManual(true);
-                    }}
-                    className="chamilo-dropdown-item"
-                  >
-                    <i className="bi bi-stars text-warning"></i>
-                    <span>Mi Asignación 2026-2027</span>
-                  </button>
+                  {/* Ver Asignación de Responsabilidades (Solo Personal Escolar) */}
+                  {esPersonalEscuela && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMostrarUserDropdown(false);
+                        setMostrarAsignacionManual(true);
+                      }}
+                      className="chamilo-dropdown-item"
+                    >
+                      <i className="bi bi-stars text-warning"></i>
+                      <span>Mi Asignación 2026-2027</span>
+                    </button>
+                  )}
 
                   {/* Selector de Sede Dual si está autorizado */}
                   {((usuario.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(usuario.rol) || usuario.id_escuela === 'ambas' || usuario.id_escuela === 'todas') && tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb')) && (
@@ -1747,10 +1764,12 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       <NavigationLoader />
       <ChatbotSigma />
       <TourOrientacion />
-      <ModalAsignacionSorpresa 
-        forzarApertura={mostrarAsignacionManual} 
-        onClose={() => setMostrarAsignacionManual(false)} 
-      />
+      {esPersonalEscuela && (
+        <ModalAsignacionSorpresa 
+          forzarApertura={mostrarAsignacionManual} 
+          onClose={() => setMostrarAsignacionManual(false)} 
+        />
+      )}
     </div>
   );
 };

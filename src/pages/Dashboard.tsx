@@ -330,10 +330,10 @@ export const Dashboard = () => {
             }
           } catch (e) {}
 
-          // Cargar también solicitudes_cupos si hace falta
+          // Cargar también solicitud_cupos si hace falta
           try {
             const { data: dataCupos } = await supabase
-              .from('solicitudes_cupos')
+              .from('solicitud_cupos')
               .select('*')
               .limit(2000);
 
@@ -358,11 +358,46 @@ export const Dashboard = () => {
         }
 
         // 3. Filtrar estudiantes vinculados al representante en sesión
+        const repOficialPorEstudiante = new Map<string, string>();
+        todosLosRegistros.forEach((item: any) => {
+          if (item.cedula_representante && !item.codigo_escuela_procedencia) {
+            const rep = String(item.cedula_representante || '').replace(/\D/g, '');
+            const estCed = String(item.cedula_estudiante || '').trim().toUpperCase();
+            const estCedDigits = estCed.replace(/\D/g, '');
+            const estCod = String(item.codigo_unico || item.datos_actualizados?.codigo_unico || '').trim().toUpperCase();
+            const estCodSinT = estCod.replace(/^T-/, '');
+            const estNom = `${(item.nombres_estudiante || item.datos_actualizados?.estudiante_nombres || '').trim()} ${(item.apellidos_estudiante || item.datos_actualizados?.estudiante_apellidos || '').trim()}`.toLowerCase().replace(/\s+/g, ' ');
+
+            if (estCed && rep) repOficialPorEstudiante.set(estCed, rep);
+            if (estCedDigits && rep) repOficialPorEstudiante.set(estCedDigits, rep);
+            if (estCod && rep) repOficialPorEstudiante.set(estCod, rep);
+            if (estCodSinT && rep) repOficialPorEstudiante.set(estCodSinT, rep);
+            if (estNom && rep) repOficialPorEstudiante.set(`nom_${estNom}`, rep);
+          }
+        });
+
         const seenIds = new Set<string>();
         const vinculados: any[] = [];
 
         todosLosRegistros.forEach((item: any) => {
           const dAct = item.datos_actualizados || {};
+          const estCed = String(item.cedula_estudiante || dAct.estudiante_cedula || item.estudiante_cedula || '').trim().toUpperCase();
+          const estCod = String(item.codigo_unico || dAct.codigo_unico || '').trim().toUpperCase();
+          const estCedDigits = estCed.replace(/\D/g, '');
+          const estCodSinT = estCod.replace(/^T-/, '');
+          const nomNormItem = `${(item.nombres_estudiante || dAct.estudiante_nombres || '').trim()} ${(item.apellidos_estudiante || dAct.estudiante_apellidos || '').trim()}`.toLowerCase().replace(/\s+/g, ' ');
+
+          // Si el estudiante ya tiene vinculación oficial a otro representante, no vincular a este usuario
+          const repOficial = (estCed ? repOficialPorEstudiante.get(estCed) : null) ||
+            (estCedDigits ? repOficialPorEstudiante.get(estCedDigits) : null) ||
+            (estCod ? repOficialPorEstudiante.get(estCod) : null) ||
+            (estCodSinT ? repOficialPorEstudiante.get(estCodSinT) : null) ||
+            (nomNormItem ? repOficialPorEstudiante.get(`nom_${nomNormItem}`) : null);
+
+          if (repOficial && userDigits && repOficial !== userDigits) {
+            return;
+          }
+
           const repCed = String(item.cedula_representante || item.representante_cedula || dAct.representante_cedula || dAct.cedula_representante || '').trim().toUpperCase();
           const repDigits = repCed.replace(/\D/g, '');
 
@@ -726,7 +761,8 @@ export const Dashboard = () => {
   const canPersonalInstitucional = tienePermiso('Tarjeta: Personal Institucional', 'ver');
   const canRutaTrabajador = tienePermiso('Tarjeta: Ruta y Parada del Trabajador/Personal', 'ver');
   const canNotificaciones = tienePermiso('Tarjeta: Notificaciones y Avisos Activos', 'ver');
-  const esRolFormalizador = (usuario?.rol || '').trim().toLowerCase() === 'formalizador';
+  const canFormalizacionTarjeta = tienePermiso('Tarjeta: Formalización de Matrícula', 'ver') || tienePermiso('Formalización Física', 'ver');
+  const esRolFormalizador = (usuario?.rol || '').trim().toLowerCase() === 'formalizador' || canFormalizacionTarjeta;
 
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">

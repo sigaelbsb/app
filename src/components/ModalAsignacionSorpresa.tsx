@@ -886,7 +886,7 @@ export const abrirModalProbarSonidos = (Swal: any, onSeleccionado?: (tipo: TipoS
         tipoSonido: res.value
       };
       guardarConfigSorpresa(nuevaCfg);
-      auditar('Personal', 'Cambiar Sonido Sorpresa', `Estableció audio: ${res.value}`);
+      auditar('Organización Escolar', 'Cambiar Sonido Sorpresa', `Estableció audio: ${res.value}`);
 
       Swal.fire({
         icon: 'success',
@@ -1117,7 +1117,7 @@ export const abrirModalParametrizarSorpresa = async (Swal: any, onGuardado?: () 
             }
           }
           keysToRemove.forEach(k => localStorage.removeItem(k));
-          auditar('Personal', 'Reiniciar Vistas Sorpresa', 'Restableció contadores de visualización de la sorpresa de asignación 2026-2027');
+          auditar('Organización Escolar', 'Reiniciar Vistas Sorpresa', 'Restableció contadores de visualización de la sorpresa de asignación 2026-2027');
           btnReset.innerHTML = '<i class="bi bi-check2 me-1 text-success"></i>¡Reiniciado!';
           btnReset.classList.remove('btn-outline-dark');
           btnReset.classList.add('btn-success', 'text-white');
@@ -1149,7 +1149,7 @@ export const abrirModalParametrizarSorpresa = async (Swal: any, onGuardado?: () 
   }).then(async (res: any) => {
     if (res.isConfirmed && res.value) {
       await guardarConfigSorpresa(res.value);
-      auditar('Personal', 'Parametrizar Sorpresa Asignación', `Configuró habilitado: ${res.value.habilitado}, rango: ${res.value.fechaInicio} al ${res.value.fechaFin}, frecuencia: ${res.value.modoFrecuencia}`);
+      auditar('Organización Escolar', 'Parametrizar Sorpresa Asignación', `Configuró habilitado: ${res.value.habilitado}, rango: ${res.value.fechaInicio} al ${res.value.fechaFin}, frecuencia: ${res.value.modoFrecuencia}`);
       Swal.fire({
         icon: 'success',
         title: '¡Parámetros Guardados y Sincronizados!',
@@ -1202,6 +1202,30 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
       if (cancelado) return;
       setConfigActual(config);
 
+      // B. BLOQUEO ABSOLUTO: Si el usuario es Representante, Estudiante, Visitante o Invitado -> JAMÁS MOSTRAR
+      const rolLower = (rolUsuario || '').toLowerCase();
+      if (['representante', 'estudiante', 'visitante', 'invitado'].includes(rolLower)) {
+        return;
+      }
+
+      // Solo para personal escolar (docentes, directivos, administrativos, obreros, especialistas)
+      const esPersonal = rolLower.includes('docente') ||
+        rolLower.includes('profesor') ||
+        rolLower.includes('maestr') ||
+        rolLower.includes('direct') ||
+        rolLower.includes('coordinad') ||
+        rolLower.includes('administra') ||
+        rolLower.includes('obrero') ||
+        rolLower.includes('especialista') ||
+        rolLower.includes('control') ||
+        rolLower.includes('secretar') ||
+        rolLower.includes('subdirector') ||
+        rolUsuario === 'SuperAdmin';
+
+      if (!esPersonal) return;
+
+      const esPrivilegiado = rolUsuario === 'SuperAdmin' || rolLower.includes('direct');
+
       if (!forzarApertura) {
         // A. Si está inhabilitada en la parametrización -> BLOQUEADA
         if (!config.habilitado) {
@@ -1209,24 +1233,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
           return;
         }
 
-        // B. Solo para personal escolar (docentes, directivos, administrativos, obreros)
-        const rolLower = (rolUsuario || '').toLowerCase();
-        const esPersonal = rolLower.includes('docente') ||
-          rolLower.includes('profesor') ||
-          rolLower.includes('maestr') ||
-          rolLower.includes('direct') ||
-          rolLower.includes('coordinad') ||
-          rolLower.includes('administra') ||
-          rolLower.includes('obrero') ||
-          rolLower.includes('especialista') ||
-          rolLower.includes('control') ||
-          rolLower.includes('secretar') ||
-          rolLower.includes('subdirector');
-
-        if (!esPersonal) return;
-
         // C. VIGENCIA DE LA CAMPAÑA (BLOQUEO ESTRICTO POR FECHAS)
-        // La fecha de inicio y fin determina si la campaña está activa o bloqueada.
         const hoyStr = getFechaHoyLocal();
 
         if (config.fechaInicio && hoyStr < config.fechaInicio) {
@@ -1248,6 +1255,13 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
           const storageKeyFecha = `sigae_asignacion_fecha_vista_${targetCedula}`;
           const ultimaFecha = localStorage.getItem(storageKeyFecha);
           if (ultimaFecha === hoyStr) return;
+        }
+      } else {
+        // Si fue apertura forzada pero la campaña está deshabilitada y el usuario no es SuperAdmin/Director
+        if (!config.habilitado && !esPrivilegiado) {
+          if (Swal) Swal.fire('Aviso', 'La consulta de asignaciones para este periodo se encuentra inhabilitada por la Dirección.', 'info');
+          if (onClose) onClose();
+          return;
         }
       }
 
@@ -1667,7 +1681,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
     const storageKeyFecha = `sigae_asignacion_fecha_vista_${targetCedula}`;
     localStorage.setItem(storageKey, 'true');
     localStorage.setItem(storageKeyFecha, hoyStr);
-    auditar('Personal', 'Confirmar Asignación', `Confirmó recepción de asignación oficial año escolar ${periodoActivo}`);
+    auditar('Organización Escolar', 'Confirmar Asignación', `Confirmó recepción de asignación oficial año escolar ${periodoActivo}`);
     if (animRef.current) cancelAnimationFrame(animRef.current);
     setVisible(false);
     if (onClose) onClose();
@@ -1880,7 +1894,7 @@ export const ModalAsignacionSorpresa: React.FC<ModalAsignacionSorpresaProps> = (
     };
 
     html2pdf().set(opt).from(template).save();
-    auditar('Personal', 'Descargar Ficha Asignación', `Descargó ficha PDF de asignación para ${u?.nombre_completo}`);
+    auditar('Organización Escolar', 'Descargar Ficha Asignación', `Descargó ficha PDF de asignación para ${u?.nombre_completo}`);
   };
 
   if (!visible || loading || !datosAsignacion) return null;

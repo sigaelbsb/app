@@ -221,20 +221,6 @@ export const usePermisos = () => {
       return true;
     }
 
-    // Aislamiento estricto para el rol Formalizador: solo Formalización Física y su módulo contenedor
-    const esRolFormalizador = (user.rol || '').trim().toLowerCase() === 'formalizador';
-    if (esRolFormalizador) {
-      const modulosPermitidos = [
-        'Mi Perfil',
-        'Métodos de Acceso',
-        'Gestión Estudiantil',
-        'Gestión de Admisiones',
-        'Tarjeta: Formalización de Matrícula',
-        'Formalización Física'
-      ];
-      return modulosPermitidos.includes(modulo);
-    }
-
     const activeSchool = (localStorage.getItem('sigae_escuela_codigo') || user.id_escuela || 'sb').toLowerCase();
 
     // Aislamiento de escuela: si el usuario no tiene acceso a este plantel, denegar inmediatamente

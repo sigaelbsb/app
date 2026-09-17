@@ -487,12 +487,26 @@ export const VincularEstudiante: React.FC = () => {
 
     setLoading(true);
     try {
-      const payload = {
+      const cedIngresada = formInd.cedula_estudiante.trim().toUpperCase();
+      const cedDigits = cedIngresada.replace(/\D/g, '');
+      const nomNorm = `${formInd.nombres_estudiante.trim()} ${formInd.apellidos_estudiante.trim()}`.toLowerCase().replace(/\s+/g, ' ');
+
+      // Buscar si el estudiante ya existía en vinculaciones (por cédula exacta, dígitos o nombre)
+      const yaExistente = vinculaciones.find(v => {
+        const vCed = String(v.cedula_estudiante || '').trim().toUpperCase();
+        const vCedDigits = vCed.replace(/\D/g, '');
+        if (vCed === cedIngresada) return true;
+        if (cedDigits && vCedDigits && cedDigits.length >= 5 && cedDigits === vCedDigits) return true;
+        const vNom = `${(v.nombres_estudiante || '').trim()} ${(v.apellidos_estudiante || '').trim()}`.toLowerCase().replace(/\s+/g, ' ');
+        return Boolean(nomNorm && vNom && nomNorm === vNom);
+      });
+
+      const payload: any = {
         codigo_escuela: formInd.codigo_escuela,
         cedula_representante: repEncontrado.cedula,
         nombres_representante: repEncontrado.nombres || repEncontrado.nombre_completo,
         apellidos_representante: repEncontrado.apellidos || '',
-        cedula_estudiante: formInd.cedula_estudiante.trim().toUpperCase(),
+        cedula_estudiante: cedIngresada,
         nombres_estudiante: toTitulo(formInd.nombres_estudiante.trim()),
         apellidos_estudiante: toTitulo(formInd.apellidos_estudiante.trim()),
         grado_actual: formInd.grado_actual,
@@ -501,11 +515,53 @@ export const VincularEstudiante: React.FC = () => {
         creado_por: user?.cedula || 'Admin'
       };
 
-      const { error } = await supabase
-        .from('estudiantes_vinculaciones')
-        .upsert([payload], { onConflict: 'cedula_estudiante' });
+      if (yaExistente) {
+        // Actualizar registro existente conservando datos_actualizados
+        const datosActuales = yaExistente.datos_actualizados || {};
+        payload.datos_actualizados = {
+          ...datosActuales,
+          representante_cedula: repEncontrado.cedula,
+          cedula_representante: repEncontrado.cedula,
+          representante_nombres: repEncontrado.nombres || repEncontrado.nombre_completo,
+          representante_apellidos: repEncontrado.apellidos || '',
+          representante_email: repEncontrado.email || datosActuales.representante_email || '',
+          representante_telefono: repEncontrado.telefono || datosActuales.representante_telefono || ''
+        };
 
-      if (error) throw error;
+        const { error } = await supabase
+          .from('estudiantes_vinculaciones')
+          .update(payload)
+          .eq('id', yaExistente.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('estudiantes_vinculaciones')
+          .upsert([payload], { onConflict: 'cedula_estudiante' });
+
+        if (error) throw error;
+      }
+
+      // Sincronizar también en solicitud_cupos para que el representante previo no conserve al estudiante
+      const payloadSol: any = {
+        representante_cedula: repEncontrado.cedula,
+        representante_nombres: repEncontrado.nombres || repEncontrado.nombre_completo,
+        representante_apellidos: repEncontrado.apellidos || '',
+        updated_at: new Date().toISOString()
+      };
+      if (repEncontrado.email) payloadSol.representante_email = repEncontrado.email;
+      if (repEncontrado.telefono) payloadSol.representante_telefono = repEncontrado.telefono;
+
+      await supabase.from('solicitud_cupos').update(payloadSol).eq('estudiante_cedula', cedIngresada);
+      if (cedDigits && cedDigits !== cedIngresada) {
+        await supabase.from('solicitud_cupos').update(payloadSol).eq('estudiante_cedula', cedDigits);
+      }
+      if (formInd.nombres_estudiante.trim() && formInd.apellidos_estudiante.trim()) {
+        await supabase.from('solicitud_cupos')
+          .update(payloadSol)
+          .ilike('estudiante_nombres', `%${formInd.nombres_estudiante.trim()}%`)
+          .ilike('estudiante_apellidos', `%${formInd.apellidos_estudiante.trim()}%`);
+      }
 
       if ((window as any).Swal) {
         (window as any).Swal.fire('¡Éxito!', `Estudiante ${payload.nombres_estudiante} vinculado al representante C.I. ${payload.cedula_representante}`, 'success');
@@ -525,6 +581,7 @@ export const VincularEstudiante: React.FC = () => {
       });
       setRepEncontrado(null);
       setCedulaRepBuscar('');
+      await cargarVinculaciones();
     } catch (err: any) {
       console.error(err);
       if ((window as any).Swal) {
@@ -858,45 +915,217 @@ export const VincularEstudiante: React.FC = () => {
       const partes = nuevoNombreRep.split(' ');
       const repNombres = partes.slice(0, Math.ceil(partes.length / 2)).join(' ');
       const repApellidos = partes.slice(Math.ceil(partes.length / 2)).join(' ');
+      const nowIso = new Date().toISOString();
 
-      for (const estId of idsTarget) {
-        const estActual = vinculaciones.find(v => v.id === estId) || estudiantesATransferir.find(e => e.id === estId);
-        let datosAct = estActual?.datos_actualizados;
-        if (datosAct && typeof datosAct === 'object') {
-          datosAct = {
-            ...datosAct,
-            representante_cedula: nuevoRepEncontrado.cedula,
-            representante_nombres: repNombres,
-            representante_apellidos: repApellidos,
-            representante_email: nuevoRepEncontrado.email || datosAct.representante_email || '',
-            representante_telefono: nuevoRepEncontrado.telefono || datosAct.representante_telefono || ''
-          };
+      // Recopilar todos los estudiantes a transferir para asegurar integridad referencial
+      const estudiantesObjetivo: any[] = [];
+      idsTarget.forEach(id => {
+        const est = vinculaciones.find(v => v.id === id) || estudiantesATransferir.find(e => e.id === id) || hermanosDetectados.find(h => h.id === id);
+        if (est) estudiantesObjetivo.push(est);
+      });
+
+      const cedulasEstudiantes = Array.from(new Set(estudiantesObjetivo.map(e => String(e.cedula_estudiante || '').trim()).filter(Boolean)));
+      const codigosUnicos = Array.from(new Set(estudiantesObjetivo.map(e => String(e.codigo_unico || e.datos_actualizados?.codigo_unico || '').trim()).filter(Boolean)));
+      const cedulasRepAnterior = Array.from(new Set(estudiantesObjetivo.map(e => String(e.cedula_representante || '').trim()).filter(Boolean)));
+
+      // 1. Actualizar y depurar en estudiantes_vinculaciones en Supabase
+      for (const est of estudiantesObjetivo) {
+        const cEst = String(est.cedula_estudiante || '').trim().toUpperCase();
+        const cEstDigits = cEst.replace(/\D/g, '');
+        const nomNorm = `${(est.nombres_estudiante || '').trim()} ${(est.apellidos_estudiante || '').trim()}`.toLowerCase().replace(/\s+/g, ' ');
+        const codUni = String(est.codigo_unico || est.datos_actualizados?.codigo_unico || '').trim().toUpperCase();
+        const codUniSinT = codUni.replace(/^T-/, '');
+
+        // Buscar todos los registros que pertenecen a este mismo estudiante (por ID, cédula, dígitos o nombre)
+        const registrosRelacionados = vinculaciones.filter(v => {
+          if (v.id === est.id) return true;
+          const vCed = String(v.cedula_estudiante || '').trim().toUpperCase();
+          const vCedDigits = vCed.replace(/\D/g, '');
+          if (cEst && vCed && cEst === vCed) return true;
+          if (cEstDigits && vCedDigits && cEstDigits.length >= 5 && cEstDigits === vCedDigits) return true;
+          if (codUni && vCed && (vCed === codUni || vCed === `T-${codUniSinT}` || vCed === codUniSinT)) return true;
+          const vNom = `${(v.nombres_estudiante || '').trim()} ${(v.apellidos_estudiante || '').trim()}`.toLowerCase().replace(/\s+/g, ' ');
+          if (nomNorm && vNom && nomNorm === vNom) return true;
+          return false;
+        });
+
+        if (!registrosRelacionados.some(r => r.id === est.id)) {
+          registrosRelacionados.push(est);
         }
 
-        const { error } = await supabase
+        // Fila principal: preferir la que tiene dígitos numéricos oficiales (cédula escolar), de lo contrario la primera
+        const filaPrincipal = registrosRelacionados.find(r => /^\d+$/.test(String(r.cedula_estudiante || '').trim())) || registrosRelacionados[0];
+        const filasSecundarias = registrosRelacionados.filter(r => r.id !== filaPrincipal.id);
+
+        let datosActMerged = { ...(filaPrincipal.datos_actualizados || {}) };
+        for (const fSec of filasSecundarias) {
+          datosActMerged = { ...(fSec.datos_actualizados || {}), ...datosActMerged };
+        }
+
+        datosActMerged = {
+          ...datosActMerged,
+          representante_cedula: nuevoRepEncontrado.cedula,
+          cedula_representante: nuevoRepEncontrado.cedula,
+          representante_nombres: repNombres,
+          nombres_representante: repNombres,
+          representante_apellidos: repApellidos,
+          apellidos_representante: repApellidos,
+          representante_email: nuevoRepEncontrado.email || datosActMerged.representante_email || '',
+          representante_telefono: nuevoRepEncontrado.telefono || datosActMerged.representante_telefono || ''
+        };
+
+        // Actualizar fila principal
+        const { error: errId } = await supabase
           .from('estudiantes_vinculaciones')
           .update({
             cedula_representante: nuevoRepEncontrado.cedula,
             nombres_representante: repNombres,
             apellidos_representante: repApellidos,
-            ...(datosAct ? { datos_actualizados: datosAct } : {})
+            datos_actualizados: datosActMerged,
+            updated_at: nowIso
           })
-          .eq('id', estId);
+          .eq('id', filaPrincipal.id);
 
-        if (error) throw error;
+        if (errId) throw errId;
+
+        // Eliminar filas duplicadas secundarias para que el estudiante no quede duplicado con el representante anterior
+        for (const fSec of filasSecundarias) {
+          await supabase.from('estudiantes_vinculaciones').delete().eq('id', fSec.id);
+        }
+
+        // Sincronizar también por cédula si existiera fuera del lote en memoria
+        if (cEst) {
+          await supabase
+            .from('estudiantes_vinculaciones')
+            .update({
+              cedula_representante: nuevoRepEncontrado.cedula,
+              nombres_representante: repNombres,
+              apellidos_representante: repApellidos,
+              updated_at: nowIso
+            })
+            .eq('cedula_estudiante', cEst)
+            .neq('id', filaPrincipal.id);
+        }
       }
 
-      auditar('Vincular Estudiante', 'Transferir Representante', `Transferidos ${idsTarget.length} estudiante(s) a nuevo representante C.I. ${nuevoRepEncontrado.cedula} (${nuevoNombreRep})`);
+      // 2. Actualizar exhaustivamente en solicitud_cupos (para que el representante previo NO lo mantenga en su portal)
+      for (const est of estudiantesObjetivo) {
+        const cEst = String(est.cedula_estudiante || '').trim();
+        const cEstDigits = cEst.replace(/\D/g, '');
+        const codUni = String(est.codigo_unico || est.datos_actualizados?.codigo_unico || '').trim();
+        const codUniSinT = codUni.replace(/^T-/, '');
 
+        const payloadSol: any = {
+          representante_cedula: nuevoRepEncontrado.cedula,
+          representante_nombres: repNombres,
+          representante_apellidos: repApellidos,
+          updated_at: nowIso
+        };
+        if (nuevoRepEncontrado.email) payloadSol.representante_email = nuevoRepEncontrado.email;
+        if (nuevoRepEncontrado.telefono) payloadSol.representante_telefono = nuevoRepEncontrado.telefono;
+
+        if (codUni) {
+          await supabase.from('solicitud_cupos').update(payloadSol).eq('codigo_unico', codUni);
+          if (codUniSinT !== codUni) {
+            await supabase.from('solicitud_cupos').update(payloadSol).eq('codigo_unico', codUniSinT);
+          }
+        }
+        if (codUniSinT) {
+          await supabase.from('solicitud_cupos').update(payloadSol).eq('codigo_unico', codUniSinT);
+        }
+        if (cEst) {
+          await supabase.from('solicitud_cupos').update(payloadSol).eq('estudiante_cedula', cEst);
+          if (cEstDigits && cEstDigits !== cEst) {
+            await supabase.from('solicitud_cupos').update(payloadSol).eq('estudiante_cedula', cEstDigits);
+          }
+        }
+        if (est.nombres_estudiante && est.apellidos_estudiante) {
+          await supabase.from('solicitud_cupos')
+            .update(payloadSol)
+            .ilike('estudiante_nombres', `%${est.nombres_estudiante.trim()}%`)
+            .ilike('estudiante_apellidos', `%${est.apellidos_estudiante.trim()}%`);
+        }
+      }
+
+      // 3. Limpiar y actualizar cachés en LocalStorage
+      const localKeys = ['sigae_estudiantes_vinculaciones', 'sigae_solicitudes_cupos', 'sigae_censo_alumnos', 'sigae_estudiantes_locales'];
+      localKeys.forEach(k => {
+        try {
+          const raw = localStorage.getItem(k);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return;
+          let changed = false;
+          const updated = parsed.map((item: any) => {
+            const itemCedEst = String(item.cedula_estudiante || item.estudiante_cedula || '').trim();
+            const itemCod = String(item.codigo_unico || '').trim();
+            const matches = idsTarget.includes(item.id) ||
+              (itemCedEst && cedulasEstudiantes.includes(itemCedEst)) ||
+              (itemCod && codigosUnicos.includes(itemCod));
+
+            if (matches) {
+              changed = true;
+              const dAct = (item.datos_actualizados && typeof item.datos_actualizados === 'object') ? { ...item.datos_actualizados } : {};
+              dAct.representante_cedula = nuevoRepEncontrado.cedula;
+              dAct.cedula_representante = nuevoRepEncontrado.cedula;
+              dAct.representante_nombres = repNombres;
+              dAct.nombres_representante = repNombres;
+              dAct.representante_apellidos = repApellidos;
+              dAct.apellidos_representante = repApellidos;
+              return {
+                ...item,
+                cedula_representante: nuevoRepEncontrado.cedula,
+                representante_cedula: nuevoRepEncontrado.cedula,
+                nombres_representante: repNombres,
+                representante_nombres: repNombres,
+                apellidos_representante: repApellidos,
+                representante_apellidos: repApellidos,
+                datos_actualizados: dAct
+              };
+            }
+            return item;
+          });
+          if (changed) {
+            localStorage.setItem(k, JSON.stringify(updated));
+          }
+        } catch (e) {}
+      });
+
+      // 4. Actualizar mapa de usuarios en memoria
+      setUsuariosMap(prev => {
+        const next = new Map(prev);
+        const rawCed = String(nuevoRepEncontrado.cedula || '').trim().toUpperCase();
+        const digits = rawCed.replace(/\D/g, '');
+        const noZeros = digits.replace(/^0+/, '');
+        if (rawCed) next.set(rawCed, nuevoNombreRep);
+        if (digits) {
+          next.set(digits, nuevoNombreRep);
+          next.set(`V-${digits}`, nuevoNombreRep);
+          next.set(`V${digits}`, nuevoNombreRep);
+        }
+        if (noZeros) next.set(noZeros, nuevoNombreRep);
+        return next;
+      });
+
+      // 5. Actualizar estado local de vinculaciones
       setVinculaciones(prev => prev.map(v => {
-        if (idsTarget.includes(v.id)) {
+        const itemCedEst = String(v.cedula_estudiante || '').trim();
+        const itemCod = String(v.codigo_unico || v.datos_actualizados?.codigo_unico || '').trim();
+        const matches = idsTarget.includes(v.id) ||
+          (itemCedEst && cedulasEstudiantes.includes(itemCedEst)) ||
+          (itemCod && codigosUnicos.includes(itemCod));
+
+        if (matches) {
           let datosAct = v.datos_actualizados;
           if (datosAct && typeof datosAct === 'object') {
             datosAct = {
               ...datosAct,
               representante_cedula: nuevoRepEncontrado.cedula,
+              cedula_representante: nuevoRepEncontrado.cedula,
               representante_nombres: repNombres,
-              representante_apellidos: repApellidos
+              nombres_representante: repNombres,
+              representante_apellidos: repApellidos,
+              apellidos_representante: repApellidos
             };
           }
           return {
@@ -910,22 +1139,43 @@ export const VincularEstudiante: React.FC = () => {
         return v;
       }));
 
-      // Si el nuevo representante tiene ahora estudiantes en ambas escuelas, asegurar id_escuela = 'ambas'
+      // 6. Recalcular id_escuela del nuevo representante y de representantes anteriores
       try {
-        const todosDelNuevoRep = vinculaciones.filter(v => v.cedula_representante === nuevoRepEncontrado.cedula || idsTarget.includes(v.id));
-        const escuelasRep = Array.from(new Set(todosDelNuevoRep.map((e: any) => (e?.codigo_escuela || '').trim().toLowerCase()).filter(Boolean)));
-        if (escuelasRep.includes('sb') && escuelasRep.includes('lb')) {
-          await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', nuevoRepEncontrado.cedula);
+        const todosDelNuevoRep = vinculaciones.filter(v => 
+          v.cedula_representante === nuevoRepEncontrado.cedula || 
+          idsTarget.includes(v.id) || 
+          (v.cedula_estudiante && cedulasEstudiantes.includes(v.cedula_estudiante))
+        );
+        const escuelasRepNuevo = Array.from(new Set(todosDelNuevoRep.map((e: any) => (e?.codigo_escuela || '').trim().toLowerCase()).filter(Boolean)));
+        const escNuevo = escuelasRepNuevo.includes('sb') && escuelasRepNuevo.includes('lb')
+          ? 'ambas'
+          : (escuelasRepNuevo[0] || nuevoRepEncontrado.id_escuela || 'sb');
+        await supabase.from('usuarios').update({ id_escuela: escNuevo }).eq('cedula', nuevoRepEncontrado.cedula);
+
+        for (const cedAnt of cedulasRepAnterior) {
+          if (cedAnt && cedAnt !== nuevoRepEncontrado.cedula) {
+            const restantesAnt = vinculaciones.filter(v => 
+              v.cedula_representante === cedAnt && 
+              !idsTarget.includes(v.id) && 
+              !cedulasEstudiantes.includes(v.cedula_estudiante)
+            );
+            const escuelasAnt = Array.from(new Set(restantesAnt.map((e: any) => (e?.codigo_escuela || '').trim().toLowerCase()).filter(Boolean)));
+            if (escuelasAnt.length === 1) {
+              await supabase.from('usuarios').update({ id_escuela: escuelasAnt[0] }).eq('cedula', cedAnt);
+            }
+          }
         }
       } catch (errSyncRep) {
-        console.warn('Error sincronizando id_escuela del representante:', errSyncRep);
+        console.warn('Error sincronizando id_escuela de representantes:', errSyncRep);
       }
+
+      auditar('Vincular Estudiante', 'Transferir Representante', `Transferidos ${idsTarget.length} estudiante(s) a nuevo representante C.I. ${nuevoRepEncontrado.cedula} (${nuevoNombreRep})`);
 
       if (Swal) {
         Swal.fire({
           icon: 'success',
           title: '¡Transferencia Exitosa!',
-          text: `Se reasignaron con éxito ${idsTarget.length} estudiante(s) al representante ${nuevoNombreRep} (C.I. ${nuevoRepEncontrado.cedula}).`,
+          text: `Se reasignaron con éxito ${idsTarget.length} estudiante(s) al representante ${nuevoNombreRep} (C.I. ${nuevoRepEncontrado.cedula}). La vinculación previa fue desincorporada en su totalidad.`,
           confirmButtonColor: '#16a34a'
         });
       }
@@ -937,6 +1187,7 @@ export const VincularEstudiante: React.FC = () => {
       setHermanosDetectados([]);
       setTransferirHermanos(true);
       setSeleccionados([]);
+      await cargarVinculaciones();
     } catch (err: any) {
       console.error(err);
       if (Swal) Swal.fire('Error', 'No se pudo completar la transferencia: ' + (err.message || 'Error de BD'), 'error');

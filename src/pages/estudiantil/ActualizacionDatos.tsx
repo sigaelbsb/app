@@ -114,6 +114,7 @@ interface SolicitudForm {
   plantel_procedencia: string;
 
   // Ruta Escolar
+  codigo_escuela?: string;
   requiere_transporte: boolean;
   ruta_transporte: string;
   parada_transporte: string;
@@ -254,6 +255,7 @@ const defaultForm = (): SolicitudForm => ({
   direccion_habitacion: '',
   tiene_otros_inscritos: false,
   plantel_procedencia: '',
+  codigo_escuela: '',
   requiere_transporte: false,
   ruta_transporte: '',
   parada_transporte: '',
@@ -436,6 +438,14 @@ export const ActualizacionDatos: React.FC = () => {
       window.removeEventListener('sigae-documentos-config-changed', handleConfigChanged);
     };
   }, [user]);
+
+  // Sincronizar dinámicamente el catálogo de transporte para la escuela del estudiante en edición
+  useEffect(() => {
+    if (estudianteSeleccionado) {
+      const escEst = resolverEscuelaEstudiante(estudianteSeleccionado, form);
+      cargarTransporteParaEscuela(escEst);
+    }
+  }, [estudianteSeleccionado?.id, estudianteSeleccionado?.codigo_escuela]);
 
   // Sincronizar objetos de Ruta y Parada cuando hay datos cargados en el formulario
   useEffect(() => {
@@ -1782,7 +1792,7 @@ export const ActualizacionDatos: React.FC = () => {
       // Combinar: Si hay aspirantes de cupo (Aprobados o Formalizados) que aún no figuran en vinculaciones,
       // sintetizamos un registro virtual para permitirle completar su Ficha Integral
       const listaFinal = [...vincs];
-      sols.forEach(s => {
+      for (const s of sols) {
         const estSol = (s.estado || '').toLowerCase();
         if (['aprobado', 'aprobada', 'formalizado', 'formalizada', 'inscrito', 'inscrita'].includes(estSol)) {
           const cedLim = (s.estudiante_cedula || '').replace(/\D/g, '');
@@ -1797,6 +1807,57 @@ export const ActualizacionDatos: React.FC = () => {
           });
 
           if (!yaExiste) {
+            // Verificar si el estudiante ya fue vinculado a OTRO representante (reasignado/transferido)
+            let asignadoAOtro = false;
+            try {
+              const codSinT = (s.codigo_unico || '').replace(/^T-/, '');
+              const sCedEst = (s.estudiante_cedula || '').trim();
+              const sCedDigits = sCedEst.replace(/\D/g, '');
+              const nomEst = (s.estudiante_nombres || '').trim();
+              const apeEst = (s.estudiante_apellidos || '').trim();
+
+              let queryOr = `cedula_estudiante.eq.${sCedEst || 'SIN_CED'},cedula_estudiante.eq.${s.codigo_unico || 'SIN_COD'},cedula_estudiante.eq.${codUniSinT || 'SIN_COD'},cedula_estudiante.eq.T-${codUniSinT || 'SIN_COD'}`;
+              if (sCedDigits && sCedDigits !== sCedEst) {
+                queryOr += `,cedula_estudiante.eq.${sCedDigits}`;
+              }
+
+              const { data: vOtro } = await supabase
+                .from('estudiantes_vinculaciones')
+                .select('id, cedula_representante, nombres_estudiante, apellidos_estudiante')
+                .or(queryOr)
+                .limit(5);
+
+              let matchVinc = (vOtro || []).find(v => {
+                const repDigits = String(v.cedula_representante || '').replace(/\D/g, '');
+                return repDigits && repDigits !== cedLimRep;
+              });
+
+              // Si no hubo coincidencia por identificadores, verificar por nombre completo
+              if (!matchVinc && nomEst && apeEst) {
+                const { data: vNom } = await supabase
+                  .from('estudiantes_vinculaciones')
+                  .select('id, cedula_representante')
+                  .ilike('nombres_estudiante', `%${nomEst}%`)
+                  .ilike('apellidos_estudiante', `%${apeEst}%`)
+                  .limit(2);
+
+                if (vNom && vNom.length > 0) {
+                  const repDigits = String(vNom[0].cedula_representante || '').replace(/\D/g, '');
+                  if (repDigits && repDigits !== cedLimRep) {
+                    matchVinc = vNom[0];
+                  }
+                }
+              }
+
+              if (matchVinc) {
+                asignadoAOtro = true;
+                // Auto-sincronizar solicitud_cupos para desvincular definitivamente al representante previo
+                supabase.from('solicitud_cupos').update({ representante_cedula: matchVinc.cedula_representante }).eq('id', s.id).then();
+              }
+            } catch (e) {}
+
+            if (asignadoAOtro) continue;
+
             listaFinal.push({
               id: `sol_${s.id}`,
               id_solicitud: s.id,
@@ -1836,7 +1897,7 @@ export const ActualizacionDatos: React.FC = () => {
             });
           }
         }
-      });
+      }
 
       setMisRepresentados(listaFinal);
     } catch (err: any) {
@@ -1943,8 +2004,10 @@ export const ActualizacionDatos: React.FC = () => {
 
 
 
-      const escuelaInicial = resolverEscuelaEstudiante(null);
-      await cargarTransporteParaEscuela(escuelaInicial);
+      if (!estudianteSeleccionado) {
+        const escuelaInicial = resolverEscuelaEstudiante(null);
+        await cargarTransporteParaEscuela(escuelaInicial);
+      }
 
     } catch (e) {
       console.error('Error cargando catálogos:', e);
@@ -2078,6 +2141,7 @@ export const ActualizacionDatos: React.FC = () => {
 
     if (Object.keys(dAct).length > 0) {
       setForm({ ...defaultForm(), ...dAct,
+        codigo_escuela: est.codigo_escuela || dAct.codigo_escuela || escEst,
         parada_transporte: paradaCargada,
         estudiante_tipo_documento: tipoDocDefecto,
         estudiante_nombres: estNomFinal,
@@ -2092,6 +2156,7 @@ export const ActualizacionDatos: React.FC = () => {
     } else {
       setForm({
         ...defaultForm(),
+        codigo_escuela: est.codigo_escuela || escEst,
         estudiante_tipo_documento: tipoDocDefecto,
         estudiante_nombres: estNomFinal,
         estudiante_apellidos: estApeFinal,
@@ -4170,11 +4235,20 @@ const STEPS = [
 
   // ─── PASO 6: RUTA ESCOLAR ────────────────────────────────────────────────────
   const renderStep6 = () => {
+    const escEst = resolverEscuelaEstudiante(estudianteSeleccionado, form);
+    const rutasFiltradas = rutasTransporteDB.filter(r => (r.escuela_codigo || '').toLowerCase() === escEst.toLowerCase());
+    const paradasFiltradas = paradasTransporteDB.filter(p => (p.escuela_codigo || '').toLowerCase() === escEst.toLowerCase());
+
     return (
       <div className="animate__animated animate__fadeIn">
-        <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-          <i className="bi bi-bus-front text-success fs-5"></i>
-          <h6 className="fw-bold text-dark mb-0">Transporte Escolar</h6>
+        <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+          <div className="d-flex align-items-center gap-2">
+            <i className="bi bi-bus-front text-success fs-5"></i>
+            <h6 className="fw-bold text-dark mb-0">Transporte Escolar</h6>
+          </div>
+          <span className={`badge rounded-pill ${escEst === 'sb' ? 'bg-success' : 'bg-primary'} text-white extra-small px-3 py-1.5`}>
+            {escEst === 'sb' ? '🏫 Sede Santa Bárbara' : '🏫 Sede Libertador Bolívar'}
+          </span>
         </div>
         <div className="row g-3">
           <div className="col-12">
@@ -4192,7 +4266,7 @@ const STEPS = [
           {form.requiere_transporte && (
             <div className="col-12 mt-2 animate__animated animate__fadeIn">
               <div className="row g-3">
-                {rutasTransporteDB.length > 0 ? (
+                {rutasFiltradas.length > 0 ? (
                   <>
                     <div className="col-md-6">
                       <label className="form-label fw-semibold">Ruta de Transporte <span className="text-danger">*</span></label>
@@ -4200,7 +4274,7 @@ const STEPS = [
                         value={selectedRutaObj?.id || ''}
                         onChange={(e) => {
                           const routeId = e.target.value;
-                          const rObj = rutasTransporteDB.find(r => r.id === routeId);
+                          const rObj = rutasFiltradas.find(r => r.id === routeId);
                           setSelectedRutaObj(rObj || null);
                           setSelectedParadaObj(null);
                           setForm(prev => ({
@@ -4209,8 +4283,8 @@ const STEPS = [
                             parada_transporte: ''
                           }));
                         }}>
-                        <option value="">-- Seleccionar Ruta --</option>
-                        {rutasTransporteDB.map(r => (
+                        <option value="">-- Seleccionar Ruta ({escEst === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}) --</option>
+                        {rutasFiltradas.map(r => (
                           <option key={r.id} value={r.id}>{r.nombre}</option>
                         ))}
                       </select>
@@ -4222,7 +4296,7 @@ const STEPS = [
                         disabled={!selectedRutaObj}
                         onChange={(e) => {
                           const stopId = e.target.value;
-                          const pObj = paradasTransporteDB.find(p => p.id === stopId);
+                          const pObj = paradasFiltradas.find(p => p.id === stopId);
                           setSelectedParadaObj(pObj || null);
                           setForm(prev => ({
                             ...prev,
@@ -4231,7 +4305,7 @@ const STEPS = [
                           }));
                         }}>
                         <option value="">-- Seleccionar Parada --</option>
-                        {selectedRutaObj && paradasTransporteDB
+                        {selectedRutaObj && paradasFiltradas
                           .filter(p => {
                             let pids: string[] = [];
                             if (Array.isArray(selectedRutaObj.paradas_json)) pids = selectedRutaObj.paradas_json;

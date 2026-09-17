@@ -257,14 +257,27 @@ export const GestionUsuarios = () => {
           supabase.from('estudiantes_vinculaciones').select('*').range(1000, 1999),
           supabase.from('estudiantes_vinculaciones').select('*').range(2000, 2999),
           supabase.from('estudiantes_vinculaciones').select('*').range(3000, 3999),
-          supabase.from('solicitudes_cupos').select('*').limit(2000)
+          supabase.from('solicitud_cupos').select('*').limit(2000)
         ]);
 
-        let todosLosEstudiantes: any[] = [
+        const vinculacionesOficiales = [
           ...(chunk1.data || []),
           ...(chunk2.data || []),
           ...(chunk3.data || []),
-          ...(chunk4.data || []),
+          ...(chunk4.data || [])
+        ];
+
+        const repOficialPorEstudiante = new Map<string, string>();
+        vinculacionesOficiales.forEach((item: any) => {
+          const rep = String(item.cedula_representante || '').replace(/\D/g, '');
+          const estCed = String(item.cedula_estudiante || '').trim().toUpperCase();
+          const estCod = String(item.codigo_unico || '').trim().toUpperCase();
+          if (estCed && rep) repOficialPorEstudiante.set(estCed, rep);
+          if (estCod && rep) repOficialPorEstudiante.set(estCod, rep);
+        });
+
+        let todosLosEstudiantes: any[] = [
+          ...vinculacionesOficiales,
           ...(cuposChunk.data || [])
         ];
 
@@ -308,6 +321,14 @@ export const GestionUsuarios = () => {
 
           if (cedRep) {
             const { raw, clean, digits, noZeros } = normalizarCedula(cedRep);
+
+            // Si el estudiante tiene una vinculación oficial en Supabase y no coincide con cedRep, es un registro desfasado/transferido
+            const cEstNorm = String(cedEst || '').trim().toUpperCase();
+            const repOficial = repOficialPorEstudiante.get(cEstNorm);
+            if (repOficial && digits && repOficial !== digits) {
+              return; // Omitir registro obsoleto
+            }
+
             const keys: string[] = [];
             if (raw) keys.push(raw);
             if (clean && clean !== raw) keys.push(clean);
@@ -328,7 +349,8 @@ export const GestionUsuarios = () => {
 
             keys.forEach(k => {
               if (!vMap[k]) vMap[k] = [];
-              vMap[k].push(estItem);
+              const yaEsta = vMap[k].some(e => e.cedula_estudiante === cedEst && e.cedula_estudiante !== 'Sin Cédula');
+              if (!yaEsta) vMap[k].push(estItem);
             });
           }
 
@@ -336,7 +358,8 @@ export const GestionUsuarios = () => {
             const nomKey = 'nom_' + `${nomRep || ''} ${apeRep || ''}`.trim().toLowerCase().replace(/\s+/g, ' ');
             if (nomKey.length > 8) {
               if (!vMap[nomKey]) vMap[nomKey] = [];
-              vMap[nomKey].push(estItem);
+              const yaEsta = vMap[nomKey].some(e => e.cedula_estudiante === cedEst && e.cedula_estudiante !== 'Sin Cédula');
+              if (!yaEsta) vMap[nomKey].push(estItem);
             }
           }
         });

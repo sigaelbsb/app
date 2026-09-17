@@ -620,10 +620,19 @@ export const GestionAdmisiones: React.FC = () => {
     }
   }, [esSoloFormalizador, vistaActiva]);
 
+  // Detección estricta de asignación institucional del usuario (sb, lb o ambas)
+  const escuelaUsuarioAsignada = (user?.id_escuela || '').trim().toLowerCase();
+  const esSedeFija = !isSuperAdmin && (escuelaUsuarioAsignada === 'sb' || escuelaUsuarioAsignada === 'lb');
+  const escuelaInicialFiltro = esSedeFija 
+    ? escuelaUsuarioAsignada 
+    : ((localStorage.getItem('sigae_escuela_codigo') as string) || 'todas').toLowerCase();
+
   // Filtros interactivos para la Taquilla de Formalización Física
   const [busquedaFormalizacion, setBusquedaFormalizacion] = useState<string>('');
   const [filtroEstadoFormalizacion, setFiltroEstadoFormalizacion] = useState<'todos' | 'pendientes' | 'formalizados'>('todos');
-  const [filtroEscuelaFormalizacion, setFiltroEscuelaFormalizacion] = useState<string>('todas');
+  const [filtroEscuelaFormalizacion, setFiltroEscuelaFormalizacion] = useState<string>(() => {
+    return esSedeFija ? escuelaUsuarioAsignada : (escuelaInicialFiltro === 'sb' || escuelaInicialFiltro === 'lb' ? escuelaInicialFiltro : 'todas');
+  });
   const [filtroGradoFormalizacion, setFiltroGradoFormalizacion] = useState<string>('todos');
   const [filtroSeccionFormalizacion, setFiltroSeccionFormalizacion] = useState<string>('todas');
   const [filtroWhatsAppFormalizacion, setFiltroWhatsAppFormalizacion] = useState<string>('todos');
@@ -703,7 +712,9 @@ export const GestionAdmisiones: React.FC = () => {
   // ── HABILITACIÓN MASIVA DE ACCESO SIGAE (NUEVOS INGRESOS APROBADOS) ─────────
   const [modalHabilitarMasivoAbierto, setModalHabilitarMasivoAbierto] = useState<boolean>(false);
   const [seleccionadosHabilitarMasivo, setSeleccionadosHabilitarMasivo] = useState<Set<string | number>>(new Set());
-  const [filtroEscuelaHabilitarMasivo, setFiltroEscuelaHabilitarMasivo] = useState<string>('todas');
+  const [filtroEscuelaHabilitarMasivo, setFiltroEscuelaHabilitarMasivo] = useState<string>(() => {
+    return esSedeFija ? escuelaUsuarioAsignada : 'todas';
+  });
   const [filtroGradoHabilitarMasivo, setFiltroGradoHabilitarMasivo] = useState<string>('todos');
   const [filtroEstadoAccesoMasivo, setFiltroEstadoAccesoMasivo] = useState<'pendientes' | 'todos' | 'habilitados'>('pendientes');
   const [procesandoHabilitacionMasiva, setProcesandoHabilitacionMasiva] = useState<boolean>(false);
@@ -718,7 +729,9 @@ export const GestionAdmisiones: React.FC = () => {
 
   // ── DIFUSIÓN MASIVA WHATSAPP PARA NUEVOS INGRESOS APROBADOS ─────────────────
   const [modalDifusionAbierto, setModalDifusionAbierto] = useState<boolean>(false);
-  const [filtroEscuelaDifusion, setFiltroEscuelaDifusion] = useState<string>('todas');
+  const [filtroEscuelaDifusion, setFiltroEscuelaDifusion] = useState<string>(() => {
+    return esSedeFija ? escuelaUsuarioAsignada : 'todas';
+  });
   const [filtroGradoDifusion, setFiltroGradoDifusion] = useState<string>('todos');
   const [filtroEstadoEnvioDifusion, setFiltroEstadoEnvioDifusion] = useState<'todos' | 'pendientes' | 'enviados'>('todos');
   const [mensajePlantillaDifusion, setMensajePlantillaDifusion] = useState<string>('');
@@ -759,7 +772,9 @@ export const GestionAdmisiones: React.FC = () => {
   };
 
   // ── ESTADOS DE FILTROS ──────────────────────────────────────────────────────────
-  const [filtroEscuela, setFiltroEscuela] = useState<string>('todas');
+  const [filtroEscuela, setFiltroEscuela] = useState<string>(() => {
+    return esSedeFija ? escuelaUsuarioAsignada : (escuelaInicialFiltro === 'sb' || escuelaInicialFiltro === 'lb' ? escuelaInicialFiltro : 'todas');
+  });
   const [filtroPrioridad, setFiltroPrioridad] = useState<string>('todas');
   const [filtroAptitud, setFiltroAptitud] = useState<string>('todas');
   const [filtroNomina, setFiltroNomina] = useState<string>('todas');
@@ -1035,6 +1050,37 @@ export const GestionAdmisiones: React.FC = () => {
     const escuelaActual = filtroEscuela; // 'sb', 'lb', 'todas'
     const espaciosMap = new Map(espaciosBD.map(esp => [esp.id, Number(esp.capacidad) || 38]));
 
+    // Helper para identificar si un estudiante vinculado es un nuevo ingreso aprobado/formalizado
+    // para evitar que se sume dos veces (como regular y como nuevo ingreso)
+    const clavesNuevosIngresosAprobados = new Set<string>();
+    solicitudes.forEach(s => {
+      if (s.estado === 'Aprobado' || s.estado === 'Formalizado') {
+        if (s.estudiante_cedula) {
+          const c = s.estudiante_cedula.trim().toUpperCase();
+          clavesNuevosIngresosAprobados.add(c);
+          clavesNuevosIngresosAprobados.add(c.replace(/^T-/, ''));
+          const dig = c.replace(/[^0-9]/g, '');
+          if (dig.length >= 6) clavesNuevosIngresosAprobados.add(dig);
+        }
+        if (s.codigo_unico) {
+          const cu = s.codigo_unico.trim().toUpperCase();
+          clavesNuevosIngresosAprobados.add(cu);
+          clavesNuevosIngresosAprobados.add(cu.replace(/^T-/, ''));
+          const dig = cu.replace(/[^0-9]/g, '');
+          if (dig.length >= 6) clavesNuevosIngresosAprobados.add(dig);
+        }
+      }
+    });
+
+    const esEstudianteNuevoIngreso = (e: any) => {
+      const c = (e.cedula_estudiante || '').trim().toUpperCase();
+      const cSinT = c.replace(/^T-/, '');
+      const cDig = c.replace(/[^0-9]/g, '');
+      return (c && clavesNuevosIngresosAprobados.has(c)) ||
+             (cSinT && clavesNuevosIngresosAprobados.has(cSinT)) ||
+             (cDig.length >= 6 && clavesNuevosIngresosAprobados.has(cDig));
+    };
+
     if (filtroGrado === 'todos') {
       // Cálculo consolidado de la escuela seleccionada o ambas escuelas
       const solEscuela = solicitudes.filter(s => {
@@ -1065,8 +1111,12 @@ export const GestionAdmisiones: React.FC = () => {
         capacidadTotal = estEscuela.length > 0 ? Math.ceil(estEscuela.length / 38) * 38 : 0;
       }
 
+      // Estudiantes regulares = estudiantes vinculados que NO son nuevos ingresos de admisión
+      const estudiantesRegulares = estEscuela.filter(e => !esEstudianteNuevoIngreso(e)).length;
       const totalMatriculados = estEscuela.length;
-      const cuposDisponibles = Math.max(0, capacidadTotal - totalMatriculados - solAprobadas);
+      // Los cupos ocupados reales son los regulares más los nuevos ingresos otorgados (sin duplicar)
+      const totalOcupados = estudiantesRegulares + solAprobadas;
+      const cuposDisponibles = Math.max(0, capacidadTotal - totalOcupados);
 
       return {
         esGradoEspecifico: false,
@@ -1078,12 +1128,14 @@ export const GestionAdmisiones: React.FC = () => {
           capacidad: espaciosMap.get(s.id_espacio) || 38
         })),
         capacidadTotal,
-        estudiantesMatriculados: totalMatriculados,
+        estudiantesMatriculados: estudiantesRegulares,
+        totalMatriculadosEnBD: totalMatriculados,
         cuposAprobados: solAprobadas,
+        totalOcupados,
         cuposDisponibles,
         solicitudesPendientes: solPendientes,
         totalSolicitudes: solEscuela.length,
-        porcentajeOcupacion: capacidadTotal > 0 ? Math.min(100, Math.round(((totalMatriculados + solAprobadas) / capacidadTotal) * 100)) : 0
+        porcentajeOcupacion: capacidadTotal > 0 ? Math.min(100, Math.round((totalOcupados / capacidadTotal) * 100)) : 0
       };
     }
 
@@ -1127,8 +1179,9 @@ export const GestionAdmisiones: React.FC = () => {
 
       const aprobados = solicitudesEsc.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
       const pendientes = solicitudesEsc.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
-      const matriculados = estudiantesEsc.length;
-      const disponibles = Math.max(0, capTotalEsc - matriculados - aprobados);
+      const regulares = estudiantesEsc.filter(e => !esEstudianteNuevoIngreso(e)).length;
+      const ocupadosEsc = regulares + aprobados;
+      const disponibles = Math.max(0, capTotalEsc - ocupadosEsc);
 
       return {
         codigo: codEsc,
@@ -1136,8 +1189,10 @@ export const GestionAdmisiones: React.FC = () => {
         totalSalones: salonesEsc.length || 1,
         salonesDetalle: salonesEsc,
         capacidadTotal: capTotalEsc,
-        estudiantesMatriculados: matriculados,
+        estudiantesMatriculados: regulares,
+        totalMatriculadosEnBD: estudiantesEsc.length,
         cuposAprobados: aprobados,
+        totalOcupados: ocupadosEsc,
         cuposDisponibles: disponibles,
         solicitudesPendientes: pendientes,
         totalSolicitudes: solicitudesEsc.length
@@ -1197,11 +1252,11 @@ export const GestionAdmisiones: React.FC = () => {
 
     const cuposAprobados = solicitudesEnGrado.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
     const solicitudesPendientes = solicitudesEnGrado.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
-    const matriculados = estudiantesEnGrado.length;
+    const regularesEnGrado = estudiantesEnGrado.filter(e => !esEstudianteNuevoIngreso(e)).length;
 
-    // Cupos disponibles descontando los matriculados y los ya aprobados
-    const cuposDisponibles = Math.max(0, capacidadTotal - matriculados - cuposAprobados);
-    const totalOcupados = matriculados + cuposAprobados;
+    // Cupos disponibles descontando los regulares y los nuevos ingresos aprobados exactamente una vez
+    const totalOcupados = regularesEnGrado + cuposAprobados;
+    const cuposDisponibles = Math.max(0, capacidadTotal - totalOcupados);
     const porcentajeOcupacion = capacidadTotal > 0 ? Math.min(100, Math.round((totalOcupados / capacidadTotal) * 100)) : 0;
 
     return {
@@ -1211,8 +1266,10 @@ export const GestionAdmisiones: React.FC = () => {
       totalSalones,
       salonesDetalle: salonesConCapacidad,
       capacidadTotal,
-      estudiantesMatriculados: matriculados,
+      estudiantesMatriculados: regularesEnGrado,
+      totalMatriculadosEnBD: estudiantesEnGrado.length,
       cuposAprobados,
+      totalOcupados,
       cuposDisponibles,
       solicitudesPendientes,
       totalSolicitudes: solicitudesEnGrado.length,
@@ -1287,6 +1344,36 @@ export const GestionAdmisiones: React.FC = () => {
     const escuelaActual = filtroEscuela; // 'sb', 'lb', 'todas'
     const espaciosMap = new Map(espaciosBD.map(esp => [esp.id, Number(esp.capacidad) || 38]));
 
+    // Helper para identificar si un estudiante vinculado es un nuevo ingreso aprobado/formalizado
+    const clavesNuevosIngresosAprobados = new Set<string>();
+    solicitudes.forEach(s => {
+      if (s.estado === 'Aprobado' || s.estado === 'Formalizado') {
+        if (s.estudiante_cedula) {
+          const c = s.estudiante_cedula.trim().toUpperCase();
+          clavesNuevosIngresosAprobados.add(c);
+          clavesNuevosIngresosAprobados.add(c.replace(/^T-/, ''));
+          const dig = c.replace(/[^0-9]/g, '');
+          if (dig.length >= 6) clavesNuevosIngresosAprobados.add(dig);
+        }
+        if (s.codigo_unico) {
+          const cu = s.codigo_unico.trim().toUpperCase();
+          clavesNuevosIngresosAprobados.add(cu);
+          clavesNuevosIngresosAprobados.add(cu.replace(/^T-/, ''));
+          const dig = cu.replace(/[^0-9]/g, '');
+          if (dig.length >= 6) clavesNuevosIngresosAprobados.add(dig);
+        }
+      }
+    });
+
+    const esEstudianteNuevoIngreso = (e: any) => {
+      const c = (e.cedula_estudiante || '').trim().toUpperCase();
+      const cSinT = c.replace(/^T-/, '');
+      const cDig = c.replace(/[^0-9]/g, '');
+      return (c && clavesNuevosIngresosAprobados.has(c)) ||
+             (cSinT && clavesNuevosIngresosAprobados.has(cSinT)) ||
+             (cDig.length >= 6 && clavesNuevosIngresosAprobados.has(cDig));
+    };
+
     const gradosBase = [
       'Maternal',
       '1er Grupo',
@@ -1335,14 +1422,17 @@ export const GestionAdmisiones: React.FC = () => {
 
         const aprob = solicitudesGrd.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
         const pend = solicitudesGrd.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
-        const mat = estudiantes.length;
-        const disp = Math.max(0, capTotal - mat - aprob);
+        const regulares = estudiantes.filter(e => !esEstudianteNuevoIngreso(e)).length;
+        const ocupados = regulares + aprob;
+        const disp = Math.max(0, capTotal - ocupados);
 
         return {
           salones: salones.length || 1,
           capacidad: capTotal,
-          matriculados: mat,
+          matriculados: regulares,
+          totalMatriculadosEnBD: estudiantes.length,
           aprobados: aprob,
+          ocupados,
           pendientes: pend,
           disponibles: disp,
           totalSol: solicitudesGrd.length
@@ -1357,7 +1447,8 @@ export const GestionAdmisiones: React.FC = () => {
       const matTot = escuelaActual === 'sb' ? sb.matriculados : escuelaActual === 'lb' ? lb.matriculados : sb.matriculados + lb.matriculados;
       const aprTot = escuelaActual === 'sb' ? sb.aprobados : escuelaActual === 'lb' ? lb.aprobados : sb.aprobados + lb.aprobados;
       const pendTot = escuelaActual === 'sb' ? sb.pendientes : escuelaActual === 'lb' ? lb.pendientes : sb.pendientes + lb.pendientes;
-      const dispTot = Math.max(0, capTot - matTot - aprTot);
+      const ocupTot = matTot + aprTot;
+      const dispTot = Math.max(0, capTot - ocupTot);
       const totSol = escuelaActual === 'sb' ? sb.totalSol : escuelaActual === 'lb' ? lb.totalSol : sb.totalSol + lb.totalSol;
 
       return {
@@ -1367,6 +1458,7 @@ export const GestionAdmisiones: React.FC = () => {
         capacidadTotal: capTot,
         estudiantesMatriculados: matTot,
         cuposAprobados: aprTot,
+        totalOcupados: ocupTot,
         solicitudesPendientes: pendTot,
         cuposDisponibles: dispTot,
         totalSolicitudes: totSol,
@@ -1379,6 +1471,11 @@ export const GestionAdmisiones: React.FC = () => {
   // ── FILTRADO Y ORDENAMIENTO POR BAREMO ─────────────────────────────────────────
   const solicitudesFiltradas = useMemo(() => {
     const filtradas = solicitudes.filter(s => {
+      // Si el usuario pertenece a una sede fija (sb o lb), aislamiento total de solicitudes
+      if (esSedeFija && s.codigo_escuela?.toLowerCase() !== escuelaUsuarioAsignada) {
+        return false;
+      }
+
       if (filtroEscuela !== 'todas' && s.codigo_escuela?.toLowerCase() !== filtroEscuela.toLowerCase()) {
         return false;
       }
@@ -1490,6 +1587,11 @@ export const GestionAdmisiones: React.FC = () => {
   // Lista filtrada específicamente para la Taquilla de Formalización Física
   const solicitudesFormalizacionFiltradas = useMemo(() => {
     return solicitudesAceptadasParaFormalizar.filter(sol => {
+      // Aislamiento estricto si el usuario pertenece a una sede fija
+      if (esSedeFija && (sol.codigo_escuela || '').toLowerCase() !== escuelaUsuarioAsignada) {
+        return false;
+      }
+
       // 1. Filtro por Escuela (específico de formalización o global)
       const escFiltro = filtroEscuelaFormalizacion !== 'todas' ? filtroEscuelaFormalizacion : filtroEscuela;
       if (escFiltro !== 'todas' && sol.codigo_escuela !== escFiltro) return false;
@@ -1557,17 +1659,16 @@ export const GestionAdmisiones: React.FC = () => {
   ]);
 
   const kpisFormalizacion = useMemo(() => {
-    const escFiltro = filtroEscuelaFormalizacion !== 'todas' ? filtroEscuelaFormalizacion : filtroEscuela;
-    const base = solicitudesAceptadasParaFormalizar.filter(s => escFiltro === 'todas' || s.codigo_escuela === escFiltro);
+    const base = solicitudesFormalizacionFiltradas;
     const formalizados = base.filter(s => s.estado === 'Formalizado' || s.estado === 'Inscrito').length;
     const pendientes = base.length - formalizados;
     return { total: base.length, formalizados, pendientes };
-  }, [solicitudesAceptadasParaFormalizar, filtroEscuelaFormalizacion, filtroEscuela]);
+  }, [solicitudesFormalizacionFiltradas]);
 
   const limpiarFiltrosFormalizacion = () => {
     setBusquedaFormalizacion('');
     setFiltroEstadoFormalizacion('todos');
-    setFiltroEscuelaFormalizacion('todas');
+    setFiltroEscuelaFormalizacion(esSedeFija ? escuelaUsuarioAsignada : 'todas');
     setFiltroGradoFormalizacion('todos');
     setFiltroSeccionFormalizacion('todas');
     setFiltroWhatsAppFormalizacion('todos');
@@ -1577,17 +1678,17 @@ export const GestionAdmisiones: React.FC = () => {
   const kpis = useMemo(() => {
     const total = solicitudesFiltradas.length;
     const aprobados = solicitudesFiltradas.filter(s => s.estado === 'Aprobado').length;
-    const formalizados = solicitudes.filter(s => s.estado === 'Formalizado').length;
+    const formalizados = solicitudesFiltradas.filter(s => s.estado === 'Formalizado').length;
     const pendientes = solicitudesFiltradas.filter(s => s.estado === 'Pendiente' || !s.estado).length;
     const evaluacion = solicitudesFiltradas.filter(s => s.estado === 'En Evaluación').length;
     const rechazados = solicitudesFiltradas.filter(s => s.estado === 'Rechazado').length;
     const aptos = solicitudesFiltradas.filter(s => s.aptitud === 'Apto').length;
 
     return { total, aprobados, formalizados, pendientes, evaluacion, rechazados, aptos };
-  }, [solicitudesFiltradas, solicitudes]);
+  }, [solicitudesFiltradas]);
 
   const limpiarFiltros = () => {
-    setFiltroEscuela('todas');
+    setFiltroEscuela(esSedeFija ? escuelaUsuarioAsignada : 'todas');
     setFiltroPrioridad('todas');
     setFiltroAptitud('todas');
     setFiltroNomina('todas');
@@ -2107,6 +2208,37 @@ export const GestionAdmisiones: React.FC = () => {
 
       if (error) throw error;
 
+      // Sincronizar hacia estudiantes_vinculaciones si se modificó el representante o datos del aspirante
+      if (payloadBD.representante_cedula) {
+        try {
+          const codUni = formEdicion.codigo_unico;
+          const cedEst = formEdicion.estudiante_cedula;
+          const nomEst = formEdicion.estudiante_nombres;
+          const apeEst = formEdicion.estudiante_apellidos;
+          const payloadVinc: any = {
+            cedula_representante: payloadBD.representante_cedula,
+            nombres_representante: payloadBD.representante_nombres || formEdicion.representante_nombres,
+            apellidos_representante: payloadBD.representante_apellidos || formEdicion.representante_apellidos,
+            updated_at: new Date().toISOString()
+          };
+
+          if (cedEst) {
+            await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('cedula_estudiante', cedEst);
+          }
+          if (codUni) {
+            await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('cedula_estudiante', codUni);
+            await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('cedula_estudiante', `T-${codUni.replace(/^T-/, '')}`);
+          }
+          if (nomEst && apeEst) {
+            await supabase.from('estudiantes_vinculaciones').update(payloadVinc)
+              .ilike('nombres_estudiante', `%${nomEst.trim()}%`)
+              .ilike('apellidos_estudiante', `%${apeEst.trim()}%`);
+          }
+        } catch (eSync) {
+          console.warn('Nota sincronizando vinculación desde admisiones:', eSync);
+        }
+      }
+
       const nomEstEdit = nombreCompleto(formEdicion.estudiante_nombres, formEdicion.estudiante_apellidos);
       await auditar(
         'Gestión de Admisiones',
@@ -2236,50 +2368,76 @@ export const GestionAdmisiones: React.FC = () => {
         await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', cedRep);
       }
 
-      // 2. Vincular Estudiante en `estudiantes_vinculaciones` con datos corregidos
-      const { error: errVinculo } = await supabase
-        .from('estudiantes_vinculaciones')
-        .upsert([{
-          cedula_representante: cedRep,
-          nombres_representante: nomRep,
-          apellidos_representante: apeRep,
-          cedula_estudiante: cedEst,
-          nombres_estudiante: nomEst,
-          apellidos_estudiante: apeEst,
-          grado_actual: gradoEst,
-          seccion_actual: seccionFormalizacion || 'A',
-          codigo_escuela: escEst,
-          estado: 'Activo',
-          datos_actualizados: {
-            ...sol,
-            estudiante_nombres: nomEst,
-            estudiante_apellidos: apeEst,
-            estudiante_cedula: cedEst,
-            grado_solicitado: gradoEst,
-            codigo_escuela: escEst,
-            representante_nombres: nomRep,
-            representante_apellidos: apeRep,
-            representante_cedula: cedRep,
-            representante_telefono: telRep || sol.representante_telefono,
-            representante_email: emailRep || sol.representante_email,
-            direccion_habitacion: sol.direccion_habitacion,
-            estado_habitacion: sol.estado_habitacion,
-            municipio_habitacion: sol.municipio_habitacion,
-            parroquia_habitacion: sol.parroquia_habitacion,
-            pdvsa_tipo_nomina: sol.pdvsa_tipo_nomina,
-            pdvsa_condicion_laboral: sol.pdvsa_condicion_laboral,
-            pdvsa_localidad_trabajo: sol.pdvsa_localidad_trabajo,
-            madre_nombres: sol.madre_nombres,
-            madre_cedula: sol.madre_cedula,
-            padre_nombres: sol.padre_nombres,
-            padre_cedula: sol.padre_cedula,
-            origen_admision: 'nuevo_ingreso',
-            formalizado_en_fisico: true // Desbloquea la Constancia de Inscripción
-          },
-          creado_por: 'Docente / Admisiones SIGAE - Formalización'
-        }], { onConflict: 'cedula_estudiante' });
+      // 2. Vincular Estudiante en `estudiantes_vinculaciones` con datos corregidos evitando duplicados
+      const datosActPayload = {
+        ...sol,
+        estudiante_nombres: nomEst,
+        estudiante_apellidos: apeEst,
+        estudiante_cedula: cedEst,
+        grado_solicitado: gradoEst,
+        codigo_escuela: escEst,
+        representante_nombres: nomRep,
+        representante_apellidos: apeRep,
+        representante_cedula: cedRep,
+        representante_telefono: telRep || sol.representante_telefono,
+        representante_email: emailRep || sol.representante_email,
+        direccion_habitacion: sol.direccion_habitacion,
+        estado_habitacion: sol.estado_habitacion,
+        municipio_habitacion: sol.municipio_habitacion,
+        parroquia_habitacion: sol.parroquia_habitacion,
+        pdvsa_tipo_nomina: sol.pdvsa_tipo_nomina,
+        pdvsa_condicion_laboral: sol.pdvsa_condicion_laboral,
+        pdvsa_localidad_trabajo: sol.pdvsa_localidad_trabajo,
+        madre_nombres: sol.madre_nombres,
+        madre_cedula: sol.madre_cedula,
+        padre_nombres: sol.padre_nombres,
+        padre_cedula: sol.padre_cedula,
+        origen_admision: 'nuevo_ingreso',
+        formalizado_en_fisico: true // Desbloquea la Constancia de Inscripción
+      };
 
-      if (errVinculo) throw errVinculo;
+      const payloadVincRow = {
+        cedula_representante: cedRep,
+        nombres_representante: nomRep,
+        apellidos_representante: apeRep,
+        cedula_estudiante: cedEst,
+        nombres_estudiante: nomEst,
+        apellidos_estudiante: apeEst,
+        grado_actual: gradoEst,
+        seccion_actual: seccionFormalizacion || 'A',
+        codigo_escuela: escEst,
+        estado: 'Activo',
+        datos_actualizados: datosActPayload,
+        creado_por: 'Docente / Admisiones SIGAE - Formalización'
+      };
+
+      // Verificar si ya existía una fila con el código provisional o la nueva cédula
+      const codUniSinT = (sol.codigo_unico || '').replace(/^T-/, '');
+      const { data: filasExistentes } = await supabase
+        .from('estudiantes_vinculaciones')
+        .select('id, cedula_estudiante')
+        .or(`cedula_estudiante.eq.${cedEst},cedula_estudiante.eq.${sol.codigo_unico},cedula_estudiante.eq.T-${codUniSinT},cedula_estudiante.eq.${codUniSinT}`);
+
+      if (filasExistentes && filasExistentes.length > 0) {
+        const filaDestino = filasExistentes[0];
+        const { error: errUpd } = await supabase
+          .from('estudiantes_vinculaciones')
+          .update(payloadVincRow)
+          .eq('id', filaDestino.id);
+
+        if (errUpd) throw errUpd;
+
+        // Si habían filas sobrantes secundarias, eliminarlas para garantizar 1 sola fila limpia
+        for (let i = 1; i < filasExistentes.length; i++) {
+          await supabase.from('estudiantes_vinculaciones').delete().eq('id', filasExistentes[i].id);
+        }
+      } else {
+        const { error: errVinculo } = await supabase
+          .from('estudiantes_vinculaciones')
+          .upsert([payloadVincRow], { onConflict: 'cedula_estudiante' });
+
+        if (errVinculo) throw errVinculo;
+      }
 
       // 3. Actualizar Datos y Estado en `solicitud_cupos` a 'Formalizado'
       const obsFormalizacion = `[Inscripción Física Formalizada el ${new Date().toLocaleDateString('es-VE')} en Sección ${seccionFormalizacion}]`;
@@ -4243,39 +4401,45 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
             {/* Selector de Sede Interactivo y Volver al Menú */}
             <div className="col-12 col-md-auto text-md-end text-center d-flex flex-column align-items-md-end align-items-center gap-2">
               <div className="d-inline-flex p-1 bg-white rounded-pill border shadow-xs" style={{ borderColor: '#ddd6fe' }}>
-                <button
-                  type="button"
-                  onClick={() => setFiltroEscuela('todas')}
-                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'todas' ? 'text-white shadow-xs' : 'text-muted'}`}
-                  style={{
-                    backgroundColor: filtroEscuela === 'todas' ? '#8B5CF6' : 'transparent',
-                    fontSize: '0.78rem'
-                  }}
-                >
-                  Todas las Sedes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltroEscuela('sb')}
-                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'sb' ? 'text-white shadow-xs' : 'text-muted'}`}
-                  style={{
-                    backgroundColor: filtroEscuela === 'sb' ? '#8B5CF6' : 'transparent',
-                    fontSize: '0.78rem'
-                  }}
-                >
-                  Santa Bárbara
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltroEscuela('lb')}
-                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'lb' ? 'text-white shadow-xs' : 'text-muted'}`}
-                  style={{
-                    backgroundColor: filtroEscuela === 'lb' ? '#8B5CF6' : 'transparent',
-                    fontSize: '0.78rem'
-                  }}
-                >
-                  Libertador Bolívar
-                </button>
+                {!esSedeFija && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEscuela('todas')}
+                    className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'todas' ? 'text-white shadow-xs' : 'text-muted'}`}
+                    style={{
+                      backgroundColor: filtroEscuela === 'todas' ? '#8B5CF6' : 'transparent',
+                      fontSize: '0.78rem'
+                    }}
+                  >
+                    Todas las Sedes
+                  </button>
+                )}
+                {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEscuela('sb')}
+                    className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'sb' ? 'text-white shadow-xs' : 'text-muted'}`}
+                    style={{
+                      backgroundColor: filtroEscuela === 'sb' ? '#8B5CF6' : 'transparent',
+                      fontSize: '0.78rem'
+                    }}
+                  >
+                    Santa Bárbara
+                  </button>
+                )}
+                {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEscuela('lb')}
+                    className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'lb' ? 'text-white shadow-xs' : 'text-muted'}`}
+                    style={{
+                      backgroundColor: filtroEscuela === 'lb' ? '#8B5CF6' : 'transparent',
+                      fontSize: '0.78rem'
+                    }}
+                  >
+                    Libertador Bolívar
+                  </button>
+                )}
               </div>
 
               <button
@@ -4652,11 +4816,12 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                     className="form-select form-select-sm"
                     value={filtroEscuela}
                     onChange={e => setFiltroEscuela(e.target.value)}
-                    title="Filtrar por Escuela"
+                    disabled={esSedeFija}
+                    title={esSedeFija ? `Asignado exclusivamente a ${escuelaUsuarioAsignada === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}` : "Filtrar por Escuela"}
                   >
-                    <option value="todas">Todas las Escuelas</option>
-                    <option value="sb">U.E. Santa Bárbara</option>
-                    <option value="lb">U.E. Libertador Bolívar</option>
+                    {!esSedeFija && <option value="todas">Todas las Escuelas</option>}
+                    {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && <option value="sb">U.E. Santa Bárbara</option>}
+                    {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && <option value="lb">U.E. Libertador Bolívar</option>}
                   </select>
                 </div>
               </div>
@@ -5007,7 +5172,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                           <i className="bi bi-building me-1"></i> U.E. Santa Bárbara
                         </strong>
                         <small className="text-muted extra-small">
-                          <b>{metricasCapacidadGrado.desgloseSB.totalSalones}</b> sal. ({metricasCapacidadGrado.desgloseSB.capacidadTotal} p.) • <b>{metricasCapacidadGrado.desgloseSB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseSB.cuposAprobados}</b> aprob.
+                          <b>{metricasCapacidadGrado.desgloseSB.totalSalones}</b> sal. ({metricasCapacidadGrado.desgloseSB.capacidadTotal} p.) • <b>{metricasCapacidadGrado.desgloseSB.estudiantesMatriculados}</b> regulares • <b>{metricasCapacidadGrado.desgloseSB.cuposAprobados}</b> nuevos ing.
                         </small>
                       </div>
                       <span className={`badge ${metricasCapacidadGrado.desgloseSB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2 py-1 fw-bold`} style={{ fontSize: '10.5px' }}>
@@ -5023,7 +5188,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                           <i className="bi bi-building me-1"></i> U.E. Libertador Bolívar
                         </strong>
                         <small className="text-muted extra-small">
-                          <b>{metricasCapacidadGrado.desgloseLB.totalSalones}</b> sal. ({metricasCapacidadGrado.desgloseLB.capacidadTotal} p.) • <b>{metricasCapacidadGrado.desgloseLB.estudiantesMatriculados}</b> vinc. • <b>{metricasCapacidadGrado.desgloseLB.cuposAprobados}</b> aprob.
+                          <b>{metricasCapacidadGrado.desgloseLB.totalSalones}</b> sal. ({metricasCapacidadGrado.desgloseLB.capacidadTotal} p.) • <b>{metricasCapacidadGrado.desgloseLB.estudiantesMatriculados}</b> regulares • <b>{metricasCapacidadGrado.desgloseLB.cuposAprobados}</b> nuevos ing.
                         </small>
                       </div>
                       <span className={`badge ${metricasCapacidadGrado.desgloseLB.cuposDisponibles > 0 ? 'bg-success' : 'bg-danger'} rounded-pill px-2 py-1 fw-bold`} style={{ fontSize: '10.5px' }}>
@@ -5056,7 +5221,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   </div>
                 </div>
 
-                {/* 2. Estudiantes Vinculados */}
+                {/* 2. Estudiantes Regulares */}
                 <div className="col-6 col-lg-3">
                   <div className="p-2 rounded-3 bg-light border border-info-subtle d-flex align-items-center gap-2 h-100">
                     <div
@@ -5066,7 +5231,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                       <i className="bi bi-people-fill fs-6"></i>
                     </div>
                     <div className="overflow-hidden">
-                      <small className="text-muted extra-small d-block fw-semibold text-truncate">Vinculados</small>
+                      <small className="text-muted extra-small d-block fw-semibold text-truncate">Regulares</small>
                       <span className="fs-5 fw-bold text-info-emphasis d-block lh-1">
                         {metricasCapacidadGrado.estudiantesMatriculados} <small className="fs-7 fw-normal text-muted">est.</small>
                       </span>
@@ -5075,7 +5240,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   </div>
                 </div>
 
-                {/* 3. Cupos Aprobados Admisión */}
+                {/* 3. Cupos Aprobados Admisión (Nuevos Ingresos) */}
                 <div className="col-6 col-lg-3">
                   <div className="p-2 rounded-3 bg-light border border-warning-subtle d-flex align-items-center gap-2 h-100">
                     <div
@@ -5085,11 +5250,11 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                       <i className="bi bi-person-check-fill fs-6"></i>
                     </div>
                     <div className="overflow-hidden">
-                      <small className="text-muted extra-small d-block fw-semibold text-truncate">Aprobados</small>
+                      <small className="text-muted extra-small d-block fw-semibold text-truncate">Nuevos Ingresos</small>
                       <span className="fs-5 fw-bold text-warning-emphasis d-block lh-1">
                         {metricasCapacidadGrado.cuposAprobados} <small className="fs-7 fw-normal text-muted">asig.</small>
                       </span>
-                      <small className="text-secondary extra-small text-truncate d-block">En admisión</small>
+                      <small className="text-secondary extra-small text-truncate d-block">Cupos otorgados</small>
                     </div>
                   </div>
                 </div>
@@ -5126,7 +5291,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
               <div className="bg-light p-2 rounded-3 border">
                 <div className="d-flex justify-content-between align-items-center mb-1 small flex-wrap gap-1">
                   <span className="fw-semibold text-dark extra-small">
-                    Ocupación: <b>{metricasCapacidadGrado.estudiantesMatriculados + metricasCapacidadGrado.cuposAprobados} de {metricasCapacidadGrado.capacidadTotal} ({metricasCapacidadGrado.porcentajeOcupacion}%)</b>
+                    Ocupación: <b>{metricasCapacidadGrado.totalOcupados} de {metricasCapacidadGrado.capacidadTotal} ({metricasCapacidadGrado.porcentajeOcupacion}%)</b>
                   </span>
                   <span className="badge bg-white text-secondary border extra-small">
                     <i className="bi bi-hourglass-split me-1 text-warning"></i>
@@ -5141,7 +5306,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                     style={{
                       width: `${metricasCapacidadGrado.capacidadTotal > 0 ? (metricasCapacidadGrado.estudiantesMatriculados / metricasCapacidadGrado.capacidadTotal) * 100 : 0}%`
                     }}
-                    title={`Estudiantes Vinculados: ${metricasCapacidadGrado.estudiantesMatriculados}`}
+                    title={`Estudiantes Regulares: ${metricasCapacidadGrado.estudiantesMatriculados}`}
                   ></div>
                   <div
                     className="progress-bar bg-warning"
@@ -5149,7 +5314,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                     style={{
                       width: `${metricasCapacidadGrado.capacidadTotal > 0 ? (metricasCapacidadGrado.cuposAprobados / metricasCapacidadGrado.capacidadTotal) * 100 : 0}%`
                     }}
-                    title={`Cupos Aprobados Admisión: ${metricasCapacidadGrado.cuposAprobados}`}
+                    title={`Nuevos Ingresos Otorgados: ${metricasCapacidadGrado.cuposAprobados}`}
                   ></div>
                   <div
                     className="progress-bar bg-success"
@@ -5157,14 +5322,14 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                     style={{
                       width: `${metricasCapacidadGrado.capacidadTotal > 0 ? (metricasCapacidadGrado.cuposDisponibles / metricasCapacidadGrado.capacidadTotal) * 100 : 0}%`
                     }}
-                    title={`Cupos Disponibles: ${metricasCapacidadGrado.cuposDisponibles}`}
+                    title={`Vacantes Libres: ${metricasCapacidadGrado.cuposDisponibles}`}
                   ></div>
                 </div>
 
                 <div className="d-flex align-items-center justify-content-between mt-1.5 flex-wrap gap-2 extra-small text-muted">
                   <div className="d-flex align-items-center gap-2 flex-wrap">
-                    <span><span className="d-inline-block rounded-circle bg-info me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Vinculados</span>
-                    <span><span className="d-inline-block rounded-circle bg-warning me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.cuposAprobados}</b> Aprobados</span>
+                    <span><span className="d-inline-block rounded-circle bg-info me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Regulares</span>
+                    <span><span className="d-inline-block rounded-circle bg-warning me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.cuposAprobados}</b> Nuevos Ingresos</span>
                     <span><span className="d-inline-block rounded-circle bg-success me-1" style={{ width: '7px', height: '7px' }}></span><b>{metricasCapacidadGrado.cuposDisponibles}</b> Libres</span>
                   </div>
                 </div>
@@ -5230,10 +5395,10 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   <i className="bi bi-building me-1 text-primary"></i> <b>{metricasCapacidadGrado.totalSalones}</b> Ambientes Globales ({metricasCapacidadGrado.capacidadTotal} puestos)
                 </span>
                 <span>
-                  <i className="bi bi-people me-1 text-info"></i> <b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Matriculados
+                  <i className="bi bi-people me-1 text-info"></i> <b>{metricasCapacidadGrado.estudiantesMatriculados}</b> Regulares
                 </span>
                 <span>
-                  <i className="bi bi-person-check me-1 text-warning"></i> <b>{metricasCapacidadGrado.cuposAprobados}</b> Aprobados
+                  <i className="bi bi-person-check me-1 text-warning"></i> <b>{metricasCapacidadGrado.cuposAprobados}</b> Nuevos Ingresos
                 </span>
                 <span className="text-success fw-bold">
                   <i className="bi bi-check-circle-fill me-1"></i> <b>{metricasCapacidadGrado.cuposDisponibles}</b> Vacantes Libres Totales
@@ -6653,10 +6818,12 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                     className="form-select form-select-sm"
                     value={filtroEscuelaFormalizacion}
                     onChange={e => setFiltroEscuelaFormalizacion(e.target.value)}
+                    disabled={esSedeFija}
+                    title={esSedeFija ? `Asignado exclusivamente a ${escuelaUsuarioAsignada === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}` : undefined}
                   >
-                    <option value="todas">Todas las Sedes</option>
-                    <option value="sb">U.E. Santa Bárbara</option>
-                    <option value="lb">U.E. Libertador Bolívar</option>
+                    {!esSedeFija && <option value="todas">Todas las Sedes</option>}
+                    {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && <option value="sb">U.E. Santa Bárbara</option>}
+                    {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && <option value="lb">U.E. Libertador Bolívar</option>}
                   </select>
                 </div>
               </div>
@@ -8483,27 +8650,33 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                       <i className="bi bi-building me-1"></i>Plantel:
                     </span>
                     <div className="btn-group btn-group-sm" role="group">
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${filtroEscuela === 'todas' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
-                        onClick={() => setFiltroEscuela('todas')}
-                      >
-                        Ambas Escuelas
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${filtroEscuela === 'sb' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
-                        onClick={() => setFiltroEscuela('sb')}
-                      >
-                        Santa Bárbara
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-sm ${filtroEscuela === 'lb' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
-                        onClick={() => setFiltroEscuela('lb')}
-                      >
-                        Libertador Bolívar
-                      </button>
+                      {!esSedeFija && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${filtroEscuela === 'todas' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                          onClick={() => setFiltroEscuela('todas')}
+                        >
+                          Ambas Escuelas
+                        </button>
+                      )}
+                      {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${filtroEscuela === 'sb' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                          onClick={() => setFiltroEscuela('sb')}
+                        >
+                          Santa Bárbara
+                        </button>
+                      )}
+                      {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && (
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${filtroEscuela === 'lb' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                          onClick={() => setFiltroEscuela('lb')}
+                        >
+                          Libertador Bolívar
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -8520,8 +8693,8 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                         <th>Grado / Nivel</th>
                         <th className="text-center">Ambientes</th>
                         <th className="text-center">Capacidad</th>
-                        <th className="text-center">Matriculados</th>
-                        <th className="text-center">Aprobados</th>
+                        <th className="text-center">Regulares</th>
+                        <th className="text-center">Nuevos Ingresos</th>
                         <th className="text-center">Vacantes Libres</th>
                         <th className="text-center">En Espera</th>
                         <th className="text-end">Acción</th>
@@ -8619,10 +8792,10 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                               Capacidad: <strong className="text-dark">{item.capacidadTotal} puestos</strong>
                             </div>
                             <div className="col-6">
-                              Matriculados: <strong className="text-info">{item.estudiantesMatriculados}</strong>
+                              Regulares: <strong className="text-info">{item.estudiantesMatriculados}</strong>
                             </div>
                             <div className="col-6">
-                              Aprobados: <strong className="text-warning-emphasis">{item.cuposAprobados}</strong>
+                              Nuevos Ingresos: <strong className="text-warning-emphasis">{item.cuposAprobados}</strong>
                             </div>
                           </div>
 
@@ -8651,7 +8824,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
               {/* Modal Footer */}
               <div className="modal-footer py-2 px-3 px-md-4 bg-light d-flex align-items-center justify-content-between flex-shrink-0">
                 <span className="text-muted extra-small d-none d-sm-inline">
-                  Vacantes = Capacidad - Matriculados - Aprobados
+                  Vacantes Libres = Capacidad - (Estudiantes Regulares + Nuevos Ingresos Otorgados)
                 </span>
                 <button
                   type="button"
@@ -10125,10 +10298,11 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                             setFiltroEscuelaDifusion(e.target.value);
                             setAspiranteActivoDifusionIdx(0);
                           }}
+                          disabled={esSedeFija}
                         >
-                          <option value="todas">Todas</option>
-                          <option value="sb">Santa Bárbara</option>
-                          <option value="lb">Libertador B.</option>
+                          {!esSedeFija && <option value="todas">Todas</option>}
+                          {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && <option value="sb">Santa Bárbara</option>}
+                          {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && <option value="lb">Libertador B.</option>}
                         </select>
                       </div>
 
@@ -10580,10 +10754,11 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                               style={{ width: '150px' }}
                               value={filtroEscuelaHabilitarMasivo}
                               onChange={e => setFiltroEscuelaHabilitarMasivo(e.target.value)}
+                              disabled={esSedeFija}
                             >
-                              <option value="todas">Todas</option>
-                              <option value="sb">Santa Bárbara</option>
-                              <option value="lb">Libertador B.</option>
+                              {!esSedeFija && <option value="todas">Todas</option>}
+                              {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && <option value="sb">Santa Bárbara</option>}
+                              {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && <option value="lb">Libertador B.</option>}
                             </select>
                           </div>
 

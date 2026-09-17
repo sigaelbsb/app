@@ -1080,17 +1080,24 @@ export const RolesPrivilegios = () => {
                           return (
                             <div key={subName} className="col-12">
                               <div className={`p-2.5 border rounded-3 transition-all ${isSubActivo ? 'border-primary border-opacity-25 bg-white shadow-xs' : 'border-light bg-light'}`}>
-                                <div className="d-flex justify-content-between align-items-center">
-                                  <div className="d-flex align-items-center gap-2">
+                                <div 
+                                  className={`d-flex justify-content-between align-items-center ${canEdit && plantelHabilitado ? 'cursor-pointer hover-mano' : ''}`}
+                                  onClick={() => {
+                                    if (canEdit && plantelHabilitado) {
+                                      handleCheckboxChange(escuela, subName, true, undefined, subcards);
+                                    }
+                                  }}
+                                >
+                                  <div className="d-flex align-items-center gap-2 select-none">
                                     <i className={`bi ${isSubActivo ? 'bi-check-square-fill text-primary' : 'bi-square text-muted'}`} style={{ fontSize: '0.95rem' }}></i>
                                     <span className="fw-bold text-dark" style={{ fontSize: '0.84rem' }}>
                                       {subName}
                                     </span>
                                   </div>
-                                  <div className="form-check form-switch m-0">
+                                  <div className="form-check form-switch m-0" onClick={(e) => e.stopPropagation()}>
                                     <input 
                                       className="form-check-input hover-mano" 
-                                      type="checkbox"
+                                      type="checkbox" 
                                       checked={isSubActivo}
                                       onChange={() => handleCheckboxChange(escuela, subName, true, undefined, subcards)}
                                       disabled={!canEdit || !plantelHabilitado}
@@ -1111,12 +1118,19 @@ export const RolesPrivilegios = () => {
 
                                       return (
                                         <div key={card} className="col-12">
-                                          <div className={`d-flex justify-content-between align-items-center px-2 py-1.5 rounded-2 ${isCardActivo ? 'bg-primary bg-opacity-10 text-primary' : 'bg-light text-muted'}`}>
-                                            <span className="small fw-semibold text-truncate d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }} title={card}>
+                                          <div 
+                                            className={`d-flex justify-content-between align-items-center px-2 py-1.5 rounded-2 ${isCardActivo ? 'bg-primary bg-opacity-10 text-primary' : 'bg-light text-muted'} ${canEdit && plantelHabilitado ? 'cursor-pointer hover-mano' : ''}`}
+                                            onClick={() => {
+                                              if (canEdit && plantelHabilitado) {
+                                                handleCheckboxChange(escuela, card, false, subName);
+                                              }
+                                            }}
+                                          >
+                                            <span className="small fw-semibold text-truncate d-flex align-items-center gap-1.5 select-none" style={{ fontSize: '0.74rem' }} title={card}>
                                               <i className="bi bi-arrow-return-right text-muted" style={{ fontSize: '0.65rem' }}></i>
                                               <span>{card}</span>
                                             </span>
-                                            <div className="form-check form-switch m-0">
+                                            <div className="form-check form-switch m-0" onClick={(e) => e.stopPropagation()}>
                                               <input 
                                                 className="form-check-input hover-mano" 
                                                 type="checkbox"
@@ -1450,6 +1464,15 @@ export const RolesPrivilegios = () => {
                       style={{ fontSize: '0.73rem' }}
                     >
                       <i className="bi bi-tree-fill me-1"></i>Solo Santa Bárbara
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => establecerAlcanceEscuelas('bloquear_ambas')}
+                      className="btn btn-xs btn-outline-danger rounded-pill px-2.5 py-1 fw-bold hover-efecto"
+                      style={{ fontSize: '0.73rem' }}
+                      title="Deshabilitar acceso a ambas escuelas"
+                    >
+                      <i className="bi bi-slash-circle me-1"></i>Bloquear Ambas
                     </button>
                   </div>
 
