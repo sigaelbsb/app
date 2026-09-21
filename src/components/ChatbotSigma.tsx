@@ -58,13 +58,8 @@ export const ChatbotSigma = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [minimizado, setMinimizado] = useState(false);
 
-  // Estados de Personaje (Zoe o Max seleccionados aleatoriamente con memoria)
+  // Estados de Personaje (Zoe o Max seleccionados aleatoriamente)
   const [personaje, setPersonaje] = useState<'zoe' | 'max'>(() => {
-    try {
-      const guardado = localStorage.getItem('sigae_personaje_guia');
-      if (guardado === 'zoe' || guardado === 'max') return guardado;
-    } catch (e) {}
-    // Selección aleatoria inicial entre Zoe y Max
     return Math.random() < 0.5 ? 'zoe' : 'max';
   });
 
@@ -74,7 +69,6 @@ export const ChatbotSigma = () => {
     marcarInteraccionUsuario();
     const nuevo = personaje === 'zoe' ? 'max' : 'zoe';
     setPersonaje(nuevo);
-    localStorage.setItem('sigae_personaje_guia', nuevo);
     setMensaje(
       nuevo === 'zoe'
         ? '¡Hola! Soy <b>Zoe</b> 👧. ¡Qué gusto acompañarte en SIGAE! Dime qué necesitas hacer hoy.'
@@ -107,7 +101,7 @@ export const ChatbotSigma = () => {
   const dragStart = useRef({ x: 0, y: 0 });
   const initialPos = useRef({ x: 0, y: 0 });
   const dragMoved = useRef(false);
-  const lastPath = useRef(location.pathname);
+  const lastPath = useRef<string | null>(null);
   const userInteractedRef = useRef(false);
   const autoRetireTimerRef = useRef<any>(null);
   
@@ -397,7 +391,6 @@ export const ChatbotSigma = () => {
       // 1. Elegir aleatoriamente entre Zoe y Max (50% de probabilidad) al entrar al módulo
       const guiaAleatorio: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
       setPersonaje(guiaAleatorio);
-      localStorage.setItem('sigae_personaje_guia', guiaAleatorio);
 
       // 2. Determinar la pose 3D adecuada al contenido del módulo
       const esDoc = /ficha|actualizaci|documento|expediente|constancia|recaudo/i.test(modData.nombre);
@@ -1287,11 +1280,16 @@ export const ChatbotSigma = () => {
 
       {/* Lanzador Flotante (minimizado) */}
       <div 
-        className="sigma-launcher" 
+        className={`sigma-launcher ${personaje === 'zoe' ? 'launcher-zoe' : 'launcher-max'}`} 
         onClick={restaurar}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
         title={`Hablar con ${personaje === 'zoe' ? 'Zoe' : 'Max'}`}
+        style={{
+          background: personaje === 'zoe' 
+            ? 'linear-gradient(135deg, #ec4899, #f43f5e)' 
+            : 'linear-gradient(135deg, #0284c7, #2563eb)'
+        }}
       >
         <img 
           src={personaje === 'zoe' ? '/zoe_avatar.png' : '/max_avatar.png'} 
@@ -1299,7 +1297,14 @@ export const ChatbotSigma = () => {
           className="sigma-launcher-img" 
           draggable={false}
         />
-        <span className="sigma-launcher-badge">
+        <span 
+          className="sigma-launcher-badge"
+          style={{
+            background: personaje === 'zoe' 
+              ? 'linear-gradient(135deg, #ec4899, #f43f5e)' 
+              : 'linear-gradient(135deg, #0284c7, #2563eb)'
+          }}
+        >
           {personaje === 'zoe' ? 'Z' : 'M'}
         </span>
       </div>
