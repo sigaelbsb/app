@@ -20,13 +20,41 @@ export const SigmaFiguraVisual: React.FC<SigmaFiguraVisualProps> = ({
   style, 
   className = "",
   personaje = 'zoe',
-  pose
+  pose = 'saludo'
 }) => {
   let srcImg = '/zoe_saludo.png';
   if (personaje === 'zoe') {
-    srcImg = pose === 'documentos' ? '/zoe_documentos.png' : '/zoe_saludo.png';
+    switch (pose) {
+      case 'documentos':
+        srcImg = '/zoe_documentos.png';
+        break;
+      case 'senala':
+        srcImg = '/zoe_senala.png';
+        break;
+      case 'pulgar':
+        srcImg = '/zoe_pulgar.png';
+        break;
+      case 'saludo':
+      default:
+        srcImg = '/zoe_saludo.png';
+        break;
+    }
   } else if (personaje === 'max') {
-    srcImg = pose === 'senala' ? '/max_senala.png' : '/max_pulgar.png';
+    switch (pose) {
+      case 'documentos':
+        srcImg = '/max_documentos.png';
+        break;
+      case 'senala':
+        srcImg = '/max_senala.png';
+        break;
+      case 'pulgar':
+        srcImg = '/max_pulgar.png';
+        break;
+      case 'saludo':
+      default:
+        srcImg = '/max_saludo.png';
+        break;
+    }
   } else if (personaje === 'duo') {
     srcImg = '/zoe_max_duo_3d.png';
   } else {
@@ -392,12 +420,25 @@ export const ChatbotSigma = () => {
       const guiaAleatorio: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
       setPersonaje(guiaAleatorio);
 
-      // 2. Determinar la pose 3D adecuada al contenido del módulo
-      const esDoc = /ficha|actualizaci|documento|expediente|constancia|recaudo/i.test(modData.nombre);
-      const esTecnico = /seguridad|control|auditoria|sistema|red|rol|permiso|notas/i.test(modData.nombre);
-      const poseElegida = guiaAleatorio === 'zoe'
-        ? (esDoc ? 'documentos' : 'saludo')
-        : (esTecnico ? 'senala' : 'pulgar');
+      // 2. Determinar la pose 3D adecuada al contenido del módulo o submódulo
+      const pathLower = location.pathname.toLowerCase();
+      const nombreLower = (modData.nombre || '').toLowerCase();
+      
+      let poseElegida: 'saludo' | 'documentos' | 'senala' | 'pulgar' = 'saludo';
+      
+      if (/ficha|actualiza|documento|expediente|constancia|recaudo|formulario|inscrip|solicitud/i.test(nombreLower) || 
+          /ficha|actualiza|documento|solicitud|cupo|inscrip/i.test(pathLower)) {
+        poseElegida = 'documentos';
+      } else if (/seguridad|control|auditoria|sistema|red|rol|permiso|notas|baremo|evalua|config/i.test(nombreLower) || 
+                 /seguridad|auditoria|direccion|config|rol/i.test(pathLower)) {
+        poseElegida = 'senala';
+      } else if (/transporte|ruta|carnet|asistencia|pago|reporte|verific|bienvenida|exito/i.test(nombreLower) || 
+                 /transporte|carnet|reporte/i.test(pathLower)) {
+        poseElegida = 'pulgar';
+      } else {
+        const opciones: Array<'saludo' | 'pulgar' | 'senala'> = ['saludo', 'pulgar', 'senala'];
+        poseElegida = opciones[Math.floor(Math.random() * opciones.length)];
+      }
       setPoseActual(poseElegida);
 
       // 3. Redactar el mensaje descriptivo en la burbuja del chatbot
@@ -470,6 +511,12 @@ export const ChatbotSigma = () => {
 
       // Programar auto-cierre tras 10 segundos de inactividad
       reiniciarTemporizadorInactividad(10);
+    } else {
+      // Para rutas y submódulos secundarios sin ficha en guiasZoeMaxData
+      const guiaAleatorio: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
+      setPersonaje(guiaAleatorio);
+      const opciones: Array<'saludo' | 'pulgar' | 'senala' | 'documentos'> = ['saludo', 'pulgar', 'senala', 'documentos'];
+      setPoseActual(opciones[Math.floor(Math.random() * opciones.length)]);
     }
   }, [location.pathname]);
 

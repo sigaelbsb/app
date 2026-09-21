@@ -124,9 +124,10 @@ export const TourOrientacion: React.FC = () => {
   // Resolver imagen del guía actual adaptada a la gesticulación de cada paso
   const resolverImagenGuia = () => {
     if (paso === 0) return '/zoe_max_duo_3d.png';
-    if (paso === 1) return guia === 'zoe' ? '/zoe_saludo.png' : '/max_senala.png';
-    if (paso === 2) return guia === 'max' ? '/max_pulgar.png' : '/zoe_documentos.png';
-    if (paso === 3) return guia === 'zoe' ? '/zoe_saludo.png' : '/max_pulgar.png';
+    if (paso === 1) return guia === 'zoe' ? '/zoe_saludo.png' : '/max_saludo.png';
+    if (paso === 2) return guia === 'zoe' ? '/zoe_senala.png' : '/max_senala.png';
+    if (paso === 3) return guia === 'zoe' ? '/zoe_documentos.png' : '/max_documentos.png';
+    if (paso === 4) return guia === 'zoe' ? '/zoe_pulgar.png' : '/max_pulgar.png';
     return guia === 'zoe' ? '/zoe_avatar.png' : (guia === 'max' ? '/max_avatar.png' : '/zoe_max_duo_3d.png');
   };
 
