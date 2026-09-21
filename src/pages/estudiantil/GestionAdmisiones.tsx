@@ -2781,7 +2781,14 @@ export const GestionAdmisiones: React.FC = () => {
       }
 
       // 2. Insertar en `solicitud_cupos`
-      const obsDirecto = `[Admisión Directa Extemporánea - ${new Date().toLocaleDateString('es-VE')} por ${user?.nombre_completo || user?.cedula || 'Dirección'}]${formRegistroDirecto.observaciones ? ' ' + formRegistroDirecto.observaciones : ''}`;
+      const obsTexto = `Admisión Directa Extemporánea - ${new Date().toLocaleDateString('es-VE')} por ${user?.nombre_completo || user?.cedula || 'Dirección'}${formRegistroDirecto.observaciones ? ' - ' + formRegistroDirecto.observaciones.trim() : ''}`;
+      const obsDirecto = estructurarObservaciones(
+        obsTexto,
+        'Apto',
+        true,
+        user?.nombre_completo || user?.cedula || 'Dirección',
+        1
+      );
 
       const payloadSolicitud: any = {
         codigo_unico: codUnico,
@@ -2800,12 +2807,10 @@ export const GestionAdmisiones: React.FC = () => {
         representante_email: emailRep || null,
         parentesco: parentesco,
         representante_parentesco: parentesco,
-        representante_trabaja_pdvsa: formRegistroDirecto.trabaja_pdvsa ? 'SI' : 'NO',
+        representante_trabaja_pdvsa: formRegistroDirecto.trabaja_pdvsa ? 'Sí' : 'No',
         pdvsa_condicion_laboral: formRegistroDirecto.trabaja_pdvsa ? formRegistroDirecto.pdvsa_condicion_laboral || null : null,
         pdvsa_tipo_nomina: formRegistroDirecto.trabaja_pdvsa ? formRegistroDirecto.pdvsa_tipo_nomina || null : null,
         estado: estadoFinal,
-        aptitud: 'Apto',
-        prioridad_manual: 1,
         observaciones: obsDirecto,
         creado_por: user?.cedula || 'Dirección'
       };
