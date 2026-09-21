@@ -392,12 +392,6 @@ export const AuditoriaSistema = () => {
                       </button>
                     </div>
                   )}
-                  <button 
-                    onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
-                    className="btn btn-sm btn-white bg-white text-dark rounded-pill px-3 py-1.5 fw-bold shadow-sm hover-efecto btn-pill-3d"
-                  >
-                    <i className="bi bi-arrow-left me-1"></i> Volver al Menú
-                  </button>
                 </div>
               </div>
               <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: 'calc(1.6rem + 1vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>

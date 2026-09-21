@@ -4,24 +4,46 @@ import Fuse from 'fuse.js';
 import { supabase } from '../lib/supabase';
 import { usePermisos } from '../hooks/usePermisos';
 import { ModulosSistema } from '../pages/CategoryDashboard';
+import { obtenerInfoModulo } from '../lib/guiasZoeMaxData';
 /**
- * Figura Visual Oficial de SIGMA - Opción 3 Seleccionada
- * (100% Transparente, sin fondo, ojos animados, cabello y estructura iluminada)
+ * Figura Visual de Guías Escolares (Zoe y Max)
+ * Figuras 3D transparentes
  */
-export const SigmaFiguraVisual: React.FC<{ 
+export interface SigmaFiguraVisualProps { 
   style?: React.CSSProperties; 
   className?: string;
-  animado?: boolean;
-}> = ({ style, className = "" }) => (
-  <div className={`sigma-mascot-container ${className}`} style={style}>
-    <img 
-      src="/sigma-avatar.png?v=opcion4-mentora-definitiva" 
-      alt="SIGMA - La Mentora Esbelta" 
-      className="sigma-mascot-base"
-      draggable={false}
-    />
-  </div>
-);
+  personaje?: 'zoe' | 'max' | 'duo' | 'sigma';
+  pose?: 'saludo' | 'documentos' | 'senala' | 'pulgar';
+}
+
+export const SigmaFiguraVisual: React.FC<SigmaFiguraVisualProps> = ({ 
+  style, 
+  className = "",
+  personaje = 'zoe',
+  pose
+}) => {
+  let srcImg = '/zoe_saludo.png';
+  if (personaje === 'zoe') {
+    srcImg = pose === 'documentos' ? '/zoe_documentos.png' : '/zoe_saludo.png';
+  } else if (personaje === 'max') {
+    srcImg = pose === 'senala' ? '/max_senala.png' : '/max_pulgar.png';
+  } else if (personaje === 'duo') {
+    srcImg = '/zoe_max_duo_3d.png';
+  } else {
+    srcImg = '/sigma-avatar.png';
+  }
+
+  return (
+    <div className={`sigma-mascot-container ${className}`} style={style}>
+      <img 
+        src={srcImg} 
+        alt={personaje === 'zoe' ? 'Zoe - Guía Escolar' : (personaje === 'max' ? 'Max - Guía Escolar' : 'Guía Escolar')} 
+        className="sigma-mascot-base"
+        draggable={false}
+      />
+    </div>
+  );
+};
 
 export const SigmaFiguraAnimada = SigmaFiguraVisual;
 
@@ -36,12 +58,48 @@ export const ChatbotSigma = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [minimizado, setMinimizado] = useState(false);
 
+  // Estados de Personaje (Zoe o Max seleccionados aleatoriamente con memoria)
+  const [personaje, setPersonaje] = useState<'zoe' | 'max'>(() => {
+    try {
+      const guardado = localStorage.getItem('sigae_personaje_guia');
+      if (guardado === 'zoe' || guardado === 'max') return guardado;
+    } catch (e) {}
+    // Selección aleatoria inicial entre Zoe y Max
+    return Math.random() < 0.5 ? 'zoe' : 'max';
+  });
+
+  const [poseActual, setPoseActual] = useState<'saludo' | 'documentos' | 'senala' | 'pulgar'>('saludo');
+
+  const alternarPersonaje = () => {
+    marcarInteraccionUsuario();
+    const nuevo = personaje === 'zoe' ? 'max' : 'zoe';
+    setPersonaje(nuevo);
+    localStorage.setItem('sigae_personaje_guia', nuevo);
+    setMensaje(
+      nuevo === 'zoe'
+        ? '¡Hola! Soy <b>Zoe</b> 👧. ¡Qué gusto acompañarte en SIGAE! Dime qué necesitas hacer hoy.'
+        : '¡Hola! Soy <b>Max</b> 👦. ¡Listo para ayudarte a navegar por el sistema! ¿En qué te puedo orientar?'
+    );
+  };
+
   // Estados para Navegación y Recomendaciones Interactivas
   const [modulosRecomendados, setModulosRecomendados] = useState<any[]>([]);
   const [chipsSugeridos, setChipsSugeridos] = useState<Array<{ texto: string; accion: () => void }>>([]);
   const chatInputRef = useRef<HTMLInputElement>(null);
 
-  const [position, setPosition] = useState({ x: window.innerWidth - 120, y: window.innerHeight - 150 });
+  const [position, setPosition] = useState(() => {
+    const defaultX = typeof window !== 'undefined' ? Math.max(50, window.innerWidth - 130) : 1100;
+    const defaultY = typeof window !== 'undefined' ? Math.max(50, window.innerHeight - 150) : 600;
+    try {
+      const savedX = parseInt(localStorage.getItem('sigma_pos_x') || '');
+      const savedY = parseInt(localStorage.getItem('sigma_pos_y') || '');
+      // Respetar posición guardada únicamente si está en la franja derecha (nuevo anclaje)
+      if (!isNaN(savedX) && !isNaN(savedY) && savedX >= (typeof window !== 'undefined' ? window.innerWidth * 0.45 : 500) && savedY >= 0) {
+        return { x: savedX, y: savedY };
+      }
+    } catch (e) {}
+    return { x: defaultX, y: defaultY };
+  });
   const [mensaje, setMensaje] = useState('¡Hola! Conectando mis sistemas...');
   const [acciones, setAcciones] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -197,15 +255,17 @@ export const ChatbotSigma = () => {
     setHablando(true);
     setTimeout(() => setHablando(false), 1200);
 
-    setMensaje(`¡Hola! Dime qué necesitas gestionar o qué duda tienes sobre SIGAE. Como tu asistente virtual con IA, puedo orientarte y acompañarte directamente a cualquier sección:`);
+    const nombreGuia = personaje === 'zoe' ? 'Zoe' : 'Max';
+    setMensaje(`¡Hola! Soy <b>${nombreGuia}</b> 👋, tu guía en SIGAE. Cuéntame qué necesitas gestionar o qué duda tienes sobre la plataforma:`);
     setModulosRecomendados(toolsIndex.slice(0, 4));
     setAcciones([]);
     setChipsSugeridos([
+      { texto: '🎒 Tour Guiado', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
+      { texto: `🔄 Hablar con ${personaje === 'zoe' ? 'Max' : 'Zoe'}`, accion: () => alternarPersonaje() },
       { texto: '🚌 Transporte Escolar', accion: () => procesarPreguntaUsuario('transporte') },
       { texto: '👥 Usuarios y Claves', accion: () => procesarPreguntaUsuario('usuarios') },
       { texto: '🏫 Grados y Salones', accion: () => procesarPreguntaUsuario('grados') },
       { texto: '📝 Carga de Notas', accion: () => procesarPreguntaUsuario('notas') },
-      { texto: '⚙️ Configuración Escolar', accion: () => procesarPreguntaUsuario('configuracion') },
       { texto: '📋 Ver mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') }
     ]);
     setTimeout(() => chatInputRef.current?.focus(), 80);
@@ -234,7 +294,8 @@ export const ChatbotSigma = () => {
 
   // Saludo de bienvenida y presentación automática al ingresar
   useEffect(() => {
-    let saludo = "¡Hola! Soy <b>SIGMA</b>. Tócame si necesitas ayuda o deseas ir a algún módulo.";
+    const nombreGuia = personaje === 'zoe' ? 'Zoe' : 'Max';
+    let saludo = `¡Hola! Soy <b>${nombreGuia}</b> 👋, tu guía en SIGAE. Tócame si necesitas ayuda o deseas ir a algún módulo.`;
     
     if (conocimientoCache.length > 0) {
       const saludoBD = conocimientoCache.find(c => 
@@ -264,20 +325,30 @@ export const ChatbotSigma = () => {
     setAcciones([]);
     setModulosRecomendados([]);
     setChipsSugeridos([
+      { texto: '🎒 Tour Guiado', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
+      { texto: `🔄 Hablar con ${personaje === 'zoe' ? 'Max' : 'Zoe'}`, accion: () => alternarPersonaje() },
       { texto: '💬 ¿Qué puedes hacer?', accion: () => procesarPreguntaUsuario('que puedes hacer') },
-      { texto: '🧭 Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
       { texto: '🚀 Mis módulos activos', accion: () => procesarPreguntaUsuario('mis modulos') },
       { texto: '🏫 ¿En qué escuela estoy?', accion: () => procesarPreguntaUsuario('escuela') }
     ]);
 
-    // Cargar posición guardada
+    // Cargar posición guardada con anclaje predeterminado en la esquina inferior derecha
+    const defaultX = typeof window !== 'undefined' ? Math.max(50, window.innerWidth - 130) : 1100;
+    const defaultY = Math.max(50, window.innerHeight - 150);
     let savedX = parseInt(localStorage.getItem('sigma_pos_x') || '');
     let savedY = parseInt(localStorage.getItem('sigma_pos_y') || '');
-    const maxX = window.innerWidth - 100;
+    const maxX = window.innerWidth - 110;
     const maxY = window.innerHeight - 120;
     
-    if (isNaN(savedX) || savedX < 0 || savedX > maxX) savedX = maxX - 20;
-    if (isNaN(savedY) || savedY < 0 || savedY > maxY) savedY = maxY - 20;
+    // Si no es válida o si estaba en la franja izquierda previa, ubicar en esquina inferior derecha
+    if (isNaN(savedX) || savedX < (window.innerWidth * 0.45) || savedX > maxX) {
+      savedX = defaultX;
+      localStorage.setItem('sigma_pos_x', String(savedX));
+    }
+    if (isNaN(savedY) || savedY < 0 || savedY > maxY) {
+      savedY = defaultY;
+      localStorage.setItem('sigma_pos_y', String(savedY));
+    }
     setPosition({ x: savedX, y: savedY });
 
     // Verificar si Sigma ya se presentó en esta sesión al ingresar
@@ -316,10 +387,97 @@ export const ChatbotSigma = () => {
     }
   }, [conocimientoCache]);
 
-  // Registro de cambio de sección silencioso (sin desplegar mensajes invasivos en pantalla)
+  // Registro de cambio de sección y orientación automática de Zoe & Max por Chatbot
   useEffect(() => {
     if (location.pathname === lastPath.current) return;
     lastPath.current = location.pathname;
+
+    const modData = obtenerInfoModulo(location.pathname);
+    if (modData) {
+      // 1. Elegir aleatoriamente entre Zoe y Max (50% de probabilidad) al entrar al módulo
+      const guiaAleatorio: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
+      setPersonaje(guiaAleatorio);
+      localStorage.setItem('sigae_personaje_guia', guiaAleatorio);
+
+      // 2. Determinar la pose 3D adecuada al contenido del módulo
+      const esDoc = /ficha|actualizaci|documento|expediente|constancia|recaudo/i.test(modData.nombre);
+      const esTecnico = /seguridad|control|auditoria|sistema|red|rol|permiso|notas/i.test(modData.nombre);
+      const poseElegida = guiaAleatorio === 'zoe'
+        ? (esDoc ? 'documentos' : 'saludo')
+        : (esTecnico ? 'senala' : 'pulgar');
+      setPoseActual(poseElegida);
+
+      // 3. Redactar el mensaje descriptivo en la burbuja del chatbot
+      const textoGuia = guiaAleatorio === 'zoe' ? modData.info.descZoe : modData.info.descMax;
+      const htmlMensaje = `
+        <div class="guia-modulo-chat-wrapper">
+          <div class="d-flex align-items-center gap-1.5 mb-2">
+            <span class="badge ${guiaAleatorio === 'zoe' ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary'} rounded-pill px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700;">
+              <i class="bi ${modData.info.icono} me-1"></i> ${modData.info.titulo}
+            </span>
+            <span class="badge bg-light text-secondary border" style="font-size: 0.68rem;">
+              ${modData.info.categoria}
+            </span>
+          </div>
+          <div style="font-size: 0.88rem; line-height: 1.48; color: #1e293b;" class="mb-2">
+            ${textoGuia}
+          </div>
+          ${modData.info.tip ? `
+            <div class="p-2 rounded-3 border bg-light text-secondary d-flex align-items-start gap-1.5" style="font-size: 0.78rem; line-height: 1.4;">
+              <i class="bi bi-lightbulb-fill text-warning flex-shrink-0 mt-0.5"></i>
+              <span><b>Tip:</b> ${modData.info.tip}</span>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      setMensaje(htmlMensaje);
+      setModulosRecomendados([]);
+      setAcciones([]);
+
+      // 4. Configurar chips contextuales para el módulo
+      const chips: Array<{ texto: string; accion: () => void }> = [
+        { 
+          texto: `🔄 Cambiar a ${guiaAleatorio === 'zoe' ? 'Max' : 'Zoe'}`, 
+          accion: () => alternarPersonaje() 
+        },
+        { 
+          texto: '🎒 Tour Guiado', 
+          accion: () => { 
+            marcarInteraccionUsuario(); 
+            window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); 
+          } 
+        }
+      ];
+
+      if (modData.info.accionesSugeridas) {
+        modData.info.accionesSugeridas.forEach(a => {
+          chips.push({
+            texto: a.texto,
+            accion: () => procesarPreguntaUsuario(a.texto)
+          });
+        });
+      }
+
+      chips.push({
+        texto: '💬 Preguntar algo',
+        accion: () => {
+          marcarInteraccionUsuario();
+          chatInputRef.current?.focus();
+        }
+      });
+
+      setChipsSugeridos(chips);
+
+      // 5. Abrir el chatbot automáticamente al entrar al módulo
+      setMinimizado(false);
+      setActivo(true);
+      setHablando(true);
+      setTimeout(() => setHablando(false), 1200);
+
+      // Programar auto-cierre tras 10 segundos de inactividad
+      reiniciarTemporizadorInactividad(10);
+    }
   }, [location.pathname]);
 
   const cancelarTemporizadorInactividad = () => {
@@ -433,6 +591,22 @@ export const ChatbotSigma = () => {
       window.removeEventListener('touchend', handleEnd);
     };
   }, [isDragging, position, minimizado]);
+
+  // Mantener a Sigma visible y en límites cuando cambia el tamaño de la ventana
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition(prev => {
+        const maxX = window.innerWidth - 100;
+        const maxY = window.innerHeight - 120;
+        return {
+          x: Math.min(Math.max(15, prev.x), maxX),
+          y: Math.min(Math.max(20, prev.y), maxY)
+        };
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const minimizar = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -813,17 +987,19 @@ export const ChatbotSigma = () => {
     setActivo(false);
   };
 
-  const stylePosition = {
+  const isRightSide = true;
+
+  const stylePosition = isDragging ? {
     left: `${position.x}px`,
     top: `${position.y}px`,
     right: 'auto',
     bottom: 'auto'
-  };
+  } : undefined;
 
   return (
     <div 
       id="sigma-container" 
-      className={`sigma-container ${minimizado ? 'minimized' : ''} ${pensando ? 'thinking' : ''} ${hablando ? 'talking' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`sigma-container ${isRightSide ? 'align-right' : 'align-left'} ${personaje === 'zoe' ? 'tema-zoe' : 'tema-max'} ${minimizado ? 'minimized' : ''} ${pensando ? 'thinking' : ''} ${hablando ? 'talking' : ''} ${isDragging ? 'dragging' : ''}`}
       style={stylePosition}
     >
       {/* Burbuja de Diálogo Interactiva */}
@@ -847,18 +1023,55 @@ export const ChatbotSigma = () => {
       >
         <div className="sigma-bubble-header d-flex align-items-center justify-content-between">
           <div className="d-flex align-items-center gap-2">
-            <img 
-              src="/sigma-avatar.png?v=opcion4-mentora-doble-mano" 
-              alt="SIGMA" 
-              className="rounded-circle shadow-xs border border-white" 
-              style={{ width: '24px', height: '24px', objectFit: 'cover', objectPosition: 'center 20%' }} 
-            />
-            <span className="sigma-bubble-title">
-              <i className="bi bi-stars text-warning me-1"></i> SIGMA &bull; Asistente Virtual
+            <div className="position-relative">
+              <img 
+                src={personaje === 'zoe' ? '/zoe_avatar.png' : '/max_avatar.png'} 
+                alt={personaje === 'zoe' ? 'Zoe' : 'Max'} 
+                className="rounded-circle shadow-xs border border-white" 
+                style={{ width: '26px', height: '26px', objectFit: 'cover' }} 
+              />
+              <span 
+                style={{ 
+                  position: 'absolute', 
+                  bottom: '-1px', 
+                  right: '-1px', 
+                  width: '8px', 
+                  height: '8px', 
+                  borderRadius: '50%', 
+                  backgroundColor: '#22c55e', 
+                  border: '1.5px solid #fff' 
+                }} 
+              />
+            </div>
+            <span 
+              className="sigma-bubble-title" 
+              style={{ 
+                fontSize: '0.85rem', 
+                color: personaje === 'zoe' ? '#db2777' : '#0284c7' 
+              }}
+            >
+              <i 
+                className="bi bi-stars me-1" 
+                style={{ color: personaje === 'zoe' ? '#ec4899' : '#38bdf8' }}
+              ></i> 
+              {personaje === 'zoe' ? 'Zoe' : 'Max'} &bull; Guía SIGAE
             </span>
           </div>
 
           <div className="d-flex align-items-center gap-1.5">
+            <button 
+              type="button"
+              className={`btn btn-sm py-0 px-2 rounded-pill fw-bold hover-efecto ${
+                personaje === 'zoe' 
+                  ? 'btn-outline-primary border-primary-subtle text-primary bg-primary bg-opacity-10' 
+                  : 'btn-outline-danger border-danger-subtle text-danger bg-danger bg-opacity-10'
+              }`}
+              style={{ fontSize: '0.72rem' }}
+              onClick={alternarPersonaje}
+              title={`Cambiar de guía a ${personaje === 'zoe' ? 'Max' : 'Zoe'}`}
+            >
+              {personaje === 'zoe' ? '👦 Max (Azul)' : '👧 Zoe (Rosa)'}
+            </button>
             <button className="sigma-bubble-close" onClick={() => { marcarInteraccionUsuario(); setActivo(false); }}>&times;</button>
           </div>
         </div>
@@ -1063,10 +1276,10 @@ export const ChatbotSigma = () => {
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
-        <button className="sigma-btn-minimize" onClick={minimizar} title="Minimizar a SIGMA">
+        <button className="sigma-btn-minimize" onClick={minimizar} title="Minimizar Guía">
           <i className="bi bi-eye-slash-fill"></i>
         </button>
-        <SigmaFiguraVisual />
+        <SigmaFiguraVisual personaje={personaje} pose={poseActual} />
       </div>
       
       {/* Sombra de profundidad */}
@@ -1078,15 +1291,17 @@ export const ChatbotSigma = () => {
         onClick={restaurar}
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        title="Hablar con SIGMA"
+        title={`Hablar con ${personaje === 'zoe' ? 'Zoe' : 'Max'}`}
       >
         <img 
-          src="/sigma-avatar.png?v=opcion4-mentora-definitiva" 
-          alt="SIGMA" 
+          src={personaje === 'zoe' ? '/zoe_avatar.png' : '/max_avatar.png'} 
+          alt={personaje === 'zoe' ? 'Zoe' : 'Max'} 
           className="sigma-launcher-img" 
           draggable={false}
         />
-        <span className="sigma-launcher-badge">Σ</span>
+        <span className="sigma-launcher-badge">
+          {personaje === 'zoe' ? 'Z' : 'M'}
+        </span>
       </div>
     </div>
   );

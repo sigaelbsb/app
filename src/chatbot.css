@@ -17,9 +17,10 @@
 .sigma-container {
     position: fixed;
     z-index: 999999;
-    /* Ubicación inicial */
+    /* Ubicación inicial: Esquina inferior derecha */
     bottom: 30px;
-    right: 30px;
+    right: 25px;
+    left: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -30,6 +31,120 @@
 
 .sigma-container:active {
     cursor: grabbing;
+}
+
+/* ==========================================================
+   TEMAS DE COLOR: ROSA PARA ZOE & AZUL PARA MAX
+============================================================= */
+/* Tema Zoe: Rosa / Fucsia Cálido Escolar */
+.sigma-container.tema-zoe {
+    --sigma-primary: #ec4899;
+    --sigma-secondary: #f43f5e;
+    --sigma-accent: #fb7185;
+    --sigma-glow: rgba(244, 114, 182, 0.55);
+    --sigma-border: rgba(236, 72, 153, 0.35);
+    --sigma-header-color: #db2777;
+    --sigma-chip-hover-bg: #fff1f2;
+    --sigma-chip-hover-color: #e11d48;
+    --sigma-btn-bg: linear-gradient(135deg, #ec4899, #f43f5e);
+    --sigma-btn-hover: linear-gradient(135deg, #db2777, #e11d48);
+}
+
+/* Tema Max: Azul Tecnológico / Institucional */
+.sigma-container.tema-max {
+    --sigma-primary: #0284c7;
+    --sigma-secondary: #2563eb;
+    --sigma-accent: #38bdf8;
+    --sigma-glow: rgba(56, 189, 248, 0.55);
+    --sigma-border: rgba(2, 132, 199, 0.35);
+    --sigma-header-color: #0284c7;
+    --sigma-chip-hover-bg: #f0f9ff;
+    --sigma-chip-hover-color: #0369a1;
+    --sigma-btn-bg: linear-gradient(135deg, #0284c7, #2563eb);
+    --sigma-btn-hover: linear-gradient(135deg, #0369a1, #1d4ed8);
+}
+
+/* Aplicación dinámica de variables a los elementos */
+.sigma-container.tema-zoe .sigma-avatar-wrapper {
+    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28)) drop-shadow(0 0 16px rgba(244, 114, 182, 0.55));
+}
+.sigma-container.tema-max .sigma-avatar-wrapper {
+    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28)) drop-shadow(0 0 16px rgba(56, 189, 248, 0.55));
+}
+
+.sigma-container.tema-zoe .sigma-speech-bubble {
+    border-color: rgba(236, 72, 153, 0.35);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12), 0 0 18px rgba(244, 114, 182, 0.22);
+}
+.sigma-container.tema-max .sigma-speech-bubble {
+    border-color: rgba(2, 132, 199, 0.35);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12), 0 0 18px rgba(56, 189, 248, 0.22);
+}
+
+.sigma-container.tema-zoe .sigma-bubble-header {
+    border-bottom-color: rgba(236, 72, 153, 0.2);
+}
+.sigma-container.tema-max .sigma-bubble-header {
+    border-bottom-color: rgba(2, 132, 199, 0.2);
+}
+
+.sigma-container.tema-zoe .sigma-bubble-title {
+    color: #db2777;
+}
+.sigma-container.tema-max .sigma-bubble-title {
+    color: #0284c7;
+}
+
+.sigma-container.tema-zoe .sigma-btn-send {
+    background: linear-gradient(135deg, #ec4899, #f43f5e);
+    box-shadow: 0 2px 6px rgba(236, 72, 153, 0.35);
+}
+.sigma-container.tema-zoe .sigma-btn-send:hover {
+    background: linear-gradient(135deg, #db2777, #e11d48);
+}
+
+.sigma-container.tema-max .sigma-btn-send {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
+.sigma-container.tema-max .sigma-btn-send:hover {
+    background: linear-gradient(135deg, #0369a1, #1d4ed8);
+}
+
+.sigma-container.tema-zoe .sigma-input:focus {
+    border-color: #ec4899;
+    box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.18);
+}
+.sigma-container.tema-max .sigma-input:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.18);
+}
+
+.sigma-container.tema-zoe .sigma-chip-btn:hover {
+    background: #fff1f2;
+    border-color: #ec4899;
+    color: #e11d48;
+}
+.sigma-container.tema-max .sigma-chip-btn:hover {
+    background: #f0f9ff;
+    border-color: #0284c7;
+    color: #0369a1;
+}
+
+.sigma-container.tema-zoe .sigma-launcher-badge {
+    background: linear-gradient(135deg, #ec4899, #f43f5e);
+}
+.sigma-container.tema-max .sigma-launcher-badge {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+}
+
+.sigma-container.tema-zoe .sigma-launcher {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 16px rgba(244, 114, 182, 0.4);
+    border: 2px solid rgba(236, 72, 153, 0.45);
+}
+.sigma-container.tema-max .sigma-launcher {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 16px rgba(2, 132, 199, 0.45);
+    border: 2px solid rgba(2, 132, 199, 0.45);
 }
 
 /* ==========================================================
@@ -231,7 +346,7 @@
     border-radius: 16px;
     padding: 10px 13px;
     width: 290px;
-    max-width: calc(100vw - 24px);
+    max-width: calc(100vw - 32px);
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12), 0 0 16px rgba(244, 114, 182, 0.15);
     color: #1e293b;
     font-family: 'Inter', 'Segoe UI', sans-serif;
@@ -244,7 +359,8 @@
     z-index: 1;
     
     bottom: calc(var(--sigma-size) * (824 / 436) + 12px);
-    right: -10px;
+    left: 0;
+    right: auto;
 }
 
 .sigma-speech-bubble.active {
@@ -253,16 +369,28 @@
     transform: scale(1) translateY(0);
 }
 
-/* Triángulo de la burbuja */
+/* Triángulo de la burbuja (Apunta hacia Sigma en la esquina inferior izquierda) */
 .sigma-speech-bubble::after {
     content: '';
     position: absolute;
     bottom: -10px;
-    right: 45px;
+    left: 35px;
+    right: auto;
     border-width: 10px 10px 0;
     border-style: solid;
     border-color: rgba(255, 255, 255, 0.98) transparent transparent transparent;
     filter: drop-shadow(0 3px 2px rgba(236, 72, 153, 0.15));
+}
+
+/* Orientación si se arrastra hacia el lado derecho */
+.sigma-container.align-right .sigma-speech-bubble {
+    left: auto;
+    right: -10px;
+}
+
+.sigma-container.align-right .sigma-speech-bubble::after {
+    left: auto;
+    right: 45px;
 }
 
 /* Header de la burbuja */
@@ -589,8 +717,9 @@ body.dark-mode .sigma-btn-minimize:hover {
     content: '¡Hola! Estoy aquí para ayudarte';
     position: absolute;
     bottom: 60px;
-    right: 50%;
-    transform: translateX(50%) scale(0.8);
+    left: 0;
+    transform: scale(0.8);
+    transform-origin: bottom left;
     background: rgba(15, 23, 42, 0.95);
     color: #ffffff;
     border-radius: 8px;
@@ -611,8 +740,7 @@ body.dark-mode .sigma-btn-minimize:hover {
     content: '';
     position: absolute;
     bottom: 54px;
-    right: 50%;
-    transform: translateX(50%);
+    left: 20px;
     border-width: 6px 6px 0;
     border-style: solid;
     border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
@@ -622,11 +750,37 @@ body.dark-mode .sigma-btn-minimize:hover {
     pointer-events: none;
 }
 
-.sigma-launcher:hover::after,
+.sigma-launcher:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1) translateY(-5px);
+}
+
 .sigma-launcher:hover::before {
     opacity: 1;
     visibility: visible;
+    transform: translateY(-5px);
+}
+
+.sigma-container.align-right .sigma-launcher::after {
+    left: auto;
+    right: 50%;
+    transform: translateX(50%) scale(0.8);
+    transform-origin: center;
+}
+
+.sigma-container.align-right .sigma-launcher:hover::after {
     transform: translateX(50%) scale(1) translateY(-5px);
+}
+
+.sigma-container.align-right .sigma-launcher::before {
+    left: auto;
+    right: 50%;
+    transform: translateX(50%);
+}
+
+.sigma-container.align-right .sigma-launcher:hover::before {
+    transform: translateX(50%) translateY(-5px);
 }
 
 .sigma-launcher span {
@@ -678,3 +832,117 @@ body.dark-mode .sigma-btn-minimize:hover {
 .sigma-container.minimized .sigma-launcher {
     display: flex !important;
 }
+
+/* ==========================================================
+   ESTILOS DE ZOE & MAX Y MICRO-VIDEO DE SALUDO
+============================================================= */
+.sigma-video-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 95px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 15px rgba(0, 102, 255, 0.35);
+    border: 2.5px solid #0066ff;
+    background: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.sigma-video-wrapper:hover {
+    transform: scale(1.03);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 20px rgba(0, 102, 255, 0.6);
+}
+
+.sigma-video-mascot {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 18px;
+}
+
+.sigma-video-badge-wrapper {
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.sigma-video-badge-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.sigma-online-dot {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #22c55e;
+    border: 1.5px solid #ffffff;
+    box-shadow: 0 0 4px #22c55e;
+}
+
+/* ==========================================================
+   AJUSTES RESPONSIVOS PARA MÓVILES (SMARTPHONES Y TABLETS)
+   Flota encima de la barra inferior sin obstruir la pantalla
+   ============================================================= */
+@media (max-width: 991.98px) {
+    .sigma-container {
+        /* Ubicación segura encima de la barra inferior móvil de 65px */
+        bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+        right: 12px !important;
+        left: auto !important;
+    }
+
+    .sigma-avatar-wrapper {
+        width: 75px !important;
+        height: 80px !important;
+    }
+
+    .sigma-speech-bubble {
+        position: absolute !important;
+        bottom: 85px !important;
+        right: 0 !important;
+        left: auto !important;
+        width: calc(100vw - 28px) !important;
+        max-width: 320px !important;
+        padding: 9px 12px !important;
+        border-radius: 18px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .sigma-chat-window {
+        position: absolute !important;
+        bottom: 85px !important;
+        right: 0 !important;
+        left: auto !important;
+        width: calc(100vw - 20px) !important;
+        max-width: 380px !important;
+        max-height: calc(100vh - 145px) !important;
+        border-radius: 20px !important;
+    }
+
+    .sigma-chip-btn {
+        padding: 4px 8px !important;
+        font-size: 0.72rem !important;
+    }
+}
+

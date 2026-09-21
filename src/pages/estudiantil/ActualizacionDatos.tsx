@@ -522,6 +522,24 @@ export const ActualizacionDatos: React.FC = () => {
     const Swal = (window as any).Swal;
     if (!Swal) return;
 
+    // Proteger: si aún no han terminado de actualizar, no permitir descargar el resumen
+    const d = (datosEst?.datos_actualizados || formDatos || {}) as any;
+    const infoAdm = obtenerInfoAdmision(datosEst);
+    const estaCompletada = d.ficha_completada === true || (formDatos as any)?.ficha_completada === true || (datosEst as any)?.ficha_completada === true;
+    if (!esAdmin && infoAdm.esNuevoIngreso && !estaCompletada) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Ficha en Proceso',
+        html: `
+          <p class="mb-2">El aspirante aún no ha finalizado su <b>Ficha Integral</b>.</p>
+          <p class="small text-muted mb-0">Debe completar y guardar los 10 pasos de la actualización para generar el <b>Resumen oficial (Carta)</b> y consignarlo en la escuela.</p>
+        `,
+        confirmButtonColor: '#16a34a',
+        confirmButtonText: 'Entendido'
+      });
+      return;
+    }
+
     Swal.fire({
       title: 'Opciones de Ficha Integral',
       html: `
@@ -574,8 +592,20 @@ export const ActualizacionDatos: React.FC = () => {
                 (nomNorm && solicitudesAdmisionMap[nomNorm]) ||
                 null;
 
-    const esMarcaNuevoIngreso = est.origen_admision === 'nuevo_ingreso' || d.origen_admision === 'nuevo_ingreso';
-    const estaFormalizadoEnFisico = est.formalizado_en_fisico === true || d.formalizado_en_fisico === true || est.estado === 'Formalizado' || d.estado === 'Formalizado';
+    const esMarcaNuevoIngreso = est.origen_admision === 'nuevo_ingreso' || 
+                               d.origen_admision === 'nuevo_ingreso' ||
+                               est.origen_admision === 'directo_extemporaneo' ||
+                               d.origen_admision === 'directo_extemporaneo' ||
+                               est.es_nuevo_ingreso_virtual === true ||
+                               String(est.id || '').startsWith('sol_') ||
+                               String(est.creado_por || '').includes('Admisiones') ||
+                               String(d.creado_por || '').includes('Admisiones');
+
+    const estaFormalizadoEnFisico = est.formalizado_en_fisico === true || 
+                                    d.formalizado_en_fisico === true || 
+                                    est.estado === 'Formalizado' || 
+                                    d.estado === 'Formalizado' ||
+                                    (sol && ['formalizado', 'formalizada', 'inscrito', 'inscrita'].includes((sol.estado || '').toLowerCase()));
 
     if (sol) {
       const estadoSol = sol.estado || 'Aprobado';
@@ -585,7 +615,7 @@ export const ActualizacionDatos: React.FC = () => {
         solicitud: sol,
         estadoAdmision: estadoSol,
         estaFormalizado,
-        // Nuevos Ingresos solo pueden descargar constancias oficiales una vez formalizada la inscripción física
+        // Nuevos Ingresos solo pueden descargar constancias oficiales una vez formalizada la inscripción física por la escuela
         puedeDescargarConstancia: estaFormalizado
       };
     }
@@ -759,10 +789,10 @@ export const ActualizacionDatos: React.FC = () => {
     const escEst = resolverEscuelaEstudiante(datosEst, formDatos);
     const escNombre = escEst === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
     const nombreEst = `${formDatos.estudiante_nombres || datosEst.nombres_estudiante || ''} ${formDatos.estudiante_apellidos || datosEst.apellidos_estudiante || ''}`.trim();
-    const docNombre = tipoDoc === 'estudio' ? 'Constancia de Estudio' : 'Constancia de Inscripción Oficial';
+    const esEstudio = tipoDoc === 'estudio';
 
     Swal.fire({
-      title: `<span style="font-size: 20px; font-weight: 800; color: #1e293b;"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Validación Escolar Requerida</span>`,
+      title: `<span style="font-size: 20px; font-weight: 800; color: #1e293b;"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Formalización Escolar Requerida</span>`,
       html: `
         <div class="text-start p-2" style="font-size: 13.5px; color: #334155; line-height: 1.55;">
           <div class="alert alert-warning border-0 rounded-3 mb-3 d-flex align-items-start py-2.5 px-3">
@@ -774,21 +804,24 @@ export const ActualizacionDatos: React.FC = () => {
           </div>
 
           <p class="mb-2">
-            La <b>${docNombre}</b> se emite formalmente una vez que el Departamento de Control de Estudios valide la <b>Fase 3: Formalización y Consignación de Expediente Físico</b>.
+            ${esEstudio 
+              ? `La <b>Constancia de Estudio</b> certifica la escolaridad activa y asistencia regular a clases en el plantel. <b>No está disponible para aspirantes de Nuevo Ingreso</b> hasta que la escuela formalice presencialmente su matrícula e inicie el año escolar.` 
+              : `La <b>Constancia de Inscripción</b> se emitirá formalmente una vez que el Departamento de Control de Estudios valide la <b>Fase 3: Formalización y Consignación de Expediente Físico</b> en el plantel.`}
           </p>
 
           <div class="bg-light p-3 rounded-3 mb-3 border">
             <div class="fw-bold text-dark mb-2"><i class="bi bi-journal-check me-1 text-primary"></i> Pasos para formalizar la matrícula:</div>
             <ol class="mb-0 ps-3 small text-secondary">
+              <li class="mb-1">Complete y guarde su <b>Ficha Integral</b> (10 pasos).</li>
               <li class="mb-1">Descargue e imprima su <b>Resumen de Ficha Integral (Carta)</b> (comprobante de la Fase 2).</li>
               <li class="mb-1">Descargue e imprima su <b>Carta de Aceptación Oficial</b> con firmas y código QR.</li>
-              <li>Consigne en el plantel la carpeta marrón con los recaudos originales solicitados en las fechas fijadas.</li>
+              <li>Consigne en el plantel la carpeta marrón con los recaudos solicitados en las fechas fijadas.</li>
             </ol>
           </div>
 
           <div class="p-2.5 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 text-success small d-flex align-items-center">
             <i class="bi bi-unlock-fill me-2 fs-5 flex-shrink-0"></i>
-            <span>Una vez que Control de Estudios valide su expediente en el plantel, esta constancia se <b>habilitará automáticamente</b> en su portal.</span>
+            <span>Una vez que Control de Estudios formalice su inscripción en físico en la escuela, sus constancias oficiales se <b>habilitarán automáticamente</b> en el sistema.</span>
           </div>
         </div>
       `,
@@ -1810,7 +1843,7 @@ export const ActualizacionDatos: React.FC = () => {
             // Verificar si el estudiante ya fue vinculado a OTRO representante (reasignado/transferido)
             let asignadoAOtro = false;
             try {
-              const codSinT = (s.codigo_unico || '').replace(/^T-/, '');
+              const codUniSinT = (s.codigo_unico || '').replace(/^T-/, '');
               const sCedEst = (s.estudiante_cedula || '').trim();
               const sCedDigits = sCedEst.replace(/\D/g, '');
               const nomEst = (s.estudiante_nombres || '').trim();
@@ -1827,7 +1860,7 @@ export const ActualizacionDatos: React.FC = () => {
                 .or(queryOr)
                 .limit(5);
 
-              let matchVinc = (vOtro || []).find(v => {
+              let matchVinc: any = (vOtro || []).find((v: any) => {
                 const repDigits = String(v.cedula_representante || '').replace(/\D/g, '');
                 return repDigits && repDigits !== cedLimRep;
               });
@@ -1836,7 +1869,7 @@ export const ActualizacionDatos: React.FC = () => {
               if (!matchVinc && nomEst && apeEst) {
                 const { data: vNom } = await supabase
                   .from('estudiantes_vinculaciones')
-                  .select('id, cedula_representante')
+                  .select('id, cedula_representante, nombres_estudiante, apellidos_estudiante')
                   .ilike('nombres_estudiante', `%${nomEst}%`)
                   .ilike('apellidos_estudiante', `%${apeEst}%`)
                   .limit(2);
@@ -1891,8 +1924,10 @@ export const ActualizacionDatos: React.FC = () => {
                 padre_nombres: s.padre_nombres,
                 padre_cedula: s.padre_cedula,
               },
-              fecha_ultima_actualizacion: s.updated_at || s.created_at,
+              fecha_ultima_actualizacion: s.datos_actualizados?.fecha_ultima_actualizacion || null,
               es_nuevo_ingreso_virtual: true,
+              origen_admision: 'nuevo_ingreso',
+              formalizado_en_fisico: s.datos_actualizados?.formalizado_en_fisico || ['formalizado', 'formalizada', 'inscrito', 'inscrita'].includes((s.estado || '').toLowerCase()),
               estado_admision: s.estado
             });
           }
@@ -2301,7 +2336,7 @@ export const ActualizacionDatos: React.FC = () => {
 
 
 
-  // Guardado Automático Silencioso
+  // Guardado Automático Silencioso (Borrador)
   useEffect(() => {
     if (!estudianteSeleccionado || step === 10) return; // No auto-guardar en la confirmación final o si no hay estudiante
 
@@ -2309,10 +2344,18 @@ export const ActualizacionDatos: React.FC = () => {
     const timer = setTimeout(async () => {
       try {
         const escEst = resolverEscuelaEstudiante(estudianteSeleccionado, form);
+        const prevDatos = estudianteSeleccionado.datos_actualizados || {};
+        const infoAdm = obtenerInfoAdmision(estudianteSeleccionado);
         const payload = {
-          datos_actualizados: { ...form, codigo_escuela: escEst },
-          codigo_escuela: escEst,
-          fecha_ultima_actualizacion: new Date().toISOString()
+          datos_actualizados: { 
+            ...prevDatos,
+            ...form, 
+            codigo_escuela: escEst,
+            origen_admision: prevDatos.origen_admision || estudianteSeleccionado.origen_admision || (infoAdm.esNuevoIngreso ? 'nuevo_ingreso' : undefined),
+            formalizado_en_fisico: prevDatos.formalizado_en_fisico !== undefined ? prevDatos.formalizado_en_fisico : (estudianteSeleccionado.formalizado_en_fisico || false),
+            ficha_completada: prevDatos.ficha_completada === true // mantener en borrador si no ha finalizado
+          },
+          codigo_escuela: escEst
         };
 
         const isVirtualSol = estudianteSeleccionado.id && estudianteSeleccionado.id.toString().startsWith('sol_');
@@ -2320,7 +2363,7 @@ export const ActualizacionDatos: React.FC = () => {
           const solId = estudianteSeleccionado.id_solicitud || estudianteSeleccionado.id.replace('sol_', '');
           await supabase
             .from('solicitud_cupos')
-            .update({ datos_actualizados: payload.datos_actualizados, updated_at: payload.fecha_ultima_actualizacion })
+            .update({ datos_actualizados: payload.datos_actualizados })
             .eq('id', solId);
         } else {
           const { error } = await supabase
@@ -2331,7 +2374,7 @@ export const ActualizacionDatos: React.FC = () => {
         }
         
         // Actualizamos la lista local silenciosamente
-        setMisRepresentados(prev => prev.map(m => m.id === estudianteSeleccionado.id ? { ...m, ...payload } : m));
+        setMisRepresentados(prev => prev.map(m => m.id === estudianteSeleccionado.id ? { ...m, datos_actualizados: payload.datos_actualizados } : m));
         setSavingStatus('saved');
       } catch (err) {
         console.error('Error auto-guardando ficha:', err);
@@ -2355,9 +2398,20 @@ export const ActualizacionDatos: React.FC = () => {
       const cedLimpia = (estudianteSeleccionado.cedula_estudiante || form.estudiante_cedula || '').replace(/\D/g, '');
       const anoAct = new Date().getFullYear();
       const codigoGenerado = form.codigo_unico || estudianteSeleccionado.codigo_unico || `CI-${escKey}-${cedLimpia || Math.floor(1000 + Math.random() * 9000)}-${anoAct}`;
+      const prevDatos = estudianteSeleccionado.datos_actualizados || {};
+      const infoAdm = obtenerInfoAdmision(estudianteSeleccionado);
 
       const payload = {
-        datos_actualizados: { ...form, codigo_unico: codigoGenerado, codigo_escuela: escKey.toLowerCase() },
+        datos_actualizados: { 
+          ...prevDatos,
+          ...form, 
+          codigo_unico: codigoGenerado, 
+          codigo_escuela: escKey.toLowerCase(),
+          origen_admision: prevDatos.origen_admision || estudianteSeleccionado.origen_admision || (infoAdm.esNuevoIngreso ? 'nuevo_ingreso' : undefined),
+          formalizado_en_fisico: prevDatos.formalizado_en_fisico !== undefined ? prevDatos.formalizado_en_fisico : (estudianteSeleccionado.formalizado_en_fisico || false),
+          ficha_completada: true,
+          fecha_ultima_actualizacion: nowIso
+        },
         codigo_escuela: escKey.toLowerCase(),
         fecha_ultima_actualizacion: nowIso
       };
@@ -2403,7 +2457,23 @@ export const ActualizacionDatos: React.FC = () => {
 
       if (Swal) {
 
-        Swal.fire('¡Datos Actualizados!', `Se ha actualizado la información del estudiante ${estudianteSeleccionado.nombres_estudiante}.`, 'success');
+        Swal.fire({
+          icon: 'success',
+          title: '¡Ficha Integral Actualizada y Guardada!',
+          html: `
+            <p class="mb-2">La información de <b>${estudianteSeleccionado.nombres_estudiante}</b> se ha registrado correctamente.</p>
+            <p class="small text-muted mb-0">Ya puede descargar su <b>Resumen de Ficha Integral (Carta)</b> y sus recaudos de matrícula.</p>
+          `,
+          confirmButtonText: '<i class="bi bi-file-earmark-pdf-fill me-1"></i> Descargar Resumen (Carta)',
+          showCancelButton: true,
+          cancelButtonText: 'Ver mis Representados',
+          confirmButtonColor: '#16a34a',
+          cancelButtonColor: '#64748b'
+        }).then((result: any) => {
+          if (result.isConfirmed) {
+            manejarOpcionesResumen(estudianteSeleccionado, payload.datos_actualizados);
+          }
+        });
 
       } else {
 
@@ -4975,20 +5045,14 @@ const STEPS = [
             </button>
             <div className="d-flex gap-2">
               <button
-                className="btn btn-outline-success rounded-pill px-4 py-2.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2"
-                onClick={() => generarImpresionResumen(estudianteSeleccionado, form, 'pdf')}
-              >
-                <i className="bi bi-printer-fill fs-5"></i> Descargar Resumen (PDF / Carta)
-              </button>
-              <button
                 className="btn btn-success rounded-pill px-5 py-3 fw-bold shadow-lg hover-efecto d-flex align-items-center gap-2"
                 style={{ fontSize: '1.05rem', background: 'linear-gradient(135deg,#16a34a,#15803d)', border: 'none' }}
                 onClick={handleGuardarFicha}
                 disabled={loading}
               >
                 {loading
-                  ? <><span className="spinner-border spinner-border-sm"></span> Guardando...</>
-                  : <><i className="bi bi-save2-fill fs-5"></i> Guardar Ficha Integral</>
+                  ? <><span className="spinner-border spinner-border-sm"></span> Guardando Ficha...</>
+                  : <><i className="bi bi-check2-circle fs-5"></i> Guardar y Finalizar Ficha Integral</>
                 }
               </button>
             </div>
@@ -5223,80 +5287,28 @@ const STEPS = [
             </div>
 
             {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  if (estudianteSeleccionado) {
+            {estudianteSeleccionado && (
+              <div className="col-12 col-md-auto text-md-end text-center">
+                <button
+                  type="button"
+                  onClick={() => {
                     sessionStorage.removeItem('sigae_act_draft_estudiante_id');
                     sessionStorage.removeItem('sigae_act_draft_step');
                     setEstudianteSeleccionado(null);
-                  } else {
-                    window.location.href = '/categoria/Gesti%C3%B3n%20Estudiantil';
-                  }
-                }}
-                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
-                style={{ fontSize: '0.82rem' }}
-              >
-                <i className="bi bi-arrow-left"></i>
-                <span>{estudianteSeleccionado ? 'Volver a Representados' : 'Volver al Menú'}</span>
-              </button>
-            </div>
+                  }}
+                  className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  <i className="bi bi-arrow-left"></i>
+                  <span>Volver a Representados</span>
+                </button>
+              </div>
+            )}
 
           </div>
         </div>
 
-        {/* Barra de Acciones del Estudiante Seleccionado Chamilo */}
-        {estudianteSeleccionado && estudianteSeleccionado.fecha_ultima_actualizacion && form.estado_habitacion && form.direccion_habitacion && form.estudiante_grupo_sanguineo && (
-          <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-start align-items-center flex-wrap gap-2">
-            {obtenerInfoAdmision(estudianteSeleccionado).esNuevoIngreso && (
-              <button
-                type="button"
-                className="btn btn-outline-primary rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-                style={{ fontSize: '0.82rem' }}
-                onClick={() => handleDescargarCartaAceptacion(estudianteSeleccionado, form)}
-                title="Descargar Carta de Aceptación oficial de 3 páginas con firmas y código QR"
-              >
-                <i className="bi bi-file-earmark-text-fill"></i>
-                <span>Carta de Aceptación</span>
-              </button>
-            )}
 
-            {esDocumentoActivo('carnet', resolverEscuelaEstudiante(estudianteSeleccionado, form)) && (
-              <button
-                type="button"
-                className="btn btn-warning text-dark rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-                style={{ fontSize: '0.82rem' }}
-                onClick={() => mostrarModalCarnetEstudiantil(estudianteSeleccionado, form)}
-                title="Descargar Carnet Estudiantil oficial con QR y firma digital"
-              >
-                <i className="bi bi-person-badge-fill"></i>
-                <span>Descargar Carnet</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ fontSize: '0.82rem' }}
-              onClick={() => manejarOpcionesResumen(estudianteSeleccionado, form)}
-            >
-              <i className="bi bi-file-earmark-pdf-fill"></i>
-              <span>Descargar Resumen</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-outline-danger rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ fontSize: '0.82rem' }}
-              onClick={() => manejarOpcionesNormasInternas(estudianteSeleccionado, form)}
-              title="Descargar Normativa Interna oficial con firmas y código QR"
-            >
-              <i className="bi bi-file-earmark-ruled-fill text-danger"></i>
-              <span>Normativa Interna</span>
-            </button>
-          </div>
-        )}
       </div>
 
 
@@ -5509,6 +5521,7 @@ const STEPS = [
 
               {misRepresentados.map((est) => {
                 const d = est.datos_actualizados || {};
+                const infoAdm = obtenerInfoAdmision(est);
                 const fechaUltima = est.fecha_ultima_actualizacion ? new Date(est.fecha_ultima_actualizacion) : null;
                 let diasTranscurridos = 0;
 
@@ -5523,9 +5536,16 @@ const STEPS = [
 
                 const estaTotalmenteCompletado = repOk && estOk && dirOk && saludOk && madreOk && padreOk;
 
+                // Para nuevos ingresos es obligatorio haber finalizado y guardado la Ficha Integral (ficha_completada === true)
+                // Para estudiantes regulares antiguos se respeta si ya poseían fecha_ultima_actualizacion válida y datos completos
+                const tieneFichaCompletada = Boolean(
+                  d.ficha_completada === true || 
+                  (!infoAdm.esNuevoIngreso && fechaUltima && estaTotalmenteCompletado)
+                );
+
                 let estadoFicha: 'en_proceso' | 'actualizado' | 'desactualizado' = 'en_proceso';
 
-                if (fechaUltima && estaTotalmenteCompletado) {
+                if (tieneFichaCompletada && fechaUltima && estaTotalmenteCompletado) {
                   const diffTime = Math.abs(new Date().getTime() - fechaUltima.getTime());
                   diasTranscurridos = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                   if (diasTranscurridos > 90) {
@@ -5539,7 +5559,6 @@ const STEPS = [
 
                 const escEst = resolverEscuelaEstudiante(est, d);
                 const datosFormEst = d && Object.keys(d).length > 0 ? d : est;
-                const infoAdm = obtenerInfoAdmision(est);
 
                 return (
                   <div className="col-12 col-md-6 col-lg-4" key={est.id}>
@@ -5705,10 +5724,10 @@ const STEPS = [
                                   <button
                                     className="btn btn-secondary bg-opacity-75 w-100 py-2 fw-bold rounded-3 shadow-sm d-flex align-items-center justify-content-center text-white"
                                     onClick={() => mostrarAvisoBloqueoNuevoIngreso(est, datosFormEst, 'estudio')}
-                                    title="Pendiente: Requiere consignar recaudos físicos en la escuela para formalizar la matrícula"
+                                    title="Bloqueado: La constancia de estudio depende de la formalización presencial por parte de la escuela"
                                   >
                                     <i className="bi bi-lock-fill me-2 fs-5 text-warning"></i>
-                                    Constancia de Estudio (Pendiente Validación)
+                                    Constancia de Estudio (No Disponible • Requiere Formalización)
                                   </button>
                                 )
                               )}
@@ -5724,6 +5743,19 @@ const STEPS = [
                                 </button>
                               )}
                             </>
+                          )}
+
+                          {/* Aviso cuando aún no ha terminado de actualizar la Ficha Integral */}
+                          {estadoFicha !== 'actualizado' && (
+                            <div className="alert alert-warning border-0 rounded-3 p-3 mb-0 text-start bg-warning bg-opacity-10 border-start border-warning border-4">
+                              <div className="d-flex align-items-center gap-2 mb-1 fw-bold text-dark small">
+                                <i className="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+                                <span>Ficha Integral Pendiente de Finalizar</span>
+                              </div>
+                              <p className="text-muted small mb-0" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
+                                Aún no ha completado el registro integral de los 10 pasos. Haga clic en <b>"Completar Ficha Integral"</b> y presione <b>"Guardar y Finalizar"</b> en el paso 10 para generar y desbloquear el <b>Resumen de una sola hoja</b> y sus documentos escolares.
+                              </p>
+                            </div>
                           )}
                         </div>
                       </div>

@@ -3189,20 +3189,6 @@ export const SolicitudCupos = () => {
                 </div>
               </div>
             </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Gesti%C3%B3n%20Estudiantil')}
-                className="btn btn-white bg-white border rounded-pill px-4 py-2 fw-bold text-dark d-inline-flex align-items-center gap-2 shadow-xs hover-efecto"
-                style={{ fontSize: '0.84rem', borderColor: '#ddd6fe' }}
-              >
-                <i className="bi bi-arrow-left text-primary"></i>
-                <span>Volver al Menú</span>
-              </button>
-            </div>
-
           </div>
         </div>
       </div>

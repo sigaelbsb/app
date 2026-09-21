@@ -1099,20 +1099,6 @@ export const Verificaciones: React.FC = () => {
                 Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos mediante Código Oficial o Cámara QR.
               </p>
             </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => window.location.href = '/categoria/Gesti%C3%B3n%20Estudiantil'}
-                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
-                style={{ fontSize: '0.82rem' }}
-              >
-                <i className="bi bi-arrow-left"></i>
-                <span>Volver al Menú</span>
-              </button>
-            </div>
-
           </div>
         </div>
 

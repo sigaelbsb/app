@@ -51,6 +51,7 @@ import './vistas.css';
 import './mod_inicio.css';
 import './chatbot.css';
 import './chamilo_ui.css';
+import './mobile_nav.css';
 
 
 import { ProtectedRoute } from './components/ProtectedRoute';

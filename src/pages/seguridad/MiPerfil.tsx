@@ -480,12 +480,6 @@ export const MiPerfil = () => {
               <span className="badge bg-white text-primary px-3 py-2 shadow-sm fw-bold rounded-pill badge-3d" style={{ letterSpacing: '0.5px' }}>
                 <i className="bi bi-shield-check me-1"></i> <span id="perfil-rol-display">{appUser.rol}</span>
               </span>
-              <button 
-                onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
-                className="btn btn-sm btn-white bg-white text-dark rounded-pill px-3 py-1.5 fw-bold shadow-sm hover-efecto btn-pill-3d"
-              >
-                <i className="bi bi-arrow-left me-1"></i> Volver al Menú
-              </button>
             </div>
             <h1 className="fw-bolder mb-2 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-2" style={{ fontSize: 'calc(1.6rem + 1vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
               <i className="bi bi-person-circle me-1"></i>

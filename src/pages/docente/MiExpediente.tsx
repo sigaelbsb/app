@@ -2143,20 +2143,6 @@ export const MiExpediente = () => {
                 Consulta y edita tu expediente laboral, datos de salud ocupacional, núcleo familiar y plan de formación institucional.
               </p>
             </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Gestión%20Docente')}
-                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
-                style={{ fontSize: '0.82rem' }}
-              >
-                <i className="bi bi-arrow-left"></i>
-                <span>Volver al Menú</span>
-              </button>
-            </div>
-
           </div>
         </div>
 

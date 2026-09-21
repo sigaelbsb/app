@@ -2061,19 +2061,6 @@ export const TransporteEscolar = () => {
                 Monitoreo de rutas, paradas, rutogramas oficiales y recorridos de las unidades en tiempo real con notificaciones push.
               </p>
             </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <a
-                href="/categoria/Servicios%20y%20Transporte"
-                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
-                style={{ fontSize: '0.82rem' }}
-              >
-                <i className="bi bi-arrow-left"></i>
-                <span>Volver a Servicios</span>
-              </a>
-            </div>
-
           </div>
         </div>
 

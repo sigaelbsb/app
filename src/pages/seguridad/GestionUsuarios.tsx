@@ -1397,20 +1397,6 @@ export const GestionUsuarios = () => {
                 Directorio integral de cuentas de acceso, control de portería de visitantes presenciales y auditoría de credenciales.
               </p>
             </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')}
-                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
-                style={{ fontSize: '0.82rem' }}
-              >
-                <i className="bi bi-arrow-left"></i>
-                <span>Volver al Menú</span>
-              </button>
-            </div>
-
           </div>
         </div>
 

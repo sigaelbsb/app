@@ -681,6 +681,40 @@ export const GestionAdmisiones: React.FC = () => {
   });
   const [procesandoFormalizacion, setProcesandoFormalizacion] = useState<boolean>(false);
 
+  // ── REGISTRO DE ADMISIÓN DIRECTA / EXTEMPORÁNEA ────────────────────────────────
+  const [modalRegistroDirectoAbierto, setModalRegistroDirectoAbierto] = useState<boolean>(false);
+  const [guardandoRegistroDirecto, setGuardandoRegistroDirecto] = useState<boolean>(false);
+  const [buscandoRepDirecto, setBuscandoRepDirecto] = useState<boolean>(false);
+  const [sinCedulaEstudianteDirecto, setSinCedulaEstudianteDirecto] = useState<boolean>(false);
+  const [repDirectoExistente, setRepDirectoExistente] = useState<{
+    existe: boolean;
+    nombre_completo?: string;
+    rol?: string;
+  } | null>(null);
+
+  const [formRegistroDirecto, setFormRegistroDirecto] = useState({
+    representante_cedula: '',
+    representante_nombres: '',
+    representante_apellidos: '',
+    representante_telefono: '',
+    representante_email: '',
+    parentesco: 'Hijo(a)',
+    trabaja_pdvsa: false,
+    pdvsa_condicion_laboral: '',
+    pdvsa_tipo_nomina: '',
+    estudiante_cedula: '',
+    estudiante_nombres: '',
+    estudiante_apellidos: '',
+    estudiante_sexo: 'M',
+    estudiante_fecha_nacimiento: '',
+    codigo_escuela: 'sb',
+    grado_solicitado: '1er Grado',
+    seccion: 'A',
+    plantel_procedencia: '',
+    estado_ingreso: 'Formalizado' as 'Formalizado' | 'Aprobado',
+    observaciones: ''
+  });
+
   // ── MODAL CONSTANCIA / RESUMEN IMPRIMIBLE ──────────────────────────────────────
   const [solicitudConstancia, setSolicitudConstancia] = useState<SolicitudAdmision | null>(null);
   const [modalConstanciaAbierto, setModalConstanciaAbierto] = useState<boolean>(false);
@@ -792,6 +826,7 @@ export const GestionAdmisiones: React.FC = () => {
   const [opcionesLocalidad, setOpcionesLocalidad] = useState<string[]>([]);
   const [opcionesCondicionLaboral, setOpcionesCondicionLaboral] = useState<string[]>([]);
   const [opcionesGrado, setOpcionesGrado] = useState<string[]>([]);
+  const [opcionesParentesco, setOpcionesParentesco] = useState<string[]>([]);
 
   // Formulario para calificación
   const [nuevoEstado, setNuevoEstado] = useState<string>('Pendiente');
@@ -824,6 +859,7 @@ export const GestionAdmisiones: React.FC = () => {
   const algunModalAbierto = Boolean(
     modalMatrizCapacidadAbierto ||
     modalFormalizarAbierto ||
+    modalRegistroDirectoAbierto ||
     modalHabilitarAccesoAbierto ||
     modalHabilitarMasivoAbierto ||
     modalDifusionAbierto ||
@@ -928,11 +964,12 @@ export const GestionAdmisiones: React.FC = () => {
   // ── CARGA DE CATÁLOGOS DESDE SUPABASE ──────────────────────────────────────────
   const cargarCatalogos = async () => {
     try {
-      const [gradosRes, nominasRes, condRes, localidadesRes] = await Promise.all([
+      const [gradosRes, nominasRes, condRes, localidadesRes, parentescosRes] = await Promise.all([
         supabase.from('conf_grados').select('valor').order('orden', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Nómina').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Condición').order('valor', { ascending: true }),
         supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Localidad').order('valor', { ascending: true }),
+        supabase.from('diccionarios_empresa').select('valor').eq('categoria', 'Parentesco').order('valor', { ascending: true }),
       ]);
 
       setOpcionesGrado(
@@ -957,6 +994,12 @@ export const GestionAdmisiones: React.FC = () => {
         localidadesRes.data && localidadesRes.data.length > 0
           ? localidadesRes.data.map((p: any) => p.valor)
           : []
+      );
+
+      setOpcionesParentesco(
+        parentescosRes.data && parentescosRes.data.length > 0
+          ? parentescosRes.data.map((p: any) => p.valor)
+          : ['Hijo(a)', 'Hermano(a)', 'Nieto(a)', 'Sobrino(a)']
       );
     } catch (e) {
       console.error('Error cargando catálogos de admisiones:', e);
@@ -1311,6 +1354,18 @@ export const GestionAdmisiones: React.FC = () => {
     });
     return Array.from(set);
   }, [opcionesGrado, solicitudes]);
+
+  const opcionesParentescoEnriquecidas = useMemo(() => {
+    const base = ['Hijo(a)', 'Hermano(a)', 'Nieto(a)', 'Sobrino(a)'];
+    const set = new Set<string>([...base, ...opcionesParentesco]);
+    solicitudes.forEach(s => {
+      const p = s.parentesco?.trim();
+      const rp = s.representante_parentesco?.trim();
+      if (p) set.add(p);
+      if (rp && rp !== 'Padre' && rp !== 'Madre' && rp !== 'Representante Legal') set.add(rp);
+    });
+    return Array.from(set).filter(Boolean).sort();
+  }, [opcionesParentesco, solicitudes]);
 
   // ── CONTEO DE FILTROS ACTIVOS ──────────────────────────────────────────────────
   const filtrosActivosCount = useMemo(() => {
@@ -2155,6 +2210,7 @@ export const GestionAdmisiones: React.FC = () => {
         'representante_telefono',
         'representante_telefono2',
         'representante_email',
+        'parentesco',
         'representante_parentesco',
         'representante_trabaja_pdvsa',
         'pdvsa_condicion_laboral',
@@ -2201,6 +2257,13 @@ export const GestionAdmisiones: React.FC = () => {
         }
       });
 
+      // Asegurar que tanto 'parentesco' como 'representante_parentesco' queden actualizados con el mismo valor
+      const parentescoElegido = formEdicion.parentesco || formEdicion.representante_parentesco;
+      if (parentescoElegido !== undefined) {
+        payloadBD.parentesco = parentescoElegido;
+        payloadBD.representante_parentesco = parentescoElegido;
+      }
+
       const { error } = await supabase
         .from('solicitud_cupos')
         .update(payloadBD)
@@ -2209,18 +2272,20 @@ export const GestionAdmisiones: React.FC = () => {
       if (error) throw error;
 
       // Sincronizar hacia estudiantes_vinculaciones si se modificó el representante o datos del aspirante
-      if (payloadBD.representante_cedula) {
+      if (payloadBD.representante_cedula || payloadBD.parentesco) {
         try {
           const codUni = formEdicion.codigo_unico;
           const cedEst = formEdicion.estudiante_cedula;
           const nomEst = formEdicion.estudiante_nombres;
           const apeEst = formEdicion.estudiante_apellidos;
           const payloadVinc: any = {
-            cedula_representante: payloadBD.representante_cedula,
-            nombres_representante: payloadBD.representante_nombres || formEdicion.representante_nombres,
-            apellidos_representante: payloadBD.representante_apellidos || formEdicion.representante_apellidos,
             updated_at: new Date().toISOString()
           };
+          if (payloadBD.representante_cedula) {
+            payloadVinc.cedula_representante = payloadBD.representante_cedula;
+            payloadVinc.nombres_representante = payloadBD.representante_nombres || formEdicion.representante_nombres;
+            payloadVinc.apellidos_representante = payloadBD.representante_apellidos || formEdicion.representante_apellidos;
+          }
 
           if (cedEst) {
             await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('cedula_estudiante', cedEst);
@@ -2246,8 +2311,14 @@ export const GestionAdmisiones: React.FC = () => {
         `Se editaron datos del aspirante ${nomEstEdit} (${formEdicion.codigo_unico})`
       );
 
+      const objetoActualizado = {
+        ...formEdicion,
+        parentesco: parentescoElegido,
+        representante_parentesco: parentescoElegido
+      };
+
       setSolicitudes(prev =>
-        prev.map(s => (s.id === formEdicion.id ? ({ ...s, ...formEdicion } as SolicitudAdmision) : s))
+        prev.map(s => (s.id === formEdicion.id ? ({ ...s, ...objetoActualizado } as SolicitudAdmision) : s))
       );
 
       setModoEdicionUnoAUno(false);
@@ -2522,6 +2593,341 @@ export const GestionAdmisiones: React.FC = () => {
       setProcesandoFormalizacion(false);
     }
   };
+
+  // ── LÓGICA: ADMISIÓN DIRECTA / EXTEMPORÁNEA ────────────────────────────────────
+  const generarCodigoUnicoAdmision = (esc: string) => {
+    const anio = new Date().getFullYear();
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let suf = '';
+    for (let i = 0; i < 6; i++) {
+      suf += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `SC-${esc.toUpperCase()}-${anio}-DIR${suf}`;
+  };
+
+  const capitalizarPalabras = (txt: string) => {
+    if (!txt) return '';
+    return txt
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(' ');
+  };
+
+  const abrirModalRegistroDirecto = () => {
+    const escDefecto = esSedeFija ? escuelaUsuarioAsignada : (filtroEscuela === 'sb' || filtroEscuela === 'lb' ? filtroEscuela : 'sb');
+    setFormRegistroDirecto({
+      representante_cedula: '',
+      representante_nombres: '',
+      representante_apellidos: '',
+      representante_telefono: '',
+      representante_email: '',
+      parentesco: 'Hijo(a)',
+      trabaja_pdvsa: false,
+      pdvsa_condicion_laboral: '',
+      pdvsa_tipo_nomina: '',
+      estudiante_cedula: '',
+      estudiante_nombres: '',
+      estudiante_apellidos: '',
+      estudiante_sexo: 'M',
+      estudiante_fecha_nacimiento: '',
+      codigo_escuela: escDefecto,
+      grado_solicitado: escDefecto === 'lb' ? '1er Año' : '1er Grado',
+      seccion: 'A',
+      plantel_procedencia: '',
+      estado_ingreso: 'Formalizado',
+      observaciones: ''
+    });
+    setSinCedulaEstudianteDirecto(false);
+    setRepDirectoExistente(null);
+    setModalRegistroDirectoAbierto(true);
+  };
+
+  const buscarRepresentanteDirecto = async (cedulaIngresada: string) => {
+    const cedLimpia = cleanCedula(cedulaIngresada);
+    if (!cedLimpia || cedLimpia.length < 5) {
+      setRepDirectoExistente(null);
+      return;
+    }
+
+    setBuscandoRepDirecto(true);
+    try {
+      // 1. Buscar en tabla usuarios
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('cedula, nombre_completo, rol, email, telefono, id_escuela')
+        .eq('cedula', cedLimpia)
+        .maybeSingle();
+
+      // 2. Buscar en estudiantes_vinculaciones por si hay nombres separados
+      const { data: vinculo } = await supabase
+        .from('estudiantes_vinculaciones')
+        .select('nombres_representante, apellidos_representante')
+        .eq('cedula_representante', cedLimpia)
+        .limit(1)
+        .maybeSingle();
+
+      if (usuario || vinculo) {
+        const nombreCompleto = usuario?.nombre_completo || '';
+        let nombres = vinculo?.nombres_representante || '';
+        let apellidos = vinculo?.apellidos_representante || '';
+
+        if (!nombres && nombreCompleto) {
+          const partes = nombreCompleto.trim().split(/\s+/);
+          if (partes.length === 1) {
+            nombres = partes[0];
+          } else if (partes.length === 2) {
+            nombres = partes[0];
+            apellidos = partes[1];
+          } else {
+            nombres = partes.slice(0, 2).join(' ');
+            apellidos = partes.slice(2).join(' ');
+          }
+        }
+
+        setFormRegistroDirecto(prev => ({
+          ...prev,
+          representante_nombres: prev.representante_nombres || nombres,
+          representante_apellidos: prev.representante_apellidos || apellidos,
+          representante_telefono: prev.representante_telefono || usuario?.telefono || '',
+          representante_email: prev.representante_email || usuario?.email || ''
+        }));
+
+        setRepDirectoExistente({
+          existe: true,
+          nombre_completo: nombreCompleto || `${nombres} ${apellidos}`.trim(),
+          rol: usuario?.rol || 'Representante'
+        });
+      } else {
+        setRepDirectoExistente({ existe: false });
+      }
+    } catch (err) {
+      console.warn('Error buscando representante directo:', err);
+      setRepDirectoExistente(null);
+    } finally {
+      setBuscandoRepDirecto(false);
+    }
+  };
+
+  const handleGuardarRegistroDirecto = async () => {
+    const cedRep = cleanCedula(formRegistroDirecto.representante_cedula);
+    const nomRep = capitalizarPalabras(formRegistroDirecto.representante_nombres.trim());
+    const apeRep = capitalizarPalabras(formRegistroDirecto.representante_apellidos.trim());
+    const telRep = formRegistroDirecto.representante_telefono.trim();
+    const emailRep = formRegistroDirecto.representante_email.trim();
+    const parentesco = formRegistroDirecto.parentesco || 'Hijo(a)';
+
+    const nomEst = capitalizarPalabras(formRegistroDirecto.estudiante_nombres.trim());
+    const apeEst = capitalizarPalabras(formRegistroDirecto.estudiante_apellidos.trim());
+    const escEst = formRegistroDirecto.codigo_escuela || 'sb';
+    const gradoEst = formRegistroDirecto.grado_solicitado || '1er Grado';
+    const seccionEst = formRegistroDirecto.seccion || 'A';
+    const sexoEst = formRegistroDirecto.estudiante_sexo || 'M';
+    const fNacEst = formRegistroDirecto.estudiante_fecha_nacimiento || '2015-01-01';
+
+    // Validaciones
+    if (!cedRep) {
+      if (Swal) Swal.fire('Cédula Requerida', 'Debe ingresar la cédula del representante legal.', 'warning');
+      return;
+    }
+    if (!nomRep || !apeRep) {
+      if (Swal) Swal.fire('Datos Requeridos', 'Indique nombres y apellidos del representante legal.', 'warning');
+      return;
+    }
+    if (!nomEst || !apeEst) {
+      if (Swal) Swal.fire('Datos Requeridos', 'Indique nombres y apellidos del estudiante aspirante.', 'warning');
+      return;
+    }
+    if (!gradoEst) {
+      if (Swal) Swal.fire('Grado Requerido', 'Seleccione el grado a cursar del estudiante.', 'warning');
+      return;
+    }
+
+    setGuardandoRegistroDirecto(true);
+
+    try {
+      const codUnico = generarCodigoUnicoAdmision(escEst);
+      const cedEst = sinCedulaEstudianteDirecto || !cleanCedula(formRegistroDirecto.estudiante_cedula)
+        ? `ESC-${codUnico}`
+        : cleanCedula(formRegistroDirecto.estudiante_cedula);
+      const nomCompletoRep = `${nomRep} ${apeRep}`.trim();
+      const nomCompletoEst = `${nomEst} ${apeEst}`.trim();
+      const estadoFinal = formRegistroDirecto.estado_ingreso;
+
+      // 1. Asegurar o crear Usuario en `usuarios`
+      const { data: userExiste } = await supabase
+        .from('usuarios')
+        .select('cedula, rol, id_escuela')
+        .eq('cedula', cedRep)
+        .maybeSingle();
+
+      if (!userExiste) {
+        const { error: errUser } = await supabase.from('usuarios').insert([{
+          cedula: cedRep,
+          nombre_completo: nomCompletoRep,
+          rol: 'Representante',
+          id_escuela: escEst,
+          email: emailRep || null,
+          telefono: telRep || null,
+          estado: 'Activo',
+          primer_ingreso: true,
+          clave: null,
+          solicito_reseteo: false
+        }]);
+        if (errUser) console.warn('Nota creando usuario representante:', errUser.message);
+      } else if (userExiste.id_escuela && userExiste.id_escuela !== escEst && userExiste.id_escuela !== 'ambas') {
+        await supabase.from('usuarios').update({ id_escuela: 'ambas' }).eq('cedula', cedRep);
+      }
+
+      // 2. Insertar en `solicitud_cupos`
+      const obsDirecto = `[Admisión Directa Extemporánea - ${new Date().toLocaleDateString('es-VE')} por ${user?.nombre_completo || user?.cedula || 'Dirección'}]${formRegistroDirecto.observaciones ? ' ' + formRegistroDirecto.observaciones : ''}`;
+
+      const payloadSolicitud: any = {
+        codigo_unico: codUnico,
+        codigo_escuela: escEst,
+        grado_solicitado: gradoEst,
+        estudiante_nombres: nomEst,
+        estudiante_apellidos: apeEst,
+        estudiante_cedula: cedEst,
+        estudiante_sexo: sexoEst,
+        estudiante_fecha_nacimiento: fNacEst,
+        plantel_procedencia: formRegistroDirecto.plantel_procedencia?.trim() || 'Ingreso Extemporáneo Directo',
+        representante_cedula: cedRep,
+        representante_nombres: nomRep,
+        representante_apellidos: apeRep,
+        representante_telefono: telRep || null,
+        representante_email: emailRep || null,
+        parentesco: parentesco,
+        representante_parentesco: parentesco,
+        representante_trabaja_pdvsa: formRegistroDirecto.trabaja_pdvsa ? 'SI' : 'NO',
+        pdvsa_condicion_laboral: formRegistroDirecto.trabaja_pdvsa ? formRegistroDirecto.pdvsa_condicion_laboral || null : null,
+        pdvsa_tipo_nomina: formRegistroDirecto.trabaja_pdvsa ? formRegistroDirecto.pdvsa_tipo_nomina || null : null,
+        estado: estadoFinal,
+        aptitud: 'Apto',
+        prioridad_manual: 1,
+        observaciones: obsDirecto,
+        creado_por: user?.cedula || 'Dirección'
+      };
+
+      const { data: solInsertada, error: errSol } = await supabase
+        .from('solicitud_cupos')
+        .insert([payloadSolicitud])
+        .select()
+        .single();
+
+      if (errSol) throw errSol;
+
+      // 3. Si es 'Formalizado', insertar/upsert en `estudiantes_vinculaciones`
+      if (estadoFinal === 'Formalizado') {
+        const datosActPayload = {
+          ...payloadSolicitud,
+          id: solInsertada?.id,
+          seccion_actual: seccionEst,
+          origen_admision: 'directo_extemporaneo',
+          formalizado_en_fisico: true
+        };
+
+        const payloadVincRow = {
+          cedula_representante: cedRep,
+          nombres_representante: nomRep,
+          apellidos_representante: apeRep,
+          cedula_estudiante: cedEst,
+          nombres_estudiante: nomEst,
+          apellidos_estudiante: apeEst,
+          grado_actual: gradoEst,
+          seccion_actual: seccionEst,
+          codigo_escuela: escEst,
+          estado: 'Activo',
+          datos_actualizados: datosActPayload,
+          creado_por: `Admisión Directa - ${user?.nombre_completo || user?.cedula || 'SIGAE'}`
+        };
+
+        const { error: errVinc } = await supabase
+          .from('estudiantes_vinculaciones')
+          .upsert([payloadVincRow], { onConflict: 'cedula_estudiante' });
+
+        if (errVinc) throw errVinc;
+      }
+
+      // 4. Auditar acción
+      await auditar(
+        'Gestión de Admisiones',
+        'Admisión Directa Registrada',
+        `Estudiante ${nomCompletoEst} (C.I. ${cedEst}) admitido como ${estadoFinal} en ${gradoEst} (${escEst.toUpperCase()}) por ${user?.nombre_completo || user?.cedula}`
+      );
+
+      // 5. Refrescar datos en memoria y capacidad escolar
+      await cargarSolicitudes();
+      await cargarCapacidadEscolar();
+
+      setModalRegistroDirectoAbierto(false);
+
+      // 6. Notificación exitosa
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: estadoFinal === 'Formalizado' ? '¡Estudiante Admitido y Matriculado!' : '¡Aspirante Admitido con Éxito!',
+          html: `
+            <div class="text-start small">
+              <div class="p-2.5 mb-2 bg-light rounded border">
+                <p class="mb-1">📋 <b>Código de Admisión:</b> <code class="text-primary fw-bold">${codUnico}</code></p>
+                <p class="mb-1">🎓 <b>Estudiante:</b> ${nomCompletoEst} (C.I./Esc: <b>${cedEst}</b>)</p>
+                <p class="mb-1">🏫 <b>Plantel:</b> ${escEst.toUpperCase() === 'SB' ? 'U.E. Simón Bolívar' : 'Liceo Bolivariano'} • ${gradoEst} ${estadoFinal === 'Formalizado' ? `Sección "${seccionEst}"` : ''}</p>
+                <p class="mb-0">👤 <b>Representante:</b> ${nomCompletoRep} (C.I. <b>${cedRep}</b>) • ${parentesco}</p>
+              </div>
+              <p class="mb-1">🔑 <b>Acceso Representante SIGAE:</b> Cédula <code>${cedRep}</code> (Primer ingreso activo).</p>
+              <p class="text-success mb-0 fw-bold">${estadoFinal === 'Formalizado' ? '✅ Cupo formalizado y contabilizado en la matrícula del plantel.' : '🕒 Registrado como "Aprobado", listo para formalizar presencialmente en taquilla.'}</p>
+            </div>
+          `,
+          showCancelButton: estadoFinal === 'Formalizado',
+          confirmButtonText: estadoFinal === 'Formalizado' ? 'Ver Constancia' : 'Aceptar',
+          cancelButtonText: 'Cerrar'
+        }).then((result: any) => {
+          if (result.isConfirmed && estadoFinal === 'Formalizado' && solInsertada) {
+            setSolicitudConstancia(solInsertada);
+            setModalConstanciaAbierto(true);
+          }
+        });
+      }
+
+    } catch (err: any) {
+      console.error('Error al registrar admisión directa:', err);
+      if (Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Registrar Admisión',
+          text: err?.message || 'Ocurrió un error inesperado al procesar la admisión directa.'
+        });
+      }
+    } finally {
+      setGuardandoRegistroDirecto(false);
+    }
+  };
+
+  const gradosDisponiblesDirecto = useMemo(() => {
+    const esc = formRegistroDirecto.codigo_escuela;
+    if (esc === 'lb') {
+      const listaLb = ['1er Año', '2do Año', '3er Año', '4to Año', '5to Año'];
+      const extra = opcionesGradoEnriquecidos.filter(g => g.toLowerCase().includes('año'));
+      return Array.from(new Set([...listaLb, ...extra]));
+    } else {
+      const listaSb = [
+        'Maternal',
+        '1er Grupo',
+        '2do Grupo',
+        '3er Grupo',
+        '1er Grado',
+        '2do Grado',
+        '3er Grado',
+        '4to Grado',
+        '5to Grado',
+        '6to Grado'
+      ];
+      const extra = opcionesGradoEnriquecidos.filter(g => !g.toLowerCase().includes('año'));
+      return Array.from(new Set([...listaSb, ...extra]));
+    }
+  }, [formRegistroDirecto.codigo_escuela, opcionesGradoEnriquecidos]);
 
   // ── LÓGICA: HABILITACIÓN DE ACCESO DE REPRESENTANTE Y ESTUDIANTE (UNO A UNO) ────
   const abrirModalHabilitarAcceso = async (sol: SolicitudAdmision) => {
@@ -4398,7 +4804,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
               </p>
             </div>
 
-            {/* Selector de Sede Interactivo y Volver al Menú */}
+            {/* Selector de Sede Interactivo */}
             <div className="col-12 col-md-auto text-md-end text-center d-flex flex-column align-items-md-end align-items-center gap-2">
               <div className="d-inline-flex p-1 bg-white rounded-pill border shadow-xs" style={{ borderColor: '#ddd6fe' }}>
                 {!esSedeFija && (
@@ -4441,16 +4847,6 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   </button>
                 )}
               </div>
-
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Gesti%C3%B3n%20Estudiantil')}
-                className="btn btn-white bg-white rounded-pill px-3.5 py-1.5 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto border shadow-xs"
-                style={{ fontSize: '0.82rem' }}
-              >
-                <i className="bi bi-arrow-left"></i>
-                <span>Volver al Menú</span>
-              </button>
             </div>
 
           </div>
@@ -4491,6 +4887,16 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                 </button>
               </>
             )}
+
+            <button
+              className="btn rounded-pill px-3 py-1.5 fw-bold text-white shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.82rem', backgroundColor: '#0284C7', borderColor: '#0284C7' }}
+              onClick={abrirModalRegistroDirecto}
+              title="Registrar nuevo aspirante y representante directamente sin solicitud previa web"
+            >
+              <i className="bi bi-person-plus-fill"></i>
+              <span>Admisión Directa / Extemporánea</span>
+            </button>
 
             <button
               className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1"
@@ -4658,6 +5064,15 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
             </div>
           </div>
           <div className="d-flex align-items-center gap-2">
+            <button
+              className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold text-white shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.8rem', backgroundColor: '#0284C7', borderColor: '#0284C7' }}
+              onClick={abrirModalRegistroDirecto}
+              title="Registrar nuevo estudiante extemporáneo directamente"
+            >
+              <i className="bi bi-person-plus-fill"></i>
+              <span>+ Admisión Directa</span>
+            </button>
             <span className="badge px-3 py-2 rounded-pill fw-bold text-white shadow-xs" style={{ backgroundColor: '#0D9488', fontSize: '0.82rem' }}>
               <i className="bi bi-person-check-fill me-1"></i> {kpisFormalizacion.total} Aspirantes Admitidos
             </span>
@@ -4780,8 +5195,8 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
           <div className="card-body p-2.5 p-md-3">
             {/* Fila principal: Búsqueda rápida + Escuela + Botón de Filtros Avanzados */}
             <div className="row g-2 align-items-center">
-              {/* Buscador general */}
-              <div className="col-12 col-md-5 col-lg-5">
+              {/* Buscador general optimizado */}
+              <div className="col-12 col-md-7 col-lg-7">
                 <div className="input-group input-group-sm">
                   <span className="input-group-text bg-light text-muted border-end-0">
                     <i className="bi bi-search"></i>
@@ -4806,28 +5221,8 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                 </div>
               </div>
 
-              {/* Selector Rápido de Escuela */}
-              <div className="col-6 col-md-3 col-lg-3">
-                <div className="input-group input-group-sm">
-                  <span className="input-group-text bg-light text-muted">
-                    <i className="bi bi-building"></i>
-                  </span>
-                  <select
-                    className="form-select form-select-sm"
-                    value={filtroEscuela}
-                    onChange={e => setFiltroEscuela(e.target.value)}
-                    disabled={esSedeFija}
-                    title={esSedeFija ? `Asignado exclusivamente a ${escuelaUsuarioAsignada === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}` : "Filtrar por Escuela"}
-                  >
-                    {!esSedeFija && <option value="todas">Todas las Escuelas</option>}
-                    {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && <option value="sb">U.E. Santa Bárbara</option>}
-                    {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && <option value="lb">U.E. Libertador Bolívar</option>}
-                  </select>
-                </div>
-              </div>
-
-              {/* Selector Rápido de Grado */}
-              <div className="col-6 col-md-4 col-lg-4 d-flex align-items-center gap-1.5">
+              {/* Selector de Grado + Filtros Avanzados */}
+              <div className="col-12 col-md-5 col-lg-5 d-flex align-items-center gap-1.5">
                 <div className="input-group input-group-sm flex-grow-1">
                   <span className="input-group-text bg-light text-muted">
                     <i className="bi bi-mortarboard"></i>
@@ -6097,13 +6492,29 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                           />
                         </div>
                         <div className="col-6">
-                          <label className="form-label extra-small fw-bold">Parentesco:</label>
-                          <input
-                            type="text"
-                            className="form-control form-control-sm"
+                          <label className="form-label extra-small fw-bold">
+                            Parentesco: <span className="text-danger">*</span>
+                          </label>
+                          <select
+                            className="form-select form-select-sm"
                             value={formEdicion.parentesco || formEdicion.representante_parentesco || ''}
-                            onChange={e => setFormEdicion({ ...formEdicion, parentesco: e.target.value, representante_parentesco: e.target.value })}
-                          />
+                            onChange={e => {
+                              const val = e.target.value;
+                              setFormEdicion({ ...formEdicion, parentesco: val, representante_parentesco: val });
+                            }}
+                          >
+                            <option value="">Seleccionar Parentesco...</option>
+                            {opcionesParentescoEnriquecidas.map(p => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                            {/* Si el valor actual no está en la lista estándar, agregarlo para no perderlo */}
+                            {(formEdicion.parentesco || formEdicion.representante_parentesco) &&
+                              !opcionesParentescoEnriquecidas.includes((formEdicion.parentesco || formEdicion.representante_parentesco)!) && (
+                                <option value={formEdicion.parentesco || formEdicion.representante_parentesco}>
+                                  {formEdicion.parentesco || formEdicion.representante_parentesco} (Personalizado)
+                                </option>
+                              )}
+                          </select>
                         </div>
                         <div className="col-6">
                           <label className="form-label extra-small fw-bold">Teléfono Principal:</label>
@@ -10963,6 +11374,559 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
           document.body
         );
       })()}
+
+      {/* ── MODAL: REGISTRAR ADMISIÓN DIRECTA / EXTEMPORÁNEA ──────────────── */}
+      {modalRegistroDirectoAbierto && createPortal(
+        <div
+          className="modal fade show d-flex align-items-center justify-content-center"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.82)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 1060,
+            overflowY: 'auto',
+            padding: '16px'
+          }}
+        >
+          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable my-auto mx-auto w-100" style={{ maxWidth: '980px', maxHeight: '92vh' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
+              
+              {/* Header */}
+              <div className="modal-header py-3 px-4 text-white position-relative" style={{ background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)' }}>
+                <div className="d-flex align-items-center gap-3">
+                  <div className="rounded-circle bg-white text-primary p-2.5 d-flex align-items-center justify-content-center shadow-xs" style={{ width: '44px', height: '44px' }}>
+                    <i className="bi bi-person-plus-fill fs-4" style={{ color: '#0284C7' }}></i>
+                  </div>
+                  <div>
+                    <h5 className="modal-title fw-bold mb-0 text-white">Registrar Admisión Directa / Extemporánea</h5>
+                    <small className="text-white-50" style={{ fontSize: '0.82rem' }}>
+                      Inscripción y admisión oficial de nuevos aspirantes y representantes sin requerir solicitud web previa
+                    </small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => !guardandoRegistroDirecto && setModalRegistroDirectoAbierto(false)}
+                  disabled={guardandoRegistroDirecto}
+                ></button>
+              </div>
+
+              {/* Body */}
+              <div className="modal-body p-4 bg-light" style={{ fontSize: '13.5px' }}>
+                
+                {/* Banner Informativo */}
+                <div className="alert alert-primary bg-white border-primary-subtle shadow-xs rounded-3 p-3 mb-3 d-flex align-items-start gap-2.5">
+                  <i className="bi bi-info-circle-fill fs-5 text-primary mt-0.5"></i>
+                  <div className="small">
+                    <strong className="text-primary d-block mb-0.5">Flujo Unificado de Admisión Directa</strong>
+                    <span className="text-muted">
+                      Este formulario genera automáticamente el <b>Código Único de Admisión</b> oficial, habilita la cuenta de acceso al sistema para el representante legal (con rol Representante y primer ingreso activo), y si selecciona <b>Formalizado</b>, inscribe al estudiante en la matrícula escolar actualizando de inmediato la capacidad de salones y cupos.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="row g-3">
+                  
+                  {/* SECCIÓN 1: DATOS DEL REPRESENTANTE LEGAL */}
+                  <div className="col-12 col-lg-6">
+                    <div className="card h-100 border-0 shadow-xs rounded-3 bg-white overflow-hidden">
+                      <div className="card-header bg-white py-2.5 px-3 border-bottom d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="badge rounded-circle p-1.5 text-white" style={{ backgroundColor: '#0284C7' }}>
+                            <i className="bi bi-person-badge-fill fs-6"></i>
+                          </span>
+                          <strong className="text-dark small">1. Representante Legal</strong>
+                        </div>
+                        {repDirectoExistente?.existe && (
+                          <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1">
+                            <i className="bi bi-check-circle-fill me-1"></i> Registrado en SIGAE
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="card-body p-3">
+                        {/* Cédula y Búsqueda */}
+                        <div className="mb-2.5">
+                          <label className="form-label fw-bold small text-secondary mb-1">
+                            Cédula de Identidad <span className="text-danger">*</span>
+                          </label>
+                          <div className="input-group input-group-sm">
+                            <span className="input-group-text bg-light text-muted">V / E</span>
+                            <input
+                              type="text"
+                              className="form-control"
+                              placeholder="Ej: 12345678"
+                              value={formRegistroDirecto.representante_cedula}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setFormRegistroDirecto(prev => ({ ...prev, representante_cedula: val }));
+                              }}
+                              onBlur={() => buscarRepresentanteDirecto(formRegistroDirecto.representante_cedula)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  buscarRepresentanteDirecto(formRegistroDirecto.representante_cedula);
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-outline-primary fw-bold"
+                              onClick={() => buscarRepresentanteDirecto(formRegistroDirecto.representante_cedula)}
+                              disabled={buscandoRepDirecto || !formRegistroDirecto.representante_cedula.trim()}
+                            >
+                              {buscandoRepDirecto ? (
+                                <span className="spinner-border spinner-border-sm"></span>
+                              ) : (
+                                <><i className="bi bi-search me-1"></i> Buscar</>
+                              )}
+                            </button>
+                          </div>
+                          
+                          {/* Alerta de detección */}
+                          {repDirectoExistente && (
+                            <div className="mt-1.5">
+                              {repDirectoExistente.existe ? (
+                                <div className="alert alert-success py-1.5 px-2.5 mb-0 rounded-2 extra-small d-flex align-items-center gap-1.5">
+                                  <i className="bi bi-person-check-fill text-success"></i>
+                                  <span>
+                                    Usuario activo: <b>{repDirectoExistente.nombre_completo}</b> (Rol: {repDirectoExistente.rol}). Datos autocompletados.
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="alert alert-info py-1.5 px-2.5 mb-0 rounded-2 extra-small d-flex align-items-center gap-1.5">
+                                  <i className="bi bi-magic text-primary"></i>
+                                  <span>Nuevo representante. Se creará su cuenta oficial en SIGAE.</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Nombres y Apellidos */}
+                        <div className="row g-2 mb-2.5">
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">
+                              Nombres <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Nombres"
+                              value={formRegistroDirecto.representante_nombres}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, representante_nombres: e.target.value }))}
+                            />
+                          </div>
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">
+                              Apellidos <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Apellidos"
+                              value={formRegistroDirecto.representante_apellidos}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, representante_apellidos: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Teléfono y Correo */}
+                        <div className="row g-2 mb-2.5">
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">Teléfono (WhatsApp)</label>
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Ej: 0414-1234567"
+                              value={formRegistroDirecto.representante_telefono}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, representante_telefono: e.target.value }))}
+                            />
+                          </div>
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">Correo Electrónico</label>
+                            <input
+                              type="email"
+                              className="form-control form-control-sm"
+                              placeholder="correo@ejemplo.com"
+                              value={formRegistroDirecto.representante_email}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, representante_email: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Parentesco */}
+                        <div className="mb-2.5">
+                          <label className="form-label fw-bold small text-secondary mb-1">
+                            Parentesco con el Estudiante <span className="text-danger">*</span>
+                          </label>
+                          <select
+                            className="form-select form-select-sm"
+                            value={formRegistroDirecto.parentesco}
+                            onChange={e => setFormRegistroDirecto(prev => ({ ...prev, parentesco: e.target.value }))}
+                          >
+                            {opcionesParentescoEnriquecidas.map(p => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Filiación PDVSA */}
+                        <div className="p-2.5 rounded-3 bg-light border mt-3">
+                          <div className="form-check form-switch mb-2">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              role="switch"
+                              id="checkTrabajaPdvsaDirecto"
+                              checked={formRegistroDirecto.trabaja_pdvsa}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, trabaja_pdvsa: e.target.checked }))}
+                            />
+                            <label className="form-check-label fw-bold small text-dark" htmlFor="checkTrabajaPdvsaDirecto">
+                              ¿Trabajador PDVSA / Filial petrolera?
+                            </label>
+                          </div>
+
+                          {formRegistroDirecto.trabaja_pdvsa && (
+                            <div className="row g-2 mt-1">
+                              <div className="col-6">
+                                <label className="form-label fw-bold extra-small text-secondary mb-1">Condición Laboral</label>
+                                <select
+                                  className="form-select form-select-sm"
+                                  value={formRegistroDirecto.pdvsa_condicion_laboral}
+                                  onChange={e => setFormRegistroDirecto(prev => ({ ...prev, pdvsa_condicion_laboral: e.target.value }))}
+                                >
+                                  <option value="">Seleccione...</option>
+                                  {opcionesCondicionEnriquecidas.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="col-6">
+                                <label className="form-label fw-bold extra-small text-secondary mb-1">Tipo de Nómina</label>
+                                <select
+                                  className="form-select form-select-sm"
+                                  value={formRegistroDirecto.pdvsa_tipo_nomina}
+                                  onChange={e => setFormRegistroDirecto(prev => ({ ...prev, pdvsa_tipo_nomina: e.target.value }))}
+                                >
+                                  <option value="">Seleccione...</option>
+                                  {opcionesNominaEnriquecidas.map(n => (
+                                    <option key={n} value={n}>{n}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECCIÓN 2: DATOS DEL ESTUDIANTE ASPIRANTE */}
+                  <div className="col-12 col-lg-6">
+                    <div className="card h-100 border-0 shadow-xs rounded-3 bg-white overflow-hidden">
+                      <div className="card-header bg-white py-2.5 px-3 border-bottom d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="badge rounded-circle p-1.5 text-white" style={{ backgroundColor: '#10B981' }}>
+                            <i className="bi bi-mortarboard-fill fs-6"></i>
+                          </span>
+                          <strong className="text-dark small">2. Estudiante Aspirante</strong>
+                        </div>
+                        <span className="badge bg-light text-secondary border">Nuevo Ingreso</span>
+                      </div>
+
+                      <div className="card-body p-3">
+                        {/* Cédula de Estudiante o Escolar */}
+                        <div className="mb-2.5">
+                          <div className="d-flex justify-content-between align-items-center mb-1">
+                            <label className="form-label fw-bold small text-secondary mb-0">Cédula de Identidad / Escolar</label>
+                            <div className="form-check extra-small mb-0">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="checkSinCedulaDirecto"
+                                checked={sinCedulaEstudianteDirecto}
+                                onChange={e => {
+                                  setSinCedulaEstudianteDirecto(e.target.checked);
+                                  if (e.target.checked) {
+                                    setFormRegistroDirecto(prev => ({ ...prev, estudiante_cedula: '' }));
+                                  }
+                                }}
+                              />
+                              <label className="form-check-label text-muted" htmlFor="checkSinCedulaDirecto">
+                                Sin cédula (Generar Cédula Escolar)
+                              </label>
+                            </div>
+                          </div>
+
+                          {sinCedulaEstudianteDirecto ? (
+                            <div className="py-2 px-3 bg-light rounded border text-muted small d-flex align-items-center gap-2">
+                              <i className="bi bi-magic text-success"></i>
+                              <span>Se asignará automáticamente el identificador oficial <b>ESC-SC-...</b></span>
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Ej: V-34567890 o Cédula Escolar previa"
+                              value={formRegistroDirecto.estudiante_cedula}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, estudiante_cedula: e.target.value }))}
+                            />
+                          )}
+                        </div>
+
+                        {/* Nombres y Apellidos */}
+                        <div className="row g-2 mb-2.5">
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">
+                              Nombres <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Nombres"
+                              value={formRegistroDirecto.estudiante_nombres}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, estudiante_nombres: e.target.value }))}
+                            />
+                          </div>
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">
+                              Apellidos <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Apellidos"
+                              value={formRegistroDirecto.estudiante_apellidos}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, estudiante_apellidos: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Sexo y Fecha de Nacimiento */}
+                        <div className="row g-2 mb-2.5">
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">Sexo</label>
+                            <select
+                              className="form-select form-select-sm"
+                              value={formRegistroDirecto.estudiante_sexo}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, estudiante_sexo: e.target.value }))}
+                            >
+                              <option value="M">Masculino</option>
+                              <option value="F">Femenino</option>
+                            </select>
+                          </div>
+                          <div className="col-6">
+                            <label className="form-label fw-bold small text-secondary mb-1">Fecha de Nacimiento</label>
+                            <input
+                              type="date"
+                              className="form-control form-control-sm"
+                              value={formRegistroDirecto.estudiante_fecha_nacimiento}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, estudiante_fecha_nacimiento: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Plantel / Escuela y Grado */}
+                        <div className="row g-2 mb-2.5">
+                          <div className="col-5">
+                            <label className="form-label fw-bold small text-secondary mb-1">Plantel</label>
+                            <select
+                              className="form-select form-select-sm fw-bold"
+                              value={formRegistroDirecto.codigo_escuela}
+                              disabled={esSedeFija}
+                              onChange={e => {
+                                const esc = e.target.value;
+                                setFormRegistroDirecto(prev => ({
+                                  ...prev,
+                                  codigo_escuela: esc,
+                                  grado_solicitado: esc === 'lb' ? '1er Año' : '1er Grado'
+                                }));
+                              }}
+                            >
+                              <option value="sb">U.E. Simón Bolívar</option>
+                              <option value="lb">Liceo Bolivariano</option>
+                            </select>
+                          </div>
+                          <div className="col-7">
+                            <label className="form-label fw-bold small text-secondary mb-1">
+                              Grado / Año a Cursar <span className="text-danger">*</span>
+                            </label>
+                            <select
+                              className="form-select form-select-sm"
+                              value={formRegistroDirecto.grado_solicitado}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, grado_solicitado: e.target.value }))}
+                            >
+                              {gradosDisponiblesDirecto.map(g => (
+                                <option key={g} value={g}>{g}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Sección Asignada y Procedencia */}
+                        <div className="row g-2 mb-1">
+                          <div className="col-5">
+                            <label className="form-label fw-bold small text-secondary mb-1">Sección Asignada</label>
+                            <select
+                              className="form-select form-select-sm"
+                              value={formRegistroDirecto.seccion}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, seccion: e.target.value }))}
+                            >
+                              {['A', 'B', 'C', 'D', 'E', 'F'].map(sec => (
+                                <option key={sec} value={sec}>Sección "{sec}"</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-7">
+                            <label className="form-label fw-bold small text-secondary mb-1">Plantel de Procedencia</label>
+                            <input
+                              type="text"
+                              className="form-control form-control-sm"
+                              placeholder="Ej: U.E. San José (Opcional)"
+                              value={formRegistroDirecto.plantel_procedencia}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, plantel_procedencia: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECCIÓN 3: MODALIDAD DE INGRESO Y OBSERVACIONES */}
+                  <div className="col-12">
+                    <div className="card border-0 shadow-xs rounded-3 bg-white p-3">
+                      <div className="row g-3 align-items-center">
+                        <div className="col-12 col-md-6">
+                          <label className="form-label fw-bold small text-secondary mb-1.5 d-block">
+                            3. Estado de Admisión Inicial <span className="text-danger">*</span>
+                          </label>
+                          <div className="d-flex gap-2">
+                            <div
+                              className={`flex-fill p-2.5 rounded-3 border transition-all ${formRegistroDirecto.estado_ingreso === 'Formalizado' ? 'border-success bg-success-subtle' : 'bg-light'}`}
+                              onClick={() => setFormRegistroDirecto(prev => ({ ...prev, estado_ingreso: 'Formalizado' }))}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <div className="d-flex align-items-center gap-2 mb-1">
+                                <input
+                                  type="radio"
+                                  name="estadoIngresoDirecto"
+                                  id="radioFormalizado"
+                                  className="form-check-input mt-0"
+                                  checked={formRegistroDirecto.estado_ingreso === 'Formalizado'}
+                                  onChange={() => setFormRegistroDirecto(prev => ({ ...prev, estado_ingreso: 'Formalizado' }))}
+                                />
+                                <label htmlFor="radioFormalizado" className="fw-bold small text-dark mb-0 cursor-pointer">
+                                  Formalización Inmediata
+                                </label>
+                                <span className="badge bg-success rounded-pill extra-small">Recomendado</span>
+                              </div>
+                              <p className="extra-small text-muted mb-0 ps-4">
+                                Matricula al estudiante de inmediato en el salón y vincula al representante.
+                              </p>
+                            </div>
+
+                            <div
+                              className={`flex-fill p-2.5 rounded-3 border transition-all ${formRegistroDirecto.estado_ingreso === 'Aprobado' ? 'border-primary bg-primary-subtle' : 'bg-light'}`}
+                              onClick={() => setFormRegistroDirecto(prev => ({ ...prev, estado_ingreso: 'Aprobado' }))}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <div className="d-flex align-items-center gap-2 mb-1">
+                                <input
+                                  type="radio"
+                                  name="estadoIngresoDirecto"
+                                  id="radioAprobado"
+                                  className="form-check-input mt-0"
+                                  checked={formRegistroDirecto.estado_ingreso === 'Aprobado'}
+                                  onChange={() => setFormRegistroDirecto(prev => ({ ...prev, estado_ingreso: 'Aprobado' }))}
+                                />
+                                <label htmlFor="radioAprobado" className="fw-bold small text-dark mb-0 cursor-pointer">
+                                  Aprobado para Taquilla
+                                </label>
+                              </div>
+                              <p className="extra-small text-muted mb-0 ps-4">
+                                Se genera cupo aprobado; formalizará en taquilla presencial.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                          <label className="form-label fw-bold small text-secondary mb-1">
+                            Observaciones Administrativas
+                          </label>
+                          <textarea
+                            className="form-control form-control-sm"
+                            rows={2}
+                            placeholder="Motivo de ingreso extemporáneo, número de memorando, etc. (Opcional)"
+                            value={formRegistroDirecto.observaciones}
+                            onChange={e => setFormRegistroDirecto(prev => ({ ...prev, observaciones: e.target.value }))}
+                          ></textarea>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer bg-light py-2.5 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span className="small text-muted">
+                  <i className="bi bi-shield-check text-success me-1"></i>
+                  La acción quedará registrada en el módulo de auditoría SIGAE.
+                </span>
+
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm rounded-pill px-3"
+                    onClick={() => setModalRegistroDirectoAbierto(false)}
+                    disabled={guardandoRegistroDirecto}
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-1.5 text-white"
+                    style={{ backgroundColor: '#0284C7', borderColor: '#0369A1' }}
+                    onClick={handleGuardarRegistroDirecto}
+                    disabled={guardandoRegistroDirecto}
+                  >
+                    {guardandoRegistroDirecto ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span>Registrando e Inscribiendo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-check-circle-fill"></i>
+                        <span>Registrar Admisión</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

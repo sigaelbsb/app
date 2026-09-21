@@ -8,6 +8,7 @@ import { ChatbotSigma } from './ChatbotSigma';
 import { TourOrientacion } from './TourOrientacion';
 import { NavigationLoader } from './NavigationLoader';
 import { ModalAsignacionSorpresa } from './ModalAsignacionSorpresa';
+import { MobileBottomNav } from './MobileBottomNav';
 
 export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const navigate = useNavigate();
@@ -50,6 +51,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const [mostrarNotifDropdown, setMostrarNotifDropdown] = useState(false);
   const [mostrarUserDropdown, setMostrarUserDropdown] = useState(false);
   const [mostrarAsignacionManual, setMostrarAsignacionManual] = useState(false);
+  const [mostrarSheetMovil, setMostrarSheetMovil] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [silenciarTransporte, setSilenciarTransporte] = useState<boolean>(() => {
     return localStorage.getItem('sigae_silenciar_transporte') === 'true';
@@ -1078,7 +1080,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         />
       )}
 
-      <aside id="menu-lateral" className="glass-sidebar chamilo-sidebar shadow-sm d-flex flex-column">
+      <aside id="menu-lateral" className="glass-sidebar chamilo-sidebar shadow-sm d-none d-lg-flex flex-column">
         {/* CABECERA INSTITUCIONAL CHAMILO */}
         <div className="chamilo-sidebar-brand d-flex align-items-center justify-content-between">
           <div 
@@ -1336,9 +1338,37 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           style={esModoEmulacion ? { top: '48px' } : undefined}
         >
           <div className="d-flex align-items-center d-lg-none me-2">
-            <button id="btn-menu-movil" onClick={toggleMobileSidebar} className="btn-movil position-relative" title="Abrir Menú de Categorías">
-              <i className="bi bi-list fs-2 text-primary"></i>
+            <button 
+              id="btn-menu-movil" 
+              onClick={() => setMostrarSheetMovil(true)} 
+              className="btn-movil position-relative p-1 d-flex align-items-center justify-content-center" 
+              title="Abrir Todas las Cajas de Herramientas"
+              style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff' }}
+            >
+              <i className="bi bi-grid-fill fs-5 text-primary"></i>
             </button>
+          </div>
+
+          {/* MARCA INSTITUCIONAL EN MÓVIL */}
+          <div 
+            className="d-flex d-lg-none align-items-center gap-2 cursor-pointer"
+            onClick={() => setMostrarSheetMovil(true)}
+            title="Cajas de Herramientas"
+          >
+            <div 
+              className="rounded-circle p-0.5 bg-light border d-flex align-items-center justify-content-center"
+              style={{ width: '30px', height: '30px', flexShrink: 0 }}
+            >
+              <img 
+                src={logoPath} 
+                alt="Logo" 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+              />
+            </div>
+            <span className="fw-bold text-dark small text-truncate" style={{ maxWidth: '140px' }}>
+              {activeCategory === 'Inicio' ? escuelaNombre : activeCategory}
+            </span>
           </div>
 
           {/* BOTÓN TOGGLE SIDEBAR EN DESKTOP (SIEMPRE DISPONIBLE Y VISIBLE) */}
@@ -1747,7 +1777,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           </div>
         </header>
 
-        <div id="area-dinamica" className="contenedor-dinamico p-4 p-md-5 flex-grow-1">
+        <div id="area-dinamica" className="contenedor-dinamico p-2 p-sm-3 p-md-4 p-lg-5 flex-grow-1">
           <Outlet />
         </div>
 
@@ -1762,6 +1792,19 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         </footer>
       </main>
       <NavigationLoader />
+      <MobileBottomNav 
+        activeCategory={activeCategory}
+        tienePermiso={tienePermiso}
+        tienePermisoEnEscuela={tienePermisoEnEscuela}
+        permLoading={permLoading}
+        escuelaCodigo={escuelaCodigo}
+        escuelaNombre={escuelaNombre}
+        logoPath={logoPath}
+        usuario={usuario}
+        onLogout={handleLogout}
+        abrirSheetExterno={mostrarSheetMovil}
+        onCerrarSheetExterno={() => setMostrarSheetMovil(false)}
+      />
       <ChatbotSigma />
       <TourOrientacion />
       {esPersonalEscuela && (

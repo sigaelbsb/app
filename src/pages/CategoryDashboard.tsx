@@ -749,23 +749,6 @@ export const CategoryDashboard = () => {
                 </div>
               </div>
             </div>
-
-            {/* Botón Volver al Menú Principal */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button 
-                type="button"
-                onClick={() => navigate('/')} 
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-2"
-                style={{ 
-                  fontSize: '0.85rem',
-                  borderColor: theme.backBtnBorder
-                }}
-              >
-                <i className="bi bi-arrow-left" style={{ color: theme.backBtnIcon }}></i>
-                <span>Volver al Menú Principal</span>
-              </button>
-            </div>
-
           </div>
         </div>
       </div>

@@ -1,0 +1,472 @@
+/* =========================================================================
+   SIGAE - BARRA DE NAVEGACIÓN INFERIOR Y EXPERIENCIA MÓVIL NATIVA
+   Diseño táctil ergonómico para smartphones y tablets (< 992px)
+   ========================================================================= */
+
+/* --- 1. BARRA INFERIOR FLOTANTE / FIJA (BOTTOM NAV BAR) --- */
+.sigae-mobile-bottom-nav {
+  display: none; /* Se activa exclusivamente en pantallas < 992px vía media query */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(65px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.07), 0 -1px 3px rgba(15, 23, 42, 0.03);
+  z-index: 1040;
+  align-items: center;
+  justify-content: space-around;
+  padding-left: 6px;
+  padding-right: 6px;
+  user-select: none;
+}
+
+@media (max-width: 991.98px) {
+  .sigae-mobile-bottom-nav {
+    display: flex !important;
+  }
+
+  /* Ocultar la barra lateral tradicional desktop en móvil para dar 100% de espacio */
+  aside#menu-lateral.glass-sidebar {
+    display: none !important;
+  }
+
+  #contenido-principal,
+  body.menu-colapsado #contenido-principal {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+
+  /* Altura de cabecera más compacta en móvil */
+  .chamilo-top-header {
+    height: 60px !important;
+    left: 0 !important;
+  }
+
+  #contenido-principal {
+    padding-top: 60px !important;
+  }
+
+  /* Área dinámica con holgura inferior para que nunca se tape con la barra móvil */
+  #area-dinamica {
+    padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 14px !important;
+  }
+
+  /* Footer con margen para la barra inferior */
+  footer.w-100 {
+    margin-bottom: calc(65px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+  }
+}
+
+/* --- 2. BOTONES / PESTAÑAS TÁCTILES DE LA BARRA INFERIOR --- */
+.sigae-nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  margin: 0 2px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  text-decoration: none;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sigae-nav-tab:active {
+  transform: scale(0.92);
+}
+
+.sigae-nav-tab-icon-wrap {
+  width: 32px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  position: relative;
+  font-size: 1.25rem;
+  transition: all 0.22s ease;
+}
+
+.sigae-nav-tab-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  margin-top: 2px;
+  letter-spacing: -0.2px;
+  transition: all 0.22s ease;
+  white-space: nowrap;
+}
+
+/* Pestaña activa: Cápsula iluminada y color primario institucional */
+.sigae-nav-tab.active {
+  color: #0066FF;
+}
+
+.sigae-nav-tab.active .sigae-nav-tab-icon-wrap {
+  background: rgba(0, 102, 255, 0.12);
+  color: #0066FF;
+  transform: translateY(-2px);
+}
+
+.sigae-nav-tab.active .sigae-nav-tab-label {
+  font-weight: 800;
+  color: #0066FF;
+}
+
+/* Micro-indicador LED de punto activo */
+.sigae-nav-tab-dot {
+  position: absolute;
+  bottom: 1px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #0066FF;
+  box-shadow: 0 0 6px #0066FF;
+}
+
+/* Badge de notificación en pestaña */
+.sigae-nav-tab-badge {
+  position: absolute;
+  top: 1px;
+  right: -2px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 10px;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+/* Botón central especial para Menú de Cajas / Herramientas */
+.sigae-nav-tab-menu .sigae-nav-tab-icon-wrap {
+  background: linear-gradient(135deg, #0066FF 0%, #0284c7 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 102, 255, 0.35);
+  border-radius: 10px;
+  width: 32px;
+  height: 28px;
+}
+
+.sigae-nav-tab-menu.active .sigae-nav-tab-icon-wrap {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45);
+}
+
+/* --- 3. BOTTOM SHEET DESPLEGABLE MÓVIL (PANEL DE MÓDULOS) --- */
+.sigae-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1050;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.sigae-sheet-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 86vh;
+  background: #ffffff;
+  border-top-left-radius: 26px;
+  border-top-right-radius: 26px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+  z-index: 1055;
+  display: flex;
+  flex-direction: column;
+  animation: slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sigae-sheet-handle-bar {
+  width: 44px;
+  height: 5px;
+  background: #cbd5e1;
+  border-radius: 10px;
+  margin: 12px auto 6px auto;
+  flex-shrink: 0;
+}
+
+.sigae-sheet-header {
+  padding: 12px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.sigae-sheet-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px;
+  flex-grow: 1;
+}
+
+/* Tarjeta táctil de categoría dentro del sheet */
+.sigae-sheet-category-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 16px;
+  margin-bottom: 9px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sigae-sheet-category-card:active {
+  transform: scale(0.98);
+  background: #f1f5f9;
+}
+
+.sigae-sheet-category-card.active {
+  background: #eff6ff;
+  border-color: #0066FF;
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.1);
+}
+
+.sigae-sheet-cat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+/* Acciones rápidas de pie en el sheet */
+.sigae-sheet-footer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* --- 4. AJUSTES GENERALES PARA MÓVILES (FORMULARIOS, TABLAS Y BOTONES) --- */
+@media (max-width: 991.98px) {
+  /* Contenedores sin desbordamiento */
+  .container, 
+  .container-fluid, 
+  .tech-card, 
+  .card, 
+  .card-body, 
+  .modulo-animado {
+    max-width: 100% !important;
+    overflow-x: clip !important;
+    box-sizing: border-box !important;
+  }
+
+  .tech-card, 
+  .card {
+    border-radius: 18px !important;
+    margin-bottom: 12px !important;
+  }
+
+  /* Reducir acolchados excesivos en celular */
+  .p-4, .p-md-5, .p-5 {
+    padding: 14px 12px !important;
+  }
+
+  .p-3 {
+    padding: 10px 10px !important;
+  }
+
+  /* Forzar apilado en 1 sola columna en formularios */
+  .row.g-2 > [class*="col-"],
+  .row.g-3 > [class*="col-"],
+  .row.g-4 > [class*="col-"],
+  .row > .col-md-2,
+  .row > .col-md-3,
+  .row > .col-md-4,
+  .row > .col-md-5,
+  .row > .col-md-6,
+  .row > .col-md-7,
+  .row > .col-md-8,
+  .row > .col-md-9,
+  .row > .col-lg-2,
+  .row > .col-lg-3,
+  .row > .col-lg-4,
+  .row > .col-lg-6 {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Tipografías ajustables para celulares */
+  h1, .h1 {
+    font-size: 1.3rem !important;
+    line-height: 1.25 !important;
+    word-break: break-word !important;
+  }
+
+  h2, .h2 {
+    font-size: 1.15rem !important;
+    word-break: break-word !important;
+  }
+
+  h3, .h3 {
+    font-size: 1.05rem !important;
+    word-break: break-word !important;
+  }
+
+  h5, .h5 {
+    font-size: 0.95rem !important;
+  }
+
+  /* Cintas de chips y badges que no rompan el viewport */
+  .d-flex.align-items-center.gap-2,
+  .d-flex.align-items-center.gap-1\.5,
+  .tech-pill-badge {
+    flex-wrap: wrap !important;
+  }
+
+  /* Conmutador de sedes con desplazamiento horizontal suave en celular */
+  .overflow-x-auto {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+  }
+
+  /* Tablas con scroll horizontal suave en celulares */
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 12px !important;
+  }
+
+  /* Botones con área de toque adecuada */
+  .btn {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+  }
+
+  /* Evitar auto-zoom en inputs de iOS al enfocar */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  /* Hero banner responsivo */
+  .chamilo-hero-banner {
+    border-radius: 18px !important;
+    padding: 14px 12px !important;
+  }
+
+  /* Tarjetas de estadísticas en 2 columnas táctiles */
+  .grid-stats-movil {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  /* Módulos en 1 columna cómoda para deslizar con el pulgar */
+  .chamilo-toolbox-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+/* --- 5. MODO OSCURO PARA BARRA Y SHEET MÓVIL --- */
+body.dark-mode .sigae-mobile-bottom-nav {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-top-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.dark-mode .sigae-nav-tab {
+  color: #94a3b8;
+}
+
+body.dark-mode .sigae-nav-tab.active {
+  color: #38bdf8;
+}
+
+body.dark-mode .sigae-nav-tab.active .sigae-nav-tab-icon-wrap {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+body.dark-mode .sigae-nav-tab.active .sigae-nav-tab-label {
+  color: #38bdf8;
+}
+
+body.dark-mode .sigae-nav-tab-dot {
+  background-color: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+
+body.dark-mode .sigae-sheet-modal {
+  background: #0f172a !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+body.dark-mode .sigae-sheet-handle-bar {
+  background: #334155;
+}
+
+body.dark-mode .sigae-sheet-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .sigae-sheet-category-card {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+}
+
+body.dark-mode .sigae-sheet-category-card.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: #38bdf8;
+}
+

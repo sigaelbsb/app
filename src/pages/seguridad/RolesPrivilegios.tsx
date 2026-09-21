@@ -1199,12 +1199,6 @@ export const RolesPrivilegios = () => {
                 <span className="badge bg-white text-info px-3 py-2 shadow-sm fw-bold" style={{ letterSpacing: '1px', fontSize: '0.85rem' }}>
                   <i className="bi bi-shield-lock-fill me-1"></i> SEGURIDAD Y ACCESOS
                 </span>
-                <button 
-                  onClick={() => navigate('/categoria/Seguridad%20y%20Accesos')} 
-                  className="btn btn-sm btn-light rounded-pill px-3 fw-bold shadow-sm hover-efecto"
-                >
-                  <i className="bi bi-arrow-left-short me-1"></i> Volver al Menú
-                </button>
               </div>
               <h1 className="fw-bolder mb-2 text-white" style={{ fontSize: '2.5rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                 <i className="bi bi-person-lines-fill me-3"></i>Roles y Privilegios Multiescuela
