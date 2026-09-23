@@ -1146,13 +1146,27 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           >
             <div className="d-flex align-items-center">
               <div 
-                className="chamilo-menu-icon-box"
+                className="chamilo-menu-icon-box d-flex align-items-center justify-content-center"
                 style={{ 
-                  backgroundColor: activeCategory === 'Inicio' ? '#0066FF' : '#eff6ff',
-                  color: activeCategory === 'Inicio' ? '#ffffff' : '#0066FF'
+                  backgroundColor: activeCategory === 'Inicio' ? '#0066FF25' : '#0066FF12',
+                  color: activeCategory === 'Inicio' ? '#ffffff' : '#0066FF',
+                  border: activeCategory === 'Inicio' ? '1.5px solid #0066FF' : '1px solid #0066FF25',
+                  padding: '2px',
+                  overflow: 'hidden'
                 }}
               >
-                <i className="bi bi-house-door-fill"></i>
+                <img 
+                  src="/icons3d/icono_inicio_3d.png" 
+                  alt="Panel Principal"
+                  className="chamilo-nav-3d-icon"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.18))',
+                    transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                />
               </div>
               <span className="texto-menu-ocultable">Panel Principal</span>
             </div>
