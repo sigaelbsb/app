@@ -386,55 +386,89 @@ export const IconoPersonalDocente: React.FC<{ size?: number; color?: string }> =
 );
 
 /**
- * Icono personalizado: Perfil de la Escuela / Plantel Institucional
+ * Icono personalizado: Perfil de la Escuela / Sede Institucional Moderna 3D
  */
-export const IconoPerfilEscuela: React.FC<{ size?: number; color?: string }> = ({
-  size = 40,
-  color = '#0284c7'
+export const IconoPerfilEscuela: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46,
+  color = '#0284c7',
+  className
 }) => (
   <svg
     width={size}
     height={size}
-    viewBox="0 0 40 40"
+    viewBox="0 0 48 48"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
-    style={{ filter: `drop-shadow(0 4px 10px ${color}45)` }}
+    className={className}
+    style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}
   >
     <defs>
-      <linearGradient id="schoolRoof" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="sedeModRoof" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stopColor="#38bdf8" />
         <stop offset="50%" stopColor="#0284c7" />
         <stop offset="100%" stopColor="#0369a1" />
       </linearGradient>
-      <linearGradient id="schoolWall" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#ffffff" />
-        <stop offset="100%" stopColor="#e2e8f0" />
+      <linearGradient id="sedeModGold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" />
+        <stop offset="50%" stopColor="#eab308" />
+        <stop offset="100%" stopColor="#ca8a04" />
+      </linearGradient>
+      <linearGradient id="sedeModOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fdba74" />
+        <stop offset="50%" stopColor="#f97316" />
+        <stop offset="100%" stopColor="#ea580c" />
+      </linearGradient>
+      <linearGradient id="sedeModGlass" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#7dd3fc" />
+        <stop offset="100%" stopColor="#0284c7" />
       </linearGradient>
     </defs>
-    {/* Base y Escalinata */}
-    <rect x="3" y="33" width="34" height="4" rx="2" fill="#94a3b8" />
-    <rect x="5" y="30" width="30" height="3.5" rx="1.5" fill="#cbd5e1" />
-    {/* Fachada Principal */}
-    <rect x="6" y="15" width="28" height="15.5" rx="2" fill="url(#schoolWall)" stroke="#94a3b8" strokeWidth="1" />
-    {/* Frontón Triangular Clásico */}
-    <path d="M4 15L20 4L36 15H4Z" fill="url(#schoolRoof)" stroke="#0284c7" strokeWidth="1.2" />
-    {/* Escudo Dorado en Frontón */}
-    <circle cx="20" cy="10.5" r="3" fill="#fbbf24" stroke="#d97706" strokeWidth="0.8" />
-    <path d="M19 10.5L20 9L21 10.5L20 12L19 10.5Z" fill="#b45309" />
-    {/* Columnas */}
-    <rect x="9" y="15" width="3" height="15" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.8" />
-    <rect x="15" y="15" width="3" height="15" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.8" />
-    <rect x="22" y="15" width="3" height="15" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.8" />
-    <rect x="28" y="15" width="3" height="15" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.8" />
-    {/* Puerta Principal Arqueada */}
-    <path d="M17 30V22C17 20.5 18.5 19.5 20 19.5C21.5 19.5 23 20.5 23 22V30H17Z" fill="#0284c7" />
-    <line x1="20" y1="20" x2="20" y2="30" stroke="#ffffff" strokeWidth="0.8" />
-    {/* Bandera Tricolor en el Toque del Techo */}
-    <line x1="20" y1="4" x2="20" y2="1" stroke="#475569" strokeWidth="1" />
-    <path d="M20 1L26 2.5L20 4V1Z" fill="#fbbf24" />
-    {/* Ventanas con luz */}
-    <rect x="10" y="18" width="3.5" height="4" rx="1" fill="#38bdf8" opacity="0.8" />
-    <rect x="26.5" y="18" width="3.5" height="4" rx="1" fill="#38bdf8" opacity="0.8" />
+    {/* Sombra base en suelo */}
+    <ellipse cx="24" cy="43.5" rx="19" ry="3" fill="#0f172a" opacity="0.22" />
+    
+    {/* Podio escalonado moderno */}
+    <rect x="5" y="39" width="38" height="4.5" rx="2" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="0.8" />
+    <rect x="8" y="36.5" width="32" height="3" rx="1.5" fill="#f8fafc" />
+
+    {/* Fachada acristalada central moderna */}
+    <rect x="10" y="15" width="28" height="22" rx="3" fill="url(#sedeModGlass)" stroke="#ffffff" strokeWidth="1" />
+    {/* Reflejos de cristal verticales */}
+    <line x1="17" y1="16" x2="17" y2="36" stroke="#ffffff" strokeWidth="0.8" opacity="0.5" />
+    <line x1="24" y1="16" x2="24" y2="36" stroke="#ffffff" strokeWidth="0.8" opacity="0.5" />
+    <line x1="31" y1="16" x2="31" y2="36" stroke="#ffffff" strokeWidth="0.8" opacity="0.5" />
+
+    {/* Columnas redondeadas modernas (Blanco y Naranja) */}
+    <rect x="7" y="16" width="4.5" height="21" rx="2" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.8" />
+    <rect x="12" y="16" width="3.5" height="21" rx="1.5" fill="url(#sedeModOrange)" />
+    <rect x="32.5" y="16" width="3.5" height="21" rx="1.5" fill="url(#sedeModOrange)" />
+    <rect x="36.5" y="16" width="4.5" height="21" rx="2" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.8" />
+
+    {/* Techo abovedado curvo moderno */}
+    <path d="M7 16C7 16 14 10 24 10C34 10 41 16 41 16V13C41 13 34 7 24 7C14 7 7 13 7 13V16Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
+    <path d="M9 14C9 14 15 9 24 9C33 9 39 14 39 14" stroke="url(#sedeModRoof)" strokeWidth="3" strokeLinecap="round" />
+
+    {/* Portal de entrada con marquesina */}
+    <rect x="19" y="27" width="10" height="10" rx="2.5" fill="#f8fafc" stroke="url(#sedeModOrange)" strokeWidth="1.2" />
+    <rect x="21" y="29" width="6" height="8" rx="1" fill="#0284c7" opacity="0.35" />
+    <line x1="24" y1="29" x2="24" y2="37" stroke="#ffffff" strokeWidth="0.8" />
+
+    {/* Reloj Institucional Circular con Laurel Dorado */}
+    <circle cx="24" cy="16" r="5" fill="#ffffff" stroke="url(#sedeModGold)" strokeWidth="1.5" />
+    <circle cx="24" cy="16" r="0.8" fill="#78350f" />
+    <line x1="24" y1="16" x2="24" y2="13.5" stroke="#78350f" strokeWidth="0.8" strokeLinecap="round" />
+    <line x1="24" y1="16" x2="26" y2="16" stroke="#78350f" strokeWidth="0.8" strokeLinecap="round" />
+    {/* Emblema laurel dorado superior */}
+    <path d="M20 12C20 10.5 21.5 9 24 9C26.5 9 28 10.5 28 12" stroke="url(#sedeModGold)" strokeWidth="1.2" fill="none" />
+    <polygon points="24,7 24.8,8.8 26.8,9 25.3,10.3 25.7,12.2 24,11.2 22.3,12.2 22.7,10.3 21.2,9 23.2,8.8" fill="url(#sedeModGold)" />
+
+    {/* Engranajes dorados 3D del sistema al costado */}
+    <g transform="translate(39, 18)">
+      <circle cx="0" cy="0" r="5" fill="url(#sedeModGold)" stroke="#78350f" strokeWidth="0.6" />
+      {[0, 60, 120, 180, 240, 300].map((deg) => (
+        <rect key={deg} x="-1" y="-6.2" width="2" height="1.8" rx="0.5" fill="#ca8a04" transform={`rotate(${deg})`} />
+      ))}
+      <circle cx="0" cy="0" r="2" fill="#ffffff" />
+    </g>
   </svg>
 );
 
@@ -2916,6 +2950,9 @@ export const IconoModuloPrincipal: React.FC<{
   if (norm.includes('control') || norm.includes('estudio')) {
     return <IconoModuloControlEstudios size={size} color={color} className={className} />;
   }
+  if (norm.includes('admisi') || norm.includes('cupo')) {
+    return <IconoGestionAdmisiones size={size} color={color} className={className} />;
+  }
   if (norm.includes('estudiantil') || norm.includes('inscripci') || norm.includes('matr')) {
     return <IconoModuloGestionEstudiantil size={size} color={color} className={className} />;
   }
@@ -3220,4 +3257,956 @@ export const IconoSolicitudCupos3D: React.FC<{ size?: number; color?: string; cl
 
 
 
+
+
+
+/* ═════════════════════════════════════════════════════════════════════════
+   SUITE COMPLETA DE ICONOS 3D PARA TODOS LOS SUBMÓDULOS DE SIGAE
+   Modelado isométrico 3D, perspectiva volumétrica, acabados metálicos y luces
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** 1. Dirección y Sistema: Configuración Escolar 3D */
+export const IconoConfiguracionEscolar3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#f59e0b', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="cfg3dGold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" /><stop offset="50%" stopColor="#f59e0b" /><stop offset="100%" stopColor="#b45309" />
+      </linearGradient>
+      <linearGradient id="cfg3dBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#38bdf8" /><stop offset="100%" stopColor="#0284c7" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Gran Engranaje Maestro 3D Dorado */}
+    <g transform="translate(20, 20)">
+      <circle cx="0" cy="0" r="14" fill="url(#cfg3dGold)" stroke="#ffffff" strokeWidth="1" />
+      {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+        <rect key={deg} x="-2.5" y="-17.5" width="5" height="5" rx="1" fill="#d97706" transform={`rotate(${deg})`} />
+      ))}
+      <circle cx="0" cy="0" r="7" fill="#ffffff" />
+      <circle cx="0" cy="0" r="4" fill="#b45309" />
+    </g>
+    {/* Engranaje Secundario 3D Azul */}
+    <g transform="translate(34, 30)">
+      <circle cx="0" cy="0" r="9" fill="url(#cfg3dBlue)" stroke="#ffffff" strokeWidth="0.8" />
+      {[0, 60, 120, 180, 240, 300].map((deg) => (
+        <rect key={deg} x="-1.8" y="-11" width="3.6" height="3" rx="0.8" fill="#0369a1" transform={`rotate(${deg})`} />
+      ))}
+      <circle cx="0" cy="0" r="4" fill="#ffffff" />
+    </g>
+    {/* Diales de ajuste de lapsos escolares */}
+    <g transform="translate(6, 9)">
+      <rect x="0" y="0" width="14" height="4" rx="2" fill="#0284c7" opacity="0.9" />
+      <circle cx="9" cy="2" r="3.2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
+    </g>
+  </svg>
+);
+
+/** 2. Dirección y Sistema: Calendario Escolar 3D */
+export const IconoCalendarioEscolar3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#ec4899', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="cal3dHead" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fb7185" /><stop offset="100%" stopColor="#e11d48" />
+      </linearGradient>
+      <linearGradient id="cal3dRing" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" /><stop offset="100%" stopColor="#ca8a04" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Base del almanaque con relieve */}
+    <rect x="7" y="10" width="34" height="32" rx="5" fill="#e2e8f0" />
+    <rect x="6" y="8" width="36" height="32" rx="5" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.2" />
+    {/* Cabecera ministerial */}
+    <path d="M6 13C6 10.2 8.2 8 11 8H37C39.8 8 42 10.2 42 13V17H6V13Z" fill="url(#cal3dHead)" />
+    {/* Anillas superiores metálicas doradas */}
+    {[12, 20, 28, 36].map((x) => (
+      <rect key={x} x={x - 1.5} y="4" width="3" height="7" rx="1.5" fill="url(#cal3dRing)" stroke="#ffffff" strokeWidth="0.8" />
+    ))}
+    {/* Días y marcas */}
+    <circle cx="13" cy="23" r="2" fill="#cbd5e1" />
+    <circle cx="19" cy="23" r="2" fill="#cbd5e1" />
+    <circle cx="25" cy="23" r="2" fill="#cbd5e1" />
+    <circle cx="31" cy="23" r="2" fill="#cbd5e1" />
+    <circle cx="13" cy="29" r="2" fill="#cbd5e1" />
+    <circle cx="19" cy="29" r="2.5" fill="#10b981" />
+    <circle cx="25" cy="29" r="2" fill="#cbd5e1" />
+    <circle cx="31" cy="29" r="2.5" fill="#0284c7" />
+    {/* Estrella de efemérides en día clave */}
+    <polygon points="35,28 36,30 38.5,30.3 36.6,31.8 37.2,34 35,32.8 32.8,34 33.4,31.8 31.5,30.3 34,30" fill="#facc15" stroke="#ca8a04" strokeWidth="0.6" />
+  </svg>
+);
+
+/** 3. Dirección y Sistema: División Territorial 3D */
+export const IconoDivisionTerritorial3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#10b981', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="map3dGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ecfdf5" /><stop offset="100%" stopColor="#a7f3d0" />
+      </linearGradient>
+      <linearGradient id="pin3dGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#f43f5e" /><stop offset="100%" stopColor="#be123c" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Mapa 3D Plegado en 3 Paneles */}
+    <path d="M5 13L16 8L32 13L43 8V33L32 38L16 33L5 38V13Z" fill="url(#map3dGrad)" stroke="#10b981" strokeWidth="1.2" />
+    <path d="M5 13L16 8V33L5 38V13Z" fill="#d1fae5" opacity="0.7" />
+    <path d="M16 8L32 13V38L16 33V8Z" fill="#a7f3d0" opacity="0.5" />
+    <path d="M32 13L43 8V33L32 38V13Z" fill="#d1fae5" opacity="0.7" />
+    {/* Líneas geopolíticas */}
+    <path d="M10 21C14 18 18 24 24 21C30 18 34 25 38 21" stroke="#059669" strokeWidth="1.5" strokeDasharray="3 2" fill="none" />
+    {/* Pin GPS 3D Rubí en el centro */}
+    <g transform="translate(24, 15)">
+      <path d="M0 0C-4 0 -7 3 -7 7C-7 12 0 19 0 19C0 19 7 12 7 7C7 3 4 0 0 0Z" fill="url(#pin3dGrad)" stroke="#ffffff" strokeWidth="1.2" />
+      <circle cx="0" cy="7" r="3" fill="#ffffff" />
+    </g>
+  </svg>
+);
+
+/** 4. Dirección y Sistema: Panel de Control 3D */
+export const IconoPanelControl3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#f97316', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="pnl3dChassis" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#334155" /><stop offset="100%" stopColor="#0f172a" />
+      </linearGradient>
+      <linearGradient id="pnl3dScreen" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#0369a1" /><stop offset="100%" stopColor="#082f49" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Consola Maestra 3D */}
+    <rect x="5" y="7" width="38" height="34" rx="6" fill="url(#pnl3dChassis)" stroke="#64748b" strokeWidth="1.2" />
+    {/* Pantalla Superior de Telemetría */}
+    <rect x="9" y="11" width="30" height="13" rx="3" fill="url(#pnl3dScreen)" stroke="#38bdf8" strokeWidth="0.8" />
+    {/* Pulso ECG Verde Neon */}
+    <path d="M12 18H17L19 14L22 21L25 15L27 18H36" stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    {/* Switch 1: Activo Verde */}
+    <rect x="9" y="27" width="13" height="8" rx="4" fill="#065f46" stroke="#10b981" strokeWidth="0.8" />
+    <circle cx="18" cy="31" r="3" fill="#34d399" stroke="#ffffff" strokeWidth="0.8" />
+    {/* Switch 2: Ámbar */}
+    <rect x="26" y="27" width="13" height="8" rx="4" fill="#78350f" stroke="#f59e0b" strokeWidth="0.8" />
+    <circle cx="29" cy="31" r="3" fill="#fbbf24" stroke="#ffffff" strokeWidth="0.8" />
+  </svg>
+);
+
+/** 5. Dirección y Sistema: Instalación y Descargas 3D */
+export const IconoInstalacionDescargas3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0066FF', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="dwn3dCloud" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#1d4ed8" />
+      </linearGradient>
+      <linearGradient id="dwn3dArrow" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" /><stop offset="100%" stopColor="#eab308" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Nube 3D Volumétrica */}
+    <path d="M12 24C9 24 7 21.8 7 19C7 16.5 8.7 14.5 11 14.1C11.5 9.5 15.5 6 20.5 6C24.5 6 27.8 8.2 29.5 11.5C30.4 11.2 31.4 11 32.5 11C36.5 11 39.5 14 39.5 18C39.5 18.5 39.4 19 39.3 19.5C41.8 20.2 43.5 22.4 43.5 25C43.5 28 41 30.5 38 30.5H12C8.5 30.5 6 27.5 6 24" fill="url(#dwn3dCloud)" stroke="#ffffff" strokeWidth="1.4" />
+    {/* Flecha Descarga Dorada Brillante */}
+    <path d="M24 18V32M24 32L18 26M24 32L30 26" stroke="url(#dwn3dArrow)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+    {/* Pedestal Multiplataforma (Laptop / Tablet) */}
+    <rect x="10" y="36" width="28" height="3" rx="1.5" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="0.8" />
+    <rect x="18" y="37.5" width="12" height="1.5" rx="0.5" fill="#3b82f6" />
+  </svg>
+);
+
+/** 6. Organización Escolar: Cargos Institucionales 3D */
+export const IconoCargosInstitucionales3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#2563eb', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="crg3dCase" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#3b82f6" /><stop offset="100%" stopColor="#1e3a8a" />
+      </linearGradient>
+      <linearGradient id="crg3dGold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" /><stop offset="100%" stopColor="#ca8a04" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Maletín Ejecutivo 3D */}
+    <rect x="7" y="16" width="34" height="25" rx="4" fill="url(#crg3dCase)" stroke="#ffffff" strokeWidth="1.2" />
+    {/* Asa del Maletín */}
+    <path d="M18 16V11C18 9.5 19.5 8 21 8H27C28.5 8 30 9.5 30 11V16" stroke="url(#crg3dGold)" strokeWidth="3" fill="none" />
+    {/* Solapa y Cerraduras Doradas */}
+    <path d="M7 16H41V23C41 23 30 26 24 26C18 26 7 23 7 23V16Z" fill="#1d4ed8" opacity="0.85" />
+    <rect x="22" y="23" width="4" height="5" rx="1" fill="url(#crg3dGold)" />
+    {/* Credencial Institucional Colgante */}
+    <g transform="translate(29, 25)">
+      <rect x="0" y="0" width="13" height="15" rx="2" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.8" />
+      <rect x="2" y="3" width="9" height="4" rx="1" fill="#3b82f6" />
+      <rect x="2" y="9" width="7" height="1.5" rx="0.5" fill="#64748b" />
+      <rect x="2" y="12" width="5" height="1.2" rx="0.5" fill="#94a3b8" />
+    </g>
+  </svg>
+);
+
+/** 7. Organización Escolar: Cadena Supervisoria 3D */
+export const IconoCadenaSupervisoria3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#7c3aed', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="cad3dMaster" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#c084fc" /><stop offset="100%" stopColor="#6b21a8" />
+      </linearGradient>
+      <linearGradient id="cad3dSub" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#1d4ed8" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Tuberías de Conexión Jerárquica */}
+    <path d="M24 16V25M24 25H12V31M24 25H36V31" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    {/* Nodo Maestro Superior */}
+    <g transform="translate(24, 11)">
+      <circle cx="0" cy="0" r="8" fill="url(#cad3dMaster)" stroke="#ffffff" strokeWidth="1.5" />
+      <polygon points="0,-4 3,2 6,-1 4,4 -4,4 -6,-1 -3,2" fill="#facc15" />
+    </g>
+    {/* Nodo Subordinado Izquierdo */}
+    <g transform="translate(12, 34)">
+      <circle cx="0" cy="0" r="6.5" fill="url(#cad3dSub)" stroke="#ffffff" strokeWidth="1.2" />
+      <circle cx="0" cy="0" r="2" fill="#ffffff" />
+    </g>
+    {/* Nodo Subordinado Derecho */}
+    <g transform="translate(36, 34)">
+      <circle cx="0" cy="0" r="6.5" fill="url(#cad3dSub)" stroke="#ffffff" strokeWidth="1.2" />
+      <circle cx="0" cy="0" r="2" fill="#ffffff" />
+    </g>
+  </svg>
+);
+
+/** 8. Organización Escolar: Gestión de Colectivos 3D */
+export const IconoGestionColectivos3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#059669', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="col3dCenter" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#047857" />
+      </linearGradient>
+      <linearGradient id="col3dOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#2563eb" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Anillo de Cooperación Comunitaria */}
+    <circle cx="24" cy="24" r="15" stroke="#a7f3d0" strokeWidth="2.5" strokeDasharray="5 3" fill="none" />
+    {/* Avatar Central (Líder del Colectivo) */}
+    <g transform="translate(24, 24)">
+      <circle cx="0" cy="0" r="8" fill="url(#col3dCenter)" stroke="#ffffff" strokeWidth="1.5" />
+      <circle cx="0" cy="-2" r="2.5" fill="#ffffff" />
+      <path d="M-4 5C-4 3 -2 2 0 2C2 2 4 3 4 5" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" />
+    </g>
+    {/* Nodos Periféricos de Miembros */}
+    {[0, 90, 180, 270].map((deg, i) => {
+      const rad = (deg * Math.PI) / 180;
+      const cx = 24 + 15 * Math.cos(rad);
+      const cy = 24 + 15 * Math.sin(rad);
+      return (
+        <circle key={i} cx={cx} cy={cy} r="4.5" fill="url(#col3dOuter)" stroke="#ffffff" strokeWidth="1" />
+      );
+    })}
+  </svg>
+);
+
+/** 9. Organización Escolar: Estructura Empresa 3D */
+export const IconoEstructuraEmpresa3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#e11d48', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="emp3dTower" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fb7185" /><stop offset="100%" stopColor="#be123c" />
+      </linearGradient>
+      <linearGradient id="emp3dSub" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#38bdf8" /><stop offset="100%" stopColor="#0369a1" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Torre Secundaria Corporativa */}
+    <rect x="25" y="16" width="16" height="25" rx="3" fill="url(#emp3dSub)" stroke="#ffffff" strokeWidth="1" />
+    {[20, 26, 32].map((y) => (
+      <g key={y}>
+        <rect x="28" y={y} width="3" height="3" rx="0.5" fill="#bae6fd" />
+        <rect x="34" y={y} width="3" height="3" rx="0.5" fill="#bae6fd" />
+      </g>
+    ))}
+    {/* Torre Principal Sede PDVSA */}
+    <rect x="7" y="9" width="18" height="32" rx="3" fill="url(#emp3dTower)" stroke="#ffffff" strokeWidth="1.2" />
+    {[13, 19, 25, 31].map((y) => (
+      <g key={y}>
+        <rect x="10" y={y} width="4" height="3" rx="0.5" fill="#ffe4e6" />
+        <rect x="17" y={y} width="4" height="3" rx="0.5" fill="#ffe4e6" />
+      </g>
+    ))}
+    {/* Sello de gota energética petrolera */}
+    <circle cx="16" cy="38" r="4" fill="#facc15" stroke="#ca8a04" strokeWidth="0.8" />
+  </svg>
+);
+
+/** 10. Control de Estudios: Grados y Salones 3D */
+export const IconoGradosSalones3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0284c7', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="grd3dDesk" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#38bdf8" /><stop offset="100%" stopColor="#0284c7" />
+      </linearGradient>
+      <linearGradient id="grd3dBoard" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor="#047857" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Pizarra del Salón al Fondo */}
+    <rect x="8" y="6" width="32" height="18" rx="3" fill="url(#grd3dBoard)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="10" y="8" width="28" height="14" rx="2" fill="#064e3b" />
+    {/* Gráfico y fórmula en pizarra */}
+    <line x1="13" y1="18" x2="17" y2="13" stroke="#facc15" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="17" y1="13" x2="22" y2="17" stroke="#facc15" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="28" cy="13" r="2" stroke="#ffffff" strokeWidth="1" fill="none" />
+    {/* Fila de Pupitres Isométricos en Primer Plano */}
+    <rect x="6" y="28" width="16" height="12" rx="3" fill="url(#grd3dDesk)" stroke="#ffffff" strokeWidth="1" />
+    <rect x="26" y="28" width="16" height="12" rx="3" fill="url(#grd3dDesk)" stroke="#ffffff" strokeWidth="1" />
+    {/* Medidor de Capacidad y Birrete Escolar */}
+    <g transform="translate(35, 12)">
+      <polygon points="0,-4 7,-1 0,2 -7,-1" fill="#1e293b" />
+      <rect x="-3" y="1" width="6" height="2" fill="#0f172a" />
+      <line x1="0" y1="0" x2="4" y2="3" stroke="#facc15" strokeWidth="1" />
+    </g>
+  </svg>
+);
+
+/** 11. Gestión Estudiantil: Expediente Estudiantil 3D */
+export const IconoExpedienteEstudiantil3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#8b5cf6', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="exp3dFolder" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#c084fc" /><stop offset="100%" stopColor="#7c3aed" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Carpeta Dossier 3D */}
+    <rect x="7" y="9" width="34" height="32" rx="4" fill="url(#exp3dFolder)" stroke="#ffffff" strokeWidth="1.2" />
+    <path d="M7 14C7 11.5 9 9.5 11.5 9.5H20L23 13H38.5C40.5 13 41 14.5 41 16" fill="#a855f7" />
+    {/* Ficha Interna del Alumno */}
+    <rect x="11" y="15" width="26" height="23" rx="2.5" fill="#ffffff" />
+    {/* Foto Carnet del Estudiante */}
+    <rect x="14" y="18" width="7" height="9" rx="1.5" fill="#ede9fe" stroke="#c084fc" strokeWidth="0.8" />
+    <circle cx="17.5" cy="21" r="2" fill="#7c3aed" />
+    <path d="M15 26C15 24.5 16 24 17.5 24C19 24 20 24.5 20 26" stroke="#7c3aed" strokeWidth="0.8" />
+    {/* Datos del expediente */}
+    <rect x="23" y="19" width="11" height="2" rx="1" fill="#475569" />
+    <rect x="23" y="23" width="8" height="1.5" rx="0.7" fill="#94a3b8" />
+    <rect x="14" y="30" width="20" height="2" rx="1" fill="#10b981" />
+    <rect x="14" y="33.5" width="15" height="1.5" rx="0.7" fill="#cbd5e1" />
+  </svg>
+);
+
+/** 12. Gestión Estudiantil: Gestión de Matrícula 3D */
+export const IconoGestionMatricula3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#10b981', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="mat3dBook" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Libro Mayor de Matrícula Escolar */}
+    <rect x="6" y="11" width="36" height="29" rx="4" fill="url(#mat3dBook)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="10" y="14" width="28" height="23" rx="2" fill="#f8fafc" />
+    {/* Renglones de alumnos matriculados */}
+    {[18, 23, 28, 32].map((y) => (
+      <g key={y}>
+        <circle cx="13" cy={y} r="1.5" fill="#10b981" />
+        <rect x="17" y={y - 1} width="14" height="2" rx="1" fill="#334155" />
+        <circle cx="34" cy={y} r="1.2" fill="#3b82f6" />
+      </g>
+    ))}
+    {/* Pluma de Firma Oficial Dorada */}
+    <polygon points="38,6 42,9 33,22 29,20" fill="#facc15" stroke="#ca8a04" strokeWidth="0.8" />
+  </svg>
+);
+
+/** 13. Admisiones: Orientaciones Nuevos Ingresos 3D */
+export const IconoOrientacionesNuevosIngresos3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#10b981', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="ort3dBook" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#4ade80" /><stop offset="100%" stopColor="#16a34a" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Folleto / Cartilla de Inducción 3D */}
+    <path d="M8 10L24 6L40 10V36L24 32L8 36V10Z" fill="url(#ort3dBook)" stroke="#ffffff" strokeWidth="1.2" />
+    {/* Páginas interiores */}
+    <path d="M10 12L24 8V31L10 34V12Z" fill="#ffffff" />
+    <path d="M24 8L38 12V34L24 31V8Z" fill="#f1f5f9" />
+    {/* Bocadillo de WhatsApp Integrado */}
+    <circle cx="33" cy="27" r="7.5" fill="#25d366" stroke="#ffffff" strokeWidth="1.2" />
+    <path d="M30 29.5L30.5 27.5C29.8 26.5 30 25 31 24C32 23 34 23 35 24C36 25 36 27 35 28L30 29.5Z" fill="#ffffff" />
+  </svg>
+);
+
+/** 14. Admisiones: Mis Solicitudes 3D */
+export const IconoMisSolicitudes3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#f97316', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="sol3dDoc" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fdba74" /><stop offset="100%" stopColor="#ea580c" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Carpeta de Trámite en Consulta */}
+    <rect x="8" y="8" width="30" height="34" rx="4" fill="url(#sol3dDoc)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="11" y="11" width="24" height="28" rx="2.5" fill="#ffffff" />
+    {/* Código Único y Estado */}
+    <rect x="14" y="15" width="12" height="2.5" rx="1" fill="#ea580c" />
+    <rect x="14" y="20" width="18" height="2" rx="1" fill="#cbd5e1" />
+    <rect x="14" y="24" width="14" height="2" rx="1" fill="#cbd5e1" />
+    <rect x="14" y="28" width="10" height="3" rx="1.5" fill="#10b981" />
+    {/* Lupa 3D de Búsqueda y Rastreo */}
+    <g transform="translate(30, 26)">
+      <circle cx="0" cy="0" r="7" stroke="#3b82f6" strokeWidth="2.5" fill="#ffffff" />
+      <line x1="5" y1="5" x2="11" y2="11" stroke="#1d4ed8" strokeWidth="3" strokeLinecap="round" />
+    </g>
+  </svg>
+);
+
+/** 15. Gestión Docente: Mi Expediente 3D */
+export const IconoMiExpediente3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0284c7', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="doc3dCard" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#38bdf8" /><stop offset="100%" stopColor="#0284c7" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Cordón / Lanyard Institucional */}
+    <path d="M24 3V12" stroke="#0284c7" strokeWidth="3" strokeLinecap="round" />
+    <rect x="21.5" y="10" width="5" height="3" rx="1" fill="#cbd5e1" />
+    {/* Credencial de Docente */}
+    <rect x="9" y="12" width="30" height="30" rx="4" fill="#ffffff" stroke="#0284c7" strokeWidth="1.2" />
+    <rect x="9" y="12" width="30" height="7" rx="4" fill="url(#doc3dCard)" />
+    {/* Foto del Profesor y Títulos */}
+    <rect x="13" y="22" width="8" height="9" rx="1.5" fill="#e0f2fe" stroke="#38bdf8" strokeWidth="0.8" />
+    <circle cx="17" cy="25" r="2" fill="#0284c7" />
+    <rect x="23" y="22" width="12" height="2" rx="1" fill="#334155" />
+    <rect x="23" y="26" width="9" height="1.8" rx="0.9" fill="#64748b" />
+    {/* Estrella de Mérito Docente */}
+    <polygon points="32,33 33.2,35.5 35.8,35.8 33.9,37.3 34.5,39.8 32,38.5 29.5,39.8 30.1,37.3 28.2,35.8 30.8,35.5" fill="#facc15" stroke="#ca8a04" strokeWidth="0.6" />
+  </svg>
+);
+
+/** 16. Gestión Docente: Gestor de Expedientes 3D */
+export const IconoGestorExpedientes3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#10b981', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="gst3dBox" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Archivador Modular de Docentes */}
+    <rect x="6" y="10" width="36" height="31" rx="4" fill="url(#gst3dBox)" stroke="#ffffff" strokeWidth="1.2" />
+    {/* Cajón 1 Abierto con carpetas */}
+    <rect x="9" y="13" width="30" height="12" rx="2" fill="#064e3b" />
+    <rect x="12" y="15" width="7" height="8" rx="1" fill="#60a5fa" />
+    <rect x="20" y="15" width="7" height="8" rx="1" fill="#facc15" />
+    <rect x="28" y="15" width="7" height="8" rx="1" fill="#f43f5e" />
+    {/* Cajón 2 Inferior */}
+    <rect x="9" y="27" width="30" height="11" rx="2" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
+    <rect x="21" y="31" width="6" height="3" rx="1" fill="#94a3b8" />
+  </svg>
+);
+
+/** 17. Diseños: Galería y Plantillas 3D */
+export const IconoGaleriaPlantillas3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#ec4899', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="pal3dWood" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fed7aa" /><stop offset="100%" stopColor="#ea580c" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Paleta de Artista 3D */}
+    <path d="M22 8C13 8 7 14 7 23C7 32 14 38 23 38C26 38 28 36 28 33C28 31.5 27 30.5 27 29C27 27.5 28.5 26 30 26H34C39 26 42 22 42 18C42 12 33 8 22 8Z" fill="url(#pal3dWood)" stroke="#ffffff" strokeWidth="1.2" />
+    {/* Agujero para pulgar */}
+    <circle cx="14" cy="30" r="3.5" fill="#ffffff" />
+    {/* Gotas de color primario */}
+    <circle cx="16" cy="14" r="3" fill="#3b82f6" stroke="#ffffff" strokeWidth="0.8" />
+    <circle cx="24" cy="12" r="3" fill="#ef4444" stroke="#ffffff" strokeWidth="0.8" />
+    <circle cx="32" cy="14" r="3" fill="#eab308" stroke="#ffffff" strokeWidth="0.8" />
+    <circle cx="36" cy="20" r="3" fill="#10b981" stroke="#ffffff" strokeWidth="0.8" />
+    <circle cx="22" cy="34" r="2" fill="#ec4899" />
+    {/* Pincel con férula metálica */}
+    <polygon points="38,4 42,7 28,26 25,24" fill="#a855f7" />
+    <polygon points="25,24 28,26 23,29" fill="#facc15" />
+  </svg>
+);
+
+/** 18. Diseños: Editor de Constancias 3D */
+export const IconoEditorConstancias3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0284c7', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="cns3dPaper" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ffffff" /><stop offset="100%" stopColor="#f0f9ff" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Pliego Oficial de Constancia */}
+    <rect x="9" y="6" width="30" height="36" rx="3" fill="url(#cns3dPaper)" stroke="#0284c7" strokeWidth="1.2" />
+    {/* Membrete Oficial */}
+    <rect x="14" y="10" width="20" height="2" rx="1" fill="#0284c7" />
+    <line x1="14" y1="15" x2="34" y2="15" stroke="#cbd5e1" strokeWidth="1" />
+    <line x1="14" y1="19" x2="34" y2="19" stroke="#cbd5e1" strokeWidth="1" />
+    <line x1="14" y1="23" x2="30" y2="23" stroke="#cbd5e1" strokeWidth="1" />
+    <line x1="14" y1="27" x2="34" y2="27" stroke="#cbd5e1" strokeWidth="1" />
+    {/* Sello de Cera Rojo con Cinta Ministerial */}
+    <circle cx="29" cy="34" r="5" fill="#dc2626" stroke="#ffffff" strokeWidth="1" />
+    <path d="M26 38L24 43L28 41L31 43L30 38" fill="#b91c1c" />
+    <circle cx="29" cy="34" r="2.5" fill="#facc15" />
+  </svg>
+);
+
+/** 19. Diseños: Carta de Aceptación 3D */
+export const IconoCartaAceptacion3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0d9488', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="crt3dGold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" /><stop offset="100%" stopColor="#d97706" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Pila de 3 Páginas de Aceptación Oficial */}
+    <rect x="13" y="11" width="26" height="32" rx="2" fill="#e2e8f0" />
+    <rect x="10" y="8" width="26" height="32" rx="2" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
+    <rect x="7" y="5" width="26" height="32" rx="2" fill="#ffffff" stroke="#0d9488" strokeWidth="1.2" />
+    {/* Renglones */}
+    <rect x="11" y="9" width="14" height="2" rx="1" fill="#0d9488" />
+    <line x1="11" y1="14" x2="27" y2="14" stroke="#94a3b8" strokeWidth="0.8" />
+    <line x1="11" y1="18" x2="27" y2="18" stroke="#94a3b8" strokeWidth="0.8" />
+    {/* Medalla Dorada de Admisión Aprobada */}
+    <circle cx="28" cy="27" r="7" fill="url(#crt3dGold)" stroke="#ffffff" strokeWidth="1.2" />
+    <polygon points="28,23 29.5,26 32.5,26.3 30.2,28 31,31 28,29.5 25,31 25.8,28 23.5,26.3 26.5,26" fill="#ffffff" />
+    <path d="M26 33L24 39L27 37L30 39L29 33" fill="#b45309" />
+  </svg>
+);
+
+/** 20. Diseños: Carnet Estudiantil 3D */
+export const IconoCarnetEstudiantil3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#10b981', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="crn3dGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Clip Superior del Carnet */}
+    <rect x="21" y="4" width="6" height="5" rx="1.5" fill="#94a3b8" stroke="#ffffff" strokeWidth="0.8" />
+    <rect x="22" y="8" width="4" height="2" fill="#334155" />
+    {/* Carnet PVC 3D Horizontal */}
+    <rect x="5" y="10" width="38" height="27" rx="3.5" fill="#ffffff" stroke="url(#crn3dGrad)" strokeWidth="1.4" />
+    <rect x="5" y="10" width="38" height="6" rx="3.5" fill="url(#crn3dGrad)" />
+    {/* Foto y Datos */}
+    <rect x="8" y="18" width="8" height="10" rx="1.5" fill="#d1fae5" stroke="#10b981" strokeWidth="0.8" />
+    <circle cx="12" cy="22" r="2" fill="#059669" />
+    <rect x="18" y="19" width="14" height="2" rx="1" fill="#1e293b" />
+    <rect x="18" y="23" width="10" height="1.5" rx="0.7" fill="#64748b" />
+    <rect x="18" y="26" width="7" height="1.5" rx="0.7" fill="#64748b" />
+    {/* Código de barras lateral */}
+    <line x1="36" y1="19" x2="36" y2="28" stroke="#0f172a" strokeWidth="1" />
+    <line x1="38" y1="19" x2="38" y2="28" stroke="#0f172a" strokeWidth="1.5" />
+    <line x1="40" y1="19" x2="40" y2="28" stroke="#0f172a" strokeWidth="0.8" />
+  </svg>
+);
+
+/** 21. Diseños: Creador de Certificados 3D */
+export const IconoCreadorCertificados3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#f59e0b', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="crt3dFrame" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fde047" /><stop offset="50%" stopColor="#f59e0b" /><stop offset="100%" stopColor="#b45309" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Marco Dorado del Diploma */}
+    <rect x="6" y="8" width="36" height="28" rx="3" fill="url(#crt3dFrame)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="9" y="11" width="30" height="22" rx="2" fill="#fffbeb" />
+    {/* Línea de Diploma y Laureles */}
+    <line x1="13" y1="16" x2="35" y2="16" stroke="#b45309" strokeWidth="1.5" />
+    <line x1="16" y1="21" x2="32" y2="21" stroke="#cbd5e1" strokeWidth="1" />
+    <line x1="19" y1="25" x2="29" y2="25" stroke="#cbd5e1" strokeWidth="1" />
+    {/* Medalla de Excelencia */}
+    <circle cx="24" cy="33" r="5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1" />
+    <path d="M22 37L20 42L24 40L28 42L26 37" fill="#b45309" />
+  </svg>
+);
+
+/** 22. Diseños: Creador de Flyers 3D */
+export const IconoCreadorFlyers3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#8b5cf6', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="fly3dGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#c084fc" /><stop offset="100%" stopColor="#7c3aed" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Caballete de afiche */}
+    <line x1="16" y1="36" x2="12" y2="43" stroke="#64748b" strokeWidth="2" strokeLinecap="round" />
+    <line x1="32" y1="36" x2="36" y2="43" stroke="#64748b" strokeWidth="2" strokeLinecap="round" />
+    {/* Hoja Volante / Afiche 3D con Gradiente Creativo */}
+    <rect x="8" y="7" width="32" height="30" rx="3.5" fill="url(#fly3dGrad)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="11" y="10" width="26" height="13" rx="2" fill="#ffffff" opacity="0.3" />
+    <polygon points="13,20 18,14 24,19 28,15 34,21" fill="#ffffff" opacity="0.6" />
+    <circle cx="16" cy="14" r="1.5" fill="#fde047" />
+    <rect x="12" y="27" width="15" height="2" rx="1" fill="#ffffff" />
+    <rect x="12" y="31" width="20" height="1.5" rx="0.7" fill="#ede9fe" />
+  </svg>
+);
+
+/** 23. Diseños: Creador de Invitaciones 3D */
+export const IconoCreadorInvitaciones3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#f43f5e', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="inv3dEnv" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fb7185" /><stop offset="100%" stopColor="#e11d48" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Tarjeta de Gala que sale del sobre */}
+    <rect x="11" y="7" width="26" height="24" rx="2" fill="#fff1f2" stroke="#f43f5e" strokeWidth="1" />
+    <line x1="15" y1="12" x2="33" y2="12" stroke="#e11d48" strokeWidth="1.5" />
+    <line x1="17" y1="16" x2="31" y2="16" stroke="#94a3b8" strokeWidth="1" />
+    {/* Sobre 3D Elegante */}
+    <rect x="6" y="17" width="36" height="23" rx="3.5" fill="url(#inv3dEnv)" stroke="#ffffff" strokeWidth="1.2" />
+    <polygon points="6,17 24,30 42,17" fill="#fda4af" opacity="0.7" />
+    <circle cx="24" cy="29" r="3.5" fill="#facc15" stroke="#ca8a04" strokeWidth="0.8" />
+  </svg>
+);
+
+/** 24. Diseños: Creador de Tapas 3D */
+export const IconoCreadorTapas3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0d9488', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="tap3dGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#2dd4bf" /><stop offset="100%" stopColor="#0f766e" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Portada / Cuaderno de Espiral */}
+    <rect x="11" y="7" width="31" height="34" rx="4" fill="url(#tap3dGrad)" stroke="#ffffff" strokeWidth="1.2" />
+    {/* Espiral metálico lateral */}
+    {[11, 16, 21, 26, 31, 36].map((y) => (
+      <rect key={y} x="8" y={y} width="5" height="2" rx="1" fill="#ffffff" stroke="#94a3b8" strokeWidth="0.8" />
+    ))}
+    {/* Ventana de título en la carátula */}
+    <rect x="17" y="13" width="19" height="9" rx="2" fill="#ffffff" />
+    <rect x="19" y="16" width="15" height="1.8" rx="0.9" fill="#0f766e" />
+    <rect x="19" y="19" width="10" height="1.2" rx="0.6" fill="#94a3b8" />
+  </svg>
+);
+
+/** 25. Diseños: Creador de Comunicados 3D */
+export const IconoCreadorComunicados3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#2563eb', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="com3dMeg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#60a5fa" /><stop offset="100%" stopColor="#1d4ed8" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Megáfono 3D */}
+    <polygon points="14,20 28,12 28,32 14,24" fill="url(#com3dMeg)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="9" y="19" width="6" height="6" rx="1.5" fill="#1e40af" />
+    {/* Empuñadura */}
+    <path d="M19 23V31C19 32.5 17.5 33 16 33" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+    {/* Campana Frontal */}
+    <ellipse cx="28" cy="22" rx="3" ry="10" fill="#93c5fd" stroke="#ffffff" strokeWidth="1" />
+    {/* Ondas expansivas de sonido */}
+    <path d="M34 16C36 18 36 26 34 28" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+    <path d="M38 12C42 16 42 28 38 32" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+/** 26. Diseños: Creador de Cumpleaños 3D */
+export const IconoCreadorCumpleanos3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#eab308', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="cmp3dBox" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fde047" /><stop offset="100%" stopColor="#ca8a04" />
+      </linearGradient>
+      <linearGradient id="cmp3dBalloon" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#f43f5e" /><stop offset="100%" stopColor="#be123c" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Globo Festivo en el Fondo */}
+    <ellipse cx="32" cy="14" rx="7" ry="9" fill="url(#cmp3dBalloon)" stroke="#ffffff" strokeWidth="1" />
+    <polygon points="32,23 31,25 33,25" fill="#be123c" />
+    <path d="M32 25C31 29 33 32 32 36" stroke="#94a3b8" strokeWidth="0.8" fill="none" />
+    {/* Caja de Regalo 3D */}
+    <rect x="9" y="22" width="24" height="19" rx="3" fill="url(#cmp3dBox)" stroke="#ffffff" strokeWidth="1.2" />
+    {/* Tapa de la caja */}
+    <rect x="7" y="18" width="28" height="6" rx="2" fill="#eab308" stroke="#ffffff" strokeWidth="1" />
+    {/* Cinta Roja y Lazo */}
+    <rect x="19" y="18" width="4" height="23" fill="#ef4444" />
+    <path d="M21 18C18 14 16 14 18 13C20 12 21 16 21 18ZM21 18C24 14 26 14 24 13C22 12 21 16 21 18Z" fill="#ef4444" stroke="#ffffff" strokeWidth="0.5" />
+  </svg>
+);
+
+/** 27. Diseños: Encuestas 3D */
+export const IconoEncuesta3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#059669', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="enc3dBoard" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Portapapeles de Encuesta */}
+    <rect x="8" y="7" width="32" height="34" rx="4" fill="url(#enc3dBoard)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="11" y="11" width="26" height="27" rx="2.5" fill="#ffffff" />
+    <rect x="18" y="5" width="12" height="4" rx="1.5" fill="#facc15" />
+    {/* Casillas de satisfacción con Check */}
+    <rect x="14" y="16" width="5" height="5" rx="1.5" fill="#10b981" />
+    <path d="M15.5 18.5L16.5 19.5L18 17.5" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="22" y="17.5" width="12" height="2" rx="1" fill="#334155" />
+    
+    <rect x="14" y="24" width="5" height="5" rx="1.5" fill="#3b82f6" />
+    <path d="M15.5 26.5L16.5 27.5L18 25.5" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="22" y="25.5" width="12" height="2" rx="1" fill="#334155" />
+
+    {/* Carita de Satisfacción Sonriente */}
+    <circle cx="24" cy="33" r="3.5" fill="#fde047" stroke="#ca8a04" strokeWidth="0.8" />
+    <circle cx="23" cy="32" r="0.5" fill="#78350f" />
+    <circle cx="25" cy="32" r="0.5" fill="#78350f" />
+    <path d="M22.8 34C23.2 34.8 24.8 34.8 25.2 34" stroke="#78350f" strokeWidth="0.6" strokeLinecap="round" />
+  </svg>
+);
+
+/** 28. Servicios y Bienestar: Transporte Escolar 3D */
+export const IconoTransporteEscolar3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#f97316', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="bus3dBody" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fde047" /><stop offset="50%" stopColor="#f59e0b" /><stop offset="100%" stopColor="#d97706" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Carrocería del Autobús Escolar 3D */}
+    <rect x="8" y="12" width="32" height="24" rx="5" fill="url(#bus3dBody)" stroke="#ffffff" strokeWidth="1.2" />
+    {/* Parabrisas Panorámico */}
+    <rect x="11" y="15" width="26" height="10" rx="3" fill="#38bdf8" opacity="0.8" stroke="#0284c7" strokeWidth="0.8" />
+    {/* Faros Delanteros */}
+    <circle cx="12" cy="29" r="2" fill="#ffffff" stroke="#facc15" strokeWidth="0.8" />
+    <circle cx="36" cy="29" r="2" fill="#ffffff" stroke="#facc15" strokeWidth="0.8" />
+    <rect x="18" y="28" width="12" height="3" rx="1" fill="#1e293b" />
+    {/* Ruedas con Llantas */}
+    <rect x="10" y="34" width="7" height="6" rx="2" fill="#0f172a" />
+    <rect x="31" y="34" width="7" height="6" rx="2" fill="#0f172a" />
+    {/* Letrero Escolar */}
+    <rect x="16" y="8" width="16" height="4" rx="1.5" fill="#1e293b" />
+    <rect x="18" y="9.5" width="12" height="1" rx="0.5" fill="#facc15" />
+  </svg>
+);
+
+/** 29. Seguridad y Accesos: Mi Perfil 3D */
+export const IconoMiPerfil3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0284c7', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="prf3dCard" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#38bdf8" /><stop offset="100%" stopColor="#0284c7" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Credencial Personal 3D */}
+    <rect x="9" y="8" width="30" height="34" rx="4" fill="#ffffff" stroke="url(#prf3dCard)" strokeWidth="1.2" />
+    {/* Avatar Usuario */}
+    <circle cx="24" cy="19" r="6" fill="url(#prf3dCard)" stroke="#ffffff" strokeWidth="1" />
+    <circle cx="24" cy="18" r="2.5" fill="#ffffff" />
+    <path d="M19 28C19 25 21 24 24 24C27 24 29 25 29 28" stroke="url(#prf3dCard)" strokeWidth="2" strokeLinecap="round" />
+    {/* Escudo de Seguridad / Privacidad en esquina */}
+    <g transform="translate(29, 27)">
+      <path d="M5 0L10 2.5V6C10 9 5 12 5 12C5 12 0 9 0 6V2.5L5 0Z" fill="#10b981" stroke="#ffffff" strokeWidth="0.8" />
+      <path d="M3.5 6L4.8 7.2L7 4.5" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  </svg>
+);
+
+/** 30. Seguridad y Accesos: Métodos de Acceso 3D (Biometría y TOTP) */
+export const IconoMetodosAcceso3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#7c3aed', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="bio3dPad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#334155" /><stop offset="100%" stopColor="#0f172a" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Sensor Biométrico Táctil 3D */}
+    <circle cx="24" cy="24" r="17" fill="url(#bio3dPad)" stroke="#a855f7" strokeWidth="1.5" />
+    <circle cx="24" cy="24" r="13" fill="#1e1b4b" stroke="#00f0ff" strokeWidth="0.8" strokeDasharray="3 2" />
+    {/* Huella Dactilar Cian Holográfica */}
+    <path d="M24 16C20 16 17 19 17 23C17 27 20 31 24 31C28 31 31 27 31 23" stroke="#00f0ff" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+    <path d="M24 19C21.5 19 19.5 21 19.5 23.5C19.5 26 21.5 28 24 28C26.5 28 28.5 26 28.5 23.5" stroke="#00f0ff" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+    <circle cx="24" cy="23.5" r="1.5" fill="#38bdf8" />
+  </svg>
+);
+
+/** 31. Seguridad y Accesos: Gestión de Usuarios 3D */
+export const IconoGestionUsuarios3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#10b981', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="usr3dGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#34d399" /><stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Directorio de Cuentas */}
+    <rect x="7" y="10" width="34" height="30" rx="4" fill="#ffffff" stroke="url(#usr3dGrad)" strokeWidth="1.2" />
+    {/* Usuario 1 Principal */}
+    <circle cx="17" cy="20" r="4" fill="url(#usr3dGrad)" />
+    <rect x="24" y="17" width="13" height="2" rx="1" fill="#1e293b" />
+    <rect x="24" y="21" width="9" height="1.5" rx="0.7" fill="#64748b" />
+    {/* Usuario 2 */}
+    <circle cx="17" cy="30" r="4" fill="#3b82f6" />
+    <rect x="24" y="27" width="13" height="2" rx="1" fill="#1e293b" />
+    <rect x="24" y="31" width="9" height="1.5" rx="0.7" fill="#64748b" />
+    {/* Llave de acceso flotante */}
+    <g transform="translate(33, 8)">
+      <circle cx="0" cy="0" r="4" fill="#facc15" stroke="#ca8a04" strokeWidth="0.8" />
+      <rect x="2" y="-1" width="6" height="2" fill="#facc15" />
+      <rect x="6" y="1" width="2" height="2" fill="#ca8a04" />
+    </g>
+  </svg>
+);
+
+/** 32. Seguridad y Accesos: Roles y Privilegios 3D */
+export const IconoRolesPrivilegios3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#f59e0b', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="rol3dGold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fde047" /><stop offset="50%" stopColor="#f59e0b" /><stop offset="100%" stopColor="#b45309" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Gran Llave Maestra 3D Dorada */}
+    <g transform="translate(24, 22) rotate(-45)">
+      <circle cx="0" cy="-10" r="8" fill="url(#rol3dGold)" stroke="#ffffff" strokeWidth="1.2" />
+      <circle cx="0" cy="-10" r="3.5" fill="#ffffff" />
+      <rect x="-2.5" y="-3" width="5" height="24" rx="2" fill="url(#rol3dGold)" stroke="#ffffff" strokeWidth="0.8" />
+      {/* Dientes de la llave de privilegios */}
+      <rect x="2.5" y="12" width="6" height="3" rx="1" fill="#b45309" />
+      <rect x="2.5" y="17" width="4" height="3" rx="1" fill="#b45309" />
+    </g>
+    {/* Insignia de Privilegios SuperAdmin */}
+    <circle cx="36" cy="34" r="6.5" fill="#10b981" stroke="#ffffff" strokeWidth="1.2" />
+    <path d="M33 34L35 36L39 32" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+/** 33. Seguridad y Accesos: Preguntas de Seguridad 3D */
+export const IconoPreguntasSeguridad3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#0d9488', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="prg3dShield" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#2dd4bf" /><stop offset="100%" stopColor="#0f766e" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Escudo Protector 3D */}
+    <path d="M24 7L38 13V24C38 33 24 40 24 40C24 40 10 33 10 24V13L24 7Z" fill="url(#prg3dShield)" stroke="#ffffff" strokeWidth="1.4" />
+    {/* Candado de Rescate y Signo de Interrogación */}
+    <circle cx="24" cy="22" r="5" fill="#ffffff" opacity="0.2" />
+    <text x="24" y="29" textAnchor="middle" fill="#ffffff" fontSize="18" fontWeight="900" fontFamily="sans-serif">?</text>
+  </svg>
+);
+
+/** 34. Seguridad y Accesos: Auditoría del Sistema 3D */
+export const IconoAuditoriaSistema3D: React.FC<{ size?: number; color?: string; className?: string }> = ({
+  size = 46, color = '#e11d48', className
+}) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={{ filter: `drop-shadow(0 4px 12px ${color}50)` }}>
+    <defs>
+      <linearGradient id="aud3dBook" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fb7185" /><stop offset="100%" stopColor="#be123c" />
+      </linearGradient>
+    </defs>
+    <ellipse cx="24" cy="43.5" rx="18" ry="3" fill="#0f172a" opacity="0.22" />
+    {/* Libro de Bitácora / Log Maestro */}
+    <rect x="8" y="8" width="32" height="34" rx="4" fill="url(#aud3dBook)" stroke="#ffffff" strokeWidth="1.2" />
+    <rect x="12" y="12" width="24" height="26" rx="2.5" fill="#ffffff" />
+    {/* Entradas cronológicas de eventos */}
+    {[17, 23, 29].map((y) => (
+      <g key={y}>
+        <circle cx="15" cy={y} r="1.5" fill="#e11d48" />
+        <rect x="19" y={y - 1} width="13" height="2" rx="1" fill="#334155" />
+      </g>
+    ))}
+    {/* Reloj de Marcas de Tiempo en esquina */}
+    <circle cx="34" cy="33" r="6" fill="#0284c7" stroke="#ffffff" strokeWidth="1.2" />
+    <circle cx="34" cy="33" r="0.8" fill="#ffffff" />
+    <line x1="34" y1="33" x2="34" y2="30" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" />
+    <line x1="34" y1="33" x2="36.5" y2="33" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" />
+  </svg>
+);
 

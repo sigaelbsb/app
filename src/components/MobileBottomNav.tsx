@@ -261,10 +261,24 @@ export const MobileBottomNav = ({
                         style={{
                           backgroundColor: `${datosModulo.color}15`,
                           color: datosModulo.color,
-                          border: `1.5px solid ${datosModulo.color}35`
+                          border: `1.5px solid ${datosModulo.color}35`,
+                          padding: '3px'
                         }}
                       >
-                        <i className={`bi ${datosModulo.icono}`}></i>
+                        {datosModulo.icono3d ? (
+                          <img 
+                            src={datosModulo.icono3d} 
+                            alt={nombreCategoria}
+                            style={{ 
+                              width: '36px', 
+                              height: '36px', 
+                              objectFit: 'contain',
+                              filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.18))'
+                            }}
+                          />
+                        ) : (
+                          <i className={`bi ${datosModulo.icono}`}></i>
+                        )}
                       </div>
                       <div>
                         <div className="fw-bold text-dark small">

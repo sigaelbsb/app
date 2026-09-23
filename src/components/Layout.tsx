@@ -1204,12 +1204,29 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   <div 
                     className="chamilo-menu-icon-box d-flex align-items-center justify-content-center"
                     style={{ 
-                      backgroundColor: isActive ? datosModulo.color : `${datosModulo.color}15`,
+                      backgroundColor: isActive ? `${datosModulo.color}25` : `${datosModulo.color}12`,
                       color: isActive ? '#ffffff' : datosModulo.color,
-                      border: isActive ? `1.5px solid ${datosModulo.color}` : `1px solid ${datosModulo.color}25`
+                      border: isActive ? `1.5px solid ${datosModulo.color}` : `1px solid ${datosModulo.color}25`,
+                      padding: '2px',
+                      overflow: 'hidden'
                     }}
                   >
-                    <i className={`bi ${datosModulo.icono}`}></i>
+                    {datosModulo.icono3d ? (
+                      <img 
+                        src={datosModulo.icono3d} 
+                        alt={nombreCategoria}
+                        className="chamilo-nav-3d-icon"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          objectFit: 'contain',
+                          filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.18))',
+                          transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                        }}
+                      />
+                    ) : (
+                      <i className={`bi ${datosModulo.icono}`}></i>
+                    )}
                   </div>
                   <span className="texto-menu-ocultable text-truncate">{nombreCategoria}</span>
                 </div>

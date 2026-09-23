@@ -80,7 +80,7 @@ interface EscuelaPerfil {
 export const Dashboard = () => {
   const navigate = useNavigate();
   const [escuelas, setEscuelas] = useState<EscuelaPerfil[]>([]);
-  const { tieneAccesoEscuela, tienePermiso, loading: permLoading } = usePermisos();
+  const { tieneAccesoEscuela, tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const activeSchoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
 
@@ -108,6 +108,8 @@ export const Dashboard = () => {
 
   const [relojDigital, setRelojDigital] = useState<string>('');
   const [mostrarIdentidad, setMostrarIdentidad] = useState(false);
+  const [guiaDashboard] = useState<'zoe' | 'max'>(() => Math.random() < 0.5 ? 'zoe' : 'max');
+  const [poseGuiaDashboard] = useState<'saludo' | 'pulgar'>(() => Math.random() < 0.5 ? 'saludo' : 'pulgar');
 
   useEffect(() => {
     const tick = () => {
@@ -1113,6 +1115,8 @@ export const Dashboard = () => {
           </div>
         )}
       </div>
+
+
 
       {/* ── 3. INDICADORES RESUMEN CONFIGURABLES (ESTILO ÁRBOL ABC) ── */}
       <div className="row g-3 mb-4">

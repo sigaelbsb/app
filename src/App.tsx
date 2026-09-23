@@ -173,6 +173,12 @@ function App() {
             <Route path="categoria/Dirección y Sistema/Grados y Salones" element={<ProtectedRoute modulo="Grados y Salones"><GradosSalones /></ProtectedRoute>} />
             <Route path="categoria/Gestión Docente/Mi Expediente" element={<ProtectedRoute modulo="Mi Expediente"><MiExpediente /></ProtectedRoute>} />
             <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<ProtectedRoute modulo="Gestor de Expedientes"><GestorExpedientes /></ProtectedRoute>} />
+            <Route path="categoria/Admisiones y Nuevos Ingresos/Solicitud de Cupos" element={<ProtectedRoute modulo="Solicitud de Cupos"><SolicitudCupos /></ProtectedRoute>} />
+            <Route path="categoria/Admisiones y Nuevos Ingresos/Gestión de Admisiones" element={<ProtectedRoute modulo="Gestión de Admisiones"><GestionAdmisiones /></ProtectedRoute>} />
+            <Route path="categoria/Admisiones y Nuevos Ingresos/Mensajes de Admisión" element={<ProtectedRoute modulo="Mensajes de Admisión"><RedactorMensajesAdmision /></ProtectedRoute>} />
+            <Route path="categoria/Admisiones y Nuevos Ingresos/Redactor de Mensajes" element={<ProtectedRoute modulo="Mensajes de Admisión"><RedactorMensajesAdmision /></ProtectedRoute>} />
+            <Route path="categoria/Admisiones y Nuevos Ingresos/Orientaciones Nuevos Ingresos" element={<ProtectedRoute modulo="Orientaciones Nuevos Ingresos"><OrientacionesNuevosIngresos /></ProtectedRoute>} />
+            <Route path="categoria/Admisiones y Nuevos Ingresos/Mis Solicitudes" element={<ProtectedRoute modulo="Mis Solicitudes"><SolicitudCupos /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Solicitud de Cupos" element={<ProtectedRoute modulo="Solicitud de Cupos"><SolicitudCupos /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Gestión de Admisiones" element={<ProtectedRoute modulo="Gestión de Admisiones"><GestionAdmisiones /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Mensajes de Admisión" element={<ProtectedRoute modulo="Mensajes de Admisión"><RedactorMensajesAdmision /></ProtectedRoute>} />

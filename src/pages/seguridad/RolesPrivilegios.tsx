@@ -89,6 +89,26 @@ const ESTRUCTURA_ACCESOS = {
       "Función: Re-imprimir Comprobante"
     ]
   },
+  "Admisiones y Nuevos Ingresos": {
+    "Solicitud de Cupos": [], 
+    "Gestión de Admisiones": [
+      "Tarjeta: Baremo y Clasificación", 
+      "Tarjeta: Auditoría Uno por Uno", 
+      "Tarjeta: Formalización de Matrícula", 
+      "Función: Enviar WhatsApp", 
+      "Función: Exportar Excel"
+    ], 
+    "Mensajes de Admisión": [
+      "Función: Editar Plantillas", 
+      "Función: Probar Envíos", 
+      "Función: Restaurar Predeterminados"
+    ],
+    "Orientaciones Nuevos Ingresos": [
+      "Función: Difusión Masiva WhatsApp",
+      "Función: Descargar Guía de Orientación"
+    ],
+    "Mis Solicitudes": []
+  },
   "Gestión Docente": {
     "Mi Expediente": ["Tarjeta: Modificar Ficha Docente"], 
     "Gestor de Expedientes": [

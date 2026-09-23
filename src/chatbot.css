@@ -72,6 +72,13 @@
     filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28)) drop-shadow(0 0 16px rgba(56, 189, 248, 0.55));
 }
 
+.sigma-container.tema-zoe .sigma-avatar-wrapper:hover {
+    filter: drop-shadow(0 16px 32px rgba(15, 23, 42, 0.36)) drop-shadow(0 0 24px rgba(236, 72, 153, 0.7));
+}
+.sigma-container.tema-max .sigma-avatar-wrapper:hover {
+    filter: drop-shadow(0 16px 32px rgba(15, 23, 42, 0.36)) drop-shadow(0 0 24px rgba(2, 132, 199, 0.7));
+}
+
 .sigma-container.tema-zoe .sigma-speech-bubble {
     border-color: rgba(236, 72, 153, 0.35);
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12), 0 0 18px rgba(244, 114, 182, 0.22);
@@ -163,12 +170,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28)) drop-shadow(0 0 14px rgba(244, 114, 182, 0.45));
+    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.28));
     transition: filter 0.3s ease;
-}
-
-.sigma-avatar-wrapper:hover {
-    filter: drop-shadow(0 16px 32px rgba(15, 23, 42, 0.36)) drop-shadow(0 0 24px rgba(236, 72, 153, 0.7));
 }
 
 /* Figura Animada de Sigma (Opción 3 - Transparente con Micro-movimientos) */
@@ -705,6 +708,9 @@ body.dark-mode .sigma-btn-minimize:hover {
 .sigma-container.tema-zoe .sigma-launcher,
 .sigma-launcher.launcher-zoe {
     background: linear-gradient(135deg, #ec4899, #f43f5e) !important;
+    background-color: #ec4899 !important;
+    box-shadow: 0 6px 20px rgba(236, 72, 153, 0.5), 0 0 16px rgba(244, 114, 182, 0.4) !important;
+    border: 2.5px solid #ffffff !important;
     animation: sigma-launcher-pulse-zoe 2.2s infinite ease-in-out !important;
 }
 
@@ -717,6 +723,9 @@ body.dark-mode .sigma-btn-minimize:hover {
 .sigma-container.tema-max .sigma-launcher,
 .sigma-launcher.launcher-max {
     background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+    background-color: #0284c7 !important;
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5), 0 0 16px rgba(56, 189, 248, 0.45) !important;
+    border: 2.5px solid #ffffff !important;
     animation: sigma-launcher-pulse-max 2.2s infinite ease-in-out !important;
 }
 

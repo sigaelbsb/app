@@ -752,13 +752,13 @@
 }
 
 .chamilo-menu-icon-box {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   flex-shrink: 0;
   margin-right: 12px;
   transition: all 0.2s ease;

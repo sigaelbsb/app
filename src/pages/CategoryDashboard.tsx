@@ -7,35 +7,54 @@ import {
   ChamiloHelpCallout, 
   ChamiloToolCard,
   IconoPerfilEscuela,
-  IconoConfiguracionSistema,
   IconoCerebroSigma,
-  IconoCalendarioEscolar,
-  IconoDivisionTerritorial,
-  IconoPanelControl,
-  IconoInstalacionDescargas,
-  IconoEstudiante,
-  IconoUnidadTransporte,
-  IconoSeguridadRol,
-  IconoPersonalDocente,
-  IconoCargosInstitucionales,
-  IconoCadenaSupervisoria,
-  IconoGestionColectivos,
-  IconoEstructuraEmpresa,
-  IconoGradosSalones,
-  IconoGestionAdmisiones,
-  IconoMensajesAdmision,
   IconoVincularEstudiante,
   IconoActualizacionDatos,
   IconoVerificaciones,
+  IconoGestionAdmisiones,
+  IconoMensajesAdmision,
+  IconoConfiguracionEscolar3D,
+  IconoCalendarioEscolar3D,
+  IconoDivisionTerritorial3D,
+  IconoPanelControl3D,
+  IconoInstalacionDescargas3D,
+  IconoCargosInstitucionales3D,
+  IconoCadenaSupervisoria3D,
+  IconoGestionColectivos3D,
+  IconoEstructuraEmpresa3D,
+  IconoGradosSalones3D,
+  IconoExpedienteEstudiantil3D,
+  IconoGestionMatricula3D,
   IconoSolicitudCupos3D,
-  IconoDocumentoDigital,
-  IconoEstudioDiseno,
-  IconoModuloDisenos
+  IconoOrientacionesNuevosIngresos3D,
+  IconoMisSolicitudes3D,
+  IconoMiExpediente3D,
+  IconoGestorExpedientes3D,
+  IconoGaleriaPlantillas3D,
+  IconoEditorConstancias3D,
+  IconoCartaAceptacion3D,
+  IconoCarnetEstudiantil3D,
+  IconoCreadorCertificados3D,
+  IconoCreadorFlyers3D,
+  IconoCreadorInvitaciones3D,
+  IconoCreadorTapas3D,
+  IconoCreadorComunicados3D,
+  IconoCreadorCumpleanos3D,
+  IconoEncuesta3D,
+  IconoTransporteEscolar3D,
+  IconoMiPerfil3D,
+  IconoMetodosAcceso3D,
+  IconoGestionUsuarios3D,
+  IconoRolesPrivilegios3D,
+  IconoPreguntasSeguridad3D,
+  IconoAuditoriaSistema3D
 } from '../components/chamilo';
 
 export const ModulosSistema = {
   "Dirección y Sistema": { 
-    icono: "bi-bank", color: "#FF8D00", desc: "Gestión institucional, calendario oficial, parámetros maestros y configuración global.", 
+    icono: "bi-building-gear", 
+    icono3d: "/icons3d/icono_direccion_3d.png",
+    color: "#FF8D00", desc: "Gestión institucional, calendario oficial, parámetros maestros y configuración global.", 
     ayuda: "En esta caja de herramientas de Dirección podrás configurar los datos de la institución, gestionar los períodos escolares, lapsos, división territorial y herramientas de control del sistema.",
     items: [
       { 
@@ -111,7 +130,9 @@ export const ModulosSistema = {
     ] 
   },
   "Organización Escolar": { 
-    icono: "bi-diagram-3", color: "#e11d48", desc: "Cargos institucionales, organigrama, colectivos pedagógicos y estructura corporativa.", 
+    icono: "bi-diagram-3", 
+    icono3d: "/icons3d/icono_organizacion_3d.png",
+    color: "#e11d48", desc: "Cargos institucionales, organigrama, colectivos pedagógicos y estructura corporativa.", 
     ayuda: "Herramientas de organización del personal, jerarquía supervisoria, agrupaciones de colectivos y nóminas de filiales PDVSA.",
     items: [
       { 
@@ -157,7 +178,9 @@ export const ModulosSistema = {
     ] 
   },
   "Control de Estudios": { 
-    icono: "bi-folder-check", color: "#0284c7", desc: "Estructura académica, ambientes físicos, grados, salones y secciones.", 
+    icono: "bi-folder-check", 
+    icono3d: "/icons3d/icono_academico_3d.png",
+    color: "#0284c7", desc: "Estructura académica, ambientes físicos, grados, salones y secciones.", 
     ayuda: "Administra las capacidades de las aulas, apertura de salones, configuración de grados y asignación de docentes guías.",
     items: [
       { 
@@ -173,9 +196,59 @@ export const ModulosSistema = {
     ] 
   },
   "Gestión Estudiantil": { 
-    icono: "bi-mortarboard-fill", color: "#8b5cf6", desc: "Inscripciones, vinculaciones, expedientes estudiantiles y solicitudes.", 
-    ayuda: "Herramientas integrales para el proceso de admisión, vinculación de representantes con alumnos, emisión de comprobantes y recaudos.",
+    icono: "bi-mortarboard-fill", 
+    icono3d: "/icons3d/icono_estudiantil_3d.png",
+    color: "#8b5cf6", desc: "Inscripciones, vinculaciones, ratificación de fichas y comprobantes.", 
+    ayuda: "Herramientas integrales para el proceso de vinculación de representantes con alumnos, emisión de comprobantes, censo y recaudos.",
     items: [
+      { 
+        vista: "Vincular Estudiante", 
+        icono: "bi-person-plus-fill", 
+        color: "#0284c7",
+        desc: "Registro formal de matrícula, ficha de inscripción y vinculación.",
+        tag: "Matrícula",
+        badgeText: "Inscripciones",
+        badgeType: "active",
+        hint: "Vinculación Representante-Alumno"
+      },
+      { 
+        vista: "Actualización de Datos", 
+        icono: "bi-arrow-repeat", 
+        color: "#f59e0b",
+        desc: "Asistente guiado por pasos para ratificación de datos del representante.",
+        tag: "Censo Anual",
+        badgeText: "Paso a Paso",
+        badgeType: "active",
+        hint: "Ratificación de Ficha Escolar"
+      },
+      { 
+        vista: "Verificaciones", 
+        icono: "bi-shield-check", 
+        color: "#0d9488",
+        desc: "Escaneo de códigos QR y re-impresión de comprobantes oficiales.",
+        tag: "Seguridad QR",
+        badgeText: "Auditoría",
+        badgeType: "active",
+        hint: "Validación de Autenticidad"
+      }
+    ] 
+  },
+  "Admisiones y Nuevos Ingresos": { 
+    icono: "bi-clipboard2-check-fill", 
+    icono3d: "/icons3d/icono_admisiones_3d.png",
+    color: "#059669", desc: "Recepción de solicitudes, baremo institucional, auditoría y formalización de cupo.", 
+    ayuda: "Herramientas dedicadas a la convocatoria, recepción de solicitudes de cupos, baremo de clasificación y formalización de nuevos ingresos.",
+    items: [
+      { 
+        vista: "Solicitud de Cupos", 
+        icono: "bi-envelope-paper-fill", 
+        color: "#8b5cf6",
+        desc: "Recepción y validación de nuevas solicitudes de nuevo ingreso.",
+        tag: "Nuevo Ingreso",
+        badgeText: "Convocatoria",
+        badgeType: "active",
+        hint: "Registro Digital de Cupos"
+      },
       { 
         vista: "Gestión de Admisiones", 
         icono: "bi-ui-checks", 
@@ -207,46 +280,6 @@ export const ModulosSistema = {
         hint: "Paso a Paso Nuevos Ingresos"
       },
       { 
-        vista: "Vincular Estudiante", 
-        icono: "bi-person-plus-fill", 
-        color: "#0284c7",
-        desc: "Registro formal de matrícula, ficha de inscripción y vinculación.",
-        tag: "Matrícula",
-        badgeText: "Inscripciones",
-        badgeType: "active",
-        hint: "Vinculación Representante-Alumno"
-      },
-      { 
-        vista: "Actualización de Datos", 
-        icono: "bi-arrow-repeat", 
-        color: "#f59e0b",
-        desc: "Asistente guiado por pasos para ratificación de datos del representante.",
-        tag: "Censo Anual",
-        badgeText: "Paso a Paso",
-        badgeType: "active",
-        hint: "Ratificación de Ficha Escolar"
-      },
-      { 
-        vista: "Solicitud de Cupos", 
-        icono: "bi-envelope-paper-fill", 
-        color: "#8b5cf6",
-        desc: "Recepción y validación de nuevas solicitudes de nuevo ingreso.",
-        tag: "Nuevo Ingreso",
-        badgeText: "Convocatoria",
-        badgeType: "active",
-        hint: "Registro Digital de Cupos"
-      },
-      { 
-        vista: "Verificaciones", 
-        icono: "bi-shield-check", 
-        color: "#0d9488",
-        desc: "Escaneo de códigos QR y re-impresión de comprobantes oficiales.",
-        tag: "Seguridad QR",
-        badgeText: "Auditoría",
-        badgeType: "active",
-        hint: "Validación de Autenticidad"
-      },
-      { 
         vista: "Mis Solicitudes", 
         icono: "bi-card-checklist", 
         color: "#f97316",
@@ -259,7 +292,9 @@ export const ModulosSistema = {
     ] 
   },
   "Gestión Docente": { 
-    icono: "bi-person-workspace", color: "#00E676", desc: "Administración del personal docente, expedientes y asignaciones.", 
+    icono: "bi-person-workspace", 
+    icono3d: "/icons3d/icono_personal_3d.png",
+    color: "#00E676", desc: "Administración del personal docente, expedientes y asignaciones.", 
     ayuda: "Control de expedientes de profesores, carga horaria, asignaturas y registros de desempeño laboral.",
     items: [
       { vista: "Mi Expediente", icono: "bi-person-vcard", color: "#0284c7", desc: "Ficha personal, títulos, experiencia y datos de contacto del docente." },
@@ -267,7 +302,9 @@ export const ModulosSistema = {
     ] 
   },
   "Diseños": { 
-    icono: "bi-palette-fill", color: "#EC4899", desc: "Estudio de diseño creativo, constancias, carnets, comunicados y encuestas.", 
+    icono: "bi-palette-fill", 
+    icono3d: "/icons3d/icono_disenos_3d.png",
+    color: "#EC4899", desc: "Estudio de diseño creativo, constancias, carnets, comunicados y encuestas.", 
     ayuda: "Generador de documentos oficiales con firmas seguras, membretes, sellos digitales y creador de piezas gráficas.",
     items: [
       { 
@@ -383,14 +420,18 @@ export const ModulosSistema = {
     ] 
   },
   "Servicios y Bienestar": { 
-    icono: "bi-heart-pulse", color: "#FF3D00", desc: "Rutas, paradas y monitoreo en tiempo real del transporte escolar.", 
+    icono: "bi-heart-pulse", 
+    icono3d: "/icons3d/icono_transporte_3d.png",
+    color: "#FF3D00", desc: "Rutas, paradas y monitoreo en tiempo real del transporte escolar.", 
     ayuda: "Control de unidades de transporte escolar, trazado de rutas, paradas y notificaciones push de recorridos.",
     items: [
       { vista: "Transporte Escolar", icono: "bi-bus-front", color: "#f97316", desc: "Tracking de rutas, paradas, despacho masivo y rutogramas." }
     ] 
   },
   "Seguridad y Accesos": { 
-    icono: "bi-shield-lock", color: "#455A64", desc: "Usuarios, credenciales biométricas, roles y auditoría del sistema.", 
+    icono: "bi-shield-lock", 
+    icono3d: "/icons3d/icono_seguridad_3d.png",
+    color: "#455A64", desc: "Usuarios, credenciales biométricas, roles y auditoría del sistema.", 
     ayuda: "Administración de cuentas de acceso, matriz de privilegios por escuela, contraseñas y trazabilidad de eventos.",
     items: [
       { vista: "Mi Perfil", icono: "bi-person-badge", color: "#0284c7", desc: "Actualización de datos personales, clave y preguntas secretas." }, 
@@ -413,6 +454,13 @@ export const CategoryDashboard = () => {
   const nombreEscuela = escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
   const isSB = escuelaCodigo === 'sb';
 
+  // Personaje Guía institucional (Zoe o Max) asignado aleatoriamente para este módulo
+  const [guiaAsignado] = useState<'zoe' | 'max'>(() => Math.random() < 0.5 ? 'zoe' : 'max');
+  const [poseGuia] = useState<'saludo' | 'senala' | 'documentos' | 'pulgar'>(() => {
+    const poses: Array<'saludo' | 'senala' | 'documentos' | 'pulgar'> = ['senala', 'saludo', 'pulgar', 'documentos'];
+    return poses[Math.floor(Math.random() * poses.length)];
+  });
+
   const decodedCategory = categoryName ? decodeURIComponent(categoryName) : '';
   const modulo = (ModulosSistema as any)[decodedCategory];
 
@@ -420,6 +468,7 @@ export const CategoryDashboard = () => {
   const isOrganizacion = decodedCategory === 'Organización Escolar';
   const isControlEstudios = decodedCategory === 'Control de Estudios';
   const isGestionEstudiantil = decodedCategory === 'Gestión Estudiantil';
+  const isAdmisiones = decodedCategory === 'Admisiones y Nuevos Ingresos';
   const isDisenos = decodedCategory === 'Diseños';
 
   const theme = isDireccion ? {
@@ -470,6 +519,18 @@ export const CategoryDashboard = () => {
     beaconBorder: '#ddd6fe',
     backBtnBorder: '#ddd6fe',
     backBtnIcon: '#6d28d9'
+  } : (isAdmisiones ? {
+    borderTop: '6px solid #059669',
+    border: '2px solid #a7f3d0',
+    bg: 'linear-gradient(135deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%)',
+    badgeBg: '#059669',
+    accentColor: '#047857',
+    boxShadow: '0 10px 24px rgba(5, 150, 105, 0.15)',
+    logoBorder: '2.5px solid #a7f3d0',
+    beaconColor: '#059669',
+    beaconBorder: '#a7f3d0',
+    backBtnBorder: '#a7f3d0',
+    backBtnIcon: '#047857'
   } : (isDisenos ? {
     borderTop: '6px solid #ec4899',
     border: '2px solid #fbcfe8',
@@ -496,7 +557,7 @@ export const CategoryDashboard = () => {
     beaconBorder: isSB ? '#a7f3d0' : '#bae6fd',
     backBtnBorder: isSB ? '#a7f3d0' : '#bae6fd',
     backBtnIcon: isSB ? '#10b981' : '#0284c7'
-  }))));
+  })))));
 
   if (permLoading) {
     return (
@@ -529,83 +590,107 @@ export const CategoryDashboard = () => {
     switch (vista) {
       // Dirección y Sistema
       case 'Perfil de la Escuela':
-        return <IconoPerfilEscuela size={46} color={color} />;
+        return <IconoPerfilEscuela size={50} color={color} />;
       case 'Configuración Escolar':
       case 'Configuración del Sistema':
-        return <IconoConfiguracionSistema size={46} color={color} />;
+        return <IconoConfiguracionEscolar3D size={48} color={color} />;
       case 'Cerebro de Sigma':
-        return <IconoCerebroSigma size={54} color={color} />;
+        return <IconoCerebroSigma size={52} color={color} />;
       case 'Calendario Escolar':
-        return <IconoCalendarioEscolar size={46} color={color} />;
+        return <IconoCalendarioEscolar3D size={48} color={color} />;
       case 'División Territorial':
-        return <IconoDivisionTerritorial size={46} color={color} />;
+        return <IconoDivisionTerritorial3D size={48} color={color} />;
       case 'Panel de Control':
-        return <IconoPanelControl size={46} color={color} />;
+        return <IconoPanelControl3D size={48} color={color} />;
       case 'Instalación y Descargas':
-        return <IconoInstalacionDescargas size={46} color={color} />;
+        return <IconoInstalacionDescargas3D size={48} color={color} />;
 
       // Organización Escolar
       case 'Cargos Institucionales':
-        return <IconoCargosInstitucionales size={46} color={color} />;
+        return <IconoCargosInstitucionales3D size={48} color={color} />;
       case 'Cadena Supervisoria':
-        return <IconoCadenaSupervisoria size={46} color={color} />;
+        return <IconoCadenaSupervisoria3D size={48} color={color} />;
       case 'Gestión de Colectivos':
-        return <IconoGestionColectivos size={46} color={color} />;
+        return <IconoGestionColectivos3D size={48} color={color} />;
       case 'Estructura Empresa':
-        return <IconoEstructuraEmpresa size={46} color={color} />;
+        return <IconoEstructuraEmpresa3D size={48} color={color} />;
 
       // Control de Estudios
       case 'Grados y Salones':
-        return <IconoGradosSalones size={46} color={color} />;
+        return <IconoGradosSalones3D size={48} color={color} />;
 
       // Gestión Estudiantil
-      case 'Gestión de Admisiones':
-        return <IconoGestionAdmisiones size={46} color={color} />;
-      case 'Mensajes de Admisión':
-      case 'Orientaciones Nuevos Ingresos':
-        return <IconoMensajesAdmision size={46} color={color} />;
       case 'Vincular Estudiante':
-        return <IconoVincularEstudiante size={46} color={color} />;
+        return <IconoVincularEstudiante size={48} color={color} />;
       case 'Expediente Estudiantil':
-        return <IconoEstudiante size={46} color={color} />;
+        return <IconoExpedienteEstudiantil3D size={48} color={color} />;
       case 'Actualización de Datos':
-        return <IconoActualizacionDatos size={46} color={color} />;
-      case 'Solicitud de Cupos':
-      case 'Mis Solicitudes':
-        return <IconoSolicitudCupos3D size={46} color={color} />;
+        return <IconoActualizacionDatos size={48} color={color} />;
       case 'Verificaciones':
-        return <IconoVerificaciones size={46} color={color} />;
+        return <IconoVerificaciones size={48} color={color} />;
       case 'Gestión de Matrícula':
-        return <IconoEstudiante size={46} color={color} />;
+        return <IconoGestionMatricula3D size={48} color={color} />;
 
-      // Diseños
-      case 'Galería y Plantillas':
-        return <IconoModuloDisenos size={46} color={color} />;
-      case 'Editor de Constancias':
-        return <IconoDocumentoDigital size={46} color={color} />;
-      case 'Carta de Aceptación':
-        return <IconoDocumentoDigital size={46} color={color} />;
-      case 'Carnet Estudiantil':
-        return <IconoEstudiante size={46} color={color} />;
-      case 'Creador de Certificados':
-      case 'Creador de Flyers':
-      case 'Creador de Invitaciones':
-      case 'Creador de Tapas':
-      case 'Creador de Comunicados':
-      case 'Creador de Cumpleaños':
-      case 'Encuesta':
-        return <IconoEstudioDiseno size={46} color={color} />;
+      // Admisiones y Nuevos Ingresos
+      case 'Solicitud de Cupos':
+        return <IconoSolicitudCupos3D size={48} color={color} />;
+      case 'Gestión de Admisiones':
+        return <IconoGestionAdmisiones size={48} color={color} />;
+      case 'Mensajes de Admisión':
+        return <IconoMensajesAdmision size={48} color={color} />;
+      case 'Orientaciones Nuevos Ingresos':
+        return <IconoOrientacionesNuevosIngresos3D size={48} color={color} />;
+      case 'Mis Solicitudes':
+        return <IconoMisSolicitudes3D size={48} color={color} />;
 
-      // Otros módulos
-      case 'Transporte Escolar':
-        return <IconoUnidadTransporte size={46} color={color} />;
+      // Personal Docente
       case 'Mi Expediente':
+        return <IconoMiExpediente3D size={48} color={color} />;
       case 'Gestor de Expedientes':
-        return <IconoPersonalDocente size={46} color={color} />;
-      case 'Roles y Privilegios':
-      case 'Auditoría del Sistema':
+        return <IconoGestorExpedientes3D size={48} color={color} />;
+
+      // Diseños y Formatos
+      case 'Galería y Plantillas':
+        return <IconoGaleriaPlantillas3D size={48} color={color} />;
+      case 'Editor de Constancias':
+        return <IconoEditorConstancias3D size={48} color={color} />;
+      case 'Carta de Aceptación':
+        return <IconoCartaAceptacion3D size={48} color={color} />;
+      case 'Carnet Estudiantil':
+        return <IconoCarnetEstudiantil3D size={48} color={color} />;
+      case 'Creador de Certificados':
+        return <IconoCreadorCertificados3D size={48} color={color} />;
+      case 'Creador de Flyers':
+        return <IconoCreadorFlyers3D size={48} color={color} />;
+      case 'Creador de Invitaciones':
+        return <IconoCreadorInvitaciones3D size={48} color={color} />;
+      case 'Creador de Tapas':
+        return <IconoCreadorTapas3D size={48} color={color} />;
+      case 'Creador de Comunicados':
+        return <IconoCreadorComunicados3D size={48} color={color} />;
+      case 'Creador de Cumpleaños':
+        return <IconoCreadorCumpleanos3D size={48} color={color} />;
+      case 'Encuesta':
+        return <IconoEncuesta3D size={48} color={color} />;
+
+      // Servicios
+      case 'Transporte Escolar':
+        return <IconoTransporteEscolar3D size={48} color={color} />;
+
+      // Seguridad y Auditoría
+      case 'Mi Perfil':
+        return <IconoMiPerfil3D size={48} color={color} />;
       case 'Métodos de Acceso':
-        return <IconoSeguridadRol size={46} color={color} />;
+        return <IconoMetodosAcceso3D size={48} color={color} />;
+      case 'Gestión de Usuarios':
+        return <IconoGestionUsuarios3D size={48} color={color} />;
+      case 'Roles y Privilegios':
+        return <IconoRolesPrivilegios3D size={48} color={color} />;
+      case 'Preguntas de Seguridad':
+        return <IconoPreguntasSeguridad3D size={48} color={color} />;
+      case 'Auditoría del Sistema':
+        return <IconoAuditoriaSistema3D size={48} color={color} />;
+
       default:
         return null;
     }
@@ -694,10 +779,18 @@ export const CategoryDashboard = () => {
                 </div>
 
                 <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-1.5"
+                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2"
                   style={{ backgroundColor: theme.badgeBg }}
                 >
-                  <i className={`bi ${modulo.icono}`}></i>
+                  {modulo.icono3d ? (
+                    <img 
+                      src={modulo.icono3d} 
+                      alt={decodedCategory} 
+                      style={{ width: '28px', height: '28px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} 
+                    />
+                  ) : (
+                    <i className={`bi ${modulo.icono}`}></i>
+                  )}
                   <span>{decodedCategory}</span>
                 </span>
 
@@ -749,20 +842,80 @@ export const CategoryDashboard = () => {
                 </div>
               </div>
             </div>
+
+            {/* Icono 3D Oficial del Módulo en perspectiva Pixar/Disney */}
+            {modulo.icono3d && (
+              <div className="col-12 col-md-auto text-center text-md-end ms-md-auto d-none d-md-block">
+                <div 
+                  className="p-3 bg-white bg-opacity-90 d-inline-flex align-items-center justify-content-center position-relative shadow-sm"
+                  style={{ 
+                    width: '140px', 
+                    height: '140px',
+                    borderRadius: '32px',
+                    border: theme.logoBorder,
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: '0 16px 36px rgba(0,0,0,0.12)'
+                  }}
+                  title={`Icono 3D Oficial: ${decodedCategory}`}
+                >
+                  <img 
+                    src={modulo.icono3d} 
+                    alt={`Icono 3D ${decodedCategory}`} 
+                    className="img-fluid animate__animated animate__pulse animate__infinite animate__slower"
+                    style={{ maxHeight: '115px', maxWidth: '115px', objectFit: 'contain', filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.2))' }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 3. Guía contextual de ayuda estilo Chamilo */}
+      {/* 3. Guía contextual de ayuda estilo Chamilo con Zoe o Max */}
       {modulo.ayuda && (
         <ChamiloHelpCallout 
-          title={`Orientación sobre ${decodedCategory}`}
+          title={`Orientación de ${guiaAsignado === 'zoe' ? 'Zoe' : 'Max'} sobre ${decodedCategory}`}
           storageKey={`cat_${decodedCategory.replace(/\s+/g, '_')}`}
         >
-          <p className="mb-1">{modulo.ayuda}</p>
-          <small className="text-muted">
-            <i className="bi bi-info-circle me-1"></i> Selecciona cualquiera de las herramientas disponibles a continuación para comenzar a trabajar.
-          </small>
+          <div className="d-flex align-items-center gap-3">
+            <div className="flex-shrink-0 d-none d-sm-block">
+              <img 
+                src={
+                  guiaAsignado === 'zoe' 
+                    ? (poseGuia === 'senala' ? '/zoe_senala.png' : (poseGuia === 'pulgar' ? '/zoe_pulgar.png' : (poseGuia === 'documentos' ? '/zoe_documentos.png' : '/zoe_saludo.png')))
+                    : (poseGuia === 'senala' ? '/max_senala.png' : (poseGuia === 'pulgar' ? '/max_pulgar.png' : (poseGuia === 'documentos' ? '/max_documentos.png' : '/max_saludo.png')))
+                }
+                alt={guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}
+                style={{ 
+                  height: '75px', 
+                  objectFit: 'contain',
+                  filter: guiaAsignado === 'zoe' 
+                    ? 'drop-shadow(0 4px 10px rgba(236, 72, 153, 0.35))' 
+                    : 'drop-shadow(0 4px 10px rgba(2, 132, 199, 0.35))'
+                }}
+              />
+            </div>
+            <div className="flex-grow-1">
+              <div className="d-flex align-items-center gap-1.5 mb-1">
+                <span 
+                  className="badge rounded-pill px-2.5 py-0.5 fw-bold"
+                  style={{
+                    backgroundColor: guiaAsignado === 'zoe' ? '#fdf2f8' : '#f0f9ff',
+                    color: guiaAsignado === 'zoe' ? '#db2777' : '#0284c7',
+                    border: `1px solid ${guiaAsignado === 'zoe' ? '#fbcfe8' : '#bae6fd'}`,
+                    fontSize: '0.72rem'
+                  }}
+                >
+                  <i className={`bi ${guiaAsignado === 'zoe' ? 'bi-heart-fill' : 'bi-stars'} me-1`}></i>
+                  Guía {guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}
+                </span>
+              </div>
+              <p className="mb-1 text-dark small">{modulo.ayuda}</p>
+              <small className="text-muted d-block">
+                <i className="bi bi-info-circle me-1"></i> Selecciona cualquiera de las herramientas disponibles a continuación para comenzar a trabajar.
+              </small>
+            </div>
+          </div>
         </ChamiloHelpCallout>
       )}
 

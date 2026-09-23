@@ -658,6 +658,11 @@ export const ChatbotSigma = () => {
 
   const restaurar = () => {
     marcarInteraccionUsuario();
+    // Alternar o seleccionar aleatoriamente para garantizar variedad dinámica entre Zoe y Max
+    const nuevoPersonaje: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
+    setPersonaje(nuevoPersonaje);
+    const poses: Array<'saludo' | 'senala' | 'documentos' | 'pulgar'> = ['saludo', 'senala', 'documentos', 'pulgar'];
+    setPoseActual(poses[Math.floor(Math.random() * poses.length)]);
     setMinimizado(false);
     setActivo(true);
     localStorage.setItem('sigma_minimizada', 'false');
@@ -1333,9 +1338,13 @@ export const ChatbotSigma = () => {
         onTouchStart={handleDragStart}
         title={`Hablar con ${personaje === 'zoe' ? 'Zoe' : 'Max'}`}
         style={{
-          background: personaje === 'zoe' 
-            ? 'linear-gradient(135deg, #ec4899, #f43f5e)' 
-            : 'linear-gradient(135deg, #0284c7, #2563eb)'
+          background: personaje === 'max' 
+            ? 'linear-gradient(135deg, #0284c7, #2563eb)' 
+            : 'linear-gradient(135deg, #ec4899, #f43f5e)',
+          boxShadow: personaje === 'max'
+            ? '0 6px 20px rgba(2, 132, 199, 0.5), 0 0 16px rgba(56, 189, 248, 0.45)'
+            : '0 6px 20px rgba(236, 72, 153, 0.5), 0 0 16px rgba(244, 114, 182, 0.4)',
+          border: '2.5px solid #ffffff'
         }}
       >
         <img 
@@ -1347,9 +1356,12 @@ export const ChatbotSigma = () => {
         <span 
           className="sigma-launcher-badge"
           style={{
-            background: personaje === 'zoe' 
-              ? 'linear-gradient(135deg, #ec4899, #f43f5e)' 
-              : 'linear-gradient(135deg, #0284c7, #2563eb)'
+            background: personaje === 'max' 
+              ? 'linear-gradient(135deg, #0284c7, #2563eb)' 
+              : 'linear-gradient(135deg, #ec4899, #f43f5e)',
+            boxShadow: personaje === 'max'
+              ? '0 2px 6px rgba(2, 132, 199, 0.5)'
+              : '0 2px 6px rgba(236, 72, 153, 0.5)'
           }}
         >
           {personaje === 'zoe' ? 'Z' : 'M'}
