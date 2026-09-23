@@ -4893,15 +4893,17 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
               </>
             )}
 
-            <button
-              className="btn rounded-pill px-3 py-1.5 fw-bold text-white shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ fontSize: '0.82rem', backgroundColor: '#0284C7', borderColor: '#0284C7' }}
-              onClick={abrirModalRegistroDirecto}
-              title="Registrar nuevo aspirante y representante directamente sin solicitud previa web"
-            >
-              <i className="bi bi-person-plus-fill"></i>
-              <span>Admisión Directa / Extemporánea</span>
-            </button>
+            {!esSoloFormalizador && vistaActiva !== 'formalizacion' && (
+              <button
+                className="btn rounded-pill px-3 py-1.5 fw-bold text-white shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                style={{ fontSize: '0.82rem', backgroundColor: '#0284C7', borderColor: '#0284C7' }}
+                onClick={abrirModalRegistroDirecto}
+                title="Registrar nuevo aspirante y representante directamente sin solicitud previa web"
+              >
+                <i className="bi bi-person-plus-fill"></i>
+                <span>Admisión Directa / Extemporánea</span>
+              </button>
+            )}
 
             <button
               className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1"
@@ -5069,15 +5071,6 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
             </div>
           </div>
           <div className="d-flex align-items-center gap-2">
-            <button
-              className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold text-white shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ fontSize: '0.8rem', backgroundColor: '#0284C7', borderColor: '#0284C7' }}
-              onClick={abrirModalRegistroDirecto}
-              title="Registrar nuevo estudiante extemporáneo directamente"
-            >
-              <i className="bi bi-person-plus-fill"></i>
-              <span>+ Admisión Directa</span>
-            </button>
             <span className="badge px-3 py-2 rounded-pill fw-bold text-white shadow-xs" style={{ backgroundColor: '#0D9488', fontSize: '0.82rem' }}>
               <i className="bi bi-person-check-fill me-1"></i> {kpisFormalizacion.total} Aspirantes Admitidos
             </span>
