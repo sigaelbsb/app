@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
 import { supabase } from '../lib/supabase';
-import { subscribeToWebPush } from '../lib/webPush';
+import { subscribeToWebPush, solicitarPermisoWebPush, actualizarAppBadge } from '../lib/webPush';
 import { ChatbotSigma } from './ChatbotSigma';
 import { TourOrientacion } from './TourOrientacion';
 import { NavigationLoader } from './NavigationLoader';
@@ -62,6 +62,30 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   misRutasRef.current = misRutasRepresentante;
   const [mantenimientoActivo, setMantenimientoActivo] = useState<boolean>(false);
   const [invitadosBloqueados, setInvitadosBloqueados] = useState<boolean>(false);
+  const [mostrarBannerPush, setMostrarBannerPush] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
+    return Notification.permission === 'default' && localStorage.getItem('sigae_push_banner_dismissed') !== 'true';
+  });
+
+  const handleActivarPush = async () => {
+    const concedido = await solicitarPermisoWebPush();
+    setMostrarBannerPush(false);
+    localStorage.setItem('sigae_push_banner_dismissed', 'true');
+    if (concedido) {
+      const Swal = (window as any).Swal;
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: '¡Notificaciones activadas! 🔔',
+          text: 'Recibirás avisos de transporte y comunicados escolares en tu teléfono, incluso con la app cerrada.',
+          showConfirmButton: false,
+          timer: 3500
+        });
+      }
+    }
+  };
 
   const toggleSilenciarTransporte = () => {
     setSilenciarTransporte(prev => {
@@ -122,14 +146,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
   useEffect(() => {
     localStorage.setItem('sigae_notif_leidas', JSON.stringify(leidasIds));
-    const unreadCount = notificaciones.filter(n => !n.leido).length;
-    if ('setAppBadge' in navigator) {
-      if (unreadCount > 0) {
-        navigator.setAppBadge(unreadCount).catch(() => {});
-      } else {
-        navigator.clearAppBadge().catch(() => {});
-      }
-    }
+    const unread = notificaciones.filter(n => !n.leido).length;
+    actualizarAppBadge(unread);
   }, [leidasIds, notificaciones]);
 
   const cargarConfigGlobal = async () => {
@@ -388,11 +406,13 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   // 3. Notificación de transporte
                   if (d.tipo === 'transporte') {
                     if (usr.rol === 'Representante') {
-                      if (misRutas.length === 0) return false;
+                      if (misRutas.length === 0) return true;
                       const textoNotif = ((d.titulo || '') + ' ' + (d.cuerpo || '')).toLowerCase();
                       return misRutas.some(ruta => {
-                        const palabras = ruta.split(/[-–—]/).map((p: string) => p.trim()).filter(Boolean);
-                        return palabras.some((p: string) => p.length > 3 && textoNotif.includes(p)) || textoNotif.includes(ruta);
+                        const rLower = ruta.toLowerCase();
+                        if (textoNotif.includes(rLower)) return true;
+                        const palabras = rLower.split(/[-–—]/).map((p: string) => p.trim()).filter(Boolean);
+                        return palabras.some((p: string) => p.length >= 3 && textoNotif.includes(p));
                       });
                     }
                     return true;
@@ -584,13 +604,18 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             // El representante solo debe recibir la alerta si corresponde a la ruta de su representado
             if (row.tipo === 'transporte' && usuario?.rol === 'Representante') {
               const misRutas = misRutasRef.current;
-              if (!misRutas || misRutas.length === 0) {
-                return; // Si el representante no tiene rutas registradas, no recibe alertas de transporte
-              }
-              const textoAlerta = ((row.titulo || '') + ' ' + (row.cuerpo || '')).toLowerCase();
-              const rutaCoincide = misRutas.some(r => r && textoAlerta.includes(r.toLowerCase()));
-              if (!rutaCoincide) {
-                return; // La ruta no pertenece a ninguno de sus representados
+              if (misRutas && misRutas.length > 0) {
+                const textoAlerta = ((row.titulo || '') + ' ' + (row.cuerpo || '')).toLowerCase();
+                const rutaCoincide = misRutas.some(r => {
+                  if (!r) return false;
+                  const rLower = r.toLowerCase();
+                  if (textoAlerta.includes(rLower)) return true;
+                  const palabras = rLower.split(/[-–—]/).map((p: string) => p.trim()).filter(Boolean);
+                  return palabras.some((p: string) => p.length >= 3 && textoAlerta.includes(p));
+                });
+                if (!rutaCoincide) {
+                  return; // La ruta no pertenece a ninguno de sus representados
+                }
               }
             }
           }
@@ -1452,10 +1477,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                       right: '-4px',
                       fontSize: '0.62rem',
                       padding: '3px 5px',
-                      boxShadow: '0 0 0 2px white'
+                      boxShadow: '0 0 0 2px white, 0 2px 6px rgba(220, 38, 38, 0.6)',
+                      animation: 'pulse-badge 1.8s infinite'
                     }}
                   >
-                    {notificaciones.filter(n => !n.leido).length}
+                    {notificaciones.filter(n => !n.leido).length > 99 ? '99+' : notificaciones.filter(n => !n.leido).length}
                   </span>
                 )}
               </button>
@@ -1467,7 +1493,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                     position: 'absolute',
                     top: '44px',
                     right: 0,
-                    width: '340px',
+                    width: 'min(360px, 92vw)',
                     maxHeight: '440px',
                     zIndex: 1050,
                     display: 'flex',
@@ -1809,6 +1835,53 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         </header>
 
         <div id="area-dinamica" className="contenedor-dinamico p-2 p-sm-3 p-md-4 p-lg-5 flex-grow-1">
+          {mostrarBannerPush && (
+            <div 
+              className="sigae-push-banner mb-3 p-2.5 px-3 rounded-4 shadow-sm border d-flex align-items-center justify-content-between gap-2"
+              style={{
+                background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                borderColor: '#86efac'
+              }}
+            >
+              <div className="d-flex align-items-center gap-2.5">
+                <div 
+                  className="rounded-circle d-flex align-items-center justify-content-center text-white shadow-xs"
+                  style={{ width: '36px', height: '36px', background: '#16a34a', flexShrink: 0 }}
+                >
+                  <i className="bi bi-bell-fill fs-6"></i>
+                </div>
+                <div>
+                  <div className="fw-bold text-dark small" style={{ lineHeight: 1.2 }}>
+                    ¿Deseas recibir avisos como en WhatsApp?
+                  </div>
+                  <div className="text-muted extra-small">
+                    Recibe alertas de rutas escolares en tu móvil con punto rojo y sonido, incluso con la app cerrada.
+                  </div>
+                </div>
+              </div>
+              <div className="d-flex align-items-center gap-1.5 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={handleActivarPush}
+                  className="btn btn-sm btn-success rounded-pill px-3 py-1 fw-bold extra-small shadow-xs"
+                  style={{ fontSize: '0.75rem' }}
+                >
+                  Activar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarBannerPush(false);
+                    localStorage.setItem('sigae_push_banner_dismissed', 'true');
+                  }}
+                  className="btn btn-sm btn-light border-0 text-muted p-1"
+                  title="Ocultar"
+                >
+                  <i className="bi bi-x-lg extra-small"></i>
+                </button>
+              </div>
+            </div>
+          )}
           <Outlet />
         </div>
 
@@ -1835,6 +1908,9 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         onLogout={handleLogout}
         abrirSheetExterno={mostrarSheetMovil}
         onCerrarSheetExterno={() => setMostrarSheetMovil(false)}
+        unreadNotifCount={notificaciones.filter(n => !n.leido).length}
+        unreadTransportCount={notificaciones.filter(n => !n.leido && n.tipo === 'transporte').length}
+        onAbrirNotificaciones={() => setMostrarNotifDropdown(prev => !prev)}
       />
       <ChatbotSigma />
       <TourOrientacion />

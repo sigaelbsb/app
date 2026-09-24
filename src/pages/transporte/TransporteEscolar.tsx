@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
-import { subscribeToWebPush } from '../../lib/webPush';
+import { subscribeToWebPush, despacharPushNotificacion } from '../../lib/webPush';
 import html2canvas from 'html2canvas';
 
 import { DashboardView } from './components/DashboardView';
@@ -10,7 +10,8 @@ import { OperacionView } from './components/OperacionView';
 import { VisorView } from './components/VisorView';
 import { CargaMasivaView } from './components/CargaMasivaView';
 import { ModalParada, ModalRuta, ModalAsignacion } from './components/Modals';
-import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoTransporteEscolar3D } from '../../components/chamilo';
+import './transporte.css';
 
 // ─── SVG Animated Bus — Transporte Escolar Venezuela ──────────────────────────────
 // ‘size’ = altura del bus en px. El ancho se calcula con la relación 80:56.
@@ -118,8 +119,67 @@ export const TransporteEscolar = () => {
   const { loading: permLoading, tienePermiso, tienePermisoEnEscuela, user } = usePermisos();
   const Swal = (window as any).Swal;
 
+  const isSuperAdmin = user?.rol === 'SuperAdmin';
+
+  // Identificar si el usuario ejerce rol o cargo de Coordinador
+  const esCoordinador = useMemo(() => {
+    const rol = (user?.rol || '').toLowerCase();
+    const cargo = (user?.cargo || '').toLowerCase();
+    return rol.includes('coordinad') || cargo.includes('coordinad');
+  }, [user]);
+
+  const esCoordinadorTransporte = useMemo(() => {
+    const rol = (user?.rol || '').toLowerCase();
+    const cargo = (user?.cargo || '').toLowerCase();
+    return rol.includes('coordinador de transporte') || cargo.includes('coordinador(a) de transporte') || cargo.includes('coordinador de transporte');
+  }, [user]);
+
+  // Identificar la escuela fija asignada del coordinador/usuario ('sb' | 'lb' | null)
+  const escuelaAsignada = useMemo((): 'sb' | 'lb' | null => {
+    if (isSuperAdmin) return null;
+
+    // 1. Por id_escuela directo en objeto user
+    const uEsc = (user?.id_escuela || '').trim().toLowerCase();
+    if (uEsc === 'sb' || uEsc === 'lb') return uEsc as 'sb' | 'lb';
+
+    // 2. Por perfil_acceso.instituciones
+    if (user?.perfil_acceso?.instituciones && Array.isArray(user.perfil_acceso.instituciones)) {
+      const insts = user.perfil_acceso.instituciones.map((i: string) => i.toLowerCase());
+      const hasSB = insts.some((i: string) => i.includes('santa b') || i === 'sb');
+      const hasLB = insts.some((i: string) => i.includes('bolívar') || i === 'lb');
+      if (hasSB && !hasLB) return 'sb';
+      if (hasLB && !hasSB) return 'lb';
+    }
+
+    // 3. Por cargo institucional específico de sede
+    const cargo = (user?.cargo || '').toLowerCase();
+    if (cargo.includes('(sb)') || cargo.includes('santa b')) return 'sb';
+    if (cargo.includes('(lb)') || cargo.includes('libertador') || cargo.includes('bolívar')) return 'lb';
+
+    // 4. Por localStorage usuario_sigae
+    try {
+      const stored = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+      const sEsc = (stored?.id_escuela || '').trim().toLowerCase();
+      if (sEsc === 'sb' || sEsc === 'lb') return sEsc as 'sb' | 'lb';
+    } catch {}
+
+    return null;
+  }, [user, isSuperAdmin]);
+
   const tieneAccesoEscuelaTransporte = (esc: string) => {
-    if (user?.rol === 'SuperAdmin') return true;
+    if (isSuperAdmin) return true;
+    const target = esc.toLowerCase();
+
+    // Aislamiento estricto: si el coordinador/usuario tiene una sede fija asignada, solo puede ver SU escuela
+    if (escuelaAsignada) {
+      return escuelaAsignada === target;
+    }
+
+    const userEsc = (user?.id_escuela || '').trim().toLowerCase();
+    if (userEsc === 'sb' || userEsc === 'lb') {
+      return userEsc === target;
+    }
+
     return tienePermisoEnEscuela(esc, 'Transporte Escolar', 'ver');
   };
 
@@ -269,14 +329,23 @@ export const TransporteEscolar = () => {
 
   const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva'>('dashboard');
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
-  const [escCodigo, setEscCodigo] = useState(localStorage.getItem('sigae_escuela_codigo') || 'sb');
+  const [escCodigo, setEscCodigo] = useState<'sb' | 'lb'>(() => {
+    // Si el usuario/coordinador tiene una escuela asignada fija, inicializar de inmediato en ella
+    try {
+      const stored = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+      const sEsc = (stored?.id_escuela || '').trim().toLowerCase();
+      if (sEsc === 'sb' || sEsc === 'lb') return sEsc as 'sb' | 'lb';
+    } catch {}
+    const cached = localStorage.getItem('sigae_escuela_codigo');
+    return cached === 'lb' ? 'lb' : 'sb';
+  });
 
-  const canManageRutas    = tienePermiso('Tarjeta: Gestión de Rutas')    || tienePermiso('Gestión de Rutas');
-  const canManageParadas  = tienePermiso('Tarjeta: Gestión de Paradas')  || tienePermiso('Gestión de Paradas');
-  const canOperateTracking= tienePermiso('Tarjeta: Operación (Tracking)')|| tienePermiso('Operación (Tracking)');
-  const canViewRecorrido  = tienePermiso('Tarjeta: Visor de Recorrido')  || tienePermiso('Visor de Recorrido');
-  const canViewTransporte = canManageRutas || canManageParadas || canOperateTracking || canViewRecorrido || tienePermiso('Transporte Escolar');
-  const canControlCoordinacion = tienePermisoEnEscuela(escCodigo, 'Función: Control Coordinación', 'ver');
+  const canManageRutas    = isSuperAdmin || esCoordinadorTransporte || tienePermiso('Tarjeta: Gestión de Rutas')    || tienePermiso('Gestión de Rutas');
+  const canManageParadas  = isSuperAdmin || esCoordinadorTransporte || tienePermiso('Tarjeta: Gestión de Paradas')  || tienePermiso('Gestión de Paradas');
+  const canOperateTracking= isSuperAdmin || esCoordinadorTransporte || tienePermiso('Tarjeta: Operación (Tracking)')|| tienePermiso('Operación (Tracking)');
+  const canViewRecorrido  = isSuperAdmin || esCoordinadorTransporte || tienePermiso('Tarjeta: Visor de Recorrido')  || tienePermiso('Visor de Recorrido');
+  const canViewTransporte = isSuperAdmin || esCoordinadorTransporte || canManageRutas || canManageParadas || canOperateTracking || canViewRecorrido || tienePermiso('Transporte Escolar');
+  const canControlCoordinacion = isSuperAdmin || esCoordinadorTransporte || tienePermisoEnEscuela(escCodigo, 'Función: Control Coordinación', 'ver');
 
   // DB States
   const [paradas, setParadas] = useState<any[]>([]);
@@ -318,6 +387,27 @@ export const TransporteEscolar = () => {
     localStorage.setItem('sigae_transporte_sentido', opSentido);
     setCustomPids(null);
   }, [opSentido]);
+
+  // Doble verificación asíncrona contra la base de datos usuarios
+  useEffect(() => {
+    if (!user?.cedula || isSuperAdmin) return;
+    supabase
+      .from('usuarios')
+      .select('id_escuela, rol, cargo, perfil_acceso')
+      .eq('cedula', user.cedula)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.id_escuela) {
+          const dbEsc = data.id_escuela.trim().toLowerCase();
+          if ((dbEsc === 'sb' || dbEsc === 'lb') && escCodigo !== dbEsc) {
+            setEscCodigo(dbEsc as 'sb' | 'lb');
+            localStorage.setItem('sigae_escuela_codigo', dbEsc);
+            localStorage.setItem('sigae_escuela_activa', dbEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+          }
+        }
+      });
+  }, [user?.cedula, isSuperAdmin, escCodigo]);
+
   useEffect(() => {
     const goOnline = () => {
       setOfflineMode(false);
@@ -339,8 +429,15 @@ export const TransporteEscolar = () => {
       window.removeEventListener('offline', goOffline);
     };
   }, []);
+
   useEffect(() => {
     if (permLoading) return;
+    if (escuelaAsignada && escCodigo !== escuelaAsignada) {
+      setEscCodigo(escuelaAsignada);
+      localStorage.setItem('sigae_escuela_codigo', escuelaAsignada);
+      localStorage.setItem('sigae_escuela_activa', escuelaAsignada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+      return;
+    }
     const hasSB = tieneAccesoEscuelaTransporte('sb');
     const hasLB = tieneAccesoEscuelaTransporte('lb');
 
@@ -351,7 +448,7 @@ export const TransporteEscolar = () => {
       setEscCodigo('lb');
       localStorage.setItem('sigae_escuela_codigo', 'lb');
     }
-  }, [permLoading, escCodigo, tienePermisoEnEscuela, user]);
+  }, [permLoading, escCodigo, escuelaAsignada, tienePermisoEnEscuela, user]);
 
   useEffect(() => {
     localStorage.setItem('sigae_escuela_codigo', escCodigo);
@@ -1421,6 +1518,7 @@ export const TransporteEscolar = () => {
       if (error) throw error;
 
       await supabase.from('notificaciones_globales').insert([notifPayload]);
+      despacharPushNotificacion(notifPayload);
       await cargarTrackingSolo();
       requestNotifPermission();
 
@@ -1496,13 +1594,15 @@ export const TransporteEscolar = () => {
         const { error } = await supabase.from('transporte_operaciones').insert([payload]);
         if (error) throw error;
 
-        await supabase.from('notificaciones_globales').insert([{
+        const notifSalidaMasiva = {
           escuela_codigo: escCodigo,
           ruta_id: r.id,
           titulo: 'Ruta Iniciada (Retorno) 🚌',
           cuerpo: `Salida masiva: Se inició el recorrido de retorno para la ruta "${r.nombre}".`,
           tipo: 'transporte'
-        }]);
+        };
+        await supabase.from('notificaciones_globales').insert([notifSalidaMasiva]);
+        despacharPushNotificacion(notifSalidaMasiva);
 
         countIniciadas++;
       }
@@ -1551,6 +1651,19 @@ export const TransporteEscolar = () => {
             datos: rowString,
             estado: 'Rechazado',
             motivo: 'Código de escuela inválido (debe ser sb o lb)'
+          });
+          rechazados++;
+          continue;
+        }
+
+        // Aislamiento de sede: Validar que el usuario/coordinador tenga acceso a esta escuela específica
+        const rowEsc = (row.escuela_codigo || '').toLowerCase().trim();
+        if (!tieneAccesoEscuelaTransporte(rowEsc)) {
+          report.push({
+            fila: index + 1,
+            datos: rowString,
+            estado: 'Rechazado',
+            motivo: `No tiene autorización para cargar datos en la sede ${rowEsc.toUpperCase()}. Su cuenta está asignada exclusivamente a ${escCodigo.toUpperCase()}.`
           });
           rechazados++;
           continue;
@@ -1808,6 +1921,7 @@ export const TransporteEscolar = () => {
       }
 
       await supabase.from('notificaciones_globales').insert([notifPayload]);
+      despacharPushNotificacion(notifPayload);
       await cargarTrackingSolo();
 
       Swal.fire({ toast: true, position: 'top-end', icon: 'success',
@@ -2001,80 +2115,104 @@ export const TransporteEscolar = () => {
   }
 
   return (
-    <div className="container-fluid py-4 animate__animated animate__fadeIn">
+    <div className="container-fluid py-2 py-md-4 px-2 px-md-3 animate__animated animate__fadeIn">
 
-      {/* MIGAS DE PAN CHAMILO */}
+      {/* 1. MIGAS DE PAN CHAMILO */}
       <ChamiloBreadcrumb
-        category="Servicios y Transporte"
-        currentModule="Transporte Escolar"
+        items={[
+          { label: 'Servicios y Bienestar', url: '/categoria/Servicios%20y%20Bienestar', icon: 'bi-bus-front-fill' },
+          { label: 'Transporte Escolar', icon: 'bi-signpost-2-fill' }
+        ]}
       />
 
       {/* CUADRO DE AYUDA METODOLÓGICA CHAMILO */}
       <ChamiloHelpCallout
         id="ayuda_transporte_escolar"
-        title="Guía del Sistema de Rutas y Transporte Escolar"
-        content="Monitoree las unidades en tiempo real, configure las paradas y el rutograma oficial, asigne docentes responsables por unidad y envíe notificaciones masivas por WhatsApp."
-        icon="bi-bus-front"
-      />
+        title="Orientación y Despacho del Transporte Escolar"
+        storageKey="transporte_escolar_ayuda"
+        initialOpen={false}
+      >
+        <p className="mb-1">
+          Monitorea y administra las unidades de transporte escolar, configura paradas y rutogramas oficiales, asigne choferes y docentes de guardia, y despacha en tiempo real.
+        </p>
+        <small className="text-muted">
+          <i className="bi bi-lightbulb-fill text-warning me-1"></i> Tip: Puedes utilizar la pestaña <strong>Visor en Vivo</strong> para que representantes y docentes supervisen el avance de cada unidad satelitalmente.
+        </small>
+      </ChamiloHelpCallout>
 
-      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO ── */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white border-top border-4" style={{ borderColor: '#FF3D00' }}>
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
+      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      <div className="transporte-hero-card overflow-hidden mb-4 animate__animated animate__fadeInDown">
+        <div className="p-3 p-sm-4 p-md-5">
+          <div className="row align-items-center g-3 g-md-4">
             
-            {/* Logo de la Escuela */}
+            {/* Contenedor Dual: Icono 3D Isométrico Oficial + Escudo de la Escuela */}
             <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs position-relative" style={{ width: '105px', height: '105px' }}>
-                <img 
-                  src={`/assets/img/logo_${escCodigo}.png`} 
-                  alt="Escudo Institucional" 
-                  className="img-fluid"
-                  style={{ maxHeight: '85px', objectFit: 'contain' }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                />
+              <div className="transporte-dual-badge">
+                <div className="transporte-icon-box" title="Transporte Escolar Oficial 3D">
+                  <IconoTransporteEscolar3D size={54} color="#f97316" />
+                </div>
+                <div className="transporte-logo-box">
+                  <img 
+                    src={`/assets/img/logo_${escCodigo}.png`} 
+                    alt="Escudo Institucional" 
+                    className="img-fluid"
+                    style={{ maxHeight: '64px', objectFit: 'contain' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Título y Métricas Clave */}
+            {/* Título y Métricas Clave de Telemetría */}
             <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small" style={{ backgroundColor: '#FF3D00' }}>
+              <div className="d-flex align-items-center gap-1.5 gap-md-2 mb-2 flex-wrap">
+                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#f97316' }}>
                   <i className="bi bi-bus-front me-1"></i>Servicios, Bienestar & Movilidad
                 </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
                   <i className="bi bi-signpost-split-fill text-primary me-1"></i><b>{rutas.length}</b> Rutas
                 </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
                   <i className="bi bi-geo-alt-fill text-success me-1"></i><b>{paradas.length}</b> Paradas
                 </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-building me-1"></i>Sede: <b>{escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-building me-1 text-secondary"></i><b>{escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
+                </span>
+                {esCoordinador && (
+                  <span className="badge border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a', color: '#b45309' }}>
+                    <i className="bi bi-person-badge-fill me-1 text-warning"></i>Coordinador {escCodigo.toUpperCase()}
+                  </span>
+                )}
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                  <span className="text-success fw-bold">Live</span> / GPS Satelital
                 </span>
               </div>
 
-              <h1 className="fw-bolder mb-1.5 text-dark d-flex align-items-center gap-2" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                <span className="bus-header-icon"><AnimatedBusSVG size={36} className="bus-bounce" /></span>
-                <span>Transporte Escolar</span>
+              <h1 className="fw-bolder mb-1 text-dark d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: 'calc(1.35rem + 0.65vw)', letterSpacing: '-0.5px' }}>
+                <span className="bus-header-icon"><AnimatedBusSVG size={32} className="bus-bounce" /></span>
+                <span>Transporte Escolar Institucional</span>
               </h1>
 
-              <p className="mb-0 text-muted small">
-                Monitoreo de rutas, paradas, rutogramas oficiales y recorridos de las unidades en tiempo real con notificaciones push.
+              <p className="mb-0 text-muted small" style={{ lineHeight: '1.4' }}>
+                Monitoreo satelital de rutas, paradas estratégicas, despacho de unidades en tiempo real y notificaciones push masivas para representantes.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Barra de Herramientas y Selector de Sede Chamilo */}
-        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+        {/* Barra de Selector de Sede y Navegación de Submódulos (Scrollable en Teléfonos) */}
+        <div className="px-3 px-md-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+          {/* Selector de Sede y Alertas */}
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') && (
+            {tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') ? (
               <div className="btn-group bg-white rounded-pill p-0.5 shadow-xs border">
                 <button 
                   onClick={() => setEscCodigo('sb')} 
                   className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
                   style={{
-                    backgroundColor: escCodigo === 'sb' ? '#FF3D00' : undefined,
-                    borderColor: escCodigo === 'sb' ? '#FF3D00' : undefined,
+                    backgroundColor: escCodigo === 'sb' ? '#f97316' : undefined,
+                    borderColor: escCodigo === 'sb' ? '#ea580c' : undefined,
                     fontSize: '0.78rem'
                   }}
                 >
@@ -2084,33 +2222,103 @@ export const TransporteEscolar = () => {
                   onClick={() => setEscCodigo('lb')} 
                   className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
                   style={{
-                    backgroundColor: escCodigo === 'lb' ? '#FF3D00' : undefined,
-                    borderColor: escCodigo === 'lb' ? '#FF3D00' : undefined,
+                    backgroundColor: escCodigo === 'lb' ? '#f97316' : undefined,
+                    borderColor: escCodigo === 'lb' ? '#ea580c' : undefined,
                     fontSize: '0.78rem'
                   }}
                 >
                   UE Libertador Bolívar
                 </button>
               </div>
+            ) : (
+              <div 
+                className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-white border shadow-xs"
+                title={`Coordinación asignada exclusivamente a ${escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}`}
+              >
+                <span 
+                  className="badge rounded-pill text-white fw-bold px-2.5 py-1"
+                  style={{ 
+                    backgroundColor: escCodigo === 'sb' ? '#0284c7' : '#059669', 
+                    fontSize: '0.76rem'
+                  }}
+                >
+                  <i className="bi bi-building me-1"></i>
+                  {escCodigo === 'sb' ? 'Sede: U.E. Santa Bárbara' : 'Sede: U.E. Libertador Bolívar'}
+                </span>
+                {esCoordinador && (
+                  <span 
+                    className="badge rounded-pill border px-2 py-0.5 fw-bold"
+                    style={{ 
+                      fontSize: '0.72rem', 
+                      backgroundColor: '#fffbeb', 
+                      borderColor: '#fde68a',
+                      color: '#b45309'
+                    }}
+                  >
+                    <i className="bi bi-person-badge-fill text-warning me-1"></i>
+                    Coordinación {escCodigo.toUpperCase()}
+                  </span>
+                )}
+              </div>
             )}
 
             <button
               onClick={requestNotifPermission}
-              className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ fontSize: '0.82rem' }}
+              className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.78rem' }}
             >
               <i className="bi bi-bell-fill text-warning"></i>
-              <span>Activar Alertas</span>
+              <span>Alertas Push</span>
             </button>
           </div>
 
-          <div className="d-flex align-items-center gap-1.5">
-            {vistaActual !== 'dashboard' && (
+          {/* Submódulos Chamilo Navigation Bar (Scroll táctil en móviles) */}
+          <div className="transporte-submod-nav w-100 mt-2 mt-md-0 w-md-auto">
+            <button 
+              className={`transporte-submod-btn ${vistaActual === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setVistaActual('dashboard')}
+            >
+              <i className="bi bi-grid-fill"></i>
+              <span>Dashboard</span>
+            </button>
+
+            {(canManageParadas || canManageRutas) && (
               <button 
-                className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold extra-small hover-efecto" 
-                onClick={() => setVistaActual('dashboard')}
+                className={`transporte-submod-btn ${vistaActual === 'Configuracion' ? 'active' : ''}`}
+                onClick={() => setVistaActual('Configuracion')}
               >
-                <i className="bi bi-arrow-left me-1"></i>Volver al Dashboard
+                <i className="bi bi-gear-fill"></i>
+                <span>Configuración</span>
+              </button>
+            )}
+
+            {canOperateTracking && (
+              <button 
+                className={`transporte-submod-btn ${vistaActual === 'Operacion' ? 'active' : ''}`}
+                onClick={() => setVistaActual('Operacion')}
+              >
+                <i className="bi bi-broadcast"></i>
+                <span>Conductor</span>
+              </button>
+            )}
+
+            {canViewRecorrido && (
+              <button 
+                className={`transporte-submod-btn ${vistaActual === 'Visor' ? 'active' : ''}`}
+                onClick={() => setVistaActual('Visor')}
+              >
+                <i className="bi bi-eye-fill"></i>
+                <span>Visor en Vivo</span>
+              </button>
+            )}
+
+            {(canManageParadas || canManageRutas) && (
+              <button 
+                className={`transporte-submod-btn ${vistaActual === 'CargaMasiva' ? 'active' : ''}`}
+                onClick={() => setVistaActual('CargaMasiva')}
+              >
+                <i className="bi bi-file-earmark-excel"></i>
+                <span>Carga Masiva</span>
               </button>
             )}
           </div>

@@ -201,26 +201,26 @@ export const CargaMasivaView: React.FC<CargaMasivaViewProps> = ({ onBack, onSave
              PANTALLA DE RESULTADO / REPORTE DE CARGA
              ==================================================== */
           <div className="animate__animated animate__fadeIn">
-            <div className="row g-4 mb-4">
-              <div className="col-md-4">
-                <div className="card border-0 bg-success-subtle p-4 rounded-4 shadow-sm text-center">
-                  <i className="bi bi-check-circle-fill text-success mb-2" style={{ fontSize: '2.5rem' }}></i>
+            <div className="row g-2 g-md-3 mb-4">
+              <div className="col-12 col-sm-4">
+                <div className="card border-0 bg-success-subtle p-3 p-md-4 rounded-4 shadow-xs text-center">
+                  <i className="bi bi-check-circle-fill text-success mb-2" style={{ fontSize: '2.2rem' }}></i>
                   <h4 className="fw-bold text-success-emphasis mb-0">{resultado.exitosos}</h4>
-                  <p className="text-muted small mb-0 mt-1 fw-semibold">Filas Cargadas con Éxito</p>
+                  <p className="text-muted small mb-0 mt-1 fw-semibold">Filas Cargadas</p>
                 </div>
               </div>
-              <div className="col-md-4">
-                <div className="card border-0 bg-danger-subtle p-4 rounded-4 shadow-sm text-center">
-                  <i className="bi bi-exclamation-triangle-fill text-danger mb-2" style={{ fontSize: '2.5rem' }}></i>
+              <div className="col-12 col-sm-4">
+                <div className="card border-0 bg-danger-subtle p-3 p-md-4 rounded-4 shadow-xs text-center">
+                  <i className="bi bi-exclamation-triangle-fill text-danger mb-2" style={{ fontSize: '2.2rem' }}></i>
                   <h4 className="fw-bold text-danger-emphasis mb-0">{resultado.rechazados}</h4>
-                  <p className="text-muted small mb-0 mt-1 fw-semibold">Filas Rechazadas / Con Error</p>
+                  <p className="text-muted small mb-0 mt-1 fw-semibold">Filas Rechazadas</p>
                 </div>
               </div>
-              <div className="col-md-4">
-                <div className="card border-0 bg-light p-4 rounded-4 shadow-sm text-center">
-                  <i className="bi bi-list-ol text-dark mb-2" style={{ fontSize: '2.5rem' }}></i>
+              <div className="col-12 col-sm-4">
+                <div className="card border-0 bg-light p-3 p-md-4 rounded-4 shadow-xs text-center">
+                  <i className="bi bi-list-ol text-dark mb-2" style={{ fontSize: '2.2rem' }}></i>
                   <h4 className="fw-bold text-dark mb-0">{resultado.detalles.length}</h4>
-                  <p className="text-muted small mb-0 mt-1 fw-semibold">Total de Filas Procesadas</p>
+                  <p className="text-muted small mb-0 mt-1 fw-semibold">Total Procesadas</p>
                 </div>
               </div>
             </div>

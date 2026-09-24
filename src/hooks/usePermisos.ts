@@ -42,11 +42,27 @@ export const usePermisos = () => {
     }
     setUser(usr);
 
-    const userEsc = (usr.id_escuela || '').trim().toLowerCase();
+    let userEsc = (usr.id_escuela || '').trim().toLowerCase();
+    // Resolución de respaldo si id_escuela no está explícito en el perfil
+    if (userEsc !== 'sb' && userEsc !== 'lb') {
+      if (usr.perfil_acceso?.instituciones && Array.isArray(usr.perfil_acceso.instituciones)) {
+        const insts = usr.perfil_acceso.instituciones.map((i: string) => i.toLowerCase());
+        const hasSB = insts.some((i: string) => i.includes('santa b') || i === 'sb');
+        const hasLB = insts.some((i: string) => i.includes('bolívar') || i === 'lb');
+        if (hasSB && !hasLB) userEsc = 'sb';
+        else if (hasLB && !hasSB) userEsc = 'lb';
+      }
+      if (userEsc !== 'sb' && userEsc !== 'lb') {
+        const cargoLower = (usr.cargo || '').toLowerCase();
+        if (cargoLower.includes('(sb)') || cargoLower.includes('santa b')) userEsc = 'sb';
+        else if (cargoLower.includes('(lb)') || cargoLower.includes('libertador') || cargoLower.includes('bolívar')) userEsc = 'lb';
+      }
+    }
+
     let currentEsc = localStorage.getItem('sigae_escuela_codigo') || userEsc || 'sb';
     
     const isSuperAdmin = (usr.rol || '').trim() === 'SuperAdmin';
-    // Aislamiento estricto: usuarios asignados a una escuela fija ('sb' o 'lb') siempre operan en su escuela
+    // Aislamiento estricto: usuarios/coordinadores asignados a una escuela fija ('sb' o 'lb') siempre operan en su escuela
     if (!isSuperAdmin && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
       currentEsc = userEsc;
       localStorage.setItem('sigae_escuela_codigo', userEsc);
@@ -93,6 +109,27 @@ export const usePermisos = () => {
         }
 
         if (error && !data) throw error;
+
+        // Si el usuario ejerce cargo funcional de Coordinador de Transporte, enriquecer permisos
+        const esCargoCoordTrans = (usr.cargo || '').toLowerCase().includes('coordinador') && (usr.cargo || '').toLowerCase().includes('transporte');
+        if (esCargoCoordTrans && targetRol !== 'Coordinador de Transporte') {
+          const { data: coordRole } = await supabase
+            .from('roles')
+            .select('permisos')
+            .eq('nombre', 'Coordinador de Transporte')
+            .maybeSingle();
+          if (coordRole && coordRole.permisos) {
+            const coordP = typeof coordRole.permisos === 'string' ? JSON.parse(coordRole.permisos) : coordRole.permisos;
+            let baseP = data?.permisos ? (typeof data.permisos === 'string' ? JSON.parse(data.permisos) : data.permisos) : {};
+            ['sb', 'lb'].forEach(escKey => {
+              if (coordP[escKey]) {
+                baseP[escKey] = { ...(baseP[escKey] || {}), ...coordP[escKey] };
+              }
+            });
+            if (!data) data = { permisos: baseP };
+            else data.permisos = baseP;
+          }
+        }
 
         if (data) {
           let parsed: any = {};

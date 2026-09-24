@@ -78,73 +78,115 @@ export const OperacionView: React.FC<OperacionViewProps> = ({
   };
 
   return (
-    <div className="card shadow-sm border-0 rounded-4 animate__animated animate__fadeInRight">
-      <div className="card-body p-4 p-md-5">
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 border-bottom pb-3">
-          <h5 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-            <i className="bi bi-broadcast text-success me-2"></i>
-            Operación de Ruta (Conductor)
-            {offlineMode && (
-              <span className="badge bg-warning text-dark rounded-pill fw-bold" style={{ fontSize: '0.75rem', animation: 'pulse 2s infinite' }}>
-                <i className="bi bi-wifi-off me-1"></i> Sin Conexión
-              </span>
-            )}
-          </h5>
-          <div className="d-flex flex-wrap gap-2">
+    <div className="card shadow-sm border-0 rounded-4 animate__animated animate__fadeInRight overflow-hidden">
+      <div className="card-body p-3 p-md-4">
+        {/* Cabecera del Submódulo y Acciones de Despacho */}
+        <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 border-bottom pb-3">
+          <div>
+            <h5 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2" style={{ fontSize: '1.15rem' }}>
+              <i className="bi bi-broadcast text-success"></i>
+              <span>Operación de Recorrido</span>
+              {offlineMode && (
+                <span className="badge bg-warning text-dark rounded-pill fw-bold" style={{ fontSize: '0.72rem' }}>
+                  <i className="bi bi-wifi-off me-1"></i> Offline
+                </span>
+              )}
+            </h5>
+            <small className="text-muted" style={{ fontSize: '0.78rem' }}>
+              Panel de control para conductores y monitores de ruta escolar.
+            </small>
+          </div>
+
+          <div className="d-flex align-items-center gap-1.5 flex-wrap">
             {opActual && (
-              <button className="btn btn-outline-warning rounded-pill px-3 shadow-sm" onClick={resetRutaActual}>
-                <i className="bi bi-arrow-counterclockwise me-1"></i>Reset Ruta
+              <button 
+                className="btn btn-sm btn-outline-warning rounded-pill px-3 shadow-xs fw-bold" 
+                onClick={resetRutaActual}
+              >
+                <i className="bi bi-arrow-counterclockwise me-1"></i>Reiniciar Ruta
               </button>
             )}
             {canControlCoordinacion && (
               <>
                 {opSentido === 'Escuela - Casa' && (
-                  <button className="btn btn-success rounded-pill px-3 shadow-sm fw-bold" onClick={salidaMasiva}>
-                    <i className="bi bi-play-all-fill me-1"></i>Salida Masiva
+                  <button 
+                    className="btn btn-sm btn-success rounded-pill px-3 shadow-xs fw-bold d-flex align-items-center gap-1" 
+                    onClick={salidaMasiva}
+                  >
+                    <i className="bi bi-play-all-fill"></i>
+                    <span>Salida Masiva</span>
                   </button>
                 )}
-                <button className="btn btn-outline-danger rounded-pill px-3 shadow-sm" onClick={resetMasivo}>
-                  <i className="bi bi-exclamation-triangle-fill me-1"></i>Reset Masivo
+                <button 
+                  className="btn btn-sm btn-outline-danger rounded-pill px-3 shadow-xs fw-bold" 
+                  onClick={resetMasivo}
+                >
+                  <i className="bi bi-exclamation-triangle me-1"></i>Reset General
                 </button>
               </>
             )}
           </div>
         </div>
 
-        <div className="row g-3 mb-4">
-          <div className="col-md-6">
-            <label className="small text-muted fw-bold mb-1">Seleccione la Ruta</label>
-            <select className="form-select input-moderno fw-bold" value={opRutaId} onChange={e => setOpRutaId(e.target.value)}>
+        {/* Selector de Ruta y Momento (Responsive Grid) */}
+        <div className="row g-2 g-md-3 mb-3">
+          <div className="col-12 col-md-6">
+            <label className="small text-muted fw-bold mb-1 d-flex align-items-center gap-1">
+              <i className="bi bi-signpost-split-fill text-primary"></i>
+              <span>Ruta Escolar Asignada</span>
+            </label>
+            <select 
+              className="form-select form-select-sm bg-light border fw-bold rounded-3 shadow-xs" 
+              value={opRutaId} 
+              onChange={e => setOpRutaId(e.target.value)}
+              style={{ fontSize: '0.88rem', padding: '9px 12px' }}
+            >
               <option value="">Seleccione una ruta...</option>
               {rutas.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
             </select>
           </div>
-          <div className="col-md-6">
-            <label className="small text-muted fw-bold mb-1">Momento</label>
-            <select className="form-select input-moderno" value={opSentido} onChange={e => setOpSentido(e.target.value)}>
-              <option value="Casa - Escuela">Ida (Casa - Escuela)</option>
-              <option value="Escuela - Casa">Retorno (Escuela - Casa)</option>
+          <div className="col-12 col-md-6">
+            <label className="small text-muted fw-bold mb-1 d-flex align-items-center gap-1">
+              <i className="bi bi-clock-history text-warning"></i>
+              <span>Sentido de la Jornada</span>
+            </label>
+            <select 
+              className="form-select form-select-sm bg-light border fw-bold rounded-3 shadow-xs" 
+              value={opSentido} 
+              onChange={e => setOpSentido(e.target.value)}
+              style={{ fontSize: '0.88rem', padding: '9px 12px' }}
+            >
+              <option value="Casa - Escuela">🌅 Ida hacia la Escuela (Mañana)</option>
+              <option value="Escuela - Casa">🌇 Retorno a Casa (Tarde)</option>
             </select>
           </div>
         </div>
 
         {!opRutaId ? (
-          <div className="text-center py-5 text-muted bg-light rounded-4 border">
-            <i className="bi bi-map fs-1 text-secondary mb-3 d-block"></i>
-            <h6 className="fw-bold">Seleccione una ruta</h6>
-            <p className="small mb-0">Para visualizar e iniciar la operación.</p>
+          <div className="text-center py-5 text-muted bg-light rounded-4 border p-4">
+            <div className="d-inline-flex p-3 bg-white rounded-circle shadow-xs border mb-2 text-primary">
+              <i className="bi bi-bus-front fs-2"></i>
+            </div>
+            <h6 className="fw-bold text-dark mt-2 mb-1">Selecciona una ruta para operar</h6>
+            <p className="small text-muted mb-0">Elige la unidad en el menú desplegable superior para iniciar o marcar paradas.</p>
           </div>
         ) : (
-          <div className="map-bg">
+          <div className="map-bg p-2 p-md-3 rounded-4">
+            {/* Barra de Inicio y Reordenamiento */}
             <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
               {!opActual && (
-                <button className="btn btn-warning rounded-pill px-4 fw-bold shadow-sm" onClick={iniciarRecorrido}>
-                  <i className="bi bi-play-circle me-2"></i>Iniciar Recorrido
+                <button 
+                  className="btn btn-warning text-white rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2" 
+                  style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', border: 'none' }}
+                  onClick={iniciarRecorrido}
+                >
+                  <i className="bi bi-play-circle-fill fs-5"></i>
+                  <span>INICIAR RECORRIDO AHORA</span>
                 </button>
               )}
               {!opActual && customPids && (
                 <button
-                  className="btn btn-outline-secondary rounded-pill px-3 shadow-sm"
+                  className="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-xs"
                   onClick={() => setCustomPids(null)}
                   title="Restaurar orden original de la ruta"
                 >
@@ -152,42 +194,43 @@ export const OperacionView: React.FC<OperacionViewProps> = ({
                 </button>
               )}
               {!opActual && (
-                <span className="badge bg-light text-muted border rounded-pill px-3 py-2 small">
-                  <i className="bi bi-arrows-expand-vertical me-1"></i>
-                  Arrastra o usa ↑↓ para reordenar antes de iniciar
+                <span className="badge bg-white text-muted border rounded-pill px-3 py-1.5 small shadow-xs">
+                  <i className="bi bi-arrows-expand-vertical me-1 text-primary"></i>
+                  Usa ↑↓ para reordenar paradas antes de partir
                 </span>
               )}
             </div>
 
+            {/* Banner de Estado en Vivo */}
             {opActual && (() => {
               const pids2 = rutaObj ? getIdsWithEscuela(rutaObj, opSentido as any) : [];
               const currentIdx2 = pids2.findIndex((id: string) => id === opActual.ubicacion_actual);
               const progressIdx = opActual.estado === 'Finalizada' ? pids2.length - 1 : currentIdx2;
               return (
-                <div className="status-bus-banner shadow-sm mb-4"
+                <div 
+                  className="status-bus-banner shadow-sm mb-3"
                   style={{ 
                     background: opActual.estado === 'Finalizada'
                       ? 'linear-gradient(135deg, #d1fae5, #a7f3d0)'
                       : 'linear-gradient(135deg, #dbeafe, #eff6ff)',
-                    border: opActual.estado === 'Finalizada' ? '1.5px solid #6ee7b7' : '1.5px solid #93c5fd' 
+                    border: opActual.estado === 'Finalizada' ? '1.5px solid #6ee7b7' : '1.5px solid #93c5fd',
+                    padding: '14px 16px'
                   }}
                 >
-                  <div className="d-flex align-items-center gap-3 mb-2">
+                  <div className="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
                     <div>
-                      <h6 className="fw-bold mb-0" style={{ color: opActual.estado === 'Finalizada' ? '#065f46' : '#1e40af' }}>
-                        {opActual.estado === 'Finalizada' ? '🏁 Ruta Finalizada con Éxito' : '🚍 En Ruta — Recorrido Activo'}
+                      <h6 className="fw-bold mb-0 d-flex align-items-center gap-1.5" style={{ color: opActual.estado === 'Finalizada' ? '#065f46' : '#1e40af' }}>
+                        <span>{opActual.estado === 'Finalizada' ? '🏁 Ruta Finalizada con Éxito' : '🚍 En Ruta — Recorrido Activo'}</span>
                       </h6>
-                      <div className="small" style={{ color: opActual.estado === 'Finalizada' ? '#047857' : '#1d4ed8' }}>
-                        Última actualización: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
+                        Última parada marcada: {new Date(opActual.ultima_actualizacion).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </div>
                     </div>
                     {opActual.estado !== 'Finalizada' && (
-                      <div className="ms-auto">
-                        <span className="bus-here-badge">
-                          <span className="live-dot"></span>
-                          EN VIVO
-                        </span>
-                      </div>
+                      <span className="bus-here-badge shadow-xs">
+                        <span className="live-dot"></span>
+                        TRANSMITIENDO EN VIVO
+                      </span>
                     )}
                   </div>
                   {pids2.length > 0 && (
@@ -202,7 +245,8 @@ export const OperacionView: React.FC<OperacionViewProps> = ({
               );
             })()}
 
-            <div className="route-stepper" style={{ paddingLeft: 4 }}>
+            {/* Stepper Timeline de Paradas */}
+            <div className="route-stepper">
               {orderedParadas.map((parada: any, index: number) => {
                 const isStart = index === 0;
                 const isSchool = parada.id === 'escuela_virtual';
@@ -231,93 +275,101 @@ export const OperacionView: React.FC<OperacionViewProps> = ({
                     key={`stop-${parada.id}`}
                     className="stepper-stop"
                     style={{
-                      animationDelay: `${index * 0.05}s`,
+                      animationDelay: `${index * 0.04}s`,
                       opacity: (!isSchool && dragIdx === index) ? 0.45 : 1,
-                      outline: (dragIdx !== null && dragIdx !== index && !isSchool) ? '2px dashed #6366f1' : 'none',
+                      outline: (dragIdx !== null && dragIdx !== index && !isSchool) ? '2px dashed #f97316' : 'none',
                       outlineOffset: 3,
-                      borderRadius: 12,
+                      borderRadius: 14,
                       transition: 'opacity 0.15s, outline 0.15s',
-                      cursor: !isSchool ? 'grab' : 'default',
+                      cursor: !isSchool && !opActual ? 'grab' : 'default',
+                      marginBottom: '8px'
                     }}
                     draggable={!isSchool && !opActual}
                     onDragStart={() => handleDragStart(index)}
                     onDragOver={(e) => handleDragOver(e, index)}
                     onDragEnd={handleDragEnd}
                   >
-                    <div className={`stepper-pin ${pinClass}`} style={{ overflow: 'hidden' }}>
+                    {/* Pin del Stepper */}
+                    <div className={`stepper-pin ${pinClass}`} style={{ overflow: 'hidden', flexShrink: 0 }}>
                       {isActive ? (
-                        <AnimatedBusSVG size={26} />
+                        <AnimatedBusSVG size={24} />
                       ) : passed ? (
-                        <i className="bi bi-check-lg"></i>
+                        <i className="bi bi-check-lg fw-bold"></i>
                       ) : isSchool ? (
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a855f7' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a855f7' }}>
                           <path d="m2 10 10-6 10 6" />
                           <path d="M4 10v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10" />
                           <path d="M9 22V12h6v10" />
-                          <path d="M12 4v2" />
                           <circle cx="12" cy="7.5" r="1.5" fill="currentColor" />
                         </svg>
                       ) : isStart ? (
-                        <BusStopIcon size={22} active={false} />
+                        <BusStopIcon size={20} active={false} />
                       ) : (
-                        <i className="bi bi-circle-fill" style={{ fontSize: '0.45rem' }}></i>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>{index}</span>
                       )}
                     </div>
+
+                    {/* Tarjeta de la Parada */}
                     <div className={`stepper-card ${cardClass}`}>
-                      <div className="stepper-card-info">
+                      <div className="stepper-card-info" style={{ minWidth: 0, flex: 1 }}>
                         <div className="stepper-step-num" style={{ color: isActive ? '#10b981' : passed ? '#3b82f6' : isSchool ? '#a855f7' : '#94a3b8' }}>
-                          {isStart ? 'Origen' : isSchool ? 'Destino Final' : `Parada ${index}`}
+                          {isStart ? 'Punto de Partida' : isSchool ? 'Destino / Plantel' : `Parada ${index}`}
                         </div>
-                        <div className="stepper-name">{parada.nombre_parada}</div>
-                        {parada.descripcion && <div className="stepper-desc">{parada.descripcion}</div>}
+                        <div className="stepper-name text-truncate">{parada.nombre_parada}</div>
+                        {parada.descripcion && (
+                          <div className="stepper-desc text-truncate">{parada.descripcion}</div>
+                        )}
                         {horaRegistrada && (
                           <div className="stepper-hora">
                             <i className="bi bi-clock-fill"></i>
-                            {horaRegistrada}
+                            <span>{horaRegistrada}</span>
                           </div>
                         )}
                       </div>
 
+                      {/* Botones de Reordenamiento (Antes de iniciar) */}
                       {!isSchool && !opActual && (
-                        <div className="d-flex flex-column gap-1" style={{ flexShrink: 0 }}>
+                        <div className="d-flex align-items-center gap-1 flex-shrink-0">
                           <button
-                            className="btn btn-sm btn-light border rounded-circle p-0 shadow-sm"
-                            style={{ width: 28, height: 28, lineHeight: 1 }}
+                            className="btn btn-sm btn-light border rounded-circle shadow-xs"
+                            style={{ width: '32px', height: '32px', padding: 0 }}
                             disabled={index === 0}
                             onClick={() => moverParada(index, -1)}
                             title="Subir parada"
                           >
-                            <i className="bi bi-chevron-up" style={{ fontSize: '0.7rem' }}></i>
+                            <i className="bi bi-chevron-up"></i>
                           </button>
                           <button
-                            className="btn btn-sm btn-light border rounded-circle p-0 shadow-sm"
-                            style={{ width: 28, height: 28, lineHeight: 1 }}
+                            className="btn btn-sm btn-light border rounded-circle shadow-xs"
+                            style={{ width: '32px', height: '32px', padding: 0 }}
                             disabled={index >= orderedParadas.length - 2}
                             onClick={() => moverParada(index, 1)}
                             title="Bajar parada"
                           >
-                            <i className="bi bi-chevron-down" style={{ fontSize: '0.7rem' }}></i>
+                            <i className="bi bi-chevron-down"></i>
                           </button>
                         </div>
                       )}
 
+                      {/* Badge de parada actual */}
                       {isActive && (
-                        <div className="d-flex flex-column align-items-center gap-1">
-                          <div className="bus-here-badge">
+                        <div className="flex-shrink-0">
+                          <span className="bus-here-badge shadow-xs">
                             <span className="live-dot"></span>
                             🚍 Aquí
-                          </div>
+                          </span>
                         </div>
                       )}
 
+                      {/* Botón de Confirmación para el Conductor */}
                       {opActual?.estado === 'En Ruta' && !passed && !isActive && (
                         <button 
-                          className={`btn-pasamos ${isDestino ? 'btn-llegamos' : ''}`} 
+                          className={`btn-pasamos ${isDestino ? 'btn-llegamos' : ''} flex-shrink-0`} 
                           onClick={() => marcarParada(parada.id, index, pids)}
-                          style={isDestino ? { background: 'linear-gradient(135deg, #3b82f6, #2563eb)' } : {}}
+                          style={isDestino ? { background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' } : {}}
                         >
                           <i className={`bi ${isDestino ? 'bi-flag-fill' : 'bi-check2-circle'} me-1`}></i>
-                          {isDestino ? 'Llegamos' : 'Pasamos'}
+                          <span>{isDestino ? '¡Llegamos!' : '¡Pasamos!'}</span>
                         </button>
                       )}
                     </div>

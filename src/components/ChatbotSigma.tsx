@@ -373,40 +373,12 @@ export const ChatbotSigma = () => {
     }
     setPosition({ x: savedX, y: savedY });
 
-    // Verificar si Sigma ya se presentó en esta sesión al ingresar
-    const yaPresentado = sessionStorage.getItem('sigma_presentado') === 'true';
-    const presentandoAhora = sessionStorage.getItem('sigma_presentando_ahora') === 'true';
-
-    if (!yaPresentado || presentandoAhora) {
-      // Al ingresar al sistema: breve saludo discreto que se retira rápido
-      setMinimizado(false);
-      setActivo(true);
-      sessionStorage.setItem('sigma_presentado', 'true');
-      sessionStorage.setItem('sigma_presentando_ahora', 'true');
-
-      if (!yaPresentado) {
-        userInteractedRef.current = false;
-      }
-
-      if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
-
-      // Desaparecer rápidamente tras 2.5 segundos para no interferir con la pantalla
-      autoRetireTimerRef.current = setTimeout(() => {
-        if (!userInteractedRef.current) {
-          sessionStorage.removeItem('sigma_presentando_ahora');
-          setActivo(false);
-          setMinimizado(true);
-          localStorage.setItem('sigma_minimizada', 'true');
-        } else {
-          sessionStorage.removeItem('sigma_presentando_ahora');
-        }
-      }, 2500);
-    } else {
-      // Si ya se presentó previamente en la sesión, respetar el estado guardado
-      const isMin = localStorage.getItem('sigma_minimizada') === 'true';
-      setMinimizado(isMin);
-      setActivo(!isMin);
-    }
+    // Mantener la burbuja de Zoe / Max cerrada por defecto para no entorpecer la pantalla
+    const isMin = localStorage.getItem('sigma_minimizada') === 'true';
+    setMinimizado(isMin);
+    setActivo(false);
+    sessionStorage.setItem('sigma_presentado', 'true');
+    sessionStorage.removeItem('sigma_presentando_ahora');
   }, [conocimientoCache]);
 
   // Registro de cambio de sección y orientación automática de Zoe & Max por Chatbot
@@ -503,22 +475,33 @@ export const ChatbotSigma = () => {
 
       setChipsSugeridos(chips);
 
-      // 5. Abrir el chatbot automáticamente al entrar al módulo
-      setMinimizado(false);
-      setActivo(true);
-      setHablando(true);
-      setTimeout(() => setHablando(false), 1200);
-
-      // Programar auto-cierre tras 10 segundos de inactividad
-      reiniciarTemporizadorInactividad(10);
+      // 5. Los mensajes y la burbuja de Zoe/Max permanecen cerrados por defecto para mantener la pantalla limpia.
+      // Solo se abren cuando el usuario hace clic sobre el personaje o solicita su ayuda.
+      setActivo(false);
+      setHablando(false);
+      cancelarTemporizadorInactividad();
     } else {
       // Para rutas y submódulos secundarios sin ficha en guiasZoeMaxData
       const guiaAleatorio: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
       setPersonaje(guiaAleatorio);
       const opciones: Array<'saludo' | 'pulgar' | 'senala' | 'documentos'> = ['saludo', 'pulgar', 'senala', 'documentos'];
       setPoseActual(opciones[Math.floor(Math.random() * opciones.length)]);
+      setActivo(false);
+      setHablando(false);
+      cancelarTemporizadorInactividad();
     }
   }, [location.pathname]);
+
+  // Escuchar solicitud explícita del usuario para abrir el guía (por ejemplo desde un botón de ayuda)
+  useEffect(() => {
+    const handleAbrirGuia = () => {
+      setMinimizado(false);
+      setActivo(true);
+      reiniciarTemporizadorInactividad(15);
+    };
+    window.addEventListener('sigae-abrir-guia', handleAbrirGuia);
+    return () => window.removeEventListener('sigae-abrir-guia', handleAbrirGuia);
+  }, []);
 
   const cancelarTemporizadorInactividad = () => {
     if (inactividadTimerRef.current) {

@@ -16,7 +16,7 @@ export const ChamiloHelpCallout: React.FC<ChamiloHelpCalloutProps> = ({
   content,
   id,
   icon = 'bi-info-circle-fill',
-  initialOpen = true,
+  initialOpen = false,
   storageKey
 }) => {
   const effectiveKey = storageKey || id;

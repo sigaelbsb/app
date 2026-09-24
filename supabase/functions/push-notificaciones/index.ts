@@ -8,8 +8,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!
 // Podemos usar SUPABASE_ANON_KEY si RLS lo permite, o SERVICE_ROLE_KEY. Asumiremos ANON_KEY o lo pasamos si está configurado.
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || SUPABASE_ANON_KEY;
 
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") || "BClJY617XAIN2tmINIV-Y-wqWsDRymIYxxNJPSZuBLKot7AVYuv_IwB5kn5AwEAhKwGrSACYp9x7sbd5LPY3sYY";
+const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") || "mr7sHPkrOn30VpheNsFbImNR0ed1g8LyW_DGUETrNkc";
 
 webpush.setVapidDetails(
   "mailto:soporte@sigae.com",

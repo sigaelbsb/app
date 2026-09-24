@@ -1,0 +1,236 @@
+/* =========================================================================
+   SIGAE - TRANSPORTE ESCOLAR CHAMILO TECH UI (transporte.css)
+   Diseño de alta gama, micro-animaciones, badges 3D y 100% Mobile Responsive
+   ========================================================================= */
+
+/* Hero Card Tech */
+.transporte-hero-card {
+  border: 2px solid #fed7aa;
+  border-top: 6px solid #f97316;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%);
+  border-radius: 26px;
+  box-shadow: 0 10px 30px rgba(249, 115, 22, 0.08);
+  transition: all 0.3s ease;
+}
+
+/* Dual Badge Container */
+.transporte-dual-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  border: 2px solid #fed7aa;
+}
+
+.transporte-icon-box {
+  width: 82px;
+  height: 82px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border: 1.5px solid #fed7aa;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transporte-logo-box {
+  width: 82px;
+  height: 82px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+/* Barra de Modos de Trabajo con Scroll Horizontal en Móviles */
+.transporte-submod-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.transporte-submod-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.transporte-submod-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.transporte-submod-btn.active {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+  border-color: #ea580c;
+}
+
+.transporte-submod-btn:not(.active) {
+  background: #ffffff;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+.transporte-submod-btn:not(.active):hover {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+  transform: translateY(-1px);
+}
+
+/* Tarjetas de Dashboard Chamilo */
+.transporte-feature-card {
+  background: #ffffff;
+  border-radius: 22px;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  padding: 22px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.transporte-feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+.transporte-feature-card.card-disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.transporte-card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+.transporte-feature-card:hover .transporte-card-icon {
+  transform: scale(1.08) rotate(3deg);
+}
+
+.transporte-bg-watermark {
+  position: absolute;
+  right: -10px;
+  bottom: -15px;
+  font-size: 8rem;
+  line-height: 1;
+  opacity: 0.04;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+.transporte-feature-card:hover .transporte-bg-watermark {
+  opacity: 0.09;
+  transform: scale(1.08);
+}
+
+/* Stepper y Timeline Responsive */
+.transporte-stepper-wrap {
+  position: relative;
+  padding: 8px 0;
+}
+
+.stepper-stop-mobile {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 10px;
+  animation: fadeIn 0.3s ease;
+}
+
+.stepper-card-mobile {
+  flex: 1;
+  min-width: 0;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1.5px solid #f1f5f9;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+/* Vista Móvil de Tablas (Cards para teléfono) */
+.mobile-entity-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+.mobile-entity-card:active {
+  background: #f8fafc;
+}
+
+/* Ajustes Responsive para Pantallas Pequeñas (< 768px) */
+@media (max-width: 768px) {
+  .transporte-dual-badge {
+    gap: 8px;
+    padding: 6px;
+  }
+  .transporte-icon-box,
+  .transporte-logo-box {
+    width: 64px;
+    height: 64px;
+  }
+  .transporte-hero-card {
+    border-radius: 20px;
+  }
+  .transporte-hero-card .p-4 {
+    padding: 16px !important;
+  }
+  .transporte-feature-card {
+    padding: 16px;
+    border-radius: 18px;
+  }
+  .transporte-card-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+    margin-bottom: 12px;
+  }
+  .card-body.p-4.p-md-5 {
+    padding: 16px !important;
+  }
+  .stepper-card {
+    padding: 10px !important;
+    gap: 8px !important;
+  }
+  .stepper-pin {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 0.9rem !important;
+  }
+  .btn-pasamos {
+    padding: 6px 10px !important;
+    font-size: 0.72rem !important;
+  }
+}

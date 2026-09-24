@@ -63,6 +63,12 @@ const DrawerStyles = () => (
     @media (max-width: 768px) {
       .modal-custom {
         max-width: 100% !important;
+        border-radius: 0 !important;
+      }
+      .modal-custom .modal-header,
+      .modal-custom .modal-body,
+      .modal-custom .d-flex.justify-content-end.gap-2 {
+        padding: 16px !important;
       }
     }
   `}</style>

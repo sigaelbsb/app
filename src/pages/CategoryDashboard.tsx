@@ -840,6 +840,18 @@ export const CategoryDashboard = () => {
                   <i className="bi bi-shield-fill-check text-warning"></i>
                   <span className="text-secondary">100% Operativo</span>
                 </div>
+                <button 
+                  type="button"
+                  className="tech-pill-badge shadow-xs border-0 bg-white cursor-pointer" 
+                  onClick={() => window.dispatchEvent(new CustomEvent('sigae-abrir-guia'))}
+                  title={`Solicitar orientación de ${guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}`}
+                  style={{
+                    color: guiaAsignado === 'zoe' ? '#db2777' : '#0284c7'
+                  }}
+                >
+                  <i className={`bi ${guiaAsignado === 'zoe' ? 'bi-heart-fill text-danger' : 'bi-stars text-primary'}`}></i>
+                  <span>Orientación de {guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}</span>
+                </button>
               </div>
             </div>
 
@@ -871,11 +883,12 @@ export const CategoryDashboard = () => {
         </div>
       </div>
 
-      {/* 3. Guía contextual de ayuda estilo Chamilo con Zoe o Max */}
+      {/* 3. Guía contextual de ayuda estilo Chamilo con Zoe o Max (Cerrada por defecto) */}
       {modulo.ayuda && (
         <ChamiloHelpCallout 
           title={`Orientación de ${guiaAsignado === 'zoe' ? 'Zoe' : 'Max'} sobre ${decodedCategory}`}
           storageKey={`cat_${decodedCategory.replace(/\s+/g, '_')}`}
+          initialOpen={false}
         >
           <div className="d-flex align-items-center gap-3">
             <div className="flex-shrink-0 d-none d-sm-block">

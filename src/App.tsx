@@ -191,6 +191,10 @@ function App() {
             <Route path="categoria/Gestión Estudiantil/Mis Solicitudes" element={<ProtectedRoute modulo="Mis Solicitudes"><SolicitudCupos /></ProtectedRoute>} />
             <Route path="categoria/Gestión Estudiantil/Gestión de Matrícula" element={<ProtectedRoute modulo="Grados y Salones"><GradosSalones /></ProtectedRoute>} />
             <Route path="categoria/Servicios y Bienestar/Transporte Escolar" element={<ProtectedRoute modulo="Transporte Escolar"><TransporteEscolar /></ProtectedRoute>} />
+            <Route path="categoria/Transporte y Logística/Transporte Escolar" element={<ProtectedRoute modulo="Transporte Escolar"><TransporteEscolar /></ProtectedRoute>} />
+            <Route path="categoria/Transporte y Logística" element={<Navigate to="/categoria/Servicios y Bienestar/Transporte Escolar" replace />} />
+            <Route path="transporte" element={<ProtectedRoute modulo="Transporte Escolar"><TransporteEscolar /></ProtectedRoute>} />
+            <Route path="transporte-escolar" element={<ProtectedRoute modulo="Transporte Escolar"><TransporteEscolar /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Galería y Plantillas" element={<ProtectedRoute modulo="Galería y Plantillas"><EstudioDiseno herramientaInicial="galeria" /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Editor de Constancias" element={<ProtectedRoute modulo="Editor de Constancias"><EditorConstancias tipoInicial="CONSTANCIAS" /></ProtectedRoute>} />
             <Route path="categoria/Diseños/Carta de Aceptación" element={<ProtectedRoute modulo="Carta de Aceptación"><EditorConstancias tipoInicial="ACEPTACION" /></ProtectedRoute>} />

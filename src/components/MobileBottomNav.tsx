@@ -14,6 +14,9 @@ interface MobileBottomNavProps {
   onLogout: () => void;
   abrirSheetExterno?: boolean;
   onCerrarSheetExterno?: () => void;
+  unreadNotifCount?: number;
+  unreadTransportCount?: number;
+  onAbrirNotificaciones?: () => void;
 }
 
 export const MobileBottomNav = ({
@@ -27,7 +30,10 @@ export const MobileBottomNav = ({
   usuario,
   onLogout,
   abrirSheetExterno = false,
-  onCerrarSheetExterno
+  onCerrarSheetExterno,
+  unreadNotifCount = 0,
+  unreadTransportCount = 0,
+  onAbrirNotificaciones
 }: MobileBottomNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -67,7 +73,11 @@ export const MobileBottomNav = ({
   const esRutaInicio = location.pathname === '/';
   const esRutaEstudiantil = location.pathname.startsWith('/categoria/Gestión%20Estudiantil') || location.pathname.startsWith('/categoria/Gestión Estudiantil');
   const esRutaAcademica = location.pathname.startsWith('/categoria/Control%20de%20Estudios') || location.pathname.startsWith('/categoria/Control de Estudios');
-  const esRutaTransporte = location.pathname.startsWith('/categoria/Transporte%20y%20Logística') || location.pathname.startsWith('/categoria/Transporte y Logística');
+  const esRutaTransporte = 
+    location.pathname.includes('Transporte') || 
+    location.pathname.includes('transporte') ||
+    location.pathname.startsWith('/categoria/Servicios%20y%20Bienestar') ||
+    location.pathname.startsWith('/categoria/Servicios y Bienestar');
 
   return (
     <>
@@ -113,37 +123,100 @@ export const MobileBottomNav = ({
           {esRutaEstudiantil && <span className="sigae-nav-tab-dot"></span>}
         </button>
 
-        {/* PESTAÑA 3: ACADÉMICO */}
-        <button
-          type="button"
-          onClick={() => {
-            cerrarSheet();
-            navigate('/categoria/Control%20de%20Estudios');
-          }}
-          className={`sigae-nav-tab ${esRutaAcademica ? 'active' : ''}`}
-          id="btn-tab-academico"
-          title="Control de Estudios"
-        >
-          <div className="sigae-nav-tab-icon-wrap">
-            <i className={`bi ${esRutaAcademica ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark'}`}></i>
-          </div>
-          <span className="sigae-nav-tab-label">Académico</span>
-          {esRutaAcademica && <span className="sigae-nav-tab-dot"></span>}
-        </button>
+        {/* PESTAÑA 3: PARA REPRESENTANTE ES NOTIFICACIONES / AVISOS (ESTILO WHATSAPP CON PUNTO ROJO Y CANTIDAD) */}
+        {usuario?.rol === 'Representante' ? (
+          <button
+            type="button"
+            onClick={() => {
+              cerrarSheet();
+              if (onAbrirNotificaciones) {
+                onAbrirNotificaciones();
+              }
+            }}
+            className="sigae-nav-tab"
+            id="btn-tab-avisos-representante"
+            title="Avisos y Notificaciones"
+          >
+            <div className="sigae-nav-tab-icon-wrap position-relative">
+              <i className="bi bi-bell-fill text-warning"></i>
+              {unreadNotifCount > 0 && (
+                <span 
+                  className="sigae-nav-tab-badge"
+                  style={{
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff',
+                    animation: 'pulse-badge 1.8s infinite',
+                    boxShadow: '0 0 0 2px #ffffff, 0 2px 6px rgba(220, 38, 38, 0.6)',
+                    fontSize: '0.62rem',
+                    padding: '2px 5px',
+                    minWidth: '18px',
+                    textAlign: 'center'
+                  }}
+                >
+                  {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                </span>
+              )}
+            </div>
+            <span 
+              className="sigae-nav-tab-label"
+              style={unreadNotifCount > 0 ? { color: '#dc2626', fontWeight: 800 } : undefined}
+            >
+              Avisos
+            </span>
+            {unreadNotifCount > 0 && (
+              <span 
+                className="sigae-nav-tab-dot" 
+                style={{ backgroundColor: '#dc2626', boxShadow: '0 0 6px #dc2626' }}
+              ></span>
+            )}
+          </button>
+        ) : (
+          /* PESTAÑA 3: ACADÉMICO PARA PERSONAL DOCENTE Y DIRECTIVO */
+          <button
+            type="button"
+            onClick={() => {
+              cerrarSheet();
+              navigate('/categoria/Control%20de%20Estudios');
+            }}
+            className={`sigae-nav-tab ${esRutaAcademica ? 'active' : ''}`}
+            id="btn-tab-academico"
+            title="Control de Estudios"
+          >
+            <div className="sigae-nav-tab-icon-wrap">
+              <i className={`bi ${esRutaAcademica ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark'}`}></i>
+            </div>
+            <span className="sigae-nav-tab-label">Académico</span>
+            {esRutaAcademica && <span className="sigae-nav-tab-dot"></span>}
+          </button>
+        )}
 
         {/* PESTAÑA 4: TRANSPORTE */}
         <button
           type="button"
           onClick={() => {
             cerrarSheet();
-            navigate('/categoria/Transporte%20y%20Logística');
+            navigate('/categoria/Servicios%20y%20Bienestar/Transporte%20Escolar');
           }}
           className={`sigae-nav-tab ${esRutaTransporte ? 'active' : ''}`}
           id="btn-tab-transporte"
           title="Transporte Escolar"
         >
-          <div className="sigae-nav-tab-icon-wrap">
+          <div className="sigae-nav-tab-icon-wrap position-relative">
             <i className={`bi ${esRutaTransporte ? 'bi-bus-front-fill' : 'bi-bus-front'}`}></i>
+            {unreadTransportCount > 0 && (
+              <span 
+                className="sigae-nav-tab-badge"
+                style={{
+                  backgroundColor: '#f59e0b',
+                  color: '#ffffff',
+                  boxShadow: '0 0 0 2px #ffffff, 0 2px 5px rgba(245, 158, 11, 0.45)',
+                  fontSize: '0.6rem',
+                  padding: '1px 5px'
+                }}
+              >
+                {unreadTransportCount}
+              </span>
+            )}
           </div>
           <span className="sigae-nav-tab-label">Transporte</span>
           {esRutaTransporte && <span className="sigae-nav-tab-dot"></span>}
@@ -160,8 +233,28 @@ export const MobileBottomNav = ({
         >
           <div className="sigae-nav-tab-icon-wrap position-relative">
             <i className={`bi ${sheetAbierto ? 'bi-grid-3x3-gap-fill' : 'bi-grid-fill'}`}></i>
-            {totalHerramientas > 0 && !sheetAbierto && (
-              <span className="sigae-nav-tab-badge">
+            {/* Si el usuario es personal y tiene notificaciones pendientes, mostrar aviso rojo */}
+            {usuario?.rol !== 'Representante' && unreadNotifCount > 0 && !sheetAbierto ? (
+              <span 
+                className="sigae-nav-tab-badge"
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  animation: 'pulse-badge 1.8s infinite',
+                  boxShadow: '0 0 0 2px #ffffff, 0 2px 6px rgba(220, 38, 38, 0.6)'
+                }}
+              >
+                {unreadNotifCount}
+              </span>
+            ) : totalHerramientas > 0 && !sheetAbierto && (
+              <span 
+                className="sigae-nav-tab-badge"
+                style={{
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  boxShadow: '0 0 0 2px #ffffff'
+                }}
+              >
                 {totalHerramientas}
               </span>
             )}
