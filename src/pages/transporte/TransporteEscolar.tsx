@@ -10,6 +10,7 @@ import { OperacionView } from './components/OperacionView';
 import { VisorView } from './components/VisorView';
 import { CargaMasivaView } from './components/CargaMasivaView';
 import { DespachoRutogramaView } from './components/DespachoRutogramaView';
+import { CensoEstudiantesRutasView } from './components/CensoEstudiantesRutasView';
 import { ModalParada, ModalRuta, ModalAsignacion } from './components/Modals';
 import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoTransporteEscolar3D } from '../../components/chamilo';
 import './transporte.css';
@@ -329,7 +330,7 @@ export const TransporteEscolar = () => {
     }
   };
 
-  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva' | 'DespachoRutograma'>('dashboard');
+  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva' | 'DespachoRutograma' | 'CensoEstudiantes'>('dashboard');
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState<'sb' | 'lb'>(() => {
     // Si el usuario/coordinador tiene una escuela asignada fija, inicializar de inmediato en ella
@@ -2326,6 +2327,16 @@ export const TransporteEscolar = () => {
               <i className="bi bi-bell-fill text-warning"></i>
               <span>Alertas Push</span>
             </button>
+
+            <button
+              onClick={() => setVistaActual(vistaActual === 'CensoEstudiantes' ? 'dashboard' : 'CensoEstudiantes')}
+              className={`btn btn-sm rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 ${vistaActual === 'CensoEstudiantes' ? 'btn-primary text-white shadow-sm' : 'btn-white bg-white text-dark border'}`}
+              style={{ fontSize: '0.78rem' }}
+              title="Censo de estudiantes por rutas y paradas de ambas escuelas"
+            >
+              <i className={`bi bi-people-fill ${vistaActual === 'CensoEstudiantes' ? 'text-white' : 'text-primary'}`}></i>
+              <span>Censo de Estudiantes</span>
+            </button>
           </div>
 
           {/* Botón para volver al Dashboard al navegar en un submódulo */}
@@ -2608,6 +2619,17 @@ export const TransporteEscolar = () => {
           cargarTodo={cargarTodo}
           getIdsWithEscuela={getIdsWithEscuela}
           getParadasWithEscuela={getParadasWithEscuela}
+        />
+      )}
+
+      {/* VISTA: CENSO Y DEMANDA ESTUDIANTIL POR RUTAS Y PARADAS (AMBAS ESCUELAS) */}
+      {vistaActual === 'CensoEstudiantes' && (
+        <CensoEstudiantesRutasView
+          onBack={() => setVistaActual('dashboard')}
+          initialEscuela={escCodigo}
+          user={user}
+          canManageRutas={canManageRutas}
+          isSuperAdmin={isSuperAdmin}
         />
       )}
 

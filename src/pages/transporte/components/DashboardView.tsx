@@ -6,7 +6,7 @@ interface DashboardViewProps {
   canManageRutas: boolean;
   canOperateTracking: boolean;
   canViewRecorrido: boolean;
-  setVistaActual: (vista: 'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva' | 'DespachoRutograma') => void;
+  setVistaActual: (vista: 'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva' | 'DespachoRutograma' | 'CensoEstudiantes') => void;
   setConfigTab: (tab: 'Paradas' | 'Rutas' | 'Asignacion') => void;
   AnimatedBusSVG: React.ComponentType<{ size?: number; className?: string }>;
   rutas: any[];
@@ -160,9 +160,56 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         )}
 
+        {/* ── Tarjeta: Censo y Demanda Estudiantil (Rutas y Paradas - Ambas Escuelas) ── */}
+        <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.04s' }}>
+          <div
+            className="transporte-feature-card w-100"
+            style={{ 
+              borderTop: '4px solid #2563eb',
+              background: 'linear-gradient(180deg, #ffffff 0%, #eff6ff 100%)'
+            }}
+            onClick={() => setVistaActual('CensoEstudiantes')}
+          >
+            <i className="bi bi-people-fill transporte-bg-watermark" style={{ color: '#2563eb' }}></i>
+            
+            <div className="d-flex align-items-center justify-content-between mb-3">
+              <div className="transporte-card-icon shadow-xs" style={{ background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                <i className="bi bi-people-fill"></i>
+              </div>
+              <span className="badge rounded-pill px-2.5 py-1" style={{ background: '#dbeafe', color: '#1e40af', fontSize: '0.7rem', fontWeight: 700 }}>
+                Ambas Escuelas
+              </span>
+            </div>
+
+            <h4 className="fw-bold text-dark mb-1" style={{ fontSize: '1.15rem' }}>Censo y Demanda Estudiantil</h4>
+            <p className="text-muted small mb-3" style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
+              Estudiantes por ruta y por parada basado en actualización de datos de regulares y nuevos ingresos.
+            </p>
+            
+            <div className="d-flex gap-1.5 mb-3 flex-wrap">
+              <span className="badge rounded-pill bg-white text-primary border shadow-xs" style={{ fontSize: '0.65rem' }}>
+                <i className="bi bi-diagram-3-fill me-1"></i>Rutas & Paradas
+              </span>
+              <span className="badge rounded-pill bg-white text-success border shadow-xs" style={{ fontSize: '0.65rem' }}>
+                <i className="bi bi-backpack me-1"></i>Regulares
+              </span>
+              <span className="badge rounded-pill bg-white text-warning-emphasis border shadow-xs" style={{ fontSize: '0.65rem' }}>
+                <i className="bi bi-star-fill me-1"></i>Nuevos Ingresos
+              </span>
+            </div>
+
+            <div className="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+              <span className="fw-bold small d-flex align-items-center gap-1" style={{ color: '#2563eb' }}>
+                Ver Censo y Totales <i className="bi bi-arrow-right"></i>
+              </span>
+              <i className="bi bi-chevron-right text-primary small"></i>
+            </div>
+          </div>
+        </div>
+
         {/* ── Tarjeta 2: Despacho Diario & Rutograma WhatsApp (Flujo Oficial 4 Pasos) ── */}
         {(canManageRutas || canOperateTracking) && (
-          <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.05s' }}>
+          <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.06s' }}>
             <div
               className="transporte-feature-card w-100"
               style={{ 
