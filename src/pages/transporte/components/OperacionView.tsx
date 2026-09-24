@@ -1,6 +1,7 @@
 import React from 'react';
 
 interface OperacionViewProps {
+  onBack?: () => void;
   opRutaId: string;
   setOpRutaId: (id: string) => void;
   opSentido: string;
@@ -26,6 +27,7 @@ interface OperacionViewProps {
 }
 
 export const OperacionView: React.FC<OperacionViewProps> = ({
+  onBack,
   opRutaId,
   setOpRutaId,
   opSentido,
@@ -82,19 +84,33 @@ export const OperacionView: React.FC<OperacionViewProps> = ({
       <div className="card-body p-3 p-md-4">
         {/* Cabecera del Submódulo y Acciones de Despacho */}
         <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 border-bottom pb-3">
-          <div>
-            <h5 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2" style={{ fontSize: '1.15rem' }}>
-              <i className="bi bi-broadcast text-success"></i>
-              <span>Operación de Recorrido</span>
-              {offlineMode && (
-                <span className="badge bg-warning text-dark rounded-pill fw-bold" style={{ fontSize: '0.72rem' }}>
-                  <i className="bi bi-wifi-off me-1"></i> Offline
-                </span>
-              )}
-            </h5>
-            <small className="text-muted" style={{ fontSize: '0.78rem' }}>
-              Panel de control para conductores y monitores de ruta escolar.
-            </small>
+          <div className="d-flex align-items-center gap-2">
+            {onBack && (
+              <button 
+                type="button"
+                className="btn btn-sm btn-light border rounded-pill px-3 py-1.5 fw-bold text-dark d-flex align-items-center gap-1.5 shadow-xs hover-efecto"
+                style={{ fontSize: '0.82rem' }}
+                onClick={onBack}
+                title="Volver al Dashboard"
+              >
+                <i className="bi bi-arrow-left text-primary"></i>
+                <span>Volver</span>
+              </button>
+            )}
+            <div>
+              <h5 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2" style={{ fontSize: '1.15rem' }}>
+                <i className="bi bi-broadcast text-success"></i>
+                <span>Operación de Recorrido</span>
+                {offlineMode && (
+                  <span className="badge bg-warning text-dark rounded-pill fw-bold" style={{ fontSize: '0.72rem' }}>
+                    <i className="bi bi-wifi-off me-1"></i> Offline
+                  </span>
+                )}
+              </h5>
+              <small className="text-muted" style={{ fontSize: '0.78rem' }}>
+                Panel de control para conductores y monitores de ruta escolar.
+              </small>
+            </div>
           </div>
 
           <div className="d-flex align-items-center gap-1.5 flex-wrap">

@@ -2272,56 +2272,17 @@ export const TransporteEscolar = () => {
             </button>
           </div>
 
-          {/* Submódulos Chamilo Navigation Bar (Scroll táctil en móviles) */}
-          <div className="transporte-submod-nav w-100 mt-2 mt-md-0 w-md-auto">
-            <button 
-              className={`transporte-submod-btn ${vistaActual === 'dashboard' ? 'active' : ''}`}
+          {/* Botón para volver al Dashboard al navegar en un submódulo */}
+          {vistaActual !== 'dashboard' && (
+            <button
               onClick={() => setVistaActual('dashboard')}
+              className="btn btn-sm btn-white bg-white text-dark border rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+              style={{ fontSize: '0.8rem' }}
             >
-              <i className="bi bi-grid-fill"></i>
-              <span>Dashboard</span>
+              <i className="bi bi-arrow-left text-primary"></i>
+              <span>Volver al Dashboard</span>
             </button>
-
-            {(canManageParadas || canManageRutas) && (
-              <button 
-                className={`transporte-submod-btn ${vistaActual === 'Configuracion' ? 'active' : ''}`}
-                onClick={() => setVistaActual('Configuracion')}
-              >
-                <i className="bi bi-gear-fill"></i>
-                <span>Configuración</span>
-              </button>
-            )}
-
-            {canOperateTracking && (
-              <button 
-                className={`transporte-submod-btn ${vistaActual === 'Operacion' ? 'active' : ''}`}
-                onClick={() => setVistaActual('Operacion')}
-              >
-                <i className="bi bi-broadcast"></i>
-                <span>Conductor</span>
-              </button>
-            )}
-
-            {canViewRecorrido && (
-              <button 
-                className={`transporte-submod-btn ${vistaActual === 'Visor' ? 'active' : ''}`}
-                onClick={() => setVistaActual('Visor')}
-              >
-                <i className="bi bi-eye-fill"></i>
-                <span>Visor en Vivo</span>
-              </button>
-            )}
-
-            {(canManageParadas || canManageRutas) && (
-              <button 
-                className={`transporte-submod-btn ${vistaActual === 'CargaMasiva' ? 'active' : ''}`}
-                onClick={() => setVistaActual('CargaMasiva')}
-              >
-                <i className="bi bi-file-earmark-excel"></i>
-                <span>Carga Masiva</span>
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -2497,6 +2458,7 @@ export const TransporteEscolar = () => {
       {/* VISTA: CONFIGURACION */}
       {vistaActual === 'Configuracion' && (
         <ConfiguracionView
+          onBack={() => setVistaActual('dashboard')}
           configTab={configTab}
           setConfigTab={setConfigTab}
           canManageParadas={canManageParadas}
@@ -2527,7 +2489,7 @@ export const TransporteEscolar = () => {
       {/* VISTA: CARGA MASIVA */}
       {vistaActual === 'CargaMasiva' && (
         <CargaMasivaView
-          onBack={() => setVistaActual('Configuracion')}
+          onBack={() => setVistaActual('dashboard')}
           onSave={procesarCargaMasiva}
         />
       )}
@@ -2535,6 +2497,7 @@ export const TransporteEscolar = () => {
       {/* VISTA: OPERACION */}
       {vistaActual === 'Operacion' && (
         <OperacionView
+          onBack={() => setVistaActual('dashboard')}
           opRutaId={opRutaId}
           setOpRutaId={setOpRutaId}
           opSentido={opSentido}
@@ -2563,6 +2526,7 @@ export const TransporteEscolar = () => {
       {/* VISTA: VISOR */}
       {vistaActual === 'Visor' && (
         <VisorView
+          onBack={() => setVistaActual('dashboard')}
           opRutaId={opRutaId}
           setOpRutaId={setOpRutaId}
           opSentido={opSentido}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 interface ConfiguracionViewProps {
+  onBack?: () => void;
   configTab: 'Paradas' | 'Rutas' | 'Asignacion';
   setConfigTab: (tab: 'Paradas' | 'Rutas' | 'Asignacion') => void;
   canManageParadas: boolean;
@@ -28,6 +29,7 @@ interface ConfiguracionViewProps {
 }
 
 export const ConfiguracionView: React.FC<ConfiguracionViewProps> = ({
+  onBack,
   configTab,
   setConfigTab,
   canManageParadas,
@@ -90,6 +92,19 @@ export const ConfiguracionView: React.FC<ConfiguracionViewProps> = ({
       {/* ── NAVEGADOR DE PESTAÑAS RESPONSIVE (Scroll Horizontal en Teléfonos) ── */}
       <div className="card-header bg-white pt-3 pb-2 px-3 px-md-4 border-bottom">
         <div className="d-flex align-items-center gap-2 overflow-x-auto text-nowrap pb-1 no-scrollbar" style={{ scrollbarWidth: 'none' }}>
+          {onBack && (
+            <button 
+              type="button"
+              className="btn btn-xs btn-light border rounded-pill px-3 py-1.5 fw-bold text-dark d-flex align-items-center gap-1.5 flex-shrink-0 shadow-xs hover-efecto"
+              style={{ fontSize: '0.82rem' }}
+              onClick={onBack}
+              title="Volver al Dashboard"
+            >
+              <i className="bi bi-arrow-left text-primary"></i>
+              <span>Volver</span>
+            </button>
+          )}
+
           {canManageParadas && (
             <button 
               type="button"
