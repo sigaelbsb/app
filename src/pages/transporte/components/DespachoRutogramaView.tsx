@@ -1,0 +1,837 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../../../lib/supabase';
+
+declare const Swal: any;
+
+interface DespachoRutogramaViewProps {
+  onBack: () => void;
+  rutas: any[];
+  paradas: any[];
+  docentes: any[];
+  escCodigo: 'sb' | 'lb';
+  cargarTodo: (silencioso?: boolean) => Promise<void>;
+  getIdsWithEscuela: (ruta: any, sentido: 'Casa - Escuela' | 'Escuela - Casa') => string[];
+  getParadasWithEscuela: (pids: string[]) => any[];
+}
+
+export const DespachoRutogramaView: React.FC<DespachoRutogramaViewProps> = ({
+  onBack,
+  rutas,
+  paradas,
+  docentes,
+  escCodigo,
+  cargarTodo,
+  getIdsWithEscuela,
+  getParadasWithEscuela
+}) => {
+  // Lista local editable de rutas
+  const [localRutas, setLocalRutas] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [modoCompacto, setModoCompacto] = useState<boolean>(false);
+  const [mensajeEditable, setMensajeEditable] = useState<string>('');
+  const [editadoManualmente, setEditadoManualmente] = useState<boolean>(false);
+  const [guardandoId, setGuardandoId] = useState<string | null>(null);
+
+  // Modal de Contingencia individual
+  const [modalContingencia, setModalContingencia] = useState<any | null>(null);
+  const [mensajeContingencia, setMensajeContingencia] = useState<string>('');
+
+  const nombreEscuela = escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar';
+
+  // Inicializar rutas locales
+  useEffect(() => {
+    const ordenadas = [...rutas].sort((a, b) => {
+      const numA = (a.nombre || '').match(/\d+/);
+      const numB = (b.nombre || '').match(/\d+/);
+      const valA = numA ? parseInt(numA[0], 10) : 9999;
+      const valB = numB ? parseInt(numB[0], 10) : 9999;
+      return valA - valB;
+    });
+
+    const enriquecidas = ordenadas.map(r => {
+      // Buscar docente asignado
+      const doc = docentes.find(d => d.id_usuario === r.docente_id);
+      const telDoc = r.docente_telefono || (doc ? doc.telefono : '') || '';
+      // El motivo puede venir en motivo_inactivo o en sectores (fallback)
+      const motivo = r.motivo_inactivo || (r.sectores && typeof r.sectores === 'string' && !r.sectores.startsWith('[') ? r.sectores : '') || '';
+
+      return {
+        ...r,
+        docente_telefono: telDoc,
+        motivo_inactivo: motivo
+      };
+    });
+
+    setLocalRutas(enriquecidas);
+    // Por defecto seleccionar todas las rutas
+    setSelectedIds(enriquecidas.map(r => r.id));
+  }, [rutas, docentes]);
+
+  // Actualizar campo de una ruta local
+  const handleRutaFieldChange = (id: string, field: string, value: any) => {
+    setLocalRutas(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, [field]: value };
+      
+      // Si cambia el docente_id, sugerir su teléfono si no tiene uno
+      if (field === 'docente_id') {
+        const foundDoc = docentes.find(d => d.id_usuario === value);
+        if (foundDoc && foundDoc.telefono) {
+          updated.docente_telefono = foundDoc.telefono;
+        }
+      }
+      return updated;
+    }));
+    setEditadoManualmente(false);
+  };
+
+  // Guardar cambios de una ruta en Supabase
+  const guardarRuta = async (ruta: any) => {
+    setGuardandoId(ruta.id);
+    try {
+      const payload: any = {
+        chofer_nombre: ruta.chofer_nombre || null,
+        docente_id: ruta.docente_id || null,
+        activo: ruta.activo !== false,
+        // Guardamos también en sectores como fallback compatible con el esquema actual
+        sectores: ruta.motivo_inactivo || null
+      };
+
+      // Si las columnas ya existen en la base de datos se actualizarán sin problema
+      if (ruta.docente_telefono !== undefined) {
+        payload.docente_telefono = ruta.docente_telefono || null;
+      }
+      if (ruta.motivo_inactivo !== undefined) {
+        payload.motivo_inactivo = ruta.motivo_inactivo || null;
+      }
+
+      const { error } = await supabase
+        .from('transporte_rutas')
+        .update(payload)
+        .eq('id', ruta.id);
+
+      if (error) {
+        // Si falló por columna inexistente (docente_telefono o motivo_inactivo), reintentar sin ellas
+        if (error.message?.includes('column') || error.code === '42703') {
+          delete payload.docente_telefono;
+          delete payload.motivo_inactivo;
+          const { error: retryErr } = await supabase
+            .from('transporte_rutas')
+            .update(payload)
+            .eq('id', ruta.id);
+          if (retryErr) throw retryErr;
+        } else {
+          throw error;
+        }
+      }
+
+      await cargarTodo(true);
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: `Ruta ${ruta.nombre} actualizada`,
+        showConfirmButton: false,
+        timer: 1800
+      });
+    } catch (err: any) {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo guardar la ruta: ' + (err.message || ''), 'error');
+    } finally {
+      setGuardandoId(null);
+    }
+  };
+
+  // Alternar selección de ruta para el rutograma
+  const toggleSelectRuta = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+    setEditadoManualmente(false);
+  };
+
+  const selectTodas = () => {
+    setSelectedIds(localRutas.map(r => r.id));
+    setEditadoManualmente(false);
+  };
+
+  const selectSoloActivas = () => {
+    setSelectedIds(localRutas.filter(r => r.activo !== false).map(r => r.id));
+    setEditadoManualmente(false);
+  };
+
+  const deseleccionarTodas = () => {
+    setSelectedIds([]);
+    setEditadoManualmente(false);
+  };
+
+  // Generador de Rutograma Consolidado
+  const rutogramaGenerado = useMemo(() => {
+    const rutasAProcesar = localRutas.filter(r => selectedIds.includes(r.id));
+    if (rutasAProcesar.length === 0) {
+      return '⚠️ Selecciona al menos una ruta de la lista para generar el rutograma.';
+    }
+
+    const fechaHoy = new Date().toLocaleDateString('es-VE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    const fechaCap = fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1);
+
+    const activas = rutasAProcesar.filter(r => r.activo !== false);
+    const inactivas = rutasAProcesar.filter(r => r.activo === false);
+
+    let texto = `🚍 *RUTOGRAMA OFICIAL DE TRANSPORTE ESCOLAR*\n`;
+    texto += `🏫 *${nombreEscuela}*\n`;
+    texto += `📅 *Fecha:* ${fechaCap}\n`;
+    texto += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    if (activas.length > 0) {
+      texto += `✅ *UNIDADES OPERATIVAS EN SERVICIO (${activas.length})*\n\n`;
+
+      activas.forEach((r, idx) => {
+        const doc = docentes.find(d => d.id_usuario === r.docente_id);
+        const nombreDoc = doc ? doc.nombre_completo : 'Sin Asignar';
+        const telDoc = r.docente_telefono || (doc ? doc.telefono : '');
+        const pids = getIdsWithEscuela(r, 'Casa - Escuela');
+        const listaParadas = getParadasWithEscuela(pids);
+
+        texto += `🚍 *${r.nombre.toUpperCase()}*\n`;
+        texto += `👨‍✈️ *Chofer:* ${r.chofer_nombre || 'Sin Asignar'}\n`;
+        texto += `👩‍🏫 *Docente de Guardia:* ${nombreDoc}${telDoc ? ` 📱 (${telDoc})` : ''}\n`;
+
+        if (modoCompacto) {
+          // Versión compacta en una sola línea
+          const paradasTxt = listaParadas.map(p => p.nombre_parada).join(' ➔ ');
+          texto += `📍 *Paradas:* ${paradasTxt}\n`;
+        } else {
+          // Versión detallada parada por parada
+          texto += `📍 *Recorrido de Paradas:*\n`;
+          listaParadas.forEach((p, pIdx) => {
+            texto += `   ${pIdx + 1}. ${p.nombre_parada}${p.descripcion ? ` _(${p.descripcion})_` : ''}\n`;
+          });
+        }
+        texto += `\n`;
+      });
+    }
+
+    if (inactivas.length > 0) {
+      texto += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      texto += `⚠️ *UNIDADES INHABILITADAS / NOVEDADES (${inactivas.length})*\n\n`;
+
+      inactivas.forEach(r => {
+        const doc = docentes.find(d => d.id_usuario === r.docente_id);
+        const nombreDoc = doc ? doc.nombre_completo : 'Sin Asignar';
+        const telDoc = r.docente_telefono || (doc ? doc.telefono : '');
+        const motivo = r.motivo_inactivo?.trim() || 'Mantenimiento preventivo / Unidad en revisión técnica';
+
+        texto += `🔴 *${r.nombre.toUpperCase()}* - *INHABILITADA*\n`;
+        texto += `⚙️ *Condición / Causa:* ${motivo}\n`;
+        texto += `👨‍✈️ *Chofer:* ${r.chofer_nombre || 'Sin Asignar'}\n`;
+        texto += `👩‍🏫 *Contacto Docente:* ${nombreDoc}${telDoc ? ` 📱 (${telDoc})` : ''}\n`;
+        texto += `📢 *Aviso:* Se solicita a los representantes de esta ruta tomar previsiones para el traslado particular de los estudiantes.\n\n`;
+      });
+    }
+
+    texto += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    texto += `📢 *Indicaciones Generales:*\n`;
+    texto += `• Estar en la parada con 10 minutos de anticipación con su uniforme reglamentario.\n`;
+    texto += `• Todo estudiante debe portar su carnet escolar.\n\n`;
+    texto += `*Coordinación General de Transporte Escolar*`;
+
+    return texto;
+  }, [localRutas, selectedIds, modoCompacto, nombreEscuela, docentes, getIdsWithEscuela, getParadasWithEscuela]);
+
+  // Sincronizar mensaje editable si no se ha modificado a mano
+  useEffect(() => {
+    if (!editadoManualmente) {
+      setMensajeEditable(rutogramaGenerado);
+    }
+  }, [rutogramaGenerado, editadoManualmente]);
+
+  // Copiar al portapapeles
+  const copiarTexto = async (texto: string, titulo = '¡Copiado!') => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: titulo,
+        showConfirmButton: false,
+        timer: 2000
+      });
+    } catch (e) {
+      Swal.fire('Error', 'No se pudo copiar al portapapeles', 'error');
+    }
+  };
+
+  // Abrir WhatsApp con el texto
+  const abrirWhatsApp = (texto: string) => {
+    const encoded = encodeURIComponent(texto);
+    const urlApi = `https://api.whatsapp.com/send?text=${encoded}`;
+    window.open(urlApi, '_blank');
+  };
+
+  // Abrir Modal de Contingencia individual para una ruta inhabilitada
+  const abrirModalContingencia = (ruta: any) => {
+    const doc = docentes.find(d => d.id_usuario === ruta.docente_id);
+    const nombreDoc = doc ? doc.nombre_completo : 'Sin Asignar';
+    const telDoc = ruta.docente_telefono || (doc ? doc.telefono : '');
+    const motivo = ruta.motivo_inactivo?.trim() || 'En revisión mecánica / mantenimiento de emergencia';
+    const pids = getIdsWithEscuela(ruta, 'Casa - Escuela');
+    const listaParadas = getParadasWithEscuela(pids);
+
+    const fechaHoy = new Date().toLocaleDateString('es-VE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    const fechaCap = fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1);
+
+    let msg = `🚨 *COMUNICADO OFICIAL: NOVEDAD EN RUTA DE TRANSPORTE* 🚨\n`;
+    msg += `🏫 *${nombreEscuela}*\n`;
+    msg += `📅 *Fecha:* ${fechaCap}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    msg += `Informamos con urgencia a los representantes de la siguiente ruta escolar:\n\n`;
+    msg += `🚍 *Ruta Afectada:* *${ruta.nombre.toUpperCase()}*\n`;
+    msg += `🔴 *Estatus Operativo:* *INHABILITADA TEMPORALMENTE*\n`;
+    msg += `⚙️ *Condición / Causa:* ${motivo}\n`;
+    msg += `👨‍✈️ *Chofer:* ${ruta.chofer_nombre || 'Asignado a la unidad'}\n`;
+    msg += `👩‍🏫 *Docente de Guardia:* ${nombreDoc}${telDoc ? ` 📱 (${telDoc})` : ''}\n\n`;
+    msg += `📍 *Paradas que NO tendrán servicio en esta jornada:*\n`;
+    listaParadas.forEach((p, idx) => {
+      msg += `   ${idx + 1}. ${p.nombre_parada}\n`;
+    });
+    msg += `\n📢 *Medida requerida:* Se solicita cordialmente a los padres y representantes de estas paradas coordinar el traslado particular de los estudiantes para la entrada y salida.\n\n`;
+    msg += `Ofrecemos disculpas por los inconvenientes y nos encontramos trabajando para reestablecer la unidad a la brevedad.\n\n`;
+    msg += `Atentamente,\n*Coordinación de Transporte Escolar*`;
+
+    setMensajeContingencia(msg);
+    setModalContingencia(ruta);
+  };
+
+  // Cálculo del tamaño para 1 solo mensaje de WhatsApp
+  const numCaracteres = mensajeEditable.length;
+  const esIdealUnMensaje = numCaracteres <= 2800;
+  const progresoTamano = Math.min(100, Math.round((numCaracteres / 3500) * 100));
+
+  return (
+    <div className="animate__animated animate__fadeIn pb-5">
+      {/* ── BARRA DE CABECERA Y RETORNO ── */}
+      <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div className="d-flex align-items-center gap-2.5">
+          <button
+            onClick={onBack}
+            className="btn btn-sm btn-white bg-white border rounded-pill px-3 py-1.5 fw-bold text-dark shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+            style={{ fontSize: '0.85rem' }}
+          >
+            <i className="bi bi-arrow-left text-primary"></i>
+            <span>Volver al Dashboard</span>
+          </button>
+
+          <div>
+            <h4 className="fw-bolder mb-0 text-dark d-flex align-items-center gap-2">
+              <span className="p-1.5 rounded-3 bg-success text-white d-inline-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>
+                <i className="bi bi-whatsapp"></i>
+              </span>
+              <span>Despacho Diario & Rutograma WhatsApp</span>
+            </h4>
+            <small className="text-muted">
+              {nombreEscuela} • Asignación de guardia, estatus de unidades y difusión en 1 solo mensaje oficial.
+            </small>
+          </div>
+        </div>
+
+        <div className="d-flex align-items-center gap-2">
+          <span className="badge bg-white text-dark border px-3 py-2 rounded-pill fw-bold shadow-xs">
+            <i className="bi bi-calendar3 me-1.5 text-primary"></i>
+            {new Date().toLocaleDateString('es-VE', { weekday: 'short', day: 'numeric', month: 'short' })}
+          </span>
+        </div>
+      </div>
+
+      {/* ── PASOS 1 Y 2: PANEL DE ASIGNACIÓN Y ESTATUS DE UNIDADES ── */}
+      <div className="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+        <div className="card-header bg-white p-3 p-md-4 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div>
+            <div className="badge rounded-pill bg-primary-subtle text-primary fw-bold px-2.5 py-1 mb-1">
+              Pasos 1 y 2 • Operación Diaria
+            </div>
+            <h5 className="fw-bold mb-0 text-dark">Asignación de Personal y Estatus de las Unidades</h5>
+            <small className="text-muted">
+              Asigna chofer, docente de guardia con teléfono y activa/inhabilita según la condición mecánica.
+            </small>
+          </div>
+
+          <div className="d-flex align-items-center gap-2">
+            <button
+              onClick={selectTodas}
+              className="btn btn-xs btn-outline-secondary rounded-pill px-2.5 py-1 fw-bold"
+              style={{ fontSize: '0.75rem' }}
+            >
+              Seleccionar Todas ({localRutas.length})
+            </button>
+            <button
+              onClick={selectSoloActivas}
+              className="btn btn-xs btn-outline-success rounded-pill px-2.5 py-1 fw-bold"
+              style={{ fontSize: '0.75rem' }}
+            >
+              Solo Activas
+            </button>
+            <button
+              onClick={deseleccionarTodas}
+              className="btn btn-xs btn-outline-danger rounded-pill px-2.5 py-1 fw-bold"
+              style={{ fontSize: '0.75rem' }}
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+
+        <div className="card-body p-0">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0" style={{ minWidth: '850px' }}>
+              <thead className="bg-light text-muted small fw-bold">
+                <tr>
+                  <th style={{ width: '50px' }} className="text-center">Incluir</th>
+                  <th style={{ width: '180px' }}>Ruta Escolar</th>
+                  <th style={{ width: '180px' }}>Chofer de Unidad</th>
+                  <th style={{ width: '220px' }}>Docente de Guardia</th>
+                  <th style={{ width: '150px' }}>Teléfono Docente</th>
+                  <th style={{ width: '240px' }}>Estatus / Condición Unidad</th>
+                  <th style={{ width: '110px' }} className="text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {localRutas.map((ruta) => {
+                  const isSelected = selectedIds.includes(ruta.id);
+                  const isActiva = ruta.activo !== false;
+                  const isGuardando = guardandoId === ruta.id;
+
+                  return (
+                    <tr 
+                      key={ruta.id} 
+                      className={!isActiva ? 'table-danger-subtle' : (isSelected ? 'table-light' : '')}
+                    >
+                      {/* Checkbox de Inclusión en Rutograma */}
+                      <td className="text-center">
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          style={{ width: '1.25rem', height: '1.25rem', cursor: 'pointer' }}
+                          checked={isSelected}
+                          onChange={() => toggleSelectRuta(ruta.id)}
+                          title="Marcar para incluir en el rutograma de WhatsApp"
+                        />
+                      </td>
+
+                      {/* Nombre de la Ruta */}
+                      <td>
+                        <div className="fw-bold text-dark d-flex align-items-center gap-1.5" style={{ fontSize: '0.9rem' }}>
+                          <i className="bi bi-bus-front text-primary"></i>
+                          <span>{ruta.nombre}</span>
+                        </div>
+                        <span className="badge rounded-pill bg-light text-secondary border mt-0.5" style={{ fontSize: '0.68rem' }}>
+                          {Array.isArray(ruta.paradas_json) ? ruta.paradas_json.length : 0} paradas
+                        </span>
+                      </td>
+
+                      {/* Chofer */}
+                      <td>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm rounded-3 bg-white"
+                          placeholder="Nombre del chofer"
+                          value={ruta.chofer_nombre || ''}
+                          onChange={(e) => handleRutaFieldChange(ruta.id, 'chofer_nombre', e.target.value)}
+                          style={{ fontSize: '0.82rem' }}
+                        />
+                      </td>
+
+                      {/* Docente de Guardia */}
+                      <td>
+                        <select
+                          className="form-select form-select-sm rounded-3 bg-white"
+                          value={ruta.docente_id || ''}
+                          onChange={(e) => handleRutaFieldChange(ruta.id, 'docente_id', e.target.value)}
+                          style={{ fontSize: '0.82rem' }}
+                        >
+                          <option value="">-- Sin Docente --</option>
+                          {docentes.map(d => (
+                            <option key={d.id_usuario} value={d.id_usuario}>
+                              {d.nombre_completo}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Teléfono del Docente */}
+                      <td>
+                        <div className="input-group input-group-sm">
+                          <span className="input-group-text bg-light text-muted border-end-0">
+                            <i className="bi bi-telephone-fill" style={{ fontSize: '0.75rem' }}></i>
+                          </span>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm rounded-end-3 bg-white border-start-0"
+                            placeholder="0414-0000000"
+                            value={ruta.docente_telefono || ''}
+                            onChange={(e) => handleRutaFieldChange(ruta.id, 'docente_telefono', e.target.value)}
+                            style={{ fontSize: '0.82rem' }}
+                          />
+                        </div>
+                      </td>
+
+                      {/* Estatus y Condición de Inhabilitación */}
+                      <td>
+                        <div className="d-flex flex-column gap-1.5">
+                          {/* Botones Activa / Inactiva */}
+                          <div className="btn-group btn-group-sm w-100 p-0.5 bg-white border rounded-pill shadow-xs">
+                            <button
+                              type="button"
+                              className={`btn btn-xs rounded-pill fw-bold ${isActiva ? 'btn-success text-white shadow-xs' : 'btn-light text-muted border-0'}`}
+                              style={{ fontSize: '0.75rem' }}
+                              onClick={() => handleRutaFieldChange(ruta.id, 'activo', true)}
+                            >
+                              <i className="bi bi-check-circle-fill me-1"></i> Activa
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn btn-xs rounded-pill fw-bold ${!isActiva ? 'btn-danger text-white shadow-xs' : 'btn-light text-muted border-0'}`}
+                              style={{ fontSize: '0.75rem' }}
+                              onClick={() => handleRutaFieldChange(ruta.id, 'activo', false)}
+                            >
+                              <i className="bi bi-exclamation-triangle-fill me-1"></i> Inactiva
+                            </button>
+                          </div>
+
+                          {/* Campo de Motivo/Condición si está inactiva */}
+                          {!isActiva && (
+                            <div className="animate__animated animate__fadeIn">
+                              <input
+                                type="text"
+                                className="form-control form-control-sm rounded-3 border-danger bg-white"
+                                placeholder="Causa: Falla mecánica, caucho, etc."
+                                value={ruta.motivo_inactivo || ''}
+                                onChange={(e) => handleRutaFieldChange(ruta.id, 'motivo_inactivo', e.target.value)}
+                                style={{ fontSize: '0.78rem' }}
+                              />
+                              <div className="d-flex justify-content-between align-items-center mt-1">
+                                <span className="badge bg-danger-subtle text-danger" style={{ fontSize: '0.65rem' }}>
+                                  Inhabilitada
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => abrirModalContingencia(ruta)}
+                                  className="btn btn-xs btn-outline-danger rounded-pill px-2 py-0 fw-bold d-flex align-items-center gap-1"
+                                  style={{ fontSize: '0.68rem' }}
+                                  title="Enviar aviso individual a los representantes de esta ruta"
+                                >
+                                  <i className="bi bi-whatsapp"></i>
+                                  <span>Aviso Contingencia</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Acciones */}
+                      <td className="text-center">
+                        <button
+                          type="button"
+                          onClick={() => guardarRuta(ruta)}
+                          disabled={isGuardando}
+                          className="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-bold shadow-xs d-flex align-items-center justify-content-center gap-1 mx-auto"
+                          style={{ fontSize: '0.75rem' }}
+                        >
+                          {isGuardando ? (
+                            <span className="spinner-border spinner-border-sm" role="status"></span>
+                          ) : (
+                            <>
+                              <i className="bi bi-save2"></i>
+                              <span>Guardar</span>
+                            </>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ── PASOS 3 Y 4: EDITOR EN VIVO Y VISTA PREVIA DE WHATSAPP ── */}
+      <div className="row g-4">
+        {/* Columna Izquierda: Editor de Mensaje y Controles */}
+        <div className="col-12 col-lg-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100">
+            <div className="card-header bg-white p-3 p-md-4 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div>
+                <div className="badge rounded-pill bg-success-subtle text-success fw-bold px-2.5 py-1 mb-1">
+                  Pasos 3 y 4 • Redacción y Ajuste
+                </div>
+                <h5 className="fw-bold mb-0 text-dark">Redacción del Mensaje para WhatsApp</h5>
+                <small className="text-muted">
+                  Edita libremente. El mensaje se ajusta para enviarse de forma óptima en 1 solo bloque.
+                </small>
+              </div>
+
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModoCompacto(!modoCompacto);
+                    setEditadoManualmente(false);
+                  }}
+                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${modoCompacto ? 'btn-warning text-dark' : 'btn-outline-secondary'}`}
+                  style={{ fontSize: '0.76rem' }}
+                  title="Alternar entre lista detallada y formato compacto"
+                >
+                  <i className={`bi ${modoCompacto ? 'bi-card-text' : 'bi-justify'} me-1`}></i>
+                  {modoCompacto ? 'Modo Detallado' : 'Modo Compacto'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditadoManualmente(false);
+                    setMensajeEditable(rutogramaGenerado);
+                  }}
+                  className="btn btn-xs btn-light border rounded-pill px-2.5 py-1 fw-bold text-dark"
+                  style={{ fontSize: '0.76rem' }}
+                  title="Restaurar plantilla automática"
+                >
+                  <i className="bi bi-arrow-counterclockwise me-1"></i>
+                  Restaurar
+                </button>
+              </div>
+            </div>
+
+            <div className="card-body p-3 p-md-4 d-flex flex-column">
+              {/* Medidor de Longitud y Tamaño de WhatsApp */}
+              <div className="p-3 bg-light rounded-3 border mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-1.5 flex-wrap gap-1">
+                  <span className="fw-bold small text-dark d-flex align-items-center gap-1.5">
+                    <i className="bi bi-chat-dots-fill text-success"></i>
+                    <span>Estimador de Tamaño para WhatsApp:</span>
+                  </span>
+                  <span className={`badge rounded-pill fw-bold ${esIdealUnMensaje ? 'bg-success text-white' : 'bg-warning text-dark'}`} style={{ fontSize: '0.75rem' }}>
+                    {esIdealUnMensaje ? '✅ 1 Solo Mensaje Óptimo' : '⚠️ Mensaje Extenso'} ({numCaracteres} caracteres)
+                  </span>
+                </div>
+                <div className="progress rounded-pill" style={{ height: '8px' }}>
+                  <div
+                    className={`progress-bar rounded-pill ${esIdealUnMensaje ? 'bg-success' : 'bg-warning'}`}
+                    style={{ width: `${progresoTamano}%` }}
+                  ></div>
+                </div>
+                <div className="d-flex justify-content-between text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                  <span>0 caracteres</span>
+                  <span>Límite cómodo: ~2,800 car.</span>
+                </div>
+              </div>
+
+              {/* Área de Texto Editable */}
+              <div className="form-group flex-grow-1 mb-3">
+                <label className="form-label fw-bold small text-muted d-flex justify-content-between">
+                  <span>Texto Oficial a Difundir (Editable en Vivo):</span>
+                  {editadoManualmente && (
+                    <span className="text-warning small fw-bold">
+                      <i className="bi bi-pencil-fill me-1"></i>Modificado manualmente
+                    </span>
+                  )}
+                </label>
+                <textarea
+                  className="form-control rounded-3 p-3 font-monospace shadow-xs"
+                  rows={14}
+                  style={{ fontSize: '0.85rem', lineHeight: '1.5', resize: 'vertical' }}
+                  value={mensajeEditable}
+                  onChange={(e) => {
+                    setMensajeEditable(e.target.value);
+                    setEditadoManualmente(true);
+                  }}
+                  placeholder="Escribe o personaliza el mensaje de WhatsApp..."
+                ></textarea>
+              </div>
+
+              {/* Botones de Envío Rápido */}
+              <div className="d-flex align-items-center gap-2 pt-2 border-top flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => copiarTexto(mensajeEditable, '¡Rutograma copiado!')}
+                  className="btn btn-outline-dark rounded-pill px-3.5 py-2 fw-bold d-flex align-items-center gap-1.5 shadow-xs flex-grow-1"
+                  style={{ fontSize: '0.88rem' }}
+                >
+                  <i className="bi bi-clipboard-check text-primary"></i>
+                  <span>Copiar Portapapeles</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => abrirWhatsApp(mensajeEditable)}
+                  className="btn btn-success rounded-pill px-4 py-2 fw-bold d-flex align-items-center justify-content-center gap-2 shadow flex-grow-1 text-white"
+                  style={{ fontSize: '0.88rem', background: '#25D366', borderColor: '#25D366' }}
+                >
+                  <i className="bi bi-whatsapp fs-5"></i>
+                  <span>Enviar por WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Columna Derecha: Vista Previa en Vivo estilo WhatsApp */}
+        <div className="col-12 col-lg-6">
+          <div className="card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+            <div className="card-header p-3 border-bottom d-flex align-items-center gap-2" style={{ background: '#075e54', color: '#ffffff' }}>
+              <div className="rounded-circle bg-white p-1 text-success d-flex align-items-center justify-content-center" style={{ width: '38px', height: '38px' }}>
+                <i className="bi bi-bus-front-fill fs-5" style={{ color: '#075e54' }}></i>
+              </div>
+              <div className="min-w-0 flex-grow-1">
+                <div className="fw-bold text-truncate" style={{ fontSize: '0.92rem' }}>
+                  Transporte Institucional {escCodigo.toUpperCase()}
+                </div>
+                <small className="opacity-75 d-block" style={{ fontSize: '0.72rem' }}>
+                  Canal Oficial de WhatsApp • En línea
+                </small>
+              </div>
+              <i className="bi bi-whatsapp fs-5 opacity-75"></i>
+            </div>
+
+            <div 
+              className="card-body p-3 p-md-4 overflow-y-auto"
+              style={{ 
+                background: '#efeae2', 
+                backgroundImage: 'radial-gradient(#d1d7db 1px, transparent 1px)',
+                backgroundSize: '16px 16px',
+                minHeight: '450px',
+                maxHeight: '620px'
+              }}
+            >
+              {/* Burbuja de Mensaje de WhatsApp */}
+              <div 
+                className="p-3 rounded-4 shadow-sm position-relative ms-auto"
+                style={{
+                  background: '#d9fdd3',
+                  maxWidth: '92%',
+                  color: '#111b21',
+                  borderRadius: '16px 16px 4px 16px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                }}
+              >
+                <div 
+                  style={{ 
+                    whiteSpace: 'pre-wrap', 
+                    fontSize: '0.84rem', 
+                    lineHeight: '1.45',
+                    wordBreak: 'break-word',
+                    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                  }}
+                >
+                  {mensajeEditable}
+                </div>
+
+                <div className="d-flex justify-content-end align-items-center gap-1 mt-2 text-muted" style={{ fontSize: '0.7rem' }}>
+                  <span>{new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <i className="bi bi-check2-all text-primary"></i>
+                </div>
+              </div>
+            </div>
+
+            <div className="card-footer bg-white p-3 border-top d-flex align-items-center justify-content-between text-muted small">
+              <span className="d-flex align-items-center gap-1">
+                <i className="bi bi-info-circle text-primary"></i>
+                <span>Vista idéntica a cómo la visualizarán los representantes en sus teléfonos.</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── MODAL INDIVIDUAL: COMUNICADO DE CONTINGENCIA / INHABILITACIÓN (Nota Paso 3) ── */}
+      {modalContingencia && (
+        <div className="modal-backdrop-custom show">
+          <div className="modal-custom shadow-lg" style={{ maxWidth: '640px' }}>
+            <div className="modal-header border-bottom bg-danger text-white p-3">
+              <div className="d-flex align-items-center gap-2">
+                <span className="rounded-circle bg-white text-danger d-inline-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>
+                  <i className="bi bi-exclamation-triangle-fill"></i>
+                </span>
+                <h5 className="modal-title fw-bold mb-0" style={{ fontSize: '1.1rem' }}>
+                  Comunicado de Contingencia: {modalContingencia.nombre}
+                </h5>
+              </div>
+              <button 
+                type="button" 
+                className="btn-close btn-close-white" 
+                onClick={() => setModalContingencia(null)}
+              ></button>
+            </div>
+
+            <div className="modal-body p-3 p-md-4">
+              <div className="alert alert-warning border-0 rounded-3 p-2.5 small mb-3 d-flex align-items-start gap-2">
+                <i className="bi bi-bell-fill fs-5 text-warning flex-shrink-0"></i>
+                <div>
+                  <strong>Aviso de Novedad Individual:</strong> Envía este comunicado puntual a los representantes y grupos de la ruta afectada para que tomen previsiones de transporte particular.
+                </div>
+              </div>
+
+              <div className="form-group mb-3">
+                <label className="form-label fw-bold small text-muted">Texto del Comunicado (Editable):</label>
+                <textarea
+                  className="form-control rounded-3 p-3 font-monospace"
+                  rows={10}
+                  style={{ fontSize: '0.84rem', lineHeight: '1.45' }}
+                  value={mensajeContingencia}
+                  onChange={(e) => setMensajeContingencia(e.target.value)}
+                ></textarea>
+                <div className="text-end text-muted small mt-1">
+                  {mensajeContingencia.length} caracteres
+                </div>
+              </div>
+
+              {/* Botones de acción del comunicado */}
+              <div className="d-flex gap-2 justify-content-end pt-2 border-top">
+                <button
+                  type="button"
+                  className="btn btn-light rounded-pill px-3 fw-bold"
+                  onClick={() => setModalContingencia(null)}
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-dark rounded-pill px-3 fw-bold d-flex align-items-center gap-1"
+                  onClick={() => copiarTexto(mensajeContingencia, '¡Comunicado copiado!')}
+                >
+                  <i className="bi bi-clipboard-check"></i>
+                  <span>Copiar Texto</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success rounded-pill px-4 fw-bold d-flex align-items-center gap-1.5 text-white"
+                  style={{ background: '#25D366', borderColor: '#25D366' }}
+                  onClick={() => {
+                    abrirWhatsApp(mensajeContingencia);
+                    setModalContingencia(null);
+                  }}
+                >
+                  <i className="bi bi-whatsapp"></i>
+                  <span>Enviar por WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

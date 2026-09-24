@@ -6,7 +6,7 @@ interface DashboardViewProps {
   canManageRutas: boolean;
   canOperateTracking: boolean;
   canViewRecorrido: boolean;
-  setVistaActual: (vista: 'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva') => void;
+  setVistaActual: (vista: 'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva' | 'DespachoRutograma') => void;
   setConfigTab: (tab: 'Paradas' | 'Rutas' | 'Asignacion') => void;
   AnimatedBusSVG: React.ComponentType<{ size?: number; className?: string }>;
   rutas: any[];
@@ -109,7 +109,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="row g-3 g-md-4">
         {/* ── Tarjeta 1: Paradas y Rutas ── */}
         {(canManageParadas || canManageRutas) && (
-          <div className="col-12 col-sm-6 col-xl-3 animate__animated animate__fadeInUp">
+          <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp">
             <div
               className="transporte-feature-card w-100"
               style={{ 
@@ -134,7 +134,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <h4 className="fw-bold text-dark mb-1" style={{ fontSize: '1.15rem' }}>Paradas y Rutas</h4>
               <p className="text-muted small mb-3" style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
-                Catálogo de paradas, secuencia de recorrido y asignación de personal docente y choferes.
+                Catálogo de paradas, secuencia de recorrido y asignación base del personal docente y choferes.
               </p>
               
               <div className="d-flex gap-1.5 mb-3 flex-wrap">
@@ -146,11 +146,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 {canManageRutas && (
                   <span className="badge rounded-pill bg-light text-warning border" style={{ fontSize: '0.65rem' }}>
                     <i className="bi bi-signpost-2-fill me-1"></i>Rutas
-                  </span>
-                )}
-                {canManageRutas && (
-                  <span className="badge rounded-pill bg-light text-secondary border" style={{ fontSize: '0.65rem' }}>
-                    <i className="bi bi-person-badge-fill me-1"></i>Personal
                   </span>
                 )}
               </div>
@@ -165,8 +160,57 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         )}
 
-        {/* ── Tarjeta 2: Gestor de Recorrido (Operación) ── */}
-        <div className="col-12 col-sm-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.1s' }}>
+        {/* ── Tarjeta 2: Despacho Diario & Rutograma WhatsApp (Flujo Oficial 4 Pasos) ── */}
+        {(canManageRutas || canOperateTracking) && (
+          <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.05s' }}>
+            <div
+              className="transporte-feature-card w-100"
+              style={{ 
+                borderTop: '4px solid #16a34a',
+                background: 'linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)'
+              }}
+              onClick={() => setVistaActual('DespachoRutograma')}
+            >
+              <i className="bi bi-whatsapp transporte-bg-watermark" style={{ color: '#16a34a' }}></i>
+              
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <div className="transporte-card-icon shadow-xs" style={{ background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0' }}>
+                  <i className="bi bi-whatsapp"></i>
+                </div>
+                <span className="badge rounded-pill px-2.5 py-1" style={{ background: '#bbf7d0', color: '#14532d', fontSize: '0.7rem', fontWeight: 700 }}>
+                  Flujo Oficial 4 Pasos
+                </span>
+              </div>
+
+              <h4 className="fw-bold text-dark mb-1" style={{ fontSize: '1.15rem' }}>Despacho y Rutograma WhatsApp</h4>
+              <p className="text-muted small mb-3" style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
+                Asignación de chofer + docente con teléfono, estatus de unidades, rutograma consolidado en 1 solo mensaje y avisos de contingencia.
+              </p>
+              
+              <div className="d-flex gap-1.5 mb-3 flex-wrap">
+                <span className="badge rounded-pill bg-white text-success border shadow-xs" style={{ fontSize: '0.65rem' }}>
+                  <i className="bi bi-person-check-fill me-1"></i>Docente & Teléfono
+                </span>
+                <span className="badge rounded-pill bg-white text-danger border shadow-xs" style={{ fontSize: '0.65rem' }}>
+                  <i className="bi bi-exclamation-triangle-fill me-1"></i>Contingencia
+                </span>
+                <span className="badge rounded-pill bg-white text-dark border shadow-xs" style={{ fontSize: '0.65rem' }}>
+                  <i className="bi bi-chat-text-fill me-1"></i>1 Solo Mensaje
+                </span>
+              </div>
+
+              <div className="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+                <span className="fw-bold small d-flex align-items-center gap-1" style={{ color: '#16a34a' }}>
+                  Iniciar Despacho y Rutograma <i className="bi bi-arrow-right"></i>
+                </span>
+                <i className="bi bi-chevron-right text-success small"></i>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Tarjeta 3: Gestor de Recorrido (Operación) ── */}
+        <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.1s' }}>
           <div
             className={`transporte-feature-card w-100 ${!canOperateTracking ? 'card-disabled' : ''}`}
             style={{ 
@@ -210,30 +254,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* ── Tarjeta 3: Visor de Recorrido ── */}
-        <div className="col-12 col-sm-6 col-xl-3 animate__animated animate__fadeInUp" style={{ animationDelay: '0.2s' }}>
+        {/* ── Tarjeta 4: Visor de Recorrido ── */}
+        <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.15s' }}>
           <div
             className={`transporte-feature-card w-100 ${!canViewRecorrido ? 'card-disabled' : ''}`}
             style={{ 
-              borderTop: '4px solid #10b981',
-              background: 'linear-gradient(180deg, #ffffff 0%, #f7fdfa 100%)'
+              borderTop: '4px solid #0284c7',
+              background: 'linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%)'
             }}
             onClick={() => canViewRecorrido && setVistaActual('Visor')}
           >
-            <i className="bi bi-eye-fill transporte-bg-watermark" style={{ color: '#059669' }}></i>
+            <i className="bi bi-eye-fill transporte-bg-watermark" style={{ color: '#0284c7' }}></i>
             
             <div className="d-flex align-items-center justify-content-between mb-3">
-              <div className="transporte-card-icon shadow-xs" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+              <div className="transporte-card-icon shadow-xs" style={{ background: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd' }}>
                 <i className="bi bi-eye-fill"></i>
               </div>
-              <span className="badge rounded-pill px-2.5 py-1" style={{ background: '#d1fae5', color: '#047857', fontSize: '0.7rem', fontWeight: 700 }}>
+              <span className="badge rounded-pill px-2.5 py-1" style={{ background: '#e0f2fe', color: '#0369a1', fontSize: '0.7rem', fontWeight: 700 }}>
                 Comunidad
               </span>
             </div>
 
             <h4 className="fw-bold text-dark mb-1" style={{ fontSize: '1.15rem' }}>Visor de Recorrido</h4>
             <p className="text-muted small mb-3" style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
-              Seguimiento en vivo para representantes y docentes del estado y avance de las unidades.
+              Seguimiento satelital en vivo para representantes y docentes del estado y avance de las unidades.
             </p>
             
             <div className="mt-auto">
@@ -243,7 +287,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </span>
               ) : (
                 <div className="pt-2 border-top d-flex align-items-center justify-content-between">
-                  <span className="fw-bold small d-flex align-items-center gap-1" style={{ color: '#059669' }}>
+                  <span className="fw-bold small d-flex align-items-center gap-1" style={{ color: '#0284c7' }}>
                     Entrar al submódulo <i className="bi bi-arrow-right"></i>
                   </span>
                   <i className="bi bi-chevron-right text-muted small"></i>

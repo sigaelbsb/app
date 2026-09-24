@@ -9,6 +9,7 @@ import { ConfiguracionView } from './components/ConfiguracionView';
 import { OperacionView } from './components/OperacionView';
 import { VisorView } from './components/VisorView';
 import { CargaMasivaView } from './components/CargaMasivaView';
+import { DespachoRutogramaView } from './components/DespachoRutogramaView';
 import { ModalParada, ModalRuta, ModalAsignacion } from './components/Modals';
 import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoTransporteEscolar3D } from '../../components/chamilo';
 import './transporte.css';
@@ -327,7 +328,7 @@ export const TransporteEscolar = () => {
     }
   };
 
-  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva'>('dashboard');
+  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva' | 'DespachoRutograma'>('dashboard');
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState<'sb' | 'lb'>(() => {
     // Si el usuario/coordinador tiene una escuela asignada fija, inicializar de inmediato en ella
@@ -2538,6 +2539,20 @@ export const TransporteEscolar = () => {
           BusProgressBar={BusProgressBar}
           AnimatedBusSVG={AnimatedBusSVG}
           BusStopIcon={BusStopIcon}
+        />
+      )}
+
+      {/* VISTA: DESPACHO Y RUTOGRAMA WHATSAPP (4 PASOS OFICIALES) */}
+      {vistaActual === 'DespachoRutograma' && (
+        <DespachoRutogramaView
+          onBack={() => setVistaActual('dashboard')}
+          rutas={rutas}
+          paradas={paradas}
+          docentes={docentes}
+          escCodigo={escCodigo}
+          cargarTodo={cargarTodo}
+          getIdsWithEscuela={getIdsWithEscuela}
+          getParadasWithEscuela={getParadasWithEscuela}
         />
       )}
 
