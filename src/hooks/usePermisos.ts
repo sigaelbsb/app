@@ -26,7 +26,7 @@ export const usePermisos = () => {
   const [loading, setLoading] = useState<boolean>(() => {
     const initialUser = getInitialUser();
     if (!initialUser) return false;
-    if (['SuperAdmin', 'Director', 'Directora'].includes(initialUser.rol)) return false;
+    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(initialUser.rol)) return false;
     const cached = getInitialCache('sigae_cache_full_permisos');
     return !cached;
   });
@@ -61,7 +61,8 @@ export const usePermisos = () => {
 
     let currentEsc = localStorage.getItem('sigae_escuela_codigo') || userEsc || 'sb';
     
-    const isSuperAdmin = (usr.rol || '').trim() === 'SuperAdmin';
+    const hasMultipleEscuelas = usr.perfil_acceso?.instituciones && Array.isArray(usr.perfil_acceso.instituciones) && usr.perfil_acceso.instituciones.length > 1;
+    const isSuperAdmin = ['SuperAdmin', 'Administrador', 'Administradora'].includes((usr.rol || '').trim()) || hasMultipleEscuelas;
     // Aislamiento estricto: usuarios/coordinadores asignados a una escuela fija ('sb' o 'lb') siempre operan en su escuela
     if (!isSuperAdmin && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
       currentEsc = userEsc;
@@ -71,6 +72,10 @@ export const usePermisos = () => {
       usr.nombre_escuela = userEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
       localStorage.setItem('usuario_sigae', JSON.stringify(usr));
     }
+
+    const fetchTimer = setTimeout(() => {
+      setLoading(false);
+    }, 3500);
 
     const fetchPermisos = async () => {
       try {
@@ -168,11 +173,13 @@ export const usePermisos = () => {
       } catch (e) {
         console.error("Error fetching permissions:", e);
       } finally {
+        clearTimeout(fetchTimer);
         setLoading(false);
       }
     };
 
     fetchPermisos();
+    return () => clearTimeout(fetchTimer);
   }, []);
 
   const esDirectivo = useMemo(() => {

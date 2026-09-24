@@ -23,8 +23,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ modulo, accion =
     );
   }
 
-  // Solo SuperAdmin tiene bypass irrestricto en todas las rutas
-  if (user?.rol === 'SuperAdmin') {
+  // SuperAdmin y Administrador tienen bypass irrestricto en todas las rutas
+  if (['SuperAdmin', 'Administrador', 'Administradora'].includes(user?.rol || '')) {
     return <>{children}</>;
   }
 

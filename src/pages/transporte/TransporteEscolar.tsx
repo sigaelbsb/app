@@ -120,7 +120,7 @@ export const TransporteEscolar = () => {
   const { loading: permLoading, tienePermiso, tienePermisoEnEscuela, user } = usePermisos();
   const Swal = (window as any).Swal;
 
-  const isSuperAdmin = user?.rol === 'SuperAdmin';
+  const isSuperAdmin = ['SuperAdmin', 'Administrador', 'Administradora'].includes(user?.rol || '');
 
   // Identificar si el usuario ejerce rol o cargo de Coordinador
   const esCoordinador = useMemo(() => {
@@ -139,25 +139,26 @@ export const TransporteEscolar = () => {
   const escuelaAsignada = useMemo((): 'sb' | 'lb' | null => {
     if (isSuperAdmin) return null;
 
-    // 1. Por id_escuela directo en objeto user
-    const uEsc = (user?.id_escuela || '').trim().toLowerCase();
-    if (uEsc === 'sb' || uEsc === 'lb') return uEsc as 'sb' | 'lb';
-
-    // 2. Por perfil_acceso.instituciones
+    // Si el usuario tiene acceso a ambas sedes, no está bloqueado a una sola sede
     if (user?.perfil_acceso?.instituciones && Array.isArray(user.perfil_acceso.instituciones)) {
       const insts = user.perfil_acceso.instituciones.map((i: string) => i.toLowerCase());
       const hasSB = insts.some((i: string) => i.includes('santa b') || i === 'sb');
       const hasLB = insts.some((i: string) => i.includes('bolívar') || i === 'lb');
+      if (hasSB && hasLB) return null;
       if (hasSB && !hasLB) return 'sb';
       if (hasLB && !hasSB) return 'lb';
     }
 
-    // 3. Por cargo institucional específico de sede
+    // 1. Por id_escuela directo en objeto user
+    const uEsc = (user?.id_escuela || '').trim().toLowerCase();
+    if (uEsc === 'sb' || uEsc === 'lb') return uEsc as 'sb' | 'lb';
+
+    // 2. Por cargo institucional específico de sede
     const cargo = (user?.cargo || '').toLowerCase();
     if (cargo.includes('(sb)') || cargo.includes('santa b')) return 'sb';
     if (cargo.includes('(lb)') || cargo.includes('libertador') || cargo.includes('bolívar')) return 'lb';
 
-    // 4. Por localStorage usuario_sigae
+    // 3. Por localStorage usuario_sigae
     try {
       const stored = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
       const sEsc = (stored?.id_escuela || '').trim().toLowerCase();
@@ -348,10 +349,25 @@ export const TransporteEscolar = () => {
   const canViewTransporte = isSuperAdmin || esCoordinadorTransporte || canManageRutas || canManageParadas || canOperateTracking || canViewRecorrido || tienePermiso('Transporte Escolar');
   const canControlCoordinacion = isSuperAdmin || esCoordinadorTransporte || tienePermisoEnEscuela(escCodigo, 'Función: Control Coordinación', 'ver');
 
-  // DB States
-  const [paradas, setParadas] = useState<any[]>([]);
-  const [rutas, setRutas] = useState<any[]>([]);
-  const [docentes, setDocentes] = useState<any[]>([]);
+  // DB States con hidratación instantánea desde caché local
+  const [paradas, setParadas] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem(`sigae_cache_paradas_${escCodigo}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [rutas, setRutas] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem(`sigae_cache_rutas_${escCodigo}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [docentes, setDocentes] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem(`sigae_cache_docentes_${escCodigo}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const [trackingHoy, setTrackingHoy] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -453,7 +469,25 @@ export const TransporteEscolar = () => {
 
   useEffect(() => {
     localStorage.setItem('sigae_escuela_codigo', escCodigo);
+    try {
+      const cachedP = JSON.parse(localStorage.getItem(`sigae_cache_paradas_${escCodigo}`) || '[]');
+      const cachedR = JSON.parse(localStorage.getItem(`sigae_cache_rutas_${escCodigo}`) || '[]');
+      const cachedD = JSON.parse(localStorage.getItem(`sigae_cache_docentes_${escCodigo}`) || '[]');
+      if (cachedP.length > 0) setParadas(cachedP);
+      if (cachedR.length > 0) setRutas(cachedR);
+      if (cachedD.length > 0) setDocentes(cachedD);
+    } catch {}
   }, [escCodigo]);
+
+  // Salvaguarda absoluta contra spinners infinitos
+  useEffect(() => {
+    if (loadingData) {
+      const timer = setTimeout(() => {
+        setLoadingData(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingData]);
 
   // Referencias mutables para evitar stale closures en el listener en tiempo real de Supabase
   const rutasRef = React.useRef(rutas);
@@ -541,7 +575,22 @@ export const TransporteEscolar = () => {
   }, [docentes, escCodigo]);
 
   const cargarTodo = async (silencioso = false) => {
-    if (!silencioso) setLoadingData(true);
+    // Si ya existen datos en memoria o en caché local, NO bloquear la interfaz con spinner
+    let hasLocalData = paradasRef.current.length > 0 || rutasRef.current.length > 0;
+    if (!hasLocalData) {
+      try {
+        const cachedP = JSON.parse(localStorage.getItem(`sigae_cache_paradas_${escCodigo}`) || '[]');
+        const cachedR = JSON.parse(localStorage.getItem(`sigae_cache_rutas_${escCodigo}`) || '[]');
+        if (cachedP.length > 0 || cachedR.length > 0) {
+          hasLocalData = true;
+          if (cachedP.length > 0) setParadas(cachedP);
+          if (cachedR.length > 0) setRutas(cachedR);
+        }
+      } catch {}
+    }
+
+    if (!silencioso && !hasLocalData) setLoadingData(true);
+
     try {
       const hoyStr = new Date().toISOString().split('T')[0];
       
@@ -576,10 +625,16 @@ export const TransporteEscolar = () => {
         })
         .catch((err: any) => { console.error("Error al cargar docentes:", err); throw err; });
 
-      await Promise.all([p1, p2, p3, p4]);
+      const withTimeout = <T,>(promise: Promise<T>, ms = 4000): Promise<T> =>
+        Promise.race([
+          promise,
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout de red Supabase')), ms))
+        ]);
+
+      await withTimeout(Promise.all([p1, p2, p3, p4]), 4000);
 
     } catch (e: any) {
-      console.error(e);
+      console.warn("Aviso en cargarTodo (usando caché de respaldo si aplica):", e);
       // Fallback a caché
       try {
         const cachedParadas = JSON.parse(localStorage.getItem(`sigae_cache_paradas_${escCodigo}`) || '[]');
@@ -592,7 +647,7 @@ export const TransporteEscolar = () => {
       } catch (errCache) {
         console.error("Error al cargar desde cache local:", errCache);
       }
-      if (!silencioso && !isNetworkError(e)) {
+      if (!silencioso && !isNetworkError(e) && !String(e?.message || '').toLowerCase().includes('timeout')) {
         Swal.fire('Error', 'Falla al conectar con base de datos.', 'error');
       }
     } finally {
@@ -2099,7 +2154,7 @@ export const TransporteEscolar = () => {
     });
   };
 
-  if (permLoading || loadingData) {
+  if (permLoading || (loadingData && paradas.length === 0 && rutas.length === 0)) {
     return <div className="text-center py-5"><div className="spinner-border text-success" role="status"></div></div>;
   }
 
