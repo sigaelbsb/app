@@ -28,7 +28,6 @@ export const DespachoRutogramaView: React.FC<DespachoRutogramaViewProps> = ({
   const [localRutas, setLocalRutas] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [modoCompacto, setModoCompacto] = useState<boolean>(false);
-  const [guardandoId, setGuardandoId] = useState<string | null>(null);
 
   // Tipo de Rutograma: Activas vs Inactivas (Colectivo)
   const [tipoRutograma, setTipoRutograma] = useState<'activas' | 'inactivas'>('activas');
@@ -101,57 +100,63 @@ export const DespachoRutogramaView: React.FC<DespachoRutogramaViewProps> = ({
     setEditInactivasDoc(false);
   };
 
-  // Guardar cambios de una ruta en Supabase
-  const guardarRuta = async (ruta: any) => {
-    setGuardandoId(ruta.id);
+  const [guardandoTodo, setGuardandoTodo] = useState(false);
+
+  // Guardar todos los cambios de todas las rutas en Supabase de una sola vez
+  const guardarTodosLosCambios = async () => {
+    setGuardandoTodo(true);
     try {
-      const payload: any = {
-        chofer_nombre: ruta.chofer_nombre || null,
-        docente_id: ruta.docente_id || null,
-        activo: ruta.activo !== false,
-        sectores: ruta.motivo_inactivo || null
-      };
+      const updates = localRutas.map(async (ruta) => {
+        const payload: any = {
+          chofer_nombre: ruta.chofer_nombre || null,
+          docente_id: ruta.docente_id || null,
+          activo: ruta.activo !== false,
+          sectores: ruta.motivo_inactivo || null
+        };
 
-      if (ruta.docente_telefono !== undefined) {
-        payload.docente_telefono = ruta.docente_telefono || null;
-      }
-      if (ruta.motivo_inactivo !== undefined) {
-        payload.motivo_inactivo = ruta.motivo_inactivo || null;
-      }
-
-      const { error } = await supabase
-        .from('transporte_rutas')
-        .update(payload)
-        .eq('id', ruta.id);
-
-      if (error) {
-        if (error.message?.includes('column') || error.code === '42703') {
-          delete payload.docente_telefono;
-          delete payload.motivo_inactivo;
-          const { error: retryErr } = await supabase
-            .from('transporte_rutas')
-            .update(payload)
-            .eq('id', ruta.id);
-          if (retryErr) throw retryErr;
-        } else {
-          throw error;
+        if (ruta.docente_telefono !== undefined) {
+          payload.docente_telefono = ruta.docente_telefono || null;
         }
-      }
+        if (ruta.motivo_inactivo !== undefined) {
+          payload.motivo_inactivo = ruta.motivo_inactivo || null;
+        }
 
+        const { error } = await supabase
+          .from('transporte_rutas')
+          .update(payload)
+          .eq('id', ruta.id);
+
+        if (error) {
+          if (error.message?.includes('column') || error.code === '42703') {
+            delete payload.docente_telefono;
+            delete payload.motivo_inactivo;
+            const { error: retryErr } = await supabase
+              .from('transporte_rutas')
+              .update(payload)
+              .eq('id', ruta.id);
+            if (retryErr) throw retryErr;
+          } else {
+            throw error;
+          }
+        }
+      });
+
+      await Promise.all(updates);
       await cargarTodo(true);
+
       Swal.fire({
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: `Ruta ${ruta.nombre} actualizada`,
+        title: 'Todos los cambios fueron guardados exitosamente 🎉',
         showConfirmButton: false,
-        timer: 1800
+        timer: 2500
       });
     } catch (err: any) {
-      console.error(err);
-      Swal.fire('Error', 'No se pudo guardar la ruta: ' + (err.message || ''), 'error');
+      console.error("Error al guardar todos los cambios:", err);
+      Swal.fire('Error', 'No se pudieron guardar los cambios: ' + (err.message || ''), 'error');
     } finally {
-      setGuardandoId(null);
+      setGuardandoTodo(false);
     }
   };
 
@@ -603,6 +608,26 @@ export const DespachoRutogramaView: React.FC<DespachoRutogramaViewProps> = ({
             >
               Limpiar
             </button>
+
+            <button
+              type="button"
+              onClick={guardarTodosLosCambios}
+              disabled={guardandoTodo}
+              className="btn btn-sm btn-primary rounded-pill px-3.5 py-1.5 fw-bold shadow-sm d-flex align-items-center gap-1.5 ms-md-2"
+              style={{ fontSize: '0.82rem' }}
+            >
+              {guardandoTodo ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" role="status"></span>
+                  <span>Guardando...</span>
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-floppy-fill"></i>
+                  <span>Guardar todos los cambios</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -612,19 +637,17 @@ export const DespachoRutogramaView: React.FC<DespachoRutogramaViewProps> = ({
               <thead className="bg-light text-muted small fw-bold">
                 <tr>
                   <th style={{ width: '50px' }} className="text-center">Incluir</th>
-                  <th style={{ width: '180px' }}>Ruta Escolar</th>
-                  <th style={{ width: '180px' }}>Chofer de Unidad</th>
-                  <th style={{ width: '220px' }}>Docente de Guardia</th>
-                  <th style={{ width: '150px' }}>Teléfono Docente</th>
-                  <th style={{ width: '240px' }}>Estatus / Condición Unidad</th>
-                  <th style={{ width: '110px' }} className="text-center">Acciones</th>
+                  <th style={{ width: '190px' }}>Ruta Escolar</th>
+                  <th style={{ width: '190px' }}>Chofer de Unidad</th>
+                  <th style={{ width: '230px' }}>Docente de Guardia</th>
+                  <th style={{ width: '160px' }}>Teléfono Docente</th>
+                  <th style={{ width: '270px' }}>Estatus / Condición Unidad</th>
                 </tr>
               </thead>
               <tbody>
                 {localRutas.map((ruta) => {
                   const isSelected = selectedIds.includes(ruta.id);
                   const isActiva = ruta.activo !== false;
-                  const isGuardando = guardandoId === ruta.id;
 
                   return (
                     <tr 
@@ -753,31 +776,38 @@ export const DespachoRutogramaView: React.FC<DespachoRutogramaViewProps> = ({
                           )}
                         </div>
                       </td>
-
-                      {/* Acciones */}
-                      <td className="text-center">
-                        <button
-                          type="button"
-                          onClick={() => guardarRuta(ruta)}
-                          disabled={isGuardando}
-                          className="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-bold shadow-xs d-flex align-items-center justify-content-center gap-1 mx-auto"
-                          style={{ fontSize: '0.75rem' }}
-                        >
-                          {isGuardando ? (
-                            <span className="spinner-border spinner-border-sm" role="status"></span>
-                          ) : (
-                            <>
-                              <i className="bi bi-save2"></i>
-                              <span>Guardar</span>
-                            </>
-                          )}
-                        </button>
-                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Pie de tabla con botón único Guardar todos los cambios */}
+          <div className="card-footer bg-white p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div className="text-muted small d-flex align-items-center gap-1.5">
+              <i className="bi bi-info-circle-fill text-primary"></i>
+              <span>Modifica choferes, docentes de guardia y estatus de las unidades y guarda todo con un solo clic.</span>
+            </div>
+            <button
+              type="button"
+              onClick={guardarTodosLosCambios}
+              disabled={guardandoTodo}
+              className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm d-flex align-items-center gap-2"
+              style={{ fontSize: '0.86rem' }}
+            >
+              {guardandoTodo ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" role="status"></span>
+                  <span>Guardando todos los cambios...</span>
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-floppy-fill"></i>
+                  <span>Guardar todos los cambios</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
