@@ -9,10 +9,16 @@ interface CensoEstudiantesRutasViewProps {
   isSuperAdmin: boolean;
 }
 
+export type CategoriaMatricula = 
+  | 'regular_actualizado'      // Regular que completó actualización de datos (ficha_completada)
+  | 'regular_en_proceso'        // Regular que inició actualización pero no ha finalizado
+  | 'regular_sin_iniciar'       // Regular que aún no ha iniciado la actualización
+  | 'nuevo_ingreso_formalizado';// Nuevo ingreso formalizado / admitido
+
 export interface EstudianteCenso {
   id: string;
   origenTabla: 'vinculacion' | 'solicitud';
-  tipoEstudiante: 'regular' | 'nuevo_ingreso';
+  categoriaMatricula: CategoriaMatricula;
   codigo_escuela: 'sb' | 'lb';
   escuelaNombre: string;
   cedula: string;
@@ -21,6 +27,7 @@ export interface EstudianteCenso {
   apellidos: string;
   nombreCompleto: string;
   grado: string;
+  requiereTransporte: boolean | null; // true: Sí, false: No, null: Pendiente por definir
   rutaNombreRaw: string;
   rutaNombreLimpio: string;
   paradaNombreRaw: string;
@@ -32,7 +39,7 @@ export interface EstudianteCenso {
   representanteNombre: string;
   representanteCedula: string;
   representanteTelefono: string;
-  estadoRegistro?: string;
+  estadoRegistro: string;
   direccion?: string;
 }
 
@@ -49,7 +56,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
   const [filtroEscuela, setFiltroEscuela] = useState<'todas' | 'sb' | 'lb'>('todas');
   
   // Pestaña activa del submódulo
-  const [tabActiva, setTabActiva] = useState<'jerarquia' | 'ranking' | 'padron' | 'pendientes'>('jerarquia');
+  const [tabActiva, setTabActiva] = useState<'jerarquia' | 'ranking' | 'padron' | 'regulares_pendientes' | 'por_asignar'>('jerarquia');
 
   // Estados de datos
   const [loading, setLoading] = useState(true);
@@ -62,11 +69,15 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
   // Buscador y filtros de la vista Padrón General
   const [busqueda, setBusqueda] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'regular' | 'nuevo_ingreso'>('todos');
+  const [filtroCategoria, setFiltroCategoria] = useState<string>('todos');
+  const [filtroTransporte, setFiltroTransporte] = useState<'todos' | 'si' | 'no' | 'pendiente'>('todos');
   const [filtroRuta, setFiltroRuta] = useState<string>('todas');
   const [filtroGrado, setFiltroGrado] = useState<string>('todos');
   const [paginaActual, setPaginaActual] = useState(1);
-  const [filasPorPagina, setFilasPorPagina] = useState(20);
+  const [filasPorPagina, setFilasPorPagina] = useState(25);
+
+  // Filtro de la pestaña Regulares Pendientes por Actualizar
+  const [subfiltroPendientes, setSubfiltroPendientes] = useState<'todos' | 'en_proceso' | 'sin_iniciar'>('todos');
 
   // Modal para ver estudiantes de una parada o ruta
   const [modalData, setModalData] = useState<{
@@ -87,11 +98,44 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       .replace(/\s+/g, ' ');
   };
 
-  // ── Cargar Datos desde Supabase ─────────────────────────────────────────────
+  // ── Carga Paginada Dinámica para no limitar a 1,000 registros ───────────────
+  const fetchAllFromTable = async (tableName: string, selectFields = '*') => {
+    let allRows: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select(selectFields)
+        .range(from, from + step - 1);
+
+      if (error) {
+        console.error(`Error cargando ${tableName} rango ${from}-${from + step - 1}:`, error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        allRows = allRows.concat(data);
+        if (data.length < step) {
+          hasMore = false;
+        } else {
+          from += step;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allRows;
+  };
+
+  // ── Cargar Datos Completos desde Supabase ────────────────────────────────────
   const cargarCenso = async () => {
     setLoading(true);
     try {
-      // 1. Cargar Rutas y Paradas Oficiales
+      // 1. Cargar Catálogo Oficial de Rutas y Paradas
       const [rutasRes, paradasRes] = await Promise.all([
         supabase.from('transporte_rutas').select('*').order('nombre', { ascending: true }),
         supabase.from('transporte_paradas').select('*').order('nombre_parada', { ascending: true })
@@ -115,34 +159,57 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         mapaParadasPorNorm[key] = p;
       });
 
-      // 2. Cargar Estudiantes de Vinculaciones (Regulares y algunos Nuevos formalizados)
-      const { data: vincData, error: vincErr } = await supabase
-        .from('estudiantes_vinculaciones')
-        .select('*');
+      // 2. Cargar la Matrícula Completa de Vinculaciones (Regulares y Nuevos Ingresos vinculados)
+      const vincData = await fetchAllFromTable('estudiantes_vinculaciones', '*');
 
-      if (vincErr) console.warn('Error cargando vinculaciones:', vincErr);
-
-      // 3. Cargar Nuevos Ingresos de Solicitud de Cupos
-      const { data: solData, error: solErr } = await supabase
-        .from('solicitud_cupos')
-        .select('*');
-
-      if (solErr) console.warn('Error cargando solicitudes:', solErr);
+      // 3. Cargar Solicitudes de Admisión
+      const solData = await fetchAllFromTable(
+        'solicitud_cupos',
+        'id, codigo_escuela, codigo_unico, estudiante_cedula, estudiante_nombres, estudiante_apellidos, grado_solicitado, estado, requiere_transporte, ruta_transporte, representante_nombres, representante_apellidos, representante_cedula, representante_telefono, representante_telefono2, direccion_habitacion'
+      );
 
       const listaConsolidada: EstudianteCenso[] = [];
-      const cedulasProcesadas = new Set<string>();
+      const cedulasEnVinculacion = new Set<string>();
 
-      // A) Procesar vinculaciones primero (datos más actualizados por ficha)
+      // ── A) Procesar todas las vinculaciones (Matrícula Regular + Nuevos Ingresos vinculados)
       (vincData || []).forEach(v => {
         const d = v.datos_actualizados || {};
-        const reqTrans = d.requiere_transporte === true || d.requiere_transporte === 'true' || d.requiere_transporte === 'si';
-        if (!reqTrans) return;
-
         const cedRaw = (v.cedula_estudiante || d.estudiante_cedula || '').trim();
         const cedNorm = cedRaw.replace(/\D/g, '');
-        if (cedNorm) cedulasProcesadas.add(cedNorm);
+        if (cedNorm) cedulasEnVinculacion.add(cedNorm);
 
         const esc = ((v.codigo_escuela || d.codigo_escuela || 'sb') as string).toLowerCase() as 'sb' | 'lb';
+        const hasDatos = Object.keys(d).length > 0;
+        const esNuevoIngreso = d.origen_admision === 'nuevo_ingreso';
+
+        // Clasificar con precisión en la matrícula escolar real
+        let categoria: CategoriaMatricula;
+        let estadoLabel = '';
+
+        if (esNuevoIngreso) {
+          categoria = 'nuevo_ingreso_formalizado';
+          estadoLabel = 'Nuevo Ingreso Formalizado';
+        } else if (!hasDatos) {
+          categoria = 'regular_sin_iniciar';
+          estadoLabel = 'Sin Iniciar Actualización';
+        } else if (d.ficha_completada === true) {
+          categoria = 'regular_actualizado';
+          estadoLabel = 'Actualizado (Ficha Completada)';
+        } else {
+          categoria = 'regular_en_proceso';
+          estadoLabel = 'En Proceso de Actualización';
+        }
+
+        // Transporte
+        let reqTrans: boolean | null = null;
+        if (d.requiere_transporte === true || d.requiere_transporte === 'true' || d.requiere_transporte === 'si') {
+          reqTrans = true;
+        } else if (d.requiere_transporte === false || d.requiere_transporte === 'false' || d.requiere_transporte === 'no') {
+          reqTrans = false;
+        } else {
+          reqTrans = null; // Pendiente por definir
+        }
+
         const rawRuta = (d.ruta_transporte || '').trim();
         const rawParada = (d.parada_transporte || '').trim();
 
@@ -155,19 +222,17 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           if (!paradaLimpia) paradaLimpia = parts[1]?.trim() || '';
         }
 
-        // Buscar coincidencia en catálogo oficial
+        // Coincidencia con catálogo oficial
         const keyRuta = `${esc}_${normalizar(rutaLimpia)}`;
         const rutaMatch = mapaRutasPorNorm[keyRuta] || todasRutas.find(r => r.escuela_codigo === esc && normalizar(r.nombre).includes(normalizar(rutaLimpia)));
 
         const keyParada = `${esc}_${normalizar(paradaLimpia)}`;
         const paradaMatch = mapaParadasPorNorm[keyParada] || todasParadas.find(p => p.escuela_codigo === esc && normalizar(p.nombre_parada).includes(normalizar(paradaLimpia)));
 
-        const esNuevo = d.origen_admision === 'nuevo_ingreso';
-
         listaConsolidada.push({
           id: `vinc_${v.id}`,
           origenTabla: 'vinculacion',
-          tipoEstudiante: esNuevo ? 'nuevo_ingreso' : 'regular',
+          categoriaMatricula: categoria,
           codigo_escuela: esc,
           escuelaNombre: esc === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar',
           cedula: cedRaw || 'Sin Cédula',
@@ -175,11 +240,12 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           nombres: (v.nombres_estudiante || d.estudiante_nombres || '').trim(),
           apellidos: (v.apellidos_estudiante || d.estudiante_apellidos || '').trim(),
           nombreCompleto: `${v.nombres_estudiante || d.estudiante_nombres || ''} ${v.apellidos_estudiante || d.estudiante_apellidos || ''}`.trim() || 'Estudiante',
-          grado: (v.grado_actual || d.grado_actual || d.grado_solicitado || 'No especificado').trim(),
+          grado: (v.grado_actual || d.grado_actual || d.grado_solicitado || 'Por Asignar').trim(),
+          requiereTransporte: reqTrans,
           rutaNombreRaw: rawRuta,
-          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || 'Sin Ruta Asignada'),
+          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || (reqTrans ? 'Sin Ruta Asignada' : 'No Requiere')),
           paradaNombreRaw: rawParada,
-          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || 'Sin Parada Asignada'),
+          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || (reqTrans ? 'Sin Parada Asignada' : 'No Requiere')),
           rutaIdOficial: rutaMatch?.id,
           paradaIdOficial: paradaMatch?.id,
           coincideRutaOficial: !!rutaMatch,
@@ -187,21 +253,22 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           representanteNombre: `${v.nombres_representante || d.representante_nombres || ''} ${v.apellidos_representante || d.representante_apellidos || ''}`.trim() || 'Representante',
           representanteCedula: (v.cedula_representante || d.representante_cedula || '').trim(),
           representanteTelefono: (d.representante_telefono || d.representante_telefono_movil || v.telefono_representante || '').trim(),
-          estadoRegistro: d.ficha_completada ? 'Ficha Completada' : 'En Proceso',
+          estadoRegistro: estadoLabel,
           direccion: (d.direccion_habitacion || '').trim()
         });
       });
 
-      // B) Procesar solicitudes de cupos (Nuevos Ingresos no duplicados)
+      // ── B) Procesar Nuevos Ingresos Formalizados desde solicitud_cupos (No Duplicados)
+      const estadosValidosFormalizado = ['formalizado', 'formalizada', 'inscrito', 'inscrita', 'aprobado', 'admitido'];
       (solData || []).forEach(s => {
-        const reqTrans = s.requiere_transporte === true || s.requiere_transporte === 'true';
-        if (!reqTrans) return;
+        const estadoNorm = (s.estado || '').toLowerCase().trim();
+        if (!estadosValidosFormalizado.includes(estadoNorm)) return;
 
         const cedRaw = (s.estudiante_cedula || '').trim();
         const cedNorm = cedRaw.replace(/\D/g, '');
 
-        // Deduplicación estricta con vinculaciones
-        if (cedNorm && cedulasProcesadas.has(cedNorm)) {
+        // Evitar duplicados si ya está presente en vinculaciones
+        if (cedNorm && cedulasEnVinculacion.has(cedNorm)) {
           return;
         }
 
@@ -223,10 +290,12 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         const keyParada = `${esc}_${normalizar(paradaLimpia)}`;
         const paradaMatch = mapaParadasPorNorm[keyParada] || todasParadas.find(p => p.escuela_codigo === esc && normalizar(p.nombre_parada).includes(normalizar(paradaLimpia)));
 
+        const reqTrans = s.requiere_transporte === true || s.requiere_transporte === 'true';
+
         listaConsolidada.push({
           id: `sol_${s.id}`,
           origenTabla: 'solicitud',
-          tipoEstudiante: 'nuevo_ingreso',
+          categoriaMatricula: 'nuevo_ingreso_formalizado',
           codigo_escuela: esc,
           escuelaNombre: esc === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar',
           cedula: cedRaw || 'Sin Cédula',
@@ -235,10 +304,11 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           apellidos: (s.estudiante_apellidos || '').trim(),
           nombreCompleto: `${s.estudiante_nombres || ''} ${s.estudiante_apellidos || ''}`.trim() || 'Aspirante',
           grado: (s.grado_solicitado || 'Nuevo Ingreso').trim(),
+          requiereTransporte: reqTrans,
           rutaNombreRaw: rawRuta,
-          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || 'Sin Ruta Asignada'),
+          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || (reqTrans ? 'Sin Ruta Asignada' : 'No Requiere')),
           paradaNombreRaw: paradaLimpia,
-          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || 'Sin Parada Asignada'),
+          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || (reqTrans ? 'Sin Parada Asignada' : 'No Requiere')),
           rutaIdOficial: rutaMatch?.id,
           paradaIdOficial: paradaMatch?.id,
           coincideRutaOficial: !!rutaMatch,
@@ -246,21 +316,21 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           representanteNombre: `${s.representante_nombres || ''} ${s.representante_apellidos || ''}`.trim() || 'Representante',
           representanteCedula: (s.representante_cedula || '').trim(),
           representanteTelefono: (s.representante_telefono || s.representante_telefono2 || '').trim(),
-          estadoRegistro: s.estado || 'Solicitud Registrada',
+          estadoRegistro: 'Nuevo Ingreso Formalizado (Admisión)',
           direccion: (s.direccion_habitacion || '').trim()
         });
       });
 
       setEstudiantes(listaConsolidada);
 
-      // Expandir inicialmente todas las rutas para mejor visibilidad
+      // Expandir inicialmente todas las rutas
       const expInit: Record<string, boolean> = {};
       todasRutas.forEach(r => { expInit[r.id] = true; });
       setRutasExpandidas(expInit);
 
     } catch (err: any) {
-      console.error('Error cargando censo de transporte:', err);
-      if (Swal) Swal.fire('Error', 'No se pudo cargar el censo estudiantil de transporte.', 'error');
+      console.error('Error cargando censo y matrícula escolar:', err);
+      if (Swal) Swal.fire('Error', 'No se pudo cargar el censo y matrícula escolar.', 'error');
     } finally {
       setLoading(false);
     }
@@ -276,66 +346,93 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     return estudiantes.filter(e => e.codigo_escuela === filtroEscuela);
   }, [estudiantes, filtroEscuela]);
 
-  // ── Métricas y Telemetría del Censo ─────────────────────────────────────────
+  // ── Métricas y Telemetría del Censo Escolar Completo ────────────────────────
   const metrics = useMemo(() => {
-    const total = estudiantesFiltradosEscuela.length;
-    const regulares = estudiantesFiltradosEscuela.filter(e => e.tipoEstudiante === 'regular').length;
-    const nuevos = estudiantesFiltradosEscuela.filter(e => e.tipoEstudiante === 'nuevo_ingreso').length;
-    
+    const matriculaTotal = estudiantesFiltradosEscuela.length;
+
+    // Desglose de Matrícula Real
+    const regularesActualizados = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'regular_actualizado').length;
+    const nuevosFormalizados = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
+    const regularesEnProceso = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'regular_en_proceso').length;
+    const regularesSinIniciar = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'regular_sin_iniciar').length;
+    const totalRegulares = regularesActualizados + regularesEnProceso + regularesSinIniciar;
+
+    // Desglose de Demanda de Transporte
+    const transporteConfirmado = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true).length;
+    const transporteNoRequiere = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === false).length;
+    const transportePendienteDefinir = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === null).length;
+
+    // Cobertura por Escuelas
     const countSB = estudiantes.filter(e => e.codigo_escuela === 'sb').length;
     const countLB = estudiantes.filter(e => e.codigo_escuela === 'lb').length;
 
+    const sbTrans = estudiantes.filter(e => e.codigo_escuela === 'sb' && e.requiereTransporte === true).length;
+    const lbTrans = estudiantes.filter(e => e.codigo_escuela === 'lb' && e.requiereTransporte === true).length;
+
+    // Rutas y Paradas con Demanda
+    const estConTransporte = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true);
     const rutasConDemandaSet = new Set(
-      estudiantesFiltradosEscuela.filter(e => e.rutaNombreLimpio && e.rutaNombreLimpio !== 'Sin Ruta Asignada').map(e => e.rutaNombreLimpio)
+      estConTransporte.filter(e => e.rutaNombreLimpio && e.rutaNombreLimpio !== 'Sin Ruta Asignada').map(e => e.rutaNombreLimpio)
     );
     const paradasConDemandaSet = new Set(
-      estudiantesFiltradosEscuela.filter(e => e.paradaNombreLimpio && e.paradaNombreLimpio !== 'Sin Parada Asignada').map(e => `${e.rutaNombreLimpio}__${e.paradaNombreLimpio}`)
+      estConTransporte.filter(e => e.paradaNombreLimpio && e.paradaNombreLimpio !== 'Sin Parada Asignada').map(e => `${e.rutaNombreLimpio}__${e.paradaNombreLimpio}`)
     );
 
-    const pendientesAsignar = estudiantesFiltradosEscuela.filter(e => !e.coincideRutaOficial || !e.coincideParadaOficial).length;
+    const pendientesAsignar = estConTransporte.filter(e => !e.coincideRutaOficial || !e.coincideParadaOficial).length;
 
     return {
-      total,
-      regulares,
-      regularesPct: total > 0 ? Math.round((regulares / total) * 100) : 0,
-      nuevos,
-      nuevosPct: total > 0 ? Math.round((nuevos / total) * 100) : 0,
+      matriculaTotal,
+      regularesActualizados,
+      regularesActualizadosPct: matriculaTotal > 0 ? Math.round((regularesActualizados / matriculaTotal) * 100) : 0,
+      nuevosFormalizados,
+      nuevosFormalizadosPct: matriculaTotal > 0 ? Math.round((nuevosFormalizados / matriculaTotal) * 100) : 0,
+      regularesEnProceso,
+      regularesEnProcesoPct: matriculaTotal > 0 ? Math.round((regularesEnProceso / matriculaTotal) * 100) : 0,
+      regularesSinIniciar,
+      regularesSinIniciarPct: matriculaTotal > 0 ? Math.round((regularesSinIniciar / matriculaTotal) * 100) : 0,
+      totalRegulares,
+      transporteConfirmado,
+      transportePct: matriculaTotal > 0 ? Math.round((transporteConfirmado / matriculaTotal) * 100) : 0,
+      transporteNoRequiere,
+      transportePendienteDefinir,
       countSB,
       countLB,
+      sbTrans,
+      lbTrans,
       rutasConDemanda: rutasConDemandaSet.size,
       paradasConDemanda: paradasConDemandaSet.size,
-      pendientesAsignar
+      pendientesAsignar,
+      totalRegularesPorActualizar: regularesEnProceso + regularesSinIniciar
     };
   }, [estudiantesFiltradosEscuela, estudiantes]);
 
   // ── Agrupación Jerárquica: Rutas -> Paradas -> Estudiantes ─────────────────
   const rutasJerarquia = useMemo(() => {
-    // Rutas pertenecientes a la escuela seleccionada
+    // Solo estudiantes que solicitaron transporte
+    const estsConTransporte = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true);
     const rutasBase = rutasDB.filter(r => filtroEscuela === 'todas' || r.escuela_codigo === filtroEscuela);
 
     return rutasBase.map(ruta => {
-      // Paradas oficiales de esta ruta
       const paradasIds = Array.isArray(ruta.paradas_json)
         ? ruta.paradas_json
         : (typeof ruta.paradas_json === 'string' ? JSON.parse(ruta.paradas_json || '[]') : []);
 
       const paradasDeRuta = paradasDB.filter(p => paradasIds.includes(p.id));
 
-      // Estudiantes asignados a esta ruta
-      const estsDeRuta = estudiantesFiltradosEscuela.filter(e => {
+      const estsDeRuta = estsConTransporte.filter(e => {
         if (e.rutaIdOficial && e.rutaIdOficial === ruta.id) return true;
         return normalizar(e.rutaNombreLimpio) === normalizar(ruta.nombre) && e.codigo_escuela === ruta.escuela_codigo;
       });
 
-      // Estudiantes por cada parada de la ruta
       const paradasConConteo = paradasDeRuta.map((parada, idx) => {
         const estsEnParada = estsDeRuta.filter(e => {
           if (e.paradaIdOficial && e.paradaIdOficial === parada.id) return true;
           return normalizar(e.paradaNombreLimpio) === normalizar(parada.nombre_parada);
         });
 
-        const regs = estsEnParada.filter(e => e.tipoEstudiante === 'regular').length;
-        const nuevos = estsEnParada.filter(e => e.tipoEstudiante === 'nuevo_ingreso').length;
+        const actualizados = estsEnParada.filter(e => e.categoriaMatricula === 'regular_actualizado').length;
+        const enProceso = estsEnParada.filter(e => e.categoriaMatricula === 'regular_en_proceso').length;
+        const nuevos = estsEnParada.filter(e => e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
 
         return {
           id: parada.id,
@@ -343,18 +440,19 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           nombre_parada: parada.nombre_parada,
           descripcion: parada.descripcion,
           total: estsEnParada.length,
-          regulares: regs,
-          nuevosIngresos: nuevos,
+          actualizados,
+          enProceso,
+          nuevos,
           estudiantes: estsEnParada
         };
       });
 
-      // Estudiantes de la ruta que no coincidieron con ninguna de sus paradas oficiales
       const paradasNombresNorm = new Set(paradasDeRuta.map(p => normalizar(p.nombre_parada)));
       const estsSinParadaExacta = estsDeRuta.filter(e => !paradasNombresNorm.has(normalizar(e.paradaNombreLimpio)));
 
-      const totalRegsRuta = estsDeRuta.filter(e => e.tipoEstudiante === 'regular').length;
-      const totalNuevosRuta = estsDeRuta.filter(e => e.tipoEstudiante === 'nuevo_ingreso').length;
+      const totalActualizados = estsDeRuta.filter(e => e.categoriaMatricula === 'regular_actualizado').length;
+      const totalEnProceso = estsDeRuta.filter(e => e.categoriaMatricula === 'regular_en_proceso').length;
+      const totalNuevos = estsDeRuta.filter(e => e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
 
       return {
         id: ruta.id,
@@ -366,8 +464,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         docente_telefono: ruta.docente_telefono || '',
         activo: ruta.activo !== false,
         totalEstudiantes: estsDeRuta.length,
-        totalRegulares: totalRegsRuta,
-        totalNuevos: totalNuevosRuta,
+        totalActualizados,
+        totalEnProceso,
+        totalNuevos,
         paradas: paradasConConteo,
         sinParadaExacta: estsSinParadaExacta,
         estudiantes: estsDeRuta
@@ -383,12 +482,13 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       escuela_codigo: 'sb' | 'lb';
       escuelaNombre: string;
       total: number;
-      regulares: number;
+      actualizados: number;
+      enProceso: number;
       nuevos: number;
       estudiantes: EstudianteCenso[];
     }> = {};
 
-    estudiantesFiltradosEscuela.forEach(e => {
+    estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true).forEach(e => {
       if (!e.paradaNombreLimpio || e.paradaNombreLimpio === 'Sin Parada Asignada') return;
       const key = `${e.codigo_escuela}__${e.rutaNombreLimpio}__${e.paradaNombreLimpio}`;
       if (!mapaConteo[key]) {
@@ -398,14 +498,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           escuela_codigo: e.codigo_escuela,
           escuelaNombre: e.escuelaNombre,
           total: 0,
-          regulares: 0,
+          actualizados: 0,
+          enProceso: 0,
           nuevos: 0,
           estudiantes: []
         };
       }
       mapaConteo[key].total++;
-      if (e.tipoEstudiante === 'regular') mapaConteo[key].regulares++;
-      else mapaConteo[key].nuevos++;
+      if (e.categoriaMatricula === 'regular_actualizado') mapaConteo[key].actualizados++;
+      else if (e.categoriaMatricula === 'regular_en_proceso') mapaConteo[key].enProceso++;
+      else if (e.categoriaMatricula === 'nuevo_ingreso_formalizado') mapaConteo[key].nuevos++;
       mapaConteo[key].estudiantes.push(e);
     });
 
@@ -416,8 +518,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
   const padronFiltrado = useMemo(() => {
     let result = estudiantesFiltradosEscuela;
 
-    if (filtroTipo !== 'todos') {
-      result = result.filter(e => e.tipoEstudiante === filtroTipo);
+    if (filtroCategoria !== 'todos') {
+      result = result.filter(e => e.categoriaMatricula === filtroCategoria);
+    }
+
+    if (filtroTransporte === 'si') {
+      result = result.filter(e => e.requiereTransporte === true);
+    } else if (filtroTransporte === 'no') {
+      result = result.filter(e => e.requiereTransporte === false);
+    } else if (filtroTransporte === 'pendiente') {
+      result = result.filter(e => e.requiereTransporte === null);
     }
 
     if (filtroRuta !== 'todas') {
@@ -441,7 +551,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     }
 
     return result;
-  }, [estudiantesFiltradosEscuela, filtroTipo, filtroRuta, filtroGrado, busqueda]);
+  }, [estudiantesFiltradosEscuela, filtroCategoria, filtroTransporte, filtroRuta, filtroGrado, busqueda]);
 
   const totalPaginas = Math.ceil(padronFiltrado.length / filasPorPagina) || 1;
   const padronPaginado = useMemo(() => {
@@ -449,19 +559,40 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     return padronFiltrado.slice(inicio, inicio + filasPorPagina);
   }, [padronFiltrado, paginaActual, filasPorPagina]);
 
-  // ── Estudiantes Pendientes / Casos Especiales ───────────────────────────────
-  const estudiantesPendientes = useMemo(() => {
+  // ── Regulares Pendientes por Actualizar Datos (En Proceso / Sin Iniciar) ────
+  const listaRegularesPendientes = useMemo(() => {
+    let list = estudiantesFiltradosEscuela.filter(e => 
+      e.categoriaMatricula === 'regular_en_proceso' || e.categoriaMatricula === 'regular_sin_iniciar'
+    );
+
+    if (subfiltroPendientes === 'en_proceso') {
+      list = list.filter(e => e.categoriaMatricula === 'regular_en_proceso');
+    } else if (subfiltroPendientes === 'sin_iniciar') {
+      list = list.filter(e => e.categoriaMatricula === 'regular_sin_iniciar');
+    }
+
+    return list;
+  }, [estudiantesFiltradosEscuela, subfiltroPendientes]);
+
+  // ── Estudiantes Pendientes de Asignación / Sin Parada Específica ────────────
+  const estudiantesPorAsignar = useMemo(() => {
     return estudiantesFiltradosEscuela.filter(e => 
-      !e.coincideRutaOficial || 
-      !e.coincideParadaOficial || 
-      e.rutaNombreLimpio === 'Sin Ruta Asignada' ||
-      e.paradaNombreLimpio === 'Sin Parada Asignada'
+      e.requiereTransporte === true && (
+        !e.coincideRutaOficial || 
+        !e.coincideParadaOficial || 
+        e.rutaNombreLimpio === 'Sin Ruta Asignada' ||
+        e.paradaNombreLimpio === 'Sin Parada Asignada'
+      )
     );
   }, [estudiantesFiltradosEscuela]);
 
-  // ── Opciones únicas de Rutas y Grados para Filtros ──────────────────────────
+  // ── Opciones únicas de Rutas y Grados ───────────────────────────────────────
   const opcionesRutas = useMemo(() => {
-    const setR = new Set(estudiantesFiltradosEscuela.map(e => e.rutaNombreLimpio).filter(Boolean));
+    const setR = new Set(
+      estudiantesFiltradosEscuela
+        .filter(e => e.requiereTransporte === true && e.rutaNombreLimpio && e.rutaNombreLimpio !== 'Sin Ruta Asignada')
+        .map(e => e.rutaNombreLimpio)
+    );
     return Array.from(setR).sort();
   }, [estudiantesFiltradosEscuela]);
 
@@ -481,7 +612,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     setRutasExpandidas(nState);
   };
 
-  // ── Exportar Censo Completo a Excel (CSV con UTF-8 BOM) ─────────────────────
+  // ── Exportar Censo y Matrícula a Excel (CSV con UTF-8 BOM) ──────────────────
   const exportarCSV = () => {
     if (estudiantesFiltradosEscuela.length === 0) {
       if (Swal) Swal.fire('Atención', 'No hay estudiantes para exportar.', 'info');
@@ -491,11 +622,12 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     const headers = [
       '#',
       'Escuela',
-      'Tipo de Estudiante',
+      'Categoría de Matrícula',
       'Cédula Estudiante',
       'Nombres Estudiante',
       'Apellidos Estudiante',
       'Grado / Nivel',
+      '¿Requiere Transporte?',
       'Ruta Asignada',
       'Ruta Oficial Coincide',
       'Parada Asignada',
@@ -503,28 +635,39 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       'Representante',
       'Cédula Representante',
       'Teléfono Representante',
-      'Estado Ficha / Admisión',
+      'Estatus de Ficha / Registro',
       'Dirección'
     ];
 
-    const rows = estudiantesFiltradosEscuela.map((e, idx) => [
-      idx + 1,
-      `"${e.escuelaNombre}"`,
-      `"${e.tipoEstudiante === 'regular' ? 'Estudiante Regular' : 'Nuevo Ingreso'}"`,
-      `"${e.cedula}"`,
-      `"${e.nombres.replace(/"/g, '""')}"`,
-      `"${e.apellidos.replace(/"/g, '""')}"`,
-      `"${e.grado.replace(/"/g, '""')}"`,
-      `"${e.rutaNombreLimpio.replace(/"/g, '""')}"`,
-      `"${e.coincideRutaOficial ? 'Sí' : 'No'}"`,
-      `"${e.paradaNombreLimpio.replace(/"/g, '""')}"`,
-      `"${e.coincideParadaOficial ? 'Sí' : 'No'}"`,
-      `"${e.representanteNombre.replace(/"/g, '""')}"`,
-      `"${e.representanteCedula}"`,
-      `"${e.representanteTelefono}"`,
-      `"${e.estadoRegistro || ''}"`,
-      `"${(e.direccion || '').replace(/"/g, '""')}"`
-    ]);
+    const rows = estudiantesFiltradosEscuela.map((e, idx) => {
+      let catText = 'Regular';
+      if (e.categoriaMatricula === 'regular_actualizado') catText = 'Regular Actualizado';
+      else if (e.categoriaMatricula === 'nuevo_ingreso_formalizado') catText = 'Nuevo Ingreso Formalizado';
+      else if (e.categoriaMatricula === 'regular_en_proceso') catText = 'Regular En Proceso';
+      else if (e.categoriaMatricula === 'regular_sin_iniciar') catText = 'Regular Sin Iniciar';
+
+      const transText = e.requiereTransporte === true ? 'Sí' : (e.requiereTransporte === false ? 'No' : 'Pendiente');
+
+      return [
+        idx + 1,
+        `"${e.escuelaNombre}"`,
+        `"${catText}"`,
+        `"${e.cedula}"`,
+        `"${e.nombres.replace(/"/g, '""')}"`,
+        `"${e.apellidos.replace(/"/g, '""')}"`,
+        `"${e.grado.replace(/"/g, '""')}"`,
+        `"${transText}"`,
+        `"${e.rutaNombreLimpio.replace(/"/g, '""')}"`,
+        `"${e.coincideRutaOficial ? 'Sí' : 'No'}"`,
+        `"${e.paradaNombreLimpio.replace(/"/g, '""')}"`,
+        `"${e.coincideParadaOficial ? 'Sí' : 'No'}"`,
+        `"${e.representanteNombre.replace(/"/g, '""')}"`,
+        `"${e.representanteCedula}"`,
+        `"${e.representanteTelefono}"`,
+        `"${e.estadoRegistro}"`,
+        `"${(e.direccion || '').replace(/"/g, '""')}"`
+      ];
+    });
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -532,7 +675,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     const link = document.createElement('a');
     const escuelaNombreTag = filtroEscuela === 'todas' ? 'Ambas_Escuelas_Consolidado' : (filtroEscuela === 'sb' ? 'UE_Santa_Barbara' : 'UE_Libertador_Bolivar');
     link.setAttribute('href', url);
-    link.setAttribute('download', `SIGAE_Censo_Transporte_${escuelaNombreTag}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `SIGAE_Censo_Matricula_Transporte_${escuelaNombreTag}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -542,7 +685,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: 'Censo descargado con éxito',
+        title: 'Censo y Matrícula descargados con éxito',
         showConfirmButton: false,
         timer: 2500
       });
@@ -551,29 +694,31 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
   // ── Generar Resumen WhatsApp para Dirección y Coordinación ──────────────────
   const copiarResumenWhatsApp = () => {
-    let msg = `🚍 *SIGAE - REPORTE EJECUTIVO DE DEMANDA DE TRANSPORTE ESCOLAR*\n`;
+    let msg = `🚍 *SIGAE - BALANCE OFICIAL DE MATRÍCULA Y TRANSPORTE ESCOLAR*\n`;
     msg += `🏢 *Sede:* ${filtroEscuela === 'todas' ? 'Consolidado DEP Oriente (Ambas Escuelas)' : (filtroEscuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar')}\n`;
     msg += `📅 *Fecha:* ${new Date().toLocaleDateString('es-VE')}\n\n`;
 
-    msg += `📊 *BALANCE GENERAL DE DEMANDA:*\n`;
-    msg += `• *Total Estudiantes Solicitantes:* ${metrics.total}\n`;
-    msg += `  - 🎒 Regulares: ${metrics.regulares} (${metrics.regularesPct}%)\n`;
-    msg += `  - 🌟 Nuevos Ingresos: ${metrics.nuevos} (${metrics.nuevosPct}%)\n`;
+    msg += `📊 *MATRÍCULA ESCOLAR REAL:* ${metrics.matriculaTotal} Estudiantes\n`;
+    msg += `• 🎒 *Regulares Actualizados:* ${metrics.regularesActualizados} (${metrics.regularesActualizadosPct}%)\n`;
+    msg += `• 🌟 *Nuevos Ingresos Formalizados:* ${metrics.nuevosFormalizados} (${metrics.nuevosFormalizadosPct}%)\n`;
+    msg += `• ⏳ *Regulares En Proceso de Actualizar:* ${metrics.regularesEnProceso} (${metrics.regularesEnProcesoPct}%)\n`;
+    msg += `• ⚠️ *Regulares Sin Iniciar Actualización:* ${metrics.regularesSinIniciar} (${metrics.regularesSinIniciarPct}%)\n`;
     if (filtroEscuela === 'todas') {
-      msg += `  - 🏫 U.E. Santa Bárbara: ${metrics.countSB} estudiantes\n`;
-      msg += `  - 🏫 U.E. Libertador Bolívar: ${metrics.countLB} estudiantes\n`;
+      msg += `\n🏫 *DISTRIBUCIÓN POR SEDE:*\n`;
+      msg += `  - U.E. Santa Bárbara: ${metrics.countSB} estudiantes (Transporte: ${metrics.sbTrans})\n`;
+      msg += `  - U.E. Libertador Bolívar: ${metrics.countLB} estudiantes (Transporte: ${metrics.lbTrans})\n`;
     }
+
+    msg += `\n🚌 *DEMANDA DE TRANSPORTE ESCOLAR:*\n`;
+    msg += `• *Total con Transporte Solicitado:* ${metrics.transporteConfirmado} (${metrics.transportePct}% de la matrícula)\n`;
+    msg += `• *No Requieren Transporte:* ${metrics.transporteNoRequiere}\n`;
+    msg += `• *Pendientes por Definir:* ${metrics.transportePendienteDefinir}\n`;
     msg += `• *Rutas Activas con Demanda:* ${metrics.rutasConDemanda}\n`;
     msg += `• *Paradas Activas con Demanda:* ${metrics.paradasConDemanda}\n\n`;
 
-    msg += `📋 *DESGLOSE POR RUTA:*\n`;
+    msg += `📋 *DESGLOSE DE RUTAS (PASAJEROS ASIGNADOS):*\n`;
     rutasJerarquia.forEach((r, i) => {
-      msg += `${i + 1}. *${r.nombre}* (${r.escuela_codigo.toUpperCase()}): *${r.totalEstudiantes} estudiantes* (Reg: ${r.totalRegulares} | Nuevos: ${r.totalNuevos})\n`;
-    });
-
-    msg += `\n📍 *TOP 5 PARADAS CON MAYOR CONCENTRACIÓN:*\n`;
-    rankingParadas.slice(0, 5).forEach((p, i) => {
-      msg += `  ${i + 1}. *${p.nombre_parada}*: ${p.total} estudiantes (${p.ruta_nombre})\n`;
+      msg += `${i + 1}. *${r.nombre}* (${r.escuela_codigo.toUpperCase()}): *${r.totalEstudiantes} estudiantes* (Act: ${r.totalActualizados} | En Proc: ${r.totalEnProceso} | Nuevos: ${r.totalNuevos})\n`;
     });
 
     msg += `\n_Generado automáticamente desde SIGAE Unificado._`;
@@ -583,13 +728,11 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         Swal.fire({
           icon: 'success',
           title: '¡Resumen Copiado!',
-          text: 'El reporte ejecutivo para WhatsApp ha sido copiado al portapapeles.',
+          text: 'El reporte ejecutivo de matrícula y transporte para WhatsApp ha sido copiado al portapapeles.',
           timer: 2500,
           showConfirmButton: false
         });
       }
-    }).catch(() => {
-      if (Swal) Swal.fire('Error', 'No se pudo copiar el texto.', 'error');
     });
   };
 
@@ -598,11 +741,17 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     let msg = `🚍 *LISTADO DE PARADA - TRANSPORTE ESCOLAR*\n`;
     msg += `📍 *Parada:* ${parada.nombre_parada}\n`;
     msg += `🗺️ *Ruta:* ${rutaNombre}\n`;
-    msg += `👥 *Total Estudiantes:* ${parada.total} (Regulares: ${parada.regulares} | Nuevos: ${parada.nuevosIngresos})\n`;
+    msg += `👥 *Total Estudiantes:* ${parada.total}\n`;
+    msg += `• Actualizados: ${parada.actualizados} | En Proceso: ${parada.enProceso} | Nuevos: ${parada.nuevos}\n`;
     msg += `─────────────────────────\n`;
 
     parada.estudiantes.forEach((e: EstudianteCenso, i: number) => {
-      msg += `${i + 1}. ${e.nombreCompleto} (${e.cedula}) - Grado: ${e.grado} [${e.tipoEstudiante === 'regular' ? 'Regular' : 'Nuevo'}] - Rep: ${e.representanteNombre} (${e.representanteTelefono || 'Sin tlf'})\n`;
+      let tag = 'Regular';
+      if (e.categoriaMatricula === 'nuevo_ingreso_formalizado') tag = 'Nuevo';
+      else if (e.categoriaMatricula === 'regular_actualizado') tag = 'Act';
+      else tag = 'En Proc';
+
+      msg += `${i + 1}. ${e.nombreCompleto} (${e.cedula}) - ${e.grado} [${tag}] - Rep: ${e.representanteNombre} (${e.representanteTelefono || 'Sin tlf'})\n`;
     });
 
     navigator.clipboard.writeText(msg).then(() => {
@@ -617,11 +766,6 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         });
       }
     });
-  };
-
-  // ── Imprimir Reporte ────────────────────────────────────────────────────────
-  const imprimirReporte = () => {
-    window.print();
   };
 
   return (
@@ -643,7 +787,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               <span>Censo de Estudiantes por Rutas y Paradas</span>
             </h4>
             <span className="text-muted small">
-              Balance de demanda estudiantil (Regulares y Nuevos Ingresos) para ambas escuelas
+              Matrícula escolar real (Regulares actualizados, en proceso, sin iniciar y nuevos ingresos) para ambas escuelas
             </span>
           </div>
         </div>
@@ -653,7 +797,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           <button
             onClick={exportarCSV}
             className="btn btn-success btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs"
-            title="Descargar censo en formato Excel / CSV"
+            title="Descargar censo y matrícula completa en formato Excel / CSV"
           >
             <i className="bi bi-file-earmark-excel-fill"></i>
             <span>Exportar Excel (CSV)</span>
@@ -662,14 +806,14 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           <button
             onClick={copiarResumenWhatsApp}
             className="btn btn-primary btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs"
-            title="Copiar balance de rutas para WhatsApp"
+            title="Copiar balance de rutas y matrícula para WhatsApp"
           >
             <i className="bi bi-whatsapp"></i>
             <span>Resumen WhatsApp</span>
           </button>
 
           <button
-            onClick={imprimirReporte}
+            onClick={() => window.print()}
             className="btn btn-light border btn-sm rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 shadow-xs"
             title="Imprimir balance del censo"
           >
@@ -702,7 +846,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               style={{ fontSize: '0.8rem' }}
               onClick={() => { setFiltroEscuela('todas'); setPaginaActual(1); }}
             >
-              🏢 Ambas Escuelas (Consolidado)
+              🏢 Ambas Escuelas ({estudiantes.length})
             </button>
             <button
               type="button"
@@ -724,59 +868,60 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         </div>
 
         <div className="d-flex align-items-center gap-2 text-muted small">
-          <span className="d-inline-block rounded-circle bg-success" style={{ width: '8px', height: '8px' }}></span>
-          <span>Deduplicación activa por Cédula: Datos 100% precisos</span>
+          <span className="badge bg-success-subtle text-success border border-success rounded-pill px-2.5 py-1 fw-bold">
+            <i className="bi bi-check2-all me-1"></i>Paginación total sin límite de 1.000 filas
+          </span>
         </div>
       </div>
 
-      {/* ── BARRA DE TELEMETRÍA Y MÉTRICAS (KPIs) ── */}
-      <div className="row g-2 g-md-3 mb-4">
-        {/* Total Estudiantes Demanda */}
+      {/* ── BARRA DE TELEMETRÍA: MATRÍCULA ESCOLAR REAL (KPIS) ── */}
+      <div className="row g-2 g-md-3 mb-3">
+        {/* KPI 1: Matrícula Escolar Total Real */}
         <div className="col-12 col-sm-6 col-lg-3">
-          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100">
+          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #2563eb' }}>
             <div 
               className="rounded-3 d-flex align-items-center justify-content-center text-primary flex-shrink-0" 
               style={{ width: '48px', height: '48px', background: '#eff6ff', fontSize: '1.4rem' }}
             >
-              <i className="bi bi-bus-front-fill"></i>
+              <i className="bi bi-mortarboard-fill"></i>
             </div>
             <div className="min-w-0">
-              <div className="fw-black text-dark fs-4 line-height-1">{metrics.total}</div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Demanda Total de Transporte</div>
+              <div className="fw-black text-dark fs-4 line-height-1">{metrics.matriculaTotal}</div>
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Matrícula Escolar Real</div>
               <div className="text-primary small fw-bold" style={{ fontSize: '0.7rem' }}>
-                {filtroEscuela === 'todas' ? `SB: ${metrics.countSB} | LB: ${metrics.countLB}` : (filtroEscuela === 'sb' ? 'Sede Santa Bárbara' : 'Sede Libertador Bolívar')}
+                Regulares: {metrics.totalRegulares} | Nuevos: {metrics.nuevosFormalizados}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Estudiantes Regulares */}
+        {/* KPI 2: Regulares Actualizados */}
         <div className="col-12 col-sm-6 col-lg-3">
-          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100">
+          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #16a34a' }}>
             <div 
               className="rounded-3 d-flex align-items-center justify-content-center text-success flex-shrink-0" 
               style={{ width: '48px', height: '48px', background: '#f0fdf4', fontSize: '1.4rem' }}
             >
-              <i className="bi bi-backpack-fill"></i>
+              <i className="bi bi-check-circle-fill"></i>
             </div>
             <div className="min-w-0">
               <div className="fw-black text-dark fs-4 line-height-1 d-flex align-items-center gap-2">
-                <span>{metrics.regulares}</span>
+                <span>{metrics.regularesActualizados}</span>
                 <span className="badge bg-success-subtle text-success rounded-pill fw-bold" style={{ fontSize: '0.68rem' }}>
-                  {metrics.regularesPct}%
+                  {metrics.regularesActualizadosPct}%
                 </span>
               </div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Estudiantes Regulares</div>
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Regulares Actualizados</div>
               <div className="text-success small fw-bold" style={{ fontSize: '0.7rem' }}>
-                Actualización de Datos
+                Ficha Finalizada en el Portal
               </div>
             </div>
           </div>
         </div>
 
-        {/* Nuevos Ingresos */}
+        {/* KPI 3: Nuevos Ingresos Formalizados */}
         <div className="col-12 col-sm-6 col-lg-3">
-          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100">
+          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #f59e0b' }}>
             <div 
               className="rounded-3 d-flex align-items-center justify-content-center text-warning flex-shrink-0" 
               style={{ width: '48px', height: '48px', background: '#fffbeb', fontSize: '1.4rem' }}
@@ -785,38 +930,62 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
             </div>
             <div className="min-w-0">
               <div className="fw-black text-dark fs-4 line-height-1 d-flex align-items-center gap-2">
-                <span>{metrics.nuevos}</span>
+                <span>{metrics.nuevosFormalizados}</span>
                 <span className="badge bg-warning-subtle text-warning-emphasis rounded-pill fw-bold" style={{ fontSize: '0.68rem' }}>
-                  {metrics.nuevosPct}%
+                  {metrics.nuevosFormalizadosPct}%
                 </span>
               </div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Nuevos Ingresos</div>
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Nuevos Ingresos Formalizados</div>
               <div className="text-warning-emphasis small fw-bold" style={{ fontSize: '0.7rem' }}>
-                Admisiones y Solicitudes
+                Admisión e Inscripción Aprobada
               </div>
             </div>
           </div>
         </div>
 
-        {/* Rutas y Paradas con Demanda */}
+        {/* KPI 4: Regulares por Actualizar (En Proceso + Sin Iniciar) */}
         <div className="col-12 col-sm-6 col-lg-3">
-          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100">
+          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #dc2626' }}>
             <div 
-              className="rounded-3 d-flex align-items-center justify-content-center text-info flex-shrink-0" 
-              style={{ width: '48px', height: '48px', background: '#f0f9ff', fontSize: '1.4rem' }}
+              className="rounded-3 d-flex align-items-center justify-content-center text-danger flex-shrink-0" 
+              style={{ width: '48px', height: '48px', background: '#fef2f2', fontSize: '1.4rem' }}
             >
-              <i className="bi bi-geo-alt-fill"></i>
+              <i className="bi bi-clock-history"></i>
             </div>
             <div className="min-w-0">
               <div className="fw-black text-dark fs-4 line-height-1">
-                {metrics.rutasConDemanda} <span className="fs-6 text-muted fw-normal">Rutas</span> / {metrics.paradasConDemanda} <span className="fs-6 text-muted fw-normal">Paradas</span>
+                {metrics.totalRegularesPorActualizar}
               </div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Cobertura Operativa</div>
-              <div className="text-info small fw-bold" style={{ fontSize: '0.7rem' }}>
-                Puntos de Abordaje Activos
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Regulares por Actualizar</div>
+              <div className="text-danger small fw-bold" style={{ fontSize: '0.7rem' }}>
+                En Proceso: <b>{metrics.regularesEnProceso}</b> | Sin Iniciar: <b>{metrics.regularesSinIniciar}</b>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── BARRA SECUNDARIA: BALANCE DE DEMANDA DE TRANSPORTE ── */}
+      <div className="p-3 bg-light rounded-4 border mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div className="d-flex align-items-center gap-3 flex-wrap">
+          <span className="fw-bold text-dark small d-flex align-items-center gap-1.5">
+            <i className="bi bi-bus-front-fill text-primary"></i>Balance de Transporte:
+          </span>
+          <span className="badge rounded-pill bg-white text-primary border shadow-xs px-2.5 py-1 fw-bold" style={{ fontSize: '0.75rem' }}>
+            🚌 Requieren Transporte: <b>{metrics.transporteConfirmado}</b> ({metrics.transportePct}% de la matrícula)
+          </span>
+          <span className="badge rounded-pill bg-white text-secondary border shadow-xs px-2.5 py-1 fw-semibold" style={{ fontSize: '0.75rem' }}>
+            🚶‍♂️ No Requieren: <b>{metrics.transporteNoRequiere}</b>
+          </span>
+          <span className="badge rounded-pill bg-white text-danger border shadow-xs px-2.5 py-1 fw-semibold" style={{ fontSize: '0.75rem' }}>
+            ❓ Pendiente por Definir: <b>{metrics.transportePendienteDefinir}</b>
+          </span>
+        </div>
+
+        <div className="d-flex align-items-center gap-2 text-muted small">
+          <span><b>{metrics.rutasConDemanda}</b> Rutas activas</span>
+          <span>•</span>
+          <span><b>{metrics.paradasConDemanda}</b> Paradas con demanda</span>
         </div>
       </div>
 
@@ -830,7 +999,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               onClick={() => setTabActiva('jerarquia')}
             >
               <i className="bi bi-diagram-3-fill"></i>
-              <span>Por Rutas y Paradas ({rutasJerarquia.length})</span>
+              <span>Por Rutas y Paradas ({metrics.transporteConfirmado})</span>
             </button>
           </li>
           <li className="nav-item">
@@ -850,15 +1019,25 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               onClick={() => setTabActiva('padron')}
             >
               <i className="bi bi-table"></i>
-              <span>Padrón General ({estudiantesFiltradosEscuela.length})</span>
+              <span>Padrón de Matrícula ({metrics.matriculaTotal})</span>
+            </button>
+          </li>
+          <li className="nav-item">
+            <button
+              className={`nav-link rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 ${tabActiva === 'regulares_pendientes' ? 'active shadow-sm text-white' : 'text-danger'}`}
+              style={{ fontSize: '0.82rem', background: tabActiva === 'regulares_pendientes' ? '#dc2626' : 'transparent' }}
+              onClick={() => setTabActiva('regulares_pendientes')}
+            >
+              <i className="bi bi-clock-history"></i>
+              <span>Regulares por Actualizar ({metrics.totalRegularesPorActualizar})</span>
             </button>
           </li>
           {metrics.pendientesAsignar > 0 && (
             <li className="nav-item">
               <button
-                className={`nav-link rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 ${tabActiva === 'pendientes' ? 'active shadow-sm' : 'text-danger'}`}
+                className={`nav-link rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 ${tabActiva === 'por_asignar' ? 'active shadow-sm' : 'text-warning-emphasis'}`}
                 style={{ fontSize: '0.82rem' }}
-                onClick={() => setTabActiva('pendientes')}
+                onClick={() => setTabActiva('por_asignar')}
               >
                 <i className="bi bi-exclamation-triangle-fill"></i>
                 <span>Por Asignar ({metrics.pendientesAsignar})</span>
@@ -891,10 +1070,10 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       {loading && (
         <div className="p-5 text-center bg-white rounded-4 border shadow-xs">
           <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
-            <span className="visually-hidden">Cargando censo...</span>
+            <span className="visually-hidden">Cargando censo y matrícula...</span>
           </div>
-          <h5 className="fw-bold text-dark">Cargando censo de estudiantes por rutas y paradas...</h5>
-          <p className="text-muted small mb-0">Consolidando registros de actualización de datos y admisiones de ambas escuelas.</p>
+          <h5 className="fw-bold text-dark">Cargando matrícula escolar completa y censo de transporte...</h5>
+          <p className="text-muted small mb-0">Consolidando registros de regulares (actualizados, en proceso y sin iniciar) y nuevos ingresos formalizados de ambas escuelas.</p>
         </div>
       )}
 
@@ -974,26 +1153,33 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
                     {/* Badges de Totales y Controles */}
                     <div className="d-flex align-items-center gap-2 flex-wrap ms-auto">
-                      <div className="d-flex align-items-center gap-1.5">
+                      <div className="d-flex align-items-center gap-1.5 flex-wrap">
                         <span 
                           className="badge rounded-pill px-3 py-1.5 fw-bold"
                           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '0.8rem' }}
-                          title="Total estudiantes que abordan esta ruta"
+                          title="Total de estudiantes que abordan esta ruta"
                         >
                           <i className="bi bi-people-fill me-1.5"></i>
-                          <b>{ruta.totalEstudiantes}</b> Estudiantes
+                          <b>{ruta.totalEstudiantes}</b> Pasajeros
                         </span>
                         <span 
                           className="badge rounded-pill px-2.5 py-1 fw-semibold bg-light text-success border"
                           style={{ fontSize: '0.72rem' }}
-                          title="Estudiantes Regulares"
+                          title="Regulares Actualizados"
                         >
-                          <i className="bi bi-backpack me-1"></i>{ruta.totalRegulares} Reg.
+                          <i className="bi bi-check-circle me-1"></i>{ruta.totalActualizados} Actualizados
+                        </span>
+                        <span 
+                          className="badge rounded-pill px-2.5 py-1 fw-semibold bg-light text-primary border"
+                          style={{ fontSize: '0.72rem' }}
+                          title="Regulares En Proceso de Actualización"
+                        >
+                          <i className="bi bi-clock me-1"></i>{ruta.totalEnProceso} En Proc.
                         </span>
                         <span 
                           className="badge rounded-pill px-2.5 py-1 fw-semibold bg-light text-warning-emphasis border"
                           style={{ fontSize: '0.72rem' }}
-                          title="Nuevos Ingresos"
+                          title="Nuevos Ingresos Formalizados"
                         >
                           <i className="bi bi-star me-1"></i>{ruta.totalNuevos} Nuevos
                         </span>
@@ -1011,7 +1197,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                             estudiantes: ruta.estudiantes
                           });
                         }}
-                        title="Ver todos los estudiantes de esta ruta"
+                        title="Ver listado nominal de la ruta"
                       >
                         <i className="bi bi-eye-fill"></i>
                         <span>Ver Lista ({ruta.totalEstudiantes})</span>
@@ -1036,8 +1222,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                 <th style={{ width: '50px' }} className="text-center">#</th>
                                 <th>Parada de Abordaje</th>
                                 <th>Sector / Ubicación</th>
-                                <th className="text-center">Total Estudiantes</th>
-                                <th className="text-center">Regulares</th>
+                                <th className="text-center">Total Pasajeros</th>
+                                <th className="text-center">Actualizados</th>
+                                <th className="text-center">En Proceso</th>
                                 <th className="text-center">Nuevos Ingresos</th>
                                 <th className="text-end">Acciones</th>
                               </tr>
@@ -1063,12 +1250,17 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                   </td>
                                   <td className="text-center">
                                     <span className="badge rounded-pill bg-success-subtle text-success fw-bold px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
-                                      {p.regulares}
+                                      {p.actualizados}
+                                    </span>
+                                  </td>
+                                  <td className="text-center">
+                                    <span className="badge rounded-pill bg-info-subtle text-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
+                                      {p.enProceso}
                                     </span>
                                   </td>
                                   <td className="text-center">
                                     <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis fw-bold px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
-                                      {p.nuevosIngresos}
+                                      {p.nuevos}
                                     </span>
                                   </td>
                                   <td className="text-end">
@@ -1085,7 +1277,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                             estudiantes: p.estudiantes
                                           });
                                         }}
-                                        title="Ver lista detallada de estudiantes"
+                                        title="Ver lista de estudiantes de esta parada"
                                       >
                                         <i className="bi bi-people-fill"></i>
                                         <span>Estudiantes</span>
@@ -1110,7 +1302,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                         </div>
                       )}
 
-                      {/* Aviso si hay estudiantes de esta ruta con paradas que no coinciden con la lista oficial */}
+                      {/* Aviso si hay estudiantes de esta ruta con paradas pendientes de homologación */}
                       {ruta.sinParadaExacta.length > 0 && (
                         <div className="mt-3 p-2.5 bg-warning-subtle border border-warning rounded-3 d-flex align-items-center justify-content-between gap-2">
                           <div className="d-flex align-items-center gap-2 small text-warning-emphasis">
@@ -1162,7 +1354,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           </div>
 
           {rankingParadas.length === 0 ? (
-            <div className="p-4 text-center text-muted">No hay datos de paradas para mostrar.</div>
+            <div className="p-4 text-center text-muted">No hay datos de paradas con demanda confirmada.</div>
           ) : (
             <div className="table-responsive">
               <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
@@ -1172,7 +1364,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                     <th>Parada Oficial</th>
                     <th>Ruta Perteneciente</th>
                     <th>Escuela</th>
-                    <th style={{ width: '220px' }}>Volumen y Distribución</th>
+                    <th style={{ width: '240px' }}>Volumen y Distribución</th>
                     <th className="text-center">Total Estudiantes</th>
                     <th className="text-end">Acciones</th>
                   </tr>
@@ -1186,7 +1378,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                         <td className="text-center fw-black">
                           {idx === 0 && <span className="badge bg-warning text-dark rounded-circle p-1.5">🥇</span>}
                           {idx === 1 && <span className="badge bg-secondary text-white rounded-circle p-1.5">🥈</span>}
-                          {idx === 2 && <span className="badge bg-bronze text-dark rounded-circle p-1.5" style={{ background: '#fed7aa' }}>🥉</span>}
+                          {idx === 2 && <span className="badge text-dark rounded-circle p-1.5" style={{ background: '#fed7aa' }}>🥉</span>}
                           {idx > 2 && <span className="text-muted">#{idx + 1}</span>}
                         </td>
                         <td>
@@ -1226,8 +1418,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                               ></div>
                             </div>
                             <div className="d-flex justify-content-between text-muted" style={{ fontSize: '0.68rem' }}>
-                              <span>🎒 Regulares: <b>{item.regulares}</b></span>
-                              <span>🌟 Nuevos: <b>{item.nuevos}</b></span>
+                              <span>Act: <b>{item.actualizados}</b></span>
+                              <span>En Proc: <b>{item.enProceso}</b></span>
+                              <span>Nuevos: <b>{item.nuevos}</b></span>
                             </div>
                           </div>
                         </td>
@@ -1264,14 +1457,14 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          PESTAÑA 3: PADRÓN GENERAL (TABLA COMPLETA CON BUSCADOR Y FILTROS)
+          PESTAÑA 3: PADRÓN GENERAL DE MATRÍCULA ESCOLAR (TODOS LOS ESTUDIANTES)
       ══════════════════════════════════════════════════════════════════════════ */}
       {!loading && tabActiva === 'padron' && (
         <div className="bg-white rounded-4 border shadow-xs p-3 p-md-4">
           {/* Barra de Filtros del Padrón */}
           <div className="row g-2 align-items-center mb-3">
             {/* Buscador de texto */}
-            <div className="col-12 col-md-4">
+            <div className="col-12 col-md-3">
               <div className="input-group input-group-sm">
                 <span className="input-group-text bg-light border-end-0">
                   <i className="bi bi-search text-muted"></i>
@@ -1291,30 +1484,32 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               </div>
             </div>
 
-            {/* Filtro por Tipo */}
-            <div className="col-6 col-md-2">
-              <select
-                className="form-select form-select-sm"
-                value={filtroTipo}
-                onChange={(e: any) => { setFiltroTipo(e.target.value); setPaginaActual(1); }}
-              >
-                <option value="todos">Todos los Tipos</option>
-                <option value="regular">Regulares</option>
-                <option value="nuevo_ingreso">Nuevos Ingresos</option>
-              </select>
-            </div>
-
-            {/* Filtro por Ruta */}
+            {/* Filtro por Categoría de Matrícula */}
             <div className="col-6 col-md-3">
               <select
                 className="form-select form-select-sm"
-                value={filtroRuta}
-                onChange={(e) => { setFiltroRuta(e.target.value); setPaginaActual(1); }}
+                value={filtroCategoria}
+                onChange={(e) => { setFiltroCategoria(e.target.value); setPaginaActual(1); }}
               >
-                <option value="todas">Todas las Rutas</option>
-                {opcionesRutas.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
+                <option value="todos">Toda la Matrícula Real ({estudiantesFiltradosEscuela.length})</option>
+                <option value="regular_actualizado">Regulares Actualizados ({metrics.regularesActualizados})</option>
+                <option value="nuevo_ingreso_formalizado">Nuevos Ingresos Formalizados ({metrics.nuevosFormalizados})</option>
+                <option value="regular_en_proceso">Regulares En Proceso ({metrics.regularesEnProceso})</option>
+                <option value="regular_sin_iniciar">Regulares Sin Iniciar ({metrics.regularesSinIniciar})</option>
+              </select>
+            </div>
+
+            {/* Filtro por Estado de Transporte */}
+            <div className="col-6 col-md-2">
+              <select
+                className="form-select form-select-sm"
+                value={filtroTransporte}
+                onChange={(e: any) => { setFiltroTransporte(e.target.value); setPaginaActual(1); }}
+              >
+                <option value="todos">Todos (Transporte)</option>
+                <option value="si">🚌 Requieren Transporte ({metrics.transporteConfirmado})</option>
+                <option value="no">🚶‍♂️ No Requieren ({metrics.transporteNoRequiere})</option>
+                <option value="pendiente">❓ Pendiente ({metrics.transportePendienteDefinir})</option>
               </select>
             </div>
 
@@ -1333,16 +1528,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
             </div>
 
             {/* Filas por página */}
-            <div className="col-6 col-md-1 text-end">
+            <div className="col-6 col-md-2 text-end">
               <select
                 className="form-select form-select-sm"
                 value={filasPorPagina}
                 onChange={(e) => { setFilasPorPagina(Number(e.target.value)); setPaginaActual(1); }}
               >
-                <option value={15}>15</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
+                <option value={15}>15 por pág.</option>
+                <option value={25}>25 por pág.</option>
+                <option value={50}>50 por pág.</option>
+                <option value={100}>100 por pág.</option>
               </select>
             </div>
           </div>
@@ -1350,7 +1545,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           {/* Contador de Resultados */}
           <div className="d-flex align-items-center justify-content-between text-muted small mb-2">
             <span>
-              Mostrando <b>{padronFiltrado.length}</b> estudiantes encontrados
+              Mostrando <b>{padronFiltrado.length}</b> de <b>{metrics.matriculaTotal}</b> estudiantes de la matrícula escolar
             </span>
             <span>
               Página <b>{paginaActual}</b> de <b>{totalPaginas}</b>
@@ -1361,7 +1556,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           {padronPaginado.length === 0 ? (
             <div className="p-5 text-center text-muted">
               <i className="bi bi-search fs-2"></i>
-              <p className="mt-2 mb-0">No se encontraron estudiantes con los filtros especificados.</p>
+              <p className="mt-2 mb-0">No se encontraron estudiantes con los filtros seleccionados.</p>
             </div>
           ) : (
             <div className="table-responsive">
@@ -1370,11 +1565,11 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                   <tr>
                     <th style={{ width: '40px' }} className="text-center">#</th>
                     <th>Estudiante</th>
-                    <th>Tipo</th>
+                    <th>Categoría Matrícula</th>
                     <th>Sede</th>
                     <th>Grado / Año</th>
-                    <th>Ruta Asignada</th>
-                    <th>Parada de Abordaje</th>
+                    <th>Transporte</th>
+                    <th>Ruta & Parada</th>
                     <th>Representante & Contacto</th>
                   </tr>
                 </thead>
@@ -1396,13 +1591,24 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                           </div>
                         </td>
                         <td>
-                          {e.tipoEstudiante === 'regular' ? (
+                          {e.categoriaMatricula === 'regular_actualizado' && (
                             <span className="badge rounded-pill bg-success-subtle text-success border border-success fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                              <i className="bi bi-backpack me-1"></i>Regular
+                              <i className="bi bi-check-circle me-1"></i>Regular Actualizado
                             </span>
-                          ) : (
+                          )}
+                          {e.categoriaMatricula === 'nuevo_ingreso_formalizado' && (
                             <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                              <i className="bi bi-star-fill me-1"></i>Nuevo Ingreso
+                              <i className="bi bi-star-fill me-1"></i>Nuevo Formalizado
+                            </span>
+                          )}
+                          {e.categoriaMatricula === 'regular_en_proceso' && (
+                            <span className="badge rounded-pill bg-info-subtle text-primary border border-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                              <i className="bi bi-clock me-1"></i>En Proceso
+                            </span>
+                          )}
+                          {e.categoriaMatricula === 'regular_sin_iniciar' && (
+                            <span className="badge rounded-pill bg-danger-subtle text-danger border border-danger fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                              <i className="bi bi-exclamation-circle me-1"></i>Sin Iniciar
                             </span>
                           )}
                         </td>
@@ -1425,20 +1631,35 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                           </span>
                         </td>
                         <td>
-                          <div className="d-flex align-items-center gap-1">
-                            <span className="fw-semibold text-dark">{e.rutaNombreLimpio}</span>
-                            {!e.coincideRutaOficial && (
-                              <i className="bi bi-exclamation-circle text-warning" title="Ruta no coincide exactamente con el catálogo oficial"></i>
-                            )}
-                          </div>
+                          {e.requiereTransporte === true && (
+                            <span className="badge rounded-pill bg-primary text-white fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                              <i className="bi bi-bus-front me-1"></i>Requiere
+                            </span>
+                          )}
+                          {e.requiereTransporte === false && (
+                            <span className="badge rounded-pill bg-light text-muted border fw-semibold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                              No Requiere
+                            </span>
+                          )}
+                          {e.requiereTransporte === null && (
+                            <span className="badge rounded-pill bg-danger-subtle text-danger border border-danger fw-semibold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                              Pendiente
+                            </span>
+                          )}
                         </td>
                         <td>
-                          <div className="d-flex align-items-center gap-1">
-                            <span className="fw-semibold text-dark">{e.paradaNombreLimpio}</span>
-                            {!e.coincideParadaOficial && (
-                              <i className="bi bi-exclamation-circle text-warning" title="Parada no coincide exactamente con el catálogo oficial"></i>
-                            )}
-                          </div>
+                          {e.requiereTransporte === true ? (
+                            <div>
+                              <div className="fw-semibold text-dark text-truncate" style={{ maxWidth: '200px' }}>
+                                {e.rutaNombreLimpio}
+                              </div>
+                              <div className="text-muted small text-truncate" style={{ fontSize: '0.7rem', maxWidth: '200px' }}>
+                                📍 {e.paradaNombreLimpio}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted small">—</span>
+                          )}
                         </td>
                         <td>
                           <div>
@@ -1514,29 +1735,163 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          PESTAÑA 4: ESTUDIANTES PENDIENTES / POR ASIGNAR
+          PESTAÑA 4: REGULARES PENDIENTES POR ACTUALIZAR (EN PROCESO / SIN INICIAR)
       ══════════════════════════════════════════════════════════════════════════ */}
-      {!loading && tabActiva === 'pendientes' && (
+      {!loading && tabActiva === 'regulares_pendientes' && (
+        <div className="bg-white rounded-4 border shadow-xs p-3 p-md-4">
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-2 border-bottom">
+            <div>
+              <h5 className="fw-bold text-danger mb-0 d-flex align-items-center gap-2">
+                <i className="bi bi-clock-history"></i>
+                <span>Estudiantes Regulares Pendientes por Actualizar Datos</span>
+              </h5>
+              <p className="text-muted small mb-0">
+                Padrón de estudiantes regulares activos en la institución que aún no han cerrado o iniciado su ficha en el portal.
+              </p>
+            </div>
+
+            {/* Subfiltros: Todos / En Proceso / Sin Iniciar */}
+            <div className="btn-group p-1 bg-light rounded-pill border" role="group">
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill px-3 fw-bold ${subfiltroPendientes === 'todos' ? 'btn-danger text-white' : 'btn-light text-muted'}`}
+                style={{ fontSize: '0.78rem' }}
+                onClick={() => setSubfiltroPendientes('todos')}
+              >
+                Todos ({metrics.totalRegularesPorActualizar})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill px-3 fw-bold ${subfiltroPendientes === 'en_proceso' ? 'btn-danger text-white' : 'btn-light text-muted'}`}
+                style={{ fontSize: '0.78rem' }}
+                onClick={() => setSubfiltroPendientes('en_proceso')}
+              >
+                ⏳ En Proceso ({metrics.regularesEnProceso})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill px-3 fw-bold ${subfiltroPendientes === 'sin_iniciar' ? 'btn-danger text-white' : 'btn-light text-muted'}`}
+                style={{ fontSize: '0.78rem' }}
+                onClick={() => setSubfiltroPendientes('sin_iniciar')}
+              >
+                ⚠️ Sin Iniciar ({metrics.regularesSinIniciar})
+              </button>
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
+              <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.7rem' }}>
+                <tr>
+                  <th style={{ width: '40px' }} className="text-center">#</th>
+                  <th>Estudiante</th>
+                  <th>Cédula</th>
+                  <th>Sede</th>
+                  <th>Grado</th>
+                  <th>Estatus de Ficha</th>
+                  <th>Transporte Preliminar</th>
+                  <th>Representante & Contacto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listaRegularesPendientes.map((e, idx) => {
+                  const cleanPhone = (e.representanteTelefono || '').replace(/\D/g, '');
+                  const waLink = cleanPhone ? (cleanPhone.startsWith('58') ? `https://wa.me/${cleanPhone}` : `https://wa.me/58${cleanPhone.replace(/^0+/, '')}`) : null;
+
+                  return (
+                    <tr key={e.id}>
+                      <td className="text-center text-muted fw-bold">{idx + 1}</td>
+                      <td>
+                        <div className="fw-bold text-dark">{e.nombreCompleto}</div>
+                      </td>
+                      <td className="fw-semibold text-secondary">{e.cedula}</td>
+                      <td>
+                        <span className="badge bg-light text-dark border rounded-pill">
+                          {e.codigo_escuela.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge bg-light text-dark border rounded-pill">
+                          {e.grado}
+                        </span>
+                      </td>
+                      <td>
+                        {e.categoriaMatricula === 'regular_en_proceso' ? (
+                          <span className="badge rounded-pill bg-info-subtle text-primary border border-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                            <i className="bi bi-clock me-1"></i>En Proceso (Borrador)
+                          </span>
+                        ) : (
+                          <span className="badge rounded-pill bg-danger-subtle text-danger border border-danger fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                            <i className="bi bi-exclamation-triangle-fill me-1"></i>Sin Iniciar
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {e.requiereTransporte === true ? (
+                          <span className="badge rounded-pill bg-primary-subtle text-primary border" style={{ fontSize: '0.68rem' }}>
+                            🚌 {e.rutaNombreLimpio}
+                          </span>
+                        ) : (
+                          <span className="text-muted small">Por confirmar</span>
+                        )}
+                      </td>
+                      <td>
+                        <div>
+                          <div className="text-dark small fw-semibold">{e.representanteNombre}</div>
+                          {e.representanteTelefono ? (
+                            <div className="d-flex align-items-center gap-1.5 mt-0.5">
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>{e.representanteTelefono}</span>
+                              {waLink && (
+                                <a
+                                  href={waLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-xs btn-outline-success rounded-circle p-0 d-inline-flex align-items-center justify-content-center"
+                                  style={{ width: '20px', height: '20px' }}
+                                  title="Contactar al representante por WhatsApp"
+                                >
+                                  <i className="bi bi-whatsapp" style={{ fontSize: '0.65rem' }}></i>
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted small" style={{ fontSize: '0.68rem' }}>Sin teléfono registrado</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          PESTAÑA 5: POR ASIGNAR / CASOS ESPECIALES DE TRANSPORTE
+      ══════════════════════════════════════════════════════════════════════════ */}
+      {!loading && tabActiva === 'por_asignar' && (
         <div className="bg-white rounded-4 border shadow-xs p-3 p-md-4">
           <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
             <div>
-              <h5 className="fw-bold text-danger mb-0 d-flex align-items-center gap-2">
-                <i className="bi bi-exclamation-triangle-fill"></i>
-                <span>Estudiantes Pendientes de Asignación / Casos Especiales</span>
+              <h5 className="fw-bold text-warning-emphasis mb-0 d-flex align-items-center gap-2">
+                <i className="bi bi-exclamation-triangle-fill text-warning"></i>
+                <span>Estudiantes con Ruta o Parada Pendiente de Homologación</span>
               </h5>
               <p className="text-muted small mb-0">
-                Estudiantes que solicitaron transporte pero su ruta o parada no coincide con el catálogo oficial o requiere homologación.
+                Estudiantes que solicitaron transporte pero su parada o ruta seleccionada requiere confirmación con el catálogo oficial.
               </p>
             </div>
-            <span className="badge bg-danger rounded-pill px-3 py-1.5 fw-bold">
-              {estudiantesPendientes.length} Casos
+            <span className="badge bg-warning text-dark rounded-pill px-3 py-1.5 fw-bold">
+              {estudiantesPorAsignar.length} Casos
             </span>
           </div>
 
-          {estudiantesPendientes.length === 0 ? (
+          {estudiantesPorAsignar.length === 0 ? (
             <div className="p-4 text-center text-success">
               <i className="bi bi-check-circle-fill fs-2"></i>
-              <p className="mt-2 mb-0 fw-bold">¡Excelente! Todos los estudiantes tienen ruta y parada oficial asignada.</p>
+              <p className="mt-2 mb-0 fw-bold">¡Excelente! Todos los estudiantes que requieren transporte tienen parada y ruta oficial asignada.</p>
             </div>
           ) : (
             <div className="table-responsive">
@@ -1549,11 +1904,11 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                     <th>Ruta Registrada</th>
                     <th>Parada Registrada</th>
                     <th>Representante & Teléfono</th>
-                    <th>Estado</th>
+                    <th>Acción</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {estudiantesPendientes.map(e => (
+                  {estudiantesPorAsignar.map(e => (
                     <tr key={e.id}>
                       <td>
                         <div className="fw-bold text-dark">{e.nombreCompleto}</div>
@@ -1581,7 +1936,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                       </td>
                       <td>
                         <span className="badge bg-danger-subtle text-danger rounded-pill">
-                          Pendiente Revisión
+                          Por Homologar
                         </span>
                       </td>
                     </tr>
@@ -1641,15 +1996,18 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                   />
                 </div>
 
-                <div className="d-flex align-items-center gap-2">
+                <div className="d-flex align-items-center gap-2 flex-wrap">
                   <span className="badge bg-primary rounded-pill px-2.5 py-1 fw-bold">
                     Total: {modalData.estudiantes.length}
                   </span>
                   <span className="badge bg-success-subtle text-success rounded-pill px-2 py-1 fw-bold">
-                    Regulares: {modalData.estudiantes.filter(e => e.tipoEstudiante === 'regular').length}
+                    Act: {modalData.estudiantes.filter(e => e.categoriaMatricula === 'regular_actualizado').length}
+                  </span>
+                  <span className="badge bg-info-subtle text-primary rounded-pill px-2 py-1 fw-bold">
+                    En Proc: {modalData.estudiantes.filter(e => e.categoriaMatricula === 'regular_en_proceso').length}
                   </span>
                   <span className="badge bg-warning-subtle text-warning-emphasis rounded-pill px-2 py-1 fw-bold">
-                    Nuevos: {modalData.estudiantes.filter(e => e.tipoEstudiante === 'nuevo_ingreso').length}
+                    Nuevos: {modalData.estudiantes.filter(e => e.categoriaMatricula === 'nuevo_ingreso_formalizado').length}
                   </span>
                 </div>
               </div>
@@ -1682,7 +2040,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                             <th>Estudiante</th>
                             <th>Cédula</th>
                             <th>Grado</th>
-                            <th>Tipo</th>
+                            <th>Estatus</th>
                             <th>Representante & Contacto</th>
                           </tr>
                         </thead>
@@ -1707,13 +2065,24 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                   </span>
                                 </td>
                                 <td>
-                                  {e.tipoEstudiante === 'regular' ? (
+                                  {e.categoriaMatricula === 'regular_actualizado' && (
                                     <span className="badge rounded-pill bg-success-subtle text-success border border-success fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                                      Regular
+                                      Actualizado
                                     </span>
-                                  ) : (
+                                  )}
+                                  {e.categoriaMatricula === 'nuevo_ingreso_formalizado' && (
                                     <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                                      Nuevo Ingreso
+                                      Nuevo Formalizado
+                                    </span>
+                                  )}
+                                  {e.categoriaMatricula === 'regular_en_proceso' && (
+                                    <span className="badge rounded-pill bg-info-subtle text-primary border border-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                                      En Proceso
+                                    </span>
+                                  )}
+                                  {e.categoriaMatricula === 'regular_sin_iniciar' && (
+                                    <span className="badge rounded-pill bg-danger-subtle text-danger border border-danger fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                                      Sin Iniciar
                                     </span>
                                   )}
                                 </td>
@@ -1759,10 +2128,10 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                   onClick={() => {
                     let msg = `🚍 *${modalData.titulo}*\n`;
                     msg += `ℹ️ ${modalData.subtitulo}\n`;
-                    msg += `👥 *Total:* ${modalData.estudiantes.length} Estudiantes\n`;
+                    msg += `👥 *Total:* ${modalData.estudiantes.length} Pasajeros\n`;
                     msg += `─────────────────────────\n`;
                     modalData.estudiantes.forEach((e, i) => {
-                      msg += `${i + 1}. ${e.nombreCompleto} (${e.cedula}) - Grado: ${e.grado} [${e.tipoEstudiante === 'regular' ? 'Regular' : 'Nuevo'}] - Rep: ${e.representanteNombre} (${e.representanteTelefono || 'Sin tlf'})\n`;
+                      msg += `${i + 1}. ${e.nombreCompleto} (${e.cedula}) - Grado: ${e.grado} [${e.categoriaMatricula}] - Rep: ${e.representanteNombre} (${e.representanteTelefono || 'Sin tlf'})\n`;
                     });
                     navigator.clipboard.writeText(msg).then(() => {
                       if (Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Lista copiada para WhatsApp', showConfirmButton: false, timer: 2000 });
