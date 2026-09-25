@@ -709,7 +709,7 @@ export const GestionAdmisiones: React.FC = () => {
     estudiante_fecha_nacimiento: '',
     codigo_escuela: 'sb',
     grado_solicitado: '1er Grado',
-    seccion: 'A',
+    seccion: 'Sin Asignar',
     plantel_procedencia: '',
     estado_ingreso: 'Formalizado' as 'Formalizado' | 'Aprobado',
     observaciones: ''
@@ -2634,7 +2634,7 @@ export const GestionAdmisiones: React.FC = () => {
       estudiante_fecha_nacimiento: '',
       codigo_escuela: escDefecto,
       grado_solicitado: escDefecto === 'lb' ? '1er Año' : '1er Grado',
-      seccion: 'A',
+      seccion: 'Sin Asignar',
       plantel_procedencia: '',
       estado_ingreso: 'Formalizado',
       observaciones: ''
@@ -2730,7 +2730,7 @@ export const GestionAdmisiones: React.FC = () => {
     const apeEst = capitalizarPalabras(formRegistroDirecto.estudiante_apellidos.trim());
     const escEst = formRegistroDirecto.codigo_escuela || 'sb';
     const gradoEst = formRegistroDirecto.grado_solicitado || '1er Grado';
-    const seccionEst = formRegistroDirecto.seccion || 'A';
+    const seccionEst = (!formRegistroDirecto.seccion || formRegistroDirecto.seccion === 'Sin Asignar') ? 'Sin Asignar' : formRegistroDirecto.seccion;
     const sexoEst = formRegistroDirecto.estudiante_sexo || 'M';
     const fNacEst = formRegistroDirecto.estudiante_fecha_nacimiento || '2015-01-01';
 
@@ -2926,11 +2926,16 @@ export const GestionAdmisiones: React.FC = () => {
   };
 
   const gradosDisponiblesDirecto = useMemo(() => {
-    const esc = formRegistroDirecto.codigo_escuela;
+    const esc = (formRegistroDirecto.codigo_escuela || 'sb').toLowerCase().trim();
+    const gradosEnSalones = salonesBD
+      .filter(s => (s.id_escuela || '').toLowerCase().trim() === esc && (s.estatus || 'Activo').toLowerCase() === 'activo')
+      .map(s => s.grado_anio)
+      .filter(Boolean);
+
     if (esc === 'lb') {
       const listaLb = ['1er Año', '2do Año', '3er Año', '4to Año', '5to Año'];
       const extra = opcionesGradoEnriquecidos.filter(g => g.toLowerCase().includes('año'));
-      return Array.from(new Set([...listaLb, ...extra]));
+      return Array.from(new Set([...listaLb, ...extra, ...gradosEnSalones]));
     } else {
       const listaSb = [
         'Maternal',
@@ -2945,9 +2950,32 @@ export const GestionAdmisiones: React.FC = () => {
         '6to Grado'
       ];
       const extra = opcionesGradoEnriquecidos.filter(g => !g.toLowerCase().includes('año'));
-      return Array.from(new Set([...listaSb, ...extra]));
+      return Array.from(new Set([...listaSb, ...extra, ...gradosEnSalones]));
     }
-  }, [formRegistroDirecto.codigo_escuela, opcionesGradoEnriquecidos]);
+  }, [formRegistroDirecto.codigo_escuela, opcionesGradoEnriquecidos, salonesBD]);
+
+  const seccionesDisponiblesDirecto = useMemo(() => {
+    const esc = (formRegistroDirecto.codigo_escuela || 'sb').toLowerCase().trim();
+    const gradoNorm = normalizarGrado(formRegistroDirecto.grado_solicitado);
+
+    // Salones configurados en la base de datos para esta escuela y grado
+    const salonesCoincidentes = salonesBD.filter(s => {
+      const matchEsc = (s.id_escuela || '').toLowerCase().trim() === esc;
+      const matchGrd = normalizarGrado(s.grado_anio) === gradoNorm;
+      const estatus = (s.estatus || 'Activo').toLowerCase().trim();
+      return matchEsc && matchGrd && estatus === 'activo';
+    });
+
+    const secciones = Array.from(
+      new Set(
+        salonesCoincidentes
+          .map(s => (s.seccion || s.nombre_salon || '').trim().toUpperCase())
+          .filter(Boolean)
+      )
+    ).sort();
+
+    return secciones;
+  }, [formRegistroDirecto.codigo_escuela, formRegistroDirecto.grado_solicitado, salonesBD]);
 
   // ── LÓGICA: HABILITACIÓN DE ACCESO DE REPRESENTANTE Y ESTUDIANTE (UNO A UNO) ────
   const abrirModalHabilitarAcceso = async (sol: SolicitudAdmision) => {
@@ -11461,18 +11489,18 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                             <select
                               className="form-select form-select-sm fw-bold"
                               value={formRegistroDirecto.codigo_escuela}
-                              disabled={esSedeFija}
                               onChange={e => {
                                 const esc = e.target.value;
                                 setFormRegistroDirecto(prev => ({
                                   ...prev,
                                   codigo_escuela: esc,
-                                  grado_solicitado: esc === 'lb' ? '1er Año' : '1er Grado'
+                                  grado_solicitado: esc === 'lb' ? '1er Año' : '1er Grado',
+                                  seccion: 'Sin Asignar'
                                 }));
                               }}
                             >
-                              <option value="sb">U.E. Simón Bolívar</option>
-                              <option value="lb">Liceo Bolivariano</option>
+                              <option value="sb">U.E. Santa Bárbara</option>
+                              <option value="lb">U.E. Libertador Bolívar</option>
                             </select>
                           </div>
                           <div className="col-7">
@@ -11482,7 +11510,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                             <select
                               className="form-select form-select-sm"
                               value={formRegistroDirecto.grado_solicitado}
-                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, grado_solicitado: e.target.value }))}
+                              onChange={e => setFormRegistroDirecto(prev => ({ ...prev, grado_solicitado: e.target.value, seccion: 'Sin Asignar' }))}
                             >
                               {gradosDisponiblesDirecto.map(g => (
                                 <option key={g} value={g}>{g}</option>
@@ -11497,12 +11525,21 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                             <label className="form-label fw-bold small text-secondary mb-1">Sección Asignada</label>
                             <select
                               className="form-select form-select-sm"
-                              value={formRegistroDirecto.seccion}
+                              value={formRegistroDirecto.seccion || 'Sin Asignar'}
                               onChange={e => setFormRegistroDirecto(prev => ({ ...prev, seccion: e.target.value }))}
                             >
-                              {['A', 'B', 'C', 'D', 'E', 'F'].map(sec => (
-                                <option key={sec} value={sec}>Sección "{sec}"</option>
-                              ))}
+                              <option value="Sin Asignar">Sin Asignar</option>
+                              {seccionesDisponiblesDirecto.length > 0 ? (
+                                seccionesDisponiblesDirecto.map(sec => (
+                                  <option key={sec} value={sec}>
+                                    {sec === 'U' ? 'Sección "U" (Única)' : `Sección "${sec}"`}
+                                  </option>
+                                ))
+                              ) : (
+                                ['A', 'B', 'C'].map(sec => (
+                                  <option key={sec} value={sec}>Sección "{sec}"</option>
+                                ))
+                              )}
                             </select>
                           </div>
                           <div className="col-7">
