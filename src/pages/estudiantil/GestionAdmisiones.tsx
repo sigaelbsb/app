@@ -1135,8 +1135,11 @@ export const GestionAdmisiones: React.FC = () => {
         return (s.codigo_escuela || '').toLowerCase() === escuelaActual.toLowerCase();
       });
 
-      const solAprobadas = solEscuela.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+      const soloAprobados = solEscuela.filter(s => s.estado === 'Aprobado').length;
+      const soloFormalizados = solEscuela.filter(s => s.estado === 'Formalizado').length;
+      const solAprobadasYFormalizadas = soloAprobados + soloFormalizados;
       const solPendientes = solEscuela.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
+      const solRechazadas = solEscuela.filter(s => s.estado === 'Rechazado').length;
 
       const estEscuela = estudiantesMatriculaBD.filter(e => {
         if (escuelaActual === 'todas') return true;
@@ -1162,7 +1165,7 @@ export const GestionAdmisiones: React.FC = () => {
       const estudiantesRegulares = estEscuela.filter(e => !esEstudianteNuevoIngreso(e)).length;
       const totalMatriculados = estEscuela.length;
       // Los cupos ocupados reales son los regulares más los nuevos ingresos otorgados (sin duplicar)
-      const totalOcupados = estudiantesRegulares + solAprobadas;
+      const totalOcupados = estudiantesRegulares + solAprobadasYFormalizadas;
       const cuposDisponibles = Math.max(0, capacidadTotal - totalOcupados);
 
       return {
@@ -1175,14 +1178,21 @@ export const GestionAdmisiones: React.FC = () => {
           capacidad: espaciosMap.get(s.id_espacio) || 38
         })),
         capacidadTotal,
+        estudiantesRegulares,
         estudiantesMatriculados: estudiantesRegulares,
         totalMatriculadosEnBD: totalMatriculados,
-        cuposAprobados: solAprobadas,
+        aprobados: soloAprobados,
+        formalizados: soloFormalizados,
+        totalAprobadosYFormalizados: solAprobadasYFormalizadas,
+        cuposAprobados: solAprobadasYFormalizadas,
         totalOcupados,
         cuposDisponibles,
         solicitudesPendientes: solPendientes,
+        solicitudesRechazadas: solRechazadas,
         totalSolicitudes: solEscuela.length,
-        porcentajeOcupacion: capacidadTotal > 0 ? Math.min(100, Math.round((totalOcupados / capacidadTotal) * 100)) : 0
+        porcentajeOcupacion: capacidadTotal > 0 ? Math.min(100, Math.round((totalOcupados / capacidadTotal) * 100)) : 0,
+        desgloseSB: undefined as any,
+        desgloseLB: undefined as any
       };
     }
 
@@ -1224,10 +1234,12 @@ export const GestionAdmisiones: React.FC = () => {
         return matchEsc && matchGrd;
       });
 
-      const aprobados = solicitudesEsc.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+      const soloAprobados = solicitudesEsc.filter(s => s.estado === 'Aprobado').length;
+      const soloFormalizados = solicitudesEsc.filter(s => s.estado === 'Formalizado').length;
       const pendientes = solicitudesEsc.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
+      const rechazados = solicitudesEsc.filter(s => s.estado === 'Rechazado').length;
       const regulares = estudiantesEsc.filter(e => !esEstudianteNuevoIngreso(e)).length;
-      const ocupadosEsc = regulares + aprobados;
+      const ocupadosEsc = regulares + soloAprobados + soloFormalizados;
       const disponibles = Math.max(0, capTotalEsc - ocupadosEsc);
 
       return {
@@ -1236,12 +1248,17 @@ export const GestionAdmisiones: React.FC = () => {
         totalSalones: salonesEsc.length || 1,
         salonesDetalle: salonesEsc,
         capacidadTotal: capTotalEsc,
+        estudiantesRegulares: regulares,
         estudiantesMatriculados: regulares,
         totalMatriculadosEnBD: estudiantesEsc.length,
-        cuposAprobados: aprobados,
+        aprobados: soloAprobados,
+        formalizados: soloFormalizados,
+        totalAprobadosYFormalizados: soloAprobados + soloFormalizados,
+        cuposAprobados: soloAprobados + soloFormalizados,
         totalOcupados: ocupadosEsc,
         cuposDisponibles: disponibles,
         solicitudesPendientes: pendientes,
+        solicitudesRechazadas: rechazados,
         totalSolicitudes: solicitudesEsc.length
       };
     };
@@ -1275,19 +1292,17 @@ export const GestionAdmisiones: React.FC = () => {
       return matchEsc && matchGrd;
     });
 
-    // Si no hay salones registrados explícitos pero hay secciones en estudiantes o solicitudes
+    // Si es consolidado (todas las escuelas), sumar las métricas de ambas escuelas
     let totalSalones = salonesCoincidentes.length;
-    if (totalSalones === 0) {
-      if (escuelaActual === 'todas') {
-        totalSalones = desgloseSB.totalSalones + desgloseLB.totalSalones;
-        capacidadTotal = desgloseSB.capacidadTotal + desgloseLB.capacidadTotal;
-      } else {
-        const seccionesDetectadas = new Set(
-          estudiantesEnGrado.map(e => (e.seccion_actual || 'A').toUpperCase().trim()).filter(Boolean)
-        );
-        totalSalones = Math.max(1, seccionesDetectadas.size || 1);
-        capacidadTotal = totalSalones * 38; // 38 solo o 38+38=76
-      }
+    if (escuelaActual === 'todas') {
+      totalSalones = desgloseSB.totalSalones + desgloseLB.totalSalones;
+      capacidadTotal = desgloseSB.capacidadTotal + desgloseLB.capacidadTotal;
+    } else if (totalSalones === 0) {
+      const seccionesDetectadas = new Set(
+        estudiantesEnGrado.map(e => (e.seccion_actual || 'A').toUpperCase().trim()).filter(Boolean)
+      );
+      totalSalones = Math.max(1, seccionesDetectadas.size || 1);
+      capacidadTotal = totalSalones * 38; // 38 por defecto
     }
 
     // 3. Solicitudes de Admisión para este grado
@@ -1297,12 +1312,14 @@ export const GestionAdmisiones: React.FC = () => {
       return matchEsc && matchGrd;
     });
 
-    const cuposAprobados = solicitudesEnGrado.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+    const soloAprobados = solicitudesEnGrado.filter(s => s.estado === 'Aprobado').length;
+    const soloFormalizados = solicitudesEnGrado.filter(s => s.estado === 'Formalizado').length;
     const solicitudesPendientes = solicitudesEnGrado.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
+    const solicitudesRechazadas = solicitudesEnGrado.filter(s => s.estado === 'Rechazado').length;
     const regularesEnGrado = estudiantesEnGrado.filter(e => !esEstudianteNuevoIngreso(e)).length;
 
-    // Cupos disponibles descontando los regulares y los nuevos ingresos aprobados exactamente una vez
-    const totalOcupados = regularesEnGrado + cuposAprobados;
+    // Cupos disponibles descontando los regulares y los nuevos ingresos aprobados y formalizados
+    const totalOcupados = regularesEnGrado + soloAprobados + soloFormalizados;
     const cuposDisponibles = Math.max(0, capacidadTotal - totalOcupados);
     const porcentajeOcupacion = capacidadTotal > 0 ? Math.min(100, Math.round((totalOcupados / capacidadTotal) * 100)) : 0;
 
@@ -1313,12 +1330,17 @@ export const GestionAdmisiones: React.FC = () => {
       totalSalones,
       salonesDetalle: salonesConCapacidad,
       capacidadTotal,
+      estudiantesRegulares: regularesEnGrado,
       estudiantesMatriculados: regularesEnGrado,
       totalMatriculadosEnBD: estudiantesEnGrado.length,
-      cuposAprobados,
+      aprobados: soloAprobados,
+      formalizados: soloFormalizados,
+      totalAprobadosYFormalizados: soloAprobados + soloFormalizados,
+      cuposAprobados: soloAprobados + soloFormalizados,
       totalOcupados,
       cuposDisponibles,
       solicitudesPendientes,
+      solicitudesRechazadas,
       totalSolicitudes: solicitudesEnGrado.length,
       porcentajeOcupacion,
       desgloseSB,
@@ -1479,7 +1501,9 @@ export const GestionAdmisiones: React.FC = () => {
           return (s.codigo_escuela || '').toLowerCase().trim() === codEsc && normalizarGrado(s.grado_solicitado) === gNorm;
         });
 
-        const aprob = solicitudesGrd.filter(s => s.estado === 'Aprobado' || s.estado === 'Formalizado').length;
+        const soloAprob = solicitudesGrd.filter(s => s.estado === 'Aprobado').length;
+        const soloForm = solicitudesGrd.filter(s => s.estado === 'Formalizado').length;
+        const aprob = soloAprob + soloForm;
         const pend = solicitudesGrd.filter(s => s.estado === 'Pendiente' || s.estado === 'En Evaluación').length;
         const regulares = estudiantes.filter(e => !esEstudianteNuevoIngreso(e)).length;
         const ocupados = regulares + aprob;
@@ -1489,8 +1513,11 @@ export const GestionAdmisiones: React.FC = () => {
           salones: salones.length || 1,
           capacidad: capTotal,
           matriculados: regulares,
+          estudiantesRegulares: regulares,
           totalMatriculadosEnBD: estudiantes.length,
-          aprobados: aprob,
+          aprobados: soloAprob,
+          formalizados: soloForm,
+          totalAprobados: aprob,
           ocupados,
           pendientes: pend,
           disponibles: disp,
@@ -1504,7 +1531,9 @@ export const GestionAdmisiones: React.FC = () => {
       const totalSal = escuelaActual === 'sb' ? sb.salones : escuelaActual === 'lb' ? lb.salones : sb.salones + lb.salones;
       const capTot = escuelaActual === 'sb' ? sb.capacidad : escuelaActual === 'lb' ? lb.capacidad : sb.capacidad + lb.capacidad;
       const matTot = escuelaActual === 'sb' ? sb.matriculados : escuelaActual === 'lb' ? lb.matriculados : sb.matriculados + lb.matriculados;
-      const aprTot = escuelaActual === 'sb' ? sb.aprobados : escuelaActual === 'lb' ? lb.aprobados : sb.aprobados + lb.aprobados;
+      const soloAprTot = escuelaActual === 'sb' ? sb.aprobados : escuelaActual === 'lb' ? lb.aprobados : sb.aprobados + lb.aprobados;
+      const soloFormTot = escuelaActual === 'sb' ? sb.formalizados : escuelaActual === 'lb' ? lb.formalizados : sb.formalizados + lb.formalizados;
+      const aprTot = soloAprTot + soloFormTot;
       const pendTot = escuelaActual === 'sb' ? sb.pendientes : escuelaActual === 'lb' ? lb.pendientes : sb.pendientes + lb.pendientes;
       const ocupTot = matTot + aprTot;
       const dispTot = Math.max(0, capTot - ocupTot);
@@ -1516,6 +1545,9 @@ export const GestionAdmisiones: React.FC = () => {
         totalSalones: totalSal,
         capacidadTotal: capTot,
         estudiantesMatriculados: matTot,
+        estudiantesRegulares: matTot,
+        aprobados: soloAprTot,
+        formalizados: soloFormTot,
         cuposAprobados: aprTot,
         totalOcupados: ocupTot,
         solicitudesPendientes: pendTot,
@@ -5334,62 +5366,270 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
       )}
 
       {/* ── TARJETAS KPI / MÉTRICAS COMPACTAS ─────────────────────────────────── */}
+      {/* ── TARJETAS KPI / MÉTRICAS COMPACTAS ─────────────────────────────────── */}
       {!esSoloFormalizador ? (
-        <div className="row g-2 mb-3">
-          <div className="col-6 col-md-4 col-xl-2">
-            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #8B5CF6' }}>
-              <div className="card-body p-2 p-sm-2.5">
-                <div className="text-muted extra-small fw-bold text-uppercase text-truncate">Total Solicitudes</div>
-                <div className="fs-5 fw-bold text-dark mt-0.5 lh-1">{kpis.total}</div>
+        filtroGrado !== 'todos' ? (
+          <div className="mb-3">
+            {/* Banner Informativo del Grado Filtrado */}
+            <div className="d-flex align-items-center justify-content-between p-2.5 px-3 mb-2 rounded-3 border bg-white shadow-xs flex-wrap gap-2" style={{ borderLeft: '5px solid #4F46E5' }}>
+              <div className="d-flex align-items-center gap-2">
+                <div className="rounded-circle p-1.5 d-flex align-items-center justify-content-center text-white shadow-xs" style={{ backgroundColor: '#4F46E5', width: '34px', height: '34px' }}>
+                  <i className="bi bi-mortarboard-fill fs-6"></i>
+                </div>
+                <div>
+                  <div className="fw-bold text-dark d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.92rem' }}>
+                    <span>Capacidad y Matrícula: <span className="text-primary">{filtroGrado}</span></span>
+                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 extra-small">
+                      {metricasCapacidadGrado.escuelaNombre}
+                    </span>
+                  </div>
+                  <div className="text-muted extra-small">
+                    Capacidad instalada vs. estudiantes regulares inscritos + nuevos aspirantes admitidos y formalizados
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="col-6 col-md-4 col-xl-2">
-            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #16a34a' }}>
-              <div className="card-body p-2 p-sm-2.5">
-                <div className="text-muted extra-small fw-bold text-uppercase text-success text-truncate">Aprobados</div>
-                <div className="fs-5 fw-bold text-success mt-0.5 lh-1">{kpis.aprobados}</div>
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <span className="badge bg-light text-dark border px-2.5 py-1.5 extra-small">
+                  <i className="bi bi-file-earmark-person me-1 text-primary"></i>
+                  Solicitudes en grado: <strong>{metricasCapacidadGrado.totalSolicitudes}</strong>
+                  {metricasCapacidadGrado.solicitudesPendientes > 0 && (
+                    <span className="text-warning ms-1">({metricasCapacidadGrado.solicitudesPendientes} pend.)</span>
+                  )}
+                  {metricasCapacidadGrado.solicitudesRechazadas > 0 && (
+                    <span className="text-danger ms-1">({metricasCapacidadGrado.solicitudesRechazadas} rech.)</span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm py-1 px-2 extra-small"
+                  onClick={() => setFiltroGrado('todos')}
+                  title="Ver métricas globales de todos los grados"
+                >
+                  <i className="bi bi-x-circle me-1"></i>Ver todos los grados
+                </button>
               </div>
             </div>
-          </div>
 
-          <div className="col-6 col-md-4 col-xl-2">
-            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0D9488' }}>
-              <div className="card-body p-2 p-sm-2.5">
-                <div className="text-muted extra-small fw-bold text-uppercase text-truncate" style={{ color: '#0D9488' }}>Formalizados</div>
-                <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#0D9488' }}>{kpis.formalizados}</div>
+            {/* Fila de 6 Tarjetas Específicas de Capacidad del Grado */}
+            <div className="row g-2">
+              {/* 1. Capacidad Total */}
+              <div className="col-6 col-md-4 col-xl-2">
+                <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #8B5CF6' }}>
+                  <div className="card-body p-2 p-sm-2.5">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <div className="text-muted extra-small fw-bold text-uppercase text-truncate" style={{ color: '#8B5CF6' }}>
+                        Capacidad
+                      </div>
+                      <span className="badge bg-light text-dark border extra-small px-1.5 py-0.5" style={{ fontSize: '10px' }}>
+                        {metricasCapacidadGrado.totalSalones} {metricasCapacidadGrado.totalSalones === 1 ? 'salón' : 'salones'}
+                      </span>
+                    </div>
+                    <div className="fs-5 fw-bold text-dark mt-0.5 lh-1">{metricasCapacidadGrado.capacidadTotal}</div>
+                    <div className="text-muted extra-small mt-1" style={{ fontSize: '11px' }}>Puestos instalados</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="col-6 col-md-4 col-xl-2">
-            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0284C7' }}>
-              <div className="card-body p-2 p-sm-2.5">
-                <div className="text-muted extra-small fw-bold text-uppercase text-primary text-truncate">Aptos Calificados</div>
-                <div className="fs-5 fw-bold text-primary mt-0.5 lh-1">{kpis.aptos}</div>
+              {/* 2. Estudiantes Regulares */}
+              <div className="col-6 col-md-4 col-xl-2">
+                <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #2563eb' }}>
+                  <div className="card-body p-2 p-sm-2.5">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <div className="extra-small fw-bold text-uppercase text-truncate" style={{ color: '#2563eb' }}>
+                        Regulares
+                      </div>
+                      <i className="bi bi-people-fill extra-small" style={{ color: '#2563eb' }}></i>
+                    </div>
+                    <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#2563eb' }}>
+                      {metricasCapacidadGrado.estudiantesRegulares}
+                    </div>
+                    <div className="text-muted extra-small mt-1" style={{ fontSize: '11px' }}>Matrícula existente</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="col-6 col-md-4 col-xl-2">
-            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #eab308' }}>
-              <div className="card-body p-2 p-sm-2.5">
-                <div className="text-muted extra-small fw-bold text-uppercase text-warning text-truncate">Pendientes</div>
-                <div className="fs-5 fw-bold text-warning mt-0.5 lh-1">{kpis.pendientes}</div>
+              {/* 3. Aprobados (Nuevos Cupos Asignados) */}
+              <div className="col-6 col-md-4 col-xl-2">
+                <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #16a34a' }}>
+                  <div className="card-body p-2 p-sm-2.5">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <div className="extra-small fw-bold text-uppercase text-success text-truncate">
+                        Aprobados
+                      </div>
+                      <i className="bi bi-check-circle-fill text-success extra-small"></i>
+                    </div>
+                    <div className="fs-5 fw-bold text-success mt-0.5 lh-1">
+                      {metricasCapacidadGrado.aprobados}
+                    </div>
+                    <div className="text-muted extra-small mt-1" style={{ fontSize: '11px' }}>Cupo asignado</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="col-6 col-md-4 col-xl-2">
-            <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #dc2626' }}>
-              <div className="card-body p-2 p-sm-2.5">
-                <div className="text-muted extra-small fw-bold text-uppercase text-danger text-truncate">Rechazados</div>
-                <div className="fs-5 fw-bold text-danger mt-0.5 lh-1">{kpis.rechazados}</div>
+              {/* 4. Formalizados (Inscripción Física en Plantel) */}
+              <div className="col-6 col-md-4 col-xl-2">
+                <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0D9488' }}>
+                  <div className="card-body p-2 p-sm-2.5">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <div className="extra-small fw-bold text-uppercase text-truncate" style={{ color: '#0D9488' }}>
+                        Formalizados
+                      </div>
+                      <i className="bi bi-patch-check-fill extra-small" style={{ color: '#0D9488' }}></i>
+                    </div>
+                    <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#0D9488' }}>
+                      {metricasCapacidadGrado.formalizados}
+                    </div>
+                    <div className="text-muted extra-small mt-1" style={{ fontSize: '11px' }}>En plantel físico</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. Total Ocupados */}
+              <div className="col-6 col-md-4 col-xl-2">
+                <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #ea580c' }}>
+                  <div className="card-body p-2 p-sm-2.5">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <div className="extra-small fw-bold text-uppercase text-truncate" style={{ color: '#ea580c' }}>
+                        Total Ocupados
+                      </div>
+                      <span className="badge rounded-pill extra-small px-1.5" style={{ backgroundColor: '#ffedd5', color: '#c2410c', fontSize: '10px' }}>
+                        {metricasCapacidadGrado.porcentajeOcupacion}%
+                      </span>
+                    </div>
+                    <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#ea580c' }}>
+                      {metricasCapacidadGrado.totalOcupados}
+                    </div>
+                    <div className="text-muted extra-small mt-1" style={{ fontSize: '11px' }}>Reg + Aprob + Form</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6. Cupos Disponibles / Vacantes Libres */}
+              <div className="col-6 col-md-4 col-xl-2">
+                <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: `4px solid ${metricasCapacidadGrado.cuposDisponibles > 0 ? '#059669' : '#dc2626'}` }}>
+                  <div className="card-body p-2 p-sm-2.5">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <div className={`extra-small fw-bold text-uppercase text-truncate ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'text-success' : 'text-danger'}`}>
+                        Disponibles
+                      </div>
+                      <i className={`bi ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'bi-door-open-fill text-success' : 'bi-slash-circle-fill text-danger'} extra-small`}></i>
+                    </div>
+                    <div className={`fs-5 fw-bold mt-0.5 lh-1 ${metricasCapacidadGrado.cuposDisponibles > 0 ? 'text-success' : 'text-danger'}`}>
+                      {metricasCapacidadGrado.cuposDisponibles}
+                    </div>
+                    <div className="text-muted extra-small mt-1" style={{ fontSize: '11px' }}>
+                      {metricasCapacidadGrado.cuposDisponibles > 0 ? 'Vacantes libres' : 'Capacidad copada'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Desglose por Escuela si está en modo Consolidado (Ambas Escuelas) */}
+            {filtroEscuela === 'todas' && metricasCapacidadGrado.desgloseSB && metricasCapacidadGrado.desgloseLB && (
+              <div className="row g-2 mt-1">
+                <div className="col-12 col-md-6">
+                  <div className="p-2 px-3 rounded-2 border bg-light d-flex align-items-center justify-content-between flex-wrap gap-1 extra-small">
+                    <span className="fw-bold text-dark">
+                      <i className="bi bi-building me-1 text-primary"></i> U.E. Santa Bárbara:
+                    </span>
+                    <div className="d-flex align-items-center gap-1.5 text-muted flex-wrap">
+                      <span>Cap: <strong className="text-dark">{metricasCapacidadGrado.desgloseSB?.capacidadTotal ?? 0}</strong> ({metricasCapacidadGrado.desgloseSB?.totalSalones ?? 0} {(metricasCapacidadGrado.desgloseSB?.totalSalones ?? 0) === 1 ? 'salón' : 'salones'})</span>
+                      <span>|</span>
+                      <span>Reg: <strong style={{ color: '#2563eb' }}>{metricasCapacidadGrado.desgloseSB?.estudiantesRegulares ?? 0}</strong></span>
+                      <span>|</span>
+                      <span>Aprob: <strong className="text-success">{metricasCapacidadGrado.desgloseSB?.aprobados ?? 0}</strong></span>
+                      <span>|</span>
+                      <span>Form: <strong style={{ color: '#0D9488' }}>{metricasCapacidadGrado.desgloseSB?.formalizados ?? 0}</strong></span>
+                      <span>|</span>
+                      <span className={(metricasCapacidadGrado.desgloseSB?.cuposDisponibles ?? 0) > 0 ? 'text-success fw-bold' : 'text-danger fw-bold'}>
+                        Disp: <strong>{metricasCapacidadGrado.desgloseSB?.cuposDisponibles ?? 0}</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-12 col-md-6">
+                  <div className="p-2 px-3 rounded-2 border bg-light d-flex align-items-center justify-content-between flex-wrap gap-1 extra-small">
+                    <span className="fw-bold text-dark">
+                      <i className="bi bi-building me-1 text-primary"></i> U.E. Libertador Bolívar:
+                    </span>
+                    <div className="d-flex align-items-center gap-1.5 text-muted flex-wrap">
+                      <span>Cap: <strong className="text-dark">{metricasCapacidadGrado.desgloseLB?.capacidadTotal ?? 0}</strong> ({metricasCapacidadGrado.desgloseLB?.totalSalones ?? 0} {(metricasCapacidadGrado.desgloseLB?.totalSalones ?? 0) === 1 ? 'salón' : 'salones'})</span>
+                      <span>|</span>
+                      <span>Reg: <strong style={{ color: '#2563eb' }}>{metricasCapacidadGrado.desgloseLB?.estudiantesRegulares ?? 0}</strong></span>
+                      <span>|</span>
+                      <span>Aprob: <strong className="text-success">{metricasCapacidadGrado.desgloseLB?.aprobados ?? 0}</strong></span>
+                      <span>|</span>
+                      <span>Form: <strong style={{ color: '#0D9488' }}>{metricasCapacidadGrado.desgloseLB?.formalizados ?? 0}</strong></span>
+                      <span>|</span>
+                      <span className={(metricasCapacidadGrado.desgloseLB?.cuposDisponibles ?? 0) > 0 ? 'text-success fw-bold' : 'text-danger fw-bold'}>
+                        Disp: <strong>{metricasCapacidadGrado.desgloseLB?.cuposDisponibles ?? 0}</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="row g-2 mb-3">
+            <div className="col-6 col-md-4 col-xl-2">
+              <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #8B5CF6' }}>
+                <div className="card-body p-2 p-sm-2.5">
+                  <div className="text-muted extra-small fw-bold text-uppercase text-truncate">Total Solicitudes</div>
+                  <div className="fs-5 fw-bold text-dark mt-0.5 lh-1">{kpis.total}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-6 col-md-4 col-xl-2">
+              <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #16a34a' }}>
+                <div className="card-body p-2 p-sm-2.5">
+                  <div className="text-muted extra-small fw-bold text-uppercase text-success text-truncate">Aprobados</div>
+                  <div className="fs-5 fw-bold text-success mt-0.5 lh-1">{kpis.aprobados}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-6 col-md-4 col-xl-2">
+              <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0D9488' }}>
+                <div className="card-body p-2 p-sm-2.5">
+                  <div className="text-muted extra-small fw-bold text-uppercase text-truncate" style={{ color: '#0D9488' }}>Formalizados</div>
+                  <div className="fs-5 fw-bold mt-0.5 lh-1" style={{ color: '#0D9488' }}>{kpis.formalizados}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-6 col-md-4 col-xl-2">
+              <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #0284C7' }}>
+                <div className="card-body p-2 p-sm-2.5">
+                  <div className="text-muted extra-small fw-bold text-uppercase text-primary text-truncate">Aptos Calificados</div>
+                  <div className="fs-5 fw-bold text-primary mt-0.5 lh-1">{kpis.aptos}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-6 col-md-4 col-xl-2">
+              <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #eab308' }}>
+                <div className="card-body p-2 p-sm-2.5">
+                  <div className="text-muted extra-small fw-bold text-uppercase text-warning text-truncate">Pendientes</div>
+                  <div className="fs-5 fw-bold text-warning mt-0.5 lh-1">{kpis.pendientes}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-6 col-md-4 col-xl-2">
+              <div className="card border-0 shadow-xs rounded-3 h-100 bg-white" style={{ borderLeft: '4px solid #dc2626' }}>
+                <div className="card-body p-2 p-sm-2.5">
+                  <div className="text-muted extra-small fw-bold text-uppercase text-danger text-truncate">Rechazados</div>
+                  <div className="fs-5 fw-bold text-danger mt-0.5 lh-1">{kpis.rechazados}</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )
       ) : (
         <div className="row g-2 mb-3">
           <div className="col-12 col-md-4">
@@ -9144,8 +9384,9 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                         <th>Grado / Nivel</th>
                         <th className="text-center">Ambientes</th>
                         <th className="text-center">Capacidad</th>
-                        <th className="text-center">Regulares</th>
-                        <th className="text-center">Nuevos Ingresos</th>
+                        <th className="text-center" style={{ color: '#2563eb' }}>Regulares</th>
+                        <th className="text-center text-success">Aprobados</th>
+                        <th className="text-center" style={{ color: '#0D9488' }}>Formalizados</th>
                         <th className="text-center">Vacantes Libres</th>
                         <th className="text-center">En Espera</th>
                         <th className="text-end">Acción</th>
@@ -9169,10 +9410,13 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                               {item.capacidadTotal} puestos
                             </td>
                             <td className="text-center">
-                              <span className="text-info fw-bold">{item.estudiantesMatriculados}</span>
+                              <span className="fw-bold" style={{ color: '#2563eb' }}>{item.estudiantesRegulares ?? item.estudiantesMatriculados}</span>
                             </td>
                             <td className="text-center">
-                              <span className="text-warning-emphasis fw-bold">{item.cuposAprobados}</span>
+                              <span className="fw-bold text-success">{item.aprobados ?? 0}</span>
+                            </td>
+                            <td className="text-center">
+                              <span className="fw-bold" style={{ color: '#0D9488' }}>{item.formalizados ?? 0}</span>
                             </td>
                             <td className="text-center">
                               <span
@@ -9242,11 +9486,14 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                             <div className="col-6">
                               Capacidad: <strong className="text-dark">{item.capacidadTotal} puestos</strong>
                             </div>
-                            <div className="col-6">
-                              Regulares: <strong className="text-info">{item.estudiantesMatriculados}</strong>
+                            <div className="col-4">
+                              Regulares: <strong style={{ color: '#2563eb' }}>{item.estudiantesRegulares ?? item.estudiantesMatriculados}</strong>
                             </div>
-                            <div className="col-6">
-                              Nuevos Ingresos: <strong className="text-warning-emphasis">{item.cuposAprobados}</strong>
+                            <div className="col-4">
+                              Aprobados: <strong className="text-success">{item.aprobados ?? 0}</strong>
+                            </div>
+                            <div className="col-4">
+                              Formalizados: <strong style={{ color: '#0D9488' }}>{item.formalizados ?? 0}</strong>
                             </div>
                           </div>
 
