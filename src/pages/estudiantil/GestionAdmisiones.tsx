@@ -855,6 +855,10 @@ export const GestionAdmisiones: React.FC = () => {
   const [eliminandoRegulares, setEliminandoRegulares] = useState<boolean>(false);
   const [detectandoRegulares, setDetectandoRegulares] = useState<boolean>(false);
 
+  // ── SELECCIÓN Y ELIMINACIÓN EN LISTADO GENERAL ──────────────────────────────────
+  const [seleccionadosListadoGeneral, setSeleccionadosListadoGeneral] = useState<Set<string>>(new Set());
+  const [eliminandoSolicitudes, setEliminandoSolicitudes] = useState<boolean>(false);
+
   // ── BLOQUEO DE SCROLL EN FONDO CUANDO HAY UN MODAL ABIERTO ─────────────────────
   const algunModalAbierto = Boolean(
     modalMatrizCapacidadAbierto ||
@@ -4745,6 +4749,209 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
     }
   };
 
+  // ── MÉTODOS DE ELIMINACIÓN Y SELECCIÓN EN LISTADO GENERAL ───────────────────────
+  const todosFiltradosSeleccionados = useMemo(() => {
+    if (solicitudesFiltradas.length === 0) return false;
+    return solicitudesFiltradas.every(s => seleccionadosListadoGeneral.has(String(s.id)));
+  }, [solicitudesFiltradas, seleccionadosListadoGeneral]);
+
+  const toggleSeleccionarTodo = () => {
+    if (todosFiltradosSeleccionados) {
+      setSeleccionadosListadoGeneral(prev => {
+        const next = new Set(prev);
+        solicitudesFiltradas.forEach(s => next.delete(String(s.id)));
+        return next;
+      });
+    } else {
+      setSeleccionadosListadoGeneral(prev => {
+        const next = new Set(prev);
+        solicitudesFiltradas.forEach(s => next.add(String(s.id)));
+        return next;
+      });
+    }
+  };
+
+  const toggleSeleccionarSolicitud = (id: string | number) => {
+    const strId = String(id);
+    setSeleccionadosListadoGeneral(prev => {
+      const next = new Set(prev);
+      if (next.has(strId)) next.delete(strId);
+      else next.add(strId);
+      return next;
+    });
+  };
+
+  const eliminarSolicitudIndividual = async (sol: SolicitudAdmision) => {
+    const nomEst = nombreCompleto(sol.estudiante_nombres, sol.estudiante_apellidos);
+    const codUni = sol.codigo_unico || 'S/C';
+
+    const confirm = await Swal.fire({
+      title: '¿Eliminar Solicitud?',
+      html: `
+        <div style="text-align: left; font-size: 14px;">
+          <p class="mb-2">¿Estás seguro de que deseas eliminar permanentemente esta solicitud de admisión?</p>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+            <div><b>Aspirante:</b> ${nomEst}</div>
+            <div><b>Cédula:</b> ${sol.estudiante_cedula || 'En trámite'}</div>
+            <div><b>Código Único:</b> <span style="font-family: monospace; color: #2563eb;">${codUni}</span></div>
+            <div><b>Plantel / Grado:</b> ${sol.codigo_escuela?.toUpperCase() === 'SB' ? 'Santa Bárbara' : 'Libertador Bolívar'} - ${sol.grado_solicitado}</div>
+            <div><b>Estatus actual:</b> ${sol.estado || 'Pendiente'}</div>
+          </div>
+          <p style="color: #dc2626; font-size: 12px; margin: 0;"><b>Advertencia:</b> Esta acción no se puede deshacer.</p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: '<i class="bi bi-trash-fill me-1"></i> Sí, Eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setEliminandoSolicitudes(true);
+    try {
+      // 1. Eliminar de solicitud_cupos
+      const { error: errSol } = await supabase
+        .from('solicitud_cupos')
+        .delete()
+        .eq('id', sol.id);
+
+      if (errSol) throw errSol;
+
+      // 2. Si estaba formalizada o con identificador ESC-, limpiar vinculación si aplica
+      if (sol.estado === 'Formalizado' || (sol.estudiante_cedula && (sol.estudiante_cedula.startsWith('ESC-') || sol.estudiante_cedula.startsWith('SC-')))) {
+        await supabase
+          .from('estudiantes_vinculaciones')
+          .delete()
+          .or(`cedula_estudiante.eq.${sol.estudiante_cedula},cedula_estudiante.eq.${sol.codigo_unico}`);
+      }
+
+      // 3. Registrar auditoría
+      await auditar(
+        'Gestión de Admisiones',
+        'Eliminar Solicitud Individual',
+        `Solicitud eliminada: ${nomEst} (${codUni}) - C.I. ${sol.estudiante_cedula || 'N/A'}`
+      );
+
+      // 4. Actualizar estado local
+      setSolicitudes(prev => prev.filter(s => s.id !== sol.id));
+      setSeleccionadosListadoGeneral(prev => {
+        const next = new Set(prev);
+        next.delete(String(sol.id));
+        return next;
+      });
+
+      // 5. Refrescar capacidad escolar
+      await cargarCapacidadEscolar();
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Solicitud Eliminada!',
+          text: `La solicitud de ${nomEst} ha sido eliminada con éxito.`,
+          confirmButtonColor: '#0284c7',
+          timer: 2200
+        });
+      }
+    } catch (err: any) {
+      console.error('Error al eliminar solicitud:', err);
+      if (Swal) {
+        Swal.fire('Error', 'No se pudo eliminar la solicitud: ' + (err.message || 'Error de base de datos'), 'error');
+      }
+    } finally {
+      setEliminandoSolicitudes(false);
+    }
+  };
+
+  const eliminarSolicitudesSeleccionadas = async () => {
+    const total = seleccionadosListadoGeneral.size;
+    if (total === 0) {
+      if (Swal) Swal.fire('Atención', 'No has seleccionado ninguna solicitud para eliminar.', 'warning');
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: `¿Eliminar ${total} ${total === 1 ? 'Solicitud' : 'Solicitudes'}?`,
+      html: `
+        <div style="text-align: left; font-size: 14px;">
+          <p class="mb-2">¿Estás seguro de que deseas eliminar permanentemente las <b>${total}</b> solicitudes seleccionadas?</p>
+          <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 10px; color: #991b1b;">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            Esta acción removerá las solicitudes de la base de datos y no se puede deshacer.
+          </div>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `<i class="bi bi-trash-fill me-1"></i> Sí, Eliminar ${total}`,
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setEliminandoSolicitudes(true);
+    try {
+      const idsArray = Array.from(seleccionadosListadoGeneral);
+      const solicitudesAEliminar = solicitudes.filter(s => seleccionadosListadoGeneral.has(String(s.id)));
+
+      // 1. Eliminar de solicitud_cupos
+      const { error: errSol } = await supabase
+        .from('solicitud_cupos')
+        .delete()
+        .in('id', idsArray);
+
+      if (errSol) throw errSol;
+
+      // 2. Limpiar vinculaciones si tenían Cédula Escolar o código único provisional
+      const cedulasAEliminar = solicitudesAEliminar
+        .map(s => s.estudiante_cedula)
+        .filter((c): c is string => Boolean(c && (c.startsWith('ESC-') || c.startsWith('SC-'))));
+
+      if (cedulasAEliminar.length > 0) {
+        await supabase
+          .from('estudiantes_vinculaciones')
+          .delete()
+          .in('cedula_estudiante', cedulasAEliminar);
+      }
+
+      // 3. Registrar auditoría
+      await auditar(
+        'Gestión de Admisiones',
+        'Eliminar Múltiples Solicitudes',
+        `Se eliminaron ${total} solicitudes seleccionadas manualmente del listado general`
+      );
+
+      // 4. Actualizar estado local
+      const idsSet = new Set(idsArray);
+      setSolicitudes(prev => prev.filter(s => !idsSet.has(String(s.id))));
+      setSeleccionadosListadoGeneral(new Set());
+
+      // 5. Refrescar capacidad
+      await cargarCapacidadEscolar();
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Solicitudes Eliminadas!',
+          text: `Se eliminaron con éxito ${total} ${total === 1 ? 'solicitud' : 'solicitudes'}.`,
+          confirmButtonColor: '#0284c7',
+          timer: 2200
+        });
+      }
+    } catch (err: any) {
+      console.error('Error al eliminar solicitudes:', err);
+      if (Swal) {
+        Swal.fire('Error', 'No se pudieron eliminar las solicitudes: ' + (err.message || 'Error de base de datos'), 'error');
+      }
+    } finally {
+      setEliminandoSolicitudes(false);
+    }
+  };
+
   // Solicitud activa para la vista Uno a Uno
   const solicitudUnoAUno = solicitudesFiltradas[indiceUnoAUno] || null;
   const baremoUnoAUno = solicitudUnoAUno ? calcularBaremoPrioridad(solicitudUnoAUno, personalEscuelaMap) : null;
@@ -5558,16 +5765,58 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
       {/* ══════════════════════════════════════════════════════════════════════════ */}
       {vistaActiva === 'tabla' && (
         <div className="card border-0 shadow-sm rounded-3">
-          <div className="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div className="fw-bold text-dark d-flex align-items-center gap-2">
-              <span>Listado General de Aspirantes</span>
-              <span className="badge bg-primary rounded-pill px-2.5 py-1">
-                {solicitudesFiltradas.length} {solicitudesFiltradas.length === 1 ? 'registro' : 'registros'}
-              </span>
+          <div className="card-header bg-white py-3 border-bottom d-flex flex-column gap-2">
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 w-100">
+              <div className="fw-bold text-dark d-flex align-items-center gap-2">
+                <span>Listado General de Aspirantes</span>
+                <span className="badge bg-primary rounded-pill px-2.5 py-1">
+                  {solicitudesFiltradas.length} {solicitudesFiltradas.length === 1 ? 'registro' : 'registros'}
+                </span>
+              </div>
+              <small className="text-muted">
+                Orden automático: <b>P0 (Jerarquía) &gt; P1 (Docentes y Trabajadores Escuela) &gt; P2..P8</b> + Antigüedad de solicitud
+              </small>
             </div>
-            <small className="text-muted">
-              Orden automático: <b>P0 (Jerarquía) &gt; P1 (Docentes y Trabajadores Escuela) &gt; P2..P8</b> + Antigüedad de solicitud
-            </small>
+
+            {/* BARRA DE ACCIONES MASIVAS CUANDO HAY SELECCIÓN */}
+            {seleccionadosListadoGeneral.size > 0 && (
+              <div className="bg-danger-subtle border border-danger-subtle py-2 px-3 rounded-2 d-flex align-items-center justify-content-between flex-wrap gap-2 w-100">
+                <div className="d-flex align-items-center gap-2">
+                  <i className="bi bi-check2-square text-danger fs-5"></i>
+                  <span className="fw-bold text-danger small">
+                    {seleccionadosListadoGeneral.size} {seleccionadosListadoGeneral.size === 1 ? 'solicitud seleccionada' : 'solicitudes seleccionadas'}
+                  </span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary py-1 px-2.5 extra-small fw-bold"
+                    onClick={() => setSeleccionadosListadoGeneral(new Set())}
+                    disabled={eliminandoSolicitudes}
+                  >
+                    Deseleccionar todas
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger py-1 px-3 extra-small fw-bold d-flex align-items-center gap-1 shadow-xs"
+                    onClick={eliminarSolicitudesSeleccionadas}
+                    disabled={eliminandoSolicitudes}
+                  >
+                    {eliminandoSolicitudes ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm" role="status"></span>
+                        <span>Eliminando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-trash-fill"></i>
+                        <span>Eliminar Seleccionadas ({seleccionadosListadoGeneral.size})</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="card-body p-0">
@@ -5592,7 +5841,16 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   <table className="table table-hover align-middle mb-0" style={{ fontSize: '13px' }}>
                     <thead className="table-light">
                       <tr>
-                        <th style={{ width: '45px' }} className="text-center">#</th>
+                        <th style={{ width: '38px' }} className="text-center">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            checked={todosFiltradosSeleccionados}
+                            onChange={toggleSeleccionarTodo}
+                            title="Seleccionar o deseleccionar todas las solicitudes filtradas"
+                          />
+                        </th>
+                        <th style={{ width: '35px' }} className="text-center text-muted small">#</th>
                         <th style={{ width: '135px' }}>Prioridad / Nivel</th>
                         <th>Código Único</th>
                         <th>Escuela</th>
@@ -5602,7 +5860,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                         <th>Nómina / Condición</th>
                         <th className="text-center">Aptitud</th>
                         <th className="text-center">Estatus</th>
-                        <th className="text-end" style={{ width: '150px' }}>Acciones</th>
+                        <th className="text-end" style={{ width: '160px' }}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -5612,7 +5870,15 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                         const nomRep = nombreCompleto(sol.representante_nombres, sol.representante_apellidos);
 
                         return (
-                          <tr key={sol.id || sol.codigo_unico}>
+                          <tr key={sol.id || sol.codigo_unico} className={seleccionadosListadoGeneral.has(String(sol.id)) ? 'table-danger' : undefined}>
+                            <td className="text-center">
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                checked={seleccionadosListadoGeneral.has(String(sol.id))}
+                                onChange={() => toggleSeleccionarSolicitud(sol.id)}
+                              />
+                            </td>
                             <td className="text-center fw-bold text-muted small">{idx + 1}</td>
                             <td>
                               <div className="d-flex flex-column gap-0.5">
@@ -5824,6 +6090,15 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                                     </button>
                                   );
                                 })()}
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-danger"
+                                  onClick={() => eliminarSolicitudIndividual(sol)}
+                                  title="Eliminar Solicitud de Admisión"
+                                  disabled={eliminandoSolicitudes}
+                                >
+                                  <i className="bi bi-trash"></i>
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -5848,6 +6123,12 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                           {/* Header de la tarjeta */}
                           <div className="card-header bg-white py-2 px-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-1">
                             <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                              <input
+                                type="checkbox"
+                                className="form-check-input mt-0 me-1"
+                                checked={seleccionadosListadoGeneral.has(String(sol.id))}
+                                onChange={() => toggleSeleccionarSolicitud(sol.id)}
+                              />
                               <span className="badge bg-dark text-white rounded-pill extra-small px-2 py-0.5">
                                 #{idx + 1}
                               </span>
@@ -6016,6 +6297,16 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                               title="Notificar por WhatsApp"
                             >
                               <i className="bi bi-whatsapp"></i>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-outline-danger btn-sm py-1 px-2.5 extra-small fw-bold"
+                              onClick={() => eliminarSolicitudIndividual(sol)}
+                              title="Eliminar Solicitud"
+                              disabled={eliminandoSolicitudes}
+                            >
+                              <i className="bi bi-trash"></i>
                             </button>
                           </div>
                         </div>
