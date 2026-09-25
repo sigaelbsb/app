@@ -2524,7 +2524,7 @@ export const GestionAdmisiones: React.FC = () => {
           representante_apellidos: apeRep,
           representante_cedula: cedRep,
           representante_telefono: telRep || null,
-          representante_email: emailRep || null,
+          representante_email: emailRep || sol.representante_email || `rep.${cleanCedula(cedRep)}@sigae.local`,
           estado: 'Formalizado',
           observaciones: sol.observaciones ? `${sol.observaciones} | ${obsFormalizacion}` : obsFormalizacion
         })
@@ -2668,10 +2668,18 @@ export const GestionAdmisiones: React.FC = () => {
         .limit(1)
         .maybeSingle();
 
-      if (usuario || vinculo) {
+      // 3. Buscar en solicitud_cupos por si tiene email o teléfono previo
+      const { data: solPrevia } = await supabase
+        .from('solicitud_cupos')
+        .select('representante_nombres, representante_apellidos, representante_telefono, representante_email')
+        .eq('representante_cedula', cedLimpia)
+        .limit(1)
+        .maybeSingle();
+
+      if (usuario || vinculo || solPrevia) {
         const nombreCompleto = usuario?.nombre_completo || '';
-        let nombres = vinculo?.nombres_representante || '';
-        let apellidos = vinculo?.apellidos_representante || '';
+        let nombres = vinculo?.nombres_representante || solPrevia?.representante_nombres || '';
+        let apellidos = vinculo?.apellidos_representante || solPrevia?.representante_apellidos || '';
 
         if (!nombres && nombreCompleto) {
           const partes = nombreCompleto.trim().split(/\s+/);
@@ -2690,8 +2698,8 @@ export const GestionAdmisiones: React.FC = () => {
           ...prev,
           representante_nombres: prev.representante_nombres || nombres,
           representante_apellidos: prev.representante_apellidos || apellidos,
-          representante_telefono: prev.representante_telefono || usuario?.telefono || '',
-          representante_email: prev.representante_email || usuario?.email || ''
+          representante_telefono: prev.representante_telefono || usuario?.telefono || solPrevia?.representante_telefono || '',
+          representante_email: prev.representante_email || usuario?.email || solPrevia?.representante_email || ''
         }));
 
         setRepDirectoExistente({
@@ -2758,9 +2766,12 @@ export const GestionAdmisiones: React.FC = () => {
       // 1. Asegurar o crear Usuario en `usuarios`
       const { data: userExiste } = await supabase
         .from('usuarios')
-        .select('cedula, rol, id_escuela')
+        .select('cedula, rol, id_escuela, email, telefono')
         .eq('cedula', cedRep)
         .maybeSingle();
+
+      // Generar email válido por defecto si no fue provisto (evita violar restricción NOT NULL en solicitud_cupos)
+      const finalEmailRep = emailRep || (userExiste?.email || '').trim() || `rep.${cleanCedula(cedRep)}@sigae.local`;
 
       if (!userExiste) {
         const { error: errUser } = await supabase.from('usuarios').insert([{
@@ -2768,7 +2779,7 @@ export const GestionAdmisiones: React.FC = () => {
           nombre_completo: nomCompletoRep,
           rol: 'Representante',
           id_escuela: escEst,
-          email: emailRep || null,
+          email: finalEmailRep,
           telefono: telRep || null,
           estado: 'Activo',
           primer_ingreso: true,
@@ -2804,12 +2815,14 @@ export const GestionAdmisiones: React.FC = () => {
         representante_nombres: nomRep,
         representante_apellidos: apeRep,
         representante_telefono: telRep || null,
-        representante_email: emailRep || null,
+        representante_email: finalEmailRep,
         parentesco: parentesco,
         representante_parentesco: parentesco,
         representante_trabaja_pdvsa: formRegistroDirecto.trabaja_pdvsa ? 'Sí' : 'No',
         pdvsa_condicion_laboral: formRegistroDirecto.trabaja_pdvsa ? formRegistroDirecto.pdvsa_condicion_laboral || null : null,
         pdvsa_tipo_nomina: formRegistroDirecto.trabaja_pdvsa ? formRegistroDirecto.pdvsa_tipo_nomina || null : null,
+        requiere_transporte: false,
+        ruta_transporte: '',
         estado: estadoFinal,
         observaciones: obsDirecto,
         creado_por: user?.cedula || 'Dirección'
@@ -2829,8 +2842,9 @@ export const GestionAdmisiones: React.FC = () => {
           ...payloadSolicitud,
           id: solInsertada?.id,
           seccion_actual: seccionEst,
-          origen_admision: 'directo_extemporaneo',
-          formalizado_en_fisico: true
+          origen_admision: 'nuevo_ingreso',
+          formalizado_en_fisico: true,
+          requiere_transporte: false
         };
 
         const payloadVincRow = {
@@ -2843,6 +2857,7 @@ export const GestionAdmisiones: React.FC = () => {
           grado_actual: gradoEst,
           seccion_actual: seccionEst,
           codigo_escuela: escEst,
+          codigo_unico: codUnico,
           estado: 'Activo',
           datos_actualizados: datosActPayload,
           creado_por: `Admisión Directa - ${user?.nombre_completo || user?.cedula || 'SIGAE'}`
@@ -3130,7 +3145,7 @@ export const GestionAdmisiones: React.FC = () => {
           representante_nombres: nomRep,
           representante_apellidos: apeRep,
           representante_telefono: formHabilitar.representante_telefono?.trim() || null,
-          representante_email: formHabilitar.representante_email?.trim() || null,
+          representante_email: formHabilitar.representante_email?.trim() || `rep.${cleanCedula(cedRep)}@sigae.local`,
           estudiante_cedula: cleanCedula(formHabilitar.estudiante_cedula) || null,
           estudiante_nombres: nomEst,
           estudiante_apellidos: apeEst,
