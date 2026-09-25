@@ -2756,9 +2756,15 @@ export const GestionAdmisiones: React.FC = () => {
 
     try {
       const codUnico = generarCodigoUnicoAdmision(escEst);
-      const cedEst = sinCedulaEstudianteDirecto || !cleanCedula(formRegistroDirecto.estudiante_cedula)
-        ? `ESC-${codUnico}`
-        : cleanCedula(formRegistroDirecto.estudiante_cedula);
+      const anioCorto = new Date().getFullYear().toString().slice(-2);
+      const escUpper = (escEst || 'sb').toUpperCase().slice(0, 2);
+      const randomNum = Math.floor(10000000 + Math.random() * 90000000);
+      const cedulaEscolarAuto = `ESC-${escUpper}${anioCorto}-${randomNum}`; // 17 caracteres (ej: ESC-SB26-48291048)
+
+      const cedEstLimpia = cleanCedula(formRegistroDirecto.estudiante_cedula);
+      const cedEst = sinCedulaEstudianteDirecto || !cedEstLimpia
+        ? cedulaEscolarAuto
+        : cedEstLimpia.slice(0, 20);
       const nomCompletoRep = `${nomRep} ${apeRep}`.trim();
       const nomCompletoEst = `${nomEst} ${apeEst}`.trim();
       const estadoFinal = formRegistroDirecto.estado_ingreso;
@@ -2825,7 +2831,7 @@ export const GestionAdmisiones: React.FC = () => {
         ruta_transporte: '',
         estado: estadoFinal,
         observaciones: obsDirecto,
-        creado_por: user?.cedula || 'Dirección'
+        creado_por: (user?.cedula || 'Dirección').slice(0, 20)
       };
 
       const { data: solInsertada, error: errSol } = await supabase
@@ -2857,7 +2863,6 @@ export const GestionAdmisiones: React.FC = () => {
           grado_actual: gradoEst,
           seccion_actual: seccionEst,
           codigo_escuela: escEst,
-          codigo_unico: codUnico,
           estado: 'Activo',
           datos_actualizados: datosActPayload,
           creado_por: `Admisión Directa - ${user?.nombre_completo || user?.cedula || 'SIGAE'}`
@@ -11417,7 +11422,7 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                           {sinCedulaEstudianteDirecto ? (
                             <div className="py-2 px-3 bg-light rounded border text-muted small d-flex align-items-center gap-2">
                               <i className="bi bi-magic text-success"></i>
-                              <span>Se asignará automáticamente el identificador oficial <b>ESC-SC-...</b></span>
+                              <span>Se asignará automáticamente la Cédula Escolar oficial (ej. <b>ESC-{(formRegistroDirecto.codigo_escuela || 'sb').toUpperCase()}{new Date().getFullYear().toString().slice(-2)}-...</b>)</span>
                             </div>
                           ) : (
                             <input
