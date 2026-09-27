@@ -460,6 +460,11 @@ export const TransporteEscolar = () => {
       localStorage.setItem('sigae_escuela_activa', escuelaAsignada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
       return;
     }
+    const globalEsc = (localStorage.getItem('sigae_escuela_codigo') || '').toLowerCase();
+    if ((globalEsc === 'sb' || globalEsc === 'lb') && escCodigo !== globalEsc && !escuelaAsignada) {
+      setEscCodigo(globalEsc as 'sb' | 'lb');
+      return;
+    }
     const hasSB = tieneAccesoEscuelaTransporte('sb');
     const hasLB = tieneAccesoEscuelaTransporte('lb');
 
@@ -2275,62 +2280,36 @@ export const TransporteEscolar = () => {
         <div className="px-3 px-md-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
           {/* Selector de Sede y Alertas */}
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {!escuelaAsignada && tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') ? (
-              <div className="btn-group bg-white rounded-pill p-0.5 shadow-xs border">
-                <button 
-                  onClick={() => setEscCodigo('sb')} 
-                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escCodigo === 'sb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
-                  style={{
-                    backgroundColor: escCodigo === 'sb' ? '#f97316' : undefined,
-                    borderColor: escCodigo === 'sb' ? '#ea580c' : undefined,
-                    fontSize: '0.78rem'
-                  }}
-                >
-                  UE Santa Bárbara
-                </button>
-                <button 
-                  onClick={() => setEscCodigo('lb')} 
-                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escCodigo === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
-                  style={{
-                    backgroundColor: escCodigo === 'lb' ? '#f97316' : undefined,
-                    borderColor: escCodigo === 'lb' ? '#ea580c' : undefined,
-                    fontSize: '0.78rem'
-                  }}
-                >
-                  UE Libertador Bolívar
-                </button>
-              </div>
-            ) : (
-              <div 
-                className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-white border shadow-xs"
-                title={`Coordinación asignada exclusivamente a ${escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}`}
+            {/* Badge Informativo de Sede Activa (Gobernada por el Selector Global Superior del Sistema) */}
+            <div 
+              className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-white border shadow-xs"
+              title={`Sede institucional activa: ${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}`}
+            >
+              <span 
+                className="badge rounded-pill text-white fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5"
+                style={{ 
+                  backgroundColor: escCodigo === 'sb' ? '#0284c7' : '#059669', 
+                  fontSize: '0.8rem'
+                }}
               >
+                <i className="bi bi-building"></i>
+                <span>{escCodigo === 'sb' ? 'Sede: U.E. Santa Bárbara' : 'Sede: U.E. Libertador Bolívar'}</span>
+              </span>
+              {esCoordinador && (
                 <span 
-                  className="badge rounded-pill text-white fw-bold px-2.5 py-1"
+                  className="badge rounded-pill border px-2 py-0.5 fw-bold"
                   style={{ 
-                    backgroundColor: escCodigo === 'sb' ? '#0284c7' : '#059669', 
-                    fontSize: '0.76rem'
+                    fontSize: '0.72rem', 
+                    backgroundColor: '#fffbeb', 
+                    borderColor: '#fde68a',
+                    color: '#b45309'
                   }}
                 >
-                  <i className="bi bi-building me-1"></i>
-                  {escCodigo === 'sb' ? 'Sede: U.E. Santa Bárbara' : 'Sede: U.E. Libertador Bolívar'}
+                  <i className="bi bi-person-badge-fill text-warning me-1"></i>
+                  Coordinación {escCodigo.toUpperCase()}
                 </span>
-                {esCoordinador && (
-                  <span 
-                    className="badge rounded-pill border px-2 py-0.5 fw-bold"
-                    style={{ 
-                      fontSize: '0.72rem', 
-                      backgroundColor: '#fffbeb', 
-                      borderColor: '#fde68a',
-                      color: '#b45309'
-                    }}
-                  >
-                    <i className="bi bi-person-badge-fill text-warning me-1"></i>
-                    Coordinación {escCodigo.toUpperCase()}
-                  </span>
-                )}
-              </div>
-            )}
+              )}
+            </div>
 
             <button
               onClick={requestNotifPermission}
