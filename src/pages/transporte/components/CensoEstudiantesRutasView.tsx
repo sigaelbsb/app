@@ -112,21 +112,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     return null;
   }, [user, isSuper, escuelaAsignada, initialEscuela]);
 
-  // Filtro de Escuela: 'sb' (UE Santa Bárbara) | 'lb' (UE Libertador Bolívar) - Cada escuela opera su transporte por separado
-  const [filtroEscuela, setFiltroEscuela] = useState<'sb' | 'lb'>(() => {
-    if (sedeRestringida) return sedeRestringida;
-    if (escuelaAsignada === 'sb' || escuelaAsignada === 'lb') return escuelaAsignada;
-    return initialEscuela === 'lb' ? 'lb' : 'sb';
-  });
-
-  // Sincronizar automáticamente con la sede activa del módulo de Transporte
-  useEffect(() => {
-    if (sedeRestringida) {
-      setFiltroEscuela(sedeRestringida);
-    } else if (initialEscuela === 'sb' || initialEscuela === 'lb') {
-      setFiltroEscuela(initialEscuela);
-    }
+  // La sede institucional se sincroniza directamente con la escuela activa seleccionada en la parte superior
+  const filtroEscuela: 'sb' | 'lb' = useMemo(() => {
+    if (sedeRestringida === 'sb' || sedeRestringida === 'lb') return sedeRestringida;
+    if (initialEscuela === 'sb' || initialEscuela === 'lb') return initialEscuela;
+    return 'lb';
   }, [sedeRestringida, initialEscuela]);
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtroEscuela]);
   
   // Pestaña activa del submódulo
   const [tabActiva, setTabActiva] = useState<'jerarquia' | 'ranking' | 'padron' | 'regulares_pendientes' | 'por_asignar'>('jerarquia');
@@ -1183,64 +1178,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         </div>
       </div>
 
-      {/* ── SELECTOR DE ESCUELAS TIPO PILL ── */}
-      <div className="p-3 bg-white rounded-4 border shadow-xs mb-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
-        <div className="d-flex align-items-center gap-2">
-          <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill fw-bold" style={{ fontSize: '0.78rem' }}>
-            <i className="bi bi-building me-1.5 text-primary"></i>Sede / Escuela:
-          </span>
-          {sedeRestringida ? (
-            <div className="d-flex align-items-center gap-2">
-              <span 
-                className="badge rounded-pill text-white fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5"
-                style={{ 
-                  backgroundColor: sedeRestringida === 'sb' ? '#0284c7' : '#059669', 
-                  fontSize: '0.82rem'
-                }}
-              >
-                <i className="bi bi-shield-lock-fill"></i>
-                <span>{sedeRestringida === 'sb' ? '🏫 U.E. Santa Bárbara' : '🏫 U.E. Libertador Bolívar'}</span>
-              </span>
-              <span className="badge bg-light text-secondary border rounded-pill px-2.5 py-1" style={{ fontSize: '0.72rem' }}>
-                <i className="bi bi-person-check-fill me-1 text-success"></i>Coordinación Asignada Exclusiva
-              </span>
-            </div>
-          ) : (
-            <div className="btn-group p-1 bg-light rounded-pill border shadow-xs" role="group">
-              <button
-                type="button"
-                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'sb' ? 'btn-primary shadow-xs text-white' : 'btn-white text-muted border-0'}`}
-                style={{ 
-                  fontSize: '0.8rem',
-                  backgroundColor: filtroEscuela === 'sb' ? '#f97316' : undefined,
-                  borderColor: filtroEscuela === 'sb' ? '#ea580c' : undefined
-                }}
-                onClick={() => { setFiltroEscuela('sb'); setPaginaActual(1); }}
-              >
-                🏫 U.E. Santa Bárbara ({metrics.countSB})
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'lb' ? 'btn-primary shadow-xs text-white' : 'btn-white text-muted border-0'}`}
-                style={{ 
-                  fontSize: '0.8rem',
-                  backgroundColor: filtroEscuela === 'lb' ? '#f97316' : undefined,
-                  borderColor: filtroEscuela === 'lb' ? '#ea580c' : undefined
-                }}
-                onClick={() => { setFiltroEscuela('lb'); setPaginaActual(1); }}
-              >
-                🏫 U.E. Libertador Bolívar ({metrics.countLB})
-              </button>
-            </div>
-          )}
-        </div>
 
-        <div className="d-flex align-items-center gap-2 text-muted small">
-          <span className="badge bg-success-subtle text-success border border-success rounded-pill px-2.5 py-1 fw-bold">
-            <i className="bi bi-check2-all me-1"></i>Paginación total sin límite de 1.000 filas
-          </span>
-        </div>
-      </div>
 
       {/* ── BARRA DE TELEMETRÍA: MATRÍCULA ESCOLAR REAL (KPIS) ── */}
       <div className="row g-2 g-md-3 mb-3">
