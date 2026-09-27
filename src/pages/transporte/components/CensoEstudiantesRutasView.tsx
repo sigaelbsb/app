@@ -125,6 +125,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
   
   // Pestaña activa del submódulo
   const [tabActiva, setTabActiva] = useState<'jerarquia' | 'ranking' | 'padron' | 'regulares_pendientes' | 'por_asignar'>('jerarquia');
+  
+  // Sub-tipo de ranking: 'rutas' | 'paradas'
+  const [tipoRanking, setTipoRanking] = useState<'rutas' | 'paradas'>('rutas');
 
   // Estados de datos
   const [loading, setLoading] = useState(true);
@@ -798,6 +801,13 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     return listaFinal;
   }, [rutasDB, paradasDB, estudiantesFiltradosEscuela, filtroEscuela]);
 
+  // ── Ranking de Rutas con Mayor Demanda ──────────────────────────────────────
+  const rankingRutas = useMemo(() => {
+    return [...rutasJerarquia]
+      .filter(r => !r.esRutaPendientes)
+      .sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+  }, [rutasJerarquia]);
+
   // ── Ranking de Paradas con Mayor Demanda ────────────────────────────────────
   const rankingParadas = useMemo(() => {
     const mapaConteo: Record<string, {
@@ -1325,8 +1335,8 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               style={{ fontSize: '0.82rem' }}
               onClick={() => setTabActiva('ranking')}
             >
-              <i className="bi bi-bar-chart-fill"></i>
-              <span>Ranking de Paradas ({rankingParadas.length})</span>
+              <i className="bi bi-trophy-fill"></i>
+              <span>Ranking de Rutas y Paradas ({rankingRutas.length} / {rankingParadas.length})</span>
             </button>
           </li>
           <li className="nav-item">
@@ -1747,121 +1757,304 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          PESTAÑA 2: RANKING DE PARADAS CON MAYOR DEMANDA
+          PESTAÑA 2: RANKINGS DE DEMANDA (POR RUTAS Y POR PARADAS)
       ══════════════════════════════════════════════════════════════════════════ */}
       {!loading && tabActiva === 'ranking' && (
         <div className="bg-white rounded-4 border shadow-xs p-3 p-md-4">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
             <div>
-              <h5 className="fw-bold text-dark mb-0">Ranking de Paradas por Demanda de Pasajeros</h5>
+              <h5 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                <i className="bi bi-trophy-fill text-warning"></i>
+                <span>Ranking de Demanda {tipoRanking === 'rutas' ? 'por Rutas Institucionales' : 'por Paradas Oficiales'}</span>
+              </h5>
               <p className="text-muted small mb-0">
-                Puntos de mayor afluencia estudiantil para dimensionar la capacidad de las unidades y optimizar el tiempo de recorrido.
+                {tipoRanking === 'rutas'
+                  ? 'Análisis comparativo de volumen de pasajeros por ruta de transporte escolar para dimensionar unidades, choferes y docentes.'
+                  : 'Puntos de mayor afluencia estudiantil para dimensionar la capacidad de las unidades y optimizar el tiempo de recorrido.'}
               </p>
             </div>
-            <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold" style={{ fontSize: '0.78rem' }}>
-              Total: {rankingParadas.length} Paradas Activas
-            </span>
+
+            {/* Selector de Tipo de Ranking: Rutas vs Paradas */}
+            <div className="d-flex align-items-center gap-2">
+              <div className="btn-group p-1 bg-light rounded-pill border shadow-xs" role="group">
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${tipoRanking === 'rutas' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
+                  style={{ fontSize: '0.8rem' }}
+                  onClick={() => setTipoRanking('rutas')}
+                >
+                  <i className="bi bi-signpost-2-fill me-1.5"></i>
+                  Ranking por Rutas ({rankingRutas.length})
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${tipoRanking === 'paradas' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
+                  style={{ fontSize: '0.8rem' }}
+                  onClick={() => setTipoRanking('paradas')}
+                >
+                  <i className="bi bi-geo-alt-fill me-1.5"></i>
+                  Ranking por Paradas ({rankingParadas.length})
+                </button>
+              </div>
+            </div>
           </div>
 
-          {rankingParadas.length === 0 ? (
-            <div className="p-4 text-center text-muted">No hay datos de paradas con demanda confirmada.</div>
-          ) : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
-                <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.7rem' }}>
-                  <tr>
-                    <th style={{ width: '40px' }} className="text-center">Pos.</th>
-                    <th>Parada Oficial</th>
-                    <th>Ruta Perteneciente</th>
-                    <th>Escuela</th>
-                    <th style={{ width: '240px' }}>Volumen y Distribución</th>
-                    <th className="text-center">Total Estudiantes</th>
-                    <th className="text-end">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankingParadas.map((item, idx) => {
-                    const maxVal = rankingParadas[0]?.total || 1;
-                    const pctBar = Math.round((item.total / maxVal) * 100);
-                    return (
-                      <tr key={idx}>
-                        <td className="text-center fw-black">
-                          {idx === 0 && <span className="badge bg-warning text-dark rounded-circle p-1.5">🥇</span>}
-                          {idx === 1 && <span className="badge bg-secondary text-white rounded-circle p-1.5">🥈</span>}
-                          {idx === 2 && <span className="badge text-dark rounded-circle p-1.5" style={{ background: '#fed7aa' }}>🥉</span>}
-                          {idx > 2 && <span className="text-muted">#{idx + 1}</span>}
-                        </td>
-                        <td>
-                          <div className="fw-bold text-dark d-flex align-items-center gap-1.5">
-                            <i className="bi bi-geo-alt-fill text-danger"></i>
-                            <span>{item.nombre_parada}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="badge bg-light text-dark border rounded-pill px-2 py-0.5">
-                            {item.ruta_nombre}
-                          </span>
-                        </td>
-                        <td>
-                          <span 
-                            className="badge rounded-pill fw-bold px-2 py-0.5"
-                            style={{ 
-                              fontSize: '0.68rem',
-                              background: item.escuela_codigo === 'sb' ? '#ecfdf5' : '#f0f9ff',
-                              color: item.escuela_codigo === 'sb' ? '#047857' : '#0369a1',
-                              border: `1px solid ${item.escuela_codigo === 'sb' ? '#a7f3d0' : '#bae6fd'}`
-                            }}
-                          >
-                            {item.escuela_codigo.toUpperCase()}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="d-flex flex-column gap-1">
-                            <div className="progress" style={{ height: '8px', borderRadius: '4px' }}>
+          {/* ── SUB-VISTA 1: RANKING POR RUTAS ── */}
+          {tipoRanking === 'rutas' && (
+            rankingRutas.length === 0 ? (
+              <div className="p-4 text-center text-muted">No hay rutas configuradas o con demanda en esta sede.</div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
+                  <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.7rem' }}>
+                    <tr>
+                      <th style={{ width: '45px' }} className="text-center">Pos.</th>
+                      <th>Ruta de Transporte</th>
+                      <th>Personal Asignado</th>
+                      <th className="text-center">Paradas con Demanda</th>
+                      <th style={{ width: '250px' }}>Volumen y Distribución</th>
+                      <th className="text-center">Total Pasajeros</th>
+                      <th className="text-center">% Cuota Demanda</th>
+                      <th className="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankingRutas.map((item, idx) => {
+                      const maxRutaVal = rankingRutas[0]?.totalEstudiantes || 1;
+                      const pctBar = maxRutaVal > 0 ? Math.round((item.totalEstudiantes / maxRutaVal) * 100) : 0;
+                      const pctTotalDemanda = metrics.transporteConfirmado > 0 
+                        ? ((item.totalEstudiantes / metrics.transporteConfirmado) * 100).toFixed(1)
+                        : '0';
+                      const paradasConDemanda = item.paradas.filter((p: any) => p.total > 0).length;
+
+                      return (
+                        <tr key={item.id} className={item.esRutaCaminantes ? 'table-light' : ''}>
+                          <td className="text-center fw-black">
+                            {idx === 0 && <span className="badge bg-warning text-dark rounded-circle p-1.5 fs-6 shadow-xs">🥇</span>}
+                            {idx === 1 && <span className="badge bg-secondary text-white rounded-circle p-1.5 fs-6 shadow-xs">🥈</span>}
+                            {idx === 2 && <span className="badge text-dark rounded-circle p-1.5 fs-6 shadow-xs" style={{ background: '#fed7aa' }}>🥉</span>}
+                            {idx > 2 && <span className="text-muted fw-bold">#{idx + 1}</span>}
+                          </td>
+                          <td>
+                            <div className="d-flex align-items-center gap-2">
                               <div 
-                                className="progress-bar bg-primary" 
-                                role="progressbar" 
-                                style={{ width: `${pctBar}%` }} 
-                                aria-valuenow={pctBar} 
-                                aria-valuemin={0} 
-                                aria-valuemax={100}
-                              ></div>
+                                className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                                style={{ 
+                                  width: '36px', 
+                                  height: '36px', 
+                                  background: item.esRutaCaminantes ? '#f0fdf4' : '#eff6ff',
+                                  color: item.esRutaCaminantes ? '#16a34a' : '#2563eb',
+                                  fontSize: '1.1rem'
+                                }}
+                              >
+                                <i className={item.esRutaCaminantes ? 'bi bi-person-walking' : 'bi bi-bus-front-fill'}></i>
+                              </div>
+                              <div>
+                                <div className="fw-bold text-dark d-flex align-items-center gap-1.5">
+                                  <span>{item.nombre}</span>
+                                  {item.esRutaCaminantes && (
+                                    <span className="badge bg-success-subtle text-success rounded-pill px-2 py-0.5" style={{ fontSize: '0.65rem' }}>
+                                      A Pie / Sin Bus
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-muted small" style={{ fontSize: '0.72rem' }}>
+                                  Sede: {item.escuelaNombre}
+                                </span>
+                              </div>
                             </div>
-                            <div className="d-flex justify-content-between text-muted" style={{ fontSize: '0.68rem' }}>
-                              <span>Act: <b>{item.actualizados}</b></span>
-                              <span>En Proc: <b>{item.enProceso}</b></span>
-                              <span>Nuevos: <b>{item.nuevos}</b></span>
+                          </td>
+                          <td>
+                            {item.esRutaCaminantes ? (
+                              <span className="badge bg-light text-muted border px-2 py-1">No aplica (traslado peatonal)</span>
+                            ) : (
+                              <div className="small">
+                                <div className="d-flex align-items-center gap-1 text-dark fw-semibold">
+                                  <i className="bi bi-person-badge text-primary" style={{ fontSize: '0.75rem' }}></i>
+                                  <span>Chofer: <b>{item.chofer_nombre}</b></span>
+                                </div>
+                                <div className="d-flex align-items-center gap-1 text-muted" style={{ fontSize: '0.72rem' }}>
+                                  <i className="bi bi-person-heart text-secondary" style={{ fontSize: '0.75rem' }}></i>
+                                  <span>Docente: {item.docente_nombre}</span>
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {item.esRutaCaminantes ? (
+                              <span className="badge bg-light text-dark border px-2 py-1">3 Niveles Académicos</span>
+                            ) : (
+                              <div className="d-flex flex-column align-items-center">
+                                <span className="badge bg-light text-dark border px-2 py-1 fw-bold">
+                                  {paradasConDemanda} {paradasConDemanda === 1 ? 'parada activa' : 'paradas activas'}
+                                </span>
+                                {item.paradas.length > 0 && (
+                                  <span className="text-muted extra-small" style={{ fontSize: '0.68rem' }}>
+                                    de {item.paradas.length} configuradas
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <div className="d-flex flex-column gap-1">
+                              <div className="progress" style={{ height: '9px', borderRadius: '4px' }}>
+                                <div 
+                                  className={`progress-bar ${item.esRutaCaminantes ? 'bg-success' : 'bg-primary'}`} 
+                                  role="progressbar" 
+                                  style={{ width: `${pctBar}%` }} 
+                                  aria-valuenow={pctBar} 
+                                  aria-valuemin={0} 
+                                  aria-valuemax={100}
+                                ></div>
+                              </div>
+                              <div className="d-flex justify-content-between text-muted" style={{ fontSize: '0.68rem' }}>
+                                <span>Act: <b>{item.totalActualizados}</b></span>
+                                <span>En Proc: <b>{item.totalEnProceso}</b></span>
+                                <span>Nuevos: <b>{item.totalNuevos}</b></span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="text-center">
-                          <span className="badge bg-primary rounded-pill px-2.5 py-1 fw-bold fs-6">
-                            {item.total}
-                          </span>
-                        </td>
-                        <td className="text-end">
-                          <button
-                            className="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1 fw-bold d-flex align-items-center gap-1 ms-auto"
-                            style={{ fontSize: '0.72rem' }}
-                            onClick={() => {
-                              setModalData({
-                                titulo: `Estudiantes en: ${item.nombre_parada}`,
-                                subtitulo: `Ruta: ${item.ruta_nombre} (${item.escuelaNombre})`,
-                                escuela: item.escuela_codigo,
-                                estudiantes: item.estudiantes
-                              });
-                            }}
-                          >
-                            <i className="bi bi-people-fill"></i>
-                            <span>Ver Estudiantes</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                          <td className="text-center">
+                            <span 
+                              className={`badge rounded-pill px-3 py-1.5 fw-black fs-6 shadow-xs ${item.esRutaCaminantes ? 'bg-success text-white' : 'bg-primary text-white'}`}
+                            >
+                              {item.totalEstudiantes}
+                            </span>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-light text-dark border px-2 py-1 fw-bold" style={{ fontSize: '0.75rem' }}>
+                              {item.esRutaCaminantes ? `${metrics.caminantesPct}% Matrícula` : `${pctTotalDemanda}% Bus`}
+                            </span>
+                          </td>
+                          <td className="text-end">
+                            <button
+                              className="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1 fw-bold d-flex align-items-center gap-1 ms-auto shadow-xs"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setModalData({
+                                  titulo: `Estudiantes en: ${item.nombre}`,
+                                  subtitulo: `Sede: ${item.escuelaNombre} | ${item.esRutaCaminantes ? 'Ruta 0 - Caminantes (A pie)' : `Chofer: ${item.chofer_nombre} | Docente: ${item.docente_nombre}`}`,
+                                  escuela: item.escuela_codigo,
+                                  estudiantes: item.estudiantes
+                                });
+                              }}
+                            >
+                              <i className="bi bi-people-fill"></i>
+                              <span>Ver Estudiantes</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+
+          {/* ── SUB-VISTA 2: RANKING POR PARADAS ── */}
+          {tipoRanking === 'paradas' && (
+            rankingParadas.length === 0 ? (
+              <div className="p-4 text-center text-muted">No hay datos de paradas con demanda confirmada.</div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
+                  <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.7rem' }}>
+                    <tr>
+                      <th style={{ width: '40px' }} className="text-center">Pos.</th>
+                      <th>Parada Oficial</th>
+                      <th>Ruta Perteneciente</th>
+                      <th>Escuela</th>
+                      <th style={{ width: '240px' }}>Volumen y Distribución</th>
+                      <th className="text-center">Total Estudiantes</th>
+                      <th className="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankingParadas.map((item, idx) => {
+                      const maxVal = rankingParadas[0]?.total || 1;
+                      const pctBar = Math.round((item.total / maxVal) * 100);
+                      return (
+                        <tr key={idx}>
+                          <td className="text-center fw-black">
+                            {idx === 0 && <span className="badge bg-warning text-dark rounded-circle p-1.5">🥇</span>}
+                            {idx === 1 && <span className="badge bg-secondary text-white rounded-circle p-1.5">🥈</span>}
+                            {idx === 2 && <span className="badge text-dark rounded-circle p-1.5" style={{ background: '#fed7aa' }}>🥉</span>}
+                            {idx > 2 && <span className="text-muted">#{idx + 1}</span>}
+                          </td>
+                          <td>
+                            <div className="fw-bold text-dark d-flex align-items-center gap-1.5">
+                              <i className="bi bi-geo-alt-fill text-danger"></i>
+                              <span>{item.nombre_parada}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge bg-light text-dark border rounded-pill px-2 py-0.5">
+                              {item.ruta_nombre}
+                            </span>
+                          </td>
+                          <td>
+                            <span 
+                              className="badge rounded-pill fw-bold px-2 py-0.5"
+                              style={{ 
+                                fontSize: '0.68rem',
+                                background: item.escuela_codigo === 'sb' ? '#ecfdf5' : '#f0f9ff',
+                                color: item.escuela_codigo === 'sb' ? '#047857' : '#0369a1',
+                                border: `1px solid ${item.escuela_codigo === 'sb' ? '#a7f3d0' : '#bae6fd'}`
+                              }}
+                            >
+                              {item.escuela_codigo.toUpperCase()}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="d-flex flex-column gap-1">
+                              <div className="progress" style={{ height: '8px', borderRadius: '4px' }}>
+                                <div 
+                                  className="progress-bar bg-primary" 
+                                  role="progressbar" 
+                                  style={{ width: `${pctBar}%` }} 
+                                  aria-valuenow={pctBar} 
+                                  aria-valuemin={0} 
+                                  aria-valuemax={100}
+                                ></div>
+                              </div>
+                              <div className="d-flex justify-content-between text-muted" style={{ fontSize: '0.68rem' }}>
+                                <span>Act: <b>{item.actualizados}</b></span>
+                                <span>En Proc: <b>{item.enProceso}</b></span>
+                                <span>Nuevos: <b>{item.nuevos}</b></span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-primary rounded-pill px-2.5 py-1 fw-bold fs-6">
+                              {item.total}
+                            </span>
+                          </td>
+                          <td className="text-end">
+                            <button
+                              className="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1 fw-bold d-flex align-items-center gap-1 ms-auto"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setModalData({
+                                  titulo: `Estudiantes en: ${item.nombre_parada}`,
+                                  subtitulo: `Ruta: ${item.ruta_nombre} (${item.escuelaNombre})`,
+                                  escuela: item.escuela_codigo,
+                                  estudiantes: item.estudiantes
+                                });
+                              }}
+                            >
+                              <i className="bi bi-people-fill"></i>
+                              <span>Ver Estudiantes</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </div>
       )}
