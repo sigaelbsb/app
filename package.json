@@ -17,6 +17,7 @@
     "cap:open:android": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
     "@supabase/supabase-js": "^2.108.2",
     "browser-image-compression": "^2.0.2",
     "fuse.js": "^7.4.2",

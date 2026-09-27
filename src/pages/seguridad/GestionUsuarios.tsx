@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { iniciarEmulacionSesion } from '../../utils/sessionHelper';
 import { formatPhoneNumber, toTitulo } from '../../lib/formatters';
 import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
 import { reproducirVozBienvenida, detenerTodosLosSonidos } from '../../components/ModalAsignacionSorpresa';
@@ -529,20 +530,15 @@ export const GestionUsuarios = () => {
       id_escuela: u.id_escuela || 'sb'
     };
 
-    localStorage.setItem('usuario_sigae', JSON.stringify(usuarioEmulado));
-    localStorage.setItem('sesion_sigae', 'activa');
-    sessionStorage.setItem('sigae_emulacion_activa', 'true');
-    localStorage.removeItem('sigae_cache_permisos');
-    localStorage.removeItem('sigae_cache_full_permisos');
-
     const targetEscuela = (u.id_escuela && u.id_escuela !== 'ambas' && u.id_escuela !== 'todas')
       ? u.id_escuela
       : (localStorage.getItem('sigae_escuela_codigo') || 'sb');
-    localStorage.setItem('sigae_escuela_codigo', targetEscuela);
-    localStorage.setItem('sigae_escuela_activa', targetEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    const targetEscuelaNombre = targetEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+
+    iniciarEmulacionSesion(usuarioEmulado, targetEscuela, targetEscuelaNombre);
 
     auditar('Gestión de Usuarios', 'Virtualizar Ingreso', `El usuario ${user?.nombre} virtualizó la cuenta de: ${u.nombre_completo} (${u.cedula})`);
-    window.location.href = '/';
+    navigate('/', { replace: true });
   };
 
   // 2. Resetear Contraseña Individual y Solicitudes de Reseteo (con notificación WhatsApp oficial)

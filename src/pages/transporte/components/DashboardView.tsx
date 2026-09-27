@@ -12,6 +12,7 @@ interface DashboardViewProps {
   rutas: any[];
   user: any;
   compartirRuta: (ruta: any) => void;
+  escCodigo?: 'sb' | 'lb';
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -24,7 +25,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   AnimatedBusSVG,
   rutas,
   user,
-  compartirRuta
+  compartirRuta,
+  escCodigo
 }) => {
   const [showList, setShowList] = useState(false);
 
@@ -160,7 +162,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         )}
 
-        {/* ── Tarjeta: Censo y Demanda Estudiantil (Rutas y Paradas - Ambas Escuelas) ── */}
+        {/* ── Tarjeta: Estadísticas de Transporte (Demanda de Rutas y Paradas) ── */}
         <div className="col-12 col-sm-6 col-xl-4 animate__animated animate__fadeInUp" style={{ animationDelay: '0.04s' }}>
           <div
             className="transporte-feature-card w-100"
@@ -170,20 +172,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }}
             onClick={() => setVistaActual('CensoEstudiantes')}
           >
-            <i className="bi bi-people-fill transporte-bg-watermark" style={{ color: '#2563eb' }}></i>
+            <i className="bi bi-bar-chart-fill transporte-bg-watermark" style={{ color: '#2563eb' }}></i>
             
             <div className="d-flex align-items-center justify-content-between mb-3">
               <div className="transporte-card-icon shadow-xs" style={{ background: '#dbeafe', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-                <i className="bi bi-people-fill"></i>
+                <i className="bi bi-bar-chart-fill"></i>
               </div>
               <span className="badge rounded-pill px-2.5 py-1" style={{ background: '#dbeafe', color: '#1e40af', fontSize: '0.7rem', fontWeight: 700 }}>
-                Ambas Escuelas
+                {escCodigo === 'sb' ? '🏫 U.E. Santa Bárbara' : '🏫 U.E. Libertador Bolívar'}
               </span>
             </div>
 
-            <h4 className="fw-bold text-dark mb-1" style={{ fontSize: '1.15rem' }}>Censo y Demanda Estudiantil</h4>
+            <h4 className="fw-bold text-dark mb-1" style={{ fontSize: '1.15rem' }}>Estadísticas de Transporte</h4>
             <p className="text-muted small mb-3" style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
-              Estudiantes por ruta y por parada basado en actualización de datos de regulares y nuevos ingresos.
+              Balance integral de demanda de rutas, paradas y matrícula escolar por sede institucional.
             </p>
             
             <div className="d-flex gap-1.5 mb-3 flex-wrap">
@@ -200,7 +202,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div className="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
               <span className="fw-bold small d-flex align-items-center gap-1" style={{ color: '#2563eb' }}>
-                Ver Censo y Totales <i className="bi bi-arrow-right"></i>
+                Ver Estadísticas <i className="bi bi-arrow-right"></i>
               </span>
               <i className="bi bi-chevron-right text-primary small"></i>
             </div>

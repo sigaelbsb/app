@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
+import { iniciarEmulacionSesion } from '../../utils/sessionHelper';
 
 const ESTRUCTURA_ACCESOS = {
   "Panel Principal": {
@@ -825,18 +826,11 @@ export const RolesPrivilegios = () => {
         nombre_real: user.nombre
       };
 
-      localStorage.setItem('usuario_sigae', JSON.stringify(usuarioEmulado));
-      localStorage.setItem('sesion_sigae', 'activa');
-      localStorage.setItem('sigae_escuela_codigo', targetEscuela);
-      localStorage.setItem('sigae_escuela_activa', targetEscuelaNombre);
-      sessionStorage.setItem('sigae_emulacion_activa', 'true');
-
-      localStorage.removeItem('sigae_cache_permisos');
-      localStorage.removeItem('sigae_cache_full_permisos');
+      iniciarEmulacionSesion(usuarioEmulado, targetEscuela, targetEscuelaNombre);
 
       auditar('Roles y Privilegios', 'Iniciar Emulación de Rol', `El usuario ${user.nombre} (${user.rol}) inició emulación del rol: "${rolObjetivo}" en ${targetEscuelaNombre}`);
 
-      window.location.href = '/';
+      navigate('/', { replace: true });
     }
   };
 

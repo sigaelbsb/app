@@ -611,7 +611,7 @@ export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial
             <div className="col-12 col-md-auto text-md-end text-center">
               <button
                 type="button"
-                onClick={() => window.location.href = '/categoria/Diseños'}
+                onClick={() => navigate('/categoria/Diseños')}
                 className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-2"
                 style={{ fontSize: '0.85rem', borderColor: '#fbcfe8' }}
               >

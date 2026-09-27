@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
@@ -607,6 +608,7 @@ export interface EditorConstanciasProps {
 }
 
 export const EditorConstancias: React.FC<EditorConstanciasProps> = ({ tipoInicial }) => {
+  const navigate = useNavigate();
   usePermisos();
   const [plantillas, setPlantillas] = useState<PlantillaConstancia[]>(PLANTILLAS_PREDETERMINADAS);
   const [plantillaActivaId, setPlantillaActivaId] = useState<string>(PLANTILLAS_PREDETERMINADAS[0].id);
@@ -1688,7 +1690,7 @@ export const EditorConstancias: React.FC<EditorConstanciasProps> = ({ tipoInicia
             <div className="col-12 col-md-auto text-md-end text-center">
               <button
                 type="button"
-                onClick={() => window.location.href = '/categoria/Diseños'}
+                onClick={() => navigate('/categoria/Diseños')}
                 className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-2"
                 style={{ fontSize: '0.85rem', borderColor: '#fbcfe8' }}
               >

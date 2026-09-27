@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { notificarCambioSesion } from '../utils/sessionHelper';
 
 const getInitialUser = () => {
   try {
@@ -165,7 +166,7 @@ export const usePermisos = () => {
               localStorage.removeItem('usuario_sigae');
               localStorage.removeItem('sigae_cache_permisos');
               localStorage.removeItem('sigae_cache_full_permisos');
-              window.location.href = '/';
+              notificarCambioSesion(null);
               return;
             }
           }

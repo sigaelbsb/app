@@ -138,28 +138,32 @@ export const TransporteEscolar = () => {
 
   // Identificar la escuela fija asignada del coordinador/usuario ('sb' | 'lb' | null)
   const escuelaAsignada = useMemo((): 'sb' | 'lb' | null => {
-    if (isSuperAdmin) return null;
+    // Si el usuario es Coordinador de Transporte, SIEMPRE está restringido a su sede institucional
+    const rolLower = (user?.rol || '').toLowerCase();
+    const cargoLower = (user?.cargo || '').toLowerCase();
+    const esCoordTrans = rolLower.includes('transporte') || cargoLower.includes('transporte');
 
-    // Si el usuario tiene acceso a ambas sedes, no está bloqueado a una sola sede
+    if (!esCoordTrans && isSuperAdmin) return null;
+
+    // 1. Por instituciones en perfil_acceso
     if (user?.perfil_acceso?.instituciones && Array.isArray(user.perfil_acceso.instituciones)) {
       const insts = user.perfil_acceso.instituciones.map((i: string) => i.toLowerCase());
       const hasSB = insts.some((i: string) => i.includes('santa b') || i === 'sb');
-      const hasLB = insts.some((i: string) => i.includes('bolívar') || i === 'lb');
-      if (hasSB && hasLB) return null;
+      const hasLB = insts.some((i: string) => i.includes('bolívar') || i.includes('bolivar') || i === 'lb');
       if (hasSB && !hasLB) return 'sb';
       if (hasLB && !hasSB) return 'lb';
+      if (hasSB && hasLB && !esCoordTrans) return null;
     }
 
-    // 1. Por id_escuela directo en objeto user
+    // 2. Por id_escuela directo en objeto user
     const uEsc = (user?.id_escuela || '').trim().toLowerCase();
     if (uEsc === 'sb' || uEsc === 'lb') return uEsc as 'sb' | 'lb';
 
-    // 2. Por cargo institucional específico de sede
-    const cargo = (user?.cargo || '').toLowerCase();
-    if (cargo.includes('(sb)') || cargo.includes('santa b')) return 'sb';
-    if (cargo.includes('(lb)') || cargo.includes('libertador') || cargo.includes('bolívar')) return 'lb';
+    // 3. Por cargo institucional específico de sede
+    if (cargoLower.includes('(sb)') || cargoLower.includes('santa b') || rolLower.includes('(sb)') || rolLower.includes('santa b')) return 'sb';
+    if (cargoLower.includes('(lb)') || cargoLower.includes('libertador') || cargoLower.includes('bolívar') || cargoLower.includes('bolivar') || rolLower.includes('(lb)')) return 'lb';
 
-    // 3. Por localStorage usuario_sigae
+    // 4. Por localStorage usuario_sigae
     try {
       const stored = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
       const sEsc = (stored?.id_escuela || '').trim().toLowerCase();
@@ -606,7 +610,16 @@ export const TransporteEscolar = () => {
       const p2 = Promise.resolve(supabase.from('transporte_rutas').select('*').eq('escuela_codigo', escCodigo).order('nombre', { ascending: true }))
         .then(res => { 
           if (res.error) throw res.error; 
-          const sorted = (res.data || []).slice().sort((a: any, b: any) => String(a.nombre || '').localeCompare(String(b.nombre || ''), undefined, { numeric: true, sensitivity: 'base' }));
+          const getNum = (str: string) => {
+            const m = String(str || '').match(/ruta\s*(\d+)/i) || String(str || '').match(/(\d+)/);
+            return m ? parseInt(m[1], 10) : 999;
+          };
+          const sorted = (res.data || []).slice().sort((a: any, b: any) => {
+            const nA = getNum(a.nombre);
+            const nB = getNum(b.nombre);
+            if (nA !== nB) return nA - nB;
+            return String(a.nombre || '').localeCompare(String(b.nombre || ''), undefined, { numeric: true, sensitivity: 'base' });
+          });
           setRutas(sorted); 
         })
         .catch((err: any) => { console.error("Error al cargar rutas:", err); throw err; });
@@ -2262,7 +2275,7 @@ export const TransporteEscolar = () => {
         <div className="px-3 px-md-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
           {/* Selector de Sede y Alertas */}
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') ? (
+            {!escuelaAsignada && tieneAccesoEscuelaTransporte('sb') && tieneAccesoEscuelaTransporte('lb') ? (
               <div className="btn-group bg-white rounded-pill p-0.5 shadow-xs border">
                 <button 
                   onClick={() => setEscCodigo('sb')} 
@@ -2332,10 +2345,10 @@ export const TransporteEscolar = () => {
               onClick={() => setVistaActual(vistaActual === 'CensoEstudiantes' ? 'dashboard' : 'CensoEstudiantes')}
               className={`btn btn-sm rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 ${vistaActual === 'CensoEstudiantes' ? 'btn-primary text-white shadow-sm' : 'btn-white bg-white text-dark border'}`}
               style={{ fontSize: '0.78rem' }}
-              title="Censo de estudiantes por rutas y paradas de ambas escuelas"
+              title="Estadísticas de Transporte: Balance de demanda, rutas y matrícula de ambas escuelas"
             >
-              <i className={`bi bi-people-fill ${vistaActual === 'CensoEstudiantes' ? 'text-white' : 'text-primary'}`}></i>
-              <span>Censo de Estudiantes</span>
+              <i className={`bi bi-bar-chart-fill ${vistaActual === 'CensoEstudiantes' ? 'text-white' : 'text-primary'}`}></i>
+              <span>Estadísticas de Transporte</span>
             </button>
           </div>
 
@@ -2519,6 +2532,7 @@ export const TransporteEscolar = () => {
           rutas={rutas}
           user={user}
           compartirRuta={compartirRuta}
+          escCodigo={escCodigo}
         />
       )}
 
@@ -2626,7 +2640,8 @@ export const TransporteEscolar = () => {
       {vistaActual === 'CensoEstudiantes' && (
         <CensoEstudiantesRutasView
           onBack={() => setVistaActual('dashboard')}
-          initialEscuela={escCodigo}
+          initialEscuela={escuelaAsignada || escCodigo}
+          escuelaAsignada={escuelaAsignada}
           user={user}
           canManageRutas={canManageRutas}
           isSuperAdmin={isSuperAdmin}

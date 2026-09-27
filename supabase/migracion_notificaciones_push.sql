@@ -35,3 +35,4 @@ CREATE POLICY "Permitir suscripciones push a usuarios SIGAE" ON public.notificac
 
 -- 4. Comentarios informativos
 COMMENT ON TABLE public.notificaciones_suscripciones IS 'Tokens criptográficos de Web Push (Chrome, Edge, Safari iOS) para notificaciones en segundo plano con la app cerrada y contador de insignia roja (Badging API).';
+

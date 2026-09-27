@@ -306,17 +306,24 @@ export const Dashboard = () => {
 
         let todosLosRegistros: any[] = [];
 
-        // 1. Cargar desde Supabase: estudiantes_vinculaciones
-        if (supabase) {
+        // 1. Cargar desde Supabase: estudiantes_vinculaciones (solo columnas esenciales, omitiendo fotos base64 y PDFs)
+        const cacheDashboardData = (window as any).__SIGAE_DASHBOARD_CACHE;
+        const now = Date.now();
+        const cacheValido = cacheDashboardData && (now - cacheDashboardData.timestamp < 60000);
+
+        if (cacheValido) {
+          todosLosRegistros = cacheDashboardData.registros || [];
+        } else if (supabase) {
           try {
             let page = 0;
             const pageSize = 1000;
             let hasMore = true;
+            const camposVinculaciones = 'id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, cedula_representante, nombres_representante, apellidos_representante, codigo_escuela, codigo_escuela_procedencia, codigo_unico, transporte_ruta, fecha_ultima_actualizacion, datos_actualizados, created_at';
 
             while (hasMore) {
               const { data: chunk, error: errChunk } = await supabase
                 .from('estudiantes_vinculaciones')
-                .select('*')
+                .select(camposVinculaciones)
                 .order('created_at', { ascending: false })
                 .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -332,17 +339,22 @@ export const Dashboard = () => {
             }
           } catch (e) {}
 
-          // Cargar también solicitud_cupos si hace falta
+          // Cargar también solicitud_cupos (solo columnas esenciales)
           try {
+            const camposCupos = 'id, nombres_estudiante, apellidos_estudiante, cedula_estudiante, estado_solicitud, codigo_escuela, id_escuela, grado_solicitado, created_at, datos_solicitud';
             const { data: dataCupos } = await supabase
               .from('solicitud_cupos')
-              .select('*')
+              .select(camposCupos)
               .limit(2000);
 
             if (dataCupos && dataCupos.length > 0) {
               todosLosRegistros = [...todosLosRegistros, ...dataCupos];
             }
           } catch (e) {}
+
+          if (todosLosRegistros.length > 0) {
+            (window as any).__SIGAE_DASHBOARD_CACHE = { timestamp: now, registros: todosLosRegistros };
+          }
         }
 
         // 2. Cargar también desde almacenamiento local

@@ -1,19 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../../lib/supabase';
 
 interface CensoEstudiantesRutasViewProps {
   onBack: () => void;
   initialEscuela: 'sb' | 'lb';
+  escuelaAsignada?: 'sb' | 'lb' | null;
   user: any;
   canManageRutas: boolean;
   isSuperAdmin: boolean;
 }
 
 export type CategoriaMatricula = 
-  | 'regular_actualizado'      // Regular que completó actualización de datos (ficha_completada)
-  | 'regular_en_proceso'        // Regular que inició actualización pero no ha finalizado
-  | 'regular_sin_iniciar'       // Regular que aún no ha iniciado la actualización
-  | 'nuevo_ingreso_formalizado';// Nuevo ingreso formalizado / admitido
+  | 'regular_actualizado'            // Regular que completó actualización de datos (ficha_completada)
+  | 'regular_en_proceso'              // Regular que inició actualización pero no ha finalizado
+  | 'regular_sin_iniciar'             // Regular que aún no ha iniciado la actualización
+  | 'nuevo_ingreso_cupo_otorgado'     // Aspirante con cupo otorgado en admisión (pendiente formalización presencial en escuela)
+  | 'nuevo_ingreso_formalizado';      // Nuevo ingreso formalizado presencialmente en escuela
+
 
 export interface EstudianteCenso {
   id: string;
@@ -41,19 +45,88 @@ export interface EstudianteCenso {
   representanteTelefono: string;
   estadoRegistro: string;
   direccion?: string;
+  avanceEstado?: 'completado' | 'en_proceso' | 'sin_iniciar';
+  avancePorcentaje?: number;
 }
+
+// ── Helper para Extraer el Número de la Ruta y Ordenar Naturalmente ─────────
+export const extraerNumeroRuta = (nombre: string): number => {
+  if (!nombre) return 999;
+  const n = String(nombre).toLowerCase().trim();
+  if (n.includes('ruta 0') || n.includes('caminante') || n.includes('a pie') || n.includes('peatonal')) {
+    return 0;
+  }
+  const match = n.match(/ruta\s*(\d+)/i) || n.match(/(\d+)/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return 999;
+};
 
 export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps> = ({
   onBack,
   initialEscuela,
+  escuelaAsignada,
   user,
   canManageRutas,
   isSuperAdmin
 }) => {
   const Swal = (window as any).Swal;
 
-  // Filtro de Escuela: 'todas' (Ambas escuelas) | 'sb' (UE Santa Bárbara) | 'lb' (UE Libertador Bolívar)
-  const [filtroEscuela, setFiltroEscuela] = useState<'todas' | 'sb' | 'lb'>('todas');
+  const isSuper = isSuperAdmin || ['SuperAdmin', 'Administrador', 'Administradora'].includes(user?.rol || '');
+
+  // Identificar la escuela fija asignada del coordinador/usuario ('sb' | 'lb' | null)
+  // AISLAMIENTO ESTRICTO: El coordinador de LB no puede ver SB y viceversa
+  const sedeRestringida = useMemo((): 'sb' | 'lb' | null => {
+    const rolLower = (user?.rol || '').toLowerCase();
+    const cargoLower = (user?.cargo || '').toLowerCase();
+    const esCoordTrans = rolLower.includes('transporte') || cargoLower.includes('transporte');
+
+    if (!esCoordTrans && isSuper) return null;
+
+    if (escuelaAsignada === 'sb' || escuelaAsignada === 'lb') {
+      return escuelaAsignada;
+    }
+
+    // 1. Por instituciones en perfil_acceso
+    if (user?.perfil_acceso?.instituciones && Array.isArray(user.perfil_acceso.instituciones)) {
+      const insts = user.perfil_acceso.instituciones.map((i: string) => (i || '').toLowerCase());
+      const hasSB = insts.some((i: string) => i.includes('santa b') || i === 'sb');
+      const hasLB = insts.some((i: string) => i.includes('bolívar') || i.includes('bolivar') || i === 'lb');
+      if (hasSB && !hasLB) return 'sb';
+      if (hasLB && !hasSB) return 'lb';
+      if (hasSB && hasLB && !esCoordTrans) return null;
+    }
+
+    // 2. Por id_escuela directo en objeto user
+    const uEsc = (user?.id_escuela || '').trim().toLowerCase();
+    if (uEsc === 'sb' || uEsc === 'lb') return uEsc as 'sb' | 'lb';
+
+    // 3. Por cargo o rol institucional específico de sede
+    if (cargoLower.includes('(sb)') || cargoLower.includes('santa b') || rolLower.includes('(sb)') || rolLower.includes('santa b')) return 'sb';
+    if (cargoLower.includes('(lb)') || cargoLower.includes('libertador') || cargoLower.includes('bolívar') || cargoLower.includes('bolivar') || rolLower.includes('(lb)')) return 'lb';
+
+    // 4. Si initialEscuela está definida y no es superadmin general
+    if (initialEscuela === 'sb' || initialEscuela === 'lb') return initialEscuela;
+
+    return null;
+  }, [user, isSuper, escuelaAsignada, initialEscuela]);
+
+  // Filtro de Escuela: 'sb' (UE Santa Bárbara) | 'lb' (UE Libertador Bolívar) - Cada escuela opera su transporte por separado
+  const [filtroEscuela, setFiltroEscuela] = useState<'sb' | 'lb'>(() => {
+    if (sedeRestringida) return sedeRestringida;
+    if (escuelaAsignada === 'sb' || escuelaAsignada === 'lb') return escuelaAsignada;
+    return initialEscuela === 'lb' ? 'lb' : 'sb';
+  });
+
+  // Sincronizar automáticamente con la sede activa del módulo de Transporte
+  useEffect(() => {
+    if (sedeRestringida) {
+      setFiltroEscuela(sedeRestringida);
+    } else if (initialEscuela === 'sb' || initialEscuela === 'lb') {
+      setFiltroEscuela(initialEscuela);
+    }
+  }, [sedeRestringida, initialEscuela]);
   
   // Pestaña activa del submódulo
   const [tabActiva, setTabActiva] = useState<'jerarquia' | 'ranking' | 'padron' | 'regulares_pendientes' | 'por_asignar'>('jerarquia');
@@ -88,6 +161,25 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
   } | null>(null);
   const [filtroModal, setFiltroModal] = useState('');
 
+  // Bloquear scroll de la página de fondo mientras el modal está abierto y permitir cierre con ESC
+  useEffect(() => {
+    if (modalData) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setModalData(null);
+          setFiltroModal('');
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [modalData]);
+
   // ── Helper para normalizar cadenas ──────────────────────────────────────────
   const normalizar = (s: string) => {
     return (s || '')
@@ -96,6 +188,35 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/\s+/g, ' ');
+  };
+
+  // ── Algoritmo Institucional Oficial de Avance de Ficha (Sincronizado con VincularEstudiante y Dashboard) ──
+  const evaluarAvanceOficial = (item: any) => {
+    const d = (item.datos_actualizados && typeof item.datos_actualizados === 'object') ? item.datos_actualizados : {};
+    const fecha = item.fecha_ultima_actualizacion || d.fecha_ultima_actualizacion;
+
+    const secciones = [
+      { id: 'rep', ok: Boolean((d.representante_nombres || item.nombres_representante) && (d.representante_cedula || item.cedula_representante) && (d.representante_telefono || d.representante_email)) },
+      { id: 'est', ok: Boolean((d.estudiante_nombres || item.nombres_estudiante) && (d.estudiante_apellidos || item.apellidos_estudiante) && d.estudiante_fecha_nacimiento && d.estudiante_sexo) },
+      { id: 'dir', ok: Boolean(d.estado_habitacion && d.direccion_habitacion) },
+      { id: 'salud', ok: Boolean(d.estudiante_grupo_sanguineo || d.talla_franela || d.peso_kg) },
+      { id: 'madre', ok: Boolean(d.madre_nombres && d.madre_cedula) },
+      { id: 'padre', ok: d.estudiante_reconocido_por_padre === 'No' || Boolean(d.padre_nombres && d.padre_cedula) },
+      { id: 'socio', ok: Boolean(d.posee_computadora || d.tipo_vivienda || d.estudiante_con_quien_vive) },
+      { id: 'confirmado', ok: Boolean(fecha) }
+    ];
+
+    const completadas = secciones.filter(s => s.ok).length;
+    const porcentaje = Math.round((completadas / secciones.length) * 100);
+
+    let estado: 'sin_iniciar' | 'en_proceso' | 'completado' = 'sin_iniciar';
+    if ((fecha && porcentaje >= 85) || d.ficha_completada === true) {
+      estado = 'completado';
+    } else if (porcentaje > 0 || fecha) {
+      estado = 'en_proceso';
+    }
+
+    return { porcentaje, estado };
   };
 
   // ── Carga Paginada Dinámica para no limitar a 1,000 registros ───────────────
@@ -141,7 +262,12 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         supabase.from('transporte_paradas').select('*').order('nombre_parada', { ascending: true })
       ]);
 
-      const todasRutas = rutasRes.data || [];
+      const todasRutas = (rutasRes.data || []).slice().sort((a: any, b: any) => {
+        const numA = extraerNumeroRuta(a.nombre);
+        const numB = extraerNumeroRuta(b.nombre);
+        if (numA !== numB) return numA - numB;
+        return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { numeric: true });
+      });
       const todasParadas = paradasRes.data || [];
       setRutasDB(todasRutas);
       setParadasDB(todasParadas);
@@ -170,34 +296,73 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
       const listaConsolidada: EstudianteCenso[] = [];
       const cedulasEnVinculacion = new Set<string>();
+      const codigosEnVinculacion = new Set<string>();
+      const nombresEnVinculacion = new Set<string>();
+      const solIdsEnVinculacion = new Set<string>();
+      const vincCodigosVistos = new Set<string>();
+
+      // Priorizar registros con cédula definitiva sobre cédulas provisionales T- para mantener los datos oficiales
+      const vincDataOrdenada = [...(vincData || [])].sort((a, b) => {
+        const cedA = (a.cedula_estudiante || a.datos_actualizados?.estudiante_cedula || '').trim();
+        const cedB = (b.cedula_estudiante || b.datos_actualizados?.estudiante_cedula || '').trim();
+        const esProvisA = cedA.toUpperCase().startsWith('T-') ? 1 : 0;
+        const esProvisB = cedB.toUpperCase().startsWith('T-') ? 1 : 0;
+        return esProvisA - esProvisB;
+      });
 
       // ── A) Procesar todas las vinculaciones (Matrícula Regular + Nuevos Ingresos vinculados)
-      (vincData || []).forEach(v => {
+      vincDataOrdenada.forEach(v => {
         const d = v.datos_actualizados || {};
+        const codUni = (d.codigo_unico || (v as any).codigo_unico || '').trim();
+        const codUniNorm = codUni.toLowerCase().replace(/^t-/, '');
+
+        // Evitar duplicados de nuevos ingresos vinculados con el mismo código único de solicitud de admisión (sc-...)
+        if (codUniNorm && codUniNorm.startsWith('sc-')) {
+          if (vincCodigosVistos.has(codUniNorm)) {
+            return;
+          }
+          vincCodigosVistos.add(codUniNorm);
+        }
+
         const cedRaw = (v.cedula_estudiante || d.estudiante_cedula || '').trim();
         const cedNorm = cedRaw.replace(/\D/g, '');
         if (cedNorm) cedulasEnVinculacion.add(cedNorm);
 
-        const esc = ((v.codigo_escuela || d.codigo_escuela || 'sb') as string).toLowerCase() as 'sb' | 'lb';
-        const hasDatos = Object.keys(d).length > 0;
-        const esNuevoIngreso = d.origen_admision === 'nuevo_ingreso';
+        if (codUni) {
+          codigosEnVinculacion.add(codUni.toLowerCase());
+          codigosEnVinculacion.add(codUniNorm);
+        }
+        if (cedRaw) {
+          codigosEnVinculacion.add(cedRaw.toLowerCase());
+          codigosEnVinculacion.add(cedRaw.replace(/^T-/, '').toLowerCase());
+        }
 
-        // Clasificar con precisión en la matrícula escolar real
+        const nomCompletoNorm = `${v.nombres_estudiante || d.estudiante_nombres || ''} ${v.apellidos_estudiante || d.estudiante_apellidos || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
+        if (nomCompletoNorm) nombresEnVinculacion.add(nomCompletoNorm);
+
+        if (d.id_solicitud) solIdsEnVinculacion.add(String(d.id_solicitud));
+        if (d.id) solIdsEnVinculacion.add(String(d.id));
+
+        const esc = ((v.codigo_escuela || d.codigo_escuela || 'sb') as string).toLowerCase() as 'sb' | 'lb';
+        const esNuevoIngreso = d.origen_admision === 'nuevo_ingreso';
+        const avance = evaluarAvanceOficial(v);
+
+        // Clasificar según el estándar institucional oficial (Control de Avance Chamilo y Dashboard)
         let categoria: CategoriaMatricula;
         let estadoLabel = '';
 
         if (esNuevoIngreso) {
-          categoria = 'nuevo_ingreso_formalizado';
-          estadoLabel = 'Nuevo Ingreso Formalizado';
-        } else if (!hasDatos) {
-          categoria = 'regular_sin_iniciar';
-          estadoLabel = 'Sin Iniciar Actualización';
-        } else if (d.ficha_completada === true) {
+          categoria = 'nuevo_ingreso_cupo_otorgado';
+          estadoLabel = avance.estado === 'completado' ? 'Nuevo Ingreso (Cupo Otorgado • Ficha al 100%)' : 'Nuevo Ingreso (Cupo Otorgado • Pendiente Presencial)';
+        } else if (avance.estado === 'completado') {
           categoria = 'regular_actualizado';
-          estadoLabel = 'Actualizado (Ficha Completada)';
-        } else {
+          estadoLabel = 'Regular Actualizado (Ficha Completada 100%)';
+        } else if (avance.estado === 'en_proceso') {
           categoria = 'regular_en_proceso';
-          estadoLabel = 'En Proceso de Actualización';
+          estadoLabel = 'Regular En Proceso de Actualización';
+        } else {
+          categoria = 'regular_sin_iniciar';
+          estadoLabel = 'Regular Sin Iniciar Actualización';
         }
 
         // Transporte
@@ -229,6 +394,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         const keyParada = `${esc}_${normalizar(paradaLimpia)}`;
         const paradaMatch = mapaParadasPorNorm[keyParada] || todasParadas.find(p => p.escuela_codigo === esc && normalizar(p.nombre_parada).includes(normalizar(paradaLimpia)));
 
+        let rutaDefinida = 'Sin Ruta Asignada';
+        let paradaDefinida = 'Sin Parada Asignada';
+        if (reqTrans === false) {
+          rutaDefinida = '🚶‍♂️ Ruta 0 - A Pie / Caminantes (No Requiere Bus)';
+          paradaDefinida = 'Ruta 0 (Caminante)';
+        } else if (reqTrans === null) {
+          rutaDefinida = '❓ Pendiente por Definir';
+          paradaDefinida = 'Por Confirmar';
+        }
+
         listaConsolidada.push({
           id: `vinc_${v.id}`,
           origenTabla: 'vinculacion',
@@ -243,9 +418,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           grado: (v.grado_actual || d.grado_actual || d.grado_solicitado || 'Por Asignar').trim(),
           requiereTransporte: reqTrans,
           rutaNombreRaw: rawRuta,
-          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || (reqTrans ? 'Sin Ruta Asignada' : 'No Requiere')),
+          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || rutaDefinida),
           paradaNombreRaw: rawParada,
-          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || (reqTrans ? 'Sin Parada Asignada' : 'No Requiere')),
+          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || paradaDefinida),
           rutaIdOficial: rutaMatch?.id,
           paradaIdOficial: paradaMatch?.id,
           coincideRutaOficial: !!rutaMatch,
@@ -254,11 +429,13 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           representanteCedula: (v.cedula_representante || d.representante_cedula || '').trim(),
           representanteTelefono: (d.representante_telefono || d.representante_telefono_movil || v.telefono_representante || '').trim(),
           estadoRegistro: estadoLabel,
-          direccion: (d.direccion_habitacion || '').trim()
+          direccion: (d.direccion_habitacion || '').trim(),
+          avanceEstado: avance.estado,
+          avancePorcentaje: avance.porcentaje
         });
       });
 
-      // ── B) Procesar Nuevos Ingresos Formalizados desde solicitud_cupos (No Duplicados)
+      // ── B) Procesar Nuevos Ingresos con Cupo Otorgado desde solicitud_cupos (No Duplicados)
       const estadosValidosFormalizado = ['formalizado', 'formalizada', 'inscrito', 'inscrita', 'aprobado', 'admitido'];
       (solData || []).forEach(s => {
         const estadoNorm = (s.estado || '').toLowerCase().trim();
@@ -266,11 +443,17 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
         const cedRaw = (s.estudiante_cedula || '').trim();
         const cedNorm = cedRaw.replace(/\D/g, '');
+        const codUni = (s.codigo_unico || '').trim().toLowerCase();
+        const codUniSinT = codUni.replace(/^T-/, '');
+        const nomCompletoNorm = `${s.estudiante_nombres || ''} ${s.estudiante_apellidos || ''}`.toLowerCase().replace(/\s+/g, ' ').trim();
+        const sId = String(s.id);
 
-        // Evitar duplicados si ya está presente en vinculaciones
-        if (cedNorm && cedulasEnVinculacion.has(cedNorm)) {
-          return;
-        }
+        // Evitar duplicados si ya está presente en vinculaciones por cualquiera de sus identificadores
+        if (sId && solIdsEnVinculacion.has(sId)) return;
+        if (cedNorm && cedulasEnVinculacion.has(cedNorm)) return;
+        if (codUni && (codigosEnVinculacion.has(codUni) || codigosEnVinculacion.has(codUniSinT))) return;
+        if (cedRaw && codigosEnVinculacion.has(cedRaw.toLowerCase())) return;
+        if (nomCompletoNorm && nombresEnVinculacion.has(nomCompletoNorm)) return;
 
         const esc = ((s.codigo_escuela || 'sb') as string).toLowerCase() as 'sb' | 'lb';
         const rawRuta = (s.ruta_transporte || '').trim();
@@ -295,7 +478,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         listaConsolidada.push({
           id: `sol_${s.id}`,
           origenTabla: 'solicitud',
-          categoriaMatricula: 'nuevo_ingreso_formalizado',
+          categoriaMatricula: 'nuevo_ingreso_cupo_otorgado',
           codigo_escuela: esc,
           escuelaNombre: esc === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar',
           cedula: cedRaw || 'Sin Cédula',
@@ -306,9 +489,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           grado: (s.grado_solicitado || 'Nuevo Ingreso').trim(),
           requiereTransporte: reqTrans,
           rutaNombreRaw: rawRuta,
-          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || (reqTrans ? 'Sin Ruta Asignada' : 'No Requiere')),
+          rutaNombreLimpio: rutaMatch ? rutaMatch.nombre : (rutaLimpia || (reqTrans ? 'Sin Ruta Asignada' : '🚶‍♂️ Ruta 0 - A Pie / Caminantes (No Requiere Bus)')),
           paradaNombreRaw: paradaLimpia,
-          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || (reqTrans ? 'Sin Parada Asignada' : 'No Requiere')),
+          paradaNombreLimpio: paradaMatch ? paradaMatch.nombre_parada : (paradaLimpia || (reqTrans ? 'Sin Parada Asignada' : 'Ruta 0 (Caminante)')),
           rutaIdOficial: rutaMatch?.id,
           paradaIdOficial: paradaMatch?.id,
           coincideRutaOficial: !!rutaMatch,
@@ -316,8 +499,10 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           representanteNombre: `${s.representante_nombres || ''} ${s.representante_apellidos || ''}`.trim() || 'Representante',
           representanteCedula: (s.representante_cedula || '').trim(),
           representanteTelefono: (s.representante_telefono || s.representante_telefono2 || '').trim(),
-          estadoRegistro: 'Nuevo Ingreso Formalizado (Admisión)',
-          direccion: (s.direccion_habitacion || '').trim()
+          estadoRegistro: 'Nuevo Ingreso (Cupo Otorgado - Pendiente Presencial)',
+          direccion: (s.direccion_habitacion || '').trim(),
+          avanceEstado: 'en_proceso',
+          avancePorcentaje: 50
         });
       });
 
@@ -342,17 +527,24 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
   // ── Estudiantes filtrados por Escuela activa ──────────────────────────────
   const estudiantesFiltradosEscuela = useMemo(() => {
-    if (filtroEscuela === 'todas') return estudiantes;
-    return estudiantes.filter(e => e.codigo_escuela === filtroEscuela);
-  }, [estudiantes, filtroEscuela]);
+    const escEfectiva = sedeRestringida || filtroEscuela;
+    return estudiantes.filter(e => e.codigo_escuela === escEfectiva);
+  }, [estudiantes, filtroEscuela, sedeRestringida]);
 
   // ── Métricas y Telemetría del Censo Escolar Completo ────────────────────────
   const metrics = useMemo(() => {
     const matriculaTotal = estudiantesFiltradosEscuela.length;
 
-    // Desglose de Matrícula Real
+    // Métricas Institucionales Oficiales (Sincronizadas con Control de Avance Chamilo y Dashboard: 643, 35, 15 en LB)
+    const totalActualizados = estudiantesFiltradosEscuela.filter(e => e.avanceEstado === 'completado').length;
+    const totalEnProceso = estudiantesFiltradosEscuela.filter(e => e.avanceEstado === 'en_proceso').length;
+    const totalSinIniciar = estudiantesFiltradosEscuela.filter(e => e.avanceEstado === 'sin_iniciar').length;
+    const totalPorActualizar = totalEnProceso + totalSinIniciar;
+
+    // Desglose de Matrícula Real por Origen
     const regularesActualizados = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'regular_actualizado').length;
-    const nuevosFormalizados = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
+    const nuevosFormalizados = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
+    const nuevosActualizados = estudiantesFiltradosEscuela.filter(e => (e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado') && e.avanceEstado === 'completado').length;
     const regularesEnProceso = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'regular_en_proceso').length;
     const regularesSinIniciar = estudiantesFiltradosEscuela.filter(e => e.categoriaMatricula === 'regular_sin_iniciar').length;
     const totalRegulares = regularesActualizados + regularesEnProceso + regularesSinIniciar;
@@ -361,6 +553,15 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     const transporteConfirmado = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true).length;
     const transporteNoRequiere = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === false).length;
     const transportePendienteDefinir = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === null).length;
+
+    // Conciliación Cruzada: Modalidad de Transporte vs Avance de Ficha Chamilo
+    // Pasajeros en autobús según avance de ficha
+    const transporteConfirmado100 = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true && e.avanceEstado === 'completado').length;
+    const transporteConfirmadoEnProceso = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true && e.avanceEstado === 'en_proceso').length;
+
+    // Caminantes de Ruta 0 según avance de ficha
+    const caminantes100 = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === false && e.avanceEstado === 'completado').length;
+    const caminantesEnProceso = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === false && e.avanceEstado === 'en_proceso').length;
 
     // Cobertura por Escuelas
     const countSB = estudiantes.filter(e => e.codigo_escuela === 'sb').length;
@@ -382,19 +583,32 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
     return {
       matriculaTotal,
+      totalActualizados,
+      totalActualizadosPct: matriculaTotal > 0 ? Math.round((totalActualizados / matriculaTotal) * 100) : 0,
+      totalPorActualizar,
+      totalPorActualizarPct: matriculaTotal > 0 ? Math.round((totalPorActualizar / matriculaTotal) * 100) : 0,
+      totalEnProceso,
+      totalSinIniciar,
       regularesActualizados,
       regularesActualizadosPct: matriculaTotal > 0 ? Math.round((regularesActualizados / matriculaTotal) * 100) : 0,
       nuevosFormalizados,
       nuevosFormalizadosPct: matriculaTotal > 0 ? Math.round((nuevosFormalizados / matriculaTotal) * 100) : 0,
+      nuevosActualizados,
       regularesEnProceso,
       regularesEnProcesoPct: matriculaTotal > 0 ? Math.round((regularesEnProceso / matriculaTotal) * 100) : 0,
       regularesSinIniciar,
       regularesSinIniciarPct: matriculaTotal > 0 ? Math.round((regularesSinIniciar / matriculaTotal) * 100) : 0,
       totalRegulares,
       transporteConfirmado,
+      transporteConfirmado100,
+      transporteConfirmadoEnProceso,
       transportePct: matriculaTotal > 0 ? Math.round((transporteConfirmado / matriculaTotal) * 100) : 0,
       transporteNoRequiere,
+      caminantes100,
+      caminantesEnProceso,
+      caminantesPct: matriculaTotal > 0 ? Math.round((transporteNoRequiere / matriculaTotal) * 100) : 0,
       transportePendienteDefinir,
+      pendientesTransportePct: matriculaTotal > 0 ? Math.round((transportePendienteDefinir / matriculaTotal) * 100) : 0,
       countSB,
       countLB,
       sbTrans,
@@ -408,11 +622,12 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
   // ── Agrupación Jerárquica: Rutas -> Paradas -> Estudiantes ─────────────────
   const rutasJerarquia = useMemo(() => {
-    // Solo estudiantes que solicitaron transporte
+    const escEfectiva = sedeRestringida || filtroEscuela;
+    // Solo estudiantes que solicitaron transporte en bus de esta sede
     const estsConTransporte = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === true);
-    const rutasBase = rutasDB.filter(r => filtroEscuela === 'todas' || r.escuela_codigo === filtroEscuela);
+    const rutasBase = rutasDB.filter(r => r.escuela_codigo === escEfectiva);
 
-    return rutasBase.map(ruta => {
+    const rutasMapeadas = rutasBase.map(ruta => {
       const paradasIds = Array.isArray(ruta.paradas_json)
         ? ruta.paradas_json
         : (typeof ruta.paradas_json === 'string' ? JSON.parse(ruta.paradas_json || '[]') : []);
@@ -432,7 +647,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
         const actualizados = estsEnParada.filter(e => e.categoriaMatricula === 'regular_actualizado').length;
         const enProceso = estsEnParada.filter(e => e.categoriaMatricula === 'regular_en_proceso').length;
-        const nuevos = estsEnParada.filter(e => e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
+        const nuevos = estsEnParada.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
 
         return {
           id: parada.id,
@@ -452,7 +667,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
       const totalActualizados = estsDeRuta.filter(e => e.categoriaMatricula === 'regular_actualizado').length;
       const totalEnProceso = estsDeRuta.filter(e => e.categoriaMatricula === 'regular_en_proceso').length;
-      const totalNuevos = estsDeRuta.filter(e => e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
+      const totalNuevos = estsDeRuta.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado').length;
 
       return {
         id: ruta.id,
@@ -463,6 +678,8 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         docente_nombre: ruta.docente_nombre || 'Sin docente asignado',
         docente_telefono: ruta.docente_telefono || '',
         activo: ruta.activo !== false,
+        esRutaCaminantes: false,
+        esRutaPendientes: false,
         totalEstudiantes: estsDeRuta.length,
         totalActualizados,
         totalEnProceso,
@@ -472,6 +689,118 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         estudiantes: estsDeRuta
       };
     });
+
+    // ── Categoría Oficial: Ruta 0 • Caminantes / A Pie (No Requieren Bus) ──
+    const estsCaminantes = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === false);
+    let rutaCaminantesItem: any = null;
+    if (estsCaminantes.length > 0) {
+      const niveles = [
+        { id: 'cam_ini', nombre: 'Educación Inicial (Ruta 0 - Caminantes)', desc: 'Preescolar / Inicial que asisten a pie por residir cerca del plantel' },
+        { id: 'cam_pri', nombre: 'Educación Primaria (Ruta 0 - Caminantes)', desc: 'Primaria (1er a 6to Grado) que asisten a pie por residir cerca del plantel' },
+        { id: 'cam_med', nombre: 'Media General (Ruta 0 - Caminantes)', desc: 'Secundaria (1er a 5to Año) que asisten a pie por residir cerca del plantel' }
+      ];
+
+      const paradasCaminantes = niveles.map((niv, idx) => {
+        const estsNiv = estsCaminantes.filter(e => {
+          const g = (e.grado || '').toLowerCase();
+          if (idx === 0) return g.includes('grupo') || g.includes('maternal') || g.includes('inicial') || g.includes('preescolar');
+          if (idx === 1) return g.includes('grado');
+          if (idx === 2) return g.includes('año') || g.includes('ano') || g.includes('secundaria');
+          return false;
+        });
+
+        return {
+          id: niv.id,
+          orden: idx + 1,
+          nombre_parada: niv.nombre,
+          descripcion: niv.desc,
+          total: estsNiv.length,
+          actualizados: estsNiv.filter(e => e.categoriaMatricula === 'regular_actualizado').length,
+          enProceso: estsNiv.filter(e => e.categoriaMatricula === 'regular_en_proceso').length,
+          nuevos: estsNiv.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado').length,
+          estudiantes: estsNiv
+        };
+      }).filter(p => p.total > 0);
+
+      // Otros caminantes no contemplados en los 3 grupos
+      const idsClasificados = new Set(paradasCaminantes.flatMap(p => p.estudiantes.map(e => e.id)));
+      const otrosCaminantes = estsCaminantes.filter(e => !idsClasificados.has(e.id));
+      if (otrosCaminantes.length > 0) {
+        paradasCaminantes.push({
+          id: 'cam_otros',
+          orden: paradasCaminantes.length + 1,
+          nombre_parada: 'Otros Niveles (Ruta 0 - Caminantes)',
+          descripcion: 'Estudiantes caminantes de otros niveles',
+          total: otrosCaminantes.length,
+          actualizados: otrosCaminantes.filter(e => e.categoriaMatricula === 'regular_actualizado').length,
+          enProceso: otrosCaminantes.filter(e => e.categoriaMatricula === 'regular_en_proceso').length,
+          nuevos: otrosCaminantes.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado').length,
+          estudiantes: otrosCaminantes
+        });
+      }
+
+      rutaCaminantesItem = {
+        id: 'ruta_0',
+        nombre: '🚶‍♂️ Ruta 0 - A Pie / Caminantes (No Requiere Bus)',
+        escuela_codigo: escEfectiva,
+        escuelaNombre: escEfectiva === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar',
+        chofer_nombre: 'No Aplica (Traslado Peatonal por Cuenta Propia)',
+        docente_nombre: 'Acompañamiento Familiar / Representante',
+        docente_telefono: '',
+        activo: true,
+        esRuta0: true,
+        esRutaCaminantes: true,
+        esRutaPendientes: false,
+        totalEstudiantes: estsCaminantes.length,
+        totalActualizados: estsCaminantes.filter(e => e.categoriaMatricula === 'regular_actualizado').length,
+        totalEnProceso: estsCaminantes.filter(e => e.categoriaMatricula === 'regular_en_proceso').length,
+        totalNuevos: estsCaminantes.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado').length,
+        paradas: paradasCaminantes,
+        sinParadaExacta: [],
+        estudiantes: estsCaminantes
+      };
+    }
+
+    // ── Combinar y Ordenar las Rutas Numéricamente por su Número (Ruta 0, 1, 2, ..., 19) ──
+    const listaConRutas = [...rutasMapeadas];
+    if (rutaCaminantesItem) {
+      listaConRutas.push(rutaCaminantesItem);
+    }
+
+    listaConRutas.sort((a, b) => {
+      const numA = extraerNumeroRuta(a.nombre);
+      const numB = extraerNumeroRuta(b.nombre);
+      if (numA !== numB) return numA - numB;
+      return a.nombre.localeCompare(b.nombre, 'es', { numeric: true });
+    });
+
+    const listaFinal = [...listaConRutas];
+
+    // ── Categoría: Pendientes por Confirmar Modalidad de Transporte ──
+    const estsPendientes = estudiantesFiltradosEscuela.filter(e => e.requiereTransporte === null);
+    if (estsPendientes.length > 0) {
+      listaFinal.push({
+        id: 'ruta_pendientes',
+        nombre: '❓ Modalidad de Transporte Pendiente por Definir',
+        escuela_codigo: escEfectiva,
+        escuelaNombre: escEfectiva === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar',
+        chofer_nombre: 'Por Definir',
+        docente_nombre: 'Coordinación y Encuesta Pendiente',
+        docente_telefono: '',
+        activo: true,
+        esRutaCaminantes: false,
+        esRutaPendientes: true,
+        totalEstudiantes: estsPendientes.length,
+        totalActualizados: estsPendientes.filter(e => e.categoriaMatricula === 'regular_actualizado').length,
+        totalEnProceso: estsPendientes.filter(e => e.avanceEstado === 'en_proceso').length,
+        totalNuevos: estsPendientes.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado').length,
+        paradas: [],
+        sinParadaExacta: estsPendientes,
+        estudiantes: estsPendientes
+      });
+    }
+
+    return listaFinal;
   }, [rutasDB, paradasDB, estudiantesFiltradosEscuela, filtroEscuela]);
 
   // ── Ranking de Paradas con Mayor Demanda ────────────────────────────────────
@@ -507,7 +836,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       mapaConteo[key].total++;
       if (e.categoriaMatricula === 'regular_actualizado') mapaConteo[key].actualizados++;
       else if (e.categoriaMatricula === 'regular_en_proceso') mapaConteo[key].enProceso++;
-      else if (e.categoriaMatricula === 'nuevo_ingreso_formalizado') mapaConteo[key].nuevos++;
+      else if (e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado') mapaConteo[key].nuevos++;
       mapaConteo[key].estudiantes.push(e);
     });
 
@@ -519,7 +848,11 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     let result = estudiantesFiltradosEscuela;
 
     if (filtroCategoria !== 'todos') {
-      result = result.filter(e => e.categoriaMatricula === filtroCategoria);
+      if (filtroCategoria === 'nuevo_ingreso_cupo_otorgado' || filtroCategoria === 'nuevo_ingreso_formalizado') {
+        result = result.filter(e => e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado');
+      } else {
+        result = result.filter(e => e.categoriaMatricula === filtroCategoria);
+      }
     }
 
     if (filtroTransporte === 'si') {
@@ -559,16 +892,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     return padronFiltrado.slice(inicio, inicio + filasPorPagina);
   }, [padronFiltrado, paginaActual, filasPorPagina]);
 
-  // ── Regulares Pendientes por Actualizar Datos (En Proceso / Sin Iniciar) ────
+  // ── Estudiantes Pendientes por Actualizar Datos (En Proceso / Sin Iniciar) ────
   const listaRegularesPendientes = useMemo(() => {
     let list = estudiantesFiltradosEscuela.filter(e => 
-      e.categoriaMatricula === 'regular_en_proceso' || e.categoriaMatricula === 'regular_sin_iniciar'
+      e.avanceEstado === 'en_proceso' || e.avanceEstado === 'sin_iniciar'
     );
 
     if (subfiltroPendientes === 'en_proceso') {
-      list = list.filter(e => e.categoriaMatricula === 'regular_en_proceso');
+      list = list.filter(e => e.avanceEstado === 'en_proceso');
     } else if (subfiltroPendientes === 'sin_iniciar') {
-      list = list.filter(e => e.categoriaMatricula === 'regular_sin_iniciar');
+      list = list.filter(e => e.avanceEstado === 'sin_iniciar');
     }
 
     return list;
@@ -586,14 +919,35 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     );
   }, [estudiantesFiltradosEscuela]);
 
-  // ── Opciones únicas de Rutas y Grados ───────────────────────────────────────
+  // ── Opciones únicas de Rutas (Ordenadas con Ruta 0 al inicio y numéricamente) ──
   const opcionesRutas = useMemo(() => {
-    const setR = new Set(
-      estudiantesFiltradosEscuela
-        .filter(e => e.requiereTransporte === true && e.rutaNombreLimpio && e.rutaNombreLimpio !== 'Sin Ruta Asignada')
-        .map(e => e.rutaNombreLimpio)
-    );
-    return Array.from(setR).sort();
+    const list: string[] = [];
+    const setR = new Set<string>();
+
+    const tieneCaminantes = estudiantesFiltradosEscuela.some(e => e.requiereTransporte === false);
+    if (tieneCaminantes) {
+      list.push('🚶‍♂️ Ruta 0 - A Pie / Caminantes (No Requiere Bus)');
+    }
+
+    estudiantesFiltradosEscuela
+      .filter(e => e.requiereTransporte === true && e.rutaNombreLimpio && e.rutaNombreLimpio !== 'Sin Ruta Asignada')
+      .forEach(e => setR.add(e.rutaNombreLimpio));
+
+    const rutasBus = Array.from(setR).sort((a, b) => {
+      const numA = extraerNumeroRuta(a);
+      const numB = extraerNumeroRuta(b);
+      if (numA !== numB) return numA - numB;
+      return a.localeCompare(b, 'es', { numeric: true });
+    });
+
+    list.push(...rutasBus);
+
+    const tienePendientes = estudiantesFiltradosEscuela.some(e => e.requiereTransporte === null);
+    if (tienePendientes) {
+      list.push('❓ Pendiente por Definir');
+    }
+
+    return list;
   }, [estudiantesFiltradosEscuela]);
 
   const opcionesGrados = useMemo(() => {
@@ -642,11 +996,11 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     const rows = estudiantesFiltradosEscuela.map((e, idx) => {
       let catText = 'Regular';
       if (e.categoriaMatricula === 'regular_actualizado') catText = 'Regular Actualizado';
-      else if (e.categoriaMatricula === 'nuevo_ingreso_formalizado') catText = 'Nuevo Ingreso Formalizado';
+      else if (e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado') catText = 'Nuevo Ingreso (Cupo Otorgado - Pendiente Presencial)';
       else if (e.categoriaMatricula === 'regular_en_proceso') catText = 'Regular En Proceso';
       else if (e.categoriaMatricula === 'regular_sin_iniciar') catText = 'Regular Sin Iniciar';
 
-      const transText = e.requiereTransporte === true ? 'Sí' : (e.requiereTransporte === false ? 'No' : 'Pendiente');
+      const transText = e.requiereTransporte === true ? 'Sí (En Autobús)' : (e.requiereTransporte === false ? 'No (A Pie / Caminante)' : 'Pendiente por Definir');
 
       return [
         idx + 1,
@@ -669,13 +1023,14 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       ];
     });
 
+    const escEfectiva = sedeRestringida || filtroEscuela;
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    const escuelaNombreTag = filtroEscuela === 'todas' ? 'Ambas_Escuelas_Consolidado' : (filtroEscuela === 'sb' ? 'UE_Santa_Barbara' : 'UE_Libertador_Bolivar');
+    const escuelaNombreTag = escEfectiva === 'sb' ? 'UE_Santa_Barbara' : 'UE_Libertador_Bolivar';
     link.setAttribute('href', url);
-    link.setAttribute('download', `SIGAE_Censo_Matricula_Transporte_${escuelaNombreTag}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `SIGAE_Estadisticas_Transporte_${escuelaNombreTag}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -685,7 +1040,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         toast: true,
         position: 'top-end',
         icon: 'success',
-        title: 'Censo y Matrícula descargados con éxito',
+        title: 'Estadísticas de Transporte descargadas con éxito',
         showConfirmButton: false,
         timer: 2500
       });
@@ -694,31 +1049,26 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
   // ── Generar Resumen WhatsApp para Dirección y Coordinación ──────────────────
   const copiarResumenWhatsApp = () => {
-    let msg = `🚍 *SIGAE - BALANCE OFICIAL DE MATRÍCULA Y TRANSPORTE ESCOLAR*\n`;
-    msg += `🏢 *Sede:* ${filtroEscuela === 'todas' ? 'Consolidado DEP Oriente (Ambas Escuelas)' : (filtroEscuela === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar')}\n`;
+    const escEfectiva = sedeRestringida || filtroEscuela;
+    let msg = `🚍 *SIGAE - ESTADÍSTICAS OFICIALES DE TRANSPORTE Y MATRÍCULA ESCOLAR*\n`;
+    msg += `🏢 *Sede:* ${escEfectiva === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}\n`;
     msg += `📅 *Fecha:* ${new Date().toLocaleDateString('es-VE')}\n\n`;
 
-    msg += `📊 *MATRÍCULA ESCOLAR REAL:* ${metrics.matriculaTotal} Estudiantes\n`;
-    msg += `• 🎒 *Regulares Actualizados:* ${metrics.regularesActualizados} (${metrics.regularesActualizadosPct}%)\n`;
-    msg += `• 🌟 *Nuevos Ingresos Formalizados:* ${metrics.nuevosFormalizados} (${metrics.nuevosFormalizadosPct}%)\n`;
-    msg += `• ⏳ *Regulares En Proceso de Actualizar:* ${metrics.regularesEnProceso} (${metrics.regularesEnProcesoPct}%)\n`;
-    msg += `• ⚠️ *Regulares Sin Iniciar Actualización:* ${metrics.regularesSinIniciar} (${metrics.regularesSinIniciarPct}%)\n`;
-    if (filtroEscuela === 'todas') {
-      msg += `\n🏫 *DISTRIBUCIÓN POR SEDE:*\n`;
-      msg += `  - U.E. Santa Bárbara: ${metrics.countSB} estudiantes (Transporte: ${metrics.sbTrans})\n`;
-      msg += `  - U.E. Libertador Bolívar: ${metrics.countLB} estudiantes (Transporte: ${metrics.lbTrans})\n`;
-    }
+    msg += `📊 *MATRÍCULA ESCOLAR:* ${metrics.matriculaTotal} Estudiantes\n`;
+    msg += `• 🎒 *Matrícula Regular del Plantel:* ${metrics.totalRegulares} estudiantes (${metrics.regularesActualizados} actualizados al 100%, ${metrics.totalRegularesPorActualizar} por actualizar)\n`;
+    msg += `• 🌟 *Cupos Otorgados (Admisión):* ${metrics.nuevosFormalizados} (Aspirantes con cupo otorgado, pendientes de formalización presencial en escuela)\n`;
 
-    msg += `\n🚌 *DEMANDA DE TRANSPORTE ESCOLAR:*\n`;
-    msg += `• *Total con Transporte Solicitado:* ${metrics.transporteConfirmado} (${metrics.transportePct}% de la matrícula)\n`;
-    msg += `• *No Requieren Transporte:* ${metrics.transporteNoRequiere}\n`;
-    msg += `• *Pendientes por Definir:* ${metrics.transportePendienteDefinir}\n`;
-    msg += `• *Rutas Activas con Demanda:* ${metrics.rutasConDemanda}\n`;
-    msg += `• *Paradas Activas con Demanda:* ${metrics.paradasConDemanda}\n\n`;
+    msg += `\n🚌 *MODALIDAD DE TRASLADO Y TRANSPORTE ESCOLAR:*\n`;
+    msg += `• 🚍 *En Autobús (Requieren Bus):* ${metrics.transporteConfirmado} (${metrics.transporteConfirmado100} con ficha 100% + ${metrics.transporteConfirmadoEnProceso} en proceso)\n`;
+    msg += `• 🚶‍♂️ *Ruta 0 (A Pie / Caminantes):* ${metrics.transporteNoRequiere} (${metrics.caminantes100} con ficha 100% + ${metrics.caminantesEnProceso} en proceso)\n`;
+    msg += `• ❓ *Sin Definir (Sin Iniciar Actualización):* ${metrics.transportePendienteDefinir}\n`;
+    msg += `• 📋 *Conciliación Avance Fichas:* ${metrics.totalActualizados} al 100% | ${metrics.totalEnProceso} En Proceso | ${metrics.totalSinIniciar} Sin Iniciar (${metrics.totalPorActualizar} por culminar)\n`;
+    msg += `• 🚏 *Rutas Activas de Autobús:* ${metrics.rutasConDemanda}\n`;
+    msg += `• 📍 *Paradas Activas de Autobús:* ${metrics.paradasConDemanda}\n\n`;
 
-    msg += `📋 *DESGLOSE DE RUTAS (PASAJEROS ASIGNADOS):*\n`;
+    msg += `📋 *DESGLOSE DE RUTAS Y MODALIDADES (Ordenadas Numéricamente):*\n`;
     rutasJerarquia.forEach((r, i) => {
-      msg += `${i + 1}. *${r.nombre}* (${r.escuela_codigo.toUpperCase()}): *${r.totalEstudiantes} estudiantes* (Act: ${r.totalActualizados} | En Proc: ${r.totalEnProceso} | Nuevos: ${r.totalNuevos})\n`;
+      msg += `${i + 1}. *${r.nombre}*: *${r.totalEstudiantes} estudiantes* (Act: ${r.totalActualizados} | En Proc: ${r.totalEnProceso} | Nuevos: ${r.totalNuevos})\n`;
     });
 
     msg += `\n_Generado automáticamente desde SIGAE Unificado._`;
@@ -783,11 +1133,11 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           </button>
           <div>
             <h4 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2" style={{ fontSize: '1.25rem' }}>
-              <i className="bi bi-people-fill text-primary"></i>
-              <span>Censo de Estudiantes por Rutas y Paradas</span>
+              <i className="bi bi-bar-chart-fill text-primary"></i>
+              <span>Estadísticas de Transporte</span>
             </h4>
             <span className="text-muted small">
-              Matrícula escolar real (Regulares actualizados, en proceso, sin iniciar y nuevos ingresos) para ambas escuelas
+              Balance integral de demanda de rutas, paradas y matrícula escolar real (Regulares y Nuevos Ingresos)
             </span>
           </div>
         </div>
@@ -839,32 +1189,50 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill fw-bold" style={{ fontSize: '0.78rem' }}>
             <i className="bi bi-building me-1.5 text-primary"></i>Sede / Escuela:
           </span>
-          <div className="btn-group p-1 bg-light rounded-pill border" role="group">
-            <button
-              type="button"
-              className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'todas' ? 'btn-primary shadow-sm text-white' : 'btn-light text-muted'}`}
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => { setFiltroEscuela('todas'); setPaginaActual(1); }}
-            >
-              🏢 Ambas Escuelas ({estudiantes.length})
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'sb' ? 'btn-primary shadow-sm text-white' : 'btn-light text-muted'}`}
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => { setFiltroEscuela('sb'); setPaginaActual(1); }}
-            >
-              🏫 U.E. Santa Bárbara ({metrics.countSB})
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'lb' ? 'btn-primary shadow-sm text-white' : 'btn-light text-muted'}`}
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => { setFiltroEscuela('lb'); setPaginaActual(1); }}
-            >
-              🏫 U.E. Libertador Bolívar ({metrics.countLB})
-            </button>
-          </div>
+          {sedeRestringida ? (
+            <div className="d-flex align-items-center gap-2">
+              <span 
+                className="badge rounded-pill text-white fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5"
+                style={{ 
+                  backgroundColor: sedeRestringida === 'sb' ? '#0284c7' : '#059669', 
+                  fontSize: '0.82rem'
+                }}
+              >
+                <i className="bi bi-shield-lock-fill"></i>
+                <span>{sedeRestringida === 'sb' ? '🏫 U.E. Santa Bárbara' : '🏫 U.E. Libertador Bolívar'}</span>
+              </span>
+              <span className="badge bg-light text-secondary border rounded-pill px-2.5 py-1" style={{ fontSize: '0.72rem' }}>
+                <i className="bi bi-person-check-fill me-1 text-success"></i>Coordinación Asignada Exclusiva
+              </span>
+            </div>
+          ) : (
+            <div className="btn-group p-1 bg-light rounded-pill border shadow-xs" role="group">
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'sb' ? 'btn-primary shadow-xs text-white' : 'btn-white text-muted border-0'}`}
+                style={{ 
+                  fontSize: '0.8rem',
+                  backgroundColor: filtroEscuela === 'sb' ? '#f97316' : undefined,
+                  borderColor: filtroEscuela === 'sb' ? '#ea580c' : undefined
+                }}
+                onClick={() => { setFiltroEscuela('sb'); setPaginaActual(1); }}
+              >
+                🏫 U.E. Santa Bárbara ({metrics.countSB})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill px-3 fw-bold transition-all ${filtroEscuela === 'lb' ? 'btn-primary shadow-xs text-white' : 'btn-white text-muted border-0'}`}
+                style={{ 
+                  fontSize: '0.8rem',
+                  backgroundColor: filtroEscuela === 'lb' ? '#f97316' : undefined,
+                  borderColor: filtroEscuela === 'lb' ? '#ea580c' : undefined
+                }}
+                onClick={() => { setFiltroEscuela('lb'); setPaginaActual(1); }}
+              >
+                🏫 U.E. Libertador Bolívar ({metrics.countLB})
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="d-flex align-items-center gap-2 text-muted small">
@@ -876,7 +1244,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
       {/* ── BARRA DE TELEMETRÍA: MATRÍCULA ESCOLAR REAL (KPIS) ── */}
       <div className="row g-2 g-md-3 mb-3">
-        {/* KPI 1: Matrícula Escolar Total Real */}
+        {/* KPI 1: Matrícula Regular Activa */}
         <div className="col-12 col-sm-6 col-lg-3">
           <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #2563eb' }}>
             <div 
@@ -886,40 +1254,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               <i className="bi bi-mortarboard-fill"></i>
             </div>
             <div className="min-w-0">
-              <div className="fw-black text-dark fs-4 line-height-1">{metrics.matriculaTotal}</div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Matrícula Escolar Real</div>
+              <div className="fw-black text-dark fs-4 line-height-1">{metrics.totalRegulares}</div>
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Matrícula Regular del Plantel</div>
               <div className="text-primary small fw-bold" style={{ fontSize: '0.7rem' }}>
-                Regulares: {metrics.totalRegulares} | Nuevos: {metrics.nuevosFormalizados}
+                {metrics.regularesActualizados} Actualizados | {metrics.totalRegularesPorActualizar} Por Actualizar
               </div>
             </div>
           </div>
         </div>
 
-        {/* KPI 2: Regulares Actualizados */}
-        <div className="col-12 col-sm-6 col-lg-3">
-          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #16a34a' }}>
-            <div 
-              className="rounded-3 d-flex align-items-center justify-content-center text-success flex-shrink-0" 
-              style={{ width: '48px', height: '48px', background: '#f0fdf4', fontSize: '1.4rem' }}
-            >
-              <i className="bi bi-check-circle-fill"></i>
-            </div>
-            <div className="min-w-0">
-              <div className="fw-black text-dark fs-4 line-height-1 d-flex align-items-center gap-2">
-                <span>{metrics.regularesActualizados}</span>
-                <span className="badge bg-success-subtle text-success rounded-pill fw-bold" style={{ fontSize: '0.68rem' }}>
-                  {metrics.regularesActualizadosPct}%
-                </span>
-              </div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Regulares Actualizados</div>
-              <div className="text-success small fw-bold" style={{ fontSize: '0.7rem' }}>
-                Ficha Finalizada en el Portal
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Nuevos Ingresos Formalizados */}
+        {/* KPI 2: Cupos Otorgados (Admisión) */}
         <div className="col-12 col-sm-6 col-lg-3">
           <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #f59e0b' }}>
             <div 
@@ -931,61 +1275,96 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
             <div className="min-w-0">
               <div className="fw-black text-dark fs-4 line-height-1 d-flex align-items-center gap-2">
                 <span>{metrics.nuevosFormalizados}</span>
-                <span className="badge bg-warning-subtle text-warning-emphasis rounded-pill fw-bold" style={{ fontSize: '0.68rem' }}>
-                  {metrics.nuevosFormalizadosPct}%
+                <span className="badge bg-warning-subtle text-warning-emphasis rounded-pill fw-bold" style={{ fontSize: '0.65rem' }}>
+                  Cupos Otorgados
                 </span>
               </div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Nuevos Ingresos Formalizados</div>
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Nuevos Ingresos (Admisión)</div>
               <div className="text-warning-emphasis small fw-bold" style={{ fontSize: '0.7rem' }}>
-                Admisión e Inscripción Aprobada
+                Pendientes de formalización presencial en escuela
               </div>
             </div>
           </div>
         </div>
 
-        {/* KPI 4: Regulares por Actualizar (En Proceso + Sin Iniciar) */}
+        {/* KPI 3: Demanda de Transporte en Autobús */}
         <div className="col-12 col-sm-6 col-lg-3">
-          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #dc2626' }}>
+          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #0284c7' }}>
             <div 
-              className="rounded-3 d-flex align-items-center justify-content-center text-danger flex-shrink-0" 
-              style={{ width: '48px', height: '48px', background: '#fef2f2', fontSize: '1.4rem' }}
+              className="rounded-3 d-flex align-items-center justify-content-center text-info flex-shrink-0" 
+              style={{ width: '48px', height: '48px', background: '#f0f9ff', color: '#0284c7', fontSize: '1.4rem' }}
             >
-              <i className="bi bi-clock-history"></i>
+              <i className="bi bi-bus-front-fill text-primary"></i>
             </div>
             <div className="min-w-0">
-              <div className="fw-black text-dark fs-4 line-height-1">
-                {metrics.totalRegularesPorActualizar}
+              <div className="fw-black text-dark fs-4 line-height-1 d-flex align-items-center gap-2">
+                <span>{metrics.transporteConfirmado}</span>
+                <span className="badge bg-primary-subtle text-primary rounded-pill fw-bold" style={{ fontSize: '0.68rem' }}>
+                  {metrics.transportePct}%
+                </span>
               </div>
-              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Regulares por Actualizar</div>
-              <div className="text-danger small fw-bold" style={{ fontSize: '0.7rem' }}>
-                En Proceso: <b>{metrics.regularesEnProceso}</b> | Sin Iniciar: <b>{metrics.regularesSinIniciar}</b>
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>Pasajeros en Autobús</div>
+              <div className="text-primary small fw-semibold" style={{ fontSize: '0.7rem' }}>
+                <b>{metrics.transporteConfirmado100}</b> al 100% | <b>{metrics.transporteConfirmadoEnProceso}</b> en proc. ({metrics.rutasConDemanda} Rutas)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Ruta 0 • Caminantes / A Pie (No Requieren Bus) */}
+        <div className="col-12 col-sm-6 col-lg-3">
+          <div className="p-3 bg-white rounded-4 border shadow-xs d-flex align-items-center gap-3 h-100" style={{ borderLeft: '5px solid #16a34a' }}>
+            <div 
+              className="rounded-3 d-flex align-items-center justify-content-center text-success flex-shrink-0" 
+              style={{ width: '48px', height: '48px', background: '#f0fdf4', fontSize: '1.4rem' }}
+            >
+              <i className="bi bi-person-walking"></i>
+            </div>
+            <div className="min-w-0">
+              <div className="fw-black text-dark fs-4 line-height-1 d-flex align-items-center gap-2">
+                <span>{metrics.transporteNoRequiere}</span>
+                <span className="badge bg-success-subtle text-success rounded-pill fw-bold" style={{ fontSize: '0.68rem' }}>
+                  {metrics.caminantesPct}%
+                </span>
+              </div>
+              <div className="text-muted small fw-semibold" style={{ fontSize: '0.75rem' }}>
+                Ruta 0 • A Pie / Caminantes
+              </div>
+              <div className="text-success small fw-semibold" style={{ fontSize: '0.7rem' }}>
+                <b>{metrics.caminantes100}</b> al 100% | <b>{metrics.caminantesEnProceso}</b> en proc. (Sin Bus)
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── BARRA SECUNDARIA: BALANCE DE DEMANDA DE TRANSPORTE ── */}
+      {/* ── BARRA SECUNDARIA: MODALIDAD DE ASISTENCIA & CONCILIACIÓN INSTITUCIONAL ── */}
       <div className="p-3 bg-light rounded-4 border mb-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
         <div className="d-flex align-items-center gap-3 flex-wrap">
           <span className="fw-bold text-dark small d-flex align-items-center gap-1.5">
-            <i className="bi bi-bus-front-fill text-primary"></i>Balance de Transporte:
+            <i className="bi bi-compass-fill text-primary"></i>Modalidad de Asistencia:
           </span>
           <span className="badge rounded-pill bg-white text-primary border shadow-xs px-2.5 py-1 fw-bold" style={{ fontSize: '0.75rem' }}>
-            🚌 Requieren Transporte: <b>{metrics.transporteConfirmado}</b> ({metrics.transportePct}% de la matrícula)
+            🚌 En Autobús: <b>{metrics.transporteConfirmado}</b> <span className="fw-normal text-muted">({metrics.transporteConfirmado100} conf. + {metrics.transporteConfirmadoEnProceso} proc.)</span>
           </span>
-          <span className="badge rounded-pill bg-white text-secondary border shadow-xs px-2.5 py-1 fw-semibold" style={{ fontSize: '0.75rem' }}>
-            🚶‍♂️ No Requieren: <b>{metrics.transporteNoRequiere}</b>
+          <span className="badge rounded-pill bg-white text-success border shadow-xs px-2.5 py-1 fw-bold" style={{ fontSize: '0.75rem' }}>
+            🚶‍♂️ Ruta 0 (A Pie): <b>{metrics.transporteNoRequiere}</b> <span className="fw-normal text-muted">({metrics.caminantes100} conf. + {metrics.caminantesEnProceso} proc.)</span>
           </span>
-          <span className="badge rounded-pill bg-white text-danger border shadow-xs px-2.5 py-1 fw-semibold" style={{ fontSize: '0.75rem' }}>
-            ❓ Pendiente por Definir: <b>{metrics.transportePendienteDefinir}</b>
+          <span className="badge rounded-pill bg-white text-danger border shadow-xs px-2.5 py-1 fw-semibold" style={{ fontSize: '0.75rem' }} title="Estudiantes Sin Iniciar (0% de avance): no han completado ninguna sección">
+            ❓ Sin Definir: <b>{metrics.transportePendienteDefinir}</b> <span className="fw-normal text-danger opacity-75">({metrics.totalSinIniciar} Sin Iniciar)</span>
           </span>
         </div>
 
-        <div className="d-flex align-items-center gap-2 text-muted small">
-          <span><b>{metrics.rutasConDemanda}</b> Rutas activas</span>
-          <span>•</span>
-          <span><b>{metrics.paradasConDemanda}</b> Paradas con demanda</span>
+        <div className="d-flex align-items-center gap-2 text-muted small flex-wrap">
+          <span className="badge bg-white text-dark border px-2 py-1">
+            <b>{metrics.rutasConDemanda}</b> Rutas Bus + Ruta 0
+          </span>
+          <span className="badge bg-white text-dark border px-2 py-1">
+            <b>{metrics.paradasConDemanda}</b> Paradas
+          </span>
+          <span className="badge bg-purple-subtle border px-2.5 py-1" style={{ background: '#f5f3ff', color: '#6d28d9', borderColor: '#ddd6fe' }} title="Conciliación Oficial Chamilo: Actualizados 100% + En Proceso + Sin Iniciar">
+            Fichas Chamilo: <b>{metrics.totalActualizados} al 100%</b> | <b>{metrics.totalEnProceso} En Proc.</b> | <b>{metrics.totalSinIniciar} Sin Iniciar</b> ({metrics.totalPorActualizar} por culminar)
+          </span>
         </div>
       </div>
 
@@ -1029,7 +1408,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               onClick={() => setTabActiva('regulares_pendientes')}
             >
               <i className="bi bi-clock-history"></i>
-              <span>Regulares por Actualizar ({metrics.totalRegularesPorActualizar})</span>
+              <span>Por Actualizar ({metrics.totalPorActualizar})</span>
             </button>
           </li>
           {metrics.pendientesAsignar > 0 && (
@@ -1108,13 +1487,13 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                         style={{ 
                           width: '42px', 
                           height: '42px', 
-                          background: ruta.activo ? '#eff6ff' : '#f1f5f9', 
-                          color: ruta.activo ? '#2563eb' : '#94a3b8',
+                          background: ruta.esRutaCaminantes ? '#f0fdf4' : (ruta.esRutaPendientes ? '#fff1f2' : (ruta.activo ? '#eff6ff' : '#f1f5f9')), 
+                          color: ruta.esRutaCaminantes ? '#16a34a' : (ruta.esRutaPendientes ? '#e11d48' : (ruta.activo ? '#2563eb' : '#94a3b8')),
                           fontSize: '1.25rem',
-                          border: '1px solid #e2e8f0'
+                          border: `1px solid ${ruta.esRutaCaminantes ? '#bbf7d0' : (ruta.esRutaPendientes ? '#fecdd3' : '#e2e8f0')}`
                         }}
                       >
-                        <i className="bi bi-bus-front-fill"></i>
+                        <i className={`bi ${ruta.esRutaCaminantes ? 'bi-person-walking' : (ruta.esRutaPendientes ? 'bi-question-circle-fill' : 'bi-bus-front-fill')}`}></i>
                       </div>
 
                       <div className="min-w-0">
@@ -1122,31 +1501,55 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                           <h5 className="fw-bold text-dark mb-0" style={{ fontSize: '1.05rem' }}>
                             {ruta.nombre}
                           </h5>
-                          <span 
-                            className="badge rounded-pill fw-bold px-2 py-0.5"
-                            style={{ 
-                              fontSize: '0.68rem',
-                              background: ruta.escuela_codigo === 'sb' ? '#ecfdf5' : '#f0f9ff',
-                              color: ruta.escuela_codigo === 'sb' ? '#047857' : '#0369a1',
-                              border: `1px solid ${ruta.escuela_codigo === 'sb' ? '#a7f3d0' : '#bae6fd'}`
-                            }}
-                          >
-                            {ruta.escuela_codigo.toUpperCase()} • {ruta.escuelaNombre}
-                          </span>
+                          {ruta.esRutaCaminantes ? (
+                            <span className="badge rounded-pill fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>
+                              🚶‍♂️ TRASLADO A PIE • No Requiere Bus
+                            </span>
+                          ) : ruta.esRutaPendientes ? (
+                            <span className="badge rounded-pill fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem', background: '#fff1f2', color: '#be123c', border: '1px solid #fecdd3' }}>
+                              ❓ POR ENCUESTAR • Sin Modalidad Asignada
+                            </span>
+                          ) : (
+                            <span 
+                              className="badge rounded-pill fw-bold px-2 py-0.5"
+                              style={{ 
+                                fontSize: '0.68rem',
+                                background: ruta.escuela_codigo === 'sb' ? '#ecfdf5' : '#f0f9ff',
+                                color: ruta.escuela_codigo === 'sb' ? '#047857' : '#0369a1',
+                                border: `1px solid ${ruta.escuela_codigo === 'sb' ? '#a7f3d0' : '#bae6fd'}`
+                              }}
+                            >
+                              {ruta.escuela_codigo.toUpperCase()} • {ruta.escuelaNombre}
+                            </span>
+                          )}
                           {!ruta.activo && (
                             <span className="badge bg-secondary rounded-pill" style={{ fontSize: '0.65rem' }}>Inactiva</span>
                           )}
                         </div>
 
                         <div className="d-flex align-items-center gap-3 text-muted small mt-1 flex-wrap" style={{ fontSize: '0.75rem' }}>
-                          <span>
-                            <i className="bi bi-person-badge me-1 text-primary"></i>
-                            Chofer: <b>{ruta.chofer_nombre}</b>
-                          </span>
-                          <span>
-                            <i className="bi bi-person-check me-1 text-success"></i>
-                            Docente: <b>{ruta.docente_nombre}</b> {ruta.docente_telefono && `(${ruta.docente_telefono})`}
-                          </span>
+                          {ruta.esRutaCaminantes ? (
+                            <span>
+                              <i className="bi bi-geo-alt-fill me-1 text-success"></i>
+                              Modalidad: <b>Caminantes por cuenta propia / residencia adyacente</b>
+                            </span>
+                          ) : ruta.esRutaPendientes ? (
+                            <span>
+                              <i className="bi bi-telephone-fill me-1 text-danger"></i>
+                              Estado: <b>Pendiente de encuesta para definir si va en autobús o a pie</b>
+                            </span>
+                          ) : (
+                            <>
+                              <span>
+                                <i className="bi bi-person-badge me-1 text-primary"></i>
+                                Chofer: <b>{ruta.chofer_nombre}</b>
+                              </span>
+                              <span>
+                                <i className="bi bi-person-check me-1 text-success"></i>
+                                Docente: <b>{ruta.docente_nombre}</b> {ruta.docente_telefono && `(${ruta.docente_telefono})`}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1156,11 +1559,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                       <div className="d-flex align-items-center gap-1.5 flex-wrap">
                         <span 
                           className="badge rounded-pill px-3 py-1.5 fw-bold"
-                          style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', fontSize: '0.8rem' }}
-                          title="Total de estudiantes que abordan esta ruta"
+                          style={{ 
+                            background: ruta.esRutaCaminantes ? '#f0fdf4' : (ruta.esRutaPendientes ? '#fff1f2' : '#eff6ff'), 
+                            color: ruta.esRutaCaminantes ? '#15803d' : (ruta.esRutaPendientes ? '#be123c' : '#1d4ed8'), 
+                            border: `1px solid ${ruta.esRutaCaminantes ? '#bbf7d0' : (ruta.esRutaPendientes ? '#fecdd3' : '#bfdbfe')}`, 
+                            fontSize: '0.8rem' 
+                          }}
+                          title={ruta.esRutaCaminantes ? 'Total de estudiantes que van caminando' : (ruta.esRutaPendientes ? 'Estudiantes sin modalidad de transporte definida' : 'Total de estudiantes que abordan esta ruta')}
                         >
-                          <i className="bi bi-people-fill me-1.5"></i>
-                          <b>{ruta.totalEstudiantes}</b> Pasajeros
+                          <i className={`bi ${ruta.esRutaCaminantes ? 'bi-person-walking' : (ruta.esRutaPendientes ? 'bi-question-circle-fill' : 'bi-people-fill')} me-1.5`}></i>
+                          <b>{ruta.totalEstudiantes}</b> {ruta.esRutaCaminantes ? 'Caminantes' : (ruta.esRutaPendientes ? 'Por Definir' : 'Pasajeros')}
                         </span>
                         <span 
                           className="badge rounded-pill px-2.5 py-1 fw-semibold bg-light text-success border"
@@ -1179,28 +1587,28 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                         <span 
                           className="badge rounded-pill px-2.5 py-1 fw-semibold bg-light text-warning-emphasis border"
                           style={{ fontSize: '0.72rem' }}
-                          title="Nuevos Ingresos Formalizados"
+                          title="Nuevos Ingresos con Cupo Otorgado"
                         >
                           <i className="bi bi-star me-1"></i>{ruta.totalNuevos} Nuevos
                         </span>
                       </div>
 
                       <button
-                        className="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1 fw-bold d-flex align-items-center gap-1"
+                        className={`btn btn-sm rounded-pill px-2.5 py-1 fw-bold d-flex align-items-center gap-1 ${ruta.esRutaCaminantes ? 'btn-outline-success' : (ruta.esRutaPendientes ? 'btn-outline-danger' : 'btn-outline-primary')}`}
                         style={{ fontSize: '0.72rem' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setModalData({
-                            titulo: `Estudiantes de: ${ruta.nombre}`,
-                            subtitulo: `Sede: ${ruta.escuelaNombre} | Chofer: ${ruta.chofer_nombre} | Docente: ${ruta.docente_nombre}`,
+                            titulo: `${ruta.esRutaCaminantes ? 'Estudiantes Caminantes (A Pie)' : (ruta.esRutaPendientes ? 'Estudiantes con Modalidad de Transporte por Definir' : `Estudiantes de: ${ruta.nombre}`)}`,
+                            subtitulo: `Sede: ${ruta.escuelaNombre} | ${ruta.esRutaCaminantes ? 'Se trasladan a pie por cuenta propia' : (ruta.esRutaPendientes ? 'Requieren contacto para encuestar transporte' : `Chofer: ${ruta.chofer_nombre} | Docente: ${ruta.docente_nombre}`)}`,
                             escuela: ruta.escuela_codigo,
                             estudiantes: ruta.estudiantes
                           });
                         }}
-                        title="Ver listado nominal de la ruta"
+                        title="Ver listado nominal"
                       >
                         <i className="bi bi-eye-fill"></i>
-                        <span>Ver Lista ({ruta.totalEstudiantes})</span>
+                        <span>Ver {ruta.esRutaCaminantes ? 'Caminantes' : (ruta.esRutaPendientes ? 'Casos' : 'Lista')} ({ruta.totalEstudiantes})</span>
                       </button>
 
                       <i className={`bi bi-chevron-${isExpanded ? 'up' : 'down'} text-muted ms-1`}></i>
@@ -1211,18 +1619,65 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                   {isExpanded && (
                     <div className="p-3 bg-white">
                       {ruta.paradas.length === 0 ? (
-                        <div className="p-3 text-center text-muted small bg-light rounded-3">
-                          <i className="bi bi-info-circle me-1"></i> Esta ruta aún no tiene paradas registradas en su recorrido.
-                        </div>
+                        ruta.esRutaPendientes ? (
+                          <div className="table-responsive">
+                            <div className="alert alert-danger py-2 px-3 small d-flex align-items-center justify-content-between mb-2">
+                              <span className="d-flex align-items-center gap-2">
+                                <i className="bi bi-exclamation-octagon-fill text-danger fs-5"></i>
+                                <span>Estos <b>{ruta.estudiantes.length} estudiantes</b> aún no han indicado si requieren bus o asisten a pie. Comuníquese para cerrar su asignación:</span>
+                              </span>
+                            </div>
+                            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
+                              <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.7rem' }}>
+                                <tr>
+                                  <th style={{ width: '40px' }} className="text-center">#</th>
+                                  <th>Estudiante</th>
+                                  <th>Cédula</th>
+                                  <th>Grado</th>
+                                  <th>Representante</th>
+                                  <th>Teléfono</th>
+                                  <th className="text-end">Contactar</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {ruta.estudiantes.map((e, idx) => {
+                                  const cleanPhone = (e.representanteTelefono || '').replace(/\D/g, '');
+                                  const waLink = cleanPhone ? (cleanPhone.startsWith('58') ? `https://wa.me/${cleanPhone}` : `https://wa.me/58${cleanPhone.replace(/^0+/, '')}`) : null;
+                                  return (
+                                    <tr key={e.id}>
+                                      <td className="text-center fw-bold text-muted">{idx + 1}</td>
+                                      <td className="fw-bold text-dark">{e.nombreCompleto}</td>
+                                      <td className="text-muted">{e.cedula}</td>
+                                      <td><span className="badge bg-light text-dark border">{e.grado}</span></td>
+                                      <td>{e.representanteNombre}</td>
+                                      <td>{e.representanteTelefono || 'Sin teléfono'}</td>
+                                      <td className="text-end">
+                                        {waLink && (
+                                          <a href={waLink} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-success rounded-pill px-2.5 py-0.5" style={{ fontSize: '0.72rem' }}>
+                                            <i className="bi bi-whatsapp me-1"></i>WhatsApp
+                                          </a>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="p-3 text-center text-muted small bg-light rounded-3">
+                            <i className="bi bi-info-circle me-1"></i> Esta ruta aún no tiene paradas registradas en su recorrido.
+                          </div>
+                        )
                       ) : (
                         <div className="table-responsive">
                           <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
                             <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>
                               <tr>
                                 <th style={{ width: '50px' }} className="text-center">#</th>
-                                <th>Parada de Abordaje</th>
-                                <th>Sector / Ubicación</th>
-                                <th className="text-center">Total Pasajeros</th>
+                                <th>{ruta.esRutaCaminantes ? 'Nivel / Agrupación Peatonal' : 'Parada de Abordaje'}</th>
+                                <th>{ruta.esRutaCaminantes ? 'Observaciones de Traslado' : 'Sector / Ubicación'}</th>
+                                <th className="text-center">{ruta.esRutaCaminantes ? 'Total Caminantes' : 'Total Pasajeros'}</th>
                                 <th className="text-center">Actualizados</th>
                                 <th className="text-center">En Proceso</th>
                                 <th className="text-center">Nuevos Ingresos</th>
@@ -1235,14 +1690,14 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                   <td className="text-center fw-bold text-muted">{p.orden}</td>
                                   <td>
                                     <div className="fw-bold text-dark d-flex align-items-center gap-1.5">
-                                      <i className="bi bi-geo-alt-fill text-danger" style={{ fontSize: '0.85rem' }}></i>
+                                      <i className={`bi ${ruta.esRutaCaminantes ? 'bi-person-walking text-success' : 'bi-geo-alt-fill text-danger'}`} style={{ fontSize: '0.85rem' }}></i>
                                       <span>{p.nombre_parada}</span>
                                     </div>
                                   </td>
                                   <td className="text-muted small">{p.descripcion || '—'}</td>
                                   <td className="text-center">
                                     <span 
-                                      className={`badge rounded-pill px-2.5 py-1 fw-bold ${p.total > 0 ? 'bg-primary text-white shadow-xs' : 'bg-light text-muted border'}`}
+                                      className={`badge rounded-pill px-2.5 py-1 fw-bold ${p.total > 0 ? (ruta.esRutaCaminantes ? 'bg-success text-white' : 'bg-primary text-white shadow-xs') : 'bg-light text-muted border'}`}
                                       style={{ fontSize: '0.75rem' }}
                                     >
                                       {p.total}
@@ -1267,17 +1722,17 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                     <div className="d-inline-flex align-items-center gap-1">
                                       <button
                                         disabled={p.total === 0}
-                                        className="btn btn-sm btn-outline-primary rounded-pill px-2 py-0.5 fw-bold d-flex align-items-center gap-1"
+                                        className={`btn btn-sm rounded-pill px-2 py-0.5 fw-bold d-flex align-items-center gap-1 ${ruta.esRutaCaminantes ? 'btn-outline-success' : 'btn-outline-primary'}`}
                                         style={{ fontSize: '0.7rem' }}
                                         onClick={() => {
                                           setModalData({
-                                            titulo: `Estudiantes en Parada: ${p.nombre_parada}`,
-                                            subtitulo: `Ruta: ${ruta.nombre} (${ruta.escuelaNombre})`,
+                                            titulo: `${ruta.esRutaCaminantes ? 'Caminantes en: ' : 'Estudiantes en Parada: '} ${p.nombre_parada}`,
+                                            subtitulo: `${ruta.nombre} (${ruta.escuelaNombre})`,
                                             escuela: ruta.escuela_codigo,
                                             estudiantes: p.estudiantes
                                           });
                                         }}
-                                        title="Ver lista de estudiantes de esta parada"
+                                        title={ruta.esRutaCaminantes ? 'Ver lista de caminantes' : 'Ver lista de estudiantes de esta parada'}
                                       >
                                         <i className="bi bi-people-fill"></i>
                                         <span>Estudiantes</span>
@@ -1288,7 +1743,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                         className="btn btn-sm btn-outline-success rounded-pill px-2 py-0.5 fw-bold d-flex align-items-center gap-1"
                                         style={{ fontSize: '0.7rem' }}
                                         onClick={() => copiarListaParada(p, ruta.nombre)}
-                                        title="Copiar lista de esta parada para WhatsApp"
+                                        title="Copiar lista para WhatsApp"
                                       >
                                         <i className="bi bi-whatsapp"></i>
                                         <span>Copiar</span>
@@ -1302,8 +1757,25 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                         </div>
                       )}
 
+                      {/* Aclaratoria Conciliatoria si es la categoría de pendientes */}
+                      {ruta.esRutaPendientes && (
+                        <div className="mb-3 p-3 bg-danger-subtle border border-danger border-opacity-25 rounded-3 d-flex align-items-start gap-2.5">
+                          <i className="bi bi-info-circle-fill text-danger fs-5 mt-0.5"></i>
+                          <div className="small text-danger-emphasis">
+                            <div className="fw-bold mb-1">
+                              Conciliación de {ruta.totalEstudiantes} Estudiantes con Modalidad de Transporte Sin Definir:
+                            </div>
+                            <div>
+                              Estos <b>{ruta.totalEstudiantes} estudiantes</b> corresponden a los alumnos clasificados como <b>"Sin Iniciar"</b> (0% de avance en ficha), quienes aún no han seleccionado si van en autobús o a pie por no haber ingresado a actualizar sus datos.
+                              <br className="mb-1" />
+                              <b>¿Por qué no son 50?</b> Porque los <b>35 estudiantes "En Proceso"</b> ya indicaron preliminarmente su modalidad en el formulario digital (27 en autobús y 8 en Ruta 0 a pie), aunque aún no han culminado el 100% de las demás secciones de su ficha. En total, hay <b>50 estudiantes con actualización pendiente</b> ({ruta.totalEstudiantes} sin iniciar + 35 en proceso).
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Aviso si hay estudiantes de esta ruta con paradas pendientes de homologación */}
-                      {ruta.sinParadaExacta.length > 0 && (
+                      {ruta.sinParadaExacta.length > 0 && !ruta.esRutaPendientes && (
                         <div className="mt-3 p-2.5 bg-warning-subtle border border-warning rounded-3 d-flex align-items-center justify-content-between gap-2">
                           <div className="d-flex align-items-center gap-2 small text-warning-emphasis">
                             <i className="bi bi-exclamation-triangle-fill fs-5"></i>
@@ -1485,15 +1957,15 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
             </div>
 
             {/* Filtro por Categoría de Matrícula */}
-            <div className="col-6 col-md-3">
+            <div className="col-6 col-md-2">
               <select
                 className="form-select form-select-sm"
                 value={filtroCategoria}
                 onChange={(e) => { setFiltroCategoria(e.target.value); setPaginaActual(1); }}
               >
-                <option value="todos">Toda la Matrícula Real ({estudiantesFiltradosEscuela.length})</option>
+                <option value="todos">Matrícula ({estudiantesFiltradosEscuela.length})</option>
                 <option value="regular_actualizado">Regulares Actualizados ({metrics.regularesActualizados})</option>
-                <option value="nuevo_ingreso_formalizado">Nuevos Ingresos Formalizados ({metrics.nuevosFormalizados})</option>
+                <option value="nuevo_ingreso_cupo_otorgado">Cupos Otorgados ({metrics.nuevosFormalizados})</option>
                 <option value="regular_en_proceso">Regulares En Proceso ({metrics.regularesEnProceso})</option>
                 <option value="regular_sin_iniciar">Regulares Sin Iniciar ({metrics.regularesSinIniciar})</option>
               </select>
@@ -1506,10 +1978,24 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                 value={filtroTransporte}
                 onChange={(e: any) => { setFiltroTransporte(e.target.value); setPaginaActual(1); }}
               >
-                <option value="todos">Todos (Transporte)</option>
-                <option value="si">🚌 Requieren Transporte ({metrics.transporteConfirmado})</option>
-                <option value="no">🚶‍♂️ No Requieren ({metrics.transporteNoRequiere})</option>
-                <option value="pendiente">❓ Pendiente ({metrics.transportePendienteDefinir})</option>
+                <option value="todos">Todos (Modalidad)</option>
+                <option value="si">🚌 En Autobús ({metrics.transporteConfirmado})</option>
+                <option value="no">🚶‍♂️ Ruta 0 • A Pie ({metrics.transporteNoRequiere})</option>
+                <option value="pendiente">❓ Sin Definir ({metrics.transportePendienteDefinir})</option>
+              </select>
+            </div>
+
+            {/* Filtro por Ruta */}
+            <div className="col-6 col-md-2">
+              <select
+                className="form-select form-select-sm"
+                value={filtroRuta}
+                onChange={(e) => { setFiltroRuta(e.target.value); setPaginaActual(1); }}
+              >
+                <option value="todas">Todas las Rutas</option>
+                {opcionesRutas.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
               </select>
             </div>
 
@@ -1528,16 +2014,16 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
             </div>
 
             {/* Filas por página */}
-            <div className="col-6 col-md-2 text-end">
+            <div className="col-6 col-md-1 text-end">
               <select
                 className="form-select form-select-sm"
                 value={filasPorPagina}
                 onChange={(e) => { setFilasPorPagina(Number(e.target.value)); setPaginaActual(1); }}
               >
-                <option value={15}>15 por pág.</option>
-                <option value={25}>25 por pág.</option>
-                <option value={50}>50 por pág.</option>
-                <option value={100}>100 por pág.</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
               </select>
             </div>
           </div>
@@ -1596,9 +2082,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                               <i className="bi bi-check-circle me-1"></i>Regular Actualizado
                             </span>
                           )}
-                          {e.categoriaMatricula === 'nuevo_ingreso_formalizado' && (
+                          {(e.categoriaMatricula === 'nuevo_ingreso_cupo_otorgado' || e.categoriaMatricula === 'nuevo_ingreso_formalizado') && (
                             <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                              <i className="bi bi-star-fill me-1"></i>Nuevo Formalizado
+                              <i className="bi bi-star-fill me-1"></i>Cupo Otorgado
                             </span>
                           )}
                           {e.categoriaMatricula === 'regular_en_proceso' && (
@@ -1633,17 +2119,17 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                         <td>
                           {e.requiereTransporte === true && (
                             <span className="badge rounded-pill bg-primary text-white fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                              <i className="bi bi-bus-front me-1"></i>Requiere
+                              <i className="bi bi-bus-front me-1"></i>En Autobús
                             </span>
                           )}
                           {e.requiereTransporte === false && (
-                            <span className="badge rounded-pill bg-light text-muted border fw-semibold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                              No Requiere
+                            <span className="badge rounded-pill bg-success-subtle text-success border border-success fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                              <i className="bi bi-person-walking me-1"></i>A Pie / Caminante
                             </span>
                           )}
                           {e.requiereTransporte === null && (
                             <span className="badge rounded-pill bg-danger-subtle text-danger border border-danger fw-semibold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
-                              Pendiente
+                              ❓ Por Confirmar
                             </span>
                           )}
                         </td>
@@ -1657,8 +2143,19 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                                 📍 {e.paradaNombreLimpio}
                               </div>
                             </div>
+                          ) : e.requiereTransporte === false ? (
+                            <div>
+                              <span className="text-success fw-semibold small d-flex align-items-center gap-1">
+                                <i className="bi bi-person-walking"></i>Caminante (A Pie)
+                              </span>
+                              {e.direccion && (
+                                <div className="text-muted text-truncate" style={{ fontSize: '0.7rem', maxWidth: '200px' }} title={e.direccion}>
+                                  📍 {e.direccion}
+                                </div>
+                              )}
+                            </div>
                           ) : (
-                            <span className="text-muted small">—</span>
+                            <span className="text-danger small">Pendiente encuesta</span>
                           )}
                         </td>
                         <td>
@@ -1743,10 +2240,10 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
             <div>
               <h5 className="fw-bold text-danger mb-0 d-flex align-items-center gap-2">
                 <i className="bi bi-clock-history"></i>
-                <span>Estudiantes Regulares Pendientes por Actualizar Datos</span>
+                <span>Estudiantes Pendientes por Actualizar Datos</span>
               </h5>
               <p className="text-muted small mb-0">
-                Padrón de estudiantes regulares activos en la institución que aún no han cerrado o iniciado su ficha en el portal.
+                Padrón de estudiantes activos en la institución que aún no han cerrado o iniciado su ficha en el portal.
               </p>
             </div>
 
@@ -1758,7 +2255,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                 style={{ fontSize: '0.78rem' }}
                 onClick={() => setSubfiltroPendientes('todos')}
               >
-                Todos ({metrics.totalRegularesPorActualizar})
+                Todos ({metrics.totalPorActualizar})
               </button>
               <button
                 type="button"
@@ -1766,7 +2263,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                 style={{ fontSize: '0.78rem' }}
                 onClick={() => setSubfiltroPendientes('en_proceso')}
               >
-                ⏳ En Proceso ({metrics.regularesEnProceso})
+                ⏳ En Proceso ({metrics.totalEnProceso})
               </button>
               <button
                 type="button"
@@ -1774,7 +2271,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                 style={{ fontSize: '0.78rem' }}
                 onClick={() => setSubfiltroPendientes('sin_iniciar')}
               >
-                ⚠️ Sin Iniciar ({metrics.regularesSinIniciar})
+                ⚠️ Sin Iniciar ({metrics.totalSinIniciar})
               </button>
             </div>
           </div>
@@ -1816,8 +2313,8 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                         </span>
                       </td>
                       <td>
-                        {e.categoriaMatricula === 'regular_en_proceso' ? (
-                          <span className="badge rounded-pill bg-info-subtle text-primary border border-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
+                        {e.avanceEstado === 'en_proceso' ? (
+                          <span className="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
                             <i className="bi bi-clock me-1"></i>En Proceso (Borrador)
                           </span>
                         ) : (
@@ -1949,22 +2446,45 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          MODAL DETALLADO DE ESTUDIANTES DE UNA PARADA O RUTA
+          MODAL DETALLADO DE ESTUDIANTES DE UNA PARADA O RUTA (MONTADO EN PORTAL)
       ══════════════════════════════════════════════════════════════════════════ */}
-      {modalData && (
+      {modalData && createPortal(
         <div 
           className="modal fade show d-block" 
           tabIndex={-1} 
-          style={{ background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', zIndex: 1055 }}
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(15, 23, 42, 0.75)', 
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            overflow: 'hidden'
+          }}
           onClick={() => { setModalData(null); setFiltroModal(''); }}
         >
           <div 
-            className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg"
+            className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg m-0 w-100"
+            style={{ 
+              maxWidth: '900px',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div className="modal-content border-0 rounded-4 shadow-2xl overflow-hidden d-flex flex-column" style={{ maxHeight: '92vh' }}>
               {/* Header del Modal */}
-              <div className="modal-header bg-primary text-white p-3">
+              <div className="modal-header bg-primary text-white p-3 flex-shrink-0">
                 <div>
                   <h5 className="modal-title fw-bold mb-0 d-flex align-items-center gap-2" style={{ fontSize: '1.1rem' }}>
                     <i className="bi bi-people-fill"></i>
@@ -1982,7 +2502,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               </div>
 
               {/* Barra de Filtro en Modal */}
-              <div className="p-3 bg-light border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div className="p-3 bg-light border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 flex-shrink-0">
                 <div className="input-group input-group-sm" style={{ maxWidth: '320px' }}>
                   <span className="input-group-text bg-white border-end-0">
                     <i className="bi bi-search text-muted"></i>
@@ -2013,7 +2533,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               </div>
 
               {/* Lista de Estudiantes en Modal */}
-              <div className="modal-body p-0">
+              <div className="modal-body p-0 flex-grow-1" style={{ maxHeight: 'calc(92vh - 145px)', overflowY: 'auto' }}>
                 {(() => {
                   const q = normalizar(filtroModal);
                   const filtered = modalData.estudiantes.filter(e => 
@@ -2034,7 +2554,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                   return (
                     <div className="table-responsive">
                       <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
-                        <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.68rem' }}>
+                        <thead className="table-light text-muted text-uppercase" style={{ fontSize: '0.68rem', position: 'sticky', top: 0, zIndex: 2 }}>
                           <tr>
                             <th style={{ width: '40px' }} className="text-center">#</th>
                             <th>Estudiante</th>
@@ -2121,7 +2641,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               </div>
 
               {/* Footer del Modal */}
-              <div className="modal-footer bg-light p-2.5 d-flex justify-content-between align-items-center">
+              <div className="modal-footer bg-light p-2.5 d-flex justify-content-between align-items-center flex-shrink-0">
                 <button
                   type="button"
                   className="btn btn-outline-success btn-sm rounded-pill px-3 py-1 fw-bold d-flex align-items-center gap-1.5"
@@ -2152,7 +2672,8 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

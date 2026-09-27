@@ -111,6 +111,24 @@ export const calcularAvanceActualizacion = (item: any) => {
   };
 };
 
+export const esEstudianteNuevoIngreso = (item: any): boolean => {
+  if (!item) return false;
+  const d = item.datos_actualizados || {};
+  return Boolean(
+    item.origen_admision === 'nuevo_ingreso' ||
+    d.origen_admision === 'nuevo_ingreso' ||
+    item.origen_admision === 'directo_extemporaneo' ||
+    d.origen_admision === 'directo_extemporaneo' ||
+    String(item.creado_por || '').includes('Admisiones') ||
+    String(d.creado_por || '').includes('Admisiones') ||
+    String(item.cedula_estudiante || '').startsWith('T-') ||
+    String(item.cedula_estudiante || '').startsWith('ESC-') ||
+    String(d.codigo_unico || '').startsWith('SC-') ||
+    String(d.codigo_unico || '').startsWith('LB-') ||
+    String(d.codigo_unico || '').startsWith('T-')
+  );
+};
+
 export const VincularEstudiante: React.FC = () => {
   const { user } = usePermisos();
   const [activeTab, setActiveTab] = useState<'individual' | 'masiva' | 'directorio'>('individual');
@@ -120,11 +138,60 @@ export const VincularEstudiante: React.FC = () => {
   const [busquedaDir, setBusquedaDir] = useState<string>('');
   const [gradoFiltroDir, setGradoFiltroDir] = useState<string>('Todos');
   const [avanceFiltroDir, setAvanceFiltroDir] = useState<string>('Todos');
+  const [tipoIngresoFiltroDir, setTipoIngresoFiltroDir] = useState<'Todos' | 'regulares' | 'nuevos_ingresos' | 'duplicados'>('Todos');
   const [paginaActualDir, setPaginaActualDir] = useState(1);
   const elementosPorPaginaDir = 50;
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
   const [gradosDB, setGradosDB] = useState<string[]>([]);
   const [usuariosMap, setUsuariosMap] = useState<Map<string, string>>(new Map());
+
+  // Estados para Ordenamiento Dinámico de los Listados
+  const [sortColDir, setSortColDir] = useState<string>('numero');
+  const [sortOrderDir, setSortOrderDir] = useState<'asc' | 'desc'>('asc');
+
+  const [sortColMasiva, setSortColMasiva] = useState<string>('');
+  const [sortOrderMasiva, setSortOrderMasiva] = useState<'asc' | 'desc'>('asc');
+
+  const [sortColMatriz, setSortColMatriz] = useState<string>('');
+  const [sortOrderMatriz, setSortOrderMatriz] = useState<'asc' | 'desc'>('asc');
+
+  const sortColLabels: Record<string, string> = {
+    numero: 'Orden de Registro (#)',
+    representante: 'Representante',
+    cedula_estudiante: 'Cédula Estudiante',
+    estudiante: 'Nombre del Estudiante',
+    plantel: 'Plantel',
+    grado: 'Grado',
+    avance: 'Avance de Actualización',
+    estado: 'Estado'
+  };
+
+  const handleSortDir = (col: string) => {
+    if (sortColDir === col) {
+      setSortOrderDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColDir(col);
+      setSortOrderDir('asc');
+    }
+  };
+
+  const handleSortMasiva = (col: string) => {
+    if (sortColMasiva === col) {
+      setSortOrderMasiva(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColMasiva(col);
+      setSortOrderMasiva('asc');
+    }
+  };
+
+  const handleSortMatriz = (col: string) => {
+    if (sortColMatriz === col) {
+      setSortOrderMatriz(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColMatriz(col);
+      setSortOrderMatriz('asc');
+    }
+  };
 
   // Helper para obtener el nombre oficial y verídico del representante desde la tabla de usuarios
   const getNombreRepresentante = (item: any): string => {
@@ -252,7 +319,7 @@ export const VincularEstudiante: React.FC = () => {
 
   useEffect(() => {
     setPaginaActualDir(1);
-  }, [escuelaFiltro, busquedaDir, gradoFiltroDir, avanceFiltroDir]);
+  }, [escuelaFiltro, busquedaDir, gradoFiltroDir, avanceFiltroDir, tipoIngresoFiltroDir, sortColDir, sortOrderDir]);
 
   const cargarCatalogos = async () => {
     try {
@@ -269,7 +336,7 @@ export const VincularEstudiante: React.FC = () => {
     setLoading(true);
     setSeleccionados([]);
     try {
-      const selectFields = 'id, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, estado, fecha_ultima_actualizacion, datos_actualizados, created_at';
+      const selectFields = 'id, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, estado, fecha_ultima_actualizacion, datos_actualizados, created_at, creado_por';
 
       // Supabase limita a 1000 por query. Hacemos fetch paralelo para obtener el 100% de la matrícula y usuarios oficiales
       const [chunks, usuariosRes] = await Promise.all([
@@ -516,6 +583,15 @@ export const VincularEstudiante: React.FC = () => {
       };
 
       if (yaExistente) {
+        // Si la cédula cambió, chequear si ya había otra fila con cedIngresada para no chocar
+        if (cedIngresada !== yaExistente.cedula_estudiante) {
+          await supabase
+            .from('estudiantes_vinculaciones')
+            .delete()
+            .eq('cedula_estudiante', cedIngresada)
+            .neq('id', yaExistente.id);
+        }
+
         // Actualizar registro existente conservando datos_actualizados
         const datosActuales = yaExistente.datos_actualizados || {};
         payload.datos_actualizados = {
@@ -535,11 +611,35 @@ export const VincularEstudiante: React.FC = () => {
 
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('estudiantes_vinculaciones')
-          .upsert([payload], { onConflict: 'cedula_estudiante' });
+        // Verificar si existe en BD por nombre o coincidencia para no duplicar alumno de nuevo ingreso
+        const nomFirst = formInd.nombres_estudiante.trim().split(' ')[0];
+        const apeFirst = formInd.apellidos_estudiante.trim().split(' ')[0];
+        let idFilaExistente: string | null = null;
+        if (nomFirst && apeFirst) {
+          const { data: dbMatch } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('id, cedula_estudiante')
+            .ilike('nombres_estudiante', `%${nomFirst}%`)
+            .ilike('apellidos_estudiante', `%${apeFirst}%`)
+            .limit(1);
+          if (dbMatch && dbMatch.length > 0) {
+            idFilaExistente = dbMatch[0].id;
+          }
+        }
 
-        if (error) throw error;
+        if (idFilaExistente) {
+          const { error } = await supabase
+            .from('estudiantes_vinculaciones')
+            .update(payload)
+            .eq('id', idFilaExistente);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('estudiantes_vinculaciones')
+            .upsert([payload], { onConflict: 'cedula_estudiante' });
+
+          if (error) throw error;
+        }
       }
 
       // Sincronizar también en solicitud_cupos para que el representante previo no conserve al estudiante
@@ -2726,9 +2826,82 @@ export const VincularEstudiante: React.FC = () => {
     printWin.document.close();
   };
 
+  // Detección inteligente de posibles estudiantes duplicados por coincidencia de nombres y/o representantes
+  const posiblesDuplicadosMap = useMemo(() => {
+    const map = new Map<string, { matchWith: any; reason: string }[]>();
+    const normalize = (s?: string) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ');
+
+    const getNom = (v: any) => normalize(v.datos_actualizados?.estudiante_nombres || v.nombres_estudiante || '');
+    const getApe = (v: any) => normalize(v.datos_actualizados?.estudiante_apellidos || v.apellidos_estudiante || '');
+    const getRep = (v: any) => (v.datos_actualizados?.representante_cedula || v.cedula_representante || '').replace(/\D/g, '');
+
+    for (let i = 0; i < vinculaciones.length; i++) {
+      for (let j = i + 1; j < vinculaciones.length; j++) {
+        const a = vinculaciones[i];
+        const b = vinculaciones[j];
+
+        const nomA = getNom(a), apeA = getApe(a), repA = getRep(a);
+        const nomB = getNom(b), apeB = getApe(b), repB = getRep(b);
+
+        const fnA = nomA.split(' ')[0] || '';
+        const faA = apeA.split(' ')[0] || '';
+        const fnB = nomB.split(' ')[0] || '';
+        const faB = apeB.split(' ')[0] || '';
+
+        const sameRep = Boolean(repA && repB && repA === repB);
+        const sameExactName = Boolean(nomA && nomB && nomA === nomB && apeA === apeB);
+        const sameFirstAndLast = Boolean(fnA && faA && fnA === fnB && faA === faB);
+        const sameSchool = a.codigo_escuela === b.codigo_escuela;
+        const sameGrade = a.grado_actual === b.grado_actual;
+
+        let isDupe = false;
+        let reason = '';
+        if (sameExactName) {
+          isDupe = true;
+          reason = 'Mismo nombre y apellido completo';
+        } else if (sameRep && sameFirstAndLast && (sameGrade || nomA.includes(nomB) || nomB.includes(nomA) || apeA.includes(apeB) || apeB.includes(apeA))) {
+          isDupe = true;
+          reason = `Mismo representante (${repA}) y nombre coincidente`;
+        } else if (sameSchool && sameGrade && sameFirstAndLast && (nomA.includes(nomB) || nomB.includes(nomA)) && (apeA.includes(apeB) || apeB.includes(apeA))) {
+          isDupe = true;
+          reason = 'Mismo plantel, grado y nombres similares';
+        }
+
+        if (isDupe) {
+          if (!map.has(a.id)) map.set(a.id, []);
+          map.get(a.id)!.push({ matchWith: b, reason });
+          if (!map.has(b.id)) map.set(b.id, []);
+          map.get(b.id)!.push({ matchWith: a, reason });
+        }
+      }
+    }
+    return map;
+  }, [vinculaciones]);
+
+  const statsDirectorios = useMemo(() => {
+    const enEscuela = vinculaciones.filter(v => escuelaFiltro === 'ambas' || v.codigo_escuela === escuelaFiltro);
+    const total = enEscuela.length;
+    let nuevos = 0;
+    let regulares = 0;
+    let duplicados = 0;
+
+    enEscuela.forEach(v => {
+      if (esEstudianteNuevoIngreso(v)) {
+        nuevos++;
+      } else {
+        regulares++;
+      }
+      if (posiblesDuplicadosMap.has(v.id)) {
+        duplicados++;
+      }
+    });
+
+    return { total, nuevos, regulares, duplicados };
+  }, [vinculaciones, escuelaFiltro, posiblesDuplicadosMap]);
+
   const listaFiltrada = useMemo(() => {
     const q = busquedaDir.trim().toLowerCase();
-    return vinculaciones.filter(v => {
+    const filtrados = vinculaciones.filter(v => {
       if (escuelaFiltro !== 'ambas' && v.codigo_escuela !== escuelaFiltro) return false;
       if (gradoFiltroDir !== 'Todos' && v.grado_actual !== gradoFiltroDir) return false;
 
@@ -2737,6 +2910,13 @@ export const VincularEstudiante: React.FC = () => {
         if (avanceFiltroDir === 'completado' && avance.estado !== 'completado') return false;
         if (avanceFiltroDir === 'en_proceso' && avance.estado !== 'en_proceso') return false;
         if (avanceFiltroDir === 'sin_iniciar' && avance.estado !== 'sin_iniciar') return false;
+      }
+
+      if (tipoIngresoFiltroDir !== 'Todos') {
+        const esNuevo = esEstudianteNuevoIngreso(v);
+        if (tipoIngresoFiltroDir === 'regulares' && esNuevo) return false;
+        if (tipoIngresoFiltroDir === 'nuevos_ingresos' && !esNuevo) return false;
+        if (tipoIngresoFiltroDir === 'duplicados' && !posiblesDuplicadosMap.has(v.id)) return false;
       }
 
       if (!q) return true;
@@ -2755,7 +2935,77 @@ export const VincularEstudiante: React.FC = () => {
         (v.apellidos_representante && v.apellidos_representante.toLowerCase().includes(q))
       );
     });
-  }, [vinculaciones, busquedaDir, gradoFiltroDir, escuelaFiltro, avanceFiltroDir, usuariosMap]);
+
+    if (!sortColDir) return filtrados;
+
+    return [...filtrados].sort((a, b) => {
+      let res = 0;
+      switch (sortColDir) {
+        case 'numero': {
+          const tA = new Date(a.created_at || 0).getTime();
+          const tB = new Date(b.created_at || 0).getTime();
+          res = tA !== tB ? tA - tB : (a.id || '').localeCompare(b.id || '');
+          break;
+        }
+        case 'representante': {
+          const repA = getNombreRepresentante(a);
+          const repB = getNombreRepresentante(b);
+          res = repA.localeCompare(repB, 'es', { sensitivity: 'base' });
+          if (res === 0) {
+            res = String(a.cedula_representante || '').localeCompare(String(b.cedula_representante || ''));
+          }
+          break;
+        }
+        case 'cedula_estudiante': {
+          const numA = parseInt(String(a.cedula_estudiante || '').replace(/\D/g, '') || '0', 10);
+          const numB = parseInt(String(b.cedula_estudiante || '').replace(/\D/g, '') || '0', 10);
+          if (numA !== 0 && numB !== 0 && numA !== numB) {
+            res = numA - numB;
+          } else {
+            res = String(a.cedula_estudiante || '').localeCompare(String(b.cedula_estudiante || ''), 'es');
+          }
+          break;
+        }
+        case 'estudiante': {
+          const estA = getNombreEstudiante(a);
+          const estB = getNombreEstudiante(b);
+          res = estA.localeCompare(estB, 'es', { sensitivity: 'base' });
+          break;
+        }
+        case 'plantel': {
+          const plantA = a.codigo_escuela || '';
+          const plantB = b.codigo_escuela || '';
+          res = plantA.localeCompare(plantB, 'es');
+          break;
+        }
+        case 'grado': {
+          const idxA = gradosDB.indexOf(a.grado_actual);
+          const idxB = gradosDB.indexOf(b.grado_actual);
+          if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
+            res = idxA - idxB;
+          } else {
+            res = String(a.grado_actual || '').localeCompare(String(b.grado_actual || ''), 'es', { numeric: true });
+          }
+          break;
+        }
+        case 'avance': {
+          const avA = calcularAvanceActualizacion(a).porcentaje;
+          const avB = calcularAvanceActualizacion(b).porcentaje;
+          res = avA - avB;
+          break;
+        }
+        case 'estado': {
+          const estA = a.estado || '';
+          const estB = b.estado || '';
+          res = estA.localeCompare(estB, 'es');
+          break;
+        }
+        default:
+          res = 0;
+      }
+      return sortOrderDir === 'asc' ? res : -res;
+    });
+  }, [vinculaciones, busquedaDir, gradoFiltroDir, escuelaFiltro, avanceFiltroDir, tipoIngresoFiltroDir, usuariosMap, posiblesDuplicadosMap, sortColDir, sortOrderDir, gradosDB]);
 
   const indexUltimoDir = paginaActualDir * elementosPorPaginaDir;
   const indexPrimeroDir = indexUltimoDir - elementosPorPaginaDir;
@@ -3164,42 +3414,166 @@ export const VincularEstudiante: React.FC = () => {
                 </div>
               </div>
 
-              {previewValidos.length > 0 && (
-                <div className="table-responsive border rounded-4 mb-4" style={{ maxHeight: '350px' }}>
-                  <table className="table table-hover align-middle mb-0">
-                    <thead className="table-light sticky-top">
-                      <tr>
-                        <th style={{ width: '50px' }} className="text-center">#</th>
-                        <th>Cédula Rep.</th>
-                        <th>Nombre Representante</th>
-                        <th>Cédula Estudiante</th>
-                        <th>Nombres Estudiante</th>
-                        <th>Apellidos Estudiante</th>
-                        <th>Escuela</th>
-                        <th>Grado</th>
-                        <th>Sección</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewValidos.slice(0, 50).map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="text-center">
-                            <span className="badge bg-light text-muted border fw-bold">{idx + 1}</span>
-                          </td>
-                          <td className="fw-bold text-primary">{item.cedula_representante}</td>
-                          <td>{item.nombres_representante} {item.apellidos_representante}</td>
-                          <td className="fw-bold text-dark">{item.cedula_estudiante}</td>
-                          <td>{item.nombres_estudiante}</td>
-                          <td>{item.apellidos_estudiante}</td>
-                          <td><span className={`badge ${item.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'}`}>{item.codigo_escuela.toUpperCase()}</span></td>
-                          <td>{item.grado_actual}</td>
-                          <td>{item.seccion_actual}</td>
+              {previewValidos.length > 0 && (() => {
+                const previewOrdenados = [...previewValidos].sort((a, b) => {
+                  if (!sortColMasiva) return 0;
+                  let res = 0;
+                  switch (sortColMasiva) {
+                    case 'cedula_representante':
+                    case 'cedula_estudiante': {
+                      const numA = parseInt(String(a[sortColMasiva] || '').replace(/\D/g, '') || '0', 10);
+                      const numB = parseInt(String(b[sortColMasiva] || '').replace(/\D/g, '') || '0', 10);
+                      res = numA && numB && numA !== numB ? numA - numB : String(a[sortColMasiva] || '').localeCompare(String(b[sortColMasiva] || ''));
+                      break;
+                    }
+                    default:
+                      res = String(a[sortColMasiva] || '').localeCompare(String(b[sortColMasiva] || ''), 'es');
+                      break;
+                  }
+                  return sortOrderMasiva === 'asc' ? res : -res;
+                });
+
+                return (
+                  <div className="table-responsive border rounded-4 mb-4" style={{ maxHeight: '350px' }}>
+                    <table className="table table-hover align-middle mb-0">
+                      <thead className="table-light sticky-top">
+                        <tr>
+                          <th style={{ width: '50px' }} className="text-center">#</th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('cedula_representante')}
+                            title="Ordenar por Cédula Rep."
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'cedula_representante' ? 'text-primary fw-bold' : ''}>Cédula Rep.</span>
+                              {sortColMasiva === 'cedula_representante' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('nombres_representante')}
+                            title="Ordenar por Nombre Representante"
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'nombres_representante' ? 'text-primary fw-bold' : ''}>Nombre Representante</span>
+                              {sortColMasiva === 'nombres_representante' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('cedula_estudiante')}
+                            title="Ordenar por Cédula Estudiante"
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'cedula_estudiante' ? 'text-primary fw-bold' : ''}>Cédula Estudiante</span>
+                              {sortColMasiva === 'cedula_estudiante' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('nombres_estudiante')}
+                            title="Ordenar por Nombres Estudiante"
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'nombres_estudiante' ? 'text-primary fw-bold' : ''}>Nombres Estudiante</span>
+                              {sortColMasiva === 'nombres_estudiante' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('apellidos_estudiante')}
+                            title="Ordenar por Apellidos Estudiante"
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'apellidos_estudiante' ? 'text-primary fw-bold' : ''}>Apellidos Estudiante</span>
+                              {sortColMasiva === 'apellidos_estudiante' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('codigo_escuela')}
+                            title="Ordenar por Escuela"
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'codigo_escuela' ? 'text-primary fw-bold' : ''}>Escuela</span>
+                              {sortColMasiva === 'codigo_escuela' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('grado_actual')}
+                            title="Ordenar por Grado"
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'grado_actual' ? 'text-primary fw-bold' : ''}>Grado</span>
+                              {sortColMasiva === 'grado_actual' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-down text-primary fw-bold' : 'bi-sort-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
+                          <th 
+                            style={{ cursor: 'pointer', userSelect: 'none' }} 
+                            onClick={() => handleSortMasiva('seccion_actual')}
+                            title="Ordenar por Sección"
+                          >
+                            <div className="d-inline-flex align-items-center gap-1">
+                              <span className={sortColMasiva === 'seccion_actual' ? 'text-primary fw-bold' : ''}>Sección</span>
+                              {sortColMasiva === 'seccion_actual' ? (
+                                <i className={`bi ${sortOrderMasiva === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                              ) : (
+                                <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                              )}
+                            </div>
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {previewOrdenados.slice(0, 50).map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="text-center">
+                              <span className="badge bg-light text-muted border fw-bold">{idx + 1}</span>
+                            </td>
+                            <td className="fw-bold text-primary">{item.cedula_representante}</td>
+                            <td>{item.nombres_representante} {item.apellidos_representante}</td>
+                            <td className="fw-bold text-dark">{item.cedula_estudiante}</td>
+                            <td>{item.nombres_estudiante}</td>
+                            <td>{item.apellidos_estudiante}</td>
+                            <td><span className={`badge ${item.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'}`}>{item.codigo_escuela.toUpperCase()}</span></td>
+                            <td>{item.grado_actual}</td>
+                            <td>{item.seccion_actual}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
 
               <div className="d-flex justify-content-end gap-3 border-top pt-3">
                 <button className="btn btn-light px-4 fw-bold" onClick={() => { setProcesadoMasivo(false); setPreviewValidos([]); setPreviewRechazados([]); }}>
@@ -3222,8 +3596,113 @@ export const VincularEstudiante: React.FC = () => {
       {/* Pestaña 3: Directorio General de Estudiantes Vinculados */}
       {activeTab === 'directorio' && (
         <div className="card border-0 shadow-sm rounded-4 p-4">
-          <div className="row g-3 align-items-center mb-4">
-            <div className="col-lg-3 col-md-4">
+          {/* Píldoras de Filtro Rápido y Métricas de Matrícula */}
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom">
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <span className="text-muted fw-bold small me-1">
+                <i className="bi bi-funnel-fill text-primary me-1"></i>Tipo de Matrícula:
+              </span>
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill fw-bold px-3 py-1 ${tipoIngresoFiltroDir === 'Todos' ? 'btn-dark shadow-sm' : 'btn-outline-secondary'}`}
+                onClick={() => setTipoIngresoFiltroDir('Todos')}
+              >
+                🎓 Todos ({statsDirectorios.total})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill fw-bold px-3 py-1 ${tipoIngresoFiltroDir === 'regulares' ? 'btn-secondary text-white shadow-sm' : 'btn-outline-secondary'}`}
+                onClick={() => setTipoIngresoFiltroDir('regulares')}
+              >
+                🎒 Regulares ({statsDirectorios.regulares})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm rounded-pill fw-bold px-3 py-1 ${tipoIngresoFiltroDir === 'nuevos_ingresos' ? 'btn-info text-white shadow-sm' : 'btn-outline-info'}`}
+                onClick={() => setTipoIngresoFiltroDir('nuevos_ingresos')}
+              >
+                🌟 Nuevos Ingresos ({statsDirectorios.nuevos})
+              </button>
+              {statsDirectorios.duplicados > 0 && (
+                <button
+                  type="button"
+                  className={`btn btn-sm rounded-pill fw-bold px-3 py-1 ${tipoIngresoFiltroDir === 'duplicados' ? 'btn-danger shadow-sm text-white' : 'btn-outline-danger'}`}
+                  onClick={() => setTipoIngresoFiltroDir('duplicados')}
+                  title="Filtrar estudiantes que posiblemente están duplicados con diferentes cédulas"
+                >
+                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                  ⚠️ Posibles Duplicados ({statsDirectorios.duplicados})
+                </button>
+              )}
+            </div>
+
+            <div className="d-flex align-items-center gap-2">
+              {seleccionados.length > 0 && (
+                <>
+                  <button 
+                    className="btn btn-warning btn-sm fw-bold shadow-sm rounded-pill px-3 d-flex align-items-center gap-1.5 text-dark" 
+                    onClick={() => {
+                      const ests = vinculaciones.filter(v => seleccionados.includes(v.id));
+                      handleAbrirTransferencia(ests);
+                    }} 
+                    disabled={loading} 
+                    title="Reasignar representante a los estudiantes seleccionados"
+                  >
+                    <i className="bi bi-arrow-left-right"></i>
+                    <span>Reasignar ({seleccionados.length})</span>
+                  </button>
+                  <button className="btn btn-danger btn-sm fw-bold shadow-sm rounded-pill px-3" onClick={handleEliminarMasivo} disabled={loading} title="Eliminar seleccionados">
+                    <i className="bi bi-trash-fill me-1"></i> ({seleccionados.length})
+                  </button>
+                </>
+              )}
+              <div className="d-none d-md-flex align-items-center gap-1.5 bg-light border rounded-pill px-2.5 py-1">
+                <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-down text-primary' : 'bi-sort-up-alt text-primary'}`}></i>
+                <span className="text-muted small" style={{ fontSize: '0.74rem' }}>
+                  {sortColLabels[sortColDir] || 'Orden'}: <strong className="text-primary">{sortOrderDir === 'asc' ? 'Creciente' : 'Decreciente'}</strong>
+                </span>
+                {sortColDir !== 'numero' && (
+                  <button 
+                    type="button" 
+                    className="btn btn-link btn-sm p-0 text-muted ms-1" 
+                    onClick={() => { setSortColDir('numero'); setSortOrderDir('asc'); }}
+                    title="Restablecer orden inicial por registro"
+                    style={{ textDecoration: 'none', lineHeight: 1 }}
+                  >
+                    <i className="bi bi-x-circle-fill text-secondary" style={{ fontSize: '0.78rem' }}></i>
+                  </button>
+                )}
+              </div>
+              <span className="text-muted small me-1">
+                Mostrando <b className="text-dark">{listaFiltrada.length}</b> de {statsDirectorios.total}
+              </span>
+              <button className="btn btn-outline-secondary btn-sm fw-bold rounded-circle shadow-sm" style={{ width: '32px', height: '32px' }} onClick={cargarVinculaciones} disabled={loading} title="Actualizar lista">
+                <i className="bi bi-arrow-clockwise"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Banner informativo si está filtrando posibles duplicados */}
+          {tipoIngresoFiltroDir === 'duplicados' && (
+            <div className="alert alert-warning border-warning border-2 rounded-3 mb-3 d-flex align-items-center justify-content-between p-3">
+              <div className="d-flex align-items-center gap-2">
+                <i className="bi bi-exclamation-triangle-fill fs-4 text-warning"></i>
+                <div>
+                  <div className="fw-bold text-dark">Mostrando posibles estudiantes duplicados con diferentes cédulas escolares</div>
+                  <div className="small text-muted">
+                    Estos estudiantes coinciden en nombre y representante o grado/plantel pero poseen cédulas distintas (por ejemplo, una cédula provisional T-... y una cédula oficial).
+                  </div>
+                </div>
+              </div>
+              <button className="btn btn-outline-dark btn-sm rounded-pill" onClick={() => setTipoIngresoFiltroDir('Todos')}>
+                Ver Todos
+              </button>
+            </div>
+          )}
+
+          {/* Barra de Filtros */}
+          <div className="row g-2 align-items-center mb-4">
+            <div className="col-xl-3 col-lg-3 col-md-6">
               <div className="btn-group w-100 shadow-sm" role="group">
                 <button 
                   type="button" 
@@ -3248,8 +3727,8 @@ export const VincularEstudiante: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="col-lg-3 col-md-4">
-              <div className="input-group position-relative">
+            <div className="col-xl-3 col-lg-3 col-md-6">
+              <div className="input-group position-relative shadow-sm rounded">
                 <span className="input-group-text bg-light border-end-0"><i className="bi bi-search text-muted"></i></span>
                 <input 
                   type="text" 
@@ -3271,9 +3750,21 @@ export const VincularEstudiante: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="col-lg-2 col-md-4">
+            <div className="col-xl-2 col-lg-2 col-md-4">
               <select
-                className="form-select fw-bold text-secondary"
+                className="form-select fw-bold text-secondary shadow-sm"
+                value={tipoIngresoFiltroDir}
+                onChange={(e) => setTipoIngresoFiltroDir(e.target.value as any)}
+              >
+                <option value="Todos">🎓 Todos los Tipos</option>
+                <option value="regulares">🎒 Regulares</option>
+                <option value="nuevos_ingresos">🌟 Nuevos Ingresos</option>
+                <option value="duplicados">⚠️ Posibles Duplicados ({statsDirectorios.duplicados})</option>
+              </select>
+            </div>
+            <div className="col-xl-2 col-lg-2 col-md-4">
+              <select
+                className="form-select fw-bold text-secondary shadow-sm"
                 value={gradoFiltroDir}
                 onChange={(e) => setGradoFiltroDir(e.target.value)}
               >
@@ -3283,9 +3774,9 @@ export const VincularEstudiante: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div className="col-lg-2 col-md-6">
+            <div className="col-xl-2 col-lg-2 col-md-4">
               <select
-                className="form-select fw-bold text-secondary"
+                className="form-select fw-bold text-secondary shadow-sm"
                 value={avanceFiltroDir}
                 onChange={(e) => setAvanceFiltroDir(e.target.value)}
               >
@@ -3294,30 +3785,6 @@ export const VincularEstudiante: React.FC = () => {
                 <option value="en_proceso">⏳ En Proceso</option>
                 <option value="sin_iniciar">⭕ Sin Iniciar (0%)</option>
               </select>
-            </div>
-            <div className="col-lg-3 col-md-6 text-end d-flex gap-2 justify-content-end align-items-center">
-              {seleccionados.length > 0 && (
-                <>
-                  <button 
-                    className="btn btn-warning fw-bold shadow-sm rounded-pill px-3 d-flex align-items-center gap-1.5 fade-in text-dark" 
-                    onClick={() => {
-                      const ests = vinculaciones.filter(v => seleccionados.includes(v.id));
-                      handleAbrirTransferencia(ests);
-                    }} 
-                    disabled={loading} 
-                    title="Reasignar representante a los estudiantes seleccionados"
-                  >
-                    <i className="bi bi-arrow-left-right"></i>
-                    <span>Reasignar ({seleccionados.length})</span>
-                  </button>
-                  <button className="btn btn-danger fw-bold shadow-sm rounded-pill px-3 fade-in" onClick={handleEliminarMasivo} disabled={loading} title="Eliminar seleccionados">
-                    <i className="bi bi-trash-fill me-1"></i> ({seleccionados.length})
-                  </button>
-                </>
-              )}
-              <button className="btn btn-outline-secondary fw-bold rounded-circle" style={{ width: '38px', height: '38px' }} onClick={cargarVinculaciones} disabled={loading} title="Actualizar lista">
-                <i className="bi bi-arrow-clockwise"></i>
-              </button>
             </div>
           </div>
 
@@ -3336,14 +3803,119 @@ export const VincularEstudiante: React.FC = () => {
                       />
                     </div>
                   </th>
-                  <th style={{ width: '55px' }} className="text-center">#</th>
-                  <th>Representante</th>
-                  <th>Cédula Estudiante</th>
-                  <th>Estudiante</th>
-                  <th>Plantel</th>
-                  <th>Grado</th>
-                  <th>Avance de Actualización</th>
-                  <th>Estado</th>
+                  <th 
+                    style={{ width: '60px', cursor: 'pointer', userSelect: 'none' }} 
+                    className="text-center"
+                    onClick={() => handleSortDir('numero')}
+                    title={`Ordenar por Registro / Fecha (${sortColDir === 'numero' && sortOrderDir === 'asc' ? 'Más recientes primero' : 'Más antiguos primero'})`}
+                  >
+                    <div className="d-flex align-items-center justify-content-center gap-1">
+                      <span className={sortColDir === 'numero' ? 'text-primary fw-bolder' : ''}>#</span>
+                      {sortColDir === 'numero' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSortDir('representante')}
+                    title={`Ordenar por Representante (${sortColDir === 'representante' && sortOrderDir === 'asc' ? 'Z a A (Decreciente)' : 'A a Z (Creciente)'})`}
+                  >
+                    <div className="d-flex align-items-center gap-1">
+                      <span className={sortColDir === 'representante' ? 'text-primary fw-bolder' : ''}>Representante</span>
+                      {sortColDir === 'representante' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSortDir('cedula_estudiante')}
+                    title={`Ordenar por Cédula Estudiante (${sortColDir === 'cedula_estudiante' && sortOrderDir === 'asc' ? 'Mayor a menor (Decreciente)' : 'Menor a mayor (Creciente)'})`}
+                  >
+                    <div className="d-flex align-items-center gap-1">
+                      <span className={sortColDir === 'cedula_estudiante' ? 'text-primary fw-bolder' : ''}>Cédula Estudiante</span>
+                      {sortColDir === 'cedula_estudiante' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSortDir('estudiante')}
+                    title={`Ordenar por Nombre de Estudiante (${sortColDir === 'estudiante' && sortOrderDir === 'asc' ? 'Z a A (Decreciente)' : 'A a Z (Creciente)'})`}
+                  >
+                    <div className="d-flex align-items-center gap-1">
+                      <span className={sortColDir === 'estudiante' ? 'text-primary fw-bolder' : ''}>Estudiante</span>
+                      {sortColDir === 'estudiante' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSortDir('plantel')}
+                    title={`Ordenar por Plantel (${sortColDir === 'plantel' && sortOrderDir === 'asc' ? 'Z a A (Decreciente)' : 'A a Z (Creciente)'})`}
+                  >
+                    <div className="d-flex align-items-center gap-1">
+                      <span className={sortColDir === 'plantel' ? 'text-primary fw-bolder' : ''}>Plantel</span>
+                      {sortColDir === 'plantel' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSortDir('grado')}
+                    title={`Ordenar por Grado (${sortColDir === 'grado' && sortOrderDir === 'asc' ? 'Niveles superiores primero' : 'Niveles iniciales primero'})`}
+                  >
+                    <div className="d-flex align-items-center gap-1">
+                      <span className={sortColDir === 'grado' ? 'text-primary fw-bolder' : ''}>Grado</span>
+                      {sortColDir === 'grado' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-down text-primary fw-bold' : 'bi-sort-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSortDir('avance')}
+                    title={`Ordenar por Avance de Actualización (${sortColDir === 'avance' && sortOrderDir === 'asc' ? 'Mayor porcentaje a menor' : 'Menor porcentaje a mayor'})`}
+                  >
+                    <div className="d-flex align-items-center gap-1">
+                      <span className={sortColDir === 'avance' ? 'text-primary fw-bolder' : ''}>Avance de Actualización</span>
+                      {sortColDir === 'avance' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSortDir('estado')}
+                    title={`Ordenar por Estado (${sortColDir === 'estado' && sortOrderDir === 'asc' ? 'Z a A' : 'A a Z'})`}
+                  >
+                    <div className="d-flex align-items-center gap-1">
+                      <span className={sortColDir === 'estado' ? 'text-primary fw-bolder' : ''}>Estado</span>
+                      {sortColDir === 'estado' ? (
+                        <i className={`bi ${sortOrderDir === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                      ) : (
+                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.68rem' }}></i>
+                      )}
+                    </div>
+                  </th>
                   <th className="text-end">Acciones</th>
                 </tr>
               </thead>
@@ -3387,6 +3959,33 @@ export const VincularEstudiante: React.FC = () => {
                       <td><span className="badge bg-light text-dark border fw-bold px-2 py-1 fs-6">{item.cedula_estudiante}</span></td>
                       <td>
                         <div className="fw-bold text-primary">{getNombreEstudiante(item)}</div>
+                        <div className="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                          {esEstudianteNuevoIngreso(item) ? (
+                            <span className="badge bg-info bg-opacity-10 text-info border border-info px-2 py-0.5 rounded-pill" style={{ fontSize: '0.68rem' }}>
+                              <i className="bi bi-star-fill me-1 text-warning"></i>Nuevo Ingreso
+                            </span>
+                          ) : (
+                            <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary px-2 py-0.5 rounded-pill" style={{ fontSize: '0.68rem' }}>
+                              🎒 Regular
+                            </span>
+                          )}
+                          {posiblesDuplicadosMap.has(item.id) && (
+                            <span 
+                              className="badge bg-danger bg-opacity-15 text-danger border border-danger px-2 py-0.5 rounded-pill fw-bold cursor-pointer" 
+                              style={{ fontSize: '0.68rem' }}
+                              onClick={() => {
+                                setTipoIngresoFiltroDir('duplicados');
+                                const matchFirst = posiblesDuplicadosMap.get(item.id)?.[0]?.matchWith;
+                                if (matchFirst) {
+                                  setBusquedaDir(matchFirst.nombres_estudiante?.split(' ')[0] || '');
+                                }
+                              }}
+                              title={`Posible duplicado con: ${posiblesDuplicadosMap.get(item.id)?.map(m => `${m.matchWith.cedula_estudiante} (${getNombreEstudiante(m.matchWith)})`).join('; ')}`}
+                            >
+                              <i className="bi bi-exclamation-triangle-fill me-1"></i>Posible Duplicado ({posiblesDuplicadosMap.get(item.id)?.map(m => m.matchWith.cedula_estudiante).join(', ')})
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <span className={`badge ${item.codigo_escuela === 'sb' ? 'bg-primary' : 'bg-success'} text-white fw-bold px-2 py-1 shadow-sm`}>
@@ -4721,16 +5320,123 @@ export const VincularEstudiante: React.FC = () => {
                             <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
                               <thead className="bg-light text-muted small">
                                 <tr>
-                                  <th className="ps-3">Categoría / Grado</th>
-                                  <th className="text-center">Total</th>
-                                  <th className="text-center">Actualizados (100%)</th>
-                                  <th className="text-center">En Proceso</th>
-                                  <th className="text-center">Sin Iniciar</th>
-                                  <th style={{ width: '180px' }}>Progreso</th>
+                                  <th 
+                                    className="ps-3" 
+                                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => handleSortMatriz('grado')}
+                                    title="Ordenar por Grado / Nivel"
+                                  >
+                                    <div className="d-inline-flex align-items-center gap-1">
+                                      <span className={sortColMatriz === 'grado' ? 'text-primary fw-bold' : ''}>Categoría / Grado</span>
+                                      {sortColMatriz === 'grado' ? (
+                                        <i className={`bi ${sortOrderMatriz === 'asc' ? 'bi-sort-alpha-down text-primary fw-bold' : 'bi-sort-alpha-up-alt text-primary fw-bold'}`}></i>
+                                      ) : (
+                                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.65rem' }}></i>
+                                      )}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="text-center" 
+                                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => handleSortMatriz('total')}
+                                    title="Ordenar por Total"
+                                  >
+                                    <div className="d-inline-flex align-items-center justify-content-center gap-1">
+                                      <span className={sortColMatriz === 'total' ? 'text-primary fw-bold' : ''}>Total</span>
+                                      {sortColMatriz === 'total' ? (
+                                        <i className={`bi ${sortOrderMatriz === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                                      ) : (
+                                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.65rem' }}></i>
+                                      )}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="text-center" 
+                                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => handleSortMatriz('completados')}
+                                    title="Ordenar por Actualizados"
+                                  >
+                                    <div className="d-inline-flex align-items-center justify-content-center gap-1">
+                                      <span className={sortColMatriz === 'completados' ? 'text-primary fw-bold' : ''}>Actualizados (100%)</span>
+                                      {sortColMatriz === 'completados' ? (
+                                        <i className={`bi ${sortOrderMatriz === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                                      ) : (
+                                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.65rem' }}></i>
+                                      )}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="text-center" 
+                                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => handleSortMatriz('enProceso')}
+                                    title="Ordenar por En Proceso"
+                                  >
+                                    <div className="d-inline-flex align-items-center justify-content-center gap-1">
+                                      <span className={sortColMatriz === 'enProceso' ? 'text-primary fw-bold' : ''}>En Proceso</span>
+                                      {sortColMatriz === 'enProceso' ? (
+                                        <i className={`bi ${sortOrderMatriz === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                                      ) : (
+                                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.65rem' }}></i>
+                                      )}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    className="text-center" 
+                                    style={{ cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => handleSortMatriz('sinIniciar')}
+                                    title="Ordenar por Sin Iniciar"
+                                  >
+                                    <div className="d-inline-flex align-items-center justify-content-center gap-1">
+                                      <span className={sortColMatriz === 'sinIniciar' ? 'text-primary fw-bold' : ''}>Sin Iniciar</span>
+                                      {sortColMatriz === 'sinIniciar' ? (
+                                        <i className={`bi ${sortOrderMatriz === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                                      ) : (
+                                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.65rem' }}></i>
+                                      )}
+                                    </div>
+                                  </th>
+                                  <th 
+                                    style={{ width: '180px', cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => handleSortMatriz('pctCompletado')}
+                                    title="Ordenar por Porcentaje de Progreso"
+                                  >
+                                    <div className="d-inline-flex align-items-center gap-1">
+                                      <span className={sortColMatriz === 'pctCompletado' ? 'text-primary fw-bold' : ''}>Progreso</span>
+                                      {sortColMatriz === 'pctCompletado' ? (
+                                        <i className={`bi ${sortOrderMatriz === 'asc' ? 'bi-sort-numeric-down text-primary fw-bold' : 'bi-sort-numeric-up-alt text-primary fw-bold'}`}></i>
+                                      ) : (
+                                        <i className="bi bi-arrow-down-up text-muted opacity-40" style={{ fontSize: '0.65rem' }}></i>
+                                      )}
+                                    </div>
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {stats.desglosePorGrado.map((g, idx) => (
+                                {[...stats.desglosePorGrado].sort((a, b) => {
+                                  if (!sortColMatriz) return 0;
+                                  let res = 0;
+                                  switch (sortColMatriz) {
+                                    case 'grado':
+                                      res = a.grado.localeCompare(b.grado, 'es');
+                                      break;
+                                    case 'total':
+                                      res = a.total - b.total;
+                                      break;
+                                    case 'completados':
+                                      res = a.completados - b.completados;
+                                      break;
+                                    case 'enProceso':
+                                      res = a.enProceso - b.enProceso;
+                                      break;
+                                    case 'sinIniciar':
+                                      res = a.sinIniciar - b.sinIniciar;
+                                      break;
+                                    case 'pctCompletado':
+                                      res = a.pctCompletado - b.pctCompletado;
+                                      break;
+                                  }
+                                  return sortOrderMatriz === 'asc' ? res : -res;
+                                }).map((g, idx) => (
                                   <tr key={idx}>
                                     <td className="ps-3 fw-bold text-dark">{g.grado}</td>
                                     <td className="text-center fw-bold text-dark">{g.total}</td>

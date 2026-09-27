@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { supabase } from '../../lib/supabase';
 
@@ -336,7 +337,7 @@ const defaultForm = (): SolicitudForm => ({
 });
 
 export const ActualizacionDatos: React.FC = () => {
-
+  const navigate = useNavigate();
   const { user } = usePermisos();
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -1832,11 +1833,36 @@ export const ActualizacionDatos: React.FC = () => {
           const nomNorm = `${(s.estudiante_nombres || '').trim()} ${(s.estudiante_apellidos || '').trim()}`.toLowerCase();
           
           const yaExiste = vincs.some(v => {
-            const vCed = (v.cedula_estudiante || '').replace(/\D/g, '');
-            if (cedLim && vCed && cedLim === vCed) return true;
-            if (s.codigo_unico && v.codigo_unico && s.codigo_unico === v.codigo_unico) return true;
+            const vCedRaw = (v.cedula_estudiante || '').trim();
+            const vCedDigits = vCedRaw.replace(/\D/g, '');
+            const vCodData = (v.datos_actualizados?.codigo_unico || '').trim();
+            const vCodDataSinT = vCodData.replace(/^T-/, '');
+            const sCodUni = (s.codigo_unico || '').trim();
+            const sCodSinT = sCodUni.replace(/^T-/, '');
+
+            // 1. Coincidencia por cédula real numérica
+            if (cedLim && vCedDigits && cedLim === vCedDigits) return true;
+
+            // 2. Coincidencia por código único en cedula_estudiante o datos_actualizados
+            if (sCodUni) {
+              if (vCedRaw === sCodUni || vCedRaw === `T-${sCodSinT}` || vCedRaw === sCodSinT || vCedRaw === `ESC-${sCodSinT}`) return true;
+              if (vCodData && (vCodData === sCodUni || vCodDataSinT === sCodSinT)) return true;
+            }
+
+            // 3. Coincidencia por cédula textual directa
+            if (s.estudiante_cedula && vCedRaw === s.estudiante_cedula.trim()) return true;
+
+            // 4. Coincidencia por nombre completo normalizado
             const vNom = `${(v.nombres_estudiante || '').trim()} ${(v.apellidos_estudiante || '').trim()}`.toLowerCase();
-            return Boolean(nomNorm && vNom && nomNorm === vNom);
+            if (nomNorm && vNom) {
+              if (nomNorm === vNom) return true;
+              const nParts = nomNorm.split(/\s+/).filter(Boolean);
+              const vParts = vNom.split(/\s+/).filter(Boolean);
+              if (nParts.length >= 2 && vParts.length >= 2 && nParts[0] === vParts[0] && nParts[nParts.length - 1] === vParts[vParts.length - 1]) {
+                return true;
+              }
+            }
+            return false;
           });
 
           if (!yaExiste) {
@@ -2419,38 +2445,136 @@ export const ActualizacionDatos: React.FC = () => {
       const isVirtualSol = estudianteSeleccionado.id && estudianteSeleccionado.id.toString().startsWith('sol_');
       if (isVirtualSol) {
         const solId = estudianteSeleccionado.id_solicitud || estudianteSeleccionado.id.replace('sol_', '');
+        const cedEstFinal = (form.estudiante_cedula || estudianteSeleccionado.cedula_estudiante || '').trim();
+        const nomEstFinal = (form.estudiante_nombres || estudianteSeleccionado.nombres_estudiante || '').trim();
+        const apeEstFinal = (form.estudiante_apellidos || estudianteSeleccionado.apellidos_estudiante || '').trim();
+        const cedRepFinal = (form.representante_cedula || estudianteSeleccionado.cedula_representante || user?.cedula || '').trim();
+        const codUni = form.codigo_unico || estudianteSeleccionado.codigo_unico || '';
+        const codUniSinT = codUni.replace(/^T-/, '');
+
         await supabase
           .from('solicitud_cupos')
           .update({
+            estudiante_cedula: cedEstFinal || undefined,
+            estudiante_nombres: nomEstFinal || undefined,
+            estudiante_apellidos: apeEstFinal || undefined,
+            grado_solicitado: form.grado_solicitado || undefined,
             datos_actualizados: payload.datos_actualizados,
             updated_at: nowIso
           })
           .eq('id', solId);
 
-        const { error: errUpsert } = await supabase
-          .from('estudiantes_vinculaciones')
-          .upsert([{
-            cedula_representante: form.representante_cedula || estudianteSeleccionado.cedula_representante || user?.cedula,
-            nombres_representante: form.representante_nombres || estudianteSeleccionado.nombres_representante,
-            apellidos_representante: form.representante_apellidos || estudianteSeleccionado.apellidos_representante,
-            cedula_estudiante: form.estudiante_cedula || estudianteSeleccionado.cedula_estudiante,
-            nombres_estudiante: form.estudiante_nombres || estudianteSeleccionado.nombres_estudiante,
-            apellidos_estudiante: form.estudiante_apellidos || estudianteSeleccionado.apellidos_estudiante,
-            grado_actual: form.grado_solicitado || estudianteSeleccionado.grado_actual,
-            codigo_escuela: escKey.toLowerCase(),
-            codigo_unico: codigoGenerado,
-            datos_actualizados: payload.datos_actualizados,
-            fecha_ultima_actualizacion: nowIso
-          }], { onConflict: 'cedula_estudiante' });
+        // Buscar si ya existe una fila previa en estudiantes_vinculaciones para evitar duplicar
+        const cedulasPosibles = Array.from(new Set([
+          cedEstFinal,
+          estudianteSeleccionado.cedula_estudiante,
+          codUni,
+          `T-${codUniSinT}`,
+          codUniSinT,
+          `ESC-${codUniSinT}`
+        ].filter(Boolean)));
 
-        if (errUpsert) console.warn('Nota al sincronizar vinculación:', errUpsert.message);
+        const queryOr = cedulasPosibles.map(c => `cedula_estudiante.eq.${c}`).join(',');
+        let { data: filasExistentes } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('id, cedula_estudiante')
+          .or(queryOr);
+
+        if (!filasExistentes || filasExistentes.length === 0) {
+          const nomFirst = nomEstFinal.split(' ')[0];
+          const apeFirst = apeEstFinal.split(' ')[0];
+          if (cedRepFinal && nomFirst && apeFirst) {
+            const { data: porNombre } = await supabase
+              .from('estudiantes_vinculaciones')
+              .select('id, cedula_estudiante')
+              .eq('cedula_representante', cedRepFinal)
+              .ilike('nombres_estudiante', `%${nomFirst}%`)
+              .ilike('apellidos_estudiante', `%${apeFirst}%`);
+            if (porNombre && porNombre.length > 0) {
+              filasExistentes = porNombre;
+            }
+          }
+        }
+
+        const vincPayload = {
+          cedula_representante: cedRepFinal,
+          nombres_representante: form.representante_nombres || estudianteSeleccionado.nombres_representante,
+          apellidos_representante: form.representante_apellidos || estudianteSeleccionado.apellidos_representante,
+          cedula_estudiante: cedEstFinal || (codUniSinT ? `T-${codUniSinT}` : estudianteSeleccionado.cedula_estudiante),
+          nombres_estudiante: nomEstFinal,
+          apellidos_estudiante: apeEstFinal,
+          grado_actual: form.grado_solicitado || estudianteSeleccionado.grado_actual,
+          codigo_escuela: escKey.toLowerCase(),
+          datos_actualizados: payload.datos_actualizados,
+          fecha_ultima_actualizacion: nowIso
+        };
+
+        if (filasExistentes && filasExistentes.length > 0) {
+          const filaDestino = filasExistentes[0];
+          await supabase
+            .from('estudiantes_vinculaciones')
+            .update(vincPayload)
+            .eq('id', filaDestino.id);
+
+          for (let i = 1; i < filasExistentes.length; i++) {
+            await supabase.from('estudiantes_vinculaciones').delete().eq('id', filasExistentes[i].id);
+          }
+        } else {
+          await supabase
+            .from('estudiantes_vinculaciones')
+            .upsert([vincPayload], { onConflict: 'cedula_estudiante' });
+        }
       } else {
+        const cedEstFinal = (form.estudiante_cedula || estudianteSeleccionado.cedula_estudiante || '').trim();
+        const nomEstFinal = (form.estudiante_nombres || estudianteSeleccionado.nombres_estudiante || '').trim();
+        const apeEstFinal = (form.estudiante_apellidos || estudianteSeleccionado.apellidos_estudiante || '').trim();
+
+        const payloadCompleto = {
+          ...payload,
+          cedula_estudiante: cedEstFinal || estudianteSeleccionado.cedula_estudiante,
+          nombres_estudiante: nomEstFinal || estudianteSeleccionado.nombres_estudiante,
+          apellidos_estudiante: apeEstFinal || estudianteSeleccionado.apellidos_estudiante,
+          grado_actual: form.grado_solicitado || estudianteSeleccionado.grado_actual
+        };
+
+        // Si la cédula cambió respecto a la fila actual (p. ej. pasó de T-xxxx a cédula real),
+        // verificar si ya existe otra fila con la nueva cédula para no violar el unique constraint ni duplicar
+        if (cedEstFinal && cedEstFinal !== estudianteSeleccionado.cedula_estudiante) {
+          const { data: filaConNuevaCed } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('id')
+            .eq('cedula_estudiante', cedEstFinal)
+            .neq('id', estudianteSeleccionado.id);
+
+          if (filaConNuevaCed && filaConNuevaCed.length > 0) {
+            for (const f of filaConNuevaCed) {
+              await supabase.from('estudiantes_vinculaciones').delete().eq('id', f.id);
+            }
+          }
+        }
+
         const { error } = await supabase
           .from('estudiantes_vinculaciones')
-          .update(payload)
+          .update(payloadCompleto)
           .eq('id', estudianteSeleccionado.id);
 
         if (error) throw error;
+
+        // También sincronizar solicitud_cupos si existe una asociada
+        const solId = estudianteSeleccionado.id_solicitud || estudianteSeleccionado.datos_actualizados?.id_solicitud;
+        if (solId) {
+          await supabase
+            .from('solicitud_cupos')
+            .update({
+              estudiante_cedula: cedEstFinal || undefined,
+              estudiante_nombres: nomEstFinal || undefined,
+              estudiante_apellidos: apeEstFinal || undefined,
+              grado_solicitado: form.grado_solicitado || undefined,
+              datos_actualizados: payload.datos_actualizados,
+              updated_at: nowIso
+            })
+            .eq('id', solId);
+        }
       }
 
 
@@ -5085,7 +5209,7 @@ const STEPS = [
               onClick={() => {
                 localStorage.removeItem('sesion_sigae');
                 localStorage.removeItem('usuario_sigae');
-                window.location.href = '/login';
+                navigate('/login', { replace: true });
               }}
             >
               <i className="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión como Representante

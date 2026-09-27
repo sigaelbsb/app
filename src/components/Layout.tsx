@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
 import { supabase } from '../lib/supabase';
+import { salirEmulacionSesion } from '../utils/sessionHelper';
 import { subscribeToWebPush, solicitarPermisoWebPush, actualizarAppBadge } from '../lib/webPush';
 import { ChatbotSigma } from './ChatbotSigma';
 import { TourOrientacion } from './TourOrientacion';
@@ -841,34 +842,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   };
 
   const handleSalirEmulacion = () => {
-    const originalStr = localStorage.getItem('sigae_usuario_original_admin');
-    if (originalStr) {
-      try {
-        const originalUser = JSON.parse(originalStr);
-        localStorage.setItem('usuario_sigae', JSON.stringify(originalUser));
-        localStorage.setItem('sesion_sigae', 'activa');
-        const targetEsc = (originalUser.id_escuela && originalUser.id_escuela !== 'ambas' && originalUser.id_escuela !== 'todas')
-          ? originalUser.id_escuela
-          : (localStorage.getItem('sigae_escuela_codigo') || 'sb');
-        localStorage.setItem('sigae_escuela_codigo', targetEsc);
-        localStorage.setItem('sigae_escuela_activa', targetEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
-      } catch (e) {
-        console.error('Error restaurando usuario original:', e);
-      }
-    } else {
-      localStorage.setItem('sesion_sigae', 'activa');
-      if (!localStorage.getItem('sigae_escuela_codigo')) {
-        localStorage.setItem('sigae_escuela_codigo', 'sb');
-        localStorage.setItem('sigae_escuela_activa', 'UE Santa Bárbara');
-      }
-    }
-    localStorage.removeItem('sigae_usuario_original_admin');
-    sessionStorage.removeItem('sigae_emulacion_activa');
-    localStorage.removeItem('sigae_cache_permisos');
-    localStorage.removeItem('sigae_cache_full_permisos');
-    
-    // Redirección segura a la raíz del panel principal
-    window.location.href = '/';
+    salirEmulacionSesion();
+    navigate('/', { replace: true });
   };
 
   // Inactivity tracking (30 minutes with mobile visibility & file picker awareness)

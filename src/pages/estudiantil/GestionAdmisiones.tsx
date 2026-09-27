@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import * as XLSX from 'xlsx';
+import { toTitulo } from '../../lib/formatters';
 import {
   buscarPlantillaAdmision,
   renderizarMensajeAdmision,
@@ -2307,37 +2308,74 @@ export const GestionAdmisiones: React.FC = () => {
 
       if (error) throw error;
 
-      // Sincronizar hacia estudiantes_vinculaciones si se modificó el representante o datos del aspirante
-      if (payloadBD.representante_cedula || payloadBD.parentesco) {
-        try {
-          const codUni = formEdicion.codigo_unico;
-          const cedEst = formEdicion.estudiante_cedula;
-          const nomEst = formEdicion.estudiante_nombres;
-          const apeEst = formEdicion.estudiante_apellidos;
+      // Sincronizar integralmente hacia estudiantes_vinculaciones garantizando CERO duplicados
+      try {
+        const codUni = formEdicion.codigo_unico;
+        const codUniSinT = (codUni || '').replace(/^T-/, '');
+        const cedEst = formEdicion.estudiante_cedula?.trim();
+        const nomEst = formEdicion.estudiante_nombres?.trim();
+        const apeEst = formEdicion.estudiante_apellidos?.trim();
+        const cedRep = formEdicion.representante_cedula?.trim();
+
+        const cedulasPosibles = Array.from(new Set([
+          cedEst,
+          codUni,
+          `T-${codUniSinT}`,
+          codUniSinT,
+          `ESC-${codUniSinT}`,
+          `ESC-${codUni}`
+        ].filter(Boolean)));
+
+        let { data: vincsExistentes } = await supabase
+          .from('estudiantes_vinculaciones')
+          .select('id, cedula_estudiante, datos_actualizados')
+          .or(cedulasPosibles.map(c => `cedula_estudiante.eq.${c}`).join(','));
+
+        if (!vincsExistentes || vincsExistentes.length === 0) {
+          if (cedRep && nomEst && apeEst) {
+            const { data: porNombre } = await supabase
+              .from('estudiantes_vinculaciones')
+              .select('id, cedula_estudiante, datos_actualizados')
+              .eq('cedula_representante', cedRep)
+              .ilike('nombres_estudiante', `%${nomEst.split(' ')[0]}%`)
+              .ilike('apellidos_estudiante', `%${apeEst.split(' ')[0]}%`);
+            if (porNombre && porNombre.length > 0) {
+              vincsExistentes = porNombre;
+            }
+          }
+        }
+
+        if (vincsExistentes && vincsExistentes.length > 0) {
+          const filaTarget = vincsExistentes[0];
           const payloadVinc: any = {
+            cedula_estudiante: cedEst || filaTarget.cedula_estudiante,
+            nombres_estudiante: toTitulo(nomEst || ''),
+            apellidos_estudiante: toTitulo(apeEst || ''),
+            grado_actual: formEdicion.grado_solicitado,
+            codigo_escuela: formEdicion.codigo_escuela,
+            cedula_representante: formEdicion.representante_cedula,
+            nombres_representante: formEdicion.representante_nombres,
+            apellidos_representante: formEdicion.representante_apellidos,
+            datos_actualizados: {
+              ...(filaTarget.datos_actualizados || {}),
+              ...formEdicion,
+              estudiante_cedula: cedEst || filaTarget.cedula_estudiante,
+              estudiante_nombres: nomEst,
+              estudiante_apellidos: apeEst,
+              grado_solicitado: formEdicion.grado_solicitado,
+              codigo_escuela: formEdicion.codigo_escuela
+            },
             updated_at: new Date().toISOString()
           };
-          if (payloadBD.representante_cedula) {
-            payloadVinc.cedula_representante = payloadBD.representante_cedula;
-            payloadVinc.nombres_representante = payloadBD.representante_nombres || formEdicion.representante_nombres;
-            payloadVinc.apellidos_representante = payloadBD.representante_apellidos || formEdicion.representante_apellidos;
-          }
 
-          if (cedEst) {
-            await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('cedula_estudiante', cedEst);
+          await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('id', filaTarget.id);
+
+          for (let i = 1; i < vincsExistentes.length; i++) {
+            await supabase.from('estudiantes_vinculaciones').delete().eq('id', vincsExistentes[i].id);
           }
-          if (codUni) {
-            await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('cedula_estudiante', codUni);
-            await supabase.from('estudiantes_vinculaciones').update(payloadVinc).eq('cedula_estudiante', `T-${codUni.replace(/^T-/, '')}`);
-          }
-          if (nomEst && apeEst) {
-            await supabase.from('estudiantes_vinculaciones').update(payloadVinc)
-              .ilike('nombres_estudiante', `%${nomEst.trim()}%`)
-              .ilike('apellidos_estudiante', `%${apeEst.trim()}%`);
-          }
-        } catch (eSync) {
-          console.warn('Nota sincronizando vinculación desde admisiones:', eSync);
         }
+      } catch (eSync) {
+        console.warn('Nota sincronizando vinculación desde admisiones:', eSync);
       }
 
       const nomEstEdit = nombreCompleto(formEdicion.estudiante_nombres, formEdicion.estudiante_apellidos);
@@ -2518,12 +2556,40 @@ export const GestionAdmisiones: React.FC = () => {
         creado_por: 'Docente / Admisiones SIGAE - Formalización'
       };
 
-      // Verificar si ya existía una fila con el código provisional o la nueva cédula
+      // Verificar exhaustivamente si ya existía una fila con el código provisional, cédula anterior o la nueva cédula
       const codUniSinT = (sol.codigo_unico || '').replace(/^T-/, '');
-      const { data: filasExistentes } = await supabase
+      const cedulasPosibles = Array.from(new Set([
+        cedEst,
+        sol.estudiante_cedula,
+        sol.codigo_unico,
+        `T-${codUniSinT}`,
+        codUniSinT,
+        `ESC-${codUniSinT}`,
+        `ESC-${sol.codigo_unico}`
+      ].filter(Boolean)));
+
+      const queryOr = cedulasPosibles.map(c => `cedula_estudiante.eq.${c}`).join(',');
+      let { data: filasExistentes } = await supabase
         .from('estudiantes_vinculaciones')
         .select('id, cedula_estudiante')
-        .or(`cedula_estudiante.eq.${cedEst},cedula_estudiante.eq.${sol.codigo_unico},cedula_estudiante.eq.T-${codUniSinT},cedula_estudiante.eq.${codUniSinT}`);
+        .or(queryOr);
+
+      // Si no encontró por identificadores directos, buscar por cédula del representante y nombres del alumno
+      if (!filasExistentes || filasExistentes.length === 0) {
+        const nomFirst = nomEst.split(' ')[0];
+        const apeFirst = apeEst.split(' ')[0];
+        if (cedRep && nomFirst && apeFirst) {
+          const { data: porNombre } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('id, cedula_estudiante')
+            .eq('cedula_representante', cedRep)
+            .ilike('nombres_estudiante', `%${nomFirst}%`)
+            .ilike('apellidos_estudiante', `%${apeFirst}%`);
+          if (porNombre && porNombre.length > 0) {
+            filasExistentes = porNombre;
+          }
+        }
+      }
 
       if (filasExistentes && filasExistentes.length > 0) {
         const filaDestino = filasExistentes[0];
@@ -2904,11 +2970,26 @@ export const GestionAdmisiones: React.FC = () => {
           creado_por: `Admisión Directa - ${user?.nombre_completo || user?.cedula || 'SIGAE'}`
         };
 
-        const { error: errVinc } = await supabase
+        // Verificar si ya existe fila para no duplicar
+        const { data: vExistente } = await supabase
           .from('estudiantes_vinculaciones')
-          .upsert([payloadVincRow], { onConflict: 'cedula_estudiante' });
+          .select('id')
+          .or(`cedula_estudiante.eq.${cedEst},cedula_representante.eq.${cedRep}`)
+          .ilike('nombres_estudiante', `%${nomEst.split(' ')[0]}%`)
+          .limit(1);
 
-        if (errVinc) throw errVinc;
+        if (vExistente && vExistente.length > 0) {
+          const { error: errVinc } = await supabase
+            .from('estudiantes_vinculaciones')
+            .update(payloadVincRow)
+            .eq('id', vExistente[0].id);
+          if (errVinc) throw errVinc;
+        } else {
+          const { error: errVinc } = await supabase
+            .from('estudiantes_vinculaciones')
+            .upsert([payloadVincRow], { onConflict: 'cedula_estudiante' });
+          if (errVinc) throw errVinc;
+        }
       }
 
       // 4. Auditar acción
@@ -3165,39 +3246,88 @@ export const GestionAdmisiones: React.FC = () => {
 
       // 2. Vincular al Estudiante en `estudiantes_vinculaciones`
       // La constancia permanece bloqueada en datos_actualizados (formalizado_en_fisico: false)
-      const { error: errVinculo } = await supabase
-        .from('estudiantes_vinculaciones')
-        .upsert([{
-          cedula_representante: cedRep,
-          nombres_representante: nomRep,
-          apellidos_representante: apeRep,
-          cedula_estudiante: cedEst,
-          nombres_estudiante: nomEst,
-          apellidos_estudiante: apeEst,
-          grado_actual: formHabilitar.grado_solicitado,
-          seccion_actual: 'A',
+      const payloadHabilitar = {
+        cedula_representante: cedRep,
+        nombres_representante: nomRep,
+        apellidos_representante: apeRep,
+        cedula_estudiante: cedEst,
+        nombres_estudiante: nomEst,
+        apellidos_estudiante: apeEst,
+        grado_actual: formHabilitar.grado_solicitado,
+        seccion_actual: 'A',
+        codigo_escuela: formHabilitar.codigo_escuela,
+        estado: 'Activo',
+        datos_actualizados: {
+          ...(solicitudHabilitar.datos_actualizados || {}),
+          ...solicitudHabilitar,
+          representante_cedula: cedRep,
+          representante_nombres: nomRep,
+          representante_apellidos: apeRep,
+          representante_telefono: formHabilitar.representante_telefono?.trim() || '',
+          representante_email: formHabilitar.representante_email?.trim() || '',
+          estudiante_cedula: cedEst,
+          estudiante_nombres: nomEst,
+          estudiante_apellidos: apeEst,
+          grado_solicitado: formHabilitar.grado_solicitado,
           codigo_escuela: formHabilitar.codigo_escuela,
-          estado: 'Activo',
-          datos_actualizados: {
-            ...(solicitudHabilitar.datos_actualizados || {}),
-            ...solicitudHabilitar,
-            representante_cedula: cedRep,
-            representante_nombres: nomRep,
-            representante_apellidos: apeRep,
-            representante_telefono: formHabilitar.representante_telefono?.trim() || '',
-            representante_email: formHabilitar.representante_email?.trim() || '',
-            estudiante_cedula: cedEst,
-            estudiante_nombres: nomEst,
-            estudiante_apellidos: apeEst,
-            grado_solicitado: formHabilitar.grado_solicitado,
-            codigo_escuela: formHabilitar.codigo_escuela,
-            origen_admision: 'nuevo_ingreso',
-            formalizado_en_fisico: false // Bloquea la constancia de inscripción hasta que se formalice en físico
-          },
-          creado_por: 'Admisiones SIGAE - Alta de Representante'
-        }], { onConflict: 'cedula_estudiante' });
+          origen_admision: 'nuevo_ingreso',
+          formalizado_en_fisico: false // Bloquea la constancia de inscripción hasta que se formalice en físico
+        },
+        creado_por: 'Admisiones SIGAE - Alta de Representante'
+      };
 
-      if (errVinculo) throw errVinculo;
+      const codUniSinT = (solicitudHabilitar.codigo_unico || '').replace(/^T-/, '');
+      const cedulasPosibles = Array.from(new Set([
+        cedEst,
+        solicitudHabilitar.estudiante_cedula,
+        solicitudHabilitar.codigo_unico,
+        `T-${codUniSinT}`,
+        codUniSinT,
+        `ESC-${codUniSinT}`,
+        `ESC-${solicitudHabilitar.codigo_unico}`
+      ].filter(Boolean)));
+
+      const queryOr = cedulasPosibles.map(c => `cedula_estudiante.eq.${c}`).join(',');
+      let { data: filasExistentes } = await supabase
+        .from('estudiantes_vinculaciones')
+        .select('id, cedula_estudiante')
+        .or(queryOr);
+
+      if (!filasExistentes || filasExistentes.length === 0) {
+        const nomFirst = nomEst.split(' ')[0];
+        const apeFirst = apeEst.split(' ')[0];
+        if (cedRep && nomFirst && apeFirst) {
+          const { data: porNombre } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('id, cedula_estudiante')
+            .eq('cedula_representante', cedRep)
+            .ilike('nombres_estudiante', `%${nomFirst}%`)
+            .ilike('apellidos_estudiante', `%${apeFirst}%`);
+          if (porNombre && porNombre.length > 0) {
+            filasExistentes = porNombre;
+          }
+        }
+      }
+
+      if (filasExistentes && filasExistentes.length > 0) {
+        const filaDestino = filasExistentes[0];
+        const { error: errUpd } = await supabase
+          .from('estudiantes_vinculaciones')
+          .update(payloadHabilitar)
+          .eq('id', filaDestino.id);
+
+        if (errUpd) throw errUpd;
+
+        for (let i = 1; i < filasExistentes.length; i++) {
+          await supabase.from('estudiantes_vinculaciones').delete().eq('id', filasExistentes[i].id);
+        }
+      } else {
+        const { error: errVinculo } = await supabase
+          .from('estudiantes_vinculaciones')
+          .upsert([payloadHabilitar], { onConflict: 'cedula_estudiante' });
+
+        if (errVinculo) throw errVinculo;
+      }
 
       // 3. Sincronizar cambios en `solicitud_cupos` en caso de correcciones
       const obsRegistro = `[Acceso Habilitado en SIGAE el ${new Date().toLocaleDateString('es-VE')}]`;
@@ -3417,40 +3547,93 @@ export const GestionAdmisiones: React.FC = () => {
           }
 
           // Vincular en estudiantes_vinculaciones
-          const { error: errVinculo } = await supabase
-            .from('estudiantes_vinculaciones')
-            .upsert([{
-              cedula_representante: cedRep,
-              nombres_representante: nomRep,
-              apellidos_representante: apeRep,
-              cedula_estudiante: cedEst,
-              nombres_estudiante: nomEst,
-              apellidos_estudiante: apeEst,
-              grado_actual: sol.grado_solicitado || '1er Grado',
-              seccion_actual: 'A',
-              codigo_escuela: sol.codigo_escuela || 'sb',
-              estado: 'Activo',
-              datos_actualizados: {
-                ...(sol.datos_actualizados || {}),
-                ...sol,
-                representante_cedula: cedRep,
-                representante_nombres: nomRep,
-                representante_apellidos: apeRep,
-                estudiante_cedula: cedEst,
-                estudiante_nombres: nomEst,
-                estudiante_apellidos: apeEst,
-                grado_solicitado: sol.grado_solicitado,
-                codigo_escuela: sol.codigo_escuela,
-                origen_admision: 'nuevo_ingreso',
-                formalizado_en_fisico: false
-              },
-              creado_por: 'Admisiones SIGAE - Habilitación Masiva'
-            }], { onConflict: 'cedula_estudiante' });
+          const payloadMasivo = {
+            cedula_representante: cedRep,
+            nombres_representante: nomRep,
+            apellidos_representante: apeRep,
+            cedula_estudiante: cedEst,
+            nombres_estudiante: nomEst,
+            apellidos_estudiante: apeEst,
+            grado_actual: sol.grado_solicitado || '1er Grado',
+            seccion_actual: 'A',
+            codigo_escuela: sol.codigo_escuela || 'sb',
+            estado: 'Activo',
+            datos_actualizados: {
+              ...(sol.datos_actualizados || {}),
+              ...sol,
+              representante_cedula: cedRep,
+              representante_nombres: nomRep,
+              representante_apellidos: apeRep,
+              estudiante_cedula: cedEst,
+              estudiante_nombres: nomEst,
+              estudiante_apellidos: apeEst,
+              grado_solicitado: sol.grado_solicitado,
+              codigo_escuela: sol.codigo_escuela,
+              origen_admision: 'nuevo_ingreso',
+              formalizado_en_fisico: false
+            },
+            creado_por: 'Admisiones SIGAE - Habilitación Masiva'
+          };
 
-          if (errVinculo) {
-            console.error('Error en vinculo masivo:', errVinculo);
-            errores++;
-            continue;
+          const codUniSinT = (sol.codigo_unico || '').replace(/^T-/, '');
+          const cedulasPosibles = Array.from(new Set([
+            cedEst,
+            sol.estudiante_cedula,
+            sol.codigo_unico,
+            `T-${codUniSinT}`,
+            codUniSinT,
+            `ESC-${codUniSinT}`,
+            `ESC-${sol.codigo_unico}`
+          ].filter(Boolean)));
+
+          const queryOr = cedulasPosibles.map(c => `cedula_estudiante.eq.${c}`).join(',');
+          let { data: filasExistentes } = await supabase
+            .from('estudiantes_vinculaciones')
+            .select('id, cedula_estudiante')
+            .or(queryOr);
+
+          if (!filasExistentes || filasExistentes.length === 0) {
+            const nomFirst = nomEst.split(' ')[0];
+            const apeFirst = apeEst.split(' ')[0];
+            if (cedRep && nomFirst && apeFirst) {
+              const { data: porNombre } = await supabase
+                .from('estudiantes_vinculaciones')
+                .select('id, cedula_estudiante')
+                .eq('cedula_representante', cedRep)
+                .ilike('nombres_estudiante', `%${nomFirst}%`)
+                .ilike('apellidos_estudiante', `%${apeFirst}%`);
+              if (porNombre && porNombre.length > 0) {
+                filasExistentes = porNombre;
+              }
+            }
+          }
+
+          if (filasExistentes && filasExistentes.length > 0) {
+            const filaDestino = filasExistentes[0];
+            const { error: errUpd } = await supabase
+              .from('estudiantes_vinculaciones')
+              .update(payloadMasivo)
+              .eq('id', filaDestino.id);
+
+            if (errUpd) {
+              console.error('Error al actualizar vinculo masivo:', errUpd);
+              errores++;
+              continue;
+            }
+
+            for (let j = 1; j < filasExistentes.length; j++) {
+              await supabase.from('estudiantes_vinculaciones').delete().eq('id', filasExistentes[j].id);
+            }
+          } else {
+            const { error: errVinculo } = await supabase
+              .from('estudiantes_vinculaciones')
+              .upsert([payloadMasivo], { onConflict: 'cedula_estudiante' });
+
+            if (errVinculo) {
+              console.error('Error en vinculo masivo:', errVinculo);
+              errores++;
+              continue;
+            }
           }
 
           // Actualizar observaciones en solicitud_cupos
