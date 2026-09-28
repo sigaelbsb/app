@@ -2436,6 +2436,9 @@ export const ActualizacionDatos: React.FC = () => {
           origen_admision: prevDatos.origen_admision || estudianteSeleccionado.origen_admision || (infoAdm.esNuevoIngreso ? 'nuevo_ingreso' : undefined),
           formalizado_en_fisico: prevDatos.formalizado_en_fisico !== undefined ? prevDatos.formalizado_en_fisico : (estudianteSeleccionado.formalizado_en_fisico || false),
           ficha_completada: true,
+          requiere_actualizacion: false,
+          ficha_desactualizada: false,
+          motivo_actualizacion: null,
           fecha_ultima_actualizacion: nowIso
         },
         codigo_escuela: escKey.toLowerCase(),
@@ -5669,7 +5672,9 @@ const STEPS = [
 
                 let estadoFicha: 'en_proceso' | 'actualizado' | 'desactualizado' = 'en_proceso';
 
-                if (tieneFichaCompletada && fechaUltima && estaTotalmenteCompletado) {
+                if (d.requiere_actualizacion === true || d.ficha_desactualizada === true) {
+                  estadoFicha = 'desactualizado';
+                } else if (tieneFichaCompletada && fechaUltima && estaTotalmenteCompletado) {
                   const diffTime = Math.abs(new Date().getTime() - fechaUltima.getTime());
                   diasTranscurridos = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                   if (diasTranscurridos > 90) {
@@ -5751,6 +5756,16 @@ const STEPS = [
                               </span>
                             </div>
                           </div>
+
+                          {d.requiere_actualizacion === true && (
+                            <div className="mt-2.5 p-2.5 bg-danger bg-opacity-10 border border-danger border-opacity-25 rounded-3 text-danger small d-flex align-items-start gap-2">
+                              <i className="bi bi-exclamation-octagon-fill fs-6 flex-shrink-0 mt-0.5 text-danger"></i>
+                              <div>
+                                <div className="fw-bold" style={{ fontSize: '0.78rem' }}>Actualización Requerida</div>
+                                <div style={{ fontSize: '0.74rem' }}>{d.motivo_actualizacion || 'Por solicitud de la Coordinación de Transporte.'}</div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 

@@ -96,7 +96,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     });
   };
 
-  // Cargar las rutas asociadas a los representados si el usuario es Representante
+  // Cargar las rutas asociadas a los representados si el usuario es Representante y verificar actualizaciones requeridas
   useEffect(() => {
     const fetchRutasRepresentante = async () => {
       const usrStr = localStorage.getItem('usuario_sigae');
@@ -104,27 +104,95 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       try {
         const u = JSON.parse(usrStr);
         if (!u.cedula) return;
+        const cedNum = String(u.cedula).trim().replace(/\D/g, '');
+        const queryOr = cedNum && cedNum !== u.cedula 
+          ? `cedula_representante.eq.${u.cedula},cedula_representante.eq.${cedNum}`
+          : `cedula_representante.eq.${u.cedula}`;
+
         const { data: vincs } = await supabase
           .from('estudiantes_vinculaciones')
-          .select('datos_actualizados')
-          .eq('cedula_representante', u.cedula);
+          .select('id, nombres_estudiante, apellidos_estudiante, datos_actualizados')
+          .or(queryOr);
 
         if (vincs && vincs.length > 0) {
           const rutas: string[] = [];
+          const estsRequeridos: { id: string; nombre: string; motivo: string }[] = [];
+
           vincs.forEach((item: any) => {
-            const r = item.datos_actualizados?.ruta_transporte;
+            const d = item.datos_actualizados || {};
+            const r = d.ruta_transporte;
             if (r && typeof r === 'string') {
               rutas.push(r.toLowerCase());
             }
+
+            if (d.requiere_actualizacion === true || d.ficha_desactualizada === true) {
+              const nomEst = `${item.nombres_estudiante || d.estudiante_nombres || ''} ${item.apellidos_estudiante || d.estudiante_apellidos || ''}`.trim() || 'Representado';
+              estsRequeridos.push({
+                id: String(item.id),
+                nombre: nomEst,
+                motivo: d.motivo_actualizacion || ''
+              });
+            }
           });
           setMisRutasRepresentante(rutas);
+
+          // Si hay representados que requieren actualización y aún no se ha alertado en esta sesión
+          const yaMostrado = sessionStorage.getItem('sigae_aviso_desactualizado_transporte');
+          if (estsRequeridos.length > 0 && !yaMostrado) {
+            sessionStorage.setItem('sigae_aviso_desactualizado_transporte', 'true');
+            const Swal = (window as any).Swal;
+            if (Swal) {
+              setTimeout(() => {
+                const listadoHtml = estsRequeridos.map(e => `
+                  <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; text-align: left;">
+                    <div style="font-weight: 700; color: #92400e; font-size: 0.95rem;">
+                      👤 ${e.nombre}
+                    </div>
+                    <div style="font-size: 0.82rem; color: #b45309; margin-top: 4px;">
+                      <strong>Motivo:</strong> ${e.motivo || 'Revisión y actualización de datos de transporte escolar y contacto solicitada por la Coordinación.'}
+                    </div>
+                  </div>
+                `).join('');
+
+                Swal.fire({
+                  title: '¡Actualización de Datos Requerida!',
+                  html: `
+                    <div style="font-size: 0.92rem; color: #334155; text-align: left;">
+                      <p style="margin-bottom: 12px;">
+                        Estimado(a) Representante, la <strong>Coordinación de Transporte</strong> ha solicitado que actualice o confirme la información de su(s) representado(s):
+                      </p>
+                      ${listadoHtml}
+                      <p style="margin-top: 12px; margin-bottom: 0; font-size: 0.84rem; color: #64748b;">
+                        Por favor, ingrese a la ficha del estudiante para verificar y completar los datos correspondientes.
+                      </p>
+                    </div>
+                  `,
+                  icon: 'warning',
+                  iconColor: '#f59e0b',
+                  confirmButtonText: '<i class="bi bi-arrow-right-circle me-1"></i> Ir a Actualizar Datos',
+                  showCancelButton: true,
+                  cancelButtonText: 'Cerrar por ahora',
+                  confirmButtonColor: '#2563eb',
+                  cancelButtonColor: '#64748b',
+                  allowOutsideClick: false,
+                  customClass: {
+                    popup: 'rounded-4 shadow-lg border-0'
+                  }
+                }).then((result: any) => {
+                  if (result.isConfirmed) {
+                    navigate('/categoria/Gestión Estudiantil/Actualización de Datos');
+                  }
+                });
+              }, 900);
+            }
+          }
         }
       } catch (err) {
-        console.warn('Error al cargar rutas del representante:', err);
+        console.warn('Error al cargar rutas y validación del representante:', err);
       }
     };
     fetchRutasRepresentante();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const handleScroll = () => {

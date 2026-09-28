@@ -47,6 +47,10 @@ export interface EstudianteCenso {
   direccion?: string;
   avanceEstado?: 'completado' | 'en_proceso' | 'sin_iniciar';
   avancePorcentaje?: number;
+  idReal: string;
+  requiereActualizacion?: boolean;
+  motivoActualizacion?: string;
+  rawDatosActualizados?: any;
 }
 
 // ── Helper para Extraer el Número de la Ruta y Ordenar Naturalmente ─────────
@@ -159,15 +163,224 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
   } | null>(null);
   const [filtroModal, setFiltroModal] = useState('');
 
-  // Bloquear scroll de la página de fondo mientras el modal está abierto y permitir cierre con ESC
+  // Modal para modificar ruta y parada (Coordinador de Transporte)
+  const [modalEditar, setModalEditar] = useState<{
+    estudiante: EstudianteCenso;
+    modalidad: 'bus' | 'caminante';
+    rutaId: string;
+    rutaNombre: string;
+    paradaId: string;
+    paradaNombre: string;
+    requiereActualizacion: boolean;
+    motivoActualizacion: string;
+  } | null>(null);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+
+  // Abrir modal de edición con la ruta y parada actual del estudiante
+  const abrirModalEditar = (est: EstudianteCenso) => {
+    const escEst = est.codigo_escuela;
+    const rutasDeEscuela = rutasDB.filter(r => r.escuela_codigo === escEst);
+    
+    let rId = est.rutaIdOficial || '';
+    if (!rId && est.rutaNombreLimpio) {
+      const matchR = rutasDeEscuela.find(r => normalizar(r.nombre) === normalizar(est.rutaNombreLimpio));
+      if (matchR) rId = matchR.id;
+    }
+    if (!rId && rutasDeEscuela.length > 0) {
+      rId = rutasDeEscuela[0].id;
+    }
+
+    const rutaSel = rutasDeEscuela.find(r => r.id === rId);
+    const pIds = Array.isArray(rutaSel?.paradas_json) 
+      ? rutaSel.paradas_json 
+      : (typeof rutaSel?.paradas_json === 'string' ? JSON.parse(rutaSel.paradas_json || '[]') : []);
+    const paradasDeRuta = paradasDB.filter(p => pIds.includes(p.id) || p.escuela_codigo === escEst);
+
+    let pId = est.paradaIdOficial || '';
+    if (!pId && est.paradaNombreLimpio) {
+      const matchP = paradasDeRuta.find(p => normalizar(p.nombre_parada) === normalizar(est.paradaNombreLimpio));
+      if (matchP) pId = matchP.id;
+    }
+    if (!pId && paradasDeRuta.length > 0) {
+      pId = paradasDeRuta[0].id;
+    }
+
+    setModalEditar({
+      estudiante: est,
+      modalidad: est.requiereTransporte === false ? 'caminante' : 'bus',
+      rutaId: rId,
+      rutaNombre: rutaSel?.nombre || est.rutaNombreLimpio || '',
+      paradaId: pId,
+      paradaNombre: paradasDeRuta.find(p => p.id === pId)?.nombre_parada || est.paradaNombreLimpio || '',
+      requiereActualizacion: est.requiereActualizacion || false,
+      motivoActualizacion: est.motivoActualizacion || 'Ajuste en asignación de ruta y parada de transporte escolar'
+    });
+  };
+
+  const handleCambiarRutaModal = (nuevaRutaId: string) => {
+    if (!modalEditar) return;
+    const escEst = modalEditar.estudiante.codigo_escuela;
+    const rutaSel = rutasDB.find(r => r.id === nuevaRutaId);
+    const pIds = Array.isArray(rutaSel?.paradas_json)
+      ? rutaSel.paradas_json
+      : (typeof rutaSel?.paradas_json === 'string' ? JSON.parse(rutaSel.paradas_json || '[]') : []);
+    const paradasDeRuta = paradasDB.filter(p => pIds.includes(p.id) || p.escuela_codigo === escEst);
+    const primerParada = paradasDeRuta[0];
+
+    setModalEditar(prev => prev ? {
+      ...prev,
+      rutaId: nuevaRutaId,
+      rutaNombre: rutaSel?.nombre || '',
+      paradaId: primerParada?.id || '',
+      paradaNombre: primerParada?.nombre_parada || ''
+    } : null);
+  };
+
+  const handleGuardarCambiosTransporte = async () => {
+    if (!modalEditar || !modalEditar.estudiante) return;
+    const est = modalEditar.estudiante;
+    setGuardandoEdicion(true);
+
+    try {
+      const esBus = modalEditar.modalidad === 'bus';
+      const rutaNombreFinal = esBus ? modalEditar.rutaNombre : '🚶‍♂️ Ruta 0 - A Pie / Caminantes (No Requiere Bus)';
+      const paradaNombreFinal = esBus ? modalEditar.paradaNombre : 'Ruta 0 (Caminante)';
+      const formatRutaCompleta = esBus && paradaNombreFinal 
+        ? `${rutaNombreFinal} - Parada: ${paradaNombreFinal}`
+        : rutaNombreFinal;
+
+      if (est.origenTabla === 'vinculacion') {
+        const currentDatos = { ...(est.rawDatosActualizados || {}) };
+        currentDatos.requiere_transporte = esBus;
+        currentDatos.ruta_transporte = formatRutaCompleta;
+        currentDatos.parada_transporte = paradaNombreFinal;
+
+        const updatePayload: any = {
+          datos_actualizados: currentDatos
+        };
+
+        if (modalEditar.requiereActualizacion) {
+          currentDatos.ficha_completada = false;
+          currentDatos.requiere_actualizacion = true;
+          currentDatos.ficha_desactualizada = true;
+          currentDatos.motivo_actualizacion = modalEditar.motivoActualizacion.trim() || 'Ajuste en asignación de ruta y parada de transporte escolar';
+          currentDatos.fecha_desactualizacion = new Date().toISOString();
+          currentDatos.solicitado_por_coordinador = true;
+          currentDatos.solicitado_por_usuario = user?.nombre || 'Coordinador de Transporte';
+          
+          updatePayload.fecha_ultima_actualizacion = null;
+        } else {
+          currentDatos.requiere_actualizacion = false;
+          currentDatos.ficha_desactualizada = false;
+          currentDatos.motivo_actualizacion = null;
+        }
+
+        const { error: vincErr } = await supabase
+          .from('estudiantes_vinculaciones')
+          .update(updatePayload)
+          .eq('id', est.idReal);
+
+        if (vincErr) throw vincErr;
+
+        if (modalEditar.requiereActualizacion && est.representanteCedula) {
+          try {
+            await supabase.from('notificaciones_globales').insert([{
+              tipo: 'transporte',
+              titulo: `Actualización Requerida: ${est.nombreCompleto}`,
+              cuerpo: `Estimado(a) representante, se requiere que actualice la ficha de su representado(a) ${est.nombreCompleto} debido a: ${modalEditar.motivoActualizacion}.`,
+              escuela_codigo: est.codigo_escuela,
+              leido: false,
+              creado_por: user?.nombre || 'Coordinación de Transporte',
+              creado_en: new Date().toISOString()
+            }]);
+          } catch (e) {
+            console.warn('Error al registrar notificación:', e);
+          }
+        }
+
+      } else if (est.origenTabla === 'solicitud') {
+        const { error: solErr } = await supabase
+          .from('solicitud_cupos')
+          .update({
+            requiere_transporte: esBus,
+            ruta_transporte: formatRutaCompleta
+          })
+          .eq('id', est.idReal);
+
+        if (solErr) throw solErr;
+      }
+
+      // Actualizar estado local reactivamente sin necesidad de recargar toda la BD
+      setEstudiantes(prev => prev.map(item => {
+        if (item.id === est.id) {
+          const nuevaCategoria = modalEditar.requiereActualizacion ? 'regular_en_proceso' : item.categoriaMatricula;
+          return {
+            ...item,
+            requiereTransporte: esBus,
+            rutaNombreLimpio: rutaNombreFinal,
+            paradaNombreLimpio: paradaNombreFinal,
+            rutaIdOficial: modalEditar.rutaId,
+            paradaIdOficial: modalEditar.paradaId,
+            coincideRutaOficial: true,
+            coincideParadaOficial: true,
+            categoriaMatricula: nuevaCategoria,
+            requiereActualizacion: modalEditar.requiereActualizacion,
+            motivoActualizacion: modalEditar.motivoActualizacion,
+            rawDatosActualizados: {
+              ...(item.rawDatosActualizados || {}),
+              requiere_transporte: esBus,
+              ruta_transporte: formatRutaCompleta,
+              parada_transporte: paradaNombreFinal,
+              requiere_actualizacion: modalEditar.requiereActualizacion,
+              ficha_desactualizada: modalEditar.requiereActualizacion,
+              motivo_actualizacion: modalEditar.motivoActualizacion,
+              ficha_completada: modalEditar.requiereActualizacion ? false : (item.rawDatosActualizados?.ficha_completada ?? true)
+            }
+          };
+        }
+        return item;
+      }));
+
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: modalEditar.requiereActualizacion 
+            ? `Ruta actualizada y solicitud de ficha enviada a ${est.representanteNombre}` 
+            : `Ruta y parada actualizadas con éxito`,
+          showConfirmButton: false,
+          timer: 3500
+        });
+      }
+
+      setModalEditar(null);
+    } catch (err: any) {
+      console.error('Error al guardar cambios de transporte:', err);
+      if (Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al guardar',
+          text: err.message || 'No se pudieron guardar los cambios en la base de datos.'
+        });
+      }
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  // Bloquear scroll de la página de fondo mientras cualquiera de los modales esté abierto y permitir cierre con ESC
   useEffect(() => {
-    if (modalData) {
+    if (modalData || modalEditar) {
       const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-          setModalData(null);
-          setFiltroModal('');
+          if (!guardandoEdicion) {
+            setModalData(null);
+            setFiltroModal('');
+            setModalEditar(null);
+          }
         }
       };
       window.addEventListener('keydown', handleKeyDown);
@@ -176,7 +389,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         window.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [modalData]);
+  }, [modalData, modalEditar, guardandoEdicion]);
 
   // ── Helper para normalizar cadenas ──────────────────────────────────────────
   const normalizar = (s: string) => {
@@ -208,7 +421,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
     const porcentaje = Math.round((completadas / secciones.length) * 100);
 
     let estado: 'sin_iniciar' | 'en_proceso' | 'completado' = 'sin_iniciar';
-    if ((fecha && porcentaje >= 85) || d.ficha_completada === true) {
+    if (d.requiere_actualizacion === true || d.ficha_desactualizada === true) {
+      estado = 'en_proceso';
+    } else if ((fecha && porcentaje >= 85) || d.ficha_completada === true) {
       estado = 'completado';
     } else if (porcentaje > 0 || fecha) {
       estado = 'en_proceso';
@@ -352,6 +567,9 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
         if (esNuevoIngreso) {
           categoria = 'nuevo_ingreso_cupo_otorgado';
           estadoLabel = avance.estado === 'completado' ? 'Nuevo Ingreso (Cupo Otorgado • Ficha al 100%)' : 'Nuevo Ingreso (Cupo Otorgado • Pendiente Presencial)';
+        } else if (d.requiere_actualizacion === true || d.ficha_desactualizada === true) {
+          categoria = 'regular_en_proceso';
+          estadoLabel = 'Regular Desactualizado (Requerido por Transporte)';
         } else if (avance.estado === 'completado') {
           categoria = 'regular_actualizado';
           estadoLabel = 'Regular Actualizado (Ficha Completada 100%)';
@@ -404,6 +622,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
         listaConsolidada.push({
           id: `vinc_${v.id}`,
+          idReal: String(v.id),
           origenTabla: 'vinculacion',
           categoriaMatricula: categoria,
           codigo_escuela: esc,
@@ -429,7 +648,10 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           estadoRegistro: estadoLabel,
           direccion: (d.direccion_habitacion || '').trim(),
           avanceEstado: avance.estado,
-          avancePorcentaje: avance.porcentaje
+          avancePorcentaje: avance.porcentaje,
+          requiereActualizacion: d.requiere_actualizacion === true || d.ficha_desactualizada === true,
+          motivoActualizacion: d.motivo_actualizacion || '',
+          rawDatosActualizados: d
         });
       });
 
@@ -475,6 +697,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
 
         listaConsolidada.push({
           id: `sol_${s.id}`,
+          idReal: String(s.id),
           origenTabla: 'solicitud',
           categoriaMatricula: 'nuevo_ingreso_cupo_otorgado',
           codigo_escuela: esc,
@@ -500,7 +723,10 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
           estadoRegistro: 'Nuevo Ingreso (Cupo Otorgado - Pendiente Presencial)',
           direccion: (s.direccion_habitacion || '').trim(),
           avanceEstado: 'en_proceso',
-          avancePorcentaje: 50
+          avancePorcentaje: 50,
+          requiereActualizacion: false,
+          motivoActualizacion: '',
+          rawDatosActualizados: null
         });
       });
 
@@ -2188,6 +2414,7 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                     <th>Transporte</th>
                     <th>Ruta & Parada</th>
                     <th>Representante & Contacto</th>
+                    <th className="text-end" style={{ width: '120px' }}>Acción</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2208,6 +2435,13 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                           </div>
                         </td>
                         <td>
+                          {e.requiereActualizacion && (
+                            <div className="mb-1">
+                              <span className="badge rounded-pill bg-danger text-white border border-danger fw-bold px-2 py-0.5 shadow-xs" style={{ fontSize: '0.66rem' }} title={`Requerido por transporte: ${e.motivoActualizacion || ''}`}>
+                                <i className="bi bi-exclamation-triangle-fill me-1"></i>Requiere Actualización
+                              </span>
+                            </div>
+                          )}
                           {e.categoriaMatricula === 'regular_actualizado' && (
                             <span className="badge rounded-pill bg-success-subtle text-success border border-success fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
                               <i className="bi bi-check-circle me-1"></i>Regular Actualizado
@@ -2218,12 +2452,12 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                               <i className="bi bi-star-fill me-1"></i>Cupo Otorgado
                             </span>
                           )}
-                          {e.categoriaMatricula === 'regular_en_proceso' && (
+                          {e.categoriaMatricula === 'regular_en_proceso' && !e.requiereActualizacion && (
                             <span className="badge rounded-pill bg-info-subtle text-primary border border-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
                               <i className="bi bi-clock me-1"></i>En Proceso
                             </span>
                           )}
-                          {e.categoriaMatricula === 'regular_sin_iniciar' && (
+                          {e.categoriaMatricula === 'regular_sin_iniciar' && !e.requiereActualizacion && (
                             <span className="badge rounded-pill bg-danger-subtle text-danger border border-danger fw-bold px-2 py-0.5" style={{ fontSize: '0.68rem' }}>
                               <i className="bi bi-exclamation-circle me-1"></i>Sin Iniciar
                             </span>
@@ -2312,6 +2546,18 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                               <span className="text-muted small" style={{ fontSize: '0.68rem' }}>Sin teléfono</span>
                             )}
                           </div>
+                        </td>
+                        <td className="text-end">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-xs"
+                            style={{ fontSize: '0.72rem' }}
+                            title="Modificar Ruta y Parada, y solicitar actualización de datos"
+                            onClick={() => abrirModalEditar(e)}
+                          >
+                            <i className="bi bi-pencil-square"></i>
+                            <span>Editar Ruta</span>
+                          </button>
                         </td>
                       </tr>
                     );
@@ -2799,6 +3045,292 @@ export const CensoEstudiantesRutasView: React.FC<CensoEstudiantesRutasViewProps>
                   onClick={() => { setModalData(null); setFiltroModal(''); }}
                 >
                   Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Modal Editar Ruta y Parada / Requerir Actualización ── */}
+      {modalEditar && createPortal(
+        <div 
+          className="modal fade show d-block" 
+          tabIndex={-1} 
+          style={{ backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1065, backdropFilter: 'blur(4px)' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !guardandoEdicion) setModalEditar(null);
+          }}
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg" style={{ maxWidth: '680px' }}>
+            <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+              {/* Header */}
+              <div className="modal-header bg-primary text-white py-3 px-4 border-0 d-flex align-items-center justify-content-between" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)' }}>
+                <div className="d-flex align-items-center gap-2.5">
+                  <div className="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center shadow-sm" style={{ width: 38, height: 38, fontSize: '1.2rem' }}>
+                    <i className="bi bi-bus-front-fill"></i>
+                  </div>
+                  <div>
+                    <h6 className="modal-title fw-bold mb-0 text-white fs-6">
+                      Ajustar Ruta y Parada de Transporte
+                    </h6>
+                    <small className="text-white-50" style={{ fontSize: '0.78rem' }}>
+                      {modalEditar.estudiante.escuelaNombre} • Padrón de Matrícula
+                    </small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  aria-label="Close"
+                  disabled={guardandoEdicion}
+                  onClick={() => setModalEditar(null)}
+                />
+              </div>
+
+              {/* Body */}
+              <div className="modal-body p-4 bg-light">
+                {/* Ficha Resumen del Estudiante */}
+                <div className="card border-0 shadow-sm rounded-3 mb-3 bg-white">
+                  <div className="card-body p-3">
+                    <div className="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+                      <div>
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 fw-bold text-uppercase me-2" style={{ fontSize: '0.7rem' }}>
+                          {modalEditar.estudiante.grado}
+                        </span>
+                        <span className="fw-bold text-dark fs-6">
+                          {modalEditar.estudiante.nombreCompleto}
+                        </span>
+                      </div>
+                      <span className="badge bg-light text-secondary border rounded-pill px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
+                        C.I: {modalEditar.estudiante.cedula}
+                      </span>
+                    </div>
+
+                    <div className="row g-2 text-muted" style={{ fontSize: '0.8rem' }}>
+                      <div className="col-12 col-sm-6">
+                        <i className="bi bi-person me-1 text-primary"></i>
+                        <strong>Representante:</strong> {modalEditar.estudiante.representanteNombre}
+                      </div>
+                      <div className="col-12 col-sm-6">
+                        <i className="bi bi-telephone me-1 text-primary"></i>
+                        <strong>Teléfono:</strong> {modalEditar.estudiante.representanteTelefono || 'No registrado'}
+                      </div>
+                      <div className="col-12">
+                        <i className="bi bi-geo-alt me-1 text-danger"></i>
+                        <strong>Dirección:</strong> {modalEditar.estudiante.direccion || 'No especificada'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Formulario de Asignación */}
+                <div className="card border-0 shadow-sm rounded-3 p-3 bg-white mb-3">
+                  <h6 className="fw-bold text-dark mb-3 d-flex align-items-center gap-2" style={{ fontSize: '0.88rem' }}>
+                    <i className="bi bi-signpost-split text-primary"></i>
+                    Modalidad y Asignación de Ruta
+                  </h6>
+
+                  {/* Toggle Modalidad */}
+                  <div className="row g-2 mb-3">
+                    <div className="col-6">
+                      <div 
+                        className={`p-2.5 rounded-3 border text-center cursor-pointer transition-all ${
+                          modalEditar.modalidad === 'bus' 
+                            ? 'border-primary bg-primary-subtle text-primary fw-bold shadow-sm' 
+                            : 'border-secondary-subtle bg-white text-muted'
+                        }`}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          const escEst = modalEditar.estudiante.codigo_escuela;
+                          const rutasDeEscuela = rutasDB.filter(r => r.escuela_codigo === escEst);
+                          const primerRuta = rutasDeEscuela[0];
+                          const pIds = Array.isArray(primerRuta?.paradas_json)
+                            ? primerRuta.paradas_json
+                            : (typeof primerRuta?.paradas_json === 'string' ? JSON.parse(primerRuta.paradas_json || '[]') : []);
+                          const paradasDeRuta = paradasDB.filter(p => pIds.includes(p.id) || p.escuela_codigo === escEst);
+                          const primerParada = paradasDeRuta[0];
+
+                          setModalEditar(prev => prev ? {
+                            ...prev,
+                            modalidad: 'bus',
+                            rutaId: primerRuta?.id || '',
+                            rutaNombre: primerRuta?.nombre || '',
+                            paradaId: primerParada?.id || '',
+                            paradaNombre: primerParada?.nombre_parada || ''
+                          } : null);
+                        }}
+                      >
+                        <i className="bi bi-bus-front fs-5 d-block mb-1"></i>
+                        <span style={{ fontSize: '0.82rem' }}>Autobús Escolar</span>
+                      </div>
+                    </div>
+
+                    <div className="col-6">
+                      <div 
+                        className={`p-2.5 rounded-3 border text-center cursor-pointer transition-all ${
+                          modalEditar.modalidad === 'caminante' 
+                            ? 'border-success bg-success-subtle text-success fw-bold shadow-sm' 
+                            : 'border-secondary-subtle bg-white text-muted'
+                        }`}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setModalEditar(prev => prev ? {
+                            ...prev,
+                            modalidad: 'caminante',
+                            rutaId: '',
+                            rutaNombre: '🚶‍♂️ Ruta 0 - A Pie / Caminantes (No Requiere Bus)',
+                            paradaId: '',
+                            paradaNombre: 'Ruta 0 (Caminante)'
+                          } : null);
+                        }}
+                      >
+                        <i className="bi bi-person-walking fs-5 d-block mb-1"></i>
+                        <span style={{ fontSize: '0.82rem' }}>Caminante / Ruta 0</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Selectores de Ruta y Parada (si modalidad es bus) */}
+                  {modalEditar.modalidad === 'bus' && (() => {
+                    const escEst = modalEditar.estudiante.codigo_escuela;
+                    const rutasDeEscuela = rutasDB.filter(r => r.escuela_codigo === escEst);
+                    const rutaSel = rutasDB.find(r => r.id === modalEditar.rutaId);
+                    const pIds = Array.isArray(rutaSel?.paradas_json)
+                      ? rutaSel.paradas_json
+                      : (typeof rutaSel?.paradas_json === 'string' ? JSON.parse(rutaSel.paradas_json || '[]') : []);
+                    const paradasDeRuta = paradasDB.filter(p => pIds.includes(p.id) || p.escuela_codigo === escEst);
+
+                    return (
+                      <div className="row g-3">
+                        <div className="col-12 col-sm-6">
+                          <label className="form-label fw-bold small text-secondary mb-1">
+                            Ruta de Transporte:
+                          </label>
+                          <select
+                            className="form-select form-select-sm shadow-sm"
+                            value={modalEditar.rutaId}
+                            onChange={(e) => handleCambiarRutaModal(e.target.value)}
+                          >
+                            {rutasDeEscuela.map(r => (
+                              <option key={r.id} value={r.id}>
+                                {r.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="col-12 col-sm-6">
+                          <label className="form-label fw-bold small text-secondary mb-1">
+                            Punto de Parada:
+                          </label>
+                          <select
+                            className="form-select form-select-sm shadow-sm"
+                            value={modalEditar.paradaId}
+                            onChange={(e) => {
+                              const pSel = paradasDeRuta.find(p => p.id === e.target.value);
+                              setModalEditar(prev => prev ? {
+                                ...prev,
+                                paradaId: e.target.value,
+                                paradaNombre: pSel?.nombre_parada || ''
+                              } : null);
+                            }}
+                          >
+                            {paradasDeRuta.length === 0 ? (
+                              <option value="">Sin paradas vinculadas</option>
+                            ) : (
+                              paradasDeRuta.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nombre_parada}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Switch de Requerir Actualización al Representante */}
+                <div className={`card border-0 shadow-sm rounded-3 p-3 transition-all ${modalEditar.requiereActualizacion ? 'border border-warning bg-warning-subtle text-dark' : 'bg-white'}`}>
+                  <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+                    <label className="form-check-label fw-bold cursor-pointer d-flex align-items-center gap-2 mb-0" htmlFor="switchReqActualizacion" style={{ fontSize: '0.88rem', cursor: 'pointer' }}>
+                      <i className={`bi ${modalEditar.requiereActualizacion ? 'bi-exclamation-triangle-fill text-warning' : 'bi-arrow-repeat text-secondary'}`}></i>
+                      <span>Requerir actualización de datos al representante</span>
+                    </label>
+                    <input
+                      className="form-check-input ms-3 cursor-pointer"
+                      type="checkbox"
+                      role="switch"
+                      id="switchReqActualizacion"
+                      checked={modalEditar.requiereActualizacion}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setModalEditar(prev => prev ? {
+                          ...prev,
+                          requiereActualizacion: checked,
+                          motivoActualizacion: checked && !prev.motivoActualizacion ? 'Reasignación de ruta y parada de transporte escolar' : prev.motivoActualizacion
+                        } : null);
+                      }}
+                      style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {modalEditar.requiereActualizacion && (
+                    <div className="mt-3 pt-2 border-top border-warning-subtle">
+                      <label className="form-label fw-bold small text-dark mb-1">
+                        Motivo del requerimiento (se mostrará al representante):
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm border-warning shadow-sm"
+                        placeholder="Ej: Cambio en asignación de ruta/parada de transporte"
+                        value={modalEditar.motivoActualizacion}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setModalEditar(prev => prev ? { ...prev, motivoActualizacion: val } : null);
+                        }}
+                      />
+                      <div className="d-flex align-items-center gap-1.5 mt-2 text-dark small" style={{ fontSize: '0.75rem' }}>
+                        <i className="bi bi-info-circle-fill text-warning"></i>
+                        <span>
+                          La ficha quedará marcada como <strong>Desactualizada</strong> y al ingresar el representante al sistema recibirá un aviso prioritario indicando que debe actualizar los datos de su representado.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer bg-light p-3 d-flex justify-content-end align-items-center gap-2 border-0">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm rounded-pill px-4 fw-bold"
+                  disabled={guardandoEdicion}
+                  onClick={() => setModalEditar(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm rounded-pill px-4 fw-bold d-flex align-items-center gap-1.5 shadow"
+                  disabled={guardandoEdicion}
+                  onClick={handleGuardarCambiosTransporte}
+                >
+                  {guardandoEdicion ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-check2-circle"></i>
+                      <span>Guardar Asignación</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
