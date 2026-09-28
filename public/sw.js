@@ -3,7 +3,7 @@
  * Garantiza auto-actualizaciones instantáneas en línea y soporte offline.
  */
 
-const CACHE_NAME = 'sigae-live-v14';
+const CACHE_NAME = 'sigae-live-v15';
 
 const urlsToCache = [
   '/',

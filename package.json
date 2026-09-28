@@ -11,8 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"cross-env NODE_ENV=development vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron electron/main.cjs\"",
-    "build:win": "npm run build && electron-builder --win -c electron-builder.json",
-    "build:linux": "npm run build && electron-builder --linux -c electron-builder.json",
+    "build:win": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --win -c electron-builder.json",
+    "build:linux": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --linux -c electron-builder.json",
     "cap:sync": "npm run build && npx cap sync android",
     "cap:open:android": "npx cap open android"
   },

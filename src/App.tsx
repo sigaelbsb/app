@@ -20,43 +20,75 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationRouteManager } from './components/NavigationRouteManager';
 import { NavigationLoader } from './components/NavigationLoader';
 
-// Módulos pesados con carga bajo demanda (Code Splitting & Lazy Loading)
-const MiPerfil = lazy(() => import('./pages/seguridad/MiPerfil').then(m => ({ default: m.MiPerfil })));
-const MetodosAcceso = lazy(() => import('./pages/seguridad/MetodosAcceso').then(m => ({ default: m.MetodosAcceso })));
-const GestionUsuarios = lazy(() => import('./pages/seguridad/GestionUsuarios').then(m => ({ default: m.GestionUsuarios })));
-const RolesPrivilegios = lazy(() => import('./pages/seguridad/RolesPrivilegios').then(m => ({ default: m.RolesPrivilegios })));
-const PreguntasSeguridad = lazy(() => import('./pages/seguridad/PreguntasSeguridad').then(m => ({ default: m.PreguntasSeguridad })));
-const AuditoriaSistema = lazy(() => import('./pages/seguridad/AuditoriaSistema').then(m => ({ default: m.AuditoriaSistema })));
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', (event) => {
+    console.warn('[SIGAE Vite] Preload error detectado. Recargando versión fresca...', event);
+    window.location.reload();
+  });
+}
 
-const PerfilEscuela = lazy(() => import('./pages/direccion/PerfilEscuela').then(m => ({ default: m.PerfilEscuela })));
-const ConfiguracionSistema = lazy(() => import('./pages/direccion/ConfiguracionSistema').then(m => ({ default: m.ConfiguracionSistema })));
-const DivisionTerritorial = lazy(() => import('./pages/direccion/DivisionTerritorial').then(m => ({ default: m.DivisionTerritorial })));
-const CerebroSigma = lazy(() => import('./pages/direccion/CerebroSigma').then(m => ({ default: m.CerebroSigma })));
-const PanelControl = lazy(() => import('./pages/direccion/PanelControl').then(m => ({ default: m.PanelControl })));
-const InstalacionDescargas = lazy(() => import('./pages/sistema/InstalacionDescargas').then(m => ({ default: m.InstalacionDescargas })));
+// Carga perezosa con autorecuperación en caso de actualización en vivo o caída de red
+function safeLazy<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (err: any) {
+      console.warn('[SIGAE ChunkLoader] Error cargando chunk, auto-reintentando...', err);
+      const retryKey = 'sigae_retry_' + window.location.pathname;
+      if (!sessionStorage.getItem(retryKey)) {
+        sessionStorage.setItem(retryKey, 'true');
+        if ('caches' in window) {
+          try {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          } catch (_) {}
+        }
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+      sessionStorage.removeItem(retryKey);
+      throw err;
+    }
+  });
+}
 
-const EstructuraEmpresa = lazy(() => import('./pages/organizacion/EstructuraEmpresa').then(m => ({ default: m.EstructuraEmpresa })));
-const CargosInstitucionales = lazy(() => import('./pages/organizacion/CargosInstitucionales').then(m => ({ default: m.CargosInstitucionales })));
-const CadenaSupervisoria = lazy(() => import('./pages/organizacion/CadenaSupervisoria').then(m => ({ default: m.CadenaSupervisoria })));
-const GestionColectivos = lazy(() => import('./pages/organizacion/GestionColectivos').then(m => ({ default: m.GestionColectivos })));
+// Módulos pesados con carga bajo demanda segura (Code Splitting & Auto-Retry)
+const MiPerfil = safeLazy(() => import('./pages/seguridad/MiPerfil').then(m => ({ default: m.MiPerfil })));
+const MetodosAcceso = safeLazy(() => import('./pages/seguridad/MetodosAcceso').then(m => ({ default: m.MetodosAcceso })));
+const GestionUsuarios = safeLazy(() => import('./pages/seguridad/GestionUsuarios').then(m => ({ default: m.GestionUsuarios })));
+const RolesPrivilegios = safeLazy(() => import('./pages/seguridad/RolesPrivilegios').then(m => ({ default: m.RolesPrivilegios })));
+const PreguntasSeguridad = safeLazy(() => import('./pages/seguridad/PreguntasSeguridad').then(m => ({ default: m.PreguntasSeguridad })));
+const AuditoriaSistema = safeLazy(() => import('./pages/seguridad/AuditoriaSistema').then(m => ({ default: m.AuditoriaSistema })));
 
-const GradosSalones = lazy(() => import('./pages/estudios/GradosSalones').then(m => ({ default: m.GradosSalones })));
-const MiExpediente = lazy(() => import('./pages/docente/MiExpediente').then(m => ({ default: m.MiExpediente })));
-const GestorExpedientes = lazy(() => import('./pages/docente/GestorExpedientes').then(m => ({ default: m.GestorExpedientes })));
+const PerfilEscuela = safeLazy(() => import('./pages/direccion/PerfilEscuela').then(m => ({ default: m.PerfilEscuela })));
+const ConfiguracionSistema = safeLazy(() => import('./pages/direccion/ConfiguracionSistema').then(m => ({ default: m.ConfiguracionSistema })));
+const DivisionTerritorial = safeLazy(() => import('./pages/direccion/DivisionTerritorial').then(m => ({ default: m.DivisionTerritorial })));
+const CerebroSigma = safeLazy(() => import('./pages/direccion/CerebroSigma').then(m => ({ default: m.CerebroSigma })));
+const PanelControl = safeLazy(() => import('./pages/direccion/PanelControl').then(m => ({ default: m.PanelControl })));
+const InstalacionDescargas = safeLazy(() => import('./pages/sistema/InstalacionDescargas').then(m => ({ default: m.InstalacionDescargas })));
 
-const SolicitudCupos = lazy(() => import('./pages/estudiantil/SolicitudCupos').then(m => ({ default: m.SolicitudCupos })));
-const GestionAdmisiones = lazy(() => import('./pages/estudiantil/GestionAdmisiones').then(m => ({ default: m.GestionAdmisiones })));
-const RedactorMensajesAdmision = lazy(() => import('./pages/estudiantil/RedactorMensajesAdmision').then(m => ({ default: m.RedactorMensajesAdmision })));
-const VincularEstudiante = lazy(() => import('./pages/estudiantil/VincularEstudiante').then(m => ({ default: m.VincularEstudiante })));
-const ValidarConstancia = lazy(() => import('./pages/estudiantil/ValidarConstancia').then(m => ({ default: m.ValidarConstancia })));
-const ActualizacionDatos = lazy(() => import('./pages/estudiantil/ActualizacionDatos').then(m => ({ default: m.ActualizacionDatos })));
-const Verificaciones = lazy(() => import('./pages/estudiantil/Verificaciones').then(m => ({ default: m.Verificaciones })));
+const EstructuraEmpresa = safeLazy(() => import('./pages/organizacion/EstructuraEmpresa').then(m => ({ default: m.EstructuraEmpresa })));
+const CargosInstitucionales = safeLazy(() => import('./pages/organizacion/CargosInstitucionales').then(m => ({ default: m.CargosInstitucionales })));
+const CadenaSupervisoria = safeLazy(() => import('./pages/organizacion/CadenaSupervisoria').then(m => ({ default: m.CadenaSupervisoria })));
+const GestionColectivos = safeLazy(() => import('./pages/organizacion/GestionColectivos').then(m => ({ default: m.GestionColectivos })));
 
-const TransporteEscolar = lazy(() => import('./pages/transporte/TransporteEscolar').then(m => ({ default: m.TransporteEscolar })));
-const EstudioDiseno = lazy(() => import('./pages/disenos/EstudioDiseno').then(m => ({ default: m.EstudioDiseno })));
-const ConstructorEncuestas = lazy(() => import('./pages/disenos/ConstructorEncuestas').then(m => ({ default: m.ConstructorEncuestas })));
-const EditorConstancias = lazy(() => import('./pages/disenos/EditorConstancias').then(m => ({ default: m.EditorConstancias })));
-const OrientacionesNuevosIngresos = lazy(() => import('./pages/disenos/OrientacionesNuevosIngresos').then(m => ({ default: m.OrientacionesNuevosIngresos })));
+const GradosSalones = safeLazy(() => import('./pages/estudios/GradosSalones').then(m => ({ default: m.GradosSalones })));
+const MiExpediente = safeLazy(() => import('./pages/docente/MiExpediente').then(m => ({ default: m.MiExpediente })));
+const GestorExpedientes = safeLazy(() => import('./pages/docente/GestorExpedientes').then(m => ({ default: m.GestorExpedientes })));
+
+const SolicitudCupos = safeLazy(() => import('./pages/estudiantil/SolicitudCupos').then(m => ({ default: m.SolicitudCupos })));
+const GestionAdmisiones = safeLazy(() => import('./pages/estudiantil/GestionAdmisiones').then(m => ({ default: m.GestionAdmisiones })));
+const RedactorMensajesAdmision = safeLazy(() => import('./pages/estudiantil/RedactorMensajesAdmision').then(m => ({ default: m.RedactorMensajesAdmision })));
+const VincularEstudiante = safeLazy(() => import('./pages/estudiantil/VincularEstudiante').then(m => ({ default: m.VincularEstudiante })));
+const ValidarConstancia = safeLazy(() => import('./pages/estudiantil/ValidarConstancia').then(m => ({ default: m.ValidarConstancia })));
+const ActualizacionDatos = safeLazy(() => import('./pages/estudiantil/ActualizacionDatos').then(m => ({ default: m.ActualizacionDatos })));
+const Verificaciones = safeLazy(() => import('./pages/estudiantil/Verificaciones').then(m => ({ default: m.Verificaciones })));
+
+const TransporteEscolar = safeLazy(() => import('./pages/transporte/TransporteEscolar').then(m => ({ default: m.TransporteEscolar })));
+const EstudioDiseno = safeLazy(() => import('./pages/disenos/EstudioDiseno').then(m => ({ default: m.EstudioDiseno })));
+const ConstructorEncuestas = safeLazy(() => import('./pages/disenos/ConstructorEncuestas').then(m => ({ default: m.ConstructorEncuestas })));
+const EditorConstancias = safeLazy(() => import('./pages/disenos/EditorConstancias').then(m => ({ default: m.EditorConstancias })));
+const OrientacionesNuevosIngresos = safeLazy(() => import('./pages/disenos/OrientacionesNuevosIngresos').then(m => ({ default: m.OrientacionesNuevosIngresos })));
 
 import './componentes.css';
 import './principal.css';

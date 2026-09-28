@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: './', // Soporte para Electron (file://), Capacitor (nativo) y Web
+  base: process.env.ELECTRON_BUILD === 'true' ? './' : '/', // '/' absoluto para Web (Vercel) y Capacitor; './' solo para Electron offline
   server: {
     port: 5173,
     watch: {
