@@ -59,6 +59,8 @@ interface EstudianteVinculado {
   apellidos_representante?: string;
   estado?: string;
   created_at?: string;
+  tipo_ingreso?: 'Regular' | 'Nuevo Ingreso Formalizado';
+  id_solicitud_cupo?: string;
 }
 
 export interface ResponsabilidadDocente {
@@ -97,7 +99,7 @@ interface GradosSalonesProps {
 
 export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salones' }) => {
   const navigate = useNavigate();
-  const { tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
+  const { tienePermiso, tienePermisoEnEscuela, tieneAccesoEscuela, loading: permLoading, user } = usePermisos();
   const Swal = (window as any).Swal;
   const html2pdf = (window as any).html2pdf;
 
@@ -115,8 +117,24 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const [responsabilidades, setResponsabilidades] = useState<ResponsabilidadDocente[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Filters and Selection
-  const [escuelaFiltro, setEscuelaFiltro] = useState<string>('todas');
+  // Detección estricta de asignación institucional del usuario (sb, lb o ambas)
+  const escuelaUsuarioAsignada = (user?.id_escuela || '').trim().toLowerCase();
+  const hasMultipleEscuelas = user?.perfil_acceso?.instituciones && Array.isArray(user.perfil_acceso.instituciones) && user.perfil_acceso.instituciones.length > 1;
+  const isSuperAdmin = ['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes((user?.rol || '').trim()) || hasMultipleEscuelas;
+  const esSedeFija = !isSuperAdmin && (escuelaUsuarioAsignada === 'sb' || escuelaUsuarioAsignada === 'lb');
+
+  // Determinar la escuela activa inicial:
+  // Si tiene sede fija, siempre su sede.
+  // Si tiene acceso a ambas sedes, usar la sede activa en sigae_escuela_codigo ('sb' o 'lb') o su id_escuela, NUNCA 'todas'.
+  const escuelaActivaSesion = ((localStorage.getItem('sigae_escuela_codigo') as string) || '').toLowerCase();
+  const escuelaInicial = esSedeFija 
+    ? escuelaUsuarioAsignada 
+    : (escuelaActivaSesion === 'sb' || escuelaActivaSesion === 'lb'
+        ? escuelaActivaSesion 
+        : (escuelaUsuarioAsignada === 'lb' ? 'lb' : 'sb'));
+
+  // Filters and Selection - Inicializar exclusivamente con la escuela activa
+  const [escuelaFiltro, setEscuelaFiltro] = useState<string>(() => escuelaInicial);
   const [criterioOrden, setCriterioOrden] = useState<string>('jerarquia_grupos');
   const [searchEspacios, setSearchEspacios] = useState<string>('');
   const [searchSalones, setSearchSalones] = useState<string>('');
@@ -132,7 +150,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     nombre: '',
     tipo: 'Aula de Clases',
     capacidad: 35,
-    id_escuela: 'sb',
+    id_escuela: escuelaInicial,
     ubicacion: '',
     descripcion: ''
   });
@@ -162,7 +180,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     horas_semanales: number;
     observaciones: string;
   }>({
-    id_escuela: 'sb',
+    id_escuela: escuelaInicial,
     nombre_responsabilidad: '',
     categoria: 'Área de Formación / Especialista',
     nivel_educativo: 'Educación Media General',
@@ -192,28 +210,44 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const canEliminarSecciones = tienePermiso('Tarjeta: Configurar Secciones', 'eliminar') || tienePermiso('Grados y Salones', 'eliminar');
 
   const escuelasAutorizadas = useMemo(() => {
-    const list = [];
-    if (canSalonesSB || hasAccessSB_Esp) list.push('sb');
-    if (canSalonesLB || hasAccessLB_Esp) list.push('lb');
-    return list;
-  }, [canSalonesSB, canSalonesLB, hasAccessSB_Esp, hasAccessLB_Esp]);
+    if (esSedeFija) return [escuelaUsuarioAsignada];
+    const list: string[] = [];
+    if (canSalonesSB || hasAccessSB_Esp || (tieneAccesoEscuela && tieneAccesoEscuela('sb'))) list.push('sb');
+    if (canSalonesLB || hasAccessLB_Esp || (tieneAccesoEscuela && tieneAccesoEscuela('lb'))) list.push('lb');
+    return list.length > 0 ? list : [escuelaInicial || 'sb'];
+  }, [esSedeFija, escuelaUsuarioAsignada, canSalonesSB, canSalonesLB, hasAccessSB_Esp, hasAccessLB_Esp, tieneAccesoEscuela, escuelaInicial]);
+
+  // Cambiador centralizado de escuela activa
+  const cambiarEscuelaFiltro = (nuevaEscuela: string) => {
+    if (nuevaEscuela === 'sb' || nuevaEscuela === 'lb') {
+      setEscuelaFiltro(nuevaEscuela);
+      setFormEspacio(prev => ({ ...prev, id_escuela: nuevaEscuela }));
+      setPaginaActualEspacios(1);
+      localStorage.setItem('sigae_escuela_codigo', nuevaEscuela);
+      localStorage.setItem('sigae_escuela_activa', nuevaEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    }
+  };
 
   // Load all initial data
   useEffect(() => {
     if (!permLoading) {
-      if (escuelasAutorizadas.length === 1) {
-        setEscuelaFiltro(escuelasAutorizadas[0]);
-        setFormEspacio(prev => ({ ...prev, id_escuela: escuelasAutorizadas[0] }));
-      }
+      const sesionActual = ((localStorage.getItem('sigae_escuela_codigo') as string) || '').toLowerCase();
+      const targetEscuela = (sesionActual === 'sb' || sesionActual === 'lb') 
+        ? sesionActual 
+        : (escuelasAutorizadas.includes(escuelaInicial) ? escuelaInicial : 'sb');
+
+      setEscuelaFiltro(targetEscuela);
+      setFormEspacio(prev => ({ ...prev, id_escuela: targetEscuela }));
+      setFormEspecialidad(prev => ({ ...prev, id_escuela: targetEscuela }));
       cargarDatosCompletos();
     }
-  }, [permLoading, escuelasAutorizadas]);
+  }, [permLoading, escuelasAutorizadas, escuelaInicial]);
 
   const cargarDatosCompletos = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      // 1. Cargar datos básicos y primer bloque de estudiantes en paralelo inmediato
-      const [nivRes, graRes, secRes, espRes, salRes, docRes, estPage1, estPage2, estPage3, estPage4] = await Promise.all([
+      // 1. Cargar datos básicos, estudiantes activos y nuevos ingresos formalizados en paralelo
+      const [nivRes, graRes, secRes, espRes, salRes, docRes, estPage1, estPage2, estPage3, estPage4, solCuposRes] = await Promise.all([
         supabase.from('conf_niveles').select('id_parametro, valor').order('valor', { ascending: true }),
         supabase.from('conf_grados').select('id_parametro, valor, orden').order('orden', { ascending: true }),
         supabase.from('conf_secciones').select('id_parametro, valor').order('valor', { ascending: true }),
@@ -236,15 +270,53 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         supabase.from('estudiantes_vinculaciones')
           .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
           .eq('estado', 'Activo')
-          .range(3000, 3999)
+          .range(3000, 3999),
+        // Nuevos ingresos ya formalizados
+        supabase.from('solicitud_cupos')
+          .select('id, codigo_escuela, grado_solicitado, estado, estudiante_cedula, estudiante_nombres, estudiante_apellidos, representante_cedula, representante_nombres, representante_apellidos, created_at')
+          .eq('estado', 'Formalizado')
       ]);
 
-      const todosEstudiantes: EstudianteVinculado[] = [
+      const rawEstudiantes: EstudianteVinculado[] = [
         ...(estPage1.data || []),
         ...(estPage2.data || []),
         ...(estPage3.data || []),
         ...(estPage4.data || [])
       ];
+
+      const formalizados = solCuposRes.data || [];
+      const setCedulasFormalizadas = new Set(formalizados.map(s => (s.estudiante_cedula || '').trim()));
+
+      // 1. Estudiantes de vinculaciones clasificados como Regulares o Nuevos Ingresos Formalizados
+      const regularAndFormalizedInVinc: EstudianteVinculado[] = rawEstudiantes.map(e => ({
+        ...e,
+        tipo_ingreso: setCedulasFormalizadas.has((e.cedula_estudiante || '').trim())
+          ? ('Nuevo Ingreso Formalizado' as const)
+          : ('Regular' as const)
+      }));
+
+      // 2. Nuevos ingresos formalizados que aún no están en estudiantes_vinculaciones
+      const setCedulasEnVinc = new Set(rawEstudiantes.map(e => (e.cedula_estudiante || '').trim()));
+      const formalizadosNuevos: EstudianteVinculado[] = formalizados
+        .filter(s => s.estudiante_cedula && !setCedulasEnVinc.has(s.estudiante_cedula.trim()))
+        .map(s => ({
+          id: `sol-${s.id}`,
+          cedula_estudiante: s.estudiante_cedula.trim(),
+          nombres_estudiante: s.estudiante_nombres || '',
+          apellidos_estudiante: s.estudiante_apellidos || '',
+          grado_actual: s.grado_solicitado || '',
+          seccion_actual: 'Sin Asignar',
+          codigo_escuela: s.codigo_escuela || '',
+          cedula_representante: s.representante_cedula || '',
+          nombres_representante: s.representante_nombres || '',
+          apellidos_representante: s.representante_apellidos || '',
+          estado: 'Activo',
+          created_at: s.created_at,
+          tipo_ingreso: 'Nuevo Ingreso Formalizado' as const,
+          id_solicitud_cupo: s.id
+        }));
+
+      const todosEstudiantes = [...regularAndFormalizedInVinc, ...formalizadosNuevos];
 
       if (nivRes.data) setNiveles(nivRes.data);
       if (graRes.data) setGrados(graRes.data);
@@ -305,7 +377,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     } else {
       setEditandoEspecialidadId(null);
       setFormEspecialidad({
-        id_escuela: escuelaFiltro !== 'todas' ? escuelaFiltro : (escuelasAutorizadas[0] || 'sb'),
+        id_escuela: escuelaFiltro,
         nombre_responsabilidad: '',
         categoria: 'Área de Formación / Especialista',
         nivel_educativo: 'Educación Media General',
@@ -575,10 +647,13 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   // ──────────────────────────────────────────────────────────
   // FILTRADO Y ORDENAMIENTO DE ESPACIOS
   // ──────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────
+  // FILTRADO Y ORDENAMIENTO DE ESPACIOS (SÓLO SEDE ACTIVA)
+  // ──────────────────────────────────────────────────────────
   const espaciosFiltrados = useMemo(() => {
     return espacios
       .filter(e => {
-        const matchEscuela = escuelaFiltro === 'todas' || e.id_escuela === escuelaFiltro;
+        const matchEscuela = e.id_escuela === escuelaFiltro;
         const matchSearch = (e.nombre || '').toLowerCase().includes(searchEspacios.toLowerCase()) ||
                             (e.tipo || '').toLowerCase().includes(searchEspacios.toLowerCase());
         return matchEscuela && matchSearch;
@@ -608,12 +683,12 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   }, [espaciosFiltrados, paginaActualEspacios]);
 
   // ──────────────────────────────────────────────────────────
-  // FILTRADO Y ORDENAMIENTO DE SALONES
+  // FILTRADO Y ORDENAMIENTO DE SALONES (SÓLO SEDE ACTIVA)
   // ──────────────────────────────────────────────────────────
   const salonesFiltrados = useMemo(() => {
     return salones
       .filter(s => {
-        const matchEscuela = escuelaFiltro === 'todas' || s.id_escuela === escuelaFiltro;
+        const matchEscuela = s.id_escuela === escuelaFiltro;
         const matchSearch = (s.nombre_salon || '').toLowerCase().includes(searchSalones.toLowerCase()) ||
                             (s.grado_anio || '').toLowerCase().includes(searchSalones.toLowerCase()) ||
                             (s.seccion || '').toLowerCase().includes(searchSalones.toLowerCase());
@@ -628,10 +703,20 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       });
   }, [salones, escuelaFiltro, searchSalones]);
 
+  // Estudiantes de la Sede Activa
+  const estudiantesFiltrados = useMemo(() => {
+    return estudiantes.filter(e => e.codigo_escuela === escuelaFiltro);
+  }, [estudiantes, escuelaFiltro]);
+
+  // Responsabilidades de la Sede Activa
+  const responsabilidadesFiltradas = useMemo(() => {
+    return responsabilidades.filter(r => r.id_escuela === escuelaFiltro);
+  }, [responsabilidades, escuelaFiltro]);
+
   // Salón Activo Seleccionado para Matrícula
   const salonActivo = useMemo(() => {
-    return salones.find(s => s.id_salon === salonSeleccionadoId) || salonesFiltrados[0] || null;
-  }, [salones, salonSeleccionadoId, salonesFiltrados]);
+    return salonesFiltrados.find(s => s.id_salon === salonSeleccionadoId) || salonesFiltrados[0] || null;
+  }, [salonesFiltrados, salonSeleccionadoId]);
 
   // Estudiantes del Salón Activo
   const estudiantesSalonActivo = useMemo(() => {
@@ -656,6 +741,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const matTotalGlobal = useMemo(() => estudiantes.length, [estudiantes]);
   const matTotalSB = useMemo(() => estudiantes.filter(e => e.codigo_escuela === 'sb').length, [estudiantes]);
   const matTotalLB = useMemo(() => estudiantes.filter(e => e.codigo_escuela === 'lb').length, [estudiantes]);
+
+  // Métricas dinámicas exclusivas de la Sede Activa
+  const capacidadEscuelaActiva = escuelaFiltro === 'sb' ? capTotalSB : capTotalLB;
+  const matriculaEscuelaActiva = escuelaFiltro === 'sb' ? matTotalSB : matTotalLB;
+  const vacantesEscuelaActiva = Math.max(0, capacidadEscuelaActiva - matriculaEscuelaActiva);
+  const porcentajeOcupacionEscuela = capacidadEscuelaActiva > 0 
+    ? Math.round((matriculaEscuelaActiva / capacidadEscuelaActiva) * 100) 
+    : 0;
 
   // ──────────────────────────────────────────────────────────
   // ACCIONES CRUD DE ESPACIOS FÍSICOS
@@ -731,17 +824,18 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       optTipos += `<option value="${t}" ${espacio.tipo === t ? 'selected' : ''}>${t}</option>`;
     });
 
-    let optEsc = `
-      <option value="sb" ${espacio.id_escuela === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
-      <option value="lb" ${espacio.id_escuela === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
-    `;
-
     Swal.fire({
       title: 'Editar Espacio / Ambiente Físico',
       html: `
         <div class="text-start">
-          <label class="small fw-bold text-muted mb-1"><i class="bi bi-building me-1"></i>Plantel / Escuela</label>
-          <select id="edit-esp-escuela" class="swal2-input m-0 mb-3 w-100">${optEsc}</select>
+          <input type="hidden" id="edit-esp-escuela" value="${espacio.id_escuela || escuelaFiltro}" />
+          <div class="p-2 mb-3 rounded-3 bg-light border d-flex align-items-center gap-2">
+            <i class="bi bi-geo-alt-fill text-success"></i>
+            <div>
+              <div class="extra-small text-muted text-uppercase fw-bold">Plantel / Sede</div>
+              <div class="fw-bold text-dark">${(espacio.id_escuela || escuelaFiltro) === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}</div>
+            </div>
+          </div>
 
           <label class="small fw-bold text-muted mb-1"><i class="bi bi-tag me-1"></i>Nombre del Espacio</label>
           <input id="edit-esp-nombre" class="swal2-input m-0 mb-3 w-100" value="${espacio.nombre || ''}" placeholder="Ej: 1er Grado A, Lab. Ciencias..." />
@@ -763,7 +857,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#00BCD4',
       preConfirm: () => {
-        const esc = (document.getElementById('edit-esp-escuela') as HTMLSelectElement)?.value;
+        const esc = (document.getElementById('edit-esp-escuela') as HTMLInputElement)?.value;
         const nom = (document.getElementById('edit-esp-nombre') as HTMLInputElement)?.value;
         const tip = (document.getElementById('edit-esp-tipo') as HTMLSelectElement)?.value;
         const cap = Number((document.getElementById('edit-esp-capacidad') as HTMLInputElement)?.value) || 0;
@@ -834,17 +928,21 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
   const handleDuplicarEspacio = (espacio: EspacioItem) => {
     if (!Swal) return;
+    const escuelaDestino = espacio.id_escuela || escuelaFiltro;
     Swal.fire({
       title: `Duplicar "${espacio.nombre}"`,
       html: `
         <div class="text-start">
+          <input type="hidden" id="dup-escuela" value="${escuelaDestino}" />
+          <div class="p-2 mb-3 rounded-3 bg-light border d-flex align-items-center gap-2">
+            <i class="bi bi-geo-alt-fill text-success"></i>
+            <div>
+              <div class="extra-small text-muted text-uppercase fw-bold">Plantel / Sede</div>
+              <div class="fw-bold text-dark">${escuelaDestino === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}</div>
+            </div>
+          </div>
           <label class="small fw-bold text-muted mb-1">Nombre del nuevo ambiente:</label>
           <input id="dup-nombre" class="swal2-input m-0 mb-3 w-100" value="${espacio.nombre} (Copia)" />
-          <label class="small fw-bold text-muted mb-1">Plantel / Escuela destino:</label>
-          <select id="dup-escuela" class="swal2-input m-0 mb-3 w-100">
-            <option value="sb" ${espacio.id_escuela === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
-            <option value="lb" ${espacio.id_escuela === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
-          </select>
           <label class="small fw-bold text-muted mb-1">Capacidad Instalada:</label>
           <input id="dup-cap" type="number" class="swal2-input m-0 w-100" value="${espacio.capacidad}" min="1" max="500" />
         </div>
@@ -854,7 +952,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       confirmButtonColor: '#00BCD4',
       preConfirm: () => {
         const nom = (document.getElementById('dup-nombre') as HTMLInputElement).value;
-        const esc = (document.getElementById('dup-escuela') as HTMLSelectElement).value;
+        const esc = (document.getElementById('dup-escuela') as HTMLInputElement).value;
         const cap = (document.getElementById('dup-cap') as HTMLInputElement).value;
         if (!nom.trim()) {
           Swal.showValidationMessage('El nombre no puede estar vacío');
@@ -922,13 +1020,15 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       title: `Duplicar ${seleccionadosEspacios.length} Ambientes`,
       html: `
         <div class="text-start">
-          <p class="small text-muted mb-2">Se crearán réplicas de los ${seleccionadosEspacios.length} espacios seleccionados.</p>
-          <label class="small fw-bold text-muted mb-1">Plantel / Escuela de destino:</label>
-          <select id="dup-masivo-escuela" class="swal2-input m-0 mb-3 w-100">
-            <option value="conservar">Conservar escuela original de cada uno</option>
-            <option value="sb">Asignar todos a UE Santa Bárbara</option>
-            <option value="lb">Asignar todos a UE Libertador Bolívar</option>
-          </select>
+          <p class="small text-muted mb-2">Se crearán réplicas de los ${seleccionadosEspacios.length} espacios seleccionados en esta misma sede.</p>
+          <input type="hidden" id="dup-masivo-escuela" value="${escuelaFiltro}" />
+          <div class="p-2 mb-3 rounded-3 bg-light border d-flex align-items-center gap-2">
+            <i class="bi bi-geo-alt-fill text-success"></i>
+            <div>
+              <div class="extra-small text-muted text-uppercase fw-bold">Plantel / Sede</div>
+              <div class="fw-bold text-dark">${escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}</div>
+            </div>
+          </div>
           <label class="small fw-bold text-muted mb-1">Sufijo para los nuevos nombres:</label>
           <input id="dup-masivo-sufijo" class="swal2-input m-0 w-100" value=" (Copia)" />
         </div>
@@ -937,7 +1037,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       confirmButtonText: `Duplicar Registros`,
       confirmButtonColor: '#00BCD4',
       preConfirm: () => {
-        const escuelaOpt = (document.getElementById('dup-masivo-escuela') as HTMLSelectElement).value;
+        const escuelaOpt = (document.getElementById('dup-masivo-escuela') as HTMLInputElement).value;
         const sufijo = (document.getElementById('dup-masivo-sufijo') as HTMLInputElement).value;
         return { escuelaOpt, sufijo };
       }
@@ -981,23 +1081,10 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       return;
     }
 
-    const escuelaInicial = salonExistente 
+    const escuelaInicialModal = salonExistente 
       ? salonExistente.id_escuela 
-      : (escuelasAutorizadas.length === 1 ? escuelasAutorizadas[0] : (escuelaFiltro !== 'todas' ? escuelaFiltro : 'sb'));
+      : (escuelaFiltro === 'lb' ? 'lb' : 'sb');
 
-    let optEscuelas = '';
-    if (escuelasAutorizadas.includes('sb')) {
-      optEscuelas += `<option value="sb" ${escuelaInicial === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>`;
-    }
-    if (escuelasAutorizadas.includes('lb')) {
-      optEscuelas += `<option value="lb" ${escuelaInicial === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>`;
-    }
-    if (!optEscuelas) {
-      optEscuelas = `
-        <option value="sb" ${escuelaInicial === 'sb' ? 'selected' : ''}>UE Santa Bárbara</option>
-        <option value="lb" ${escuelaInicial === 'lb' ? 'selected' : ''}>UE Libertador Bolívar</option>
-      `;
-    }
 
     let optNiveles = '<option value="">Seleccione Nivel...</option>';
     niveles.forEach(n => {
@@ -1087,8 +1174,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
     const htmlModal = `
       <div class="text-start">
-        <label class="small fw-bold text-muted mb-1"><i class="bi bi-building me-1"></i>Plantel / Escuela</label>
-        <select id="modal-escuela" class="swal2-input m-0 mb-3 w-100">${optEscuelas}</select>
+        <input type="hidden" id="modal-escuela" value="${escuelaInicialModal}" />
+        <div class="p-2 mb-3 rounded-3 bg-light border d-flex align-items-center gap-2">
+          <i class="bi bi-geo-alt-fill text-success fs-5"></i>
+          <div>
+            <div class="extra-small text-muted text-uppercase fw-bold">Plantel / Sede</div>
+            <div class="fw-bold text-dark">${escuelaInicialModal === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}</div>
+          </div>
+        </div>
 
         <div class="row g-2 mb-3">
           <div class="col-12">
@@ -1123,7 +1216,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       confirmButtonText: salonExistente ? 'Actualizar Salón' : 'Aperturar Salón',
       confirmButtonColor: '#00BCD4',
       didOpen: () => {
-        const escSel = document.getElementById('modal-escuela') as HTMLSelectElement;
+        const escSel = document.getElementById('modal-escuela') as HTMLInputElement;
         const nivelSel = document.getElementById('modal-nivel') as HTMLSelectElement;
         const gradoSel = document.getElementById('modal-grado') as HTMLSelectElement;
         const seccSel = document.getElementById('modal-seccion') as HTMLSelectElement;
@@ -1685,14 +1778,15 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   // Previsualizar Sorpresa de Asignación Docente
   const abrirSelectorPreviewSorpresa = () => {
     if (!Swal) return;
-    if (docentes.length === 0) {
-      Swal.fire('Sin Docentes', 'No hay docentes registrados para previsualizar.', 'info');
+    const docentesSede = docentes.filter(d => !d.id_escuela || d.id_escuela === escuelaFiltro || d.id_escuela === 'ambas');
+    if (docentesSede.length === 0) {
+      Swal.fire('Sin Docentes', 'No hay docentes registrados en esta sede para previsualizar.', 'info');
       return;
     }
 
     let optionsHtml = '';
-    docentes.forEach(d => {
-      optionsHtml += `<option value="${d.cedula}">${d.nombre_completo} (C.I. ${d.cedula}) - ${d.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</option>`;
+    docentesSede.forEach(d => {
+      optionsHtml += `<option value="${d.cedula}">${d.nombre_completo} (C.I. ${d.cedula})</option>`;
     });
 
     Swal.fire({
@@ -1777,23 +1871,23 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   };
 
   // ──────────────────────────────────────────────────────────
-  // VINCULACIÓN MASIVA DE ESTUDIANTES AL SALÓN
+  // VINCULACIÓN MASIVA DE ESTUDIANTES AL SALÓN (REGULARES + NUEVOS INGRESOS FORMALIZADOS)
   // ──────────────────────────────────────────────────────────
   const abrirModalVincularEstudiantesMasivo = (salon: SalonItem) => {
     if (!Swal) return;
 
-    // Todos los estudiantes registrados para este grado/año
+    // Estudiantes del mismo plantel y grado/año (Regulares + Nuevos Ingresos Formalizados)
     const estudiantesDelGrado = estudiantes.filter(e => 
+      (e.codigo_escuela || '').toLowerCase().trim() === (salon.id_escuela || '').toLowerCase().trim() &&
       (e.grado_actual || '').toLowerCase().trim() === (salon.grado_anio || '').toLowerCase().trim()
     );
 
     const inscritosEnEsteSalon = estudiantesDelGrado.filter(e => 
-      e.codigo_escuela === salon.id_escuela &&
       (e.seccion_actual || '').toUpperCase() === (salon.seccion || '').toUpperCase()
     );
 
     const todosCandidatos = estudiantesDelGrado.filter(e => 
-      !(e.codigo_escuela === salon.id_escuela && (e.seccion_actual || '').toUpperCase() === (salon.seccion || '').toUpperCase())
+      (e.seccion_actual || '').toUpperCase() !== (salon.seccion || '').toUpperCase()
     ).sort((a, b) => (a.apellidos_estudiante || '').localeCompare(b.apellidos_estudiante || ''));
 
     const espacioSalon = espacios.find(e => e.id === salon.id_espacio);
@@ -1801,13 +1895,16 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     const vacantes = Math.max(0, capTotal - inscritosEnEsteSalon.length);
     const nombrePlantelSalon = salon.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
 
+    const countRegulares = todosCandidatos.filter(c => c.tipo_ingreso !== 'Nuevo Ingreso Formalizado').length;
+    const countNuevosFormalizados = todosCandidatos.filter(c => c.tipo_ingreso === 'Nuevo Ingreso Formalizado').length;
+
     if (todosCandidatos.length === 0) {
       Swal.fire({
         title: 'Sin Estudiantes Pendientes',
         html: `
           <div class="text-start">
-            <p class="mb-2">Todos los estudiantes registrados para <b>${salon.grado_anio}</b> ya se encuentran asignados a este salón (${inscritosEnEsteSalon.length} estudiantes).</p>
-            <p class="small text-muted mb-0">No hay más estudiantes registrados en el sistema para este nivel educativo.</p>
+            <p class="mb-2">Todos los estudiantes regulares y nuevos ingresos formalizados registrados para <b>${salon.grado_anio}</b> en <b>${nombrePlantelSalon}</b> ya se encuentran asignados a este salón (${inscritosEnEsteSalon.length} estudiantes).</p>
+            <p class="small text-muted mb-0">No hay más postulantes formalizados ni estudiantes pendientes para este grado en esta sede.</p>
           </div>
         `,
         icon: 'info',
@@ -1818,12 +1915,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
     const htmlModal = `
       <div class="text-start" style="font-size: 13px;">
-        <!-- Cabecera Informativa -->
+        <!-- Cabecera Informativa de la Sede -->
         <div class="p-3 mb-3 rounded-4 border bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div>
-            <span class="badge ${salon.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'} rounded-pill mb-1">${nombrePlantelSalon}</span>
+            <span class="badge ${salon.id_escuela === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'} rounded-pill mb-1">
+              <i class="bi bi-geo-alt-fill me-1"></i>${nombrePlantelSalon}
+            </span>
             <div class="fw-bold fs-6 text-dark">${salon.nombre_salon} (Sección "${salon.seccion}")</div>
-            <div class="small text-muted">Grado/Año: ${salon.grado_anio} | Ambiente: ${espacioSalon?.nombre || 'General'}</div>
+            <div class="small text-muted">Grado/Año: <b>${salon.grado_anio}</b> | Ambiente: ${espacioSalon?.nombre || 'General'}</div>
           </div>
           <div class="text-end">
             <div class="small text-muted">Capacidad: <b>${capTotal} cupos</b></div>
@@ -1832,21 +1931,21 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           </div>
         </div>
 
-        <!-- Filtros de Plantel y Estado -->
+        <!-- Filtros por Tipo de Matrícula y Asignación de Sección -->
         <div class="row g-2 mb-2 align-items-center">
-          <div class="col-12 col-md-6">
-            <label class="small fw-bold text-muted mb-1 d-block"><i class="bi bi-building me-1"></i>Filtrar por Plantel / Escuela:</label>
-            <select id="swal-filtro-plantel" class="form-select form-select-sm border-info rounded-pill">
-              <option value="${salon.id_escuela}" selected>Mismo Plantel: ${nombrePlantelSalon}</option>
-              <option value="todas">Todos los Planteles (${todosCandidatos.length})</option>
-              <option value="${salon.id_escuela === 'sb' ? 'lb' : 'sb'}">Solo ${salon.id_escuela === 'sb' ? 'UE Libertador Bolívar' : 'UE Santa Bárbara'}</option>
-            </select>
+          <div class="col-12 col-md-7">
+            <label class="small fw-bold text-muted mb-1 d-block"><i class="bi bi-funnel me-1"></i>Tipo de Estudiante:</label>
+            <div class="btn-group btn-group-sm w-100" role="group">
+              <button type="button" id="btn-filtro-tipo-todos" class="btn btn-outline-info active rounded-start-pill py-1">Todos (${todosCandidatos.length})</button>
+              <button type="button" id="btn-filtro-tipo-regulares" class="btn btn-outline-info py-1">Regulares (${countRegulares})</button>
+              <button type="button" id="btn-filtro-tipo-nuevos" class="btn btn-outline-info rounded-end-pill py-1">⭐ Nuevos Formalizados (${countNuevosFormalizados})</button>
+            </div>
           </div>
-          <div class="col-12 col-md-6">
-            <label class="small fw-bold text-muted mb-1 d-block"><i class="bi bi-funnel me-1"></i>Estado de Asignación:</label>
+          <div class="col-12 col-md-5">
+            <label class="small fw-bold text-muted mb-1 d-block"><i class="bi bi-tag me-1"></i>Estado Asignación:</label>
             <div class="btn-group btn-group-sm w-100" role="group">
               <button type="button" id="btn-filtro-sin-sec" class="btn btn-outline-primary active rounded-start-pill py-1">Sin Sección</button>
-              <button type="button" id="btn-filtro-todos" class="btn btn-outline-primary rounded-end-pill py-1">Todos</button>
+              <button type="button" id="btn-filtro-todos" class="btn btn-outline-primary rounded-end-pill py-1">Cualquiera</button>
             </div>
           </div>
         </div>
@@ -1870,13 +1969,13 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         </div>
 
         <!-- Tabla de Estudiantes Candidatos -->
-        <div class="table-responsive border rounded-3 bg-white" style="max-height: 280px; overflow-y: auto;">
+        <div class="table-responsive border rounded-3 bg-white" style="max-height: 290px; overflow-y: auto;">
           <table class="table table-sm table-hover align-middle mb-0" id="tabla-candidatos">
             <thead class="table-light sticky-top">
               <tr>
                 <th style="width: 35px;" class="text-center">#</th>
                 <th>Estudiante</th>
-                <th class="text-center">Plantel</th>
+                <th class="text-center">Tipo Matrícula</th>
                 <th class="text-center">Cédula / C.E.</th>
                 <th class="text-center">Estado Actual</th>
               </tr>
@@ -1890,9 +1989,9 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     `;
 
     Swal.fire({
-      title: `Vincular Estudiantes Masivamente`,
+      title: `Vincular Estudiantes a Sección "${salon.seccion}"`,
       html: htmlModal,
-      width: '800px',
+      width: '840px',
       showCancelButton: true,
       confirmButtonText: `<i class="bi bi-person-check-fill me-1"></i> Asignar a Sección "${salon.seccion}"`,
       cancelButtonText: 'Cancelar',
@@ -1903,29 +2002,30 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         const checkAll = document.getElementById('swal-check-all-cand') as HTMLInputElement;
         const counterBadge = document.getElementById('swal-counter-badge') as HTMLElement;
         const tbody = document.getElementById('tbody-candidatos') as HTMLElement;
-        const selectPlantel = document.getElementById('swal-filtro-plantel') as HTMLSelectElement;
+        const btnTipoTodos = document.getElementById('btn-filtro-tipo-todos') as HTMLButtonElement;
+        const btnTipoReg = document.getElementById('btn-filtro-tipo-regulares') as HTMLButtonElement;
+        const btnTipoNuevos = document.getElementById('btn-filtro-tipo-nuevos') as HTMLButtonElement;
         const btnSinSec = document.getElementById('btn-filtro-sin-sec') as HTMLButtonElement;
         const btnTodos = document.getElementById('btn-filtro-todos') as HTMLButtonElement;
 
-        let filtroEscuela = salon.id_escuela;
-        let filtroTipo: 'sin_seccion' | 'todos' = 'sin_seccion';
+        let filtroTipoEstudiante: 'todos' | 'regulares' | 'nuevos' = 'todos';
+        let filtroTipoAsignacion: 'sin_seccion' | 'todos' = 'sin_seccion';
         let textoBusqueda = '';
         const seleccionadosSet = new Set<string>();
 
-        // Preseleccionar por defecto los "Sin Sección" del mismo plantel hasta el límite de vacantes
+        // Preseleccionar por defecto los "Sin Sección" hasta el límite de vacantes
         const sinSecIniciales = todosCandidatos.filter(c => 
-          c.codigo_escuela === salon.id_escuela &&
           (!c.seccion_actual || c.seccion_actual.toLowerCase().includes('sin') || c.seccion_actual.trim() === '')
         );
         sinSecIniciales.slice(0, vacantes > 0 ? vacantes : sinSecIniciales.length).forEach(c => seleccionadosSet.add(c.id || c.cedula_estudiante));
 
         const renderizarTabla = () => {
           const lista = todosCandidatos.filter(c => {
-            const matchEscuela = filtroEscuela === 'todas' || (c.codigo_escuela || '').toLowerCase().trim() === filtroEscuela.toLowerCase().trim();
-            if (!matchEscuela) return false;
+            if (filtroTipoEstudiante === 'regulares' && c.tipo_ingreso === 'Nuevo Ingreso Formalizado') return false;
+            if (filtroTipoEstudiante === 'nuevos' && c.tipo_ingreso !== 'Nuevo Ingreso Formalizado') return false;
 
             const isSinSec = !c.seccion_actual || c.seccion_actual.toLowerCase().includes('sin') || c.seccion_actual.trim() === '';
-            if (filtroTipo === 'sin_seccion' && !isSinSec) return false;
+            if (filtroTipoAsignacion === 'sin_seccion' && !isSinSec) return false;
 
             if (textoBusqueda) {
               const q = textoBusqueda.toLowerCase();
@@ -1950,6 +2050,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
               const rowId = c.id || c.cedula_estudiante;
               const isChecked = seleccionadosSet.has(rowId);
               const isSinSec = !c.seccion_actual || c.seccion_actual.toLowerCase().includes('sin') || c.seccion_actual.trim() === '';
+              const esNuevoFormalizado = c.tipo_ingreso === 'Nuevo Ingreso Formalizado';
               
               return `
                 <tr class="${isChecked ? 'table-info' : ''}">
@@ -1961,8 +2062,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                     <div class="small text-muted">Rep: ${c.nombres_representante || c.cedula_representante || 'N/A'}</div>
                   </td>
                   <td class="text-center">
-                    <span class="badge ${c.codigo_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'} rounded-pill" style="font-size: 11px;">
-                      ${c.codigo_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                    <span class="badge ${esNuevoFormalizado ? 'bg-success-subtle text-success border border-success' : 'bg-primary-subtle text-primary border border-primary'} rounded-pill px-2 py-0.5" style="font-size: 11px;">
+                      ${esNuevoFormalizado ? '⭐ Nuevo Ingreso' : '👤 Regular'}
                     </span>
                   </td>
                   <td class="text-center font-monospace">${c.cedula_estudiante}</td>
@@ -2011,13 +2112,6 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           }
         };
 
-        if (selectPlantel) {
-          selectPlantel.addEventListener('change', (e: any) => {
-            filtroEscuela = e.target.value;
-            renderizarTabla();
-          });
-        }
-
         if (searchInput) {
           searchInput.addEventListener('input', (e: any) => {
             textoBusqueda = e.target.value;
@@ -2025,15 +2119,39 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           });
         }
 
+        if (btnTipoTodos && btnTipoReg && btnTipoNuevos) {
+          btnTipoTodos.addEventListener('click', () => {
+            filtroTipoEstudiante = 'todos';
+            btnTipoTodos.classList.add('active');
+            btnTipoReg.classList.remove('active');
+            btnTipoNuevos.classList.remove('active');
+            renderizarTabla();
+          });
+          btnTipoReg.addEventListener('click', () => {
+            filtroTipoEstudiante = 'regulares';
+            btnTipoReg.classList.add('active');
+            btnTipoTodos.classList.remove('active');
+            btnTipoNuevos.classList.remove('active');
+            renderizarTabla();
+          });
+          btnTipoNuevos.addEventListener('click', () => {
+            filtroTipoEstudiante = 'nuevos';
+            btnTipoNuevos.classList.add('active');
+            btnTipoTodos.classList.remove('active');
+            btnTipoReg.classList.remove('active');
+            renderizarTabla();
+          });
+        }
+
         if (btnSinSec && btnTodos) {
           btnSinSec.addEventListener('click', () => {
-            filtroTipo = 'sin_seccion';
+            filtroTipoAsignacion = 'sin_seccion';
             btnSinSec.classList.add('active');
             btnTodos.classList.remove('active');
             renderizarTabla();
           });
           btnTodos.addEventListener('click', () => {
-            filtroTipo = 'todos';
+            filtroTipoAsignacion = 'todos';
             btnTodos.classList.add('active');
             btnSinSec.classList.remove('active');
             renderizarTabla();
@@ -2072,22 +2190,52 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         const ids: string[] = result.value;
         setLoading(true);
         try {
-          // Actualizar estudiantes asignando el plantel del salón y la sección
-          const { error } = await supabase
-            .from('estudiantes_vinculaciones')
-            .update({
+          const seleccionadosObjs = todosCandidatos.filter(c => ids.includes(c.id || c.cedula_estudiante));
+          
+          // 1. Estudiantes existentes en vinculaciones (actualizar sección)
+          const existentesIds = seleccionadosObjs
+            .filter(c => c.id && !c.id.startsWith('sol-'))
+            .map(c => c.id as string);
+
+          if (existentesIds.length > 0) {
+            const { error: errUpd } = await supabase
+              .from('estudiantes_vinculaciones')
+              .update({
+                codigo_escuela: salon.id_escuela,
+                seccion_actual: salon.seccion
+              })
+              .in('id', existentesIds);
+            if (errUpd) throw errUpd;
+          }
+
+          // 2. Nuevos ingresos formalizados que no estaban aún en vinculaciones (insertar registro)
+          const nuevosAInsertar = seleccionadosObjs.filter(c => !c.id || c.id.startsWith('sol-'));
+          if (nuevosAInsertar.length > 0) {
+            const filasInsert = nuevosAInsertar.map(c => ({
               codigo_escuela: salon.id_escuela,
-              seccion_actual: salon.seccion
-            })
-            .or(`id.in.(${ids.join(',')}),cedula_estudiante.in.(${ids.join(',')})`);
+              cedula_estudiante: c.cedula_estudiante,
+              nombres_estudiante: c.nombres_estudiante,
+              apellidos_estudiante: c.apellidos_estudiante,
+              grado_actual: salon.grado_anio,
+              seccion_actual: salon.seccion,
+              estado: 'Activo',
+              cedula_representante: c.cedula_representante || '',
+              nombres_representante: c.nombres_representante || '',
+              apellidos_representante: c.apellidos_representante || '',
+              creado_por: user?.cedula || '17242954'
+            }));
 
-          if (error) throw error;
+            const { error: errIns } = await supabase
+              .from('estudiantes_vinculaciones')
+              .insert(filasInsert);
+            if (errIns) throw errIns;
+          }
 
-          auditar('Control de Estudios', 'Vincular Estudiantes Masivo', `Asignó ${ids.length} estudiantes a la sección "${salon.seccion}" de ${salon.nombre_salon}`);
+          auditar('Control de Estudios', 'Vincular Estudiantes Masivo', `Asignó ${ids.length} estudiantes (${nuevosAInsertar.length} nuevos ingresos formalizados, ${existentesIds.length} regulares) a la sección "${salon.seccion}" de ${salon.nombre_salon}`);
           Swal.fire({
             icon: 'success',
             title: '¡Estudiantes Vinculados!',
-            text: `Se han asignado exitosamente ${ids.length} estudiantes al salón ${salon.nombre_salon}.`,
+            html: `Se asignaron exitosamente <b>${ids.length} estudiantes</b> al salón <b>${salon.nombre_salon} (Sección "${salon.seccion}")</b>.<br/><span class="small text-muted">(${nuevosAInsertar.length} Nuevos Ingresos Formalizados, ${existentesIds.length} Estudiantes Regulares)</span>`,
             confirmButtonColor: '#00BCD4'
           });
           cargarDatosCompletos(true);
@@ -2377,77 +2525,30 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   <IconoGradosSalones size={60} color="#0284c7" />
                 </div>
 
-                {/* Selector Dual Interactivo de Escuelas */}
+                {/* Insignia Institucional de la Sede Activa */}
                 <div 
                   className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
-                  style={{ borderColor: '#bae6fd' }}
+                  style={{ borderColor: escuelaFiltro === 'sb' ? '#bbf7d0' : '#bae6fd' }}
                 >
-                  {/* Switch Ambas / Todas si tiene acceso a ambas */}
-                  {escuelasAutorizadas.length > 1 && (
-                    <div 
-                      onClick={() => { setEscuelaFiltro('todas'); setPaginaActualEspacios(1); }}
-                      className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                        escuelaFiltro === 'todas' 
-                          ? 'bg-info bg-opacity-15 border-info shadow-xs' 
-                          : 'bg-white border-transparent opacity-60 hover-efecto'
-                      }`}
-                      style={{ width: '64px', height: '74px', cursor: 'pointer' }}
-                      title="Ver ambas sedes consolidadas"
-                    >
-                      <i className="bi bi-building fs-3 text-info"></i>
-                      <span className={`badge ${escuelaFiltro === 'todas' ? 'bg-info text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.60rem' }}>
-                        Ambas {escuelaFiltro === 'todas' ? '●' : ''}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Switch SB */}
-                  {(canSalonesSB || hasAccessSB_Esp || escuelasAutorizadas.includes('sb')) && (
-                    <div 
-                      onClick={() => { setEscuelaFiltro('sb'); setPaginaActualEspacios(1); }}
-                      className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                        escuelaFiltro === 'sb' 
-                          ? 'bg-success bg-opacity-10 border-success shadow-xs' 
-                          : 'bg-white border-transparent opacity-60 hover-efecto'
-                      }`}
-                      style={{ width: '64px', height: '74px', cursor: 'pointer' }}
-                      title="Filtrar por U.E. Santa Bárbara"
-                    >
-                      <img 
-                        src="/assets/img/logo_sb.png" 
-                        alt="UE Santa Bárbara" 
-                        style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                      />
-                      <span className={`badge ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                        SB {escuelaFiltro === 'sb' ? '●' : ''}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Switch LB */}
-                  {(canSalonesLB || hasAccessLB_Esp || escuelasAutorizadas.includes('lb')) && (
-                    <div 
-                      onClick={() => { setEscuelaFiltro('lb'); setPaginaActualEspacios(1); }}
-                      className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                        escuelaFiltro === 'lb' 
-                          ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
-                          : 'bg-white border-transparent opacity-60 hover-efecto'
-                      }`}
-                      style={{ width: '64px', height: '74px', cursor: 'pointer' }}
-                      title="Filtrar por U.E. Libertador Bolívar"
-                    >
-                      <img 
-                        src="/assets/img/logo_lb.png" 
-                        alt="UE Libertador Bolívar" 
-                        style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                      />
-                      <span className={`badge ${escuelaFiltro === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                        LB {escuelaFiltro === 'lb' ? '●' : ''}
-                      </span>
-                    </div>
-                  )}
+                  <div 
+                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center ${
+                      escuelaFiltro === 'sb' 
+                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
+                        : 'bg-primary bg-opacity-10 border-primary shadow-xs'
+                    }`}
+                    style={{ width: '84px', height: '78px' }}
+                    title={escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                  >
+                    <img 
+                      src={escuelaFiltro === 'sb' ? '/assets/img/logo_sb.png' : '/assets/img/logo_lb.png'} 
+                      alt={escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'} 
+                      style={{ maxHeight: '42px', maxWidth: '42px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <span className={`badge ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.65rem' }}>
+                      {escuelaFiltro === 'sb' ? 'SANTA BÁRBARA' : 'LIBERTADOR'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2471,18 +2572,18 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                     className="extra-small fw-bold text-uppercase" 
                     style={{ fontSize: '0.72rem', color: '#0369a1', letterSpacing: '0.5px' }}
                   >
-                    Campus Conectado &bull; {escuelaFiltro === 'todas' ? 'Ambas Sedes' : (escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar')}
+                    Campus Conectado &bull; {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
                   </span>
                 </div>
 
                 <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
-                  <i className="bi bi-door-open-fill text-primary me-1"></i><b>{espacios.length}</b> Ambientes
+                  <i className="bi bi-door-open-fill text-primary me-1"></i><b>{espaciosFiltrados.length}</b> Ambientes
                 </span>
                 <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
-                  <i className="bi bi-mortarboard-fill text-info me-1"></i><b>{salones.length}</b> Salones Aperturados
+                  <i className="bi bi-mortarboard-fill text-info me-1"></i><b>{salonesFiltrados.length}</b> Salones Aperturados
                 </span>
                 <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
-                  <i className="bi bi-people-fill text-success me-1"></i><b>{estudiantes.length}</b> Matrícula Activa
+                  <i className="bi bi-people-fill text-success me-1"></i><b>{estudiantesFiltrados.length}</b> Matrícula Activa
                 </span>
               </div>
 
@@ -2498,17 +2599,17 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
               <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
                 <div 
                   className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Capacidad Global Disponible"
+                  title="Capacidad Instalada en Sede Activa"
                 >
                   <i className="bi bi-building-check text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{capTotalGlobal} Cupos Instalados</span>
+                  <span className="font-monospace fw-bold text-dark">{capacidadEscuelaActiva} Cupos Instalados</span>
                 </div>
                 <div 
                   className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Salones activos"
+                  title="Salones activos en Sede Activa"
                 >
                   <i className="bi bi-grid-3x3-gap-fill text-info"></i>
-                  <span className="text-secondary">{salones.length} Secciones Registradas</span>
+                  <span className="text-secondary">{salonesFiltrados.length} Secciones Registradas</span>
                 </div>
                 <div 
                   className="tech-pill-badge shadow-xs cursor-pointer" 
@@ -2541,7 +2642,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 fontSize: '0.82rem'
               }}
             >
-              <i className="bi bi-door-open-fill me-1.5"></i>1. Ambientes Físicos ({espacios.length})
+              <i className="bi bi-door-open-fill me-1.5"></i>1. Ambientes Físicos ({espaciosFiltrados.length})
             </button>
 
             <button
@@ -2558,7 +2659,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 fontSize: '0.82rem'
               }}
             >
-              <i className="bi bi-mortarboard-fill me-1.5"></i>2. Grados y Salones ({salones.length})
+              <i className="bi bi-mortarboard-fill me-1.5"></i>2. Grados y Salones ({salonesFiltrados.length})
             </button>
 
             <button
@@ -2575,7 +2676,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 fontSize: '0.82rem'
               }}
             >
-              <i className="bi bi-people-fill me-1.5"></i>3. Docentes Guías y Matrícula ({estudiantes.length})
+              <i className="bi bi-people-fill me-1.5"></i>3. Docentes Guías y Matrícula ({estudiantesFiltrados.length})
             </button>
 
             <button
@@ -2592,7 +2693,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 fontSize: '0.82rem'
               }}
             >
-              <i className="bi bi-journal-bookmark-fill me-1.5"></i>4. Especialistas y Responsabilidades ({responsabilidades.length})
+              <i className="bi bi-journal-bookmark-fill me-1.5"></i>4. Especialistas y Responsabilidades ({responsabilidadesFiltradas.length})
             </button>
 
             <button
@@ -2613,48 +2714,18 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             </button>
           </div>
 
-          {/* Selector Superior de Sede */}
+          {/* Sede en Operación */}
           <div className="d-flex align-items-center gap-1.5">
-            <span className="extra-small fw-bold text-muted text-uppercase me-1">Sede Activa:</span>
-            
-            {escuelasAutorizadas.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setEscuelaFiltro('todas')}
-                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${
-                  escuelaFiltro === 'todas' ? 'btn-dark text-white shadow-xs' : 'btn-white bg-white text-muted border'
-                }`}
-                style={{ fontSize: '0.78rem' }}
-              >
-                🏢 Todas las Sedes
-              </button>
-            )}
-
-            {(canSalonesSB || hasAccessSB_Esp || escuelasAutorizadas.includes('sb')) && (
-              <button
-                type="button"
-                onClick={() => setEscuelaFiltro('sb')}
-                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${
-                  escuelaFiltro === 'sb' ? 'btn-success text-white shadow-xs' : 'btn-white bg-white text-muted border'
-                }`}
-                style={{ fontSize: '0.78rem' }}
-              >
-                🟢 UE Santa Bárbara
-              </button>
-            )}
-
-            {(canSalonesLB || hasAccessLB_Esp || escuelasAutorizadas.includes('lb')) && (
-              <button
-                type="button"
-                onClick={() => setEscuelaFiltro('lb')}
-                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${
-                  escuelaFiltro === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white text-muted border'
-                }`}
-                style={{ fontSize: '0.78rem' }}
-              >
-                🔵 UE Libertador Bolívar
-              </button>
-            )}
+            <span className="extra-small fw-bold text-muted text-uppercase me-1">Sede en Operación:</span>
+            <span 
+              className={`badge rounded-pill px-3 py-1.5 fw-bold shadow-xs ${
+                escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'
+              }`}
+              style={{ fontSize: '0.82rem' }}
+            >
+              <i className="bi bi-geo-alt-fill me-1"></i>
+              {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+            </span>
           </div>
 
         </div>
@@ -2665,78 +2736,65 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       {/* ────────────────────────────────────────────────────────── */}
       {activeTab === 'espacios' && (
         <div className="animate__animated animate__fadeIn">
-          {/* Tarjetas de Resumen Interactivas */}
+          {/* Tarjetas de Resumen Interactivas de la Sede Activa */}
           <div className="row g-3 mb-4">
             <div className="col-12 col-md-4">
               <div 
-                onClick={() => { setEscuelaFiltro('todas'); setPaginaActualEspacios(1); }}
-                className={`card p-3 border-0 shadow-sm rounded-4 text-white h-100 cursor-pointer hover-efecto`}
+                className="card p-3 border-0 shadow-sm rounded-4 text-white h-100"
                 style={{ 
-                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                  outline: escuelaFiltro === 'todas' ? '3px solid #10b981' : 'none',
-                  outlineOffset: '2px'
+                  background: escuelaFiltro === 'sb' 
+                    ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' 
+                    : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)'
                 }}
-                role="button"
-                title="Clic para ver todos los ambientes"
               >
                 <div className="d-flex justify-content-between align-items-center h-100">
                   <div>
-                    <span className="small fw-bold opacity-75">Capacidad Total Global</span>
-                    <h3 className="fw-bold m-0 mt-1">{capTotalGlobal} Cupos</h3>
-                    {escuelaFiltro === 'todas' && <span className="badge bg-white text-success rounded-pill px-2 py-0 fw-bold mt-1" style={{ fontSize: '10px' }}>Filtro Activo</span>}
+                    <span className="small fw-bold opacity-75">Capacidad Instalada ({escuelaFiltro === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'})</span>
+                    <h3 className="fw-bold m-0 mt-1">{capacidadEscuelaActiva} Cupos</h3>
+                    <span className="badge bg-white text-dark rounded-pill px-2 py-0 fw-bold mt-1" style={{ fontSize: '10px' }}>
+                      {espaciosFiltrados.length} Ambientes Registrados
+                    </span>
                   </div>
                   <i className="bi bi-building fs-1 opacity-50"></i>
                 </div>
               </div>
             </div>
 
-            {(canSalonesSB || hasAccessSB_Esp) && (
-              <div className="col-12 col-md-4">
-                <div 
-                  onClick={() => { setEscuelaFiltro(escuelaFiltro === 'sb' ? 'todas' : 'sb'); setPaginaActualEspacios(1); }}
-                  className="card p-3 border-0 shadow-sm rounded-4 text-dark bg-white border-start border-4 border-info h-100 cursor-pointer hover-efecto"
-                  style={{ 
-                    outline: escuelaFiltro === 'sb' ? '3px solid #0dcaf0' : 'none',
-                    outlineOffset: '2px'
-                  }}
-                  role="button"
-                  title="Clic para filtrar UE Santa Bárbara"
-                >
-                  <div className="d-flex justify-content-between align-items-center h-100">
-                    <div>
-                      <span className="small fw-bold text-muted">UE Santa Bárbara</span>
-                      <h3 className="fw-bold m-0 mt-1 text-info">{capTotalSB} Cupos</h3>
-                      {escuelaFiltro === 'sb' && <span className="badge bg-info text-white rounded-pill px-2 py-0 fw-bold mt-1" style={{ fontSize: '10px' }}>Filtro Activo</span>}
-                    </div>
-                    <i className="bi bi-mortarboard-fill fs-1 text-info opacity-25"></i>
+            <div className="col-12 col-md-4">
+              <div 
+                className="card p-3 border-0 shadow-sm rounded-4 text-white h-100"
+                style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+              >
+                <div className="d-flex justify-content-between align-items-center h-100">
+                  <div>
+                    <span className="small fw-bold opacity-75">Matrícula Activa Inscrita</span>
+                    <h3 className="fw-bold m-0 mt-1">{matriculaEscuelaActiva} Estudiantes</h3>
+                    <span className="badge bg-white text-success rounded-pill px-2 py-0 fw-bold mt-1" style={{ fontSize: '10px' }}>
+                      {salonesFiltrados.length} Salones Aperturados
+                    </span>
                   </div>
+                  <i className="bi bi-people-fill fs-1 opacity-50"></i>
                 </div>
               </div>
-            )}
+            </div>
 
-            {(canSalonesLB || hasAccessLB_Esp) && (
-              <div className="col-12 col-md-4">
-                <div 
-                  onClick={() => { setEscuelaFiltro(escuelaFiltro === 'lb' ? 'todas' : 'lb'); setPaginaActualEspacios(1); }}
-                  className="card p-3 border-0 shadow-sm rounded-4 text-dark bg-white border-start border-4 border-primary h-100 cursor-pointer hover-efecto"
-                  style={{ 
-                    outline: escuelaFiltro === 'lb' ? '3px solid #0d6efd' : 'none',
-                    outlineOffset: '2px'
-                  }}
-                  role="button"
-                  title="Clic para filtrar UE Libertador Bolívar"
-                >
-                  <div className="d-flex justify-content-between align-items-center h-100">
-                    <div>
-                      <span className="small fw-bold text-muted">UE Libertador Bolívar</span>
-                      <h3 className="fw-bold m-0 mt-1 text-primary">{capTotalLB} Cupos</h3>
-                      {escuelaFiltro === 'lb' && <span className="badge bg-primary text-white rounded-pill px-2 py-0 fw-bold mt-1" style={{ fontSize: '10px' }}>Filtro Activo</span>}
-                    </div>
-                    <i className="bi bi-book-fill fs-1 text-primary opacity-25"></i>
+            <div className="col-12 col-md-4">
+              <div 
+                className="card p-3 border-0 shadow-sm rounded-4 text-white h-100"
+                style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}
+              >
+                <div className="d-flex justify-content-between align-items-center h-100">
+                  <div>
+                    <span className="small fw-bold opacity-75">Vacantes Disponibles</span>
+                    <h3 className="fw-bold m-0 mt-1">{vacantesEscuelaActiva} Cupos</h3>
+                    <span className="badge bg-white text-warning rounded-pill px-2 py-0 fw-bold mt-1" style={{ fontSize: '10px', color: '#b45309' }}>
+                      {porcentajeOcupacionEscuela}% Ocupación General
+                    </span>
                   </div>
+                  <i className="bi bi-door-open-fill fs-1 opacity-50"></i>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           <div className="row g-4">
@@ -2751,15 +2809,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
                   <form onSubmit={handleGuardarEspacio} className="row g-3">
                     <div className="col-12">
-                      <label className="form-label small fw-bold text-muted">Plantel / Escuela</label>
-                      <select 
-                        className="form-select border-info rounded-pill"
-                        value={formEspacio.id_escuela}
-                        onChange={(e) => setFormEspacio({ ...formEspacio, id_escuela: e.target.value })}
-                      >
-                        {escuelasAutorizadas.includes('sb') && <option value="sb">UE Santa Bárbara</option>}
-                        {escuelasAutorizadas.includes('lb') && <option value="lb">UE Libertador Bolívar</option>}
-                      </select>
+                      <label className="form-label small fw-bold text-muted">Plantel / Sede Escolar</label>
+                      <input 
+                        type="text"
+                        className="form-control border-info rounded-pill bg-light fw-bold"
+                        value={escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                        disabled
+                        readOnly
+                      />
                     </div>
 
                     <div className="col-12">
@@ -2846,17 +2903,10 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                     </h5>
                     
                     <div className="d-flex align-items-center gap-2 flex-wrap">
-                      {escuelasAutorizadas.length > 1 && (
-                        <select 
-                          className="form-select form-select-sm border-info rounded-pill fw-bold text-dark w-auto"
-                          value={escuelaFiltro}
-                          onChange={(e) => { setEscuelaFiltro(e.target.value); setPaginaActualEspacios(1); }}
-                        >
-                          <option value="todas">🏛️ Todos los Planteles</option>
-                          <option value="sb">🎓 UE Santa Bárbara</option>
-                          <option value="lb">📖 UE Libertador Bolívar</option>
-                        </select>
-                      )}
+                      <span className={`badge rounded-pill px-3 py-1.5 fw-bold ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                        <i className="bi bi-geo-alt-fill me-1"></i>
+                        {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                      </span>
 
                       <select 
                         className="form-select form-select-sm border-info rounded-pill fw-bold text-dark w-auto"
@@ -2977,8 +3027,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                                   {esp.ubicacion && <div className="small text-muted"><i className="bi bi-geo-alt me-1"></i>{esp.ubicacion}</div>}
                                 </td>
                                 <td>
-                                  <span className={`badge rounded-pill ${esp.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
-                                    {esp.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                                  <span className={`badge rounded-pill ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                                    {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
                                   </span>
                                 </td>
                                 <td>
@@ -3076,7 +3126,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 className={`btn btn-sm rounded-pill px-4 fw-bold ${subTabSalones === 'apertura' ? 'btn-primary text-white' : 'btn-light text-dark'}`}
                 onClick={() => setSubTabSalones('apertura')}
               >
-                <i className="bi bi-door-open-fill me-1"></i> Salones Aperturados ({salones.length})
+                <i className="bi bi-door-open-fill me-1"></i> Salones Aperturados ({salonesFiltrados.length})
               </button>
               <button 
                 className={`btn btn-sm rounded-pill px-4 fw-bold ${subTabSalones === 'grados' ? 'btn-primary text-white' : 'btn-light text-dark'}`}
@@ -3196,8 +3246,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                           return (
                             <tr key={sal.id_salon}>
                               <td>
-                                <span className={`badge rounded-pill ${sal.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
-                                  {sal.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                                <span className={`badge rounded-pill ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                                  {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
                                 </span>
                               </td>
                               <td><span className="badge bg-light text-dark border">{sal.nivel_educativo}</span></td>
@@ -3455,29 +3505,12 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 </div>
                 <p className="small text-muted mb-3">Haga clic en un salón para ver su lista de estudiantes y su docente guía.</p>
 
-                {/* Filtro por Escuela en Matrícula */}
-                <div className="btn-group w-100 mb-3 shadow-sm rounded-pill p-1 bg-light border" role="group">
-                  <button 
-                    type="button" 
-                    className={`btn btn-sm rounded-pill fw-bold ${escuelaFiltro === 'todas' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('todas')}
-                  >
-                    Todas ({salones.length})
-                  </button>
-                  <button 
-                    type="button" 
-                    className={`btn btn-sm rounded-pill fw-bold ${escuelaFiltro === 'sb' ? 'btn-info text-dark shadow-sm' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('sb')}
-                  >
-                    Santa Bárbara ({salones.filter(s => s.id_escuela === 'sb').length})
-                  </button>
-                  <button 
-                    type="button" 
-                    className={`btn btn-sm rounded-pill fw-bold ${escuelaFiltro === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('lb')}
-                  >
-                    Libertador Bolívar ({salones.filter(s => s.id_escuela === 'lb').length})
-                  </button>
+                {/* Identificación de Sede Activa en Matrícula */}
+                <div className="d-flex align-items-center justify-content-between mb-3 px-1">
+                  <span className={`badge rounded-pill px-3 py-1.5 fw-bold ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                    <i className="bi bi-geo-alt-fill me-1"></i>
+                    {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                  </span>
                 </div>
 
                 {/* Buscador de Salones */}
@@ -3518,8 +3551,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                       >
                         <div className="d-flex justify-content-between align-items-center mb-1">
                           <span className="fw-bold fs-6">{sal.nombre_salon}</span>
-                          <span className={`badge rounded-pill ${isSelected ? 'bg-white text-primary' : 'bg-primary text-white'}`}>
-                            {sal.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                          <span className="badge rounded-pill bg-light text-dark border">
+                            Sección "{sal.seccion}"
                           </span>
                         </div>
                         <div className={`small ${isSelected ? 'text-white-50' : 'text-muted'} d-flex justify-content-between align-items-center`}>
@@ -3540,8 +3573,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   <div className="card-header bg-white border-bottom p-4">
                     <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
                       <div>
-                        <span className={`badge rounded-pill me-2 ${salonActivo.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
-                          {salonActivo.id_escuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
+                        <span className={`badge rounded-pill me-2 ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                          <i className="bi bi-geo-alt-fill me-1"></i>{escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
                         </span>
                         <h4 className="fw-bold text-dark m-0 d-inline align-middle">{salonActivo.nombre_salon}</h4>
                       </div>
@@ -3835,30 +3868,11 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           <div className="card bg-white shadow-sm border-0 rounded-4 p-3 mb-4">
             <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
               <div className="d-flex align-items-center gap-2 flex-wrap">
-                {/* Filtro por Escuela */}
-                <div className="btn-group shadow-xs rounded-pill p-1 bg-light border" role="group">
-                  <button 
-                    type="button" 
-                    className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'todas' ? 'btn-success text-white shadow-xs' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('todas')}
-                  >
-                    Todas las Sedes
-                  </button>
-                  <button 
-                    type="button" 
-                    className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'sb' ? 'btn-info text-dark shadow-xs' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('sb')}
-                  >
-                    U.E. Santa Bárbara
-                  </button>
-                  <button 
-                    type="button" 
-                    className={`btn btn-xs rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('lb')}
-                  >
-                    U.E. Libertador Bolívar
-                  </button>
-                </div>
+                {/* Sede Activa en Especialistas */}
+                <span className={`badge rounded-pill px-3 py-1.5 fw-bold ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                  <i className="bi bi-geo-alt-fill me-1"></i>
+                  {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'} ({responsabilidadesFiltradas.length} especialidades)
+                </span>
 
                 {/* Filtro por Nivel Educativo */}
                 <select 
@@ -3908,7 +3922,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
               </h5>
               <span className="badge bg-light text-muted border rounded-pill px-3 py-1.5 extra-small fw-bold">
                 Mostrando {responsabilidades.filter(r => {
-                  const matchEscuela = escuelaFiltro === 'todas' || r.id_escuela === escuelaFiltro;
+                  const matchEscuela = r.id_escuela === escuelaFiltro;
                   const matchNivel = filtroNivelEspecialistas === 'todos' || r.nivel_educativo === filtroNivelEspecialistas;
                   if (!matchEscuela || !matchNivel) return false;
                   if (searchEspecialistas) {
@@ -3941,7 +3955,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   <tbody>
                     {(() => {
                       const listaFiltrada = responsabilidades.filter(r => {
-                        const matchEscuela = escuelaFiltro === 'todas' || r.id_escuela === escuelaFiltro;
+                        const matchEscuela = r.id_escuela === escuelaFiltro;
                         const matchNivel = filtroNivelEspecialistas === 'todos' || r.nivel_educativo === filtroNivelEspecialistas;
                         if (!matchEscuela || !matchNivel) return false;
 
@@ -3979,8 +3993,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                         return (
                           <tr key={resp.id_responsabilidad}>
                             <td className="ps-4">
-                              <span className={`badge rounded-pill ${resp.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
-                                {resp.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                              <span className={`badge rounded-pill ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                                {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
                               </span>
                             </td>
                             <td>
@@ -4096,97 +4110,36 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 title="Descargar informe oficial en PDF según el filtro activo"
               >
                 <i className="bi bi-file-earmark-pdf-fill me-2"></i>
-                Descargar Informe {escuelaFiltro === 'todas' ? 'Consolidado' : escuelaFiltro === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'} (PDF)
+                Descargar Informe {escuelaFiltro === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'} (PDF)
               </button>
             </div>
           </div>
 
-          {/* Selector / Pills de Filtro por Escuela */}
+          {/* Identificación de Sede en Reportes */}
           <div className="card bg-white shadow-sm border-0 rounded-4 p-3 mb-4">
             <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
               <div className="d-flex align-items-center gap-2">
-                <span className="small fw-bold text-muted text-uppercase">
-                  <i className="bi bi-building me-1"></i>Filtrar Plantel:
+                <span className={`badge rounded-pill px-3 py-1.5 fw-bold ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                  <i className="bi bi-geo-alt-fill me-1"></i>
+                  {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'} ({espaciosFiltrados.length} Ambientes)
                 </span>
-                <div className="btn-group shadow-sm rounded-pill p-1 bg-light border" role="group">
-                  <button 
-                    type="button" 
-                    className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaFiltro === 'todas' ? 'btn-success text-white shadow-sm' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('todas')}
-                  >
-                    Todas las Escuelas ({espacios.length} Ambientes)
-                  </button>
-                  <button 
-                    type="button" 
-                    className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaFiltro === 'sb' ? 'btn-info text-dark shadow-sm' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('sb')}
-                  >
-                    U.E. Santa Bárbara ({espacios.filter(e => e.id_escuela === 'sb').length} Ambientes)
-                  </button>
-                  <button 
-                    type="button" 
-                    className={`btn btn-sm rounded-pill px-3 fw-bold ${escuelaFiltro === 'lb' ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'}`}
-                    onClick={() => setEscuelaFiltro('lb')}
-                  >
-                    U.E. Libertador Bolívar ({espacios.filter(e => e.id_escuela === 'lb').length} Ambientes)
-                  </button>
-                </div>
               </div>
 
-              {/* Botones de Descarga Directa por Plantel */}
+              {/* Botón de Descarga Directa del Plantel Activo */}
               <div className="btn-group btn-group-sm">
                 <button 
-                  className="btn btn-outline-info rounded-start-pill fw-bold"
-                  onClick={() => generarReporteCapacidadGlobalPDF('sb')}
-                  title="Descargar solo informe de Santa Bárbara"
+                  className={`btn ${escuelaFiltro === 'sb' ? 'btn-outline-info' : 'btn-outline-primary'} rounded-pill px-3 fw-bold`}
+                  onClick={() => generarReporteCapacidadGlobalPDF(escuelaFiltro)}
+                  title={`Descargar informe en PDF de ${escuelaFiltro === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}`}
                 >
-                  <i className="bi bi-download me-1"></i>PDF Santa Bárbara
-                </button>
-                <button 
-                  className="btn btn-outline-primary rounded-end-pill fw-bold"
-                  onClick={() => generarReporteCapacidadGlobalPDF('lb')}
-                  title="Descargar solo informe de Libertador Bolívar"
-                >
-                  <i className="bi bi-download me-1"></i>PDF Libertador Bolívar
+                  <i className="bi bi-download me-1"></i>Descargar PDF {escuelaFiltro === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Tarjetas Comparativas de Métricas Dinámicas */}
-          {escuelaFiltro === 'todas' ? (
-            <div className="row g-4 mb-4">
-              <div className="col-12 col-md-4">
-                <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
-                  <span className="small fw-bold opacity-75">Capacidad Total Global</span>
-                  <h2 className="fw-bold m-0 mt-1">{capTotalGlobal} Cupos</h2>
-                  <div className="small opacity-90 mt-2">
-                    <i className="bi bi-check-circle me-1"></i>{matTotalGlobal} Estudiantes Inscritos ({capTotalGlobal > 0 ? Math.round((matTotalGlobal / capTotalGlobal) * 100) : 0}% ocupación)
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-12 col-md-4">
-                <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
-                  <span className="small fw-bold opacity-75">U.E. Santa Bárbara</span>
-                  <h2 className="fw-bold m-0 mt-1">{capTotalSB} Cupos</h2>
-                  <div className="small opacity-90 mt-2">
-                    <i className="bi bi-people-fill me-1"></i>{matTotalSB} Estudiantes Inscritos ({capTotalSB > 0 ? Math.round((matTotalSB / capTotalSB) * 100) : 0}% ocupación)
-                  </div>
-                </div>
-              </div>
-
-              <div className="col-12 col-md-4">
-                <div className="card p-4 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
-                  <span className="small fw-bold opacity-75">U.E. Libertador Bolívar</span>
-                  <h2 className="fw-bold m-0 mt-1">{capTotalLB} Cupos</h2>
-                  <div className="small opacity-90 mt-2">
-                    <i className="bi bi-people-fill me-1"></i>{matTotalLB} Estudiantes Inscritos ({capTotalLB > 0 ? Math.round((matTotalLB / capTotalLB) * 100) : 0}% ocupación)
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : escuelaFiltro === 'sb' ? (
+          {/* Tarjetas de Métricas de la Sede Activa */}
+          {escuelaFiltro === 'sb' ? (
             <div className="row g-3 mb-4">
               <div className="col-12 col-md-3">
                 <div className="card p-3 border-0 shadow-sm rounded-4 text-white" style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}>
@@ -4285,7 +4238,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   <tbody>
                     {(() => {
                       const espaciosFiltradosTabla = espacios.filter(esp => {
-                        const matchEscuela = escuelaFiltro === 'todas' || esp.id_escuela === escuelaFiltro;
+                        const matchEscuela = esp.id_escuela === escuelaFiltro;
                         if (!matchEscuela) return false;
 
                         if (searchReportes) {
@@ -4319,8 +4272,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                         return (
                           <tr key={esp.id}>
                             <td>
-                              <span className={`badge rounded-pill ${esp.id_escuela === 'sb' ? 'bg-info text-dark' : 'bg-primary text-white'}`}>
-                                {esp.id_escuela === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                              <span className={`badge rounded-pill ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'}`}>
+                                {escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
                               </span>
                             </td>
                             <td><span className="fw-bold text-dark">{esp.nombre}</span></td>
@@ -4388,16 +4341,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                     
                     {/* Plantel */}
                     <div className="col-12 col-md-6">
-                      <label className="form-label small fw-bold text-muted">Plantel / Escuela</label>
-                      <select 
-                        className="form-select border-info rounded-pill"
-                        value={formEspecialidad.id_escuela}
-                        onChange={(e) => setFormEspecialidad({ ...formEspecialidad, id_escuela: e.target.value })}
-                        required
-                      >
-                        {escuelasAutorizadas.includes('sb') && <option value="sb">U.E. Santa Bárbara</option>}
-                        {escuelasAutorizadas.includes('lb') && <option value="lb">U.E. Libertador Bolívar</option>}
-                      </select>
+                      <label className="form-label small fw-bold text-muted">Plantel / Sede Escolar</label>
+                      <input 
+                        type="text"
+                        className="form-control border-info rounded-pill bg-light fw-bold"
+                        value={escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                        disabled
+                        readOnly
+                      />
                     </div>
 
                     {/* Categoría */}
@@ -4602,7 +4553,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                           })
                           .map(doc => (
                             <option key={doc.cedula} value={doc.cedula}>
-                              {doc.nombre_completo} (C.I. {doc.cedula}) {doc.id_escuela === 'sb' ? '— UE Santa Bárbara' : '— UE Libertador Bolívar'}
+                              {doc.nombre_completo} (C.I. {doc.cedula})
                             </option>
                           ))}
                       </select>

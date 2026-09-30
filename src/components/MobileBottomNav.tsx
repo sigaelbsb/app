@@ -70,6 +70,19 @@ export const MobileBottomNav = ({
     return tienePermiso(item.vista, 'ver');
   }).length;
 
+  const canVerEstudiantil = 
+    tienePermiso('Vincular Estudiante', 'ver') ||
+    tienePermiso('Actualización de Datos', 'ver') ||
+    tienePermiso('Verificaciones', 'ver') ||
+    tienePermiso('Solicitud de Cupos', 'ver') ||
+    tienePermiso('Gestión de Admisiones', 'ver') ||
+    tienePermiso('Mensajes de Admisión', 'ver') ||
+    tienePermiso('Orientaciones Nuevos Ingresos', 'ver') ||
+    tienePermiso('Mis Solicitudes', 'ver');
+
+  const canVerAcademico = tienePermiso('Grados y Salones', 'ver');
+  const canVerTransporte = tienePermiso('Transporte Escolar', 'ver');
+
   const esRutaInicio = location.pathname === '/';
   const esRutaEstudiantil = location.pathname.startsWith('/categoria/Gestión%20Estudiantil') || location.pathname.startsWith('/categoria/Gestión Estudiantil');
   const esRutaAcademica = location.pathname.startsWith('/categoria/Control%20de%20Estudios') || location.pathname.startsWith('/categoria/Control de Estudios');
@@ -105,23 +118,25 @@ export const MobileBottomNav = ({
           {esRutaInicio && <span className="sigae-nav-tab-dot"></span>}
         </button>
 
-        {/* PESTAÑA 2: ESTUDIANTIL */}
-        <button
-          type="button"
-          onClick={() => {
-            cerrarSheet();
-            navigate('/categoria/Gestión%20Estudiantil');
-          }}
-          className={`sigae-nav-tab ${esRutaEstudiantil ? 'active' : ''}`}
-          id="btn-tab-estudiantil"
-          title="Gestión Estudiantil"
-        >
-          <div className="sigae-nav-tab-icon-wrap">
-            <i className={`bi ${esRutaEstudiantil ? 'bi-mortarboard-fill' : 'bi-mortarboard'}`}></i>
-          </div>
-          <span className="sigae-nav-tab-label">Estudiantes</span>
-          {esRutaEstudiantil && <span className="sigae-nav-tab-dot"></span>}
-        </button>
+        {/* PESTAÑA 2: ESTUDIANTIL (solo si está activo para el rol) */}
+        {canVerEstudiantil && (
+          <button
+            type="button"
+            onClick={() => {
+              cerrarSheet();
+              navigate('/categoria/Gestión%20Estudiantil');
+            }}
+            className={`sigae-nav-tab ${esRutaEstudiantil ? 'active' : ''}`}
+            id="btn-tab-estudiantil"
+            title="Gestión Estudiantil"
+          >
+            <div className="sigae-nav-tab-icon-wrap">
+              <i className={`bi ${esRutaEstudiantil ? 'bi-mortarboard-fill' : 'bi-mortarboard'}`}></i>
+            </div>
+            <span className="sigae-nav-tab-label">Estudiantes</span>
+            {esRutaEstudiantil && <span className="sigae-nav-tab-dot"></span>}
+          </button>
+        )}
 
         {/* PESTAÑA 3: PARA REPRESENTANTE ES NOTIFICACIONES / AVISOS (ESTILO WHATSAPP CON PUNTO ROJO Y CANTIDAD) */}
         {usuario?.rol === 'Representante' ? (
@@ -171,56 +186,60 @@ export const MobileBottomNav = ({
             )}
           </button>
         ) : (
-          /* PESTAÑA 3: ACADÉMICO PARA PERSONAL DOCENTE Y DIRECTIVO */
+          /* PESTAÑA 3: ACADÉMICO PARA PERSONAL (solo si tiene Grados y Salones activo) */
+          canVerAcademico && (
+            <button
+              type="button"
+              onClick={() => {
+                cerrarSheet();
+                navigate('/categoria/Control%20de%20Estudios');
+              }}
+              className={`sigae-nav-tab ${esRutaAcademica ? 'active' : ''}`}
+              id="btn-tab-academico"
+              title="Control de Estudios"
+            >
+              <div className="sigae-nav-tab-icon-wrap">
+                <i className={`bi ${esRutaAcademica ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark'}`}></i>
+              </div>
+              <span className="sigae-nav-tab-label">Académico</span>
+              {esRutaAcademica && <span className="sigae-nav-tab-dot"></span>}
+            </button>
+          )
+        )}
+
+        {/* PESTAÑA 4: TRANSPORTE (solo si está activo para el rol) */}
+        {canVerTransporte && (
           <button
             type="button"
             onClick={() => {
               cerrarSheet();
-              navigate('/categoria/Control%20de%20Estudios');
+              navigate('/categoria/Servicios%20y%20Bienestar/Transporte%20Escolar');
             }}
-            className={`sigae-nav-tab ${esRutaAcademica ? 'active' : ''}`}
-            id="btn-tab-academico"
-            title="Control de Estudios"
+            className={`sigae-nav-tab ${esRutaTransporte ? 'active' : ''}`}
+            id="btn-tab-transporte"
+            title="Transporte Escolar"
           >
-            <div className="sigae-nav-tab-icon-wrap">
-              <i className={`bi ${esRutaAcademica ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark'}`}></i>
+            <div className="sigae-nav-tab-icon-wrap position-relative">
+              <i className={`bi ${esRutaTransporte ? 'bi-bus-front-fill' : 'bi-bus-front'}`}></i>
+              {unreadTransportCount > 0 && (
+                <span 
+                  className="sigae-nav-tab-badge"
+                  style={{
+                    backgroundColor: '#f59e0b',
+                    color: '#ffffff',
+                    boxShadow: '0 0 0 2px #ffffff, 0 2px 5px rgba(245, 158, 11, 0.45)',
+                    fontSize: '0.6rem',
+                    padding: '1px 5px'
+                  }}
+                >
+                  {unreadTransportCount}
+                </span>
+              )}
             </div>
-            <span className="sigae-nav-tab-label">Académico</span>
-            {esRutaAcademica && <span className="sigae-nav-tab-dot"></span>}
+            <span className="sigae-nav-tab-label">Transporte</span>
+            {esRutaTransporte && <span className="sigae-nav-tab-dot"></span>}
           </button>
         )}
-
-        {/* PESTAÑA 4: TRANSPORTE */}
-        <button
-          type="button"
-          onClick={() => {
-            cerrarSheet();
-            navigate('/categoria/Servicios%20y%20Bienestar/Transporte%20Escolar');
-          }}
-          className={`sigae-nav-tab ${esRutaTransporte ? 'active' : ''}`}
-          id="btn-tab-transporte"
-          title="Transporte Escolar"
-        >
-          <div className="sigae-nav-tab-icon-wrap position-relative">
-            <i className={`bi ${esRutaTransporte ? 'bi-bus-front-fill' : 'bi-bus-front'}`}></i>
-            {unreadTransportCount > 0 && (
-              <span 
-                className="sigae-nav-tab-badge"
-                style={{
-                  backgroundColor: '#f59e0b',
-                  color: '#ffffff',
-                  boxShadow: '0 0 0 2px #ffffff, 0 2px 5px rgba(245, 158, 11, 0.45)',
-                  fontSize: '0.6rem',
-                  padding: '1px 5px'
-                }}
-              >
-                {unreadTransportCount}
-              </span>
-            )}
-          </div>
-          <span className="sigae-nav-tab-label">Transporte</span>
-          {esRutaTransporte && <span className="sigae-nav-tab-dot"></span>}
-        </button>
 
         {/* PESTAÑA 5: MÓDULOS / MENÚ COMPLETO */}
         <button

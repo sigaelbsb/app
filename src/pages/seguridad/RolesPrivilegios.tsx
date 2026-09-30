@@ -60,22 +60,6 @@ const ESTRUCTURA_ACCESOS = {
     ]
   },
   "Gestión Estudiantil": {
-    "Gestión de Admisiones": [
-      "Tarjeta: Baremo y Clasificación", 
-      "Tarjeta: Auditoría Uno por Uno", 
-      "Tarjeta: Formalización de Matrícula", 
-      "Función: Enviar WhatsApp", 
-      "Función: Exportar Excel"
-    ], 
-    "Mensajes de Admisión": [
-      "Función: Editar Plantillas", 
-      "Función: Probar Envíos", 
-      "Función: Restaurar Predeterminados"
-    ],
-    "Orientaciones Nuevos Ingresos": [
-      "Función: Difusión Masiva WhatsApp",
-      "Función: Descargar Guía de Orientación"
-    ],
     "Vincular Estudiante": [
       "Tarjeta: Registrar Vinculación", 
       "Tarjeta: Lista de Matriculados", 
@@ -83,8 +67,6 @@ const ESTRUCTURA_ACCESOS = {
       "Función: Exportar Ficha"
     ],
     "Actualización de Datos": [], 
-    "Solicitud de Cupos": [], 
-    "Mis Solicitudes": [], 
     "Verificaciones": [
       "Función: Escanear QR", 
       "Función: Re-imprimir Comprobante"
@@ -162,6 +144,10 @@ const ESTRUCTURA_ACCESOS = {
   "Seguridad y Accesos": {
     "Mi Perfil": [], 
     "Métodos de Acceso": [], 
+    "Dispositivos y Sesiones": [
+      "Función: Desactivar Sesiones Remotas",
+      "Función: Cerrar Todas las Sesiones"
+    ],
     "Gestión de Usuarios": [], 
     "Roles y Privilegios": [
       "Función: Emulación de Roles"
@@ -189,6 +175,9 @@ export const RolesPrivilegios = () => {
 
   // Filtro de búsqueda rápida en tiempo real para módulos/tarjetas
   const [busqueda, setBusqueda] = useState('');
+
+  // Filtro de visibilidad de módulos: 'todos' | 'activos' | 'bloqueados'
+  const [filtroVisibilidad, setFiltroVisibilidad] = useState<'todos' | 'activos' | 'bloqueados'>('todos');
 
   // Control de categorías colapsadas
   const [colapsadas, setColapsadas] = useState<Record<string, boolean>>({});
@@ -935,6 +924,12 @@ export const RolesPrivilegios = () => {
     const rawEsc = permisosState[escuela] || {};
     const plantelHabilitado = !!rawEsc['__acceso_plantel__'];
 
+    // Conteo estadístico de módulos del plantel
+    const submodsList = Object.values(ESTRUCTURA_ACCESOS).flatMap(s => Object.keys(s));
+    const totalModulos = submodsList.length;
+    const totalActivos = submodsList.filter(s => !!rawEsc[s]).length;
+    const totalBloqueados = totalModulos - totalActivos;
+
     // Filtrar por término de búsqueda si existe
     const q = busqueda.toLowerCase().trim();
 
@@ -1045,12 +1040,79 @@ export const RolesPrivilegios = () => {
             </div>
           </div>
 
+          {/* BARRA DE FILTROS DE VISIBILIDAD: TODOS, ACTIVOS, BLOQUEADOS */}
+          <div className="d-flex align-items-center justify-content-between p-2 mb-3 bg-white rounded-3 border shadow-xs flex-wrap gap-2">
+            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+              <span className="extra-small fw-bold text-muted me-1 text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.7rem' }}>
+                <i className="bi bi-funnel-fill me-1 text-primary"></i>Filtro:
+              </span>
+              <button
+                type="button"
+                onClick={() => setFiltroVisibilidad('todos')}
+                className={`btn btn-xs rounded-pill px-2.5 py-1 fw-bold ${filtroVisibilidad === 'todos' ? 'btn-dark text-white shadow-xs' : 'btn-light text-muted border-0'}`}
+                style={{ fontSize: '0.72rem' }}
+              >
+                Todos ({totalModulos})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroVisibilidad('activos')}
+                className={`btn btn-xs rounded-pill px-2.5 py-1 fw-bold ${filtroVisibilidad === 'activos' ? 'btn-success text-white shadow-xs' : 'btn-light text-success border-0'}`}
+                style={{ fontSize: '0.72rem' }}
+                title="Mostrar únicamente los módulos activos para este rol"
+              >
+                <i className="bi bi-check-circle-fill me-1"></i>Solo Activos ({totalActivos})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroVisibilidad('bloqueados')}
+                className={`btn btn-xs rounded-pill px-2.5 py-1 fw-bold ${filtroVisibilidad === 'bloqueados' ? 'btn-danger text-white shadow-xs' : 'btn-light text-danger border-0'}`}
+                style={{ fontSize: '0.72rem' }}
+                title="Mostrar únicamente los módulos bloqueados / inactivos"
+              >
+                <i className="bi bi-slash-circle me-1"></i>Solo Bloqueados ({totalBloqueados})
+              </button>
+            </div>
+
+            <div className="extra-small fw-semibold" style={{ fontSize: '0.72rem' }}>
+              {filtroVisibilidad === 'activos' ? (
+                <span className="text-success"><i className="bi bi-eye-slash-fill me-1"></i>Ocultando {totalBloqueados} módulos bloqueados</span>
+              ) : filtroVisibilidad === 'bloqueados' ? (
+                <span className="text-danger"><i className="bi bi-eye-slash-fill me-1"></i>Ocultando {totalActivos} módulos activos</span>
+              ) : (
+                <span className="text-muted"><i className="bi bi-grid-fill me-1 text-primary"></i>Matriz completa</span>
+              )}
+            </div>
+          </div>
+
+          {/* MENSAJE CUANDO NO HAY MÓDULOS ACTIVOS CON EL FILTRO */}
+          {filtroVisibilidad === 'activos' && totalActivos === 0 && (
+            <div className="alert alert-warning border-0 rounded-4 p-4 text-center my-3 bg-white shadow-xs">
+              <i className="bi bi-shield-slash-fill text-warning fs-1 mb-2 d-block"></i>
+              <h6 className="fw-bold text-dark mb-1">Sin módulos activos</h6>
+              <p className="text-muted small mb-3">
+                El rol "{rolSeleccionado?.nombre}" actualmente no tiene ningún módulo activo en {escuelaNombre}.
+              </p>
+              <button 
+                type="button" 
+                onClick={() => setFiltroVisibilidad('todos')} 
+                className="btn btn-sm btn-primary rounded-pill px-3 fw-bold"
+              >
+                Ver todos los módulos para activar permisos
+              </button>
+            </div>
+          )}
+
           {/* CONTENEDOR DE CATEGORÍAS Y MÓDULOS */}
           <div style={{ opacity: plantelHabilitado ? 1 : 0.45, transition: 'opacity 0.2s ease-in-out' }}>
             {Object.entries(ESTRUCTURA_ACCESOS).map(([categoria, submods]) => {
-              // Filtrar si hay búsqueda
+              // Filtrar por visibilidad activo/bloqueado y por búsqueda
               const matchesCategory = categoria.toLowerCase().includes(q);
               const matchingSubmods = Object.entries(submods).filter(([subName, subcards]) => {
+                const isSubActivo = !!rawEsc[subName];
+                if (filtroVisibilidad === 'activos' && !isSubActivo) return false;
+                if (filtroVisibilidad === 'bloqueados' && isSubActivo) return false;
+
                 if (matchesCategory || !q) return true;
                 if (subName.toLowerCase().includes(q)) return true;
                 return subcards.some(c => c.toLowerCase().includes(q));
@@ -1271,6 +1333,10 @@ export const RolesPrivilegios = () => {
                     const soloSB = sbActivo && !lbActivo;
                     const bloqueadoTotal = !sbActivo && !lbActivo;
 
+                    const submodsList = Object.values(ESTRUCTURA_ACCESOS).flatMap(s => Object.keys(s));
+                    const sbActivosCount = submodsList.filter(s => !!(rawSb[s]?.ver || rawSb[s] === true)).length;
+                    const lbActivosCount = submodsList.filter(s => !!(rawLb[s]?.ver || rawLb[s] === true)).length;
+
                     return (
                       <div 
                         key={r.nombre}
@@ -1286,21 +1352,21 @@ export const RolesPrivilegios = () => {
                             </div>
                             <div>
                               <div className="fw-bold text-dark fs-6 mb-0">{r.nombre}</div>
-                              {/* Badge de Estado por Escuela */}
-                              <div className="mt-0.5">
+                              {/* Badge de Estado por Escuela y conteos de módulos */}
+                              <div className="d-flex align-items-center gap-1 flex-wrap mt-0.5">
                                 {ambasActivas && (
                                   <span className="badge rounded-pill px-2 py-0.5 text-white" style={{ background: 'linear-gradient(135deg, #10b981 0%, #0284c7 100%)', fontSize: '0.67rem' }}>
-                                    <i className="bi bi-buildings me-1"></i>Ambas Escuelas
+                                    <i className="bi bi-buildings me-1"></i>Ambas
                                   </span>
                                 )}
                                 {soloLB && (
                                   <span className="badge rounded-pill px-2 py-0.5 bg-primary text-white" style={{ fontSize: '0.67rem' }}>
-                                    <i className="bi bi-mortarboard-fill me-1"></i>Solo Libertador
+                                    <i className="bi bi-mortarboard-fill me-1"></i>Solo LB
                                   </span>
                                 )}
                                 {soloSB && (
                                   <span className="badge rounded-pill px-2 py-0.5 bg-success text-white" style={{ fontSize: '0.67rem' }}>
-                                    <i className="bi bi-tree-fill me-1"></i>Solo Santa Bárbara
+                                    <i className="bi bi-tree-fill me-1"></i>Solo SB
                                   </span>
                                 )}
                                 {bloqueadoTotal && (
@@ -1308,6 +1374,13 @@ export const RolesPrivilegios = () => {
                                     <i className="bi bi-slash-circle me-1"></i>Sin Acceso
                                   </span>
                                 )}
+
+                                <span className={`badge rounded-pill px-1.5 py-0.5 ${sbActivo ? 'bg-success bg-opacity-10 text-success' : 'bg-danger bg-opacity-10 text-danger'}`} style={{ fontSize: '0.65rem' }}>
+                                  SB: {sbActivo ? `${sbActivosCount} activos` : 'Bloqueado'}
+                                </span>
+                                <span className={`badge rounded-pill px-1.5 py-0.5 ${lbActivo ? 'bg-primary bg-opacity-10 text-primary' : 'bg-danger bg-opacity-10 text-danger'}`} style={{ fontSize: '0.65rem' }}>
+                                  LB: {lbActivo ? `${lbActivosCount} activos` : 'Bloqueado'}
+                                </span>
                               </div>
                             </div>
                           </div>

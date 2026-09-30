@@ -973,6 +973,7 @@ export const ChatbotSigma = () => {
 
     if (v === 'mi perfil') return '/categoria/Seguridad y Accesos/Mi Perfil';
     if (v === 'métodos de acceso' || v === 'metodos de acceso') return '/categoria/Seguridad y Accesos/M%C3%A9todos%20de%20Acceso';
+    if (v === 'dispositivos y sesiones' || v === 'sesiones activas' || v === 'sesiones' || v === 'dispositivos') return '/categoria/Seguridad y Accesos/Dispositivos y Sesiones';
     if (v === 'gestión de usuarios' || v === 'gestion de usuarios') return '/categoria/Seguridad y Accesos/Gestión de Usuarios';
     if (v === 'roles y privilegios') return '/categoria/Seguridad y Accesos/Roles y Privilegios';
     if (v === 'preguntas de seguridad') return '/categoria/Seguridad y Accesos/Preguntas de Seguridad';

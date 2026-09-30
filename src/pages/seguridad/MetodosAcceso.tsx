@@ -3,6 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
+import { 
+  obtenerSesionesUsuario, 
+  cambiarEstadoSesion, 
+  cerrarTodasLasDemasSesiones, 
+  getOrInitSessionId, 
+  registrarSesionActiva,
+  type SesionDispositivo 
+} from '../../utils/activeSessionsHelper';
 
 export const MetodosAcceso = () => {
   const navigate = useNavigate();
@@ -14,6 +22,11 @@ export const MetodosAcceso = () => {
   const [biometriaConfigurada, setBiometriaConfigurada] = useState(false);
   const [otpEnabled, setOtpEnabled] = useState(false);
   const [pregJSON, setPregJSON] = useState<any>({});
+
+  // Active Sessions State (Tipo WhatsApp Web)
+  const [sesiones, setSesiones] = useState<SesionDispositivo[]>([]);
+  const [loadingSesiones, setLoadingSesiones] = useState(false);
+  const currentSessionId = getOrInitSessionId();
 
   const Swal = (window as any).Swal;
 
@@ -69,12 +82,114 @@ export const MetodosAcceso = () => {
         setPregJSON(parsedPreg);
         setOtpEnabled(parsedPreg && parsedPreg.otp_enabled === true && parsedPreg.otp_secret);
         setBiometriaConfigurada(!!(dbUser.credencial_biometrica && dbUser.credencial_biometrica.trim().length > 0));
+        
+        // Cargar sesiones de dispositivos (Tipo WhatsApp Web)
+        await cargarSesiones(cedula);
       }
     } catch (e) {
       console.error("Error loading access methods:", e);
       if (Swal) Swal.fire('Error', 'Falla al cargar estado de métodos de acceso.', 'error');
     }
     setLoading(false);
+  };
+
+  const cargarSesiones = async (ced: string) => {
+    if (!ced) return;
+    setLoadingSesiones(true);
+    try {
+      await registrarSesionActiva(ced);
+      const list = await obtenerSesionesUsuario(ced);
+      setSesiones(list);
+    } catch (e) {
+      console.error("Error al cargar sesiones:", e);
+    } finally {
+      setLoadingSesiones(false);
+    }
+  };
+
+  const handleToggleSesion = async (targetId: string, nuevoEstado: boolean) => {
+    if (!appUser?.cedula) return;
+    
+    if (!nuevoEstado) {
+      if (Swal) {
+        const confirm = await Swal.fire({
+          title: '¿Cerrar sesión en este dispositivo?',
+          text: 'Ese equipo o navegador será desconectado inmediatamente.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, cerrar sesión',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#dc3545'
+        });
+        if (!confirm.isConfirmed) return;
+      }
+    }
+
+    const exito = await cambiarEstadoSesion(appUser.cedula, targetId, nuevoEstado);
+    if (exito) {
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: nuevoEstado ? 'Sesión reactivada con éxito' : 'Sesión cerrada remotamente',
+          showConfirmButton: false,
+          timer: 2500
+        });
+      }
+      auditar('Seguridad', nuevoEstado ? 'Reactivar Sesión Remota' : 'Cerrar Sesión Remota', `Sesión ID: ${targetId}`);
+      await cargarSesiones(appUser.cedula);
+    } else {
+      if (Swal) Swal.fire('Error', 'No se pudo actualizar el estado de la sesión.', 'error');
+    }
+  };
+
+  const handleCerrarTodasLasDemas = async () => {
+    if (!appUser?.cedula) return;
+    if (Swal) {
+      const confirm = await Swal.fire({
+        title: '¿Cerrar todas las demás sesiones?',
+        text: 'Se cerrará la sesión en todas las computadoras y teléfonos excepto en este dispositivo actual.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cerrar en todos los equipos',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc3545'
+      });
+      if (!confirm.isConfirmed) return;
+    }
+
+    const exito = await cerrarTodasLasDemasSesiones(appUser.cedula);
+    if (exito) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: '¡Sesiones Cerradas!',
+          text: 'Todas las demás sesiones remotas han sido finalizadas con éxito.',
+          confirmButtonColor: '#0066FF'
+        });
+      }
+      auditar('Seguridad', 'Cerrar Todas las Sesiones', 'El usuario cerró todas las sesiones remotas.');
+      await cargarSesiones(appUser.cedula);
+    } else {
+      if (Swal) Swal.fire('Error', 'No se pudieron cerrar las demás sesiones.', 'error');
+    }
+  };
+
+  const formatearFecha = (iso: string) => {
+    if (!iso) return 'Reciente';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('es-VE', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } catch (e) {
+      return iso;
+    }
   };
 
   const handleBiometriaLocalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -568,6 +683,144 @@ export const MetodosAcceso = () => {
                   </div>
                   <span className="badge bg-secondary rounded-pill px-3 py-1.5">Próximamente</span>
                 </div>
+              </div>
+
+              {/* Sección WhatsApp Web: Dispositivos Conectados y Sesiones Activas */}
+              <div className="mt-5 pt-4 border-top">
+                <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                  <div>
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <h5 className="fw-bold text-dark mb-0">
+                        <i className="bi bi-display text-primary me-2"></i>Dispositivos y Sesiones Activas
+                      </h5>
+                      <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 small">
+                        <i className="bi bi-whatsapp me-1"></i> Control Tipo WhatsApp Web
+                      </span>
+                    </div>
+                    <p className="text-muted small mb-0">
+                      Supervisa las computadoras y teléfonos donde has iniciado sesión. Puedes activar o desactivar sesiones remotamente para proteger tu cuenta.
+                    </p>
+                  </div>
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-sm hover-efecto"
+                      onClick={() => appUser?.cedula && cargarSesiones(appUser.cedula)}
+                      disabled={loadingSesiones}
+                      title="Refrescar dispositivos"
+                    >
+                      <i className={`bi bi-arrow-clockwise me-1 ${loadingSesiones ? 'spin-icon' : ''}`}></i>
+                      Refrescar
+                    </button>
+                    {sesiones.filter(s => s.id !== currentSessionId && s.activa).length > 0 && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger fw-semibold rounded-pill px-3 shadow-sm hover-efecto"
+                        onClick={handleCerrarTodasLasDemas}
+                      >
+                        <i className="bi bi-shield-x me-1"></i>
+                        Cerrar todas las demás
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {loadingSesiones ? (
+                  <div className="text-center py-4 text-muted">
+                    <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    Cargando dispositivos vinculados...
+                  </div>
+                ) : sesiones.length === 0 ? (
+                  <div className="text-center py-4 bg-light rounded-4 border border-dashed">
+                    <i className="bi bi-laptop fs-1 text-muted opacity-50 d-block mb-2"></i>
+                    <p className="text-muted small mb-0">No se registran otras sesiones concurrentes.</p>
+                  </div>
+                ) : (
+                  <div className="d-flex flex-column gap-3">
+                    {sesiones.map((s) => {
+                      const esActual = s.id === currentSessionId;
+                      const esPC = s.tipo_dispositivo === 'computadora' || s.sistema_operativo.includes('Windows') || s.sistema_operativo.includes('macOS') || s.sistema_operativo.includes('Linux');
+                      
+                      return (
+                        <div 
+                          key={s.id} 
+                          className={`p-3 rounded-4 border shadow-sm transition-all d-flex flex-wrap justify-content-between align-items-center gap-3 ${
+                            esActual 
+                              ? 'bg-primary bg-opacity-10 border-primary border-opacity-30' 
+                              : s.activa 
+                                ? 'bg-light border-light-subtle' 
+                                : 'bg-light border-light-subtle opacity-75'
+                          }`}
+                        >
+                          <div className="d-flex align-items-center gap-3">
+                            <div 
+                              className={`rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 shadow-sm ${
+                                esActual ? 'bg-primary text-white' : s.activa ? 'bg-white text-dark border' : 'bg-secondary bg-opacity-25 text-muted'
+                              }`} 
+                              style={{ width: '48px', height: '48px' }}
+                            >
+                              <i className={`bi ${esPC ? 'bi-laptop fs-4' : 'bi-phone fs-4'}`}></i>
+                            </div>
+
+                            <div>
+                              <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                <span className="fw-bold text-dark">{s.dispositivo_nombre || (esPC ? 'Computadora' : 'Teléfono Móvil')}</span>
+                                {esActual && (
+                                  <span className="badge bg-success text-white rounded-pill px-2 py-0.5" style={{ fontSize: '0.75rem' }}>
+                                    <i className="bi bi-check-circle-fill me-1"></i> Este dispositivo (Sesión actual)
+                                  </span>
+                                )}
+                                {!esActual && s.activa && (
+                                  <span className="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2 py-0.5" style={{ fontSize: '0.75rem' }}>
+                                    <span className="spinner-grow spinner-grow-sm me-1" style={{ width: '6px', height: '6px' }}></span> Activa
+                                  </span>
+                                )}
+                                {!s.activa && (
+                                  <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-0.5" style={{ fontSize: '0.75rem' }}>
+                                    Desactivada / Cerrada
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-muted small d-flex flex-wrap gap-x-3 gap-y-1 align-items-center" style={{ fontSize: '0.8rem' }}>
+                                <span><i className="bi bi-browser-chrome me-1"></i>{s.navegador || 'Navegador Web'}</span>
+                                <span className="text-secondary opacity-50">•</span>
+                                <span><i className="bi bi-clock-history me-1"></i>Inicio: {formatearFecha(s.fecha_inicio)}</span>
+                                <span className="text-secondary opacity-50">•</span>
+                                <span><i className="bi bi-activity me-1"></i>Última actividad: {formatearFecha(s.fecha_actividad)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="ms-auto d-flex align-items-center gap-2">
+                            {esActual ? (
+                              <span className="text-success small fw-semibold">
+                                <i className="bi bi-circle-fill text-success me-1" style={{ fontSize: '0.5rem' }}></i> En uso ahora
+                              </span>
+                            ) : s.activa ? (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger fw-semibold rounded-pill px-3 shadow-sm hover-efecto"
+                                onClick={() => handleToggleSesion(s.id, false)}
+                                title="Desconectar este dispositivo remotamente"
+                              >
+                                <i className="bi bi-power me-1"></i> Cerrar Sesión
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-success fw-semibold rounded-pill px-3 shadow-sm hover-efecto"
+                                onClick={() => handleToggleSesion(s.id, true)}
+                                title="Permitir reconexión a este dispositivo"
+                              >
+                                <i className="bi bi-arrow-repeat me-1"></i> Reactivar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
             </div>

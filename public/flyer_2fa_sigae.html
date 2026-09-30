@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Flyer Verificación en Dos Pasos (2FA) - SIGAE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      width: 1080px;
+      height: 1580px;
+      background: #f4f8fd;
+      font-family: 'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #0f172a;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient Soft Glow orbs */
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+    .orb-1 { width: 550px; height: 500px; background: rgba(196, 181, 253, 0.55); top: -120px; left: -120px; }
+    .orb-2 { width: 550px; height: 550px; background: rgba(186, 230, 253, 0.55); top: 160px; right: -120px; }
+    .orb-3 { width: 450px; height: 450px; background: rgba(199, 210, 254, 0.5); bottom: 100px; left: -120px; }
+    .orb-4 { width: 450px; height: 450px; background: rgba(221, 214, 254, 0.55); bottom: -80px; right: -80px; }
+
+    /* Top Institutional Header */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 145px;
+      padding: 0 45px;
+      background: rgba(255, 255, 255, 0.98);
+      border-bottom: 2px solid #e2e8f0;
+      position: relative;
+      z-index: 20;
+    }
+    .school-crest {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .school-crest img {
+      height: 82px;
+      object-fit: contain;
+    }
+    .school-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .school-name {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+    .school-motto-blue {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0284c7;
+      margin-top: 2px;
+    }
+    .school-motto-red {
+      font-size: 14px;
+      font-weight: 700;
+      color: #e11d48;
+      margin-top: 2px;
+    }
+
+    /* Superimposed Center Logo */
+    .sigae-center {
+      position: absolute;
+      left: 50%;
+      top: 10px;
+      transform: translateX(-50%);
+      z-index: 30;
+    }
+    .sigae-center img {
+      height: 170px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 18px rgba(124, 58, 237, 0.35));
+    }
+
+    /* Main Container */
+    .content {
+      padding: 34px 45px 25px;
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      height: calc(1580px - 145px);
+      justify-content: space-between;
+    }
+
+    /* Title Section */
+    .title-section {
+      text-align: center;
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 22px;
+      border-radius: 20px;
+      background: #f5f3ff;
+      border: 2px solid rgba(124, 58, 237, 0.8);
+      font-size: 15px;
+      font-weight: 800;
+      color: #7c3aed;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+      margin-bottom: 12px;
+    }
+    .badge-pill span {
+      background: #7c3aed;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .main-title {
+      font-size: 48px;
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+    .main-subtitle {
+      font-size: 21px;
+      color: #6d28d9;
+      font-weight: 800;
+    }
+
+    /* Showcase Grid */
+    .showcase-area {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      align-items: stretch;
+      margin-top: 10px;
+    }
+
+    /* Max Character Card */
+    .char-card {
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #e9d5ff;
+      border-radius: 24px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04);
+      position: relative;
+    }
+
+    .max-bubble {
+      width: 100%;
+      background: #faf5ff;
+      border: 1px solid #d8b4fe;
+      border-radius: 16px;
+      padding: 12px 14px;
+      position: relative;
+      margin-bottom: 8px;
+    }
+    .max-bubble h4 {
+      font-size: 14px;
+      font-weight: 800;
+      color: #7c3aed;
+      margin-bottom: 4px;
+    }
+    .max-bubble p {
+      font-size: 12px;
+      color: #334155;
+      line-height: 1.35;
+    }
+    .max-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 8px 0;
+      border-style: solid;
+      border-color: #faf5ff transparent;
+      display: block;
+      width: 0;
+    }
+
+    .char-img-container {
+      height: 350px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .char-img {
+      max-height: 100%;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.15));
+    }
+
+    .char-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      text-align: center;
+    }
+    .char-badge {
+      display: inline-block;
+      background: #7c3aed;
+      color: #ffffff;
+      padding: 7px 20px;
+      border-radius: 18px;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+      margin-bottom: 8px;
+    }
+    .char-privacy-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #6d28d9;
+    }
+    .char-privacy-sub {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Right Column: Steps */
+    .steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 17px;
+    }
+    .step-card {
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.03);
+      position: relative;
+    }
+    .step-accent {
+      position: absolute;
+      left: 0;
+      top: 14px;
+      bottom: 14px;
+      width: 5px;
+      border-radius: 0 3px 3px 0;
+    }
+    .step-1 .step-accent { background: #0284c7; }
+    .step-2 .step-accent { background: #6366f1; }
+    .step-3 .step-accent { background: #7c3aed; }
+    .step-4 .step-accent { background: #059669; }
+
+    .step-num-box {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 2px solid;
+    }
+    .step-1 .step-num-box { background: #e0f2fe; border-color: #bae6fd; color: #0284c7; }
+    .step-2 .step-num-box { background: #eef2ff; border-color: #c7d2fe; color: #6366f1; }
+    .step-3 .step-num-box { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+    .step-4 .step-num-box { background: #ecfdf5; border-color: #a7f3d0; color: #059669; }
+
+    .step-num-box .tag { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; }
+    .step-num-box .num { font-size: 22px; font-weight: 900; line-height: 1; }
+
+    .step-icon-box {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      background: #ffffff;
+      border: 2px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+    }
+    .step-icon-box img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .step-info {
+      flex: 1;
+    }
+    .step-info h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .step-info p {
+      font-size: 13.5px;
+      color: #475569;
+      line-height: 1.35;
+    }
+
+    /* Notice Banner */
+    .notice-banner {
+      background: #f5f3ff;
+      border: 2px solid #7c3aed;
+      border-radius: 20px;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .notice-icon img {
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+    }
+    .notice-text h4 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #6d28d9;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .notice-text p {
+      font-size: 13px;
+      color: #4c1d95;
+      line-height: 1.35;
+    }
+
+    /* Call To Action Box */
+    .cta-card {
+      background: #0f172a;
+      border: 2px solid #7c3aed;
+      border-radius: 24px;
+      padding: 22px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 15px 35px rgba(15, 23, 42, 0.25);
+    }
+    .cta-left {
+      flex: 1;
+    }
+    .cta-sub {
+      font-size: 14px;
+      font-weight: 800;
+      color: #c4b5fd;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .cta-title {
+      font-size: 21px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+    .url-pill {
+      display: inline-flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #c4b5fd;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-family: monospace;
+      font-size: 17px;
+      font-weight: 800;
+      color: #0f172a;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .cta-qr-box {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    }
+    .cta-qr-box img {
+      width: 116px;
+      height: 116px;
+      object-fit: contain;
+    }
+    .cta-qr-box span {
+      font-size: 11px;
+      font-weight: 800;
+      color: #1e1b4b;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    /* Footer */
+    .footer-text {
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+  <div class="glow-orb orb-4"></div>
+
+  <!-- Header with Real Logos -->
+  <header class="header-bar">
+    <div class="school-crest">
+      <img src="assets/img/logo_sb.png" alt="U.E. Santa Bárbara">
+      <div class="school-info">
+        <div class="school-name">U.E. Santa Bárbara</div>
+        <div class="school-motto-blue">“Educar para la Vida”</div>
+      </div>
+    </div>
+
+    <!-- Center Superimposed Logo -->
+    <div class="sigae-center">
+      <img src="assets/img/sigae.png" alt="SIGAE">
+    </div>
+
+    <div class="school-crest" style="flex-direction: row-reverse;">
+      <img src="assets/img/logo_lb.png" alt="U.E. Libertador Bolívar">
+      <div class="school-info" style="text-align: right;">
+        <div class="school-name">U.E. Libertador Bolívar</div>
+        <div class="school-motto-red">“Formando al Nuevo Republicano”</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="content">
+
+    <!-- Title Section -->
+    <div class="title-section">
+      <div class="badge-pill">
+        <span></span> Verificación en Dos Pasos (2FA) <span></span>
+      </div>
+      <h1 class="main-title">¿CÓMO ACTIVAR TU CÓDIGO 2FA?</h1>
+      <p class="main-subtitle">Blindaje total para tu cuenta con Google o Microsoft Authenticator</p>
+    </div>
+
+    <!-- Center Showcase Grid -->
+    <div class="showcase-area">
+
+      <!-- Max Assistant Column -->
+      <div class="char-card">
+        <div class="max-bubble">
+          <h4>¡Hola! Soy Max.</h4>
+          <p>Blinda tu cuenta escolar activando la autenticación en dos pasos. Sigue estos 4 pasos guiados.</p>
+        </div>
+
+        <div class="char-img-container">
+          <img class="char-img" src="max_senala.png" alt="Max Asistente Virtual SIGAE Orientando">
+        </div>
+
+        <div class="char-footer">
+          <div class="char-badge">MAX TE ORIENTA (IA SIGAE)</div>
+          <div class="char-privacy-title">Máxima Seguridad: Códigos Dinámicos TOTP</div>
+          <div class="char-privacy-sub">Protege tus calificaciones y datos contra robos</div>
+        </div>
+      </div>
+
+      <!-- Right Steps Column -->
+      <div class="steps-list">
+
+        <!-- Step 1 -->
+        <div class="step-card step-1">
+          <div class="step-accent"></div>
+          <div class="step-num-box">
+            <span class="tag">PASO</span>
+            <span class="num">1</span>
+          </div>
+          <div class="step-icon-box">
+            <img src="icons3d/icono_admisiones_3d.png" alt="Paso 1">
+          </div>
+          <div class="step-info">
+            <h3>Paso 1: Instala la App Autenticadora</h3>
+            <p>En tu celular, descarga gratis <strong>Google Authenticator</strong> o <strong>Microsoft Authenticator</strong> desde Play Store (Android) o App Store (iPhone).</p>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="step-card step-2">
+          <div class="step-accent"></div>
+          <div class="step-num-box">
+            <span class="tag">PASO</span>
+            <span class="num">2</span>
+          </div>
+          <div class="step-icon-box">
+            <img src="icons3d/icono_seguridad_3d.png" alt="Paso 2">
+          </div>
+          <div class="step-info">
+            <h3>Paso 2: Entra a "Seguridad y Accesos"</h3>
+            <p>Inicia sesión en SIGAE y dirígete al módulo <strong>"Seguridad y Accesos"</strong>. Luego haz clic en el submódulo <strong>"Métodos de Acceso"</strong>.</p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-card step-3">
+          <div class="step-accent"></div>
+          <div class="step-num-box">
+            <span class="tag">PASO</span>
+            <span class="num">3</span>
+          </div>
+          <div class="step-icon-box">
+            <img src="icons3d/icono_disenos_3d.png" alt="Paso 3">
+          </div>
+          <div class="step-info">
+            <h3>Paso 3: Pulsa "Configurar 2FA" y Escanea el QR</h3>
+            <p>En la opción <em>Aplicación de Autenticación</em>, pulsa <strong>"Configurar 2FA"</strong>. Abre tu app en el móvil y escanea el código QR en pantalla.</p>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="step-card step-4">
+          <div class="step-accent"></div>
+          <div class="step-num-box">
+            <span class="tag">PASO</span>
+            <span class="num">4</span>
+          </div>
+          <div class="step-icon-box">
+            <img src="icons3d/icono_organizacion_3d.png" alt="Paso 4">
+          </div>
+          <div class="step-info">
+            <h3>Paso 4: Ingresa los 6 Dígitos y ¡Listo!</h3>
+            <p>Escribe el código temporal de 6 números que genera tu app y presiona <strong>"Verificar y Activar"</strong>. ¡Tu cuenta quedará 100% blindada!</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Notice Banner -->
+    <div class="notice-banner">
+      <div class="notice-icon">
+        <img src="icons3d/icono_seguridad_3d.png" alt="Seguridad">
+      </div>
+      <div class="notice-text">
+        <h4>INMUNE A FILTRACIONES • LOS CÓDIGOS CAMBIAN CADA 30 SEGUNDOS</h4>
+        <p>Incluso si alguien supiera tu contraseña, nadie podrá entrar sin el código temporal generado en tu teléfono.</p>
+      </div>
+    </div>
+
+    <!-- CTA & QR Access Card -->
+    <div class="cta-card">
+      <div class="cta-left">
+        <div class="cta-sub">ACCESO DIRECTO AL SISTEMA:</div>
+        <div class="cta-title">¡Ingresa y activa tu Doble Factor (2FA) hoy!</div>
+        <div class="url-pill">
+          https://app-delta-ten-80.vercel.app/login
+        </div>
+      </div>
+
+      <div class="cta-qr-box">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https://app-delta-ten-80.vercel.app/login&color=1e1b4b&bgcolor=ffffff" alt="Código QR SIGAE">
+        <span>ESCANEA AQUÍ</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-text">
+      SIGAE • Sistema Integral de Gestión y Administración Escolar • U.E. Santa Bárbara &amp; U.E. Libertador Bolívar
+    </div>
+
+  </main>
+
+</body>
+</html>

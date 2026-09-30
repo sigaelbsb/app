@@ -436,6 +436,7 @@ export const ModulosSistema = {
     items: [
       { vista: "Mi Perfil", icono: "bi-person-badge", color: "#0284c7", desc: "Actualización de datos personales, clave y preguntas secretas." }, 
       { vista: "Métodos de Acceso", icono: "bi-fingerprint", color: "#7c3aed", desc: "Configuración de huella biométrica, FaceID y doble factor TOTP." },
+      { vista: "Dispositivos y Sesiones", icono: "bi-display", color: "#0284c7", desc: "Supervisión y desconexión remota de computadoras y teléfonos activos." },
       { vista: "Gestión de Usuarios", icono: "bi-people", color: "#10b981", desc: "Creación de cuentas, reseteos de contraseña y altas masivas." }, 
       { vista: "Roles y Privilegios", icono: "bi-key", color: "#f59e0b", desc: "Matriz granular de permisos y accesos diferenciados SB / LB." },
       { vista: "Preguntas de Seguridad", icono: "bi-patch-question", color: "#0d9488", desc: "Catálogo de preguntas para recuperación automática de cuentas." },
@@ -682,6 +683,9 @@ export const CategoryDashboard = () => {
         return <IconoMiPerfil3D size={48} color={color} />;
       case 'Métodos de Acceso':
         return <IconoMetodosAcceso3D size={48} color={color} />;
+      case 'Dispositivos y Sesiones':
+      case 'Sesiones Activas':
+        return <IconoMetodosAcceso3D size={48} color={color} />;
       case 'Gestión de Usuarios':
         return <IconoGestionUsuarios3D size={48} color={color} />;
       case 'Roles y Privilegios':
@@ -696,22 +700,51 @@ export const CategoryDashboard = () => {
     }
   };
 
-  const herramientasFiltradas = modulo.items.filter((item: any) => {
-    // 1. Filtrar por permisos
-    let tieneAcceso = false;
+  const todasHerramientasPermitidas = modulo.items.filter((item: any) => {
+    if (item.vista === 'Mi Expediente' && tienePermiso('Gestor de Expedientes', 'ver')) return false;
     if (item.vista === 'Gestión de Colectivos') {
-      tieneAcceso = tienePermisoEnEscuela('sb', item.vista, 'ver') || tienePermisoEnEscuela('lb', item.vista, 'ver');
-    } else {
-      tieneAcceso = tienePermiso(item.vista, 'ver');
+      return tienePermisoEnEscuela('sb', item.vista, 'ver') || tienePermisoEnEscuela('lb', item.vista, 'ver');
     }
+    return tienePermiso(item.vista, 'ver');
+  });
 
-    if (!tieneAcceso) return false;
-
-    // 2. Filtrar por texto de búsqueda
+  const herramientasFiltradas = todasHerramientasPermitidas.filter((item: any) => {
+    // Filtrar por texto de búsqueda
     if (!filtroTexto.trim()) return true;
     const q = filtroTexto.toLowerCase();
     return item.vista.toLowerCase().includes(q) || (item.desc || '').toLowerCase().includes(q) || (item.tag || '').toLowerCase().includes(q);
   });
+
+  if (todasHerramientasPermitidas.length === 0) {
+    return (
+      <div className="container py-5 animate__animated animate__fadeIn">
+        <div className="card border-0 shadow-sm rounded-4 p-5 text-center bg-white mx-auto" style={{ maxWidth: '650px' }}>
+          <div className="mb-4">
+            <div className="d-inline-flex p-4 rounded-circle bg-danger bg-opacity-10 text-danger mb-3 shadow-sm border border-danger border-opacity-25">
+              <i className="bi bi-shield-lock-fill" style={{ fontSize: '3.5rem' }}></i>
+            </div>
+            <h3 className="fw-bolder text-dark mb-2">Acceso Restringido</h3>
+            <p className="text-muted mb-4 fs-6">
+              Tu rol actual no cuenta con módulos activos en la caja de herramientas <b className="text-primary">{decodedCategory}</b>.
+            </p>
+            <div className="p-3 bg-light rounded-3 border text-start small text-muted mb-4">
+              <i className="bi bi-info-circle-fill text-primary me-2"></i>
+              Los módulos de esta sección se encuentran bloqueados para tu rol. Si requieres acceso, solicita al <b>Administrador del Sistema</b> que habilite los privilegios correspondientes en el módulo de <i>Roles y Privilegios</i>.
+            </div>
+          </div>
+          <div className="d-flex justify-content-center gap-3 flex-wrap">
+            <button 
+              onClick={() => navigate('/')} 
+              className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm"
+              style={{ backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' }}
+            >
+              <i className="bi bi-house-door-fill me-2"></i>Ir al Panel Principal
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modulo-animado container-fluid p-0">
@@ -831,7 +864,7 @@ export const CategoryDashboard = () => {
                   title="Caja de Herramientas"
                 >
                   <i className="bi bi-grid-3x3-gap-fill text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{herramientasFiltradas.length} de {modulo.items.length} Módulos</span>
+                  <span className="font-monospace fw-bold text-dark">{filtroTexto ? `${herramientasFiltradas.length} de ` : ''}{todasHerramientasPermitidas.length} Módulos Activos</span>
                 </div>
                 <div 
                   className="tech-pill-badge shadow-xs cursor-pointer" 
@@ -935,7 +968,7 @@ export const CategoryDashboard = () => {
       {/* 4. Barra de Acciones y Búsqueda de Herramientas */}
       <ChamiloActionBar
         title="Herramientas Disponibles"
-        subtitle={`${herramientasFiltradas.length} de ${modulo.items.length} herramientas activas para tu rol`}
+        subtitle={`${herramientasFiltradas.length} de ${todasHerramientasPermitidas.length} herramientas activas para tu rol`}
       >
         <div className="input-group" style={{ maxWidth: '350px' }}>
           <span className="input-group-text bg-light border-end-0 rounded-start-3">

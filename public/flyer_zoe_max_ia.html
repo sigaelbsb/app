@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Flyer Zoe & Max - Asistentes Virtuales IA de SIGAE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      width: 1080px;
+      height: 1580px;
+      background: #f5f8fe;
+      font-family: 'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #0f172a;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient Soft Glow orbs */
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+    .orb-1 { width: 550px; height: 500px; background: rgba(244, 114, 182, 0.45); top: -120px; left: -120px; }
+    .orb-2 { width: 550px; height: 550px; background: rgba(186, 230, 253, 0.55); top: 160px; right: -120px; }
+    .orb-3 { width: 450px; height: 450px; background: rgba(199, 210, 254, 0.5); bottom: 100px; left: -120px; }
+    .orb-4 { width: 450px; height: 450px; background: rgba(233, 213, 255, 0.55); bottom: -80px; right: -80px; }
+
+    /* Top Institutional Header */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 145px;
+      padding: 0 45px;
+      background: rgba(255, 255, 255, 0.98);
+      border-bottom: 2px solid #e2e8f0;
+      position: relative;
+      z-index: 20;
+    }
+    .school-crest {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .school-crest img {
+      height: 82px;
+      object-fit: contain;
+    }
+    .school-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .school-name {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+    .school-motto-blue {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0284c7;
+      margin-top: 2px;
+    }
+    .school-motto-red {
+      font-size: 14px;
+      font-weight: 700;
+      color: #e11d48;
+      margin-top: 2px;
+    }
+
+    /* Superimposed Center Logo */
+    .sigae-center {
+      position: absolute;
+      left: 50%;
+      top: 10px;
+      transform: translateX(-50%);
+      z-index: 30;
+    }
+    .sigae-center img {
+      height: 170px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 18px rgba(99, 102, 241, 0.35));
+    }
+
+    /* Main Container */
+    .content {
+      padding: 34px 45px 25px;
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      height: calc(1580px - 145px);
+      justify-content: space-between;
+    }
+
+    /* Title Section */
+    .title-section {
+      text-align: center;
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 22px;
+      border-radius: 20px;
+      background: #f3e8ff;
+      border: 2px solid rgba(147, 51, 234, 0.8);
+      font-size: 15px;
+      font-weight: 800;
+      color: #7e22ce;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      box-shadow: 0 4px 12px rgba(147, 51, 234, 0.15);
+      margin-bottom: 12px;
+    }
+    .badge-pill span {
+      background: #9333ea;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .main-title {
+      font-size: 47px;
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+    .main-subtitle {
+      font-size: 21px;
+      color: #7e22ce;
+      font-weight: 800;
+    }
+
+    /* Showcase Grid */
+    .showcase-area {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      align-items: stretch;
+      margin-top: 10px;
+    }
+
+    /* Zoe & Max Card */
+    .char-card {
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #e9d5ff;
+      border-radius: 24px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04);
+      position: relative;
+    }
+
+    .duo-bubble {
+      width: 100%;
+      background: #faf5ff;
+      border: 1px solid #d8b4fe;
+      border-radius: 16px;
+      padding: 12px 14px;
+      position: relative;
+      margin-bottom: 8px;
+    }
+    .duo-bubble h4 {
+      font-size: 14px;
+      font-weight: 800;
+      color: #7e22ce;
+      margin-bottom: 4px;
+    }
+    .duo-bubble p {
+      font-size: 12px;
+      color: #334155;
+      line-height: 1.35;
+    }
+    .duo-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 8px 0;
+      border-style: solid;
+      border-color: #faf5ff transparent;
+      display: block;
+      width: 0;
+    }
+
+    .char-img-container {
+      height: 350px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .char-img {
+      max-height: 100%;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.15));
+    }
+
+    .char-footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      text-align: center;
+    }
+    .char-badge {
+      display: inline-block;
+      background: #7e22ce;
+      color: #ffffff;
+      padding: 7px 20px;
+      border-radius: 18px;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 12px rgba(126, 34, 206, 0.3);
+      margin-bottom: 8px;
+    }
+    .char-badge-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #7e22ce;
+    }
+    .char-badge-sub {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Right Column: Roles */
+    .roles-list {
+      display: flex;
+      flex-direction: column;
+      gap: 17px;
+    }
+    .role-card {
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.03);
+      position: relative;
+    }
+    .role-accent {
+      position: absolute;
+      left: 0;
+      top: 14px;
+      bottom: 14px;
+      width: 5px;
+      border-radius: 0 3px 3px 0;
+    }
+    .card-1 .role-accent { background: #db2777; }
+    .card-2 .role-accent { background: #0284c7; }
+    .card-3 .role-accent { background: #7c3aed; }
+    .card-4 .role-accent { background: #059669; }
+
+    .tag-box {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 2px solid;
+    }
+    .card-1 .tag-box { background: #fdf2f8; border-color: #fbcfe8; color: #db2777; }
+    .card-2 .tag-box { background: #e0f2fe; border-color: #bae6fd; color: #0284c7; }
+    .card-3 .tag-box { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+    .card-4 .tag-box { background: #ecfdf5; border-color: #a7f3d0; color: #059669; }
+
+    .tag-box .tag { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; }
+    .tag-box .num { font-size: 22px; font-weight: 900; line-height: 1; }
+
+    .icon-box {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      background: #ffffff;
+      border: 2px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+    }
+    .icon-box img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .role-info {
+      flex: 1;
+    }
+    .role-info h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .role-info p {
+      font-size: 13.5px;
+      color: #475569;
+      line-height: 1.35;
+    }
+
+    /* Notice Banner */
+    .notice-banner {
+      background: #faf5ff;
+      border: 2px solid #a855f7;
+      border-radius: 20px;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .notice-icon img {
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+    }
+    .notice-text h4 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #7e22ce;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .notice-text p {
+      font-size: 13px;
+      color: #581c87;
+      line-height: 1.35;
+    }
+
+    /* Call To Action Box */
+    .cta-card {
+      background: #18102e;
+      border: 2px solid #a855f7;
+      border-radius: 24px;
+      padding: 22px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 15px 35px rgba(24, 16, 46, 0.25);
+    }
+    .cta-left {
+      flex: 1;
+    }
+    .cta-sub {
+      font-size: 14px;
+      font-weight: 800;
+      color: #e9d5ff;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .cta-title {
+      font-size: 21px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 12px;
+    }
+    .url-pill {
+      display: inline-flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #e9d5ff;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-family: monospace;
+      font-size: 17px;
+      font-weight: 800;
+      color: #18102e;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .cta-qr-box {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    }
+    .cta-qr-box img {
+      width: 116px;
+      height: 116px;
+      object-fit: contain;
+    }
+    .cta-qr-box span {
+      font-size: 11px;
+      font-weight: 800;
+      color: #18102e;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    /* Footer */
+    .footer-text {
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+  <div class="glow-orb orb-4"></div>
+
+  <!-- Header with Real Logos -->
+  <header class="header-bar">
+    <div class="school-crest">
+      <img src="assets/img/logo_sb.png" alt="U.E. Santa Bárbara">
+      <div class="school-info">
+        <div class="school-name">U.E. Santa Bárbara</div>
+        <div class="school-motto-blue">“Educar para la Vida”</div>
+      </div>
+    </div>
+
+    <!-- Center Superimposed Logo -->
+    <div class="sigae-center">
+      <img src="assets/img/sigae.png" alt="SIGAE">
+    </div>
+
+    <div class="school-crest" style="flex-direction: row-reverse;">
+      <img src="assets/img/logo_lb.png" alt="U.E. Libertador Bolívar">
+      <div class="school-info" style="text-align: right;">
+        <div class="school-name">U.E. Libertador Bolívar</div>
+        <div class="school-motto-red">“Formando al Nuevo Republicano”</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="content">
+
+    <!-- Title Section -->
+    <div class="title-section">
+      <div class="badge-pill">
+        <span></span> Inteligencia Artificial Educativa <span></span>
+      </div>
+      <h1 class="main-title">¡CONOCE A ZOE Y MAX EN SIGAE!</h1>
+      <p class="main-subtitle">Tus nuevos asistentes virtuales inteligentes listos para ayudarte 24/7</p>
+    </div>
+
+    <!-- Center Showcase Grid -->
+    <div class="showcase-area">
+
+      <!-- Zoe & Max Duo Column -->
+      <div class="char-card">
+        <div class="duo-bubble">
+          <h4>¡Hola! Somos Zoe y Max.</h4>
+          <p>Estamos aquí para orientarte paso a paso, responder tus preguntas y hacer tu gestión escolar más ágil y sencilla.</p>
+        </div>
+
+        <div class="char-img-container">
+          <img class="char-img" src="assets/img/personajes/zoe_max_duo_3d.png" alt="Zoe y Max Asistentes Virtuales">
+        </div>
+
+        <div class="char-footer">
+          <div class="char-badge">ZOE &amp; MAX (ASISTENTES IA)</div>
+          <div class="char-badge-title">Tecnología con Calidez y Sentido Pedagógico</div>
+          <div class="char-badge-sub">Orientación interactiva en todos los módulos</div>
+        </div>
+      </div>
+
+      <!-- Right Roles Column -->
+      <div class="roles-list">
+
+        <!-- Role 1 -->
+        <div class="role-card card-1">
+          <div class="role-accent"></div>
+          <div class="tag-box">
+            <span class="tag">ROL</span>
+            <span class="num">1</span>
+          </div>
+          <div class="icon-box">
+            <img src="icons3d/icono_academico_3d.png" alt="Académico">
+          </div>
+          <div class="role-info">
+            <h3>Guía Paso a Paso en Cada Módulo</h3>
+            <p>Zoe y Max te explican cómo realizar inscripciones, carga de notas, solicitud de cupos y emisión de constancias sin complicaciones.</p>
+          </div>
+        </div>
+
+        <!-- Role 2 -->
+        <div class="role-card card-2">
+          <div class="role-accent"></div>
+          <div class="tag-box">
+            <span class="tag">ROL</span>
+            <span class="num">2</span>
+          </div>
+          <div class="icon-box">
+            <img src="icons3d/icono_seguridad_3d.png" alt="Seguridad">
+          </div>
+          <div class="role-info">
+            <h3>Soporte en Seguridad, Huella y 2FA</h3>
+            <p>Te enseñan a activar tu huella biométrica, configurar tu doble factor (Google/Microsoft Authenticator) y proteger tus datos.</p>
+          </div>
+        </div>
+
+        <!-- Role 3 -->
+        <div class="role-card card-3">
+          <div class="role-accent"></div>
+          <div class="tag-box">
+            <span class="tag">ROL</span>
+            <span class="num">3</span>
+          </div>
+          <div class="icon-box">
+            <img src="icons3d/icono_disenos_3d.png" alt="Atención">
+          </div>
+          <div class="role-info">
+            <h3>Atención Inmediata y Respuestas 24/7</h3>
+            <p>Resuelven dudas frecuentes sobre cronogramas escolares, requisitos de matrícula y estado de trámites escolares en cualquier horario.</p>
+          </div>
+        </div>
+
+        <!-- Role 4 -->
+        <div class="role-card card-4">
+          <div class="role-accent"></div>
+          <div class="tag-box">
+            <span class="tag">ROL</span>
+            <span class="num">4</span>
+          </div>
+          <div class="icon-box">
+            <img src="icons3d/icono_personal_3d.png" alt="Acompañamiento">
+          </div>
+          <div class="role-info">
+            <h3>Acompañamiento a Docentes y Familias</h3>
+            <p>Adaptados a las necesidades de cada usuario: los docentes agilizan su trabajo y los representantes encuentran respuestas claras.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Notice Banner -->
+    <div class="notice-banner">
+      <div class="notice-icon">
+        <img src="icons3d/icono_inicio_3d.png" alt="Inicio">
+      </div>
+      <div class="notice-text">
+        <h4>¡DISPONIBLES EN TODA LA PLATAFORMA! • HAZ CLIC EN SUS GUÍAS INTERACTIVAS</h4>
+        <p>En cualquier pantalla de SIGAE podrás abrir la orientación de Zoe o Max para recibir instrucciones instantáneas.</p>
+      </div>
+    </div>
+
+    <!-- CTA & QR Access Card -->
+    <div class="cta-card">
+      <div class="cta-left">
+        <div class="cta-sub">ACCESO DIRECTO A LA PLATAFORMA:</div>
+        <div class="cta-title">¡Ingresa y descubre la asistencia inteligente hoy!</div>
+        <div class="url-pill">
+          https://app-delta-ten-80.vercel.app/login
+        </div>
+      </div>
+
+      <div class="cta-qr-box">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=https://app-delta-ten-80.vercel.app/login&color=18102e&bgcolor=ffffff" alt="Código QR SIGAE">
+        <span>ESCANEA AQUÍ</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-text">
+      SIGAE • Sistema Integral de Gestión y Administración Escolar • U.E. Santa Bárbara &amp; U.E. Libertador Bolívar
+    </div>
+
+  </main>
+
+</body>
+</html>

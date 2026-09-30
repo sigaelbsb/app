@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flyer SIGAE - Sesiones y Dispositivos Activos</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        .flyer-container {
+            max-width: 1080px;
+            width: 100%;
+            background: white;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-radius: 30px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .flyer-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .download-bar {
+            background: #ffffff;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .btn-download {
+            background: #d97706; /* Amber color to match flyer */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.1), 0 2px 4px -2px rgba(217, 119, 6, 0.1);
+        }
+
+        .btn-download:hover {
+            background: #b45309;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(217, 119, 6, 0.2), 0 4px 6px -4px rgba(217, 119, 6, 0.2);
+        }
+
+        .btn-download svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        @media (max-width: 640px) {
+            .download-bar {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+            .btn-download {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="flyer-container">
+        <img src="flyer_sesiones_sigae.png" alt="Flyer SIGAE - Sesiones y Dispositivos" class="flyer-image" />
+        <div class="download-bar">
+            <div class="info">
+                <h1 class="title">Control de Sesiones y Dispositivos Activos</h1>
+                <p class="subtitle">Guía de usuario para cerrar sesiones remotas (Alta Resolución 1080x1580)</p>
+            </div>
+            <a href="flyer_sesiones_sigae.png" download="flyer_sesiones_sigae_oficial.png" class="btn-download">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Descargar PNG
+            </a>
+        </div>
+    </div>
+</body>
+</html>

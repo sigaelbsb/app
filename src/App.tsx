@@ -55,6 +55,7 @@ function safeLazy<T extends React.ComponentType<any>>(factory: () => Promise<{ d
 // Módulos pesados con carga bajo demanda segura (Code Splitting & Auto-Retry)
 const MiPerfil = safeLazy(() => import('./pages/seguridad/MiPerfil').then(m => ({ default: m.MiPerfil })));
 const MetodosAcceso = safeLazy(() => import('./pages/seguridad/MetodosAcceso').then(m => ({ default: m.MetodosAcceso })));
+const DispositivosSesiones = safeLazy(() => import('./pages/seguridad/DispositivosSesiones').then(m => ({ default: m.DispositivosSesiones })));
 const GestionUsuarios = safeLazy(() => import('./pages/seguridad/GestionUsuarios').then(m => ({ default: m.GestionUsuarios })));
 const RolesPrivilegios = safeLazy(() => import('./pages/seguridad/RolesPrivilegios').then(m => ({ default: m.RolesPrivilegios })));
 const PreguntasSeguridad = safeLazy(() => import('./pages/seguridad/PreguntasSeguridad').then(m => ({ default: m.PreguntasSeguridad })));
@@ -65,6 +66,7 @@ const ConfiguracionSistema = safeLazy(() => import('./pages/direccion/Configurac
 const DivisionTerritorial = safeLazy(() => import('./pages/direccion/DivisionTerritorial').then(m => ({ default: m.DivisionTerritorial })));
 const CerebroSigma = safeLazy(() => import('./pages/direccion/CerebroSigma').then(m => ({ default: m.CerebroSigma })));
 const PanelControl = safeLazy(() => import('./pages/direccion/PanelControl').then(m => ({ default: m.PanelControl })));
+const CalendarioEscolar = safeLazy(() => import('./pages/direccion/CalendarioEscolar').then(m => ({ default: m.CalendarioEscolar })));
 const InstalacionDescargas = safeLazy(() => import('./pages/sistema/InstalacionDescargas').then(m => ({ default: m.InstalacionDescargas })));
 
 const EstructuraEmpresa = safeLazy(() => import('./pages/organizacion/EstructuraEmpresa').then(m => ({ default: m.EstructuraEmpresa })));
@@ -212,6 +214,8 @@ function App() {
                 <Route path="categoria/:categoryName" element={<CategoryDashboard />} />
                 <Route path="categoria/Seguridad y Accesos/Mi Perfil" element={<ProtectedRoute modulo="Mi Perfil"><MiPerfil /></ProtectedRoute>} />
                 <Route path="categoria/Seguridad y Accesos/Métodos de Acceso" element={<ProtectedRoute modulo="Métodos de Acceso"><MetodosAcceso /></ProtectedRoute>} />
+                <Route path="categoria/Seguridad y Accesos/Dispositivos y Sesiones" element={<ProtectedRoute modulo="Dispositivos y Sesiones"><DispositivosSesiones /></ProtectedRoute>} />
+                <Route path="categoria/Seguridad y Accesos/Sesiones Activas" element={<Navigate to="/categoria/Seguridad y Accesos/Dispositivos y Sesiones" replace />} />
                 <Route path="categoria/Seguridad y Accesos/Gestión de Usuarios" element={<ProtectedRoute modulo="Gestión de Usuarios"><GestionUsuarios /></ProtectedRoute>} />
                 <Route path="categoria/Seguridad y Accesos/Roles y Privilegios" element={<ProtectedRoute modulo="Roles y Privilegios"><RolesPrivilegios /></ProtectedRoute>} />
                 <Route path="categoria/Seguridad y Accesos/Preguntas de Seguridad" element={<ProtectedRoute modulo="Preguntas de Seguridad"><PreguntasSeguridad /></ProtectedRoute>} />
@@ -223,6 +227,7 @@ function App() {
                 <Route path="categoria/Dirección y Sistema/Cerebro de Sigma" element={<ProtectedRoute modulo="Cerebro de Sigma"><CerebroSigma /></ProtectedRoute>} />
                 <Route path="categoria/Dirección y Sistema/Gestión de Registros" element={<Navigate to="/categoria/Seguridad y Accesos/Gestión de Usuarios" replace />} />
                 <Route path="categoria/Dirección y Sistema/Panel de Control" element={<ProtectedRoute modulo="Panel de Control"><PanelControl /></ProtectedRoute>} />
+                <Route path="categoria/Dirección y Sistema/Calendario Escolar" element={<ProtectedRoute modulo="Calendario Escolar"><CalendarioEscolar /></ProtectedRoute>} />
                 <Route path="categoria/Dirección y Sistema/Instalación y Descargas" element={<ProtectedRoute modulo="Instalación y Descargas"><InstalacionDescargas /></ProtectedRoute>} />
                 <Route path="categoria/Dirección y Sistema/Instalar SIGAE" element={<ProtectedRoute modulo="Instalación y Descargas"><InstalacionDescargas /></ProtectedRoute>} />
                 <Route path="instalar-sigae" element={<ProtectedRoute modulo="Instalación y Descargas"><InstalacionDescargas /></ProtectedRoute>} />

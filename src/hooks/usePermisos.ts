@@ -262,7 +262,7 @@ export const usePermisos = () => {
     }
 
     // Autogestión básica de cuenta disponible a todo usuario autenticado
-    if (modulo === "Mi Perfil" || modulo === "Métodos de Acceso") {
+    if (modulo === "Mi Perfil" || modulo === "Métodos de Acceso" || modulo === "Dispositivos y Sesiones" || modulo === "Sesiones Activas") {
       return true;
     }
 
@@ -310,6 +310,8 @@ export const usePermisos = () => {
       "Función: Ver Respuestas": ["Función: Ver Respuestas y Estadísticas"],
       "Cerebro de Sigma": ["Cerebro Sigma"],
       "Cerebro Sigma": ["Cerebro de Sigma"],
+      "Dispositivos y Sesiones": ["Sesiones Activas", "Dispositivos Conectados"],
+      "Sesiones Activas": ["Dispositivos y Sesiones", "Dispositivos Conectados"],
       "Instalación y Descargas": ["Instalar SIGAE", "Descargas", "Instalador"],
       "Instalar SIGAE": ["Instalación y Descargas", "Descargas", "Instalador"],
       "Tarjeta: Personal Institucional": ["Tarjeta: Personal Escolar DEP Oriente"],

@@ -5,6 +5,7 @@ import { usePermisos } from '../hooks/usePermisos';
 import { supabase } from '../lib/supabase';
 import { salirEmulacionSesion } from '../utils/sessionHelper';
 import { subscribeToWebPush, solicitarPermisoWebPush, actualizarAppBadge } from '../lib/webPush';
+import { registrarSesionActiva, verificarSesionActualValida, cambiarEstadoSesion, getOrInitSessionId } from '../utils/activeSessionsHelper';
 import { ChatbotSigma } from './ChatbotSigma';
 import { TourOrientacion } from './TourOrientacion';
 import { NavigationLoader } from './NavigationLoader';
@@ -914,14 +915,21 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     navigate('/', { replace: true });
   };
 
-  // Inactivity tracking (30 minutes with mobile visibility & file picker awareness)
+  // Control de Inactividad (30 segundos de inactividad + consulta con cuenta regresiva de 30 segundos)
+  // Y Monitoreo de Sesión Activa (Revocación Remota estilo WhatsApp Web)
   useEffect(() => {
-    const TIEMPO_INACTIVIDAD = 30 * 60 * 1000; // 30 minutos
-    const TIEMPO_ADVERTENCIA = 60 * 1000; // 60 segundos de advertencia
+    const TIEMPO_INACTIVIDAD = 30 * 1000; // 30 segundos de inactividad
+    const TIEMPO_CONSULTA = 30; // 30 segundos de cuenta regresiva en el modal
     
     let lastActivityTime = Date.now();
     let isWarningActive = false;
     let checkInterval: any;
+    let sessionCheckInterval: any;
+
+    // Asegurar registro inicial de esta sesión
+    if (usuario?.cedula) {
+      registrarSesionActiva(usuario.cedula);
+    }
 
     const actualizarActividad = () => {
       if (!isWarningActive) {
@@ -931,8 +939,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Al regresar a la pestaña (por ejemplo, después de buscar fotos en la galería o cámara), refrescar actividad
         actualizarActividad();
+        if (usuario?.cedula) {
+          verificarSesionRemota();
+        }
       }
     };
 
@@ -941,46 +951,100 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       lastActivityTime = Date.now();
     };
 
+    const cerrarSesionDefinitivaPorInactividad = async () => {
+      const sessionId = getOrInitSessionId();
+      if (usuario?.cedula) {
+        await cambiarEstadoSesion(usuario.cedula, sessionId, false);
+      }
+      localStorage.removeItem('sesion_sigae');
+      localStorage.removeItem('usuario_sigae');
+      localStorage.removeItem('sigae_escuela_codigo');
+      localStorage.removeItem('sigae_escuela_activa');
+      onLogout();
+      navigate('/login');
+      
+      const Swal = (window as any).Swal;
+      if (Swal) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sesión Cerrada',
+          text: 'Tu sesión se cerró automáticamente por inactividad.',
+          confirmButtonColor: '#0066FF',
+          timer: 4000
+        });
+      }
+    };
+
+    const verificarSesionRemota = async () => {
+      if (!usuario?.cedula) return;
+      const valida = await verificarSesionActualValida(usuario.cedula);
+      if (!valida) {
+        localStorage.removeItem('sesion_sigae');
+        localStorage.removeItem('usuario_sigae');
+        localStorage.removeItem('sigae_escuela_codigo');
+        localStorage.removeItem('sigae_escuela_activa');
+        onLogout();
+        navigate('/login');
+        const Swal = (window as any).Swal;
+        if (Swal) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Sesión Finalizada',
+            text: 'Tu sesión en este dispositivo fue cerrada remotamente desde otro equipo.',
+            confirmButtonColor: '#0066FF'
+          });
+        }
+      }
+    };
+
     const checkInactividad = () => {
       if (isWarningActive) return;
-      // No disparar alerta si el usuario tiene la pestaña en segundo plano (p. ej. eligiendo archivos en galería)
       if (document.visibilityState === 'hidden') return;
 
       const timeSinceLastActivity = Date.now() - lastActivityTime;
       
-      if (timeSinceLastActivity >= TIEMPO_INACTIVIDAD - TIEMPO_ADVERTENCIA) {
+      if (timeSinceLastActivity >= TIEMPO_INACTIVIDAD) {
         isWarningActive = true;
-        mostrarAdvertencia();
+        mostrarConsultaCierre();
       }
     };
 
-    const mostrarAdvertencia = () => {
+    const mostrarConsultaCierre = () => {
       const Swal = (window as any).Swal;
-      let contador = 60;
+      let contador = TIEMPO_CONSULTA;
       let intervalContador: any;
+      let cerradoPorTiempo = false;
 
       if (Swal) {
         Swal.fire({
-          title: '¿Sigues ahí?',
-          html: 'Tu sesión se bloqueará por inactividad en <b>60</b> segundos.',
+          title: '<i class="bi bi-clock-history text-warning me-2"></i>¿Sigues ahí?',
+          html: `
+            <div class="text-center py-2">
+              <p class="mb-2 text-secondary fs-6">No se ha detectado actividad en los últimos <b>30 segundos</b>.</p>
+              <div class="alert alert-warning py-2 px-3 rounded-3 mb-2 d-inline-block">
+                Por tu seguridad, la sesión se cerrará en <b class="fs-5 text-danger" id="conteo-inactividad">${TIEMPO_CONSULTA}</b> segundos.
+              </div>
+              <p class="small text-muted mb-0">¿Deseas mantener tu sesión abierta?</p>
+            </div>
+          `,
           icon: 'warning',
           showCancelButton: true,
-          confirmButtonText: 'Sí, mantener activa',
-          cancelButtonText: 'Bloquear ahora',
+          confirmButtonText: '<i class="bi bi-shield-check me-1"></i> Sí, mantener activa',
+          cancelButtonText: '<i class="bi bi-power me-1"></i> Cerrar sesión',
           confirmButtonColor: '#0066FF',
           cancelButtonColor: '#dc3545',
           allowOutsideClick: false,
           allowEscapeKey: false,
           didOpen: () => {
-            const b = Swal.getHtmlContainer()?.querySelector('b');
+            const b = document.getElementById('conteo-inactividad');
             intervalContador = setInterval(() => {
-              // Si la pestaña está oculta, pausar el conteo
-              if (document.visibilityState === 'hidden') return;
               contador--;
               if (b) b.textContent = String(contador);
               if (contador <= 0) {
+                cerradoPorTiempo = true;
                 clearInterval(intervalContador);
-                Swal.clickCancel();
+                Swal.close();
+                cerrarSesionDefinitivaPorInactividad();
               }
             }, 1000);
           },
@@ -988,20 +1052,21 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             if (intervalContador) clearInterval(intervalContador);
           }
         }).then((result: any) => {
+          if (cerradoPorTiempo) return;
           if (result.isConfirmed) {
             isWarningActive = false;
             lastActivityTime = Date.now();
           } else {
-            handleBloquearSesion();
+            cerrarSesionDefinitivaPorInactividad();
           }
         });
       } else {
-        const mantener = window.confirm("Tu sesión está inactiva. ¿Deseas mantenerte activo?");
+        const mantener = window.confirm("No se ha detectado actividad. ¿Deseas mantener tu sesión abierta?");
         if (mantener) {
           isWarningActive = false;
           lastActivityTime = Date.now();
         } else {
-          handleBloquearSesion();
+          cerrarSesionDefinitivaPorInactividad();
         }
       }
     };
@@ -1011,16 +1076,20 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('reset-inactivity-timer', handleResetInactivity);
 
-    // Check inactividad cada 10 segundos
-    checkInterval = setInterval(checkInactividad, 10000);
+    // Revisar inactividad cada segundo (1000ms) para respuesta inmediata a los 30s
+    checkInterval = setInterval(checkInactividad, 1000);
+
+    // Monitorear revocación remota cada 8 segundos (estilo WhatsApp Web)
+    sessionCheckInterval = setInterval(verificarSesionRemota, 8000);
 
     return () => {
       clearInterval(checkInterval);
+      clearInterval(sessionCheckInterval);
       eventos.forEach(evt => window.removeEventListener(evt, actualizarActividad));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('reset-inactivity-timer', handleResetInactivity);
     };
-  }, [navigate, onLogout]);
+  }, [navigate, onLogout, usuario?.cedula]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarColapsado, setSidebarColapsado] = useState(() => {
@@ -1768,9 +1837,14 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   <div className="p-3 border-bottom bg-light rounded-top-3 mb-1">
                     <div className="fw-bolder text-dark small">{usuario.nombre || 'Usuario SIGAE'}</div>
                     <div className="extra-small text-muted mb-1">C.I. {usuario.cedula || 'N/A'}</div>
-                    <span className="badge bg-primary text-white rounded-pill extra-small px-2 py-0.5 fw-bold">
-                      {usuario.rol || 'Comunidad'}
-                    </span>
+                    <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                      <span className="badge bg-primary text-white rounded-pill extra-small px-2 py-0.5 fw-bold">
+                        {usuario.rol || 'Comunidad'}
+                      </span>
+                      <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'} rounded-pill extra-small px-2 py-0.5 fw-bold`}>
+                        <i className="bi bi-geo-alt-fill me-1"></i>Sede actual: {escuelaCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Opciones Principales */}
@@ -1822,7 +1896,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                       className="chamilo-dropdown-item"
                     >
                       <i className="bi bi-arrow-left-right text-success"></i>
-                      <span>Cambiar a {escuelaCodigo === 'sb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara'}</span>
+                      <span>Cambiar a sede {escuelaCodigo === 'sb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara'}</span>
                     </button>
                   )}
 

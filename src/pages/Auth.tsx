@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { registrarSesionActiva } from '../utils/activeSessionsHelper';
 
 export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
   const [view, setView] = useState<'selector' | 'login'>('selector');
@@ -643,6 +644,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     localStorage.setItem('usuario_sigae', JSON.stringify(cleanUserData));
     localStorage.removeItem('sigae_bloqueado_total');
     
+    // Registrar sesión de este dispositivo en la base de datos (Estilo WhatsApp Web)
+    registrarSesionActiva(userData.cedula);
+
     auditarAcceso(userData.cedula, userData.nombre_completo || userData.nombre, 'Inicio de Sesión', 'El usuario accedió exitosamente al sistema.');
     onLogin(cleanUserData);
   };

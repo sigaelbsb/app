@@ -279,6 +279,25 @@ export const verificarAccesoHabilitado = (
   return { habilitado: false };
 };
 
+// ── PRESETS DE OBSERVACIONES Y RECORDATORIOS (MARCADORES) ──────────────────────
+export interface PresetRecordatorio {
+  id: string;
+  icon: string;
+  label: string;
+  color: string;
+}
+
+export const PRESETS_RECORDATORIOS_ADMISION: PresetRecordatorio[] = [
+  { id: 'recaudos', icon: 'bi-file-earmark-check', label: 'Revisar recaudos pendientes', color: '#0284c7' },
+  { id: 'llamar', icon: 'bi-telephone-outbound', label: 'Llamar a representante', color: '#16a34a' },
+  { id: 'especial', icon: 'bi-exclamation-diamond-fill', label: 'Caso especial de Dirección', color: '#dc2626' },
+  { id: 'medico', icon: 'bi-heart-pulse-fill', label: 'Pendiente informe médico / neuro', color: '#c026d3' },
+  { id: 'pdvsa', icon: 'bi-building-fill-check', label: 'Verificar constancia PDVSA / Filial', color: '#d97706' },
+  { id: 'hermano', icon: 'bi-people-fill', label: 'Tiene hermano(a) en el plantel', color: '#4f46e5' },
+  { id: 'espera', icon: 'bi-hourglass-split', label: 'En lista de espera para cupo', color: '#ca8a04' },
+  { id: 'completo', icon: 'bi-check-all', label: 'Expediente verificado y completo', color: '#059669' },
+];
+
 // ── PARSER Y SERIALIZADOR DE OBSERVACIONES / METADATOS ──────────────────────────
 export const parsearObservaciones = (obs?: string) => {
   let aptitud = 'En Evaluación';
@@ -337,7 +356,20 @@ export const parsearObservaciones = (obs?: string) => {
     if (matchAcceso) {
       acceso_habilitado = true;
       acceso_fecha = matchAcceso[1]?.trim() || null;
+      textoLimpio = textoLimpio.replace(matchAcceso[0], '').trim();
     }
+
+    const matchFormalizada = obs.match(/\[Inscripción Física Formalizada(?: el ([^\]\s]+))?(?: en Sección ([^\]]+))?\]/i);
+    if (matchFormalizada) {
+      textoLimpio = textoLimpio.replace(matchFormalizada[0], '').trim();
+    }
+
+    // Limpieza de barras o separadores residuales que queden al inicio o final
+    textoLimpio = textoLimpio
+      .replace(/^\|\s*/, '')
+      .replace(/\s*\|\s*$/, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   }
 
   return {
@@ -368,13 +400,20 @@ export const estructurarObservaciones = (
   esPersonalEscuela?: boolean,
   whatsappNotificado?: boolean,
   whatsappFecha?: string | null,
-  whatsappEstado?: string | null
+  whatsappEstado?: string | null,
+  obsOriginal?: string
 ): string => {
   let cleanText = (textoBase || '')
     .replace(/\[Aptitud:\s*[^\]]+\]/gi, '')
     .replace(/\[Jerarquía:\s*[^\]]+\]/gi, '')
     .replace(/\[PersonalEscuela:\s*[^\]]+\]/gi, '')
-    .replace(/\[WhatsApp:\s*[^\]]+\]/gi, '')
+    .replace(/\[(?:WhatsApp Aceptación|WhatsApp):\s*[^\]]+\]/gi, '')
+    .replace(/\[(?:WhatsApp )?Orientaciones:\s*[^\]]+\]/gi, '')
+    .replace(/\[Acceso Habilitado en SIGAE[^\]]*\]/gi, '')
+    .replace(/\[Acceso SIGAE Habilitado[^\]]*\]/gi, '')
+    .replace(/\[Inscripción Física Formalizada[^\]]*\]/gi, '')
+    .replace(/^\|\s*/, '')
+    .replace(/\s*\|\s*$/, '')
     .trim();
 
   let tags = `[Aptitud: ${aptitud || 'En Evaluación'}]`;
@@ -388,7 +427,40 @@ export const estructurarObservaciones = (
     tags += ` [WhatsApp: Enviado${whatsappFecha ? ` | Fecha: ${whatsappFecha}` : ''}${whatsappEstado ? ` | Estado: ${whatsappEstado}` : ''}]`;
   }
 
+  // Preservar tags de orientaciones o accesos si existían en obsOriginal
+  if (obsOriginal) {
+    const matchOrientaciones = obsOriginal.match(/\[(?:WhatsApp )?Orientaciones:\s*[^\]]+\]/i);
+    if (matchOrientaciones && !tags.includes(matchOrientaciones[0])) {
+      tags += ` ${matchOrientaciones[0]}`;
+    }
+    const matchAcceso = obsOriginal.match(/\[Acceso (?:Habilitado en |SIGAE )Habilitado[^\]]*\]/i);
+    if (matchAcceso && !tags.includes(matchAcceso[0])) {
+      tags += ` ${matchAcceso[0]}`;
+    }
+    const matchFormalizada = obsOriginal.match(/\[Inscripción Física Formalizada[^\]]*\]/i);
+    if (matchFormalizada && !tags.includes(matchFormalizada[0])) {
+      tags += ` ${matchFormalizada[0]}`;
+    }
+  }
+
   return cleanText ? `${tags} ${cleanText}` : tags;
+};
+
+// ── ACTUALIZAR ÚNICAMENTE LA OBSERVACIÓN MANUAL PRESERVANDO TODOS LOS METADATOS ──
+export const actualizarObservacionManual = (obsOriginal: string | undefined, nuevoTextoLimpio: string): string => {
+  const parsed = parsearObservaciones(obsOriginal);
+  return estructurarObservaciones(
+    nuevoTextoLimpio,
+    parsed.aptitud,
+    parsed.instruccion_jerarquica,
+    parsed.instruccion_quien,
+    parsed.prioridad_manual,
+    parsed.es_personal_escuela,
+    parsed.whatsapp_notificado,
+    parsed.whatsapp_fecha,
+    parsed.whatsapp_estado,
+    obsOriginal
+  );
 };
 
 // ── DETERMINADOR DE ENTORNO LOCAL DE LA ESCUELA ──────────────────────────────────
@@ -818,9 +890,17 @@ export const GestionAdmisiones: React.FC = () => {
   const [filtroGrado, setFiltroGrado] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroWhatsApp, setFiltroWhatsApp] = useState<'todos' | 'notificado' | 'sin_notificar'>('todos');
+  const [filtroMarcador, setFiltroMarcador] = useState<'todos' | 'con_marcador' | 'sin_marcador'>('todos');
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtrosPanelAbierto, setFiltrosPanelAbierto] = useState<boolean>(false);
   const [modalMatrizCapacidadAbierto, setModalMatrizCapacidadAbierto] = useState<boolean>(false);
+
+  // ── MODAL DE MARCADOR Y RECORDATORIO MANUAL (CASOS ESPECIALES) ─────────────────
+  const [modalMarcadorAbierto, setModalMarcadorAbierto] = useState<boolean>(false);
+  const [solicitudMarcador, setSolicitudMarcador] = useState<SolicitudAdmision | null>(null);
+  const [textoMarcador, setTextoMarcador] = useState<string>('');
+  const [guardandoMarcador, setGuardandoMarcador] = useState<boolean>(false);
+  const [limpiandoMarcadoresMasivo, setLimpiandoMarcadoresMasivo] = useState<boolean>(false);
 
   // ── CATÁLOGOS CARGADOS DESDE LA BD ─────────────────────────────────────────────
   const [opcionesNomina, setOpcionesNomina] = useState<string[]>([]);
@@ -873,7 +953,8 @@ export const GestionAdmisiones: React.FC = () => {
     modalDuplicadosAbierto ||
     modalVaciosAbierto ||
     modalRegularesAbierto ||
-    modalVisorDocsAbierto
+    modalVisorDocsAbierto ||
+    modalMarcadorAbierto
   );
 
   useEffect(() => {
@@ -1406,6 +1487,7 @@ export const GestionAdmisiones: React.FC = () => {
     if (filtroGrado !== 'todos') count++;
     if (filtroEstado !== 'todos') count++;
     if (filtroWhatsApp !== 'todos') count++;
+    if (filtroMarcador !== 'todos') count++;
     if (busqueda.trim() !== '') count++;
     return count;
   }, [
@@ -1418,6 +1500,7 @@ export const GestionAdmisiones: React.FC = () => {
     filtroGrado,
     filtroEstado,
     filtroWhatsApp,
+    filtroMarcador,
     busqueda
   ]);
 
@@ -1611,6 +1694,14 @@ export const GestionAdmisiones: React.FC = () => {
         if (parsed.whatsapp_notificado) return false;
       }
 
+      if (filtroMarcador === 'con_marcador') {
+        const parsed = parsearObservaciones(s.observaciones);
+        if (!parsed.textoLimpio || parsed.textoLimpio.trim().length === 0) return false;
+      } else if (filtroMarcador === 'sin_marcador') {
+        const parsed = parsearObservaciones(s.observaciones);
+        if (parsed.textoLimpio && parsed.textoLimpio.trim().length > 0) return false;
+      }
+
       if (busqueda.trim() !== '') {
         const query = busqueda.toLowerCase().trim();
         const nomEst = `${s.estudiante_nombres || ''} ${s.estudiante_apellidos || ''}`.toLowerCase();
@@ -1651,6 +1742,7 @@ export const GestionAdmisiones: React.FC = () => {
     filtroGrado,
     filtroEstado,
     filtroWhatsApp,
+    filtroMarcador,
     busqueda,
   ]);
 
@@ -1779,6 +1871,14 @@ export const GestionAdmisiones: React.FC = () => {
     return { total, aprobados, formalizados, pendientes, evaluacion, rechazados, aptos };
   }, [solicitudesFiltradas]);
 
+  // ── TOTAL DE SOLICITUDES CON MARCADOR O RECORDATORIO MANUAL ───────────────────
+  const totalConMarcador = useMemo(() => {
+    return solicitudes.filter(s => {
+      const parsed = parsearObservaciones(s.observaciones);
+      return parsed.textoLimpio && parsed.textoLimpio.trim().length > 0;
+    }).length;
+  }, [solicitudes]);
+
   const limpiarFiltros = () => {
     setFiltroEscuela(esSedeFija ? escuelaUsuarioAsignada : 'todas');
     setFiltroPrioridad('todas');
@@ -1789,6 +1889,7 @@ export const GestionAdmisiones: React.FC = () => {
     setFiltroGrado('todos');
     setFiltroEstado('todos');
     setFiltroWhatsApp('todos');
+    setFiltroMarcador('todos');
     setBusqueda('');
   };
 
@@ -2126,6 +2227,237 @@ export const GestionAdmisiones: React.FC = () => {
   const cerrarModal = () => {
     setModalAbierto(false);
     setSolicitudSeleccionada(null);
+  };
+
+  // ── GESTIÓN DE MARCADOR Y RECORDATORIO MANUAL RÁPIDO ────────────────────────────
+  const abrirModalMarcador = (sol: SolicitudAdmision) => {
+    const parsed = parsearObservaciones(sol.observaciones);
+    setSolicitudMarcador(sol);
+    setTextoMarcador(parsed.textoLimpio || '');
+    setModalMarcadorAbierto(true);
+  };
+
+  const cerrarModalMarcador = () => {
+    setModalMarcadorAbierto(false);
+    setSolicitudMarcador(null);
+    setTextoMarcador('');
+  };
+
+  const guardarMarcador = async (borrar: boolean = false) => {
+    if (!solicitudMarcador) return;
+    setGuardandoMarcador(true);
+    try {
+      const textoAGuardar = borrar ? '' : textoMarcador.trim();
+      const obsFinal = actualizarObservacionManual(solicitudMarcador.observaciones, textoAGuardar);
+
+      const { error } = await supabase
+        .from('solicitud_cupos')
+        .update({ observaciones: obsFinal })
+        .eq('id', solicitudMarcador.id);
+
+      if (error) throw error;
+
+      // Actualizar memoria local en React
+      setSolicitudes(prev =>
+        prev.map(s => (s.id === solicitudMarcador.id ? { ...s, observaciones: obsFinal } : s))
+      );
+
+      if (solicitudSeleccionada && solicitudSeleccionada.id === solicitudMarcador.id) {
+        setSolicitudSeleccionada(prev => (prev ? { ...prev, observaciones: obsFinal } : null));
+        setNuevasObservaciones(textoAGuardar);
+      }
+
+      if (solicitudUnoAUno && solicitudUnoAUno.id === solicitudMarcador.id) {
+        setNuevasObservaciones(textoAGuardar);
+      }
+
+      const nomEst = nombreCompleto(solicitudMarcador.estudiante_nombres, solicitudMarcador.estudiante_apellidos);
+      await auditar(
+        'Gestión de Admisiones',
+        borrar ? 'Eliminar Marcador/Recordatorio' : 'Guardar Marcador/Recordatorio',
+        `Aspirante: ${nomEst} (${solicitudMarcador.codigo_unico}) - Nota: ${textoAGuardar || 'Marcador retirado'}`
+      );
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: borrar ? 'Marcador Retirado' : 'Recordatorio Guardado',
+          text: borrar
+            ? 'Se ha eliminado el recordatorio de esta solicitud.'
+            : 'La observación manual y marcador han sido guardados.',
+          timer: 1800,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        });
+      }
+
+      cerrarModalMarcador();
+    } catch (err: any) {
+      console.error('Error al guardar marcador:', err);
+      if (Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Guardar',
+          text: err.message || 'No se pudo guardar la observación manual.'
+        });
+      }
+    } finally {
+      setGuardandoMarcador(false);
+    }
+  };
+
+  // ── LIMPIEZA MASIVA DE TODOS LOS MARCADORES Y RECORDATORIOS ─────────────────────
+  const limpiarTodosLosMarcadores = async () => {
+    if (totalConMarcador === 0) {
+      if (Swal) Swal.fire({ icon: 'info', title: 'Sin Marcadores', text: 'No hay recordatorios registrados para limpiar.' });
+      return;
+    }
+
+    if (Swal) {
+      const result = await Swal.fire({
+        title: '¿Limpiar todos los recordatorios?',
+        html: `Se removerán las notas y recordatorios de los <b>${totalConMarcador}</b> casos para que puedas organizarlos desde cero.<br/><br/><small class="text-success fw-bold"><i class="bi bi-shield-check"></i> Las aptitudes (Apto/No Apto), estatus de cupos y accesos a SIGAE se mantendrán 100% intactos.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#D97706',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: '<i class="bi bi-trash3 me-1"></i> Sí, limpiar todos',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!result.isConfirmed) return;
+    }
+
+    setLimpiandoMarcadoresMasivo(true);
+    try {
+      const solicitudesConMarcador = solicitudes.filter(s => {
+        const parsed = parsearObservaciones(s.observaciones);
+        return parsed.textoLimpio && parsed.textoLimpio.trim().length > 0;
+      });
+
+      const updates = solicitudesConMarcador.map(s => ({
+        id: s.id,
+        observaciones: actualizarObservacionManual(s.observaciones, '')
+      }));
+
+      // Ejecutar en lotes de 25
+      const batchSize = 25;
+      for (let i = 0; i < updates.length; i += batchSize) {
+        const batch = updates.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(item =>
+            supabase.from('solicitud_cupos').update({ observaciones: item.observaciones }).eq('id', item.id)
+          )
+        );
+      }
+
+      // Actualizar estado local reactivo
+      const idMap = new Map(updates.map(u => [u.id, u.observaciones]));
+      setSolicitudes(prev => prev.map(s => idMap.has(s.id) ? { ...s, observaciones: idMap.get(s.id)! } : s));
+
+      await auditar(
+        'Gestión de Admisiones',
+        'Limpieza Masiva de Recordatorios',
+        `Se restablecieron y limpiaron los recordatorios de ${updates.length} solicitudes de cupos`
+      );
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Recordatorios Restablecidos',
+          text: `Se han limpiado las notas de los ${updates.length} casos. Ahora puedes ir agregando tus propios recordatorios.`,
+          timer: 2500,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        });
+      }
+    } catch (err: any) {
+      console.error('Error limpiando marcadores masivo:', err);
+      if (Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Restablecer',
+          text: err.message || 'No se pudieron limpiar todos los recordatorios.'
+        });
+      }
+    } finally {
+      setLimpiandoMarcadoresMasivo(false);
+    }
+  };
+
+  // ── LIMPIEZA DE MARCADORES EN SOLICITUDES SELECCIONADAS ────────────────────────
+  const limpiarMarcadoresSeleccionados = async () => {
+    if (seleccionadosListadoGeneral.size === 0) return;
+
+    if (Swal) {
+      const result = await Swal.fire({
+        title: '¿Quitar recordatorios seleccionados?',
+        html: `Se removerán las notas y recordatorios de las <b>${seleccionadosListadoGeneral.size}</b> solicitudes seleccionadas.<br/><br/><small class="text-success fw-bold"><i class="bi bi-shield-check"></i> Las aptitudes y estados permanecerán intactos.</small>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#D97706',
+        cancelButtonColor: '#6B7280',
+        confirmButtonText: '<i class="bi bi-trash3 me-1"></i> Sí, quitar notas',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!result.isConfirmed) return;
+    }
+
+    setLimpiandoMarcadoresMasivo(true);
+    try {
+      const idsSeleccionados = Array.from(seleccionadosListadoGeneral);
+      const seleccionadas = solicitudes.filter(s => idsSeleccionados.includes(String(s.id)));
+
+      const updates = seleccionadas.map(s => ({
+        id: s.id,
+        observaciones: actualizarObservacionManual(s.observaciones, '')
+      }));
+
+      const batchSize = 25;
+      for (let i = 0; i < updates.length; i += batchSize) {
+        const batch = updates.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(item =>
+            supabase.from('solicitud_cupos').update({ observaciones: item.observaciones }).eq('id', item.id)
+          )
+        );
+      }
+
+      const idMap = new Map(updates.map(u => [u.id, u.observaciones]));
+      setSolicitudes(prev => prev.map(s => idMap.has(s.id) ? { ...s, observaciones: idMap.get(s.id)! } : s));
+
+      await auditar(
+        'Gestión de Admisiones',
+        'Limpieza Parcial de Recordatorios',
+        `Se retiraron los recordatorios de ${updates.length} solicitudes seleccionadas`
+      );
+
+      if (Swal) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Recordatorios Removidos',
+          text: `Se retiraron las notas de las ${updates.length} solicitudes seleccionadas.`,
+          timer: 2000,
+          showConfirmButton: false,
+          toast: true,
+          position: 'top-end'
+        });
+      }
+    } catch (err: any) {
+      console.error('Error limpiando marcadores seleccionados:', err);
+      if (Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: err.message || 'No se pudieron limpiar los recordatorios seleccionados.'
+        });
+      }
+    } finally {
+      setLimpiandoMarcadoresMasivo(false);
+    }
   };
 
   // ── GUARDAR EVALUACIÓN Y CAMBIOS DE ESTADO ─────────────────────────────────────
@@ -5916,6 +6248,26 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   </select>
                 </div>
 
+                {/* Botón Filtro Rápido: Con Marcador / Recordatorio */}
+                <button
+                  type="button"
+                  className={`btn btn-sm text-nowrap fw-bold d-flex align-items-center gap-1.5 shadow-xs ${
+                    filtroMarcador === 'con_marcador'
+                      ? 'btn-warning text-dark border-warning'
+                      : 'btn-outline-secondary'
+                  }`}
+                  onClick={() => setFiltroMarcador(filtroMarcador === 'con_marcador' ? 'todos' : 'con_marcador')}
+                  title="Filtrar solicitudes con marcadores o recordatorios manuales"
+                >
+                  <i className="bi bi-pin-angle-fill text-warning"></i>
+                  <span className="d-none d-sm-inline">Marcador</span>
+                  {totalConMarcador > 0 && (
+                    <span className={`badge rounded-pill px-1.5 py-0.5 ${filtroMarcador === 'con_marcador' ? 'bg-dark text-white' : 'bg-warning text-dark'}`} style={{ fontSize: '10px' }}>
+                      {totalConMarcador}
+                    </span>
+                  )}
+                </button>
+
                 {/* Botón Alternar Filtros Avanzados */}
                 <button
                   type="button"
@@ -6008,6 +6360,13 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                   <span className="badge bg-success-subtle text-success border rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
                     WA: {filtroWhatsApp === 'notificado' ? 'Notificados' : 'Sin Notificar'}
                     <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroWhatsApp('todos')}></button>
+                  </span>
+                )}
+
+                {filtroMarcador !== 'todos' && (
+                  <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-2 py-1 extra-small d-inline-flex align-items-center gap-1">
+                    Marcador: {filtroMarcador === 'con_marcador' ? 'Con Recordatorio' : 'Sin Recordatorio'}
+                    <button type="button" className="btn-close ms-1" style={{ fontSize: '7px' }} onClick={() => setFiltroMarcador('todos')}></button>
                   </span>
                 )}
 
@@ -6164,6 +6523,21 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                       <option value="sin_notificar">⏳ Pendientes por Notificar</option>
                     </select>
                   </div>
+
+                  <div className="col-12 col-sm-6 col-md-4 col-lg-3">
+                    <label className="form-label extra-small fw-bold text-secondary mb-1">
+                      <i className="bi bi-pin-angle text-warning me-1"></i> Marcador / Recordatorio
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={filtroMarcador}
+                      onChange={e => setFiltroMarcador(e.target.value as any)}
+                    >
+                      <option value="todos">Todos los Registros</option>
+                      <option value="con_marcador">📌 Solo Con Marcador / Recordatorio ({totalConMarcador})</option>
+                      <option value="sin_marcador">⚪ Sin Marcador ({solicitudes.length - totalConMarcador})</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="d-flex justify-content-end mt-2 pt-2 border-top">
@@ -6190,11 +6564,32 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
         <div className="card border-0 shadow-sm rounded-3">
           <div className="card-header bg-white py-3 border-bottom d-flex flex-column gap-2">
             <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 w-100">
-              <div className="fw-bold text-dark d-flex align-items-center gap-2">
+              <div className="fw-bold text-dark d-flex align-items-center gap-2 flex-wrap">
                 <span>Listado General de Aspirantes</span>
                 <span className="badge bg-primary rounded-pill px-2.5 py-1">
                   {solicitudesFiltradas.length} {solicitudesFiltradas.length === 1 ? 'registro' : 'registros'}
                 </span>
+                {totalConMarcador > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-warning btn-sm py-0.5 px-2.5 extra-small fw-bold rounded-pill d-inline-flex align-items-center gap-1 shadow-2xs text-dark"
+                    onClick={limpiarTodosLosMarcadores}
+                    disabled={limpiandoMarcadoresMasivo}
+                    title="Remover las notas de texto y recordatorios de todos los aspirantes para comenzar a organizarlos desde cero"
+                  >
+                    {limpiandoMarcadoresMasivo ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm" style={{ width: '11px', height: '11px' }}></span>
+                        <span>Limpiando recordatorios...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-trash3 text-danger"></i>
+                        <span>Quitar Todos los Recordatorios ({totalConMarcador})</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
               <small className="text-muted">
                 Orden automático: <b>P0 (Jerarquía) &gt; P1 (Docentes y Trabajadores Escuela) &gt; P2..P8</b> + Antigüedad de solicitud
@@ -6210,20 +6605,30 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                     {seleccionadosListadoGeneral.size} {seleccionadosListadoGeneral.size === 1 ? 'solicitud seleccionada' : 'solicitudes seleccionadas'}
                   </span>
                 </div>
-                <div className="d-flex align-items-center gap-2">
+                <div className="d-flex align-items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-secondary py-1 px-2.5 extra-small fw-bold"
                     onClick={() => setSeleccionadosListadoGeneral(new Set())}
-                    disabled={eliminandoSolicitudes}
+                    disabled={eliminandoSolicitudes || limpiandoMarcadoresMasivo}
                   >
                     Deseleccionar todas
                   </button>
                   <button
                     type="button"
+                    className="btn btn-sm btn-outline-warning text-dark py-1 px-2.5 extra-small fw-bold d-flex align-items-center gap-1 bg-white"
+                    onClick={limpiarMarcadoresSeleccionados}
+                    disabled={eliminandoSolicitudes || limpiandoMarcadoresMasivo}
+                    title="Quitar notas y recordatorios únicamente de las solicitudes seleccionadas"
+                  >
+                    <i className="bi bi-pin-angle text-warning"></i>
+                    <span>Quitar Recordatorios ({seleccionadosListadoGeneral.size})</span>
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-sm btn-danger py-1 px-3 extra-small fw-bold d-flex align-items-center gap-1 shadow-xs"
                     onClick={eliminarSolicitudesSeleccionadas}
-                    disabled={eliminandoSolicitudes}
+                    disabled={eliminandoSolicitudes || limpiandoMarcadoresMasivo}
                   >
                     {eliminandoSolicitudes ? (
                       <>
@@ -6358,6 +6763,22 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                                   <span className="text-muted extra-small d-block">Sin adjuntos</span>
                                 );
                               })()}
+                              {(() => {
+                                const parsedObs = parsearObservaciones(sol.observaciones);
+                                if (!parsedObs.textoLimpio) return null;
+                                return (
+                                  <div
+                                    className="mt-1 px-2 py-0.5 rounded border d-inline-flex align-items-center gap-1.5 shadow-xs text-start"
+                                    style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A', color: '#92400E', fontSize: '11px', cursor: 'pointer', maxWidth: '240px' }}
+                                    onClick={() => abrirModalMarcador(sol)}
+                                    title={`Marcador / Recordatorio: "${parsedObs.textoLimpio}" (Clic para editar)`}
+                                  >
+                                    <i className="bi bi-pin-angle-fill text-warning flex-shrink-0"></i>
+                                    <span className="text-truncate fw-semibold">{parsedObs.textoLimpio}</span>
+                                    <i className="bi bi-pencil-square extra-small text-muted ms-auto flex-shrink-0"></i>
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td>
                               <span className="badge bg-secondary-subtle text-secondary border">
@@ -6440,6 +6861,20 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                             </td>
                             <td className="text-end">
                               <div className="btn-group btn-group-sm">
+                                {(() => {
+                                  const parsedObs = parsearObservaciones(sol.observaciones);
+                                  const tieneMarcador = !!parsedObs.textoLimpio;
+                                  return (
+                                    <button
+                                      type="button"
+                                      className={`btn ${tieneMarcador ? 'btn-warning text-dark' : 'btn-outline-secondary'}`}
+                                      onClick={() => abrirModalMarcador(sol)}
+                                      title={tieneMarcador ? `Recordatorio: "${parsedObs.textoLimpio}" (Clic para editar)` : 'Agregar marcador o recordatorio manual'}
+                                    >
+                                      <i className={`bi ${tieneMarcador ? 'bi-pin-angle-fill' : 'bi-pin-angle'}`}></i>
+                                    </button>
+                                  );
+                                })()}
                                 {(() => {
                                   const docsSol = obtenerDocumentosSolicitud(sol);
                                   return (
@@ -6653,6 +7088,27 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                                 </span>
                               )}
                             </div>
+
+                            {/* Observación / Marcador Manual */}
+                            {parsed.textoLimpio && (
+                              <div
+                                className="mt-2 p-2 rounded-2 border d-flex align-items-start gap-2 shadow-xs"
+                                style={{ backgroundColor: '#FEF3C7', borderColor: '#FDE68A', color: '#92400E', cursor: 'pointer' }}
+                                onClick={() => abrirModalMarcador(sol)}
+                                title="Clic para editar recordatorio o nota del caso"
+                              >
+                                <i className="bi bi-pin-angle-fill text-warning fs-6 flex-shrink-0 mt-0.5"></i>
+                                <div className="flex-grow-1 min-w-0">
+                                  <div className="d-flex align-items-center justify-content-between mb-0.5">
+                                    <span className="extra-small fw-bold text-uppercase" style={{ color: '#B45309', fontSize: '9.5px' }}>
+                                      Marcador / Recordatorio
+                                    </span>
+                                    <span className="extra-small text-muted"><i className="bi bi-pencil-square me-0.5"></i>Editar</span>
+                                  </div>
+                                  <div className="extra-small fw-semibold text-break">{parsed.textoLimpio}</div>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Footer de Acciones Rápidas */}
@@ -6664,6 +7120,18 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                             >
                               <i className="bi bi-pencil-square"></i>
                               <span>Auditar / Calificar</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`btn btn-sm py-1 px-2.5 extra-small fw-bold d-inline-flex align-items-center gap-1 ${
+                                parsed.textoLimpio ? 'btn-warning text-dark' : 'btn-outline-secondary'
+                              }`}
+                              onClick={() => abrirModalMarcador(sol)}
+                              title={parsed.textoLimpio ? `Recordatorio: "${parsed.textoLimpio}" (Clic para editar)` : 'Agregar marcador o recordatorio manual'}
+                            >
+                              <i className={`bi ${parsed.textoLimpio ? 'bi-pin-angle-fill' : 'bi-pin-angle'}`}></i>
+                              <span>{parsed.textoLimpio ? 'Recordatorio' : 'Marcador'}</span>
                             </button>
 
                             <button
@@ -7434,15 +7902,51 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                       </select>
                     </div>
 
-                    {/* 4. OBSERVACIONES */}
+                    {/* 4. OBSERVACIONES Y MARCADOR */}
                     <div className="mb-3">
-                      <label className="form-label fw-bold small text-dark mb-1">
-                        Observaciones / Dictamen Técnico:
-                      </label>
+                      <div className="d-flex align-items-center justify-content-between mb-1.5 flex-wrap gap-1">
+                        <label className="form-label fw-bold small text-dark mb-0 d-flex align-items-center gap-1.5">
+                          <i className="bi bi-pin-angle-fill text-warning"></i>
+                          <span>Observaciones / Marcador y Recordatorio:</span>
+                        </label>
+                        {nuevasObservaciones.trim() ? (
+                          <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill extra-small px-2 py-0.5">
+                            📌 Con Marcador Activo
+                          </span>
+                        ) : (
+                          <span className="badge bg-light text-muted border rounded-pill extra-small px-2 py-0.5">
+                            ⚪ Sin Marcador
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Presets rápidos de recordatorio */}
+                      <div className="d-flex align-items-center flex-wrap gap-1 mb-2">
+                        {PRESETS_RECORDATORIOS_ADMISION.map(preset => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm py-0.5 px-2 extra-small rounded-pill d-inline-flex align-items-center gap-1 bg-white"
+                            onClick={() => {
+                              setNuevasObservaciones(prev => {
+                                const limpio = prev.trim();
+                                if (!limpio) return preset.label;
+                                if (limpio.includes(preset.label)) return limpio;
+                                return `${limpio} • ${preset.label}`;
+                              });
+                            }}
+                            title={`Insertar preset: "${preset.label}"`}
+                          >
+                            <i className={`bi ${preset.icon}`} style={{ color: preset.color }}></i>
+                            <span>{preset.label}</span>
+                          </button>
+                        ))}
+                      </div>
+
                       <textarea
                         className="form-control form-control-sm"
                         rows={3}
-                        placeholder="Ingrese justificación de aptitud, motivos de desaprobación o notas internas..."
+                        placeholder="Ingrese justificación técnica, motivos de desaprobación o recordatorios internos (ej: llamar al representante, recaudos pendientes)..."
                         value={nuevasObservaciones}
                         onChange={e => setNuevasObservaciones(e.target.value)}
                       ></textarea>
@@ -8817,10 +9321,49 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                       </div>
 
                       <div className="col-12">
-                        <label className="form-label fw-bold small">Observaciones:</label>
+                        <div className="d-flex align-items-center justify-content-between mb-1 flex-wrap gap-1">
+                          <label className="form-label fw-bold small mb-0 d-flex align-items-center gap-1">
+                            <i className="bi bi-pin-angle-fill text-warning"></i> Observaciones / Marcador y Recordatorio:
+                          </label>
+                          {nuevasObservaciones.trim() ? (
+                            <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill extra-small px-2 py-0.5">
+                              📌 Marcador Activo
+                            </span>
+                          ) : (
+                            <span className="badge bg-light text-muted border rounded-pill extra-small px-2 py-0.5">
+                              ⚪ Sin Marcador
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Presets rápidos */}
+                        <div className="d-flex align-items-center flex-wrap gap-1 mb-1.5">
+                          {PRESETS_RECORDATORIOS_ADMISION.map(preset => (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              className="btn btn-outline-secondary btn-sm py-0.5 px-2 extra-small rounded-pill d-inline-flex align-items-center gap-1 bg-white"
+                              style={{ fontSize: '10.5px' }}
+                              onClick={() => {
+                                setNuevasObservaciones(prev => {
+                                  const limpio = prev.trim();
+                                  if (!limpio) return preset.label;
+                                  if (limpio.includes(preset.label)) return limpio;
+                                  return `${limpio} • ${preset.label}`;
+                                });
+                              }}
+                              title={`Insertar preset: "${preset.label}"`}
+                            >
+                              <i className={`bi ${preset.icon}`} style={{ color: preset.color }}></i>
+                              <span>{preset.label}</span>
+                            </button>
+                          ))}
+                        </div>
+
                         <textarea
                           className="form-control form-control-sm"
                           rows={2}
+                          placeholder="Observaciones manuales, recordatorios del caso o motivos de calificación..."
                           value={nuevasObservaciones}
                           onChange={e => setNuevasObservaciones(e.target.value)}
                         ></textarea>
@@ -12401,6 +12944,185 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
                 </div>
               </div>
 
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── MODAL: MARCADOR Y RECORDATORIO MANUAL DE SOLICITUD ───────────────── */}
+      {modalMarcadorAbierto && solicitudMarcador && createPortal(
+        <div
+          className="modal fade show d-flex align-items-center justify-content-center"
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(15, 23, 42, 0.82)',
+            backdropFilter: 'blur(5px)',
+            zIndex: 99999,
+            overflowY: 'auto',
+            padding: '12px'
+          }}
+        >
+          <div className="modal-dialog modal-dialog-centered my-auto mx-auto w-100" style={{ maxWidth: '620px' }}>
+            <div className="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
+              {/* Header */}
+              <div className="modal-header py-3 px-4 text-white" style={{ background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)' }}>
+                <div className="d-flex align-items-center gap-2.5">
+                  <div className="p-2 rounded-circle bg-white text-warning shadow-sm d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px' }}>
+                    <i className="bi bi-pin-angle-fill fs-5" style={{ color: '#D97706' }}></i>
+                  </div>
+                  <div>
+                    <h5 className="modal-title fw-bold mb-0 text-white fs-6">
+                      Marcador y Recordatorio del Caso
+                    </h5>
+                    <small className="text-white-50 extra-small">
+                      Notas internas y seguimiento personalizado de aspirante
+                    </small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={cerrarModalMarcador}
+                  disabled={guardandoMarcador}
+                ></button>
+              </div>
+
+              {/* Body */}
+              <div className="modal-body p-4 bg-white">
+                {/* Resumen del Aspirante */}
+                <div className="p-3 rounded-3 mb-3 border bg-light d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div>
+                    <div className="fw-bold text-dark fs-6">
+                      {nombreCompleto(solicitudMarcador.estudiante_nombres, solicitudMarcador.estudiante_apellidos)}
+                    </div>
+                    <div className="text-muted extra-small">
+                      C.I: <b>{solicitudMarcador.estudiante_cedula || 'En trámite'}</b> • Cód: <b className="font-monospace text-primary">{solicitudMarcador.codigo_unico}</b> • Grado: <b className="text-dark">{solicitudMarcador.grado_solicitado || 'Sin grado'}</b>
+                    </div>
+                    <div className="text-muted extra-small mt-0.5">
+                      Representante: <b>{nombreCompleto(solicitudMarcador.representante_nombres, solicitudMarcador.representante_apellidos)}</b> ({solicitudMarcador.representante_telefono || 'Sin teléfono'})
+                    </div>
+                  </div>
+                  <span className="badge bg-white text-dark border px-2.5 py-1">
+                    {solicitudMarcador.codigo_escuela?.toUpperCase() === 'SB' ? 'Santa Bárbara' : 'Libertador B.'}
+                  </span>
+                </div>
+
+                {/* Presets Rápidos */}
+                <div className="mb-3">
+                  <label className="form-label extra-small fw-bold text-secondary text-uppercase mb-1.5 d-flex align-items-center gap-1">
+                    <i className="bi bi-tags-fill text-warning"></i>
+                    <span>Marcadores / Etiquetas Frecuentes (Clic para agregar):</span>
+                  </label>
+                  <div className="d-flex align-items-center flex-wrap gap-1.5">
+                    {PRESETS_RECORDATORIOS_ADMISION.map(preset => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary py-1 px-2.5 extra-small rounded-pill d-inline-flex align-items-center gap-1 bg-white shadow-2xs hover-shadow"
+                        onClick={() => {
+                          setTextoMarcador(prev => {
+                            const limpio = prev.trim();
+                            if (!limpio) return preset.label;
+                            if (limpio.includes(preset.label)) return limpio;
+                            return `${limpio} • ${preset.label}`;
+                          });
+                        }}
+                        title={`Insertar etiqueta: "${preset.label}"`}
+                      >
+                        <i className={`bi ${preset.icon}`} style={{ color: preset.color }}></i>
+                        <span>{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Textarea de la Observación */}
+                <div className="mb-2">
+                  <div className="d-flex align-items-center justify-content-between mb-1">
+                    <label className="form-label fw-bold small text-dark mb-0">
+                      Observación / Nota Manual:
+                    </label>
+                    {textoMarcador && (
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm text-danger p-0 extra-small text-decoration-none"
+                        onClick={() => setTextoMarcador('')}
+                      >
+                        <i className="bi bi-x-circle me-1"></i>Limpiar texto
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Escriba aquí cualquier recordatorio, detalle o instrucción sobre este aspirante (ej: Traerá recaudos originales el lunes; Caso asignado por jefatura; Contactar para verificación de partida)..."
+                    value={textoMarcador}
+                    onChange={e => setTextoMarcador(e.target.value)}
+                    style={{ fontSize: '13.5px' }}
+                    autoFocus
+                  ></textarea>
+                  <small className="text-muted extra-small d-block mt-1">
+                    <i className="bi bi-info-circle me-1 text-primary"></i>
+                    Este marcador será visible como recordatorio destacado en la tabla de admisiones, auditoría y ficha del caso.
+                  </small>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer bg-light py-2.5 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div>
+                  {parsearObservaciones(solicitudMarcador.observaciones).textoLimpio && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm rounded-pill px-3 fw-semibold extra-small"
+                      onClick={() => guardarMarcador(true)}
+                      disabled={guardandoMarcador}
+                    >
+                      <i className="bi bi-trash3 me-1"></i> Quitar Marcador
+                    </button>
+                  )}
+                </div>
+
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm rounded-pill px-3"
+                    onClick={cerrarModalMarcador}
+                    disabled={guardandoMarcador}
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-warning btn-sm rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center gap-1.5 text-dark"
+                    onClick={() => guardarMarcador(false)}
+                    disabled={guardandoMarcador}
+                  >
+                    {guardandoMarcador ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-check2-circle fs-6"></i>
+                        <span>Guardar Recordatorio</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>,
