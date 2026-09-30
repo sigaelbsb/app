@@ -184,7 +184,7 @@
 .chamilo-tool-card::before {
   content: '';
   position: absolute;
-  top: 0;
+  top: var(--altura-banner-emulacion, 0px);
   left: 0;
   right: 0;
   height: 4px;
@@ -801,7 +801,7 @@
   top: 0;
   right: 0;
   left: 280px;
-  transition: left 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+  transition: left 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease, top 0.2s ease;
 }
 
 body.menu-colapsado .chamilo-top-header {

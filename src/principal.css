@@ -106,9 +106,9 @@ body {
 .glass-sidebar { 
     position: fixed; 
     left: 0; 
-    top: 0; 
+    top: var(--altura-banner-emulacion, 0px); 
     width: 280px; 
-    height: 100vh; 
+    height: calc(100vh - var(--altura-banner-emulacion, 0px)); 
     background: rgba(255, 255, 255, 0.85); 
     backdrop-filter: blur(20px); 
     border-right: 1px solid rgba(255,255,255,0.5); 
@@ -129,7 +129,7 @@ body {
     display: flex; 
     flex-direction: column; 
     min-height: 100vh; 
-    padding-top: 72px;
+    padding-top: calc(72px + var(--altura-banner-emulacion, 0px));
     transition: margin-left 0.18s cubic-bezier(0.16, 1, 0.3, 1); 
     will-change: margin-left;
     flex-grow: 1; 
@@ -160,7 +160,7 @@ body {
         width: 100% !important;
         max-width: 100vw !important;
         overflow-x: clip;
-        padding-top: 60px !important;
+        padding-top: calc(60px + var(--altura-banner-emulacion, 0px)) !important;
     }
 }
 

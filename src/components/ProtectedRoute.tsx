@@ -23,8 +23,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ modulo, accion =
     );
   }
 
-  // SuperAdmin y Administrador tienen bypass irrestricto en todas las rutas
-  if (['SuperAdmin', 'Administrador', 'Administradora'].includes(user?.rol || '')) {
+  const esModoEmulacion = !!(
+    user?.es_emulacion ||
+    localStorage.getItem('sigae_usuario_original_admin') ||
+    sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+  );
+
+  // SuperAdmin y Administrador tienen bypass irrestricto en todas las rutas solo en sesión real (no en emulación)
+  if (!esModoEmulacion && ['SuperAdmin', 'Administrador', 'Administradora'].includes(user?.rol || '')) {
     return <>{children}</>;
   }
 

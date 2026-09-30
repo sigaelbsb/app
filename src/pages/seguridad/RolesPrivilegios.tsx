@@ -21,22 +21,59 @@ const ESTRUCTURA_ACCESOS = {
       "Tarjeta: Personal Institucional",
       "Tarjeta: Solicitudes de Cupos",
       "Tarjeta: Ruta y Parada del Trabajador/Personal",
-      "Tarjeta: Notificaciones y Avisos Activos"
+      "Tarjeta: Notificaciones y Avisos Activos",
+      "Tarjeta: Formalización de Matrícula"
     ]
   },
   "Dirección y Sistema": {
-    "Perfil de la Escuela": [],
-    "Configuración Escolar": ["Tarjeta: Períodos Escolares", "Tarjeta: Lapsos Académicos", "Tarjeta: Niveles Educativos"],
-    "Cerebro de Sigma": [],
-    "Calendario Escolar": ["Tarjeta: Calendario Oficial MPPE", "Tarjeta: Calendario Administrativo", "Tarjeta: Calendario Pedagógico", "Tarjeta: Planificador"],
-    "División Territorial": [],
-    "Panel de Control": ["Ingresar en Mantenimiento"],
-    "Instalación y Descargas": []
+    "Perfil de la Escuela": [
+      "Tarjeta: Datos Jurídicos y DEA",
+      "Tarjeta: Misión, Visión y PEIC",
+      "Tarjeta: Consejo Directivo"
+    ],
+    "Configuración Escolar": [
+      "Tarjeta: Períodos Escolares",
+      "Tarjeta: Lapsos Académicos",
+      "Tarjeta: Niveles Educativos"
+    ],
+    "Cerebro de Sigma": [
+      "Función: Consultar Asistente IA",
+      "Función: Parámetros del Motor"
+    ],
+    "Calendario Escolar": [
+      "Tarjeta: Calendario Oficial MPPE",
+      "Tarjeta: Calendario Administrativo",
+      "Tarjeta: Calendario Pedagógico",
+      "Tarjeta: Planificador"
+    ],
+    "División Territorial": [
+      "Tarjeta: Estados, Municipios y Parroquias",
+      "Tarjeta: Ciudades y Sectores"
+    ],
+    "Panel de Control": [
+      "Ingresar en Mantenimiento",
+      "Función: Estado de Servidores",
+      "Función: Optimizar Caché"
+    ],
+    "Instalación y Descargas": [
+      "Función: Descargar App de Escritorio / APK",
+      "Función: Manual de Instalación"
+    ]
   },
   "Organización Escolar": {
-    "Cargos Institucionales": ["Tarjeta: Definir Cargos", "Tarjeta: Asignar Personal"],
-    "Cadena Supervisoria": ["Función: Estructurar Cadena", "Función: Imprimir Organigrama"],
-    "Gestión de Colectivos": [],
+    "Cargos Institucionales": [
+      "Tarjeta: Definir Cargos",
+      "Tarjeta: Asignar Personal"
+    ],
+    "Cadena Supervisoria": [
+      "Función: Estructurar Cadena",
+      "Función: Imprimir Organigrama"
+    ],
+    "Gestión de Colectivos": [
+      "Tarjeta: Colectivos Docentes",
+      "Tarjeta: Colectivos Estudiantiles",
+      "Tarjeta: Colectivos Comunitarios"
+    ],
     "Estructura Empresa": [
       "Diccionario: Nómina", 
       "Diccionario: Parentesco", 
@@ -66,14 +103,22 @@ const ESTRUCTURA_ACCESOS = {
       "Función: Descargar Ficha PDF", 
       "Función: Exportar Ficha"
     ],
-    "Actualización de Datos": [], 
+    "Actualización de Datos": [
+      "Tarjeta: Expediente del Alumno",
+      "Tarjeta: Ficha Médica y Antropométrica",
+      "Tarjeta: Ficha Socioeconómica",
+      "Tarjeta: Documentos Digitales"
+    ], 
     "Verificaciones": [
       "Función: Escanear QR", 
       "Función: Re-imprimir Comprobante"
     ]
   },
   "Admisiones y Nuevos Ingresos": {
-    "Solicitud de Cupos": [], 
+    "Solicitud de Cupos": [
+      "Tarjeta: Nueva Solicitud",
+      "Tarjeta: Consulta de Estado"
+    ], 
     "Gestión de Admisiones": [
       "Tarjeta: Baremo y Clasificación", 
       "Tarjeta: Auditoría Uno por Uno", 
@@ -90,10 +135,16 @@ const ESTRUCTURA_ACCESOS = {
       "Función: Difusión Masiva WhatsApp",
       "Función: Descargar Guía de Orientación"
     ],
-    "Mis Solicitudes": []
+    "Mis Solicitudes": [
+      "Tarjeta: Historial de Postulaciones"
+    ]
   },
   "Gestión Docente": {
-    "Mi Expediente": ["Tarjeta: Modificar Ficha Docente"], 
+    "Mi Expediente": [
+      "Tarjeta: Modificar Ficha Docente",
+      "Tarjeta: Títulos y Certificaciones",
+      "Tarjeta: Asignación Académica"
+    ], 
     "Gestor de Expedientes": [
       "Tarjeta: Expedientes Activos", 
       "Tarjeta: Registro de Docente", 
@@ -102,7 +153,10 @@ const ESTRUCTURA_ACCESOS = {
     ]
   },
   "Diseños": {
-    "Galería y Plantillas": [],
+    "Galería y Plantillas": [
+      "Tarjeta: Catálogo de Plantillas",
+      "Función: Importar / Exportar Plantillas"
+    ],
     "Editor de Constancias": [
       "Función: Diseñar Plantillas",
       "Función: Cargar Firmas y Sellos",
@@ -118,12 +172,30 @@ const ESTRUCTURA_ACCESOS = {
       "Función: Cargar Firmas y Sellos",
       "Función: Descargar PDF y PNG"
     ],
-    "Creador de Certificados": [],
-    "Creador de Flyers": [],
-    "Creador de Invitaciones": [],
-    "Creador de Tapas": [],
-    "Creador de Comunicados": [],
-    "Creador de Cumpleaños": [],
+    "Creador de Certificados": [
+      "Función: Diseñar Certificado",
+      "Función: Exportar PDF de Alta Calidad"
+    ],
+    "Creador de Flyers": [
+      "Función: Diseñar Flyer",
+      "Función: Exportar Imagen PNG/JPG"
+    ],
+    "Creador de Invitaciones": [
+      "Función: Diseñar Invitación",
+      "Función: Exportar Digital"
+    ],
+    "Creador de Tapas": [
+      "Función: Diseñar Portadas / Tapas",
+      "Función: Exportar Formato Impresión"
+    ],
+    "Creador de Comunicados": [
+      "Función: Redactar Comunicado Oficial",
+      "Función: Compartir WhatsApp y PDF"
+    ],
+    "Creador de Cumpleaños": [
+      "Función: Plantillas de Cumpleaños",
+      "Función: Generar Felicitación"
+    ],
     "Encuesta": [
       "Función: Crear y Editar Encuestas",
       "Función: Responder Encuestas",
@@ -142,18 +214,35 @@ const ESTRUCTURA_ACCESOS = {
     ]
   },
   "Seguridad y Accesos": {
-    "Mi Perfil": [], 
-    "Métodos de Acceso": [], 
+    "Mi Perfil": [
+      "Tarjeta: Información Personal",
+      "Tarjeta: Cambiar Clave de Acceso"
+    ], 
+    "Métodos de Acceso": [
+      "Tarjeta: Configurar PIN",
+      "Tarjeta: Configurar Contraseña"
+    ], 
     "Dispositivos y Sesiones": [
       "Función: Desactivar Sesiones Remotas",
       "Función: Cerrar Todas las Sesiones"
     ],
-    "Gestión de Usuarios": [], 
+    "Gestión de Usuarios": [
+      "Función: Crear Nuevo Usuario",
+      "Función: Virtualizar Ingreso",
+      "Función: Resetear Contraseña",
+      "Función: Carga Masiva Nómina"
+    ], 
     "Roles y Privilegios": [
+      "Función: Editar Matriz de Permisos",
       "Función: Emulación de Roles"
     ], 
-    "Preguntas de Seguridad": [], 
-    "Auditoría del Sistema": []
+    "Preguntas de Seguridad": [
+      "Función: Gestionar Banco de Preguntas"
+    ], 
+    "Auditoría del Sistema": [
+      "Función: Ver Bitácora de Eventos",
+      "Función: Filtrar y Exportar Auditoría"
+    ]
   }
 };
 
@@ -254,25 +343,54 @@ export const RolesPrivilegios = () => {
         ? !!(raw['__acceso_plantel__']?.ver || raw['__acceso_plantel__'] === true)
         : (Object.keys(raw).length > 0);
 
+      const getRawVal = (name: string): boolean | undefined => {
+        if (raw.hasOwnProperty(name)) {
+          return !!(raw[name]?.ver || raw[name] === true);
+        }
+        if (name === "Configuración Escolar" && raw.hasOwnProperty("Configuración del Sistema")) {
+          return !!(raw["Configuración del Sistema"]?.ver || raw["Configuración del Sistema"] === true);
+        }
+        if (name === "Encuesta" && (raw.hasOwnProperty("Encuestas") || raw.hasOwnProperty("Constructor de Encuestas"))) {
+          return !!(raw["Encuestas"]?.ver || raw["Encuestas"] === true || raw["Constructor de Encuestas"]?.ver || raw["Constructor de Encuestas"] === true);
+        }
+        if (name === "Dispositivos y Sesiones" && raw.hasOwnProperty("Sesiones Activas")) {
+          return !!(raw["Sesiones Activas"]?.ver || raw["Sesiones Activas"] === true);
+        }
+        if (name === "Instalación y Descargas" && raw.hasOwnProperty("Instalar SIGAE")) {
+          return !!(raw["Instalar SIGAE"]?.ver || raw["Instalar SIGAE"] === true);
+        }
+        if (name === "Mensajes de Admisión" && raw.hasOwnProperty("Redactor de Mensajes")) {
+          return !!(raw["Redactor de Mensajes"]?.ver || raw["Redactor de Mensajes"] === true);
+        }
+        if (name === "Transporte Escolar" && raw.hasOwnProperty("Transporte y Logística")) {
+          return !!(raw["Transporte y Logística"]?.ver || raw["Transporte y Logística"] === true);
+        }
+        if (name === "Función: Crear y Editar Encuestas" && (raw.hasOwnProperty("Función: Crear Encuestas") || raw.hasOwnProperty("Función: Crear o Editar Encuestas"))) {
+          return !!(raw["Función: Crear Encuestas"]?.ver || raw["Función: Crear Encuestas"] === true || raw["Función: Crear o Editar Encuestas"]?.ver || raw["Función: Crear o Editar Encuestas"] === true);
+        }
+        if (name === "Función: Ver Respuestas y Estadísticas" && raw.hasOwnProperty("Función: Ver Respuestas")) {
+          return !!(raw["Función: Ver Respuestas"]?.ver || raw["Función: Ver Respuestas"] === true);
+        }
+        if (name === "Tarjeta: Personal Institucional" && raw.hasOwnProperty("Tarjeta: Personal Escolar DEP Oriente")) {
+          return !!(raw["Tarjeta: Personal Escolar DEP Oriente"]?.ver || raw["Tarjeta: Personal Escolar DEP Oriente"] === true);
+        }
+        if (name === "Tarjeta: Solicitudes de Cupos" && raw.hasOwnProperty("Tarjeta: Solicitudes de Cupos por Plantel")) {
+          return !!(raw["Tarjeta: Solicitudes de Cupos por Plantel"]?.ver || raw["Tarjeta: Solicitudes de Cupos por Plantel"] === true);
+        }
+        return undefined;
+      };
+
       for (const [_cat, submods] of Object.entries(ESTRUCTURA_ACCESOS)) {
         for (const [subName, subcards] of Object.entries(submods)) {
-          dest[subName] = !!(raw[subName]?.ver || raw[subName] === true);
+          const subRawVal = getRawVal(subName);
+          const isSubActive = subRawVal !== undefined ? subRawVal : false;
+          dest[subName] = isSubActive;
+
           subcards.forEach(card => {
-            let val = !!(raw[card]?.ver || raw[card] === true);
-            // Compatibilidad hacia atrás:
-            if (!val && card === "Función: Crear y Editar Encuestas") {
-              val = !!(raw["Función: Crear Encuestas"]?.ver || raw["Función: Crear Encuestas"] === true);
-            }
-            if (!val && card === "Función: Ver Respuestas y Estadísticas") {
-              val = !!(raw["Función: Ver Respuestas"]?.ver || raw["Función: Ver Respuestas"] === true);
-            }
-            if (!val && card === "Tarjeta: Personal Institucional") {
-              val = !!(raw["Tarjeta: Personal Escolar DEP Oriente"]?.ver || raw["Tarjeta: Personal Escolar DEP Oriente"] === true);
-            }
-            if (!val && card === "Tarjeta: Solicitudes de Cupos") {
-              val = !!(raw["Tarjeta: Solicitudes de Cupos por Plantel"]?.ver || raw["Tarjeta: Solicitudes de Cupos por Plantel"] === true);
-            }
-            dest[card] = val;
+            const cardRawVal = getRawVal(card);
+            // Si la sub-tarjeta no estaba definida en la base de datos para este rol, hereda el estado de su módulo padre
+            const isCardActive = cardRawVal !== undefined ? cardRawVal : isSubActive;
+            dest[card] = isCardActive;
           });
         }
       }
@@ -490,6 +608,27 @@ export const RolesPrivilegios = () => {
               ? { ...SUPER_PODERES }
               : { ver: false, crear: false, modificar: false, eliminar: false };
 
+            // Alias en guardado para retrocompatibilidad
+            if (subName === "Configuración Escolar") {
+              dest["Configuración del Sistema"] = dest[subName];
+            }
+            if (subName === "Encuesta") {
+              dest["Encuestas"] = dest[subName];
+              dest["Constructor de Encuestas"] = dest[subName];
+            }
+            if (subName === "Dispositivos y Sesiones") {
+              dest["Sesiones Activas"] = dest[subName];
+            }
+            if (subName === "Instalación y Descargas") {
+              dest["Instalar SIGAE"] = dest[subName];
+            }
+            if (subName === "Mensajes de Admisión") {
+              dest["Redactor de Mensajes"] = dest[subName];
+            }
+            if (subName === "Transporte Escolar") {
+              dest["Transporte y Logística"] = dest[subName];
+            }
+
             subcards.forEach(card => {
               const isCardActive = isSubActive && !!raw[card];
               dest[card] = isCardActive 
@@ -499,6 +638,7 @@ export const RolesPrivilegios = () => {
               // Alias automáticos para retrocompatibilidad
               if (card === "Función: Crear y Editar Encuestas") {
                 dest["Función: Crear Encuestas"] = dest[card];
+                dest["Función: Crear o Editar Encuestas"] = dest[card];
               }
               if (card === "Función: Ver Respuestas y Estadísticas") {
                 dest["Función: Ver Respuestas"] = dest[card];

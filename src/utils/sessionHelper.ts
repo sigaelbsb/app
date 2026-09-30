@@ -8,8 +8,22 @@
 export const notificarCambioSesion = (nuevoUsuario?: any) => {
   try {
     window.dispatchEvent(new CustomEvent('sigae-session-update', { detail: nuevoUsuario }));
+    window.dispatchEvent(new CustomEvent('sigae-permisos-refresh', { detail: nuevoUsuario }));
+    window.dispatchEvent(new Event('storage'));
   } catch (e) {
     console.warn('Error al despachar sigae-session-update:', e);
+  }
+};
+
+export const notificarCambioEscuela = (escuelaCodigo: string, escuelaNombre: string) => {
+  try {
+    localStorage.setItem('sigae_escuela_codigo', escuelaCodigo);
+    localStorage.setItem('sigae_escuela_activa', escuelaNombre);
+    window.dispatchEvent(new CustomEvent('sigae-escuela-update', { detail: { escuelaCodigo, escuelaNombre } }));
+    window.dispatchEvent(new CustomEvent('sigae-permisos-refresh', { detail: { escuelaCodigo, escuelaNombre } }));
+    window.dispatchEvent(new Event('storage'));
+  } catch (e) {
+    console.warn('Error al despachar sigae-escuela-update:', e);
   }
 };
 

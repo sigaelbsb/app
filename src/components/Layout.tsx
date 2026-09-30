@@ -15,9 +15,15 @@ import { MobileBottomNav } from './MobileBottomNav';
 export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
-  const usuarioStr = localStorage.getItem('usuario_sigae');
-  const usuario = usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
+  const { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, loading: permLoading, user } = usePermisos();
+  const usuario = user || (() => {
+    try {
+      const usuarioStr = localStorage.getItem('usuario_sigae');
+      return usuarioStr ? JSON.parse(usuarioStr) : { nombre: 'Usuario', rol: 'Rol' };
+    } catch {
+      return { nombre: 'Usuario', rol: 'Rol' };
+    }
+  })();
   const rolNorm = (usuario?.rol || '').toLowerCase();
   const esPersonalEscuela = !['representante', 'estudiante', 'visitante', 'invitado'].includes(rolNorm) && (
     rolNorm.includes('docente') ||
@@ -33,9 +39,20 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     rolNorm.includes('subdirector') ||
     usuario?.rol === 'SuperAdmin'
   );
-  const escuelaCodigo = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+  const [escuelaCodigo, setEscuelaCodigo] = useState<string>(() => localStorage.getItem('sigae_escuela_codigo') || 'sb');
   const escuelaNombre = escuelaCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
   const logoPath = `/assets/img/logo_${escuelaCodigo}.png`;
+
+  useEffect(() => {
+    const handleEscuelaUpdate = (e: any) => {
+      const code = e?.detail?.escuelaCodigo || localStorage.getItem('sigae_escuela_codigo') || 'sb';
+      setEscuelaCodigo(code);
+    };
+    window.addEventListener('sigae-escuela-update', handleEscuelaUpdate);
+    return () => {
+      window.removeEventListener('sigae-escuela-update', handleEscuelaUpdate);
+    };
+  }, []);
 
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
@@ -828,6 +845,37 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
   };
 
   const esModoEmulacion = !!(usuario?.es_emulacion || localStorage.getItem('sigae_usuario_original_admin'));
+  const bannerRef = useRef<HTMLDivElement>(null);
+
+  // Ajuste milimétrico y dinámico de altura para el banner de emulación (evita obstruir el header y menú en teléfonos)
+  useEffect(() => {
+    if (!esModoEmulacion) {
+      document.documentElement.style.removeProperty('--altura-banner-emulacion');
+      return;
+    }
+
+    const updateHeight = () => {
+      if (bannerRef.current) {
+        const h = bannerRef.current.offsetHeight;
+        document.documentElement.style.setProperty('--altura-banner-emulacion', `${h}px`);
+      }
+    };
+
+    updateHeight();
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && bannerRef.current) {
+      observer = new ResizeObserver(updateHeight);
+      observer.observe(bannerRef.current);
+    }
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+      document.documentElement.style.removeProperty('--altura-banner-emulacion');
+    };
+  }, [esModoEmulacion]);
 
   const handleLogout = () => {
     const Swal = (window as any).Swal;
@@ -1428,12 +1476,13 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       <main 
         id="contenido-principal" 
         className="d-flex flex-column min-vh-100"
-        style={esModoEmulacion ? { paddingTop: '120px' } : undefined}
       >
-        {/* BANNER FLOTANTE DE MODO EMULACIÓN */}
+        {/* BANNER FLOTANTE DE MODO EMULACIÓN (RESPONSIVE & NO OBSTRUCTIVO) */}
         {esModoEmulacion && (
           <div 
-            className="w-100 px-3 px-md-4 py-2 text-white shadow d-flex align-items-center justify-content-between flex-wrap gap-2 animate__animated animate__fadeInDown"
+            ref={bannerRef}
+            id="sigae-emulacion-banner"
+            className="w-100 px-2.5 px-md-4 py-1.5 py-md-2 text-white shadow d-flex align-items-center justify-content-between flex-wrap gap-1.5 gap-md-2 animate__animated animate__fadeInDown"
             style={{ 
               background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
               position: 'fixed',
@@ -1444,58 +1493,64 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               borderBottom: '2px solid rgba(255,255,255,0.2)'
             }}
           >
-            <div className="d-flex align-items-center gap-2">
-              <span className="badge bg-dark text-warning p-2 rounded-circle shadow-sm">
-                <i className="bi bi-person-bounding-box fs-6"></i>
+            <div className="d-flex align-items-center gap-1.5 gap-md-2 flex-grow-1 min-w-0">
+              <span className="badge bg-dark text-warning p-1.5 p-md-2 rounded-circle shadow-sm flex-shrink-0">
+                <i className="bi bi-person-bounding-box" style={{ fontSize: '0.85rem' }}></i>
               </span>
-              <div>
-                <span className="fw-bold text-white small me-2" style={{ letterSpacing: '0.5px' }}>
-                  MODO EMULACIÓN ACTIVO:
+              <div className="d-flex align-items-center gap-1.5 flex-wrap min-w-0">
+                <span className="fw-bold text-white text-uppercase d-none d-sm-inline" style={{ letterSpacing: '0.5px', fontSize: '0.72rem' }}>
+                  MODO EMULACIÓN:
                 </span>
-                <span className="badge bg-white text-dark fw-bold px-2.5 py-1 me-1 shadow-sm">
+                <span 
+                  className="badge bg-white text-dark fw-bold px-2 py-1 shadow-sm text-truncate" 
+                  style={{ maxWidth: 'min(240px, 45vw)', fontSize: '0.74rem' }}
+                  title={usuario?.tipo_emulacion === 'usuario' 
+                    ? `Visualizando como: ${usuario.nombre || usuario.nombre_completo} (${usuario.rol})`
+                    : `Visualizando como: ${usuario.rol}`}
+                >
                   <i className="bi bi-person-badge-fill text-warning me-1"></i>
                   {usuario?.tipo_emulacion === 'usuario' 
-                    ? `Visualizando como: ${usuario.nombre || usuario.nombre_completo} (${usuario.rol})`
-                    : `Visualizando como: ${usuario.rol}`
+                    ? `${usuario.nombre || usuario.nombre_completo} (${usuario.rol})`
+                    : `${usuario.rol}`
                   }
                 </span>
-                <span className="badge bg-dark bg-opacity-25 text-white fw-semibold px-2 py-1">
-                  <i className="bi bi-building me-1"></i>
-                  {escuelaNombre}
+                <span className="badge bg-dark bg-opacity-25 text-white fw-semibold px-2 py-1" style={{ fontSize: '0.72rem' }}>
+                  <i className="bi bi-building me-1 d-none d-md-inline"></i>
+                  <span className="d-none d-md-inline">{escuelaNombre}</span>
+                  <span className="d-md-none">{escuelaCodigo.toUpperCase()}</span>
                 </span>
                 {mantenimientoActivo && (
                   <span 
-                    className="badge bg-danger text-white fw-bold px-2.5 py-1 ms-1 shadow-sm animate__animated animate__pulse animate__infinite"
-                    title="Plantel en Modo Mantenimiento para usuarios normales. Acceso de emulación técnica habilitado sin restricciones."
+                    className="badge bg-danger text-white fw-bold px-2 py-0.5 shadow-sm d-none d-md-inline"
+                    title="Plantel en Modo Mantenimiento"
+                    style={{ fontSize: '0.7rem' }}
                   >
-                    <i className="bi bi-cone-striped me-1"></i>
-                    Modo Mantenimiento (Acceso Habilitado en Emulación)
+                    Mantenimiento
                   </span>
                 )}
                 {invitadosBloqueados && usuario?.rol === 'Invitado' && (
                   <span 
-                    className="badge bg-warning text-dark fw-bold px-2.5 py-1 ms-1 shadow-sm animate__animated animate__pulse animate__infinite"
-                    title="El rol Invitado se encuentra inhabilitado en esta institución para visitantes públicos, pero la emulación está permitida sin restricciones"
+                    className="badge bg-warning text-dark fw-bold px-2 py-0.5 shadow-sm d-none d-md-inline"
+                    title="Invitado Inhabilitado en este plantel"
+                    style={{ fontSize: '0.7rem' }}
                   >
-                    <i className="bi bi-person-x-fill me-1"></i>
-                    Invitado Inhabilitado (Acceso Habilitado en Emulación)
+                    Invitado Inhabilitado
                   </span>
                 )}
-                <span className="d-none d-lg-inline ms-2 text-white-50 small">
-                  (Sesión real de administrador segura)
-                </span>
               </div>
             </div>
 
-            <div>
+            <div className="flex-shrink-0 ms-auto">
               <button
                 type="button"
                 onClick={handleSalirEmulacion}
-                className="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-bold shadow-sm d-flex align-items-center gap-2 hover-efecto"
-                style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+                className="btn btn-xs btn-dark rounded-pill px-2.5 px-md-3 py-1 fw-bold shadow-sm d-flex align-items-center gap-1.5 hover-efecto"
+                style={{ border: '1px solid rgba(255,255,255,0.3)', fontSize: '0.75rem' }}
+                title="Salir de la emulación y restaurar la sesión original de Administrador"
               >
                 <i className="bi bi-box-arrow-left text-warning"></i>
-                <span>Salir de Emulación y Restaurar Administrador</span>
+                <span className="d-none d-sm-inline">Salir de Emulación</span>
+                <span className="d-sm-none">Salir</span>
               </button>
             </div>
           </div>
@@ -1503,7 +1558,6 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
         <header 
           className={`chamilo-top-header d-flex align-items-center px-3 px-md-4 ${isScrolled ? 'barra-flotante-activa' : ''}`}
-          style={esModoEmulacion ? { top: '48px' } : undefined}
         >
           <div className="d-flex align-items-center d-lg-none me-2">
             <button 

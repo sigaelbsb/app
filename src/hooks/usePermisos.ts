@@ -27,13 +27,18 @@ export const usePermisos = () => {
   const [loading, setLoading] = useState<boolean>(() => {
     const initialUser = getInitialUser();
     if (!initialUser) return false;
-    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(initialUser.rol)) return false;
+    const esEmulacion = !!(
+      initialUser.es_emulacion ||
+      localStorage.getItem('sigae_usuario_original_admin') ||
+      sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+    );
+    if (!esEmulacion && ['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(initialUser.rol)) return false;
     const cached = getInitialCache('sigae_cache_full_permisos');
     return !cached;
   });
 
-  useEffect(() => {
-    const usr = getInitialUser();
+  const cargarPermisosUsuario = useCallback(async (usrInput?: any) => {
+    const usr = usrInput || getInitialUser();
     if (!usr) {
       setUser(null);
       setPermisos(null);
@@ -42,6 +47,12 @@ export const usePermisos = () => {
       return;
     }
     setUser(usr);
+
+    const esModoEmulacion = !!(
+      usr?.es_emulacion ||
+      localStorage.getItem('sigae_usuario_original_admin') ||
+      sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+    );
 
     let userEsc = (usr.id_escuela || '').trim().toLowerCase();
     // Resolución de respaldo si id_escuela no está explícito en el perfil
@@ -63,7 +74,7 @@ export const usePermisos = () => {
     let currentEsc = localStorage.getItem('sigae_escuela_codigo') || userEsc || 'sb';
     
     const hasMultipleEscuelas = usr.perfil_acceso?.instituciones && Array.isArray(usr.perfil_acceso.instituciones) && usr.perfil_acceso.instituciones.length > 1;
-    const isSuperAdmin = ['SuperAdmin', 'Administrador', 'Administradora'].includes((usr.rol || '').trim()) || hasMultipleEscuelas;
+    const isSuperAdmin = !esModoEmulacion && (['SuperAdmin', 'Administrador', 'Administradora'].includes((usr.rol || '').trim()) || hasMultipleEscuelas);
     // Aislamiento estricto: usuarios/coordinadores asignados a una escuela fija ('sb' o 'lb') siempre operan en su escuela
     if (!isSuperAdmin && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
       currentEsc = userEsc;
@@ -74,114 +85,135 @@ export const usePermisos = () => {
       localStorage.setItem('usuario_sigae', JSON.stringify(usr));
     }
 
-    const fetchTimer = setTimeout(() => {
-      setLoading(false);
-    }, 3500);
+    try {
+      setLoading(true);
+      let targetRol = (usr.rol || '').trim();
+      let { data, error } = await supabase
+        .from('roles')
+        .select('permisos')
+        .ilike('nombre', targetRol)
+        .maybeSingle();
 
-    const fetchPermisos = async () => {
-      try {
-        let targetRol = (usr.rol || '').trim();
-        let { data, error } = await supabase
+      if (!data && targetRol.toLowerCase() === 'representante') {
+        const fallbackRep = await supabase
           .from('roles')
           .select('permisos')
-          .ilike('nombre', targetRol)
+          .eq('nombre', 'Representante')
           .maybeSingle();
-
-        if (!data && targetRol.toLowerCase() === 'representante') {
-          const fallbackRep = await supabase
-            .from('roles')
-            .select('permisos')
-            .eq('nombre', 'Representante')
-            .maybeSingle();
-          if (fallbackRep.data) data = fallbackRep.data;
-        } else if (!data && targetRol.toLowerCase() === 'docente') {
-          const fallbackDoc = await supabase
-            .from('roles')
-            .select('permisos')
-            .eq('nombre', 'Docente')
-            .maybeSingle();
-          if (fallbackDoc.data) data = fallbackDoc.data;
-        }
-
-        if (!data && ['superadmin', 'administrador', 'administradora', 'director', 'directora', 'subdirector', 'coordinador'].includes(targetRol.toLowerCase())) {
-          const fallback = await supabase
-            .from('roles')
-            .select('permisos')
-            .eq('nombre', 'Administrador')
-            .maybeSingle();
-          if (fallback.data) {
-            data = fallback.data;
-          }
-        }
-
-        if (error && !data) throw error;
-
-        // Si el usuario ejerce cargo funcional de Coordinador de Transporte, enriquecer permisos
-        const esCargoCoordTrans = (usr.cargo || '').toLowerCase().includes('coordinador') && (usr.cargo || '').toLowerCase().includes('transporte');
-        if (esCargoCoordTrans && targetRol !== 'Coordinador de Transporte') {
-          const { data: coordRole } = await supabase
-            .from('roles')
-            .select('permisos')
-            .eq('nombre', 'Coordinador de Transporte')
-            .maybeSingle();
-          if (coordRole && coordRole.permisos) {
-            const coordP = typeof coordRole.permisos === 'string' ? JSON.parse(coordRole.permisos) : coordRole.permisos;
-            let baseP = data?.permisos ? (typeof data.permisos === 'string' ? JSON.parse(data.permisos) : data.permisos) : {};
-            ['sb', 'lb'].forEach(escKey => {
-              if (coordP[escKey]) {
-                baseP[escKey] = { ...(baseP[escKey] || {}), ...coordP[escKey] };
-              }
-            });
-            if (!data) data = { permisos: baseP };
-            else data.permisos = baseP;
-          }
-        }
-
-        if (data) {
-          let parsed: any = {};
-          if (typeof data.permisos === 'string') {
-            try { parsed = JSON.parse(data.permisos); } catch (e) {}
-          } else {
-            parsed = data.permisos || {};
-          }
-
-          setFullPermisos(parsed);
-          localStorage.setItem('sigae_cache_full_permisos', JSON.stringify(parsed));
-
-          const escPerms = parsed[currentEsc] || parsed || {};
-          setPermisos(escPerms);
-          localStorage.setItem('sigae_cache_permisos', JSON.stringify(escPerms));
-
-          // Verificación de bloqueo de rol en tiempo real para sesiones activas (no emuladas):
-          const esModoEmulacion = !!(
-            usr?.es_emulacion ||
-            localStorage.getItem('sigae_usuario_original_admin') ||
-            sessionStorage.getItem('sigae_emulacion_activa') === 'true'
-          );
-
-          if (!esModoEmulacion && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(usr.rol)) {
-            if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
-              console.warn("Rol suspendido para este plantel. Cerrando sesión...");
-              localStorage.removeItem('sesion_sigae');
-              localStorage.removeItem('usuario_sigae');
-              localStorage.removeItem('sigae_cache_permisos');
-              localStorage.removeItem('sigae_cache_full_permisos');
-              notificarCambioSesion(null);
-              return;
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Error fetching permissions:", e);
-      } finally {
-        clearTimeout(fetchTimer);
-        setLoading(false);
+        if (fallbackRep.data) data = fallbackRep.data;
+      } else if (!data && targetRol.toLowerCase() === 'docente') {
+        const fallbackDoc = await supabase
+          .from('roles')
+          .select('permisos')
+          .eq('nombre', 'Docente')
+          .maybeSingle();
+        if (fallbackDoc.data) data = fallbackDoc.data;
       }
+
+      if (!data && !esModoEmulacion && ['superadmin', 'administrador', 'administradora', 'director', 'directora', 'subdirector'].includes(targetRol.toLowerCase())) {
+        const fallback = await supabase
+          .from('roles')
+          .select('permisos')
+          .eq('nombre', 'Administrador')
+          .maybeSingle();
+        if (fallback.data) {
+          data = fallback.data;
+        }
+      }
+
+      if (error && !data) throw error;
+
+      // Si el usuario ejerce cargo funcional de Coordinador de Transporte, enriquecer permisos
+      const esCargoCoordTrans = (usr.cargo || '').toLowerCase().includes('coordinador') && (usr.cargo || '').toLowerCase().includes('transporte');
+      if (esCargoCoordTrans && targetRol !== 'Coordinador de Transporte') {
+        const { data: coordRole } = await supabase
+          .from('roles')
+          .select('permisos')
+          .eq('nombre', 'Coordinador de Transporte')
+          .maybeSingle();
+        if (coordRole && coordRole.permisos) {
+          const coordP = typeof coordRole.permisos === 'string' ? JSON.parse(coordRole.permisos) : coordRole.permisos;
+          let baseP = data?.permisos ? (typeof data.permisos === 'string' ? JSON.parse(data.permisos) : data.permisos) : {};
+          ['sb', 'lb'].forEach(escKey => {
+            if (coordP[escKey]) {
+              baseP[escKey] = { ...(baseP[escKey] || {}), ...coordP[escKey] };
+            }
+          });
+          if (!data) data = { permisos: baseP };
+          else data.permisos = baseP;
+        }
+      }
+
+      if (data) {
+        let parsed: any = {};
+        if (typeof data.permisos === 'string') {
+          try { parsed = JSON.parse(data.permisos); } catch (e) {}
+        } else {
+          parsed = data.permisos || {};
+        }
+
+        setFullPermisos(parsed);
+        localStorage.setItem('sigae_cache_full_permisos', JSON.stringify(parsed));
+
+        const escPerms = parsed[currentEsc] || parsed || {};
+        setPermisos(escPerms);
+        localStorage.setItem('sigae_cache_permisos', JSON.stringify(escPerms));
+
+        // Verificación de bloqueo de rol en tiempo real para sesiones activas (no emuladas):
+        if (!esModoEmulacion && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].includes(usr.rol)) {
+          if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
+            console.warn("Rol suspendido para este plantel. Cerrando sesión...");
+            localStorage.removeItem('sesion_sigae');
+            localStorage.removeItem('usuario_sigae');
+            localStorage.removeItem('sigae_cache_permisos');
+            localStorage.removeItem('sigae_cache_full_permisos');
+            notificarCambioSesion(null);
+            return;
+          }
+        }
+      } else {
+        setFullPermisos({});
+        setPermisos({});
+      }
+    } catch (e) {
+      console.error("Error fetching permissions:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarPermisosUsuario();
+
+    const handleSessionUpdate = (e: any) => {
+      const u = e?.detail ?? getInitialUser();
+      cargarPermisosUsuario(u);
     };
 
-    fetchPermisos();
-    return () => clearTimeout(fetchTimer);
-  }, []);
+    const handleEscuelaUpdate = () => {
+      cargarPermisosUsuario();
+    };
+
+    window.addEventListener('sigae-session-update', handleSessionUpdate);
+    window.addEventListener('sigae-escuela-update', handleEscuelaUpdate);
+    window.addEventListener('sigae-permisos-refresh', handleEscuelaUpdate);
+    window.addEventListener('storage', handleEscuelaUpdate);
+
+    return () => {
+      window.removeEventListener('sigae-session-update', handleSessionUpdate);
+      window.removeEventListener('sigae-escuela-update', handleEscuelaUpdate);
+      window.removeEventListener('sigae-permisos-refresh', handleEscuelaUpdate);
+      window.removeEventListener('storage', handleEscuelaUpdate);
+    };
+  }, [cargarPermisosUsuario]);
+
+  const esModoEmulacion = useMemo(() => {
+    return !!(
+      user?.es_emulacion ||
+      localStorage.getItem('sigae_usuario_original_admin') ||
+      sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+    );
+  }, [user]);
 
   const esDirectivo = useMemo(() => {
     const rol = (user?.rol || '').trim();
@@ -191,9 +223,9 @@ export const usePermisos = () => {
   const tieneAccesoEscuela = useCallback((escuelaCodigo: string) => {
     if (!user) return false;
     
-    // SuperAdmin y Administradores tienen acceso irrestricto universal a ambos planteles
+    // SuperAdmin y Administradores tienen acceso irrestricto universal a ambos planteles en sesión real
     const rolNorm = (user.rol || '').trim().toLowerCase();
-    if (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora') {
+    if (!esModoEmulacion && (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora')) {
       return true;
     }
 
@@ -203,12 +235,6 @@ export const usePermisos = () => {
     // MODO EMULACIÓN: Si el usuario está emulando un rol (como Invitado) o una cuenta de usuario,
     // debe tener acceso irrestricto a la escuela seleccionada para la prueba,
     // aun si el rol se encuentra inhabilitado en dicho plantel (__acceso_plantel__ === false)
-    const esModoEmulacion = !!(
-      user.es_emulacion ||
-      localStorage.getItem('sigae_usuario_original_admin') ||
-      sessionStorage.getItem('sigae_emulacion_activa') === 'true'
-    );
-
     if (esModoEmulacion) {
       if (!userEsc || userEsc === 'ambas' || userEsc === 'todas' || userEsc === codNormalizado) {
         return true;
@@ -251,13 +277,13 @@ export const usePermisos = () => {
     }
 
     return false;
-  }, [user, fullPermisos, esDirectivo]);
+  }, [user, fullPermisos, esDirectivo, esModoEmulacion]);
 
   const tienePermiso = useCallback((modulo: string, accion: string = 'ver') => {
     if (!user || !user.rol) return false;
 
-    // SuperAdmin siempre tiene acceso a todo
-    if (user.rol === 'SuperAdmin') {
+    // SuperAdmin siempre tiene acceso a todo en sesión real (no en emulación)
+    if (!esModoEmulacion && user.rol === 'SuperAdmin') {
       return true;
     }
 
@@ -317,7 +343,12 @@ export const usePermisos = () => {
       "Tarjeta: Personal Institucional": ["Tarjeta: Personal Escolar DEP Oriente"],
       "Tarjeta: Personal Escolar DEP Oriente": ["Tarjeta: Personal Institucional"],
       "Tarjeta: Solicitudes de Cupos": ["Tarjeta: Solicitudes de Cupos por Plantel"],
-      "Tarjeta: Solicitudes de Cupos por Plantel": ["Tarjeta: Solicitudes de Cupos"]
+      "Tarjeta: Solicitudes de Cupos por Plantel": ["Tarjeta: Solicitudes de Cupos"],
+      "Mensajes de Admisión": ["Redactor de Mensajes", "Redactor de Mensajes de Admisión"],
+      "Redactor de Mensajes": ["Mensajes de Admisión"],
+      "Transporte Escolar": ["Transporte y Logística"],
+      "Transporte y Logística": ["Transporte Escolar"],
+      "Orientaciones Nuevos Ingresos": ["Orientación Nuevos Ingresos", "Guía Nuevos Ingresos"]
     };
 
     if (aliasMap[modulo]) {
@@ -374,12 +405,12 @@ export const usePermisos = () => {
     }
 
     return false;
-  }, [user, fullPermisos, permisos, tieneAccesoEscuela, esDirectivo]);
+  }, [user, fullPermisos, permisos, tieneAccesoEscuela, esDirectivo, esModoEmulacion]);
 
   const tienePermisoEnEscuela = useCallback((escuelaCodigo: string, modulo: string, accion: string = 'ver') => {
     if (!user) return false;
     const rolNorm = (user.rol || '').trim().toLowerCase();
-    if (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora') return true;
+    if (!esModoEmulacion && (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora')) return true;
 
     const esRolFormalizador = (user.rol || '').trim().toLowerCase() === 'formalizador';
     if (esRolFormalizador) {
@@ -409,7 +440,7 @@ export const usePermisos = () => {
       return val[accion] === true;
     }
     return false;
-  }, [user, fullPermisos, tieneAccesoEscuela]);
+  }, [user, fullPermisos, tieneAccesoEscuela, esModoEmulacion]);
 
   return { tienePermiso, tieneAccesoEscuela, tienePermisoEnEscuela, fullPermisos, permisos, loading, user };
 };
