@@ -844,24 +844,66 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     navigate('/login');
   };
 
-  const esModoEmulacion = !!(usuario?.es_emulacion || localStorage.getItem('sigae_usuario_original_admin'));
+  const [emulacionActiva, setEmulacionActiva] = useState<boolean>(() => {
+    return !!(
+      usuario?.es_emulacion ||
+      localStorage.getItem('sigae_usuario_original_admin') ||
+      sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+    );
+  });
+
+  useEffect(() => {
+    const checkEmulacion = () => {
+      const activa = !!(
+        localStorage.getItem('sigae_usuario_original_admin') ||
+        sessionStorage.getItem('sigae_emulacion_activa') === 'true' ||
+        usuario?.es_emulacion
+      );
+      setEmulacionActiva(activa);
+    };
+
+    window.addEventListener('sigae-session-update', checkEmulacion);
+    window.addEventListener('sigae-permisos-refresh', checkEmulacion);
+    window.addEventListener('storage', checkEmulacion);
+
+    return () => {
+      window.removeEventListener('sigae-session-update', checkEmulacion);
+      window.removeEventListener('sigae-permisos-refresh', checkEmulacion);
+      window.removeEventListener('storage', checkEmulacion);
+    };
+  }, [usuario?.es_emulacion]);
+
+  const esModoEmulacion = emulacionActiva || !!(
+    usuario?.es_emulacion || 
+    localStorage.getItem('sigae_usuario_original_admin') ||
+    sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+  );
   const bannerRef = useRef<HTMLDivElement>(null);
 
-  // Ajuste milimétrico y dinámico de altura para el banner de emulación (evita obstruir el header y menú en teléfonos)
+  // Ajuste milimétrico y dinámico de altura para el banner de emulación (evita obstruir el header y menú en PC y teléfonos)
   useEffect(() => {
     if (!esModoEmulacion) {
+      document.body.classList.remove('modo-emulacion-activo');
       document.documentElement.style.removeProperty('--altura-banner-emulacion');
       return;
     }
 
+    // Inicializar de inmediato para evitar cualquier desfase antes del primer render
+    document.body.classList.add('modo-emulacion-activo');
+    document.documentElement.style.setProperty('--altura-banner-emulacion', '42px');
+
     const updateHeight = () => {
       if (bannerRef.current) {
         const h = bannerRef.current.offsetHeight;
-        document.documentElement.style.setProperty('--altura-banner-emulacion', `${h}px`);
+        if (h > 0) {
+          document.documentElement.style.setProperty('--altura-banner-emulacion', `${h}px`);
+        }
       }
     };
 
     updateHeight();
+    const frameId = requestAnimationFrame(updateHeight);
+    const timeoutId = setTimeout(updateHeight, 50);
 
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined' && bannerRef.current) {
@@ -871,8 +913,11 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     window.addEventListener('resize', updateHeight);
 
     return () => {
+      cancelAnimationFrame(frameId);
+      clearTimeout(timeoutId);
       if (observer) observer.disconnect();
       window.removeEventListener('resize', updateHeight);
+      document.body.classList.remove('modo-emulacion-activo');
       document.documentElement.style.removeProperty('--altura-banner-emulacion');
     };
   }, [esModoEmulacion]);
@@ -974,8 +1019,8 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     let checkInterval: any;
     let sessionCheckInterval: any;
 
-    // Asegurar registro inicial de esta sesión
-    if (usuario?.cedula) {
+    // Asegurar registro inicial de esta sesión (exclusivo para sesiones reales de usuario, NUNCA en emulación)
+    if (usuario?.cedula && !esModoEmulacion) {
       registrarSesionActiva(usuario.cedula);
     }
 
@@ -988,7 +1033,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         actualizarActividad();
-        if (usuario?.cedula) {
+        if (usuario?.cedula && !esModoEmulacion) {
           verificarSesionRemota();
         }
       }
@@ -1127,17 +1172,19 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     // Revisar inactividad cada segundo (1000ms) para respuesta inmediata a los 30s
     checkInterval = setInterval(checkInactividad, 1000);
 
-    // Monitorear revocación remota cada 8 segundos (estilo WhatsApp Web)
-    sessionCheckInterval = setInterval(verificarSesionRemota, 8000);
+    // Monitorear revocación remota cada 8 segundos (estilo WhatsApp Web) solo para usuarios reales
+    if (!esModoEmulacion) {
+      sessionCheckInterval = setInterval(verificarSesionRemota, 8000);
+    }
 
     return () => {
       clearInterval(checkInterval);
-      clearInterval(sessionCheckInterval);
+      if (sessionCheckInterval) clearInterval(sessionCheckInterval);
       eventos.forEach(evt => window.removeEventListener(evt, actualizarActividad));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('reset-inactivity-timer', handleResetInactivity);
     };
-  }, [navigate, onLogout, usuario?.cedula]);
+  }, [navigate, onLogout, usuario?.cedula, esModoEmulacion]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarColapsado, setSidebarColapsado] = useState(() => {
@@ -1265,7 +1312,14 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         />
       )}
 
-      <aside id="menu-lateral" className="glass-sidebar chamilo-sidebar shadow-sm d-none d-lg-flex flex-column">
+      <aside 
+        id="menu-lateral" 
+        className="glass-sidebar chamilo-sidebar shadow-sm d-none d-lg-flex flex-column"
+        style={{
+          top: esModoEmulacion ? 'var(--altura-banner-emulacion, 42px)' : undefined,
+          height: esModoEmulacion ? 'calc(100vh - var(--altura-banner-emulacion, 42px))' : undefined
+        }}
+      >
         {/* CABECERA INSTITUCIONAL CHAMILO */}
         <div className="chamilo-sidebar-brand d-flex align-items-center justify-content-between">
           <div 
@@ -1476,6 +1530,9 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       <main 
         id="contenido-principal" 
         className="d-flex flex-column min-vh-100"
+        style={{
+          paddingTop: esModoEmulacion ? 'calc(72px + var(--altura-banner-emulacion, 42px))' : undefined
+        }}
       >
         {/* BANNER FLOTANTE DE MODO EMULACIÓN (RESPONSIVE & NO OBSTRUCTIVO) */}
         {esModoEmulacion && (
@@ -1558,6 +1615,9 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
         <header 
           className={`chamilo-top-header d-flex align-items-center px-3 px-md-4 ${isScrolled ? 'barra-flotante-activa' : ''}`}
+          style={{
+            top: esModoEmulacion ? 'var(--altura-banner-emulacion, 42px)' : undefined
+          }}
         >
           <div className="d-flex align-items-center d-lg-none me-2">
             <button 

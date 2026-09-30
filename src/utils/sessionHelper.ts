@@ -5,6 +5,8 @@
  * Electron y Capacitor WebView.
  */
 
+import { purgarSesionEmulacionSiExiste } from './activeSessionsHelper';
+
 export const notificarCambioSesion = (nuevoUsuario?: any) => {
   try {
     window.dispatchEvent(new CustomEvent('sigae-session-update', { detail: nuevoUsuario }));
@@ -41,10 +43,25 @@ export const iniciarEmulacionSesion = (
   localStorage.removeItem('sigae_cache_permisos');
   localStorage.removeItem('sigae_cache_full_permisos');
 
+  // Asegurar que el dispositivo del emulador NUNCA quede registrado en la cuenta emulada
+  if (usuarioEmulado?.cedula) {
+    purgarSesionEmulacionSiExiste(usuarioEmulado.cedula);
+  }
+
   notificarCambioSesion(usuarioEmulado);
 };
 
 export const salirEmulacionSesion = () => {
+  const currentStr = localStorage.getItem('usuario_sigae');
+  if (currentStr) {
+    try {
+      const uCurrent = JSON.parse(currentStr);
+      if (uCurrent?.cedula && uCurrent?.es_emulacion) {
+        purgarSesionEmulacionSiExiste(uCurrent.cedula);
+      }
+    } catch (_) {}
+  }
+
   const originalStr = localStorage.getItem('sigae_usuario_original_admin');
   let restoredUser: any = null;
 

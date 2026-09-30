@@ -61,9 +61,65 @@ export const detectarInfoDispositivo = (): {
   return { tipo, dispositivo, sistema, navegador };
 };
 
+// Detectar si el entorno actual se encuentra en Modo Virtualización / Emulación
+export const isEmulacionActiva = (): boolean => {
+  try {
+    const usrStr = localStorage.getItem('usuario_sigae');
+    const u = usrStr ? JSON.parse(usrStr) : null;
+    return !!(
+      u?.es_emulacion ||
+      localStorage.getItem('sigae_usuario_original_admin') ||
+      sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+    );
+  } catch {
+    return false;
+  }
+};
+
+// Purgar inmediatamente cualquier rastro de la sesión del emulador que haya quedado grabada previamente
+export const purgarSesionEmulacionSiExiste = async (cedula: string): Promise<void> => {
+  if (!cedula) return;
+  const sessionId = getOrInitSessionId();
+  try {
+    const { data: usuario, error } = await supabase
+      .from('usuarios')
+      .select('perfil_acceso')
+      .eq('cedula', cedula)
+      .maybeSingle();
+
+    if (error || !usuario) return;
+
+    let perfilAcceso: any = usuario.perfil_acceso || {};
+    if (typeof perfilAcceso === 'string') {
+      try { perfilAcceso = JSON.parse(perfilAcceso); } catch (e) { perfilAcceso = {}; }
+    }
+
+    if (!Array.isArray(perfilAcceso.sesiones_activas)) return;
+
+    const sesionesLimpias = perfilAcceso.sesiones_activas.filter((s: SesionDispositivo) => s.id !== sessionId && !(s as any).es_emulacion);
+    if (sesionesLimpias.length !== perfilAcceso.sesiones_activas.length) {
+      perfilAcceso.sesiones_activas = sesionesLimpias;
+      await supabase
+        .from('usuarios')
+        .update({ perfil_acceso: perfilAcceso })
+        .eq('cedula', cedula);
+    }
+  } catch (err) {
+    console.warn("Error purgando sesión de emulación previa:", err);
+  }
+};
+
 // Registrar o actualizar sesión activa en Supabase
 export const registrarSesionActiva = async (cedula: string): Promise<void> => {
   if (!cedula) return;
+
+  // REGLA CRÍTICA DE PRIVACIDAD Y SEGURIDAD:
+  // Cuando se virtualicen los usuarios o los roles, NUNCA debe grabarse ni actualizarse
+  // la sesión en los dispositivos vinculados bajo ninguna circunstancia.
+  if (isEmulacionActiva()) {
+    return;
+  }
+
   const sessionId = getOrInitSessionId();
   const info = detectarInfoDispositivo();
 
@@ -118,7 +174,7 @@ export const registrarSesionActiva = async (cedula: string): Promise<void> => {
   }
 };
 
-// Obtener todas las sesiones de este usuario
+// Obtener todas las sesiones de este usuario (ocultando cualquier sesión de emulación)
 export const obtenerSesionesUsuario = async (cedula: string): Promise<SesionDispositivo[]> => {
   if (!cedula) return [];
   try {
@@ -133,7 +189,17 @@ export const obtenerSesionesUsuario = async (cedula: string): Promise<SesionDisp
     if (typeof perfil === 'string') {
       try { perfil = JSON.parse(perfil); } catch (e) { perfil = {}; }
     }
-    return Array.isArray(perfil?.sesiones_activas) ? perfil.sesiones_activas : [];
+    let lista: SesionDispositivo[] = Array.isArray(perfil?.sesiones_activas) ? perfil.sesiones_activas : [];
+
+    // REGLA CRÍTICA:
+    // Si se está en modo emulación/virtualización, no mostrar la sesión actual del emulador
+    // ni ninguna sesión que haya sido etiquetada como de emulación previa
+    if (isEmulacionActiva()) {
+      const currentId = getOrInitSessionId();
+      lista = lista.filter(s => s.id !== currentId && !(s as any).es_emulacion);
+    }
+
+    return lista;
   } catch (err) {
     console.error("Error al obtener sesiones:", err);
     return [];
@@ -220,6 +286,7 @@ export const cerrarTodasLasDemasSesiones = async (cedula: string): Promise<boole
 // Verificar si la sesión actual sigue estando activa (para revocación remota instantánea)
 export const verificarSesionActualValida = async (cedula: string): Promise<boolean> => {
   if (!cedula) return true;
+  if (isEmulacionActiva()) return true;
   const currentId = getOrInitSessionId();
   try {
     const { data, error } = await supabase

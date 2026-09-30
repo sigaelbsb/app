@@ -49,6 +49,10 @@
     top: var(--altura-banner-emulacion, 0px) !important;
   }
 
+  body.modo-emulacion-activo .chamilo-top-header {
+    top: var(--altura-banner-emulacion, 42px) !important;
+  }
+
   #contenido-principal {
     padding-top: calc(60px + var(--altura-banner-emulacion, 0px)) !important;
   }

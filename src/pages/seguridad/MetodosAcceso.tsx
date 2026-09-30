@@ -28,6 +28,12 @@ export const MetodosAcceso = () => {
   const [loadingSesiones, setLoadingSesiones] = useState(false);
   const currentSessionId = getOrInitSessionId();
 
+  const esModoEmulacion = !!(
+    appUser?.es_emulacion ||
+    localStorage.getItem('sigae_usuario_original_admin') ||
+    sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+  );
+
   const Swal = (window as any).Swal;
 
   useEffect(() => {
@@ -97,9 +103,23 @@ export const MetodosAcceso = () => {
     if (!ced) return;
     setLoadingSesiones(true);
     try {
-      await registrarSesionActiva(ced);
+      const isEmul = !!(
+        localStorage.getItem('sigae_usuario_original_admin') ||
+        sessionStorage.getItem('sigae_emulacion_activa') === 'true' ||
+        appUser?.es_emulacion
+      );
+
+      if (!isEmul) {
+        await registrarSesionActiva(ced);
+      }
       const list = await obtenerSesionesUsuario(ced);
-      setSesiones(list);
+
+      // REGLA CRÍTICA: En modo emulación, no mostrar la sesión actual del emulador
+      const sesionesFiltradas = isEmul 
+        ? list.filter(s => s.id !== currentSessionId && !(s as any).es_emulacion)
+        : list;
+
+      setSesiones(sesionesFiltradas);
     } catch (e) {
       console.error("Error al cargar sesiones:", e);
     } finally {
@@ -109,6 +129,18 @@ export const MetodosAcceso = () => {
 
   const handleToggleSesion = async (targetId: string, nuevoEstado: boolean) => {
     if (!appUser?.cedula) return;
+
+    if (esModoEmulacion) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Modo Virtualización / Emulación',
+          text: 'Te encuentras en una sesión de auditoría técnica. No está permitido modificar los dispositivos reales de este usuario.',
+          confirmButtonColor: '#0066FF'
+        });
+      }
+      return;
+    }
     
     if (!nuevoEstado) {
       if (Swal) {
@@ -146,6 +178,19 @@ export const MetodosAcceso = () => {
 
   const handleCerrarTodasLasDemas = async () => {
     if (!appUser?.cedula) return;
+
+    if (esModoEmulacion) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Modo Virtualización / Emulación',
+          text: 'Te encuentras en una sesión de auditoría técnica. No está permitido revocar los dispositivos reales de este usuario.',
+          confirmButtonColor: '#0066FF'
+        });
+      }
+      return;
+    }
+
     if (Swal) {
       const confirm = await Swal.fire({
         title: '¿Cerrar todas las demás sesiones?',
@@ -725,6 +770,15 @@ export const MetodosAcceso = () => {
                   </div>
                 </div>
 
+                {esModoEmulacion && (
+                  <div className="alert alert-warning border-0 rounded-3 p-3 mb-3 d-flex align-items-center gap-2 small text-dark" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
+                    <i className="bi bi-shield-lock-fill text-warning fs-5"></i>
+                    <span>
+                      Modo Virtualización Activo: Esta sesión de auditoría temporal <strong>no se graba ni se muestra como dispositivo vinculado</strong> en la cuenta.
+                    </span>
+                  </div>
+                )}
+
                 {loadingSesiones ? (
                   <div className="text-center py-4 text-muted">
                     <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
@@ -733,7 +787,9 @@ export const MetodosAcceso = () => {
                 ) : sesiones.length === 0 ? (
                   <div className="text-center py-4 bg-light rounded-4 border border-dashed">
                     <i className="bi bi-laptop fs-1 text-muted opacity-50 d-block mb-2"></i>
-                    <p className="text-muted small mb-0">No se registran otras sesiones concurrentes.</p>
+                    <p className="text-muted small mb-0">
+                      {esModoEmulacion ? 'Sin dispositivos físicos vinculados para este usuario.' : 'No se registran otras sesiones concurrentes.'}
+                    </p>
                   </div>
                 ) : (
                   <div className="d-flex flex-column gap-3">

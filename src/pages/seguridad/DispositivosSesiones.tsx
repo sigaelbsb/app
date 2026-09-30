@@ -20,6 +20,12 @@ export const DispositivosSesiones = () => {
   const [loadingSesiones, setLoadingSesiones] = useState(false);
   const currentSessionId = getOrInitSessionId();
 
+  const esModoEmulacion = !!(
+    appUser?.es_emulacion ||
+    localStorage.getItem('sigae_usuario_original_admin') ||
+    sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+  );
+
   const Swal = (window as any).Swal;
 
   useEffect(() => {
@@ -66,9 +72,25 @@ export const DispositivosSesiones = () => {
     if (!ced) return;
     setLoadingSesiones(true);
     try {
-      await registrarSesionActiva(ced);
+      const isEmul = !!(
+        localStorage.getItem('sigae_usuario_original_admin') ||
+        sessionStorage.getItem('sigae_emulacion_activa') === 'true' ||
+        appUser?.es_emulacion
+      );
+
+      // Si no es emulación, registramos la sesión normalmente
+      if (!isEmul) {
+        await registrarSesionActiva(ced);
+      }
       const list = await obtenerSesionesUsuario(ced);
-      setSesiones(list);
+      
+      // REGLA CRÍTICA: En modo emulación / virtualización, NUNCA mostrar la sesión actual
+      // del navegador del emulador en los dispositivos vinculados de la cuenta
+      const sesionesFiltradas = isEmul 
+        ? list.filter(s => s.id !== currentSessionId && !(s as any).es_emulacion)
+        : list;
+
+      setSesiones(sesionesFiltradas);
     } catch (e) {
       console.error("Error al cargar sesiones:", e);
     } finally {
@@ -78,6 +100,18 @@ export const DispositivosSesiones = () => {
 
   const handleToggleSesion = async (targetId: string, nuevoEstado: boolean) => {
     if (!appUser?.cedula) return;
+
+    if (esModoEmulacion) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Modo Virtualización / Emulación',
+          text: 'Te encuentras en una sesión de auditoría técnica. No está permitido modificar ni revocar los dispositivos reales de este usuario.',
+          confirmButtonColor: '#0284c7'
+        });
+      }
+      return;
+    }
     
     if (!nuevoEstado) {
       if (Swal) {
@@ -115,6 +149,19 @@ export const DispositivosSesiones = () => {
 
   const handleCerrarTodasLasDemas = async () => {
     if (!appUser?.cedula) return;
+
+    if (esModoEmulacion) {
+      if (Swal) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Modo Virtualización / Emulación',
+          text: 'Te encuentras en una sesión de auditoría técnica. No está permitido revocar los dispositivos reales de este usuario.',
+          confirmButtonColor: '#0284c7'
+        });
+      }
+      return;
+    }
+
     if (Swal) {
       const confirm = await Swal.fire({
         title: '¿Cerrar sesión en todos los demás dispositivos?',
@@ -267,6 +314,21 @@ export const DispositivosSesiones = () => {
         </div>
       </div>
 
+      {/* Alerta Informativa en Modo Emulación */}
+      {esModoEmulacion && (
+        <div className="alert alert-warning border-0 shadow-sm rounded-4 d-flex align-items-center gap-3 p-3.5 mb-4 animate__animated animate__fadeIn" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
+          <div className="bg-warning text-dark rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '42px', height: '42px' }}>
+            <i className="bi bi-shield-lock-fill fs-5"></i>
+          </div>
+          <div className="flex-grow-1">
+            <h6 className="fw-bold mb-1 text-dark">Modo Virtualización Activo — Dispositivo Temporal No Vinculado</h6>
+            <p className="mb-0 small text-dark text-opacity-75">
+              Por directrices de privacidad y control de auditoría, las sesiones de virtualización de usuarios y roles <strong>no se graban ni se muestran como dispositivos vinculados</strong> en esta cuenta. Solo se listan los equipos físicos autorizados por el titular.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Main Sessions Card */}
       <div className="card border-0 shadow-sm rounded-4 mb-4">
         <div className="card-body p-4 p-md-5">
@@ -315,8 +377,15 @@ export const DispositivosSesiones = () => {
           ) : sesiones.length === 0 ? (
             <div className="text-center py-5 bg-light rounded-4 border border-dashed">
               <i className="bi bi-shield-check fs-1 text-primary opacity-50 d-block mb-2"></i>
-              <h6 className="fw-bold text-dark mb-1">No hay otras sesiones registradas</h6>
-              <p className="text-muted small mb-0">Tu cuenta solo está abierta en este dispositivo.</p>
+              <h6 className="fw-bold text-dark mb-1">
+                {esModoEmulacion ? 'Sin dispositivos físicos vinculados' : 'No hay otras sesiones registradas'}
+              </h6>
+              <p className="text-muted small mb-0">
+                {esModoEmulacion 
+                  ? 'Este usuario no tiene sesiones activas registradas en equipos físicos. (La sesión de emulación actual no se vincula por seguridad).'
+                  : 'Tu cuenta solo está abierta en este dispositivo.'
+                }
+              </p>
             </div>
           ) : (
             <div className="d-flex flex-column gap-3">

@@ -105,6 +105,11 @@ export const Dashboard = () => {
   const userStr = localStorage.getItem('usuario_sigae');
   const usuario = userStr ? JSON.parse(userStr) : { nombre: 'Usuario', rol: 'Comunidad' };
   const primerNombre = usuario.nombre ? usuario.nombre.split(' ')[0] : 'Usuario';
+  const esModoEmulacion = !!(
+    usuario?.es_emulacion ||
+    localStorage.getItem('sigae_usuario_original_admin') ||
+    sessionStorage.getItem('sigae_emulacion_activa') === 'true'
+  );
 
   const [relojDigital, setRelojDigital] = useState<string>('');
   const [mostrarIdentidad, setMostrarIdentidad] = useState(false);
@@ -1156,9 +1161,9 @@ export const Dashboard = () => {
                 <ChamiloSecurityShield
                   protectionScore={nivelSeguridadScore}
                   roleName={usuario.rol || 'Comunidad'}
-                  activeSessions={1}
+                  activeSessions={esModoEmulacion ? 0 : 1}
                   twoFactorEnabled={true}
-                  lastAudit="Hoy Activa"
+                  lastAudit={esModoEmulacion ? 'Virtualizado' : 'Hoy Activa'}
                   darkTheme={false}
                 />
               </div>
