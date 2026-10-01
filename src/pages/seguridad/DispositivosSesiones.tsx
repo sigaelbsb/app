@@ -308,7 +308,7 @@ export const DispositivosSesiones = () => {
             </div>
             <div>
               <span className="text-muted small fw-semibold d-block">Inactividad Automática</span>
-              <h4 className="fw-bold text-dark mb-0" style={{ fontSize: '1.25rem' }}>30 Segundos</h4>
+              <h4 className="fw-bold text-dark mb-0" style={{ fontSize: '1.25rem' }}>20 Minutos</h4>
             </div>
           </div>
         </div>
@@ -485,7 +485,7 @@ export const DispositivosSesiones = () => {
                 Si detectas un dispositivo sospechoso o desconocido en esta lista, haz clic de inmediato en <strong>"Cerrar Sesión"</strong> y dirígete a <a href="/categoria/Seguridad%20y%20Accesos/Mi%20Perfil" className="fw-bold text-primary">Mi Perfil</a> para cambiar tu contraseña.
               </p>
               <p className="small text-muted mb-0">
-                La aplicación además cuenta con cierre automático tras <strong>30 segundos de inactividad</strong> y un aviso previo de 30 segundos para salvaguardar tu información.
+                La aplicación además cuenta con cierre automático tras <strong>20 minutos de inactividad</strong> y un aviso previo de 30 segundos para salvaguardar tu información.
               </p>
             </div>
           </div>

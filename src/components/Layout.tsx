@@ -1008,10 +1008,10 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
     navigate('/', { replace: true });
   };
 
-  // Control de Inactividad (30 segundos de inactividad + consulta con cuenta regresiva de 30 segundos)
+  // Control de Inactividad (20 minutos de inactividad + consulta con cuenta regresiva de 30 segundos)
   // Y Monitoreo de Sesión Activa (Revocación Remota estilo WhatsApp Web)
   useEffect(() => {
-    const TIEMPO_INACTIVIDAD = 30 * 1000; // 30 segundos de inactividad
+    const TIEMPO_INACTIVIDAD = 20 * 60 * 1000; // 20 minutos de inactividad (1.200.000 ms)
     const TIEMPO_CONSULTA = 30; // 30 segundos de cuenta regresiva en el modal
     
     let lastActivityTime = Date.now();
@@ -1113,7 +1113,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           title: '<i class="bi bi-clock-history text-warning me-2"></i>¿Sigues ahí?',
           html: `
             <div class="text-center py-2">
-              <p class="mb-2 text-secondary fs-6">No se ha detectado actividad en los últimos <b>30 segundos</b>.</p>
+              <p class="mb-2 text-secondary fs-6">No se ha detectado actividad en los últimos <b>20 minutos</b>.</p>
               <div class="alert alert-warning py-2 px-3 rounded-3 mb-2 d-inline-block">
                 Por tu seguridad, la sesión se cerrará en <b class="fs-5 text-danger" id="conteo-inactividad">${TIEMPO_CONSULTA}</b> segundos.
               </div>
