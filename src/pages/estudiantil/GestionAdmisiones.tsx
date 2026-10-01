@@ -5540,122 +5540,111 @@ Para dudas o asistencia técnica, comuníquese con los canales autorizados de la
         ]}
       />
 
-      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      {/* ── 2. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 border-top border-4" 
-        style={{ 
-          borderColor: '#8B5CF6',
-          background: 'linear-gradient(135deg, #ffffff 0%, #faf5ff 50%, #f5f3ff 100%)'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #4338ca 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual: Icono 3D Isométrico + Escudo Institucional */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm border border-purple-subtle" style={{ borderColor: '#ddd6fe' }}>
-                <div 
-                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
-                  style={{ 
-                    width: '88px', 
-                    height: '88px',
-                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-                    border: '1px solid #ddd6fe'
-                  }}
-                  title="Gestión de Admisiones Chamilo Tech"
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{
+                width: '95px',
+                height: '95px',
+                border: '2.5px solid rgba(255,255,255,0.4)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.2)'
+              }}
+              title="Gestión de Admisiones Chamilo Tech"
+            >
+              <IconoGestionAdmisiones size={64} />
+            </div>
+          </div>
+
+          {/* Título y Métricas Clave */}
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-mortarboard-fill me-1"></i>Gestión de Admisiones
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-file-earmark-person-fill me-1"></i><b>{kpis.total}</b> Solicitudes
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-check-circle-fill text-success me-1"></i><b>{kpis.aprobados}</b> Aprobados
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-journal-check text-info me-1"></i><b>{kpis.formalizados}</b> Formalizados
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                <span className="fw-bold">Live Sincronizado</span>
+              </span>
+            </div>
+
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Gestión de Admisiones
+            </h1>
+
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Auditoría y revisión de solicitudes con baremo PDVSA/Comunidad, evaluación uno a uno en vivo, formalización de matrícula física y notificaciones oficiales.
+            </p>
+          </div>
+
+          {/* Logo de la Escuela */}
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={logoPath} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
+          </div>
+        </div>
+
+        {/* Selector de Sede y Controles */}
+        <div className="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
+          <div className="d-flex align-items-center gap-2">
+            <span className="extra-small fw-bold text-white text-uppercase" style={{ fontSize: '0.75rem', opacity: 0.9 }}>Filtrar Sede:</span>
+            <div className="btn-group btn-group-sm shadow-sm rounded-pill overflow-hidden bg-white p-0.5" role="group">
+              {!esSedeFija && (
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('todas')}
+                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${filtroEscuela === 'todas' ? 'btn-dark text-white shadow-sm' : 'text-dark bg-transparent'}`}
+                  style={{ fontSize: '0.78rem' }}
                 >
-                  <IconoGestionAdmisiones size={58} color="#8b5cf6" />
-                </div>
-                <div 
-                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
-                  style={{ width: '88px', height: '88px' }}
+                  🏢 Todas las Sedes
+                </button>
+              )}
+              {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && (
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('sb')}
+                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${filtroEscuela === 'sb' ? 'btn-success text-white shadow-sm' : 'text-dark bg-transparent'}`}
+                  style={{ fontSize: '0.78rem' }}
                 >
-                  <img 
-                    src={logoPath} 
-                    alt="Escudo Institucional" 
-                    className="img-fluid"
-                    style={{ maxHeight: '72px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-              </div>
+                  🟢 Santa Bárbara
+                </button>
+              )}
+              {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && (
+                <button
+                  type="button"
+                  onClick={() => setFiltroEscuela('lb')}
+                  className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${filtroEscuela === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-dark bg-transparent'}`}
+                  style={{ fontSize: '0.78rem' }}
+                >
+                  🔵 Libertador Bolívar
+                </button>
+              )}
             </div>
-
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#8B5CF6' }}>
-                  <i className="bi bi-mortarboard-fill me-1"></i>Gestión de Admisiones
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-file-earmark-person-fill text-primary me-1"></i><b>{kpis.total}</b> Solicitudes
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-check-circle-fill text-success me-1"></i><b>{kpis.aprobados}</b> Aprobados
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-journal-check text-info me-1"></i><b>{kpis.formalizados}</b> Formalizados
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
-                  <span className="text-success fw-bold">Live</span> / Sincronizado
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Gestión de Admisiones
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
-                Auditoría y revisión de solicitudes con baremo PDVSA/Comunidad, evaluación uno a uno en vivo, formalización de matrícula física y notificaciones oficiales.
-              </p>
-            </div>
-
-            {/* Selector de Sede Interactivo */}
-            <div className="col-12 col-md-auto text-md-end text-center d-flex flex-column align-items-md-end align-items-center gap-2">
-              <div className="d-inline-flex p-1 bg-white rounded-pill border shadow-xs" style={{ borderColor: '#ddd6fe' }}>
-                {!esSedeFija && (
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEscuela('todas')}
-                    className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'todas' ? 'text-white shadow-xs' : 'text-muted'}`}
-                    style={{
-                      backgroundColor: filtroEscuela === 'todas' ? '#8B5CF6' : 'transparent',
-                      fontSize: '0.78rem'
-                    }}
-                  >
-                    Todas las Sedes
-                  </button>
-                )}
-                {(!esSedeFija || escuelaUsuarioAsignada === 'sb') && (
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEscuela('sb')}
-                    className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'sb' ? 'text-white shadow-xs' : 'text-muted'}`}
-                    style={{
-                      backgroundColor: filtroEscuela === 'sb' ? '#8B5CF6' : 'transparent',
-                      fontSize: '0.78rem'
-                    }}
-                  >
-                    Santa Bárbara
-                  </button>
-                )}
-                {(!esSedeFija || escuelaUsuarioAsignada === 'lb') && (
-                  <button
-                    type="button"
-                    onClick={() => setFiltroEscuela('lb')}
-                    className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${filtroEscuela === 'lb' ? 'text-white shadow-xs' : 'text-muted'}`}
-                    style={{
-                      backgroundColor: filtroEscuela === 'lb' ? '#8B5CF6' : 'transparent',
-                      fontSize: '0.78rem'
-                    }}
-                  >
-                    Libertador Bolívar
-                  </button>
-                )}
-              </div>
-            </div>
-
+          </div>
+          <div className="text-white extra-small" style={{ opacity: 0.9 }}>
+            <i className="bi bi-shield-check me-1"></i>Panel de Admisión y Control de Cupos
           </div>
         </div>
 

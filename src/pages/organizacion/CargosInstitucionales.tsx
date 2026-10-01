@@ -6,7 +6,7 @@ import { usePermisos } from '../../hooks/usePermisos';
 import { 
   ChamiloBreadcrumb, 
   ChamiloHelpCallout, 
-  IconoCargosInstitucionales,
+  IconoCargosInstitucionales3D,
   IconoCrearCargo,
   IconoListaCargos,
   IconoAsignarPersonal
@@ -513,209 +513,145 @@ export const CargosInstitucionales = () => {
         icon="bi-briefcase-fill"
       />
 
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO (TECH-CARD) ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card mb-4 rounded-4 overflow-hidden shadow-sm"
-        style={{
-          borderTop: '6px solid #2563eb',
-          border: '2px solid #bfdbfe',
-          background: 'linear-gradient(135deg, #ffffff 0%, #eff6ff 45%, #dbeafe 100%)',
-          boxShadow: '0 10px 24px rgba(37, 99, 235, 0.12)'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
-                {/* Icono Tech Personalizado */}
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{
+                width: '95px',
+                height: '95px',
+                border: '2.5px solid rgba(255,255,255,0.4)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.2)'
+              }}
+              title="Módulo de Cargos Institucionales"
+            >
+              <IconoCargosInstitucionales3D size={64} />
+            </div>
+          </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-briefcase-fill me-1"></i>Planta Docente & Cargos
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-briefcase-fill me-1"></i><b>{cargos.length}</b> Cargos Creados
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-people-fill me-1"></i><b>{usuarios.length}</b> Personal Registrado
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-check-circle-fill me-1"></i><b>{personalAsignado}</b> Asignados ({porcentajeAsignados}%)
+              </span>
+            </div>
+
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Cargos Institucionales
+            </h1>
+
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Definición del catálogo de puestos de trabajo y asignación de responsabilidades al personal docente, administrativo y obrero.
+            </p>
+
+            {/* Barra de Cobertura Nominal de Cargos */}
+            <div className="mt-3" style={{ maxWidth: '440px' }}>
+              <div className="d-flex justify-content-between align-items-center small fw-bold text-white mb-1">
+                <span><i className="bi bi-person-check-fill me-1"></i>Cobertura Nominal de Personal</span>
+                <span>{porcentajeAsignados}%</span>
+              </div>
+              <div className="progress rounded-pill shadow-xs" style={{ height: '7px', backgroundColor: 'rgba(255,255,255,0.3)' }}>
                 <div 
-                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
-                  style={{
-                    width: '95px',
-                    height: '95px',
-                    border: '2.5px solid #bfdbfe',
-                    boxShadow: '0 10px 24px rgba(37, 99, 235, 0.15)'
+                  className="progress-bar rounded-pill bg-white" 
+                  role="progressbar" 
+                  style={{ 
+                    width: `${porcentajeAsignados}%`, 
+                    boxShadow: '0 0 10px rgba(255,255,255,0.8)',
+                    transition: 'width 0.6s ease'
                   }}
-                  title="Módulo de Cargos Institucionales"
-                >
-                  <IconoCargosInstitucionales size={60} color="#2563eb" />
-                </div>
-
-                {/* Selector Dual Interactivo de Escuelas */}
-                <div 
-                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
-                  style={{ borderColor: '#bfdbfe' }}
-                >
-                  {/* Switch SB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('sb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      escuelaCodigo === 'sb' 
-                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Santa Bárbara"
-                  >
-                    <img 
-                      src="/assets/img/logo_sb.png" 
-                      alt="UE Santa Bárbara" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      SB {escuelaCodigo === 'sb' ? '●' : ''}
-                    </span>
-                  </div>
-
-                  {/* Switch LB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('lb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      escuelaCodigo === 'lb' 
-                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Libertador Bolívar"
-                  >
-                    <img 
-                      src="/assets/img/logo_lb.png" 
-                      alt="UE Libertador Bolívar" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${escuelaCodigo === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      LB {escuelaCodigo === 'lb' ? '●' : ''}
-                    </span>
-                  </div>
-                </div>
+                ></div>
               </div>
             </div>
+          </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#2563eb', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-briefcase-fill"></i>Planta Docente & Cargos
-                </span>
-
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#bfdbfe' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#2563eb' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#1d4ed8', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; Cargos Activos
-                  </span>
-                </div>
-
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bfdbfe' }}>
-                  <i className="bi bi-briefcase-fill text-primary me-1"></i><b>{cargos.length}</b> Cargos Creados
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bfdbfe' }}>
-                  <i className="bi bi-people-fill text-success me-1"></i><b>{usuarios.length}</b> Personal Registrado
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bfdbfe' }}>
-                  <i className="bi bi-check-circle-fill text-info me-1"></i><b>{personalAsignado}</b> Asignados ({porcentajeAsignados}%)
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Cargos Institucionales
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
-                Definición del catálogo de puestos de trabajo y asignación de responsabilidades al personal docente, administrativo y obrero.
-              </p>
-
-              {/* Barra de Cobertura Nominal de Cargos */}
-              <div className="mt-3" style={{ maxWidth: '440px' }}>
-                <div className="d-flex justify-content-between align-items-center small fw-bold text-muted mb-1">
-                  <span><i className="bi bi-person-check-fill text-primary me-1"></i>Cobertura Nominal de Personal</span>
-                  <span className="text-primary">{porcentajeAsignados}%</span>
-                </div>
-                <div className="progress rounded-pill shadow-xs" style={{ height: '7px', backgroundColor: '#e2e8f0' }}>
-                  <div 
-                    className="progress-bar rounded-pill" 
-                    role="progressbar" 
-                    style={{ 
-                      width: `${porcentajeAsignados}%`, 
-                      background: 'linear-gradient(90deg, #60a5fa 0%, #2563eb 100%)',
-                      transition: 'width 0.6s ease'
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')}
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
-                style={{ borderColor: '#bfdbfe', fontSize: '0.85rem' }}
-              >
-                <i className="bi bi-arrow-left" style={{ color: '#1d4ed8' }}></i>
-                <span>Volver a Organización</span>
-              </button>
-            </div>
-
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
-        {/* Barra de Pestañas Chamilo */}
+        {/* Barra de Control Dual y Pestañas Integradas */}
         <div 
-          className="px-4 py-2.5 border-top d-flex justify-content-start align-items-center flex-wrap gap-2"
-          style={{ backgroundColor: 'rgba(239, 246, 255, 0.7)', borderColor: '#bfdbfe' }}
+          className="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center flex-wrap gap-3 position-relative z-1"
         >
-          {pDefinirVer && (
-            <button 
-              onClick={() => setActiveTab('definir')} 
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
-                activeTab === 'definir' 
-                  ? 'btn-primary text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
-              }`}
-              style={{
-                backgroundColor: activeTab === 'definir' ? '#2563eb' : '#ffffff',
-                borderColor: activeTab === 'definir' ? '#2563eb' : '#bfdbfe',
-                color: activeTab === 'definir' ? '#ffffff' : '#475569',
-                fontSize: '0.82rem'
-              }}
-            >
-              <IconoListaCargos size={18} color={activeTab === 'definir' ? '#ffffff' : '#2563eb'} />
-              <span>1. Definir Catálogo de Cargos</span>
-            </button>
-          )}
-          {pAsignarVer && (
-            <button 
-              onClick={() => setActiveTab('asignar')} 
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
-                activeTab === 'asignar' 
-                  ? 'btn-primary text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
-              }`}
-              style={{
-                backgroundColor: activeTab === 'asignar' ? '#2563eb' : '#ffffff',
-                borderColor: activeTab === 'asignar' ? '#2563eb' : '#bfdbfe',
-                color: activeTab === 'asignar' ? '#ffffff' : '#475569',
-                fontSize: '0.82rem'
-              }}
-            >
-              <IconoAsignarPersonal size={18} color={activeTab === 'asignar' ? '#ffffff' : '#2563eb'} />
-              <span>2. Asignar Personal a Cargos</span>
-            </button>
-          )}
+          {/* Pestañas de Navegación */}
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            {pDefinirVer && (
+              <button 
+                onClick={() => setActiveTab('definir')} 
+                className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+                  activeTab === 'definir' 
+                    ? 'btn-white bg-white text-primary shadow-sm' 
+                    : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
+                }`}
+                style={{ fontSize: '0.85rem' }}
+              >
+                <IconoListaCargos size={18} color={activeTab === 'definir' ? '#2563eb' : '#ffffff'} />
+                <span>1. Definir Catálogo de Cargos</span>
+              </button>
+            )}
+            {pAsignarVer && (
+              <button 
+                onClick={() => setActiveTab('asignar')} 
+                className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+                  activeTab === 'asignar' 
+                    ? 'btn-white bg-white text-primary shadow-sm' 
+                    : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
+                }`}
+                style={{ fontSize: '0.85rem' }}
+              >
+                <IconoAsignarPersonal size={18} color={activeTab === 'asignar' ? '#2563eb' : '#ffffff'} />
+                <span>2. Asignar Personal a Cargos</span>
+              </button>
+            )}
+          </div>
+
+          {/* Selector Dual SB / LB */}
+          <div className="d-flex align-items-center gap-2">
+            <span className="extra-small fw-bold text-white text-uppercase" style={{ fontSize: '0.75rem', opacity: 0.9 }}>Plantel:</span>
+            <div className="btn-group btn-group-sm shadow-sm rounded-pill overflow-hidden bg-white p-0.5" role="group">
+              <button 
+                onClick={() => cambiarEscuelaActiva('sb')} 
+                className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                  escuelaCodigo === 'sb' ? 'btn-success text-white shadow-sm' : 'text-dark bg-transparent'
+                }`}
+                style={{ fontSize: '0.8rem' }}
+              >
+                🟢 SB
+              </button>
+              <button 
+                onClick={() => cambiarEscuelaActiva('lb')} 
+                className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                  escuelaCodigo === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-dark bg-transparent'
+                }`}
+                style={{ fontSize: '0.8rem' }}
+              >
+                🔵 LB
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

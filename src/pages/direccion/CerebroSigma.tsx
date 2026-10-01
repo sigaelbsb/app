@@ -53,12 +53,12 @@ export const CerebroSigma = () => {
   const [formAccionTipo, setFormAccionTipo] = useState('');
   const [formAccionValor, setFormAccionValor] = useState('');
   const [formRoles, setFormRoles] = useState('');
-  const [formTitle, setFormTitle] = useState('Enseñar a Sigma');
+  const [formTitle, setFormTitle] = useState('Enseñar a Zoe y Max');
   const [preguntaActivaId, setPreguntaActivaId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
 
-  const isRestricted = !permLoading && !tienePermiso('Cerebro de Sigma', 'ver');
-  const canEdit = tienePermiso('Cerebro de Sigma', 'editar') || tienePermiso('Cerebro de Sigma', 'crear') || tienePermiso('Cerebro de Sigma', 'modificar');
+  const isRestricted = !permLoading && !tienePermiso('Cerebro de Zoe y Max', 'ver') && !tienePermiso('Cerebro de Sigma', 'ver');
+  const canEdit = tienePermiso('Cerebro de Zoe y Max', 'editar') || tienePermiso('Cerebro de Sigma', 'editar') || tienePermiso('Cerebro de Zoe y Max', 'crear') || tienePermiso('Cerebro de Sigma', 'crear') || tienePermiso('Cerebro de Zoe y Max', 'modificar') || tienePermiso('Cerebro de Sigma', 'modificar');
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -100,21 +100,21 @@ export const CerebroSigma = () => {
       }
     } catch (e: any) {
       console.error(e);
-      if (Swal) Swal.fire("Error", "No se pudo cargar el conocimiento de Sigma.", "error");
+      if (Swal) Swal.fire("Error", "No se pudo cargar el conocimiento de Zoe y Max.", "error");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!permLoading && tienePermiso('Cerebro de Sigma', 'ver')) {
+    if (!permLoading && (tienePermiso('Cerebro de Zoe y Max', 'ver') || tienePermiso('Cerebro de Sigma', 'ver'))) {
       cargarDatos();
     }
   }, [permLoading]);
 
   useEffect(() => {
     const handlePendingRefresh = () => {
-      if (!permLoading && tienePermiso('Cerebro de Sigma', 'ver')) {
+      if (!permLoading && (tienePermiso('Cerebro de Zoe y Max', 'ver') || tienePermiso('Cerebro de Sigma', 'ver'))) {
         cargarDatos();
       }
     };
@@ -220,7 +220,7 @@ export const CerebroSigma = () => {
     });
 
     const timestamp = new Date().toISOString().slice(0, 10);
-    const nombreArchivo = `Preguntas_Sigma_SIGAE_${timestamp}`;
+    const nombreArchivo = `Preguntas_Zoe_Max_SIGAE_${timestamp}`;
 
     if (formato === 'xlsx') {
       const wb = XLSX.utils.book_new();
@@ -262,7 +262,7 @@ export const CerebroSigma = () => {
       html: `
         <div class="text-start">
           <p class="small text-muted mb-2">Sube tu archivo de <b>Excel (.xlsx, .xls) o CSV (.csv)</b> con las preguntas y respuestas revisadas.</p>
-          <p class="extra-small text-muted mb-3">El sistema actualizará el estado de cada pregunta a <b>Respondida</b> e integrará las respuestas a la memoria inteligente de Sigma.</p>
+          <p class="extra-small text-muted mb-3">El sistema actualizará el estado de cada pregunta a <b>Respondida</b> e integrará las respuestas a la memoria inteligente de Zoe y Max.</p>
           <div class="d-flex gap-2 mb-3 justify-content-center">
             <button type="button" id="btn-dl-preguntas-xlsx" class="btn btn-sm btn-outline-success rounded-pill fw-bold px-3"><i class="bi bi-file-earmark-excel-fill me-1"></i> Descargar Excel Actual (.xlsx)</button>
             <button type="button" id="btn-dl-preguntas-csv" class="btn btn-sm btn-outline-secondary rounded-pill fw-bold px-3"><i class="bi bi-filetype-csv me-1"></i> Descargar CSV (.csv)</button>
@@ -410,7 +410,7 @@ export const CerebroSigma = () => {
         Swal.fire({
           icon: 'success',
           title: '¡Respuestas Cargadas y Entrenadas!',
-          html: `<p class="mb-2">Se procesaron exitosamente <b>${conocimientosInsert.length}</b> preguntas y respuestas.</p><p class="text-muted extra-small mb-0">Sigma ahora responderá automáticamente a todas estas intenciones en el sistema.</p>`,
+          html: `<p class="mb-2">Se procesaron exitosamente <b>${conocimientosInsert.length}</b> preguntas y respuestas.</p><p class="text-muted extra-small mb-0">Zoe y Max ahora responderán automáticamente a todas estas intenciones en el sistema.</p>`,
           confirmButtonColor: '#6366f1'
         });
       }
@@ -424,7 +424,7 @@ export const CerebroSigma = () => {
 
   const abrirModalNuevo = () => {
     if (!canEdit) {
-      if (Swal) Swal.fire("Acceso Denegado", "No tienes permisos para modificar el cerebro de Sigma.", "error");
+      if (Swal) Swal.fire("Acceso Denegado", "No tienes permisos para modificar el cerebro de Zoe y Max.", "error");
       return;
     }
     setPreguntaActivaId(null);
@@ -435,13 +435,13 @@ export const CerebroSigma = () => {
     setFormAccionTipo('');
     setFormAccionValor('');
     setFormRoles('');
-    setFormTitle('Enseñar Nueva Intención a Sigma');
+    setFormTitle('Enseñar Nueva Intención a Zoe y Max');
     setModalOpen(true);
   };
 
   const abrirModalEditar = (item: ConocimientoItem) => {
     if (!canEdit) {
-      if (Swal) Swal.fire("Acceso Denegado", "No tienes permisos para modificar el cerebro de Sigma.", "error");
+      if (Swal) Swal.fire("Acceso Denegado", "No tienes permisos para modificar el cerebro de Zoe y Max.", "error");
       return;
     }
     setPreguntaActivaId(null);
@@ -452,7 +452,7 @@ export const CerebroSigma = () => {
     setFormAccionTipo(item.accion_tipo || '');
     setFormAccionValor(item.accion_valor || '');
     setFormRoles((item.roles_permitidos || []).join(', '));
-    setFormTitle('Editar Conocimiento de Sigma');
+    setFormTitle('Editar Conocimiento de Zoe y Max');
     setModalOpen(true);
   };
 
@@ -545,7 +545,7 @@ export const CerebroSigma = () => {
           toast: true,
           position: 'top-end',
           icon: 'success',
-          title: 'Respuesta guardada y entrenada en Sigma',
+          title: 'Respuesta guardada y entrenada en Zoe y Max',
           showConfirmButton: false,
           timer: 2000
         });
@@ -562,7 +562,7 @@ export const CerebroSigma = () => {
   };
 
   const eliminarConocimiento = (id: string) => {
-    if (!tienePermiso('Cerebro de Sigma', 'eliminar')) {
+    if (!tienePermiso('Cerebro de Zoe y Max', 'eliminar') && !tienePermiso('Cerebro de Sigma', 'eliminar')) {
       if (Swal) Swal.fire("Acceso Denegado", "No tienes permisos para eliminar conocimientos.", "error");
       return;
     }
@@ -571,7 +571,7 @@ export const CerebroSigma = () => {
 
     Swal.fire({
       title: '<div class="text-danger d-flex align-items-center justify-content-center gap-2"><i class="bi bi-trash3-fill fs-3"></i><span>¿Olvidar Conocimiento?</span></div>',
-      html: '<p class="text-muted small mb-0">Sigma dejará de responder a estas intenciones y palabras clave.</p>',
+      html: '<p class="text-muted small mb-0">Zoe y Max dejarán de responder a estas intenciones y palabras clave.</p>',
       showCancelButton: true,
       confirmButtonColor: '#dc2626',
       cancelButtonColor: '#64748b',
@@ -662,7 +662,7 @@ export const CerebroSigma = () => {
     return (
       <div className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: '400px' }}>
         <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Cargando asistente Sigma...</span>
+          <span className="visually-hidden">Cargando asistentes Zoe y Max...</span>
         </div>
       </div>
     );
@@ -675,7 +675,7 @@ export const CerebroSigma = () => {
           <i className="bi bi-shield-lock-fill text-muted" style={{ fontSize: '3.5rem' }}></i>
         </div>
         <h4 className="text-dark fw-bold mb-2">Área Restringida</h4>
-        <p className="text-muted mb-0">No tienes permisos asignados para acceder a la configuración del Cerebro de Sigma.</p>
+        <p className="text-muted mb-0">No tienes permisos asignados para acceder a la configuración del Cerebro de Zoe y Max.</p>
       </div>
     );
   }
@@ -686,149 +686,118 @@ export const CerebroSigma = () => {
       {/* 1. Miga de Pan Chamilo */}
       <ChamiloBreadcrumb
         category="Dirección y Sistema"
-        currentModule="Cerebro de Sigma"
+        currentModule="Cerebro de Zoe y Max"
       />
 
       {/* 2. Cuadro de Ayuda Metodológica Chamilo */}
       <ChamiloHelpCallout
         id="ayuda_cerebro_sigma_chamilo"
-        title="Historial de Consultas de Usuarios y Memoria de Sigma"
-        content="Supervise el registro histórico completo de todas las preguntas formuladas por la comunidad escolar. Puede descargar el archivo Excel completo, responderlas con asistencia de IA y volver a cargar el lote para entrenar la memoria de Sigma en un solo clic."
-        icon="bi-robot"
+        title="Historial de Consultas de Usuarios y Memoria de Zoe y Max"
+        content="Supervise el registro histórico completo de todas las preguntas formuladas por la comunidad escolar. Puede descargar el archivo Excel completo, responderlas con asistencia de IA y volver a cargar el lote para retroalimentar la base de conocimientos de Zoe y Max."
+        icon="bi-cpu-fill"
       />
 
-      {/* ── 3. CABECERA INSTITUCIONAL CON MÉTRICAS EN VIVO (Estilo Dirección y Sistema) ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL CON BANNER 3D ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 shadow-sm animate__animated animate__fadeInDown"
-        style={{
-          border: '2px solid #fed7aa',
-          borderTop: '6px solid #FF8D00',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #FF8D00 0%, #ea580c 50%, #c2410c 100%)' }}
       >
-        <div className="p-3 p-sm-4 p-md-4">
-          <div className="row align-items-center g-3 g-md-4">
-            
-            {/* Ícono de Cerebro Sigma */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div 
-                className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-1 overflow-hidden"
-                style={{ 
-                  width: '100px', 
-                  height: '100px', 
-                  borderRadius: '24px', 
-                  border: '2.5px solid #fed7aa',
-                  boxShadow: '0 10px 24px rgba(249, 115, 22, 0.15)'
-                }}
-              >
-                <SigmaFiguraVisual style={{ width: '82px', height: '96px' }} />
-              </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="bg-white shadow-lg d-inline-flex align-items-center justify-content-center p-2 overflow-hidden rounded-4"
+              style={{ width: '110px', height: '110px', border: '3px solid rgba(255,255,255,0.85)' }}
+            >
+              <SigmaFiguraVisual personaje="duo" style={{ width: '92px', height: '98px', objectFit: 'contain' }} />
             </div>
-
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#FF8D00', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-stars"></i>Asistente Virtual SIGMA
-                </span>
-
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#fed7aa' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#ea580c' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#c2410c', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; SIGAE v1.1
-                  </span>
-                </div>
-
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#fed7aa' }}>
-                  <i className="bi bi-chat-left-dots text-primary me-1"></i><b>{preguntas.length}</b> Preguntas
-                </span>
-                <span className={`badge px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs ${totalPendientes > 0 ? 'bg-warning text-dark' : 'bg-white text-success border'}`} style={{ borderColor: '#fed7aa' }}>
-                  <i className={`bi ${totalPendientes > 0 ? 'bi-hourglass-split' : 'bi-check-circle-fill'} me-1`}></i>
-                  <b>{totalPendientes}</b> Por Responder
-                </span>
-                <span className="badge bg-white text-success border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#fed7aa' }}>
-                  <i className="bi bi-check2-all text-success me-1"></i><b>{totalResueltas}</b> Respondidas
-                </span>
-                <span className="badge bg-white text-muted border px-2.5 py-1.5 rounded-pill small shadow-xs" style={{ borderColor: '#fed7aa' }}>
-                  <i className="bi bi-brain me-1" style={{ color: '#ea580c' }}></i>{conocimientos.length} Intenciones
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1 text-dark fs-3 fs-md-2" style={{ letterSpacing: '-0.5px' }}>
-                Historial de Consultas y Aprendizaje de SIGMA
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '800px' }}>
-                Bandeja integral de preguntas realizadas por la comunidad para responderlas y entrenar a la asistente virtual e inteligencia artificial del plantel.
-              </p>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <div className="d-flex flex-column align-items-md-end align-items-center gap-2">
-                <div className="d-flex align-items-center gap-1.5 flex-wrap justify-content-center">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')}
-                    className="btn btn-white bg-white text-dark rounded-pill px-3.5 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-1.5"
-                    style={{ borderColor: '#fed7aa', fontSize: '0.82rem' }}
-                  >
-                    <i className="bi bi-arrow-left" style={{ color: '#ea580c' }}></i>
-                    <span>Volver a Dirección</span>
-                  </button>
-
-                  {/* Botón Descargar Excel */}
-                  <button
-                    type="button"
-                    onClick={() => descargarPreguntasExcel('xlsx')}
-                    className="btn btn-success rounded-pill px-3.5 py-2 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 text-white"
-                    style={{ fontSize: '0.82rem' }}
-                    title="Descargar todas las preguntas con respuestas sugeridas en Excel"
-                  >
-                    <i className="bi bi-file-earmark-excel-fill"></i>
-                    <span>Descargar Excel</span>
-                  </button>
-
-                  {/* Botón Cargar Respuestas */}
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={abrirImportadorRespuestas}
-                      className="btn btn-white bg-white text-dark border rounded-pill px-3.5 py-2 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-                      style={{ borderColor: '#fed7aa', fontSize: '0.82rem' }}
-                      title="Subir archivo Excel con respuestas revisadas"
-                    >
-                      <i className="bi bi-cloud-arrow-up-fill" style={{ color: '#ea580c' }}></i>
-                      <span>Cargar Respuestas</span>
-                    </button>
-                  )}
-
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={abrirModalNuevo}
-                      className="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 text-white"
-                      style={{ backgroundColor: '#FF8D00', borderColor: '#FF8D00', fontSize: '0.82rem' }}
-                    >
-                      <i className="bi bi-plus-lg"></i>
-                      <span>Nueva Intención</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
           </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-robot me-1"></i>IA INSTITUCIONAL ZOE & MAX
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <i className="bi bi-chat-left-dots me-1"></i><b>{preguntas.length}</b> Preguntas
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <i className="bi bi-hourglass-split me-1"></i><b>{totalPendientes}</b> Por Responder
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <i className="bi bi-check2-all me-1"></i><b>{totalResueltas}</b> Respondidas
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <i className="bi bi-brain me-1"></i>{conocimientos.length} Intenciones
+              </span>
+            </div>
+
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Cerebro y Aprendizaje de Zoe & Max
+            </h1>
+
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Bandeja integral de preguntas realizadas por la comunidad para responderlas y entrenar el motor neural institucional de Zoe y Max.
+            </p>
+          </div>
+
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white">
+        <div className="p-3 bg-light border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => descargarPreguntasExcel('xlsx')}
+              className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 text-white"
+              style={{ fontSize: '0.82rem' }}
+            >
+              <i className="bi bi-file-earmark-excel-fill"></i>
+              <span>Descargar Excel</span>
+            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={abrirImportadorRespuestas}
+                className="btn btn-white bg-white text-dark border rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-cloud-arrow-up-fill" style={{ color: '#ea580c' }}></i>
+                <span>Cargar Respuestas</span>
+              </button>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={abrirModalNuevo}
+                className="btn btn-primary rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 text-white"
+                style={{ backgroundColor: '#FF8D00', borderColor: '#FF8D00', fontSize: '0.82rem' }}
+              >
+                <i className="bi bi-plus-lg"></i>
+                <span>Nueva Intención</span>
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')}
+            className="btn btn-white bg-white text-dark rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-1.5"
+            style={{ fontSize: '0.82rem' }}
+          >
+            <i className="bi bi-arrow-left" style={{ color: '#ea580c' }}></i>
+            <span>Volver a Dirección</span>
+          </button>
         </div>
 
         {/* Barra de Pestañas Principal con Desplazamiento Táctil */}
@@ -1055,7 +1024,7 @@ export const CerebroSigma = () => {
                                     <button 
                                       className="btn btn-xs btn-primary rounded-pill shadow-xs px-3 py-1 fw-bold d-inline-flex align-items-center gap-1 w-100 justify-content-center hover-efecto" 
                                       onClick={() => responderPregunta(item)} 
-                                      title="Responder y Enseñar a Sigma"
+                                      title="Responder y Enseñar a Zoe y Max"
                                       style={{ fontSize: '0.78rem' }}
                                     >
                                       <i className="bi bi-reply-fill"></i>
@@ -1124,7 +1093,7 @@ export const CerebroSigma = () => {
                     <i className="bi bi-journal-text text-primary"></i>
                     Intenciones y Reglas Semánticas
                   </h5>
-                  <span className="extra-small text-muted">{filteredConocimientos.length} intenciones activas en la memoria de Sigma</span>
+                  <span className="extra-small text-muted">{filteredConocimientos.length} intenciones activas en la memoria de Zoe y Max</span>
                 </div>
               </div>
 
@@ -1265,13 +1234,13 @@ export const CerebroSigma = () => {
                     onChange={(e) => setFormClaves(e.target.value)}
                   />
                   <div className="extra-small text-muted mt-1">
-                    <i className="bi bi-info-circle me-1"></i>Sigma reconocerá la intención cuando el usuario escriba estas palabras.
+                    <i className="bi bi-info-circle me-1"></i>Zoe y Max reconocerán la intención cuando el usuario escriba estas palabras.
                   </div>
                 </div>
 
                 <div className="mb-3">
                   <label className="form-label fw-bold small text-dark mb-1">
-                    Respuesta Oficial de Sigma <span className="text-danger">*</span>
+                    Respuesta Oficial de Zoe y Max <span className="text-danger">*</span>
                   </label>
                   <textarea 
                     className="form-control rounded-3" 
@@ -1344,7 +1313,7 @@ export const CerebroSigma = () => {
                   ) : (
                     <>
                       <i className="bi bi-floppy-fill"></i>
-                      <span>Guardar y Entrenar a Sigma</span>
+                      <span>Guardar y Entrenar a Zoe y Max</span>
                     </>
                   )}
                 </button>

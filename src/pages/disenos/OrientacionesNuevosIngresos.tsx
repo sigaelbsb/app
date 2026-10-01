@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import html2canvas from 'html2canvas';
 import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
-import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoOrientacionesNuevosIngresos3D } from '../../components/chamilo';
 
 declare const Swal: any;
 
@@ -714,146 +714,136 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
         ]}
       />
 
-      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      {/* ── 2. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 border-top border-4" 
-        style={{ 
-          borderColor: '#10B981',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 50%, #ecfdf5 100%)'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #047857 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            {/* Contenedor Dual: Icono 3D WhatsApp + Escudo Institucional */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm border border-success-subtle">
-                <div 
-                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
-                  style={{ 
-                    width: '84px', 
-                    height: '84px',
-                    background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                    border: '1px solid #a7f3d0'
-                  }}
-                >
-                  <i className="bi bi-whatsapp text-success" style={{ fontSize: '46px' }}></i>
-                </div>
-                <div 
-                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
-                  style={{ width: '84px', height: '84px' }}
-                >
-                  <img 
-                    src={logoEscuela} 
-                    alt="Escudo" 
-                    className="img-fluid"
-                    style={{ maxHeight: '68px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-              </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+
+        <div className="row align-items-center position-relative z-1 g-4">
+          {/* Contenedor: Icono 3D Isométrico */}
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{ width: '95px', height: '95px', border: '2.5px solid rgba(255,255,255,0.4)', boxShadow: '0 10px 24px rgba(0,0,0,0.2)' }}
+            >
+              <IconoOrientacionesNuevosIngresos3D size={64} />
+            </div>
+          </div>
+
+          {/* Título y Métricas Clave */}
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-success px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-shield-check me-1"></i> Protección Anti-Spam Activa
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-people-fill me-1"></i><b>{totalAprobados}</b> Admitidos
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" title="Representantes que ya recibieron la Carta/Notificación de Aceptación">
+                <i className="bi bi-check2-circle me-1"></i>1. Aceptación: <b>{totalAceptacionEnviados}</b>/{totalAprobados}
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" title="Representantes que ya recibieron las Orientaciones Paso a Paso">
+                <i className="bi bi-signpost-split-fill me-1"></i>2. Orientaciones: <b>{totalNotificados}</b>/{totalAprobados} ({porcentajeAvance}%)
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" title="Representantes con Orientaciones pendientes por enviar">
+                <i className="bi bi-clock-history me-1"></i><b>{totalPendientes}</b> Pendientes
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <span className="badge bg-success text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs">
-                  <i className="bi bi-shield-check me-1"></i>Protección Anti-Spam Activa
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-people-fill text-primary me-1"></i><b>{totalAprobados}</b> Admitidos
-                </span>
-                <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" title="Representantes que ya recibieron la Carta/Notificación de Aceptación">
-                  <i className="bi bi-check2-circle me-1"></i>1. Aceptación: <b>{totalAceptacionEnviados}</b>/{totalAprobados}
-                </span>
-                <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" title="Representantes que ya recibieron las Orientaciones Paso a Paso">
-                  <i className="bi bi-signpost-split-fill me-1"></i>2. Orientaciones: <b>{totalNotificados}</b>/{totalAprobados} ({porcentajeAvance}%)
-                </span>
-                <span className="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" title="Representantes con Orientaciones pendientes por enviar">
-                  <i className="bi bi-clock-history me-1"></i><b>{totalPendientes}</b> Pendientes
-                </span>
-              </div>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.5rem + 0.7vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Orientaciones Nuevos Ingresos &bull; Difusión Masiva WhatsApp
+            </h1>
 
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.4rem + 0.6vw)', letterSpacing: '-0.5px' }}>
-                Orientaciones Nuevos Ingresos &bull; Difusión Masiva WhatsApp
-              </h1>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Despachador inteligente con retardo humano programable, rotación de textos anti-bloqueo y plantilla oficial del paso a paso institucional.
+            </p>
+          </div>
 
-              <p className="mb-0 text-muted small" style={{ maxWidth: '820px' }}>
-                Despachador inteligente con retardo humano programable, rotación de textos anti-bloqueo y plantilla oficial del paso a paso: ingreso, creación de contraseña, actualización de ficha estudiantil, descarga de recaudos, convocatoria física y constancia en 12h.
-              </p>
+          {/* Selector de Sede y Acciones */}
+          <div className="col-12 col-md-auto text-md-end text-center d-flex flex-column align-items-md-end align-items-center gap-2">
+            <div className="d-inline-flex p-1 bg-white bg-opacity-20 rounded-pill border border-white border-opacity-25 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setEscuelaFiltro('todas')}
+                className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'todas' ? 'bg-white text-success shadow-sm' : 'text-white'}`}
+                style={{ fontSize: '0.78rem' }}
+              >
+                Ambas Sedes
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscuelaFiltro('sb')}
+                className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'sb' ? 'bg-white text-success shadow-sm' : 'text-white'}`}
+                style={{ fontSize: '0.78rem' }}
+              >
+                Santa Bárbara
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscuelaFiltro('lb')}
+                className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'lb' ? 'bg-white text-success shadow-sm' : 'text-white'}`}
+                style={{ fontSize: '0.78rem' }}
+              >
+                Libertador Bolívar
+              </button>
             </div>
 
-            {/* Selector de Sede y Acciones */}
-            <div className="col-12 col-md-auto text-md-end text-center d-flex flex-column align-items-md-end align-items-center gap-2">
-              <div className="d-inline-flex p-1 bg-white rounded-pill border shadow-xs" style={{ borderColor: '#a7f3d0' }}>
-                <button
-                  type="button"
-                  onClick={() => setEscuelaFiltro('todas')}
-                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'todas' ? 'bg-success text-white shadow-xs' : 'text-muted'}`}
-                  style={{ fontSize: '0.78rem' }}
-                >
-                  Ambas Sedes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEscuelaFiltro('sb')}
-                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'sb' ? 'bg-success text-white shadow-xs' : 'text-muted'}`}
-                  style={{ fontSize: '0.78rem' }}
-                >
-                  Santa Bárbara
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEscuelaFiltro('lb')}
-                  className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${escuelaFiltro === 'lb' ? 'bg-success text-white shadow-xs' : 'text-muted'}`}
-                  style={{ fontSize: '0.78rem' }}
-                >
-                  Libertador Bolívar
-                </button>
-              </div>
-
-              <div className="d-flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate('/categoria/Diseños')}
-                  className="btn btn-white bg-white rounded-pill px-3 py-1.5 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto border shadow-xs"
-                  style={{ fontSize: '0.8rem' }}
-                >
-                  <i className="bi bi-arrow-left"></i>
-                  <span>Volver a Diseños</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/categoria/Gestión%20Estudiantil/Gestión%20de%20Admisiones')}
-                  className="btn btn-outline-success rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
-                  style={{ fontSize: '0.8rem' }}
-                >
-                  <i className="bi bi-ui-checks"></i>
-                  <span>Ver en Admisiones</span>
-                </button>
-              </div>
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Diseños')}
+                className="btn btn-light rounded-pill px-3 py-1.5 fw-bold text-dark d-inline-flex align-items-center gap-1.5 hover-efecto shadow-sm"
+                style={{ fontSize: '0.8rem' }}
+              >
+                <i className="bi bi-arrow-left"></i>
+                <span>Volver a Diseños</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Gestión%20Estudiantil/Gestión%20de%20Admisiones')}
+                className="btn btn-outline-light rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 hover-efecto shadow-sm"
+                style={{ fontSize: '0.8rem' }}
+              >
+                <i className="bi bi-ui-checks"></i>
+                <span>Ver en Admisiones</span>
+              </button>
             </div>
+          </div>
+
+          {/* Logo Escuela Flotante 3D */}
+          <div className="col-12 col-lg-auto text-end d-none d-lg-block">
+            <img 
+              src={logoEscuela} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
         {/* Barra de Pestañas de Navegación */}
-        <div className="px-4 py-2 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div className="mt-4 pt-3 border-top border-white border-opacity-20 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
           <ul className="nav nav-pills gap-2">
             <li className="nav-item">
               <button
                 type="button"
-                className={`nav-link rounded-pill fw-bold px-3.5 py-1.5 d-flex align-items-center gap-2 ${pestañaActiva === 'despachador' ? 'active bg-success text-white' : 'text-dark'}`}
+                className={`nav-link rounded-pill fw-bold px-3.5 py-1.5 d-flex align-items-center gap-2 ${pestañaActiva === 'despachador' ? 'active bg-white text-success shadow-sm' : 'text-white bg-white bg-opacity-20'}`}
                 style={{ fontSize: '0.83rem' }}
                 onClick={() => setPestañaActiva('despachador')}
               >
                 <i className="bi bi-send-check-fill"></i>
                 <span>Despachador Masivo WhatsApp</span>
-                <span className="badge bg-white text-success rounded-pill">{aspirantesFiltrados.length}</span>
+                <span className="badge bg-success text-white rounded-pill">{aspirantesFiltrados.length}</span>
               </button>
             </li>
             <li className="nav-item">
               <button
                 type="button"
-                className={`nav-link rounded-pill fw-bold px-3.5 py-1.5 d-flex align-items-center gap-2 ${pestañaActiva === 'editor' ? 'active bg-success text-white' : 'text-dark'}`}
+                className={`nav-link rounded-pill fw-bold px-3.5 py-1.5 d-flex align-items-center gap-2 ${pestañaActiva === 'editor' ? 'active bg-white text-success shadow-sm' : 'text-white bg-white bg-opacity-20'}`}
                 style={{ fontSize: '0.83rem' }}
                 onClick={() => setPestañaActiva('editor')}
               >
@@ -864,7 +854,7 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
             <li className="nav-item">
               <button
                 type="button"
-                className={`nav-link rounded-pill fw-bold px-3.5 py-1.5 d-flex align-items-center gap-2 ${pestañaActiva === 'flyer' ? 'active bg-success text-white' : 'text-dark'}`}
+                className={`nav-link rounded-pill fw-bold px-3.5 py-1.5 d-flex align-items-center gap-2 ${pestañaActiva === 'flyer' ? 'active bg-white text-success shadow-sm' : 'text-white bg-white bg-opacity-20'}`}
                 style={{ fontSize: '0.83rem' }}
                 onClick={() => setPestañaActiva('flyer')}
               >
@@ -878,7 +868,7 @@ export const OrientacionesNuevosIngresos: React.FC = () => {
             <button
               type="button"
               onClick={cargarAspirantesAdmitidos}
-              className="btn btn-sm btn-white bg-white text-muted border rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto"
+              className="btn btn-sm btn-light bg-opacity-75 rounded-pill px-3 py-1 fw-bold text-dark shadow-sm hover-efecto"
               title="Recargar datos de admisiones desde la nube"
             >
               <i className="bi bi-arrow-clockwise me-1"></i>Actualizar

@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { formatPhoneNumber } from '../../lib/formatters';
-import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoGradosSalones } from '../../components/chamilo';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoGradosSalones3D } from '../../components/chamilo';
 import { ModalAsignacionSorpresa, abrirModalParametrizarSorpresa, abrirModalProbarSonidos } from '../../components/ModalAsignacionSorpresa';
 
 interface GradoItem {
@@ -2495,152 +2495,105 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         </p>
       </ChamiloHelpCallout>
 
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
-        style={{ 
-          border: '2px solid #bae6fd',
-          borderTop: '6px solid #0284c7',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #075985 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
-                {/* Icono Tech Personalizado */}
-                <div 
-                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
-                  style={{
-                    width: '95px',
-                    height: '95px',
-                    border: '2.5px solid #bae6fd',
-                    boxShadow: '0 10px 24px rgba(2, 132, 199, 0.15)'
-                  }}
-                  title="Módulo de Grados y Salones"
-                >
-                  <IconoGradosSalones size={60} color="#0284c7" />
-                </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
 
-                {/* Insignia Institucional de la Sede Activa */}
-                <div 
-                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
-                  style={{ borderColor: escuelaFiltro === 'sb' ? '#bbf7d0' : '#bae6fd' }}
-                >
-                  <div 
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center ${
-                      escuelaFiltro === 'sb' 
-                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
-                        : 'bg-primary bg-opacity-10 border-primary shadow-xs'
-                    }`}
-                    style={{ width: '84px', height: '78px' }}
-                    title={escuelaFiltro === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
-                  >
-                    <img 
-                      src={escuelaFiltro === 'sb' ? '/assets/img/logo_sb.png' : '/assets/img/logo_lb.png'} 
-                      alt={escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'} 
-                      style={{ maxHeight: '42px', maxWidth: '42px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.65rem' }}>
-                      {escuelaFiltro === 'sb' ? 'SANTA BÁRBARA' : 'LIBERTADOR'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{
+                width: '95px',
+                height: '95px',
+                border: '2.5px solid rgba(255,255,255,0.4)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.2)'
+              }}
+              title="Módulo de Grados y Salones"
+            >
+              <IconoGradosSalones3D size={64} />
+            </div>
+          </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-folder-check me-1"></i>Control de Estudios & Aulas
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-door-open-fill me-1"></i><b>{espaciosFiltrados.length}</b> Ambientes
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-mortarboard-fill me-1"></i><b>{salonesFiltrados.length}</b> Salones Aperturados
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-people-fill me-1"></i><b>{estudiantesFiltrados.length}</b> Matrícula Activa
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#0284c7', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-folder-check"></i>Control de Estudios & Aulas
-                </span>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Gestión de Espacios, Salones y Matrícula
+            </h1>
 
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#bae6fd' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#0284c7' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#0369a1', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; {escuelaFiltro === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
-                  </span>
-                </div>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Administración integral de ambientes físicos, capacidades de aulas, grados académicos, apertura de salones, docentes guías y control de matrícula estudiantil.
+            </p>
 
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
-                  <i className="bi bi-door-open-fill text-primary me-1"></i><b>{espaciosFiltrados.length}</b> Ambientes
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
-                  <i className="bi bi-mortarboard-fill text-info me-1"></i><b>{salonesFiltrados.length}</b> Salones Aperturados
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#bae6fd' }}>
-                  <i className="bi bi-people-fill text-success me-1"></i><b>{estudiantesFiltrados.length}</b> Matrícula Activa
-                </span>
+            {/* Cinta de Telemetría Escolar Interactiva */}
+            <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
+              <div 
+                className="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-2" 
+                title="Capacidad Instalada en Sede Activa"
+              >
+                <i className="bi bi-building-check text-warning"></i>
+                <span className="font-monospace fw-bold">{capacidadEscuelaActiva} Cupos Instalados</span>
               </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Gestión de Espacios, Salones y Matrícula
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '820px' }}>
-                Administración integral de ambientes físicos, capacidades de aulas, grados académicos, apertura de salones, docentes guías y control de matrícula estudiantil.
-              </p>
-
-              {/* Cinta de Telemetría Escolar Interactiva */}
-              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Capacidad Instalada en Sede Activa"
-                >
-                  <i className="bi bi-building-check text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{capacidadEscuelaActiva} Cupos Instalados</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Salones activos en Sede Activa"
-                >
-                  <i className="bi bi-grid-3x3-gap-fill text-info"></i>
-                  <span className="text-secondary">{salonesFiltrados.length} Secciones Registradas</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Estado Operativo"
-                >
-                  <i className="bi bi-shield-fill-check text-success"></i>
-                  <span className="text-secondary">100% Operativo</span>
-                </div>
+              <div 
+                className="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-2" 
+                title="Salones activos en Sede Activa"
+              >
+                <i className="bi bi-grid-3x3-gap-fill text-info"></i>
+                <span>{salonesFiltrados.length} Secciones Registradas</span>
+              </div>
+              <div 
+                className="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-2" 
+                title="Estado Operativo"
+              >
+                <i className="bi bi-shield-fill-check text-success"></i>
+                <span>100% Operativo</span>
               </div>
             </div>
           </div>
+
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${escuelaFiltro === 'lb' ? 'lb' : 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
+          </div>
         </div>
 
-        {/* ── BARRA CHAMILO: PESTAÑAS PRINCIPALES Y SELECTOR DE SEDE ── */}
-        <div className="px-4 py-3 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-3">
+        {/* ── BARRA INFERIOR: PESTAÑAS PRINCIPALES Y SEDE EN OPERACIÓN ── */}
+        <div className="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center flex-wrap gap-3 position-relative z-1">
           
-          {/* Pestañas Principales Chamilo */}
+          {/* Pestañas Principales */}
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => setActiveTab('espacios')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+              className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
                 activeTab === 'espacios' 
-                  ? 'btn-info text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
+                  ? 'btn-white bg-white text-primary shadow-sm' 
+                  : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
               }`}
-              style={{
-                backgroundColor: activeTab === 'espacios' ? '#0284c7' : undefined,
-                borderColor: activeTab === 'espacios' ? '#0284c7' : undefined,
-                fontSize: '0.82rem'
-              }}
+              style={{ fontSize: '0.82rem' }}
             >
               <i className="bi bi-door-open-fill me-1.5"></i>1. Ambientes Físicos ({espaciosFiltrados.length})
             </button>
@@ -2648,16 +2601,12 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             <button
               type="button"
               onClick={() => setActiveTab('salones')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+              className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
                 activeTab === 'salones' 
-                  ? 'btn-info text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
+                  ? 'btn-white bg-white text-primary shadow-sm' 
+                  : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
               }`}
-              style={{
-                backgroundColor: activeTab === 'salones' ? '#0284c7' : undefined,
-                borderColor: activeTab === 'salones' ? '#0284c7' : undefined,
-                fontSize: '0.82rem'
-              }}
+              style={{ fontSize: '0.82rem' }}
             >
               <i className="bi bi-mortarboard-fill me-1.5"></i>2. Grados y Salones ({salonesFiltrados.length})
             </button>
@@ -2665,16 +2614,12 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             <button
               type="button"
               onClick={() => setActiveTab('matricula')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+              className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
                 activeTab === 'matricula' 
-                  ? 'btn-info text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
+                  ? 'btn-white bg-white text-primary shadow-sm' 
+                  : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
               }`}
-              style={{
-                backgroundColor: activeTab === 'matricula' ? '#0284c7' : undefined,
-                borderColor: activeTab === 'matricula' ? '#0284c7' : undefined,
-                fontSize: '0.82rem'
-              }}
+              style={{ fontSize: '0.82rem' }}
             >
               <i className="bi bi-people-fill me-1.5"></i>3. Docentes Guías y Matrícula ({estudiantesFiltrados.length})
             </button>
@@ -2682,33 +2627,25 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             <button
               type="button"
               onClick={() => setActiveTab('especialistas')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+              className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
                 activeTab === 'especialistas' 
-                  ? 'btn-info text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
+                  ? 'btn-white bg-white text-primary shadow-sm' 
+                  : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
               }`}
-              style={{
-                backgroundColor: activeTab === 'especialistas' ? '#0284c7' : undefined,
-                borderColor: activeTab === 'especialistas' ? '#0284c7' : undefined,
-                fontSize: '0.82rem'
-              }}
+              style={{ fontSize: '0.82rem' }}
             >
-              <i className="bi bi-journal-bookmark-fill me-1.5"></i>4. Especialistas y Responsabilidades ({responsabilidadesFiltradas.length})
+              <i className="bi bi-journal-bookmark-fill me-1.5"></i>4. Especialistas ({responsabilidadesFiltradas.length})
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('reportes')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
+              className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
                 activeTab === 'reportes' 
-                  ? 'btn-info text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
+                  ? 'btn-white bg-white text-primary shadow-sm' 
+                  : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
               }`}
-              style={{
-                backgroundColor: activeTab === 'reportes' ? '#0284c7' : undefined,
-                borderColor: activeTab === 'reportes' ? '#0284c7' : undefined,
-                fontSize: '0.82rem'
-              }}
+              style={{ fontSize: '0.82rem' }}
             >
               <i className="bi bi-bar-chart-line-fill me-1.5"></i>5. Capacidad y Reportes
             </button>
@@ -2716,9 +2653,9 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
           {/* Sede en Operación */}
           <div className="d-flex align-items-center gap-1.5">
-            <span className="extra-small fw-bold text-muted text-uppercase me-1">Sede en Operación:</span>
+            <span className="extra-small fw-bold text-white text-uppercase me-1" style={{ fontSize: '0.75rem', opacity: 0.9 }}>Sede:</span>
             <span 
-              className={`badge rounded-pill px-3 py-1.5 fw-bold shadow-xs ${
+              className={`badge rounded-pill px-3 py-1.5 fw-bold shadow-sm ${
                 escuelaFiltro === 'sb' ? 'bg-success text-white' : 'bg-primary text-white'
               }`}
               style={{ fontSize: '0.82rem' }}

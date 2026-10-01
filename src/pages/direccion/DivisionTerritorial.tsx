@@ -627,121 +627,48 @@ export const DivisionTerritorial = () => {
         icon="bi-geo-alt-fill"
       />
 
-      {/* ── CABECERA INSTITUCIONAL TECNOLÓGICA CON RESUMEN GEOGRÁFICO ── */}
+      {/* ── CABECERA INSTITUCIONAL 3D CON RESUMEN GEOGRÁFICO ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 shadow-sm animate__animated animate__fadeInDown" 
-        style={{ 
-          border: '2px solid #fed7aa',
-          borderTop: '6px solid #FF8D00',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #FF8D00 0%, #ea580c 50%, #c2410c 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Logo de la Escuela en Contenedor Interactivo */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div 
-                className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2"
-                style={{ 
-                  width: '110px', 
-                  height: '110px',
-                  borderRadius: '24px',
-                  border: '2.5px solid #fed7aa',
-                  boxShadow: '0 10px 24px rgba(249, 115, 22, 0.15)'
-                }}
-              >
-                <img 
-                  src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
-                  alt="Escudo Institucional" 
-                  className="img-fluid"
-                  style={{ maxHeight: '92px', maxWidth: '92px', objectFit: 'contain' }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                />
-              </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-lg-9 text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-3 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <IconoDivisionTerritorial size={18} color="#FF8D00" />
+                <span className="ms-1">GEOGRAFÍA & TERRITORIO</span>
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <b>{estadosUnicos.length}</b> Estados
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <b>{[...new Set(records.map(r => `${r.estado}_${r.municipio}`))].length}</b> Municipios
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <b>{records.filter(r => r.parroquia !== 'Sin Parroquia').length}</b> Parroquias
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                {/* Live Campus Beacon */}
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#fed7aa' }}
-                >
-                  <span 
-                    className="status-beacon-live" 
-                    style={{ color: '#ea580c' }}
-                  ></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#c2410c', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; SIGAE v1.1
-                  </span>
-                </div>
+            <h1 className="fw-bolder mb-2 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-2" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              <i className="bi bi-geo-alt-fill me-1"></i>División Territorial
+            </h1>
 
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#FF8D00' }}
-                >
-                  <IconoDivisionTerritorial size={18} color="#ffffff" />
-                  <span>Geografía & Territorio</span>
-                </span>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '850px' }}>
+              Catálogo geopolítico oficial de Estados, Municipios y Parroquias para la zonificación de alumnos, docentes y expedientes.
+            </p>
+          </div>
 
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs d-inline-flex align-items-center gap-1.5">
-                  <IconoEstadoVenezuela size={17} color="#FF8D00" />
-                  <span><b>{estadosUnicos.length}</b> Estados</span>
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs d-inline-flex align-items-center gap-1.5">
-                  <IconoMunicipioVenezuela size={17} color="#00C3FF" />
-                  <span><b>{[...new Set(records.map(r => `${r.estado}_${r.municipio}`))].length}</b> Municipios</span>
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs d-inline-flex align-items-center gap-1.5">
-                  <IconoParroquiaVenezuela size={17} color="#10b981" />
-                  <span><b>{records.filter(r => r.parroquia !== 'Sin Parroquia').length}</b> Parroquias</span>
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
-                División Territorial
-              </h1>
-
-              <p className="mb-0 text-muted small">
-                Catálogo geopolítico de Estados, Municipios y Parroquias para la zonificación de alumnos, docentes y expedientes.
-              </p>
-
-              {/* Cinta de Telemetría Escolar Interactiva */}
-              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
-                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Cobertura Geográfica">
-                  <i className="bi bi-geo-alt-fill text-danger"></i>
-                  <span className="text-secondary">Nivel Nacional</span>
-                </div>
-                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Registros Geopolíticos Totales">
-                  <i className="bi bi-layers-fill text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{records.length} Entidades</span>
-                </div>
-                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Estado del Catálogo">
-                  <i className="bi bi-shield-fill-check text-warning"></i>
-                  <span className="text-secondary">Sincronizado</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')}
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
-                style={{ fontSize: '0.85rem', borderColor: '#fed7aa' }}
-              >
-                <i className="bi bi-arrow-left" style={{ color: '#ea580c' }}></i>
-                <span>Volver a Dirección</span>
-              </button>
-            </div>
-
+          <div className="col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
       </div>

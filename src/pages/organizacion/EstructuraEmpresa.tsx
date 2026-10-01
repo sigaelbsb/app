@@ -6,7 +6,7 @@ import { usePermisos } from '../../hooks/usePermisos';
 import { 
   ChamiloBreadcrumb, 
   ChamiloHelpCallout, 
-  IconoEstructuraEmpresa,
+  IconoEstructuraEmpresa3D,
   IconoParametroCorporativo,
   IconoListaCargos
 } from '../../components/chamilo';
@@ -396,144 +396,93 @@ export const EstructuraEmpresa = () => {
         icon="bi-buildings-fill"
       />
 
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO (TECH-CARD) ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card mb-4 rounded-4 overflow-hidden shadow-sm"
-        style={{
-          borderTop: '6px solid #e11d48',
-          border: '2px solid #fecdd3',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff1f2 45%, #ffe4e6 100%)',
-          boxShadow: '0 10px 24px rgba(225, 29, 72, 0.12)'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #e11d48 0%, #be123c 50%, #9f1239 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual de Iconos: Icono 3D Tech + Escudo Escolar */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3">
-                {/* Icono 3D Tech Personalizado */}
-                <div 
-                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center"
-                  style={{
-                    width: '95px',
-                    height: '95px',
-                    border: '2.5px solid #fecdd3',
-                    boxShadow: '0 10px 24px rgba(225, 29, 72, 0.15)'
-                  }}
-                  title="Módulo de Estructura Empresa"
-                >
-                  <IconoEstructuraEmpresa size={60} color="#e11d48" />
-                </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
 
-                {/* Escudo Institucional */}
-                <div 
-                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-xs"
-                  style={{
-                    width: '95px',
-                    height: '95px',
-                    border: '2.5px solid #fecdd3'
-                  }}
-                  title="Escuela Activa"
-                >
-                  <img 
-                    src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
-                    alt="Escudo Institucional" 
-                    className="img-fluid"
-                    style={{ maxHeight: '75px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-              </div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{
+                width: '95px',
+                height: '95px',
+                border: '2.5px solid rgba(255,255,255,0.4)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.2)'
+              }}
+              title="Módulo de Estructura Empresa"
+            >
+              <IconoEstructuraEmpresa3D size={64} />
+            </div>
+          </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-danger px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-buildings-fill me-1"></i>Organización Estratégica & PDVSA
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-list-check me-1"></i><b>{datos.length}</b> Parámetros
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-tags-fill me-1"></i><b>{[...new Set(datos.map(d => d.categoria))].length}</b> Categorías
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#e11d48', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-buildings-fill"></i>Organización Estratégica & PDVSA
-                </span>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Estructura de la Empresa
+            </h1>
 
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#fecdd3' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#e11d48' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#be123c', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; Estructura Corporativa
-                  </span>
-                </div>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Gestión de diccionarios corporativos, filiales petroleras, tipos de nómina, gerencias y parentescos vinculados al personal y representantes.
+            </p>
+          </div>
 
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#fecdd3' }}>
-                  <i className="bi bi-list-check text-primary me-1"></i><b>{datos.length}</b> Parámetros
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#fecdd3' }}>
-                  <i className="bi bi-tags-fill text-success me-1"></i><b>{[...new Set(datos.map(d => d.categoria))].length}</b> Categorías
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Estructura de la Empresa
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
-                Gestión de diccionarios corporativos, filiales petroleras, tipos de nómina, gerencias y parentescos vinculados al personal y representantes.
-              </p>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')}
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
-                style={{ borderColor: '#fecdd3', fontSize: '0.85rem' }}
-              >
-                <i className="bi bi-arrow-left" style={{ color: '#be123c' }}></i>
-                <span>Volver a Organización</span>
-              </button>
-            </div>
-
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
         {/* Selector Dual de Escuela Chamilo Tech */}
         {isDualAccess && (
           <div 
-            className="px-4 py-2 bg-light border-top d-flex align-items-center justify-content-between flex-wrap gap-2"
-            style={{ borderColor: '#fecdd3' }}
+            className="mt-4 pt-3 border-top border-white border-opacity-25 d-flex align-items-center justify-content-between flex-wrap gap-2 position-relative z-1"
           >
             <div className="d-flex align-items-center gap-2">
-              <span className="extra-small fw-bold text-muted text-uppercase">Plantel Activo:</span>
-              <div className="btn-group btn-group-sm shadow-xs border rounded-pill overflow-hidden bg-white" role="group">
+              <span className="extra-small fw-bold text-white text-uppercase" style={{ fontSize: '0.75rem', opacity: 0.9 }}>Plantel Activo:</span>
+              <div className="btn-group btn-group-sm shadow-sm rounded-pill overflow-hidden bg-white p-0.5" role="group">
                 <button 
                   onClick={() => cambiarEscuelaActiva('sb')} 
-                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
-                    activeSchoolCode === 'sb' ? 'text-white' : 'text-muted'
+                  className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                    activeSchoolCode === 'sb' ? 'btn-success text-white shadow-sm' : 'text-dark bg-transparent'
                   }`}
-                  style={{ backgroundColor: activeSchoolCode === 'sb' ? '#10b981' : 'transparent', border: 'none', fontSize: '0.8rem' }}
+                  style={{ fontSize: '0.8rem' }}
                 >
                   🟢 UE Santa Bárbara
                 </button>
                 <button 
                   onClick={() => cambiarEscuelaActiva('lb')} 
-                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
-                    activeSchoolCode === 'lb' ? 'text-white' : 'text-muted'
+                  className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                    activeSchoolCode === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-dark bg-transparent'
                   }`}
-                  style={{ backgroundColor: activeSchoolCode === 'lb' ? '#0284c7' : 'transparent', border: 'none', fontSize: '0.8rem' }}
+                  style={{ fontSize: '0.8rem' }}
                 >
                   🔵 UE Libertador Bolívar
                 </button>
               </div>
             </div>
-            <div className="text-muted extra-small">
-              <i className="bi bi-shield-check text-success me-1"></i>Acceso dual administrativo
+            <div className="text-white extra-small" style={{ opacity: 0.9 }}>
+              <i className="bi bi-shield-check me-1"></i>Acceso dual administrativo
             </div>
           </div>
         )}
@@ -559,7 +508,7 @@ export const EstructuraEmpresa = () => {
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-row align-items-center gap-3">
             <div className="p-2 rounded-3 bg-light d-flex align-items-center justify-content-center shadow-xs">
-              <IconoEstructuraEmpresa size={36} color="#0284c7" />
+              <IconoEstructuraEmpresa3D size={36} color="#0284c7" />
             </div>
             <div>
               <span className="text-muted extra-small text-uppercase fw-bold d-block">Categorías Activas</span>

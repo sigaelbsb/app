@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePermisos } from '../../hooks/usePermisos';
-import { ChamiloBreadcrumb, ChamiloActionBar, ChamiloHelpCallout } from '../../components/chamilo';
+import { ChamiloBreadcrumb, ChamiloActionBar, ChamiloHelpCallout, IconoCalendarioEscolar3D } from '../../components/chamilo';
 
 interface EventoCalendario {
   id: string;
@@ -125,63 +125,65 @@ export const CalendarioEscolar: React.FC = () => {
         ]}
       />
 
-      {/* 2. Cabecera Institucional Tecnológica */}
+      {/* 2. Cabecera Institucional 3D */}
       <div 
-        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown"
-        style={{
-          border: '2px solid #fed7aa',
-          borderTop: '6px solid #FF8D00',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 50%, #9d174d 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div 
-                className="bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-3 rounded-4"
-                style={{ width: '100px', height: '100px', border: '2.5px solid #fed7aa' }}
-              >
-                <i className="bi bi-calendar-range-fill text-warning fs-1"></i>
-              </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="bg-white shadow-lg d-inline-flex align-items-center justify-content-center p-2 rounded-4"
+              style={{ width: '100px', height: '100px', border: '3px solid rgba(255,255,255,0.85)' }}
+            >
+              <IconoCalendarioEscolar3D size={65} color="#ec4899" />
+            </div>
+          </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-calendar-check-fill me-1"></i> CRONOGRAMA OFICIAL MPPE
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <i className="bi bi-building me-1"></i>{escuelaNombre}
+              </span>
             </div>
 
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <span className="badge bg-warning text-dark px-3 py-1.5 rounded-pill fw-bold shadow-xs">
-                  <i className="bi bi-calendar-check-fill me-1"></i> Cronograma Oficial MPPE
-                </span>
-                <span className="badge bg-white text-secondary border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-building me-1 text-primary"></i>{escuelaNombre}
-                </span>
-              </div>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Calendario Escolar Oficial
+            </h1>
 
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
-                Calendario Escolar Oficial
-              </h1>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Planificación académica, efemérides patrias, semanas pedagógicas, cierres de lapsos y asuetos oficiales del MPPE.
+            </p>
+          </div>
 
-              <p className="mb-0 text-muted small">
-                Planificación académica, efemérides patrias, semanas pedagógicas, cierres de lapsos y asuetos oficiales del Ministerio del Poder Popular para la Educación.
-              </p>
-            </div>
-
-            <div className="col-12 col-md-auto text-center text-md-end">
-              <button 
-                type="button" 
-                onClick={irAHoy}
-                className="btn btn-outline-primary rounded-pill px-3 py-1.5 fw-bold shadow-xs me-2"
-              >
-                <i className="bi bi-calendar-event me-1"></i> Ir a Hoy
-              </button>
-              <button 
-                type="button" 
-                onClick={() => window.print()}
-                className="btn btn-primary rounded-pill px-3 py-1.5 fw-bold shadow-sm"
-                style={{ backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' }}
-              >
-                <i className="bi bi-printer-fill me-1"></i> Imprimir Mes
-              </button>
-            </div>
+          <div className="col-12 col-lg-auto text-end d-flex align-items-center justify-content-center justify-content-lg-end gap-2 flex-wrap">
+            <button 
+              type="button" 
+              onClick={irAHoy}
+              className="btn btn-white bg-white text-dark rounded-pill px-3.5 py-2 fw-bold shadow-sm"
+            >
+              <i className="bi bi-calendar-event me-1"></i> Ir a Hoy
+            </button>
+            <button 
+              type="button" 
+              onClick={() => window.print()}
+              className="btn btn-light rounded-pill px-3.5 py-2 fw-bold shadow-sm text-dark"
+            >
+              <i className="bi bi-printer-fill me-1"></i> Imprimir Mes
+            </button>
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner d-none d-xl-block ms-2"
+              style={{ maxHeight: '100px' }}
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
       </div>

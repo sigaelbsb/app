@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { usePermisos } from '../../hooks/usePermisos';
 import { auditar } from '../../lib/audit';
 import * as XLSX from 'xlsx';
-import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoEncuesta3D } from '../../components/chamilo';
 
 export type TipoPregunta = 
   | 'opcion_unica' 
@@ -906,79 +906,93 @@ export const ConstructorEncuestas: React.FC = () => {
         icon="bi-ui-checks-grid"
       />
 
-      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO ── */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white border-top border-4" style={{ borderColor: '#EC4899' }}>
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Logo de la Escuela */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" style={{ width: '105px', height: '105px' }}>
-                <img 
-                  src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
-                  alt="Escudo Institucional" 
-                  className="img-fluid"
-                  style={{ maxHeight: '85px', objectFit: 'contain' }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                />
-              </div>
+      {/* ── 2. CABECERA INSTITUCIONAL 3D ── */}
+      <div 
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 50%, #9333ea 100%)' }}
+      >
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+
+        <div className="row align-items-center position-relative z-1 g-4">
+          {/* Contenedor: Ícono 3D Encuesta */}
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{ width: '95px', height: '95px', border: '2.5px solid rgba(255,255,255,0.4)', boxShadow: '0 10px 24px rgba(0,0,0,0.2)' }}
+            >
+              <IconoEncuesta3D size={64} />
+            </div>
+          </div>
+
+          {/* Título y Métricas Clave */}
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-danger px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-ui-checks-grid me-1"></i> {isSoloRespondiente ? 'Consultas y Encuestas' : 'Constructor de Encuestas'}
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-card-checklist me-1"></i><b>{encuestas.length}</b> Encuestas Creadas
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-check-circle-fill me-1"></i><b>{encuestasFiltradas.length}</b> Disponibles
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-building me-1"></i>Sede: <b>{filtroEscuela === 'sb' ? 'Santa Bárbara' : (filtroEscuela === 'lb' ? 'Libertador Bolívar' : 'Todas las Sedes')}</b>
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                <span className="text-white fw-bold">Live</span> / Sondeos
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small" style={{ backgroundColor: '#EC4899' }}>
-                  <i className="bi bi-ui-checks-grid me-1"></i>{isSoloRespondiente ? 'Consultas y Encuestas' : 'Constructor de Encuestas'}
-                </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-card-checklist text-primary me-1"></i><b>{encuestas.length}</b> Encuestas Creadas
-                </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-check-circle-fill text-success me-1"></i><b>{encuestasFiltradas.length}</b> Disponibles
-                </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-building me-1"></i>Sede: <b>{filtroEscuela === 'sb' ? 'Santa Bárbara' : (filtroEscuela === 'lb' ? 'Libertador Bolívar' : 'Todas las Sedes')}</b>
-                </span>
-              </div>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              {isSoloRespondiente ? 'Consultas y Encuestas Institucionales' : 'Constructor de Encuestas'}
+            </h1>
 
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                {isSoloRespondiente ? 'Consultas y Encuestas Institucionales' : 'Constructor de Encuestas'}
-              </h1>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              {isSoloRespondiente
+                ? 'Participa en las consultas activas para tu rol. Tu opinión es fundamental para la toma de decisiones y la mejora continua de la institución.'
+                : 'Diseña encuestas dinámicas, define a qué roles de usuarios aplicar cada consulta, analiza métricas en tiempo real y exporta resultados.'}
+            </p>
+          </div>
 
-              <p className="mb-0 text-muted small">
-                {isSoloRespondiente
-                  ? 'Participa en las consultas activas para tu rol. Tu opinión es fundamental para la toma de decisiones y la mejora continua de la institución.'
-                  : 'Diseña encuestas dinámicas, define a qué roles de usuarios aplicar cada consulta, analiza métricas en tiempo real y exporta resultados.'}
-              </p>
-            </div>
+          {/* Acciones Rápidas */}
+          <div className="col-12 col-md-auto text-md-end text-center">
+            <button
+              type="button"
+              onClick={() => navigate(isSoloRespondiente ? '/' : '/categoria/Diseños')}
+              className="btn btn-light rounded-pill px-4 py-2 fw-bold text-dark shadow-sm hover-efecto d-inline-flex align-items-center gap-2"
+              style={{ fontSize: '0.88rem' }}
+            >
+              <i className="bi bi-arrow-left text-danger"></i>
+              <span>{isSoloRespondiente ? 'Volver al Inicio' : 'Volver a Diseños'}</span>
+            </button>
+          </div>
 
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate(isSoloRespondiente ? '/' : '/categoria/Diseños')}
-                className="btn btn-light rounded-pill px-3.5 py-2 fw-bold text-muted d-inline-flex align-items-center gap-1.5 hover-efecto shadow-xs"
-                style={{ fontSize: '0.82rem' }}
-              >
-                <i className="bi bi-arrow-left"></i>
-                <span>{isSoloRespondiente ? 'Volver al Inicio' : 'Volver a Diseños'}</span>
-              </button>
-            </div>
-
+          {/* Logo Escuela Flotante 3D */}
+          <div className="col-12 col-lg-auto text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
-        {/* Barra de Herramientas Chamilo */}
-        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+        {/* Barra de Herramientas */}
+        <div className="mt-4 pt-3 border-top border-white border-opacity-20 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
           <div className="d-flex align-items-center gap-2 flex-wrap">
             {vistaActual === 'listado' && !isSoloRespondiente && canCrearEncuestas && (
               <button
                 type="button"
-                className="btn btn-success rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-                style={{ fontSize: '0.82rem' }}
+                className="btn btn-light rounded-pill px-3.5 py-1.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2 text-dark"
+                style={{ fontSize: '0.85rem' }}
                 onClick={handleNuevaEncuesta}
               >
-                <i className="bi bi-plus-circle-fill"></i>
+                <i className="bi bi-plus-circle-fill text-success"></i>
                 <span>Crear Nueva Encuesta</span>
               </button>
             )}
@@ -986,8 +1000,8 @@ export const ConstructorEncuestas: React.FC = () => {
             {vistaActual !== 'listado' && (
               <button
                 type="button"
-                className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-                style={{ fontSize: '0.82rem' }}
+                className="btn btn-light rounded-pill px-3.5 py-1.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2 text-dark"
+                style={{ fontSize: '0.85rem' }}
                 onClick={() => setVistaActual('listado')}
               >
                 <i className="bi bi-grid-fill text-primary"></i>
@@ -997,8 +1011,8 @@ export const ConstructorEncuestas: React.FC = () => {
           </div>
 
           <div className="d-flex align-items-center gap-1.5">
-            <span className="text-muted extra-small">
-              <i className="bi bi-shield-check text-success me-1"></i>Módulo de Consultas Activo
+            <span className="text-white text-opacity-90 small fw-bold">
+              <i className="bi bi-shield-check text-warning me-1"></i>Módulo de Consultas Activo
             </span>
           </div>
         </div>

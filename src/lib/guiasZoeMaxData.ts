@@ -156,13 +156,24 @@ export const DESCRIPCIONES_MODULOS: Record<string, ModuloInfo> = {
       { texto: "⚙️ Período Escolar" }
     ]
   },
-  "Cerebro de Sigma": {
-    titulo: "Cerebro de SIGMA (IA Institucional)",
+  "Cerebro de Zoe y Max": {
+    titulo: "Cerebro de Zoe y Max (IA Institucional)",
     icono: "bi-robot",
     categoria: "Dirección y Sistema",
-    descZoe: "¡Hola! Soy <b>Zoe</b> 👧. Explora la base de conocimientos y módulos de inteligencia artificial que asisten a la comunidad educativa en SIGAE.",
-    descMax: "¡Hola! Soy <b>Max</b> 👦. Aquí entrenamos las respuestas inteligentes de orientación sobre procesos de matrícula, horarios y trámites.",
-    tip: "Puedes consultar a SIGMA en cualquier momento desde el asistente flotante.",
+    descZoe: "¡Hola! Soy <b>Zoe</b> 👧. Explora la base de conocimientos y módulos de inteligencia artificial que asisten a la comunidad educativa en SIGAE junto a mi compañero Max.",
+    descMax: "¡Hola! Soy <b>Max</b> 👦. Aquí entrenamos nuestras respuestas inteligentes para orientar a todos sobre matrícula, horarios y trámites escolares.",
+    tip: "Puedes consultarnos en cualquier momento desde el asistente flotante en pantalla.",
+    accionesSugeridas: [
+      { texto: "🧠 Entrenar Respuestas" }
+    ]
+  },
+  "Cerebro de Sigma": {
+    titulo: "Cerebro de Zoe y Max (IA Institucional)",
+    icono: "bi-robot",
+    categoria: "Dirección y Sistema",
+    descZoe: "¡Hola! Soy <b>Zoe</b> 👧. Explora la base de conocimientos y módulos de inteligencia artificial que asisten a la comunidad educativa en SIGAE junto a mi compañero Max.",
+    descMax: "¡Hola! Soy <b>Max</b> 👦. Aquí entrenamos nuestras respuestas inteligentes para orientar a todos sobre matrícula, horarios y trámites escolares.",
+    tip: "Puedes consultarnos en cualquier momento desde el asistente flotante en pantalla.",
     accionesSugeridas: [
       { texto: "🧠 Entrenar Respuestas" }
     ]

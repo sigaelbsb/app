@@ -78,14 +78,14 @@ export const ModulosSistema = {
         hint: "Período Lectivo Activo"
       },
       { 
-        vista: "Cerebro de Sigma", 
+        vista: "Cerebro de Zoe y Max", 
         icono: "bi-robot", 
         color: "#8b5cf6",
-        desc: "Inteligencia artificial y motor de asistencia institucional.", 
-        tag: "IA Sigma", 
+        desc: "Inteligencia artificial y motor de asistencia escolar con Zoe y Max.", 
+        tag: "Zoe & Max", 
         badgeText: "En línea",
         badgeType: "active",
-        hint: "Asistente Neural Institucional"
+        hint: "Asistentes Neurales Institucionales"
       },
       { 
         vista: "Calendario Escolar", 
@@ -476,6 +476,7 @@ export const CategoryDashboard = () => {
     borderTop: '6px solid #FF8D00',
     border: '2px solid #fed7aa',
     bg: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
+    bannerGradient: 'linear-gradient(135deg, #FF8D00 0%, #ea580c 50%, #c2410c 100%)',
     badgeBg: '#FF8D00',
     accentColor: '#c2410c',
     boxShadow: '0 10px 24px rgba(249, 115, 22, 0.15)',
@@ -488,6 +489,7 @@ export const CategoryDashboard = () => {
     borderTop: '6px solid #e11d48',
     border: '2px solid #fecdd3',
     bg: 'linear-gradient(135deg, #ffffff 0%, #fff1f2 45%, #ffe4e6 100%)',
+    bannerGradient: 'linear-gradient(135deg, #e11d48 0%, #be123c 50%, #9f1239 100%)',
     badgeBg: '#e11d48',
     accentColor: '#be123c',
     boxShadow: '0 10px 24px rgba(225, 29, 72, 0.15)',
@@ -500,6 +502,7 @@ export const CategoryDashboard = () => {
     borderTop: '6px solid #0284c7',
     border: '2px solid #bae6fd',
     bg: 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%)',
+    bannerGradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #075985 100%)',
     badgeBg: '#0284c7',
     accentColor: '#0369a1',
     boxShadow: '0 10px 24px rgba(2, 132, 199, 0.15)',
@@ -512,6 +515,7 @@ export const CategoryDashboard = () => {
     borderTop: '6px solid #8b5cf6',
     border: '2px solid #ddd6fe',
     bg: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
+    bannerGradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%)',
     badgeBg: '#8b5cf6',
     accentColor: '#6d28d9',
     boxShadow: '0 10px 24px rgba(139, 92, 246, 0.15)',
@@ -524,6 +528,7 @@ export const CategoryDashboard = () => {
     borderTop: '6px solid #059669',
     border: '2px solid #a7f3d0',
     bg: 'linear-gradient(135deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%)',
+    bannerGradient: 'linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%)',
     badgeBg: '#059669',
     accentColor: '#047857',
     boxShadow: '0 10px 24px rgba(5, 150, 105, 0.15)',
@@ -536,6 +541,7 @@ export const CategoryDashboard = () => {
     borderTop: '6px solid #ec4899',
     border: '2px solid #fbcfe8',
     bg: 'linear-gradient(135deg, #ffffff 0%, #fdf2f8 45%, #fce7f3 100%)',
+    bannerGradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 50%, #be185d 100%)',
     badgeBg: '#ec4899',
     accentColor: '#be185d',
     boxShadow: '0 10px 24px rgba(236, 72, 153, 0.15)',
@@ -550,6 +556,9 @@ export const CategoryDashboard = () => {
     bg: isSB
       ? 'linear-gradient(135deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%)'
       : 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #dbeafe 100%)',
+    bannerGradient: isSB
+      ? 'linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%)'
+      : 'linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #075985 100%)',
     badgeBg: isSB ? '#10b981' : '#0284c7',
     accentColor: isSB ? '#047857' : '#0369a1',
     boxShadow: isSB ? '0 10px 24px rgba(16, 185, 129, 0.15)' : '0 10px 24px rgba(2, 132, 199, 0.15)',
@@ -557,7 +566,6 @@ export const CategoryDashboard = () => {
     beaconColor: isSB ? '#10b981' : '#0284c7',
     beaconBorder: isSB ? '#a7f3d0' : '#bae6fd',
     backBtnBorder: isSB ? '#a7f3d0' : '#bae6fd',
-    backBtnIcon: isSB ? '#10b981' : '#0284c7'
   })))));
 
   if (permLoading) {
@@ -595,7 +603,9 @@ export const CategoryDashboard = () => {
       case 'Configuración Escolar':
       case 'Configuración del Sistema':
         return <IconoConfiguracionEscolar3D size={48} color={color} />;
+      case 'Cerebro de Zoe y Max':
       case 'Cerebro de Sigma':
+      case 'Cerebro Sigma':
         return <IconoCerebroSigma size={52} color={color} />;
       case 'Calendario Escolar':
         return <IconoCalendarioEscolar3D size={48} color={color} />;
@@ -705,6 +715,9 @@ export const CategoryDashboard = () => {
     if (item.vista === 'Gestión de Colectivos') {
       return tienePermisoEnEscuela('sb', item.vista, 'ver') || tienePermisoEnEscuela('lb', item.vista, 'ver');
     }
+    if (item.vista === 'Cerebro de Zoe y Max' || item.vista === 'Cerebro de Sigma') {
+      return tienePermiso('Cerebro de Zoe y Max', 'ver') || tienePermiso('Cerebro de Sigma', 'ver');
+    }
     return tienePermiso(item.vista, 'ver');
   });
 
@@ -755,163 +768,71 @@ export const CategoryDashboard = () => {
         ]}
       />
 
-      {/* 2. Cabecera Institucional Tecnológica (Mismo Diseño de la Principal con Naranja Muy Claro en Dirección) */}
+      {/* 2. Cabecera Institucional con Banner 3D */}
       <div 
-        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
-        style={{ 
-          border: theme.border,
-          borderTop: theme.borderTop,
-          background: theme.bg,
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: theme.bannerGradient }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Logo Oficial de la Escuela */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div 
-                className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2"
-                style={{ 
-                  width: '105px', 
-                  height: '105px',
-                  borderRadius: '24px',
-                  border: theme.logoBorder,
-                  boxShadow: theme.boxShadow
-                }}
-                title={`Plantel Activo: ${nombreEscuela}`}
-              >
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="bg-white shadow-lg d-inline-flex align-items-center justify-content-center p-2 overflow-hidden rounded-4"
+              style={{ width: '110px', height: '110px', border: '3px solid rgba(255,255,255,0.85)' }}
+            >
+              {modulo.icono3d ? (
                 <img 
-                  src={logoPath} 
-                  alt="Escudo Oficial de la Escuela" 
-                  className="img-fluid"
-                  style={{ maxHeight: '85px', maxWidth: '85px', objectFit: 'contain' }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  src={modulo.icono3d} 
+                  alt={decodedCategory} 
+                  className="img-fluid animate__animated animate__pulse animate__infinite animate__slower"
+                  style={{ maxHeight: '90px', maxWidth: '90px', objectFit: 'contain', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.18))' }} 
                 />
-              </div>
+              ) : (
+                <i className={`bi ${modulo.icono} text-primary fs-1`}></i>
+              )}
+            </div>
+          </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-dark px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-grid-fill me-1" style={{ color: theme.badgeBg }}></i>{decodedCategory.toUpperCase()}
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <i className="bi bi-layers-fill me-1"></i><b>{herramientasFiltradas.length}</b> de {modulo.items.length} Herramientas Activas
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                <i className="bi bi-shield-fill-check me-1"></i>Control Operativo
+              </span>
+              <button 
+                type="button"
+                className="badge bg-white bg-opacity-25 text-white border-0 px-2.5 py-1.5 rounded-pill small fw-bold cursor-pointer hover-efecto" 
+                onClick={() => window.dispatchEvent(new CustomEvent('sigae-abrir-guia'))}
+                title={`Solicitar orientación de ${guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}`}
+              >
+                <i className={`bi ${guiaAsignado === 'zoe' ? 'bi-heart-fill' : 'bi-stars'} me-1`}></i>
+                <span>Orientación de {guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}</span>
+              </button>
             </div>
 
-            {/* Datos Jurídicos, Identidad y Beacon Tecnológico */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                {/* Live Campus Beacon */}
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: theme.beaconBorder }}
-                >
-                  <span 
-                    className="status-beacon-live" 
-                    style={{ color: theme.beaconColor }}
-                  ></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: theme.accentColor, letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; {nombreEscuela}
-                  </span>
-                </div>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              {decodedCategory}
+            </h1>
 
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-2"
-                  style={{ backgroundColor: theme.badgeBg }}
-                >
-                  {modulo.icono3d ? (
-                    <img 
-                      src={modulo.icono3d} 
-                      alt={decodedCategory} 
-                      style={{ width: '28px', height: '28px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} 
-                    />
-                  ) : (
-                    <i className={`bi ${modulo.icono}`}></i>
-                  )}
-                  <span>{decodedCategory}</span>
-                </span>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              {modulo.desc}
+            </p>
+          </div>
 
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-grid-fill text-primary me-1"></i>
-                  {herramientasFiltradas.length} de {modulo.items.length} Herramientas Activas
-                </span>
-
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-shield-fill-check text-success me-1"></i>
-                  Control Operativo
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
-                {decodedCategory}
-              </h1>
-
-              <p className="mb-0 text-muted small d-flex align-items-center gap-1.5 flex-wrap">
-                <i className="bi bi-info-circle-fill text-primary flex-shrink-0"></i>
-                <span className="fw-semibold">{modulo.desc}</span>
-                <span className="badge bg-white text-secondary border px-2 py-0.5 rounded-pill extra-small ms-1 d-none d-lg-inline">
-                  <i className="bi bi-building me-1 text-primary"></i>DEP PDVSA Oriente
-                </span>
-              </p>
-
-              {/* Cinta de Telemetría Escolar Interactiva */}
-              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Ciclo Académico Actual"
-                >
-                  <i className="bi bi-calendar-check-fill text-success"></i>
-                  <span className="text-secondary">Periodo 2025-2026</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Caja de Herramientas"
-                >
-                  <i className="bi bi-grid-3x3-gap-fill text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{filtroTexto ? `${herramientasFiltradas.length} de ` : ''}{todasHerramientasPermitidas.length} Módulos Activos</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Estado Institucional"
-                >
-                  <i className="bi bi-shield-fill-check text-warning"></i>
-                  <span className="text-secondary">100% Operativo</span>
-                </div>
-                <button 
-                  type="button"
-                  className="tech-pill-badge shadow-xs border-0 bg-white cursor-pointer" 
-                  onClick={() => window.dispatchEvent(new CustomEvent('sigae-abrir-guia'))}
-                  title={`Solicitar orientación de ${guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}`}
-                  style={{
-                    color: guiaAsignado === 'zoe' ? '#db2777' : '#0284c7'
-                  }}
-                >
-                  <i className={`bi ${guiaAsignado === 'zoe' ? 'bi-heart-fill text-danger' : 'bi-stars text-primary'}`}></i>
-                  <span>Orientación de {guiaAsignado === 'zoe' ? 'Zoe' : 'Max'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Icono 3D Oficial del Módulo en perspectiva Pixar/Disney */}
-            {modulo.icono3d && (
-              <div className="col-12 col-md-auto text-center text-md-end ms-md-auto d-none d-md-block">
-                <div 
-                  className="p-3 bg-white bg-opacity-90 d-inline-flex align-items-center justify-content-center position-relative shadow-sm"
-                  style={{ 
-                    width: '140px', 
-                    height: '140px',
-                    borderRadius: '32px',
-                    border: theme.logoBorder,
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 16px 36px rgba(0,0,0,0.12)'
-                  }}
-                  title={`Icono 3D Oficial: ${decodedCategory}`}
-                >
-                  <img 
-                    src={modulo.icono3d} 
-                    alt={`Icono 3D ${decodedCategory}`} 
-                    className="img-fluid animate__animated animate__pulse animate__infinite animate__slower"
-                    style={{ maxHeight: '115px', maxWidth: '115px', objectFit: 'contain', filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.2))' }}
-                  />
-                </div>
-              </div>
-            )}
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={logoPath} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
       </div>

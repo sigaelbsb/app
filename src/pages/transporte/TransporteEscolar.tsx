@@ -2215,78 +2215,82 @@ export const TransporteEscolar = () => {
         </small>
       </ChamiloHelpCallout>
 
-      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
-      <div className="transporte-hero-card overflow-hidden mb-4 animate__animated animate__fadeInDown">
-        <div className="p-3 p-sm-4 p-md-5">
-          <div className="row align-items-center g-3 g-md-4">
-            
-            {/* Contenedor Dual: Icono 3D Isométrico Oficial + Escudo de la Escuela */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="transporte-dual-badge">
-                <div className="transporte-icon-box" title="Transporte Escolar Oficial 3D">
-                  <IconoTransporteEscolar3D size={54} color="#f97316" />
-                </div>
-                <div className="transporte-logo-box">
-                  <img 
-                    src={`/assets/img/logo_${escCodigo}.png`} 
-                    alt="Escudo Institucional" 
-                    className="img-fluid"
-                    style={{ maxHeight: '64px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-              </div>
+      {/* ── 2. CABECERA INSTITUCIONAL 3D ── */}
+      <div 
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)' }}
+      >
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+
+        <div className="row align-items-center position-relative z-1 g-4">
+          {/* Contenedor: Icono 3D Isométrico */}
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{ width: '95px', height: '95px', border: '2.5px solid rgba(255,255,255,0.4)', boxShadow: '0 10px 24px rgba(0,0,0,0.2)' }}
+            >
+              <IconoTransporteEscolar3D size={64} />
+            </div>
+          </div>
+
+          {/* Título y Métricas Clave de Telemetría */}
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-dark px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-bus-front me-1 text-warning"></i> Servicios, Bienestar & Movilidad
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-signpost-split-fill me-1"></i><b>{rutas.length}</b> Rutas
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-geo-alt-fill me-1"></i><b>{paradas.length}</b> Paradas
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-building me-1"></i><b>{escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
+              </span>
+              {esCoordinador && (
+                <span className="badge bg-white bg-opacity-25 text-white border border-white border-opacity-30 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                  <i className="bi bi-person-badge-fill me-1"></i>Coordinador {escCodigo.toUpperCase()}
+                </span>
+              )}
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                <span className="text-white fw-bold">Live</span> / GPS Satelital
+              </span>
             </div>
 
-            {/* Título y Métricas Clave de Telemetría */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-1.5 gap-md-2 mb-2 flex-wrap">
-                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#f97316' }}>
-                  <i className="bi bi-bus-front me-1"></i>Servicios, Bienestar & Movilidad
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-signpost-split-fill text-primary me-1"></i><b>{rutas.length}</b> Rutas
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-geo-alt-fill text-success me-1"></i><b>{paradas.length}</b> Paradas
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-building me-1 text-secondary"></i><b>{escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
-                </span>
-                {esCoordinador && (
-                  <span className="badge border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a', color: '#b45309' }}>
-                    <i className="bi bi-person-badge-fill me-1 text-warning"></i>Coordinador {escCodigo.toUpperCase()}
-                  </span>
-                )}
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
-                  <span className="text-success fw-bold">Live</span> / GPS Satelital
-                </span>
-              </div>
+            <h1 className="fw-bolder mb-1 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-2 flex-wrap" style={{ fontSize: 'calc(1.5rem + 0.7vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              <span className="bus-header-icon"><AnimatedBusSVG size={32} className="bus-bounce" /></span>
+              <span>Transporte Escolar Institucional</span>
+            </h1>
 
-              <h1 className="fw-bolder mb-1 text-dark d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: 'calc(1.35rem + 0.65vw)', letterSpacing: '-0.5px' }}>
-                <span className="bus-header-icon"><AnimatedBusSVG size={32} className="bus-bounce" /></span>
-                <span>Transporte Escolar Institucional</span>
-              </h1>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Monitoreo satelital de rutas, paradas estratégicas, despacho de unidades en tiempo real y notificaciones push masivas para representantes.
+            </p>
+          </div>
 
-              <p className="mb-0 text-muted small" style={{ lineHeight: '1.4' }}>
-                Monitoreo satelital de rutas, paradas estratégicas, despacho de unidades en tiempo real y notificaciones push masivas para representantes.
-              </p>
-            </div>
+          {/* Logo Escuela Flotante 3D */}
+          <div className="col-12 col-lg-auto text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${escCodigo}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
-        {/* Barra de Selector de Sede y Navegación de Submódulos (Scrollable en Teléfonos) */}
-        <div className="px-3 px-md-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-          {/* Selector de Sede y Alertas */}
+        {/* Barra de Selector de Sede y Navegación de Submódulos */}
+        <div className="mt-4 pt-3 border-top border-white border-opacity-20 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {/* Badge Informativo de Sede Activa (Gobernada por el Selector Global Superior del Sistema) */}
             <div 
-              className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-white border shadow-xs"
+              className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-white bg-opacity-20 border border-white border-opacity-25 shadow-xs"
               title={`Sede institucional activa: ${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}`}
             >
               <span 
-                className="badge rounded-pill text-white fw-bold px-3 py-1.5 shadow-xs d-flex align-items-center gap-1.5"
+                className="badge rounded-pill text-white fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5"
                 style={{ 
                   backgroundColor: escCodigo === 'sb' ? '#0284c7' : '#059669', 
                   fontSize: '0.8rem'
@@ -2297,13 +2301,8 @@ export const TransporteEscolar = () => {
               </span>
               {esCoordinador && (
                 <span 
-                  className="badge rounded-pill border px-2 py-0.5 fw-bold"
-                  style={{ 
-                    fontSize: '0.72rem', 
-                    backgroundColor: '#fffbeb', 
-                    borderColor: '#fde68a',
-                    color: '#b45309'
-                  }}
+                  className="badge rounded-pill border border-white border-opacity-30 px-2 py-0.5 fw-bold text-white"
+                  style={{ fontSize: '0.72rem' }}
                 >
                   <i className="bi bi-person-badge-fill text-warning me-1"></i>
                   Coordinación {escCodigo.toUpperCase()}
@@ -2313,8 +2312,8 @@ export const TransporteEscolar = () => {
 
             <button
               onClick={requestNotifPermission}
-              className="btn btn-white bg-white text-dark border rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ fontSize: '0.78rem' }}
+              className="btn btn-light rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 text-dark"
+              style={{ fontSize: '0.82rem' }}
             >
               <i className="bi bi-bell-fill text-warning"></i>
               <span>Alertas Push</span>
@@ -2322,21 +2321,20 @@ export const TransporteEscolar = () => {
 
             <button
               onClick={() => setVistaActual(vistaActual === 'CensoEstudiantes' ? 'dashboard' : 'CensoEstudiantes')}
-              className={`btn btn-sm rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 ${vistaActual === 'CensoEstudiantes' ? 'btn-primary text-white shadow-sm' : 'btn-white bg-white text-dark border'}`}
-              style={{ fontSize: '0.78rem' }}
+              className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 ${vistaActual === 'CensoEstudiantes' ? 'btn-light text-dark shadow-sm' : 'btn-light bg-opacity-75 text-dark border-0'}`}
+              style={{ fontSize: '0.82rem' }}
               title="Estadísticas de Transporte: Balance de demanda, rutas y matrícula de ambas escuelas"
             >
-              <i className={`bi bi-bar-chart-fill ${vistaActual === 'CensoEstudiantes' ? 'text-white' : 'text-primary'}`}></i>
+              <i className={`bi bi-bar-chart-fill ${vistaActual === 'CensoEstudiantes' ? 'text-primary' : 'text-dark'}`}></i>
               <span>Estadísticas de Transporte</span>
             </button>
           </div>
 
-          {/* Botón para volver al Dashboard al navegar en un submódulo */}
           {vistaActual !== 'dashboard' && (
             <button
               onClick={() => setVistaActual('dashboard')}
-              className="btn btn-sm btn-white bg-white text-dark border rounded-pill px-3 py-1 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ fontSize: '0.8rem' }}
+              className="btn btn-light rounded-pill px-3 py-1.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-1.5 text-dark"
+              style={{ fontSize: '0.82rem' }}
             >
               <i className="bi bi-arrow-left text-primary"></i>
               <span>Volver al Dashboard</span>

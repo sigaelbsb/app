@@ -521,8 +521,8 @@ export const reproducirVozBienvenida = (
 
       // Guion con calidez venezolana, afecto institucional y saludo personalizado por rol docente
       const texto = vocativo
-        ? `¡Hola, ${vocativo}! Te saluda Sigma, tu Asistente Virtual del Sistema Integral de Gestión y Administración Escolar. ¡Qué alegría tan grande darte la bienvenida a este nuevo año escolar dos mil veintiséis, dos mil veintisiete! Todo el equipo directivo y la comunidad educativa celebra con orgullo tu vocación y tu compromiso con el futuro de nuestros estudiantes. En pantalla he organizado tus salones de clase y tus responsabilidades asignadas. ¡Te deseo un año escolar bien productivo y colmado de bendiciones!`
-        : `¡Hola a todo nuestro valioso equipo docente! Te saluda Sigma, tu Asistente Virtual en SIGAE. ¡Qué alegría darles la bienvenida a este nuevo año escolar dos mil veintiséis, dos mil veintisiete! Celebramos con profundo orgullo su vocación y amor por la enseñanza de nuestros estudiantes. En pantalla he organizado y proyectado sus responsabilidades y aulas de clase asignadas. ¡Que sea un año escolar bien productivo y lleno de bendiciones para todos!`;
+        ? `¡Hola, ${vocativo}! Te saludan Zoe y Max, tus Asistentes Virtuales del Sistema Integral de Gestión y Administración Escolar. ¡Qué alegría tan grande darte la bienvenida a este nuevo año escolar dos mil veintiséis, dos mil veintisiete! Todo el equipo directivo y la comunidad educativa celebra con orgullo tu vocación y tu compromiso con el futuro de nuestros estudiantes. En pantalla hemos organizado tus salones de clase y tus responsabilidades asignadas. ¡Te deseamos un año escolar bien productivo y colmado de bendiciones!`
+        : `¡Hola a todo nuestro valioso equipo docente! Les saludan Zoe y Max, sus Asistentes Virtuales en SIGAE. ¡Qué alegría darles la bienvenida a este nuevo año escolar dos mil veintiséis, dos mil veintisiete! Celebramos con profundo orgullo su vocación y amor por la enseñanza de nuestros estudiantes. En pantalla hemos organizado y proyectado sus responsabilidades y aulas de clase asignadas. ¡Que sea un año escolar bien productivo y lleno de bendiciones para todos!`;
 
       const u = new SpeechSynthesisUtterance(texto);
 
@@ -766,15 +766,15 @@ export const abrirModalProbarSonidos = (Swal: any, onSeleccionado?: (tipo: TipoS
             </button>
           </div>
 
-          <!-- 3. Voz de la IA Sigma (Asistente Virtual SIGAE) -->
+          <!-- 3. Voz de Zoe y Max (Asistentes Virtuales SIGAE) -->
           <div class="p-2.5 rounded-3 border d-flex align-items-center justify-content-between bg-white shadow-xs" id="card-sonido-voz">
             <div class="d-flex align-items-center gap-2.5">
               <input class="form-check-input mt-0 cursor-pointer" type="radio" name="radio-sonido-sorpresa" id="radio-voz" value="voz" ${tipoSeleccionado === 'voz' ? 'checked' : ''}>
               <div>
                 <label class="fw-bold text-dark small mb-0 d-block cursor-pointer" for="radio-voz">
-                  🤖 3. Voz de la IA Sigma (Asistente Virtual SIGAE) <span class="badge bg-primary bg-opacity-10 text-primary ms-1 extra-small">IA Oficial SIGAE</span>
+                  🤖 3. Voz de Zoe y Max (Asistentes Virtuales SIGAE) <span class="badge bg-primary bg-opacity-10 text-primary ms-1 extra-small">IA Oficial SIGAE</span>
                 </label>
-                <span class="extra-small text-muted">Presentación alegre de Sigma (tu asistente inteligente de SIGAE), con chime de activación digital futurista y fondo festivo.</span>
+                <span class="extra-small text-muted">Presentación alegre de Zoe y Max (tus asistentes inteligentes de SIGAE), con chime de activación digital futurista y fondo festivo.</span>
               </div>
             </div>
             <button type="button" id="btn-play-voz" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-bold flex-shrink-0">
@@ -1009,7 +1009,7 @@ export const abrirModalParametrizarSorpresa = async (Swal: any, onGuardado?: () 
               <select id="cfg-sorpresa-tipo-sonido" class="form-select form-select-sm rounded-3">
                 <option value="campanas" ${cfgActual.tipoSonido === 'campanas' || !cfgActual.tipoSonido ? 'selected' : ''}>🔔 Campanas Institucionales (Suave y sobrio)</option>
                 <option value="arpa" ${cfgActual.tipoSonido === 'arpa' ? 'selected' : ''}>🎵 Arpa y Acorde Acústico (Cálido y acogedor)</option>
-                <option value="voz" ${cfgActual.tipoSonido === 'voz' ? 'selected' : ''}>🤖 Voz de la IA Sigma (Asistente Virtual SIGAE)</option>
+                <option value="voz" ${cfgActual.tipoSonido === 'voz' ? 'selected' : ''}>🤖 Voz de Zoe y Max (Asistentes Virtuales SIGAE)</option>
                 <option value="celestial" ${cfgActual.tipoSonido === 'celestial' ? 'selected' : ''}>✨ Acorde Celestial Ambient (Envolvente)</option>
                 <option value="fanfarria" ${cfgActual.tipoSonido === 'fanfarria' ? 'selected' : ''}>🎺 Fanfarria Anterior (Comparativa)</option>
               </select>

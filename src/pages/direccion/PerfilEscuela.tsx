@@ -547,212 +547,179 @@ export const PerfilEscuela = () => {
         icon="bi-bank2"
       />
 
-      {/* ── 1. CABECERA INSTITUCIONAL TECNOLÓGICA CON LOGO CARGABLE Y CONMUTADOR DINÁMICO ── */}
+      {/* ── 1. CABECERA INSTITUCIONAL 3D CON LOGO Y BURBUJAS ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 shadow-sm animate__animated animate__fadeInDown" 
-        style={{ 
-          border: '2px solid #fed7aa',
-          borderTop: '6px solid #FF8D00',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #FF8D00 0%, #ea580c 50%, #c2410c 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* ESCUDO INSTITUCIONAL CARGABLE CON BOTÓN DE CÁMARA EN CONTENEDOR INTERACTIVO */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="position-relative d-inline-block">
-                <div 
-                  className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2 overflow-hidden"
-                  style={{ 
-                    width: '110px', 
-                    height: '110px',
-                    borderRadius: '24px',
-                    border: '2.5px solid #fed7aa',
-                    boxShadow: '0 10px 24px rgba(249, 115, 22, 0.15)'
-                  }}
-                >
-                  <img 
-                    src={logoActual} 
-                    alt={`Escudo de ${escuelaActual.nombre_institucion}`} 
-                    className="img-fluid"
-                    style={{ maxHeight: '92px', maxWidth: '92px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-
-                {/* Botón flotante para subir/cambiar imagen de logo */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn btn-sm rounded-circle position-absolute shadow-sm d-flex align-items-center justify-content-center text-white"
-                  style={{ 
-                    bottom: '-4px', 
-                    right: '-4px', 
-                    width: '36px', 
-                    height: '36px', 
-                    backgroundColor: '#ea580c', 
-                    border: '2px solid #ffffff' 
-                  }}
-                  title="Cargar / Cambiar Escudo o Logo"
-                >
-                  <i className="bi bi-camera-fill"></i>
-                </button>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          
+          {/* ESCUDO INSTITUCIONAL CARGABLE */}
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div className="position-relative d-inline-block">
+              <div 
+                className="bg-white shadow-lg d-inline-flex align-items-center justify-content-center p-2 overflow-hidden rounded-4"
+                style={{ 
+                  width: '115px', 
+                  height: '115px',
+                  border: '3px solid rgba(255,255,255,0.85)',
+                  boxShadow: '0 12px 28px rgba(0, 0, 0, 0.25)'
+                }}
+              >
+                <img 
+                  src={logoActual} 
+                  alt={`Escudo de ${escuelaActual.nombre_institucion}`} 
+                  className="img-fluid"
+                  style={{ maxHeight: '96px', maxWidth: '96px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
               </div>
 
-              {/* Controles para restaurar logo */}
-              <div className="mt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn btn-link btn-xs text-decoration-none fw-bold p-0 d-block mx-auto"
-                  style={{ fontSize: '0.75rem', color: '#c2410c' }}
-                >
-                  <i className="bi bi-upload me-1"></i>Cambiar Logo
-                </button>
-
-                {isCustomLogo && (
-                  <button
-                    type="button"
-                    onClick={handleRestaurarLogoOriginal}
-                    className="btn btn-link btn-xs text-muted p-0 d-block mx-auto text-decoration-none mt-0.5"
-                    style={{ fontSize: '0.70rem' }}
-                  >
-                    Restaurar Original
-                  </button>
-                )}
-              </div>
+              {/* Botón flotante para subir/cambiar imagen de logo */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn btn-sm rounded-circle position-absolute shadow d-flex align-items-center justify-content-center text-white"
+                style={{ 
+                  bottom: '-4px', 
+                  right: '-4px', 
+                  width: '36px', 
+                  height: '36px', 
+                  backgroundColor: '#0284c7', 
+                  border: '2px solid #ffffff' 
+                }}
+                title="Cargar / Cambiar Escudo o Logo"
+              >
+                <i className="bi bi-camera-fill"></i>
+              </button>
             </div>
 
-            {/* Información Principal de la Sede Activa */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                {/* Live Campus Beacon */}
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#fed7aa' }}
-                >
-                  <span 
-                    className="status-beacon-live" 
-                    style={{ color: '#ea580c' }}
-                  ></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#c2410c', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; SIGAE v1.1
-                  </span>
-                </div>
+            {/* Controles para restaurar logo */}
+            <div className="mt-2 text-center">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn btn-link btn-xs text-white text-decoration-none fw-bold p-0 d-block mx-auto"
+                style={{ fontSize: '0.75rem', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
+              >
+                <i className="bi bi-upload me-1"></i>Cambiar Logo
+              </button>
 
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#FF8D00' }}
-                >
-                  <IconoPerfilEscuela size={18} color="#ffffff" />
-                  <span>{escuelaActual.nivel_educativo || 'Institución Oficial'}</span>
-                </span>
-
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  DEA: {escuelaActual.codigo_dea || 'Por Asignar'}
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  RIF: {escuelaActual.rif || 'G-20000041-4'}
-                </span>
-                <span className="badge bg-white text-secondary border px-2.5 py-1.5 rounded-pill small shadow-xs d-none d-lg-inline">
-                  <i className="bi bi-building me-1 text-primary"></i>DEP PDVSA Oriente
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
-                {escuelaActual.nombre_institucion}
-              </h1>
-
-              <p className="mb-0 text-muted small d-flex align-items-center justify-content-center justify-content-md-start gap-1.5 flex-wrap">
-                <i className="bi bi-geo-alt-fill text-danger flex-shrink-0"></i>
-                <span className="fw-semibold">{escuelaActual.direccion || 'Dirección no registrada'}</span>
-              </p>
-
-              {/* Cinta de Telemetría Escolar Interactiva */}
-              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
-                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Período Escolar Oficial">
-                  <i className="bi bi-calendar-check-fill text-success"></i>
-                  <span className="text-secondary">Período 2025-2026</span>
-                </div>
-                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Sedes Totales en el Complejo">
-                  <i className="bi bi-buildings-fill text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{listaEscuelas.length} Sedes Vinculadas</span>
-                </div>
-                <div className="tech-pill-badge shadow-xs cursor-pointer" title="Estado Operativo">
-                  <i className="bi bi-shield-fill-check text-warning"></i>
-                  <span className="text-secondary">100% Operativo</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Conmutador Superior Dinámico de Sedes & Botón Nueva Sede y Volver */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <div className="d-flex flex-column align-items-md-end align-items-center gap-2.5">
-                
+              {isCustomLogo && (
                 <button
                   type="button"
-                  onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')}
-                  className="btn btn-white bg-white text-dark rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-2"
-                  style={{ fontSize: '0.82rem', borderColor: '#fed7aa' }}
+                  onClick={handleRestaurarLogoOriginal}
+                  className="btn btn-link btn-xs text-white text-opacity-75 p-0 d-block mx-auto text-decoration-none mt-0.5"
+                  style={{ fontSize: '0.70rem' }}
                 >
-                  <i className="bi bi-arrow-left text-warning" style={{ color: '#ea580c' }}></i>
-                  <span>Volver a Dirección</span>
+                  Restaurar Original
                 </button>
+              )}
+            </div>
+          </div>
 
-                <div className="d-flex align-items-center justify-content-between w-100 gap-2">
-                  <div className="text-muted extra-small fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>
-                    Sedes Institucionales:
-                  </div>
-                  
-                  {/* Botón Nueva Sede */}
-                  <button
-                    type="button"
-                    onClick={handleAgregarEscuela}
-                    className="btn btn-xs rounded-pill px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-xs hover-efecto text-white"
-                    style={{ fontSize: '0.76rem', backgroundColor: '#ea580c', borderColor: '#ea580c' }}
-                  >
-                    <i className="bi bi-plus-circle-fill"></i>
-                    <span>Nueva Sede</span>
-                  </button>
-                </div>
+          {/* Información Principal de la Sede Activa */}
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <IconoPerfilEscuela size={18} color="#FF8D00" />
+                <span className="ms-1">{escuelaActual.nivel_educativo || 'Institución Oficial'}</span>
+              </span>
 
-                {/* Botones de Píldora para cada Escuela con scroll táctil en celular */}
-                <div 
-                  className="p-1 bg-white rounded-pill border shadow-xs d-flex align-items-center gap-1 overflow-x-auto w-100 w-md-auto flex-nowrap"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', borderColor: '#fed7aa' }}
-                >
-                  {listaEscuelas.map(esc => {
-                    const isSelected = esc.id_escuela === escuelaActivaId;
-                    const escColor = esc.id_escuela === 'sb' ? 'btn-success' : esc.id_escuela === 'lb' ? 'btn-primary' : 'btn-dark';
-                    return (
-                      <button
-                        key={esc.id_escuela}
-                        type="button"
-                        onClick={() => setEscuelaActivaId(esc.id_escuela)}
-                        className={`btn btn-xs rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 transition-all text-nowrap ${
-                          isSelected
-                            ? `${escColor} text-white shadow-xs`
-                            : 'btn-white text-muted border-0'
-                        }`}
-                        style={{ fontSize: '0.82rem' }}
-                      >
-                        <i className="bi bi-building-check"></i>
-                        <span>{esc.nombre_institucion}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                DEA: {escuelaActual.codigo_dea || 'Por Asignar'}
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                RIF: {escuelaActual.rif || 'G-20000041-4'}
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small d-none d-lg-inline">
+                <i className="bi bi-building me-1"></i>DEP PDVSA Oriente
+              </span>
             </div>
 
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              {escuelaActual.nombre_institucion}
+            </h1>
+
+            <p className="mb-0 text-white text-opacity-90 small d-flex align-items-center justify-content-center justify-content-md-start gap-1.5 flex-wrap">
+              <i className="bi bi-geo-alt-fill text-warning flex-shrink-0"></i>
+              <span className="fw-semibold">{escuelaActual.direccion || 'Dirección no registrada'}</span>
+            </p>
+          </div>
+
+          {/* Sede Badge Flotante */}
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={logoActual} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
       </div>
+
+      {/* Barra de Sedes Institucionales y Conmutador */}
+      <div className="card border-0 shadow-sm rounded-4 p-3 bg-white mb-4">
+        <div className="row align-items-center g-3">
+          <div className="col-12 col-md">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <div className="text-muted extra-small fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                Sedes Institucionales:
+              </div>
+              <div 
+                className="p-1 bg-light rounded-pill border d-flex align-items-center gap-1 overflow-x-auto flex-nowrap"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {listaEscuelas.map(esc => {
+                  const isSelected = esc.id_escuela === escuelaActivaId;
+                  const escColor = esc.id_escuela === 'sb' ? 'btn-success' : esc.id_escuela === 'lb' ? 'btn-primary' : 'btn-dark';
+                  return (
+                    <button
+                      key={esc.id_escuela}
+                      type="button"
+                      onClick={() => setEscuelaActivaId(esc.id_escuela)}
+                      className={`btn btn-xs rounded-pill px-3 py-1.5 fw-bold d-flex align-items-center gap-1.5 transition-all text-nowrap ${
+                        isSelected
+                          ? `${escColor} text-white shadow-xs`
+                          : 'btn-white text-muted border-0'
+                      }`}
+                      style={{ fontSize: '0.82rem' }}
+                    >
+                      <i className="bi bi-building-check"></i>
+                      <span>{esc.nombre_institucion}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="col-12 col-md-auto text-md-end">
+            <div className="d-flex align-items-center gap-2 justify-content-md-end">
+              <button
+                type="button"
+                onClick={handleAgregarEscuela}
+                className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1 shadow-sm text-white"
+                style={{ backgroundColor: '#ea580c' }}
+              >
+                <i className="bi bi-plus-circle-fill"></i>
+                <span>Nueva Sede</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')}
+                className="btn btn-sm btn-light rounded-pill px-3 py-1.5 fw-bold border"
+              >
+                <i className="bi bi-arrow-left me-1"></i>Volver
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* ── 2. FORMULARIO DE IDENTIDAD INSTITUCIONAL Y FILOSOFÍA ── */}
       <div className="row g-4 mb-4">

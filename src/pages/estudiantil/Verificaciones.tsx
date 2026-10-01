@@ -1030,97 +1030,83 @@ export const Verificaciones: React.FC = () => {
         icon="bi-patch-check-fill"
       />
       
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
-        style={{ 
-          border: '2px solid #ddd6fe',
-          borderTop: '6px solid #8b5cf6',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 50%, #4338ca 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual: Icono 3D Isométrico + Escudo Institucional */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-inline-flex align-items-center gap-3 p-2 bg-white rounded-4 shadow-sm" style={{ border: '2px solid #ddd6fe' }}>
-                <div 
-                  className="rounded-4 p-2 d-inline-flex align-items-center justify-content-center shadow-xs" 
-                  style={{ 
-                    width: '88px', 
-                    height: '88px',
-                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-                    border: '1.5px solid #ddd6fe'
-                  }}
-                  title="Módulo de Verificaciones Chamilo Tech"
-                >
-                  <IconoVerificaciones size={58} color="#8b5cf6" />
-                </div>
-                <div 
-                  className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" 
-                  style={{ width: '88px', height: '88px' }}
-                >
-                  <img 
-                    src={`/assets/img/logo_${escuelaCodigo}.png`} 
-                    alt="Escudo Institucional" 
-                    className="img-fluid"
-                    style={{ maxHeight: '72px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-              </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+
+        <div className="row align-items-center position-relative z-1 g-4">
+          {/* Contenedor: Icono 3D Isométrico */}
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{ width: '95px', height: '95px', border: '2.5px solid rgba(255,255,255,0.4)', boxShadow: '0 10px 24px rgba(0,0,0,0.2)' }}
+            >
+              <IconoVerificaciones size={64} />
+            </div>
+          </div>
+
+          {/* Título y Métricas Clave */}
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-patch-check-fill me-1"></i> Control de Estudios & Auditoría
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-qr-code-scan me-1"></i>Autenticidad Digital QR
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-building me-1"></i>Sede Activa: <b>{escuelaCodigo === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</b>
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                <span className="text-white fw-bold">Live</span> / Servidor Criptográfico
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#8B5CF6' }}>
-                  <i className="bi bi-patch-check-fill me-1"></i>Control de Estudios & Auditoría
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-qr-code-scan text-primary me-1"></i>Autenticidad Digital QR
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-building text-info me-1"></i>Sede Activa: <b>{escuelaCodigo === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</b>
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
-                  <span className="text-success fw-bold">Live</span> / Servidor Criptográfico
-                </span>
-              </div>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Módulo de Verificaciones Oficiales
+            </h1>
 
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Módulo de Verificaciones Oficiales
-              </h1>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos mediante Código Oficial o Cámara QR.
+            </p>
+          </div>
 
-              <p className="mb-0 text-muted small">
-                Consulta y validación segura de Constancias de Inscripción, Fichas Integrales y Solicitudes de Cupos mediante Código Oficial o Cámara QR.
-              </p>
-            </div>
+          {/* Logo Escuela Flotante 3D */}
+          <div className="col-12 col-lg-auto text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${escuelaCodigo}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
         {/* Barra de Herramientas de Verificación Chamilo */}
-        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div className="mt-4 pt-3 border-top border-white border-opacity-20 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <button 
               type="button"
               onClick={abrirEscaner} 
-              className="btn btn-primary rounded-pill px-3.5 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5"
-              style={{ backgroundColor: '#8B5CF6', borderColor: '#8B5CF6', fontSize: '0.82rem' }}
+              className="btn btn-light rounded-pill px-3.5 py-1.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-2 text-dark"
+              style={{ fontSize: '0.85rem' }}
             >
-              <i className="bi bi-camera-fill"></i>
+              <i className="bi bi-camera-fill text-primary"></i>
               <span>Escanear QR</span>
             </button>
 
             {esAdminOAutorizado && (
-              <div className="btn-group shadow-xs rounded-pill" role="group">
+              <div className="btn-group shadow-sm rounded-pill overflow-hidden" role="group">
                 <button 
                   type="button"
                   onClick={() => cargarModeloEjemplo('sb')} 
-                  className="btn btn-white bg-white text-dark border btn-xs fw-bold px-3 py-1.5 hover-efecto"
+                  className="btn btn-white bg-white text-dark border-0 fw-bold px-3 py-1.5 hover-efecto"
                   style={{ fontSize: '0.82rem' }}
                   title="Ver Modelo de Constancia Oficial de la UE Santa Bárbara"
                 >
@@ -1130,7 +1116,7 @@ export const Verificaciones: React.FC = () => {
                 <button 
                   type="button"
                   onClick={() => cargarModeloEjemplo('lb')} 
-                  className="btn btn-white bg-white text-dark border btn-xs fw-bold px-3 py-1.5 hover-efecto"
+                  className="btn btn-white bg-white text-dark border-0 border-start fw-bold px-3 py-1.5 hover-efecto"
                   style={{ fontSize: '0.82rem' }}
                   title="Ver Modelo de Constancia Oficial de la UE Libertador Bolívar"
                 >
@@ -1150,7 +1136,8 @@ export const Verificaciones: React.FC = () => {
                 setSolicitudCupo(null);
                 if (inputRef.current) inputRef.current.focus();
               }} 
-              className="btn btn-white bg-white text-muted border rounded-pill px-3 py-1.5 fw-bold extra-small hover-efecto"
+              className="btn btn-light bg-opacity-75 rounded-pill px-3 py-1.5 fw-bold text-dark hover-efecto"
+              style={{ fontSize: '0.82rem' }}
             >
               <i className="bi bi-arrow-counterclockwise text-warning me-1"></i>
               <span>Limpiar Búsqueda</span>

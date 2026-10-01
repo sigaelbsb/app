@@ -567,17 +567,16 @@ export const IconoCerebroSigma: React.FC<{ size?: number; color?: string }> = ({
     }}
   >
     <img 
-      src="/sigma-avatar.png?v=opcion4-mentora-definitiva" 
-      alt="SIGMA AI" 
+      src="/zoe_max_duo_3d.png" 
+      alt="Zoe & Max IA" 
       className="tech-metric-sigma-avatar"
       style={{ 
-        width: '100%', 
-        height: '100%', 
+        width: '92%', 
+        height: '92%', 
         objectFit: 'contain'
       }}
       onError={(e) => {
-        // Fallback robusto a jpg por si se requiere
-        (e.target as HTMLImageElement).src = '/sigma-avatar.jpg?v=opcion4-mentora-definitiva';
+        (e.target as HTMLImageElement).src = '/zoe_saludo.png';
       }}
     />
     {/* Indicador LED neural de IA activa */}

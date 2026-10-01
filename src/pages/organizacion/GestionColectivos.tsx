@@ -7,7 +7,7 @@ import { formatPhoneNumber } from '../../lib/formatters';
 import { 
   ChamiloBreadcrumb, 
   ChamiloHelpCallout, 
-  IconoGestionColectivos,
+  IconoGestionColectivos3D,
   IconoPlanificacionActividades,
   IconoReporteGestion,
   IconoAsignarPersonal
@@ -1033,169 +1033,86 @@ export const GestionColectivos = () => {
         icon="bi-people-fill"
       />
 
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO (TECH-CARD) ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card mb-4 rounded-4 overflow-hidden shadow-sm"
-        style={{
-          borderTop: '6px solid #059669',
-          border: '2px solid #a7f3d0',
-          background: 'linear-gradient(135deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%)',
-          boxShadow: '0 10px 24px rgba(5, 150, 105, 0.12)'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 50%, #064e3b 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual de Iconos: Icono 3D Tech + Escudo Escolar */}
-            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
-                {/* Icono Tech Personalizado */}
-                <div 
-                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
-                  style={{
-                    width: '95px',
-                    height: '95px',
-                    border: '2.5px solid #a7f3d0',
-                    boxShadow: '0 10px 24px rgba(5, 150, 105, 0.15)'
-                  }}
-                  title="Módulo de Colectivos Pedagógicos"
-                >
-                  <IconoGestionColectivos size={60} color="#059669" />
-                </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
 
-                {/* Selector Dual Interactivo de Escuelas */}
-                <div 
-                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
-                  style={{ borderColor: '#a7f3d0' }}
-                >
-                  {/* Switch SB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('sb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      escuelaSeleccionada === 'sb' 
-                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Santa Bárbara"
-                  >
-                    <img 
-                      src="/assets/img/logo_sb.png" 
-                      alt="UE Santa Bárbara" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${escuelaSeleccionada === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      SB {escuelaSeleccionada === 'sb' ? '●' : ''}
-                    </span>
-                  </div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{
+                width: '95px',
+                height: '95px',
+                border: '2.5px solid rgba(255,255,255,0.4)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.2)'
+              }}
+              title="Módulo de Colectivos Pedagógicos"
+            >
+              <IconoGestionColectivos3D size={64} />
+            </div>
+          </div>
 
-                  {/* Switch LB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('lb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      escuelaSeleccionada === 'lb' 
-                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Libertador Bolívar"
-                  >
-                    <img 
-                      src="/assets/img/logo_lb.png" 
-                      alt="UE Libertador Bolívar" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${escuelaSeleccionada === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      LB {escuelaSeleccionada === 'lb' ? '●' : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-success px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-people-fill me-1"></i>Colectivos Pedagógicos
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-people-fill me-1"></i><b>{colectivos.length}</b> Colectivos Registrados
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-building me-1"></i>Sede: <b>{escuelaSeleccionada === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</b>
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#059669', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-people-fill"></i>Colectivos Pedagógicos
-                </span>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Gestión de Colectivos Pedagógicos
+            </h1>
 
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#a7f3d0' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#059669' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#047857', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; Colectivos Activos
-                  </span>
-                </div>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Organización de colectivos de formación permanente, comités escolares, brigadas estudiantiles y padrón de voceros para {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
+            </p>
+          </div>
 
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#a7f3d0' }}>
-                  <i className="bi bi-people-fill text-success me-1"></i><b>{colectivos.length}</b> Colectivos Registrados
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#a7f3d0' }}>
-                  <i className="bi bi-building me-1 text-primary"></i>Sede: <b>{escuelaSeleccionada === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}</b>
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Gestión de Colectivos Pedagógicos
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
-                Organización de colectivos de formación permanente, comités escolares, brigadas estudiantiles y padrón de voceros para {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}.
-              </p>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')}
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
-                style={{ borderColor: '#a7f3d0', fontSize: '0.85rem' }}
-              >
-                <i className="bi bi-arrow-left" style={{ color: '#047857' }}></i>
-                <span>Volver a Organización</span>
-              </button>
-            </div>
-
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${escuelaSeleccionada}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
         {/* Selector de Sede Chamilo */}
         {isDualAccess && (
           <div 
-            className="px-4 py-2.5 border-top d-flex justify-content-between align-items-center flex-wrap gap-2"
-            style={{ backgroundColor: 'rgba(236, 253, 245, 0.7)', borderColor: '#a7f3d0' }}
+            className="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1"
           >
             <div className="d-flex align-items-center gap-2">
-              <span className="extra-small fw-bold text-muted text-uppercase">Plantel Activo:</span>
-              <div className="btn-group btn-group-sm shadow-xs border rounded-pill overflow-hidden bg-white" role="group">
+              <span className="extra-small fw-bold text-white text-uppercase" style={{ fontSize: '0.75rem', opacity: 0.9 }}>Plantel Activo:</span>
+              <div className="btn-group btn-group-sm shadow-sm rounded-pill overflow-hidden bg-white p-0.5" role="group">
                 <button 
                   onClick={() => cambiarEscuelaActiva('sb')} 
-                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
-                    escuelaSeleccionada === 'sb' ? 'text-white' : 'text-muted'
+                  className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                    escuelaSeleccionada === 'sb' ? 'btn-success text-white shadow-sm' : 'text-dark bg-transparent'
                   }`}
-                  style={{ backgroundColor: escuelaSeleccionada === 'sb' ? '#10b981' : 'transparent', border: 'none', fontSize: '0.8rem' }}
+                  style={{ fontSize: '0.8rem' }}
                 >
                   🟢 UE Santa Bárbara
                 </button>
                 <button 
                   onClick={() => cambiarEscuelaActiva('lb')} 
-                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
-                    escuelaSeleccionada === 'lb' ? 'text-white' : 'text-muted'
+                  className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                    escuelaSeleccionada === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-dark bg-transparent'
                   }`}
-                  style={{ backgroundColor: escuelaSeleccionada === 'lb' ? '#0284c7' : 'transparent', border: 'none', fontSize: '0.8rem' }}
+                  style={{ fontSize: '0.8rem' }}
                 >
                   🔵 UE Libertador Bolívar
                 </button>
@@ -1210,7 +1127,7 @@ export const GestionColectivos = () => {
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card border-0 shadow-sm rounded-4 p-3 bg-white h-100 d-flex flex-row align-items-center gap-3">
             <div className="p-2 rounded-3 bg-light d-flex align-items-center justify-content-center shadow-xs">
-              <IconoGestionColectivos size={38} />
+              <IconoGestionColectivos3D size={38} />
             </div>
             <div>
               <span className="text-muted extra-small text-uppercase fw-bold d-block">Colectivos Activos</span>

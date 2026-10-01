@@ -190,7 +190,8 @@ export const ChatbotSigma = () => {
   const KEYWORDS_MAP: Record<string, string[]> = {
     "Perfil de la Escuela": ["escuela", "plantel", "colegio", "dea", "director", "directora", "mision", "vision", "peic", "sede"],
     "Configuración Escolar": ["configuracion", "parametros", "lapsos", "periodos", "periodo", "niveles", "fases", "año", "ano", "escolar"],
-    "Cerebro de Sigma": ["sigma", "cerebro", "ia", "inteligencia", "preguntas", "respuestas", "conocimiento", "bot"],
+    "Cerebro de Zoe y Max": ["zoe", "max", "sigma", "cerebro", "ia", "inteligencia", "preguntas", "respuestas", "conocimiento", "bot"],
+    "Cerebro de Sigma": ["zoe", "max", "sigma", "cerebro", "ia", "inteligencia", "preguntas", "respuestas", "conocimiento", "bot"],
     "Calendario Escolar": ["calendario", "fechas", "feriados", "efemerides", "actividades", "eventos"],
     "División Territorial": ["division", "territorio", "estados", "municipios", "parroquias", "ciudades", "sectores", "geografia", "mapa"],
     "Instalación y Descargas": ["instalar", "descargas", "instalador", "desktop", "pwa", "app", "aplicacion"],
@@ -676,8 +677,8 @@ export const ChatbotSigma = () => {
         setPensando(false);
         setHablando(true);
         setTimeout(() => setHablando(false), 1500);
-        setMensaje(`¡Hola! Soy <b>SIGMA</b>, tu asistente de Inteligencia Artificial para SIGAE.<br><br>
-          Puedo orientarte sobre cualquier proceso escolar, explicarte términos del sistema y acompañarte al instante al módulo que necesites. Solo dime qué deseas hacer (por ejemplo: <i>"cargar notas"</i>, <i>"gestionar colectivos"</i>, <i>"ver transporte"</i> o <i>"crear usuarios"</i>).<br><br>
+        setMensaje(`¡Hola! Soy <b>${personaje === 'zoe' ? 'Zoe' : 'Max'}</b>, tu guía de Inteligencia Artificial para SIGAE (junto a mi compañero <b>${personaje === 'zoe' ? 'Max' : 'Zoe'}</b>).<br><br>
+          Podemos orientarte sobre cualquier proceso escolar, explicarte términos del sistema y acompañarte al instante al módulo que necesites. Solo dime qué deseas hacer (por ejemplo: <i>"cargar notas"</i>, <i>"gestionar colectivos"</i>, <i>"ver transporte"</i> o <i>"crear usuarios"</i>).<br><br>
           Aquí tienes algunos accesos recomendados para tu perfil:`);
         setModulosRecomendados(toolsIndex.slice(0, 4));
         setAcciones([]);
@@ -953,7 +954,9 @@ export const ChatbotSigma = () => {
       'solicitud': 'Solicitud de Cupos',
       'vincular': 'Vincular Estudiante',
       'mis_solicitudes': 'Mis Solicitudes',
-      'sigma': 'Cerebro de Sigma',
+      'zoe': 'Cerebro de Zoe y Max',
+      'max': 'Cerebro de Zoe y Max',
+      'sigma': 'Cerebro de Zoe y Max',
       'inicio': 'Inicio',
       'panel': 'Panel de Control'
     };
@@ -982,7 +985,7 @@ export const ChatbotSigma = () => {
     if (v === 'configuración escolar' || v === 'configuracion escolar' || v === 'configuración del sistema' || v === 'configuracion del sistema') return '/categoria/Dirección y Sistema/Configuración Escolar';
     if (v === 'espacios escolares' || v === 'ambientes escolares' || v === 'salones' || v === 'grados y salones') return '/categoria/Control de Estudios/Grados y Salones';
     if (v === 'división territorial' || v === 'division territorial') return '/categoria/Dirección y Sistema/División Territorial';
-    if (v === 'cerebro de sigma') return '/categoria/Dirección y Sistema/Cerebro de Sigma';
+    if (v === 'cerebro de zoe y max' || v === 'cerebro de sigma') return '/categoria/Dirección y Sistema/Cerebro de Zoe y Max';
     if (v === 'vincular estudiante' || v === 'vincular') return '/categoria/Gestión Estudiantil/Vincular Estudiante';
     if (v === 'actualización de datos' || v === 'actualizacion de datos' || v === 'actualizacion') return '/categoria/Gestión Estudiantil/Actualización de Datos';
     if (v === 'solicitud de cupos' || v === 'solicitud') return '/categoria/Gestión Estudiantil/Solicitud de Cupos';
@@ -1292,7 +1295,7 @@ export const ChatbotSigma = () => {
             className="sigma-input" 
             placeholder="Pregúntame lo que necesites o qué deseas gestionar..."
           />
-          <button onClick={() => procesarPreguntaUsuario()} className="sigma-btn-send" title="Consultar a SIGMA">
+          <button onClick={() => procesarPreguntaUsuario()} className="sigma-btn-send" title="Consultar a Zoe y Max">
             <i className="bi bi-send-fill"></i>
           </button>
         </div>

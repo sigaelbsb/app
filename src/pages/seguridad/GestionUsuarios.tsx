@@ -6,7 +6,7 @@ import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
 import { iniciarEmulacionSesion } from '../../utils/sessionHelper';
 import { formatPhoneNumber, toTitulo } from '../../lib/formatters';
-import { ChamiloBreadcrumb, ChamiloHelpCallout } from '../../components/chamilo';
+import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoGestionUsuarios3D } from '../../components/chamilo';
 import { reproducirVozBienvenida, detenerTodosLosSonidos } from '../../components/ModalAsignacionSorpresa';
 
 const handleTituloChange = (
@@ -478,7 +478,7 @@ export const GestionUsuarios = () => {
       });
       Toast.fire({
         icon: 'info',
-        title: `🔊 Reproduciendo bienvenida de Sigma para ${toTitulo(usr.nombre_completo)}`
+        title: `🔊 Reproduciendo bienvenida de Zoe y Max para ${toTitulo(usr.nombre_completo)}`
       });
     }
   };
@@ -1342,97 +1342,90 @@ export const GestionUsuarios = () => {
         icon="bi-people-fill"
       />
 
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO ── */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white border-top border-4" style={{ borderColor: '#6366f1' }}>
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Logo de la Escuela */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="rounded-4 p-2 bg-light border d-inline-flex align-items-center justify-content-center shadow-xs" style={{ width: '105px', height: '105px' }}>
-                <img 
-                  src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
-                  alt="Escudo Institucional" 
-                  className="img-fluid"
-                  style={{ maxHeight: '85px', objectFit: 'contain' }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                />
-              </div>
+      {/* ── 3. CABECERA INSTITUCIONAL CON BANNER 3D ── */}
+      <div 
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4" 
+        style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)' }}
+      >
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1">
+          <div className="col-lg-9 text-center text-md-start mb-3 mb-lg-0">
+            <div className="d-flex align-items-center gap-2 flex-wrap mb-3">
+              <span className="badge bg-white text-primary px-3 py-2 shadow-sm fw-bold rounded-pill badge-3d" style={{ letterSpacing: '0.5px' }}>
+                <i className="bi bi-shield-lock-fill me-1"></i> SEGURIDAD & DIRECTORIO
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-3 py-2 shadow-sm fw-bold rounded-pill">
+                <i className="bi bi-person-fill me-1"></i> <b>{usuarios.length}</b> Cuentas Activas
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-3 py-2 shadow-sm fw-bold rounded-pill">
+                <i className="bi bi-mortarboard-fill me-1"></i> <b>{totalEstudiantesVinculados}</b> Estudiantes
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-3 py-2 shadow-sm fw-bold rounded-pill">
+                <i className="bi bi-people-fill me-1"></i> <b>{representantesConHijos}</b> Representantes
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-3 py-2 shadow-sm fw-bold rounded-pill">
+                <i className="bi bi-door-open-fill me-1"></i> <b>{visitantes.length}</b> Visitantes
+              </span>
+              {solicitudesReseteo.length > 0 && (
+                <span className="badge bg-danger text-white px-3 py-2 shadow-sm fw-bold rounded-pill animate__animated animate__pulse animate__infinite">
+                  <i className="bi bi-arrow-counterclockwise me-1"></i> <b>{solicitudesReseteo.length}</b> Reseteos
+                </span>
+              )}
             </div>
-
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <span className="badge bg-indigo text-white fw-bold px-3 py-1.5 rounded-pill small" style={{ backgroundColor: '#6366f1' }}>
-                  <i className="bi bi-shield-lock-fill me-1"></i>Seguridad & Directorio
-                </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-person-fill text-primary me-1"></i><b>{usuarios.length}</b> Cuentas Activas
-                </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-mortarboard-fill text-success me-1"></i><b>{totalEstudiantesVinculados}</b> Estudiantes Vinculados
-                </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-people-fill text-info me-1"></i><b>{representantesConHijos}</b> Con Representados
-                </span>
-                <span className="badge bg-light text-dark border px-2.5 py-1.5 rounded-pill small fw-bold">
-                  <i className="bi bi-door-open-fill text-secondary me-1"></i><b>{visitantes.length}</b> Visitantes
-                </span>
-                {solicitudesReseteo.length > 0 && (
-                  <span className="badge bg-danger text-white px-2.5 py-1.5 rounded-pill small fw-bold">
-                    <i className="bi bi-arrow-counterclockwise me-1"></i><b>{solicitudesReseteo.length}</b> Reseteos Pendientes
-                  </span>
-                )}
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Gestión de Usuarios e Invitados
-              </h1>
-
-              <p className="mb-0 text-muted small">
-                Directorio integral de cuentas de acceso, control de portería de visitantes presenciales y auditoría de credenciales.
-              </p>
-            </div>
+            <h1 className="fw-bolder mb-2 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-3" style={{ fontSize: 'calc(1.6rem + 1vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              <IconoGestionUsuarios3D size={48} color="#ffffff" />
+              <span>Gestión de Usuarios e Invitados</span>
+            </h1>
+            <p className="mb-0 fw-semibold fs-5 text-white text-opacity-90" style={{ maxWidth: '820px' }}>
+              Directorio integral de cuentas de acceso institucional, control de visitantes presenciales y auditoría de credenciales.
+            </p>
+          </div>
+          <div className="col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${localStorage.getItem('sigae_escuela_codigo') || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
+      </div>
 
-        {/* Barra de Pestañas Principal */}
-        <div className="px-4 py-3 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setTabPrincipal('usuarios')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
-                tabPrincipal === 'usuarios' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white text-muted border'
-              }`}
-              style={{ backgroundColor: tabPrincipal === 'usuarios' ? '#6366f1' : undefined, borderColor: tabPrincipal === 'usuarios' ? '#6366f1' : undefined, fontSize: '0.82rem' }}
-            >
-              <i className="bi bi-people-fill me-1.5"></i>Cuentas de Usuarios ({usuarios.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTabPrincipal('visitantes')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
-                tabPrincipal === 'visitantes' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white text-muted border'
-              }`}
-              style={{ backgroundColor: tabPrincipal === 'visitantes' ? '#6366f1' : undefined, borderColor: tabPrincipal === 'visitantes' ? '#6366f1' : undefined, fontSize: '0.82rem' }}
-            >
-              <i className="bi bi-door-open-fill me-1.5"></i>Visitantes e Invitados ({visitantes.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTabPrincipal('reseteos')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all ${
-                tabPrincipal === 'reseteos' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white text-muted border'
-              }`}
-              style={{ backgroundColor: tabPrincipal === 'reseteos' ? '#6366f1' : undefined, borderColor: tabPrincipal === 'reseteos' ? '#6366f1' : undefined, fontSize: '0.82rem' }}
-            >
-              <i className="bi bi-arrow-counterclockwise me-1.5"></i>Solicitudes de Reseteo
-              {solicitudesReseteo.length > 0 && (
-                <span className="badge bg-danger rounded-pill ms-1.5 px-2 py-0.5 extra-small">{solicitudesReseteo.length}</span>
-              )}
-            </button>
-          </div>
+      {/* Barra de Pestañas Principal */}
+      <div className="card border-0 shadow-sm rounded-4 p-2 bg-white mb-4">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setTabPrincipal('usuarios')}
+            className={`btn rounded-pill px-4 py-2 fw-bold transition-all ${
+              tabPrincipal === 'usuarios' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted'
+            }`}
+          >
+            <i className="bi bi-people-fill me-1.5"></i>Cuentas de Usuarios ({usuarios.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTabPrincipal('visitantes')}
+            className={`btn rounded-pill px-4 py-2 fw-bold transition-all ${
+              tabPrincipal === 'visitantes' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted'
+            }`}
+          >
+            <i className="bi bi-door-open-fill me-1.5"></i>Visitantes e Invitados ({visitantes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTabPrincipal('reseteos')}
+            className={`btn rounded-pill px-4 py-2 fw-bold transition-all ${
+              tabPrincipal === 'reseteos' ? 'btn-primary text-white shadow-sm' : 'btn-light text-muted'
+            }`}
+          >
+            <i className="bi bi-arrow-counterclockwise me-1.5"></i>Solicitudes de Reseteo
+            {solicitudesReseteo.length > 0 && (
+              <span className="badge bg-danger rounded-pill ms-2 px-2 py-0.5">{solicitudesReseteo.length}</span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -1685,14 +1678,14 @@ export const GestionUsuarios = () => {
                             <td className="text-center pe-4 py-3">
                               <div className="d-flex align-items-center justify-content-center gap-1">
                                 
-                                {/* 0. Probar Audio de Bienvenida con IA Sigma (Solo Rol Docente) */}
+                                {/* 0. Probar Audio de Bienvenida con Zoe y Max (Solo Rol Docente) */}
                                 {String(u.rol || '').toLowerCase().includes('docen') && (
                                   <button
                                     type="button"
                                     onClick={() => handleProbarAudioDocente(u)}
                                     className="btn btn-xs btn-light text-info border rounded-circle shadow-xs hover-efecto"
                                     style={{ width: '30px', height: '30px' }}
-                                    title={`🔊 Escuchar Audio de Bienvenida de la IA Sigma para ${toTitulo(u.nombre_completo)}`}
+                                    title={`🔊 Escuchar Audio de Bienvenida de Zoe y Max para ${toTitulo(u.nombre_completo)}`}
                                   >
                                     <i className="bi bi-volume-up-fill text-info"></i>
                                   </button>

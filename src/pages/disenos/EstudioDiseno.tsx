@@ -515,140 +515,95 @@ export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial
         icon="bi-palette-fill"
       />
 
-      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      {/* ── 2. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown ocultar-impresion" 
-        style={{ 
-          border: '2px solid #fbcfe8',
-          borderTop: '6px solid #ec4899',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fdf2f8 45%, #fce7f3 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown ocultar-impresion" 
+        style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 50%, #9333ea 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Doble: Ícono 3D de Estudio de Diseño + Escudo Oficial de la Escuela */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 flex-wrap">
-                {/* Ícono 3D Estudio de Diseño */}
-                <div 
-                  className="tech-icon-wrapper bg-white d-inline-flex align-items-center justify-content-center p-2"
-                  style={{ 
-                    width: '105px', 
-                    height: '105px',
-                    borderRadius: '24px',
-                    border: '2.5px solid #fbcfe8',
-                    boxShadow: '0 10px 24px rgba(236, 72, 153, 0.15)'
-                  }}
-                  title="Estudio Gráfico Oficial"
-                >
-                  <IconoEstudioDiseno size={54} color="#ec4899" />
-                </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
 
-                {/* Logo Oficial de la Escuela */}
-                <div 
-                  className="tech-icon-wrapper bg-white d-inline-flex align-items-center justify-content-center p-2"
-                  style={{ 
-                    width: '105px', 
-                    height: '105px',
-                    borderRadius: '24px',
-                    border: '2.5px solid #fbcfe8',
-                    boxShadow: '0 10px 24px rgba(236, 72, 153, 0.15)'
-                  }}
-                  title={`Plantel Activo: ${escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}`}
-                >
-                  <img 
-                    src={`/assets/img/logo_${escuelaSeleccionada}.png`} 
-                    alt="Escudo Institucional" 
-                    className="img-fluid"
-                    style={{ maxHeight: '85px', maxWidth: '85px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-              </div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          {/* Contenedor: Ícono 3D de Estudio de Diseño */}
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{ width: '95px', height: '95px', border: '2.5px solid rgba(255,255,255,0.4)', boxShadow: '0 10px 24px rgba(0,0,0,0.2)' }}
+            >
+              <IconoEstudioDiseno size={64} />
+            </div>
+          </div>
+
+          {/* Título, Badges y Beacon Tecnológico */}
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-danger px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-stars me-1"></i> Módulo Creativo & Diseño
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <i className="bi bi-building me-1"></i>Plantel: <b>{escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold text-capitalize shadow-xs">
+                <i className="bi bi-palette me-1"></i>Modo: <b>{herramienta}</b>
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
+                <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
+                <span className="text-white fw-bold">Live</span> / Campus Creativo
+              </span>
             </div>
 
-            {/* Título, Badges y Beacon Tecnológico */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                {/* Live Campus Beacon */}
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#fbcfe8' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#ec4899' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#be185d', letterSpacing: '0.5px' }}
-                  >
-                    Campus Creativo &bull; {escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}
-                  </span>
-                </div>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Estudio de Diseño Gráfico e Impresión
+            </h1>
 
-                <span className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs" style={{ backgroundColor: '#ec4899' }}>
-                  <i className="bi bi-stars me-1"></i>Módulo Creativo & Diseño
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-building me-1"></i>Plantel: <b>{escuelaSeleccionada === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold text-capitalize shadow-xs">
-                  <i className="bi bi-palette text-primary me-1"></i>Modo: <b>{herramienta}</b>
-                </span>
-              </div>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Crea, personaliza, exporta y archiva certificados académicos, flyers promocionales, invitaciones oficiales, tapas de expedientes y comunicados directivos.
+            </p>
+          </div>
 
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
-                Estudio de Diseño Gráfico e Impresión
-              </h1>
+          {/* Acciones Rápidas */}
+          <div className="col-12 col-md-auto text-md-end text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/categoria/Diseños')}
+              className="btn btn-light rounded-pill px-4 py-2 fw-bold text-dark shadow-sm hover-efecto d-inline-flex align-items-center gap-2"
+              style={{ fontSize: '0.88rem' }}
+            >
+              <i className="bi bi-arrow-left text-danger"></i>
+              <span>Volver a Diseños</span>
+            </button>
+          </div>
 
-              <p className="mb-0 text-muted small d-flex align-items-center gap-1.5 flex-wrap">
-                <i className="bi bi-info-circle-fill text-primary flex-shrink-0"></i>
-                <span className="fw-semibold">Crea, personaliza, exporta y archiva certificados académicos, flyers promocionales, invitaciones oficiales, tapas de expedientes y comunicados directivos.</span>
-              </p>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Diseños')}
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center gap-2"
-                style={{ fontSize: '0.85rem', borderColor: '#fbcfe8' }}
-              >
-                <i className="bi bi-arrow-left" style={{ color: '#be185d' }}></i>
-                <span>Volver a Diseños</span>
-              </button>
-            </div>
-
+          {/* Logo Escuela Flotante 3D */}
+          <div className="col-12 col-lg-auto text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${escuelaSeleccionada}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
-        {/* Barra de Selector de Sede Institucional Chamilo */}
-        <div className="px-4 py-2.5 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+        {/* Barra de Selector de Sede Institucional */}
+        <div className="mt-4 pt-3 border-top border-white border-opacity-20 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            <span className="small text-muted fw-bold">Membrete Institucional:</span>
-            <div className="btn-group bg-white rounded-pill p-0.5 shadow-xs border">
+            <span className="small text-white text-opacity-90 fw-bold">Membrete Institucional:</span>
+            <div className="btn-group bg-white bg-opacity-20 rounded-pill p-1 border border-white border-opacity-25 shadow-xs">
               <button
                 type="button"
                 onClick={() => handleEscuelaChange('sb')}
-                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escuelaSeleccionada === 'sb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
-                style={{
-                  backgroundColor: escuelaSeleccionada === 'sb' ? '#EC4899' : undefined,
-                  borderColor: escuelaSeleccionada === 'sb' ? '#EC4899' : undefined,
-                  fontSize: '0.78rem'
-                }}
+                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escuelaSeleccionada === 'sb' ? 'bg-white text-dark shadow-sm' : 'text-white border-0'}`}
+                style={{ fontSize: '0.8rem' }}
               >
                 UE Santa Bárbara
               </button>
               <button
                 type="button"
                 onClick={() => handleEscuelaChange('lb')}
-                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escuelaSeleccionada === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white text-muted border-0'}`}
-                style={{
-                  backgroundColor: escuelaSeleccionada === 'lb' ? '#EC4899' : undefined,
-                  borderColor: escuelaSeleccionada === 'lb' ? '#EC4899' : undefined,
-                  fontSize: '0.78rem'
-                }}
+                className={`btn btn-xs rounded-pill px-3 py-1 fw-bold transition-all ${escuelaSeleccionada === 'lb' ? 'bg-white text-dark shadow-sm' : 'text-white border-0'}`}
+                style={{ fontSize: '0.8rem' }}
               >
                 UE Libertador Bolívar
               </button>
@@ -656,8 +611,8 @@ export const EstudioDiseno: React.FC<EstudioDisenoProps> = ({ herramientaInicial
           </div>
 
           <div className="d-flex align-items-center gap-1.5">
-            <span className="text-muted extra-small">
-              <i className="bi bi-printer text-success me-1"></i>Listo para Imprimir / Exportar
+            <span className="text-white text-opacity-90 small fw-bold">
+              <i className="bi bi-printer text-warning me-1"></i>Listo para Imprimir / Exportar
             </span>
           </div>
         </div>

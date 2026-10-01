@@ -612,139 +612,80 @@ export const PanelControl = () => {
         icon="bi-sliders2"
       />
 
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO TECH (Estilo Dirección y Sistema) ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL CON BANNER 3D ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 shadow-sm animate__animated animate__fadeInDown"
-        style={{
-          border: '2px solid #fed7aa',
-          borderTop: '6px solid #FF8D00',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #FF8D00 0%, #ea580c 50%, #c2410c 100%)' }}
       >
-        <div className="p-3 p-sm-4 p-md-4">
-          <div className="row align-items-center g-3 g-md-4">
-            
-            {/* Ícono de Panel de Control y Selector Dual Escuelas */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-inline-flex align-items-center gap-3 flex-wrap justify-content-center">
-                <div 
-                  className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2"
-                  style={{ 
-                    width: '95px', 
-                    height: '95px', 
-                    borderRadius: '24px', 
-                    border: '2.5px solid #fed7aa',
-                    boxShadow: '0 10px 24px rgba(249, 115, 22, 0.15)'
-                  }}
-                >
-                  <IconoPanelControl size={60} color="#FF8D00" />
-                </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="bg-white shadow-lg d-inline-flex align-items-center justify-content-center p-2 rounded-4"
+              style={{ width: '100px', height: '100px', border: '3px solid rgba(255,255,255,0.85)' }}
+            >
+              <IconoPanelControl size={65} color="#FF8D00" />
+            </div>
+          </div>
 
-                <div 
-                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
-                  style={{ borderColor: '#fed7aa' }}
-                >
-                  {/* Botón Switch SB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('sb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      escuelaCodigo === 'sb' 
-                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Santa Bárbara"
-                  >
-                    <img 
-                      src="/assets/img/logo_sb.png" 
-                      alt="UE Santa Bárbara" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      SB {escuelaCodigo === 'sb' ? '●' : ''}
-                    </span>
-                  </div>
-
-                  {/* Botón Switch LB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('lb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      escuelaCodigo === 'lb' 
-                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Libertador Bolívar"
-                  >
-                    <img 
-                      src="/assets/img/logo_lb.png" 
-                      alt="UE Libertador Bolívar" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${escuelaCodigo === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      LB {escuelaCodigo === 'lb' ? '●' : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-toggles2 me-1"></i>DIRECCIÓN & CONTROL MAESTRO
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                Temporada: <b>{configDocs.modo_temporada === 'inscripciones' ? 'Inscripciones' : (configDocs.modo_temporada === 'clases_regulares' ? 'Clases Regulares' : 'Personalizado')}</b>
+              </span>
+              <span className={`badge ${mantenimientoSB || mantenimientoLB ? 'bg-danger text-white' : 'bg-white bg-opacity-25 text-white'} px-2.5 py-1.5 rounded-pill small fw-bold`}>
+                <i className="bi bi-cone-striped me-1"></i>Mantenimiento: <b>{mantenimientoSB || mantenimientoLB ? 'Activado' : 'Abierto'}</b>
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#FF8D00', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-toggles2"></i>Dirección & Control Maestro
-                </span>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Botonera y Panel de Control
+            </h1>
 
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#fed7aa' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#ea580c' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#c2410c', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; SIGAE v1.1
-                  </span>
-                </div>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Centro de mando operativo para activar documentos oficiales, fijar temporadas escolares, parametrizar cupos y gestionar el mantenimiento.
+            </p>
+          </div>
 
-                <span className={`badge ${configDocs.modo_temporada === 'inscripciones' ? 'bg-success' : (configDocs.modo_temporada === 'clases_regulares' ? 'bg-primary' : 'bg-warning text-dark')} px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs`}>
-                  <i className="bi bi-calendar-check-fill me-1"></i>Temporada: <b>{configDocs.modo_temporada === 'inscripciones' ? 'Inscripciones' : (configDocs.modo_temporada === 'clases_regulares' ? 'Clases Regulares' : 'Personalizado')}</b>
-                </span>
-                <span className={`badge ${mantenimientoSB || mantenimientoLB ? 'bg-danger text-white' : 'bg-white text-success border'} px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs`} style={{ borderColor: '#fed7aa' }}>
-                  <i className="bi bi-cone-striped me-1"></i>Mantenimiento: <b>{mantenimientoSB || mantenimientoLB ? 'Activado' : 'Normal (Abierto)'}</b>
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1 text-dark fs-3 fs-md-2" style={{ letterSpacing: '-0.5px' }}>
-                Botonera y Panel de Control
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
-                Centro de mando para activar documentos oficiales, fijar temporadas escolares, parametrizar cupos y gestionar el mantenimiento de las <strong className="text-dark">Escuelas DEP Oriente</strong> (UE Santa Bárbara y UE Libertador Bolívar).
-              </p>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Direcci%C3%B3n%20y%20Sistema')}
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
-                style={{ borderColor: '#fed7aa', fontSize: '0.85rem' }}
+          <div className="col-12 col-lg-auto text-end d-flex align-items-center justify-content-center justify-content-lg-end gap-3 flex-wrap">
+            {/* Selector de escuela dual integrado */}
+            <div className="d-inline-flex align-items-center gap-2 p-2 bg-white bg-opacity-20 backdrop-blur rounded-4 border border-white border-opacity-40">
+              <div 
+                onClick={() => cambiarEscuelaActiva('sb')}
+                className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                  escuelaCodigo === 'sb' ? 'bg-white shadow-sm' : 'bg-white bg-opacity-30 opacity-75'
+                }`}
+                style={{ width: '64px', height: '70px', cursor: 'pointer' }}
+                title="Activar U.E. Santa Bárbara"
               >
-                <i className="bi bi-arrow-left" style={{ color: '#ea580c' }}></i>
-                <span>Volver a Dirección</span>
-              </button>
+                <img src="/assets/img/logo_sb.png" alt="SB" style={{ maxHeight: '34px', maxWidth: '34px', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }} />
+                <span className={`badge ${escuelaCodigo === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>SB {escuelaCodigo === 'sb' ? '●' : ''}</span>
+              </div>
+              <div 
+                onClick={() => cambiarEscuelaActiva('lb')}
+                className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
+                  escuelaCodigo === 'lb' ? 'bg-white shadow-sm' : 'bg-white bg-opacity-30 opacity-75'
+                }`}
+                style={{ width: '64px', height: '70px', cursor: 'pointer' }}
+                title="Activar U.E. Libertador Bolívar"
+              >
+                <img src="/assets/img/logo_lb.png" alt="LB" style={{ maxHeight: '34px', maxWidth: '34px', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }} />
+                <span className={`badge ${escuelaCodigo === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>LB {escuelaCodigo === 'lb' ? '●' : ''}</span>
+              </div>
             </div>
 
+            <img 
+              src={`/assets/img/logo_${escuelaCodigo || 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner d-none d-xl-block"
+              style={{ maxHeight: '100px' }}
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
       </div>

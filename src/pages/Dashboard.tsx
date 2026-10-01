@@ -11,7 +11,9 @@ import {
   IconoMatriculaCenso,
   IconoAvisosRadar,
   IconoPersonalDocente,
-  IconoSolicitudCupos
+  IconoSolicitudCupos,
+  IconoGestionAdmisiones,
+  IconoCadenaSupervisoria
 } from '../components/chamilo';
 import {
   ChamiloDonutChart,
@@ -804,10 +806,12 @@ export const Dashboard = () => {
             {/* Escudo Oficial con Contenedor Interactivo */}
             <div className="col-12 col-md-auto text-center text-md-start">
               <div 
-                className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2"
+                className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2 flex-shrink-0"
                 style={{ 
                   width: '110px', 
                   height: '110px',
+                  minWidth: '110px',
+                  minHeight: '110px',
                   borderRadius: '24px',
                   border: activeSchoolCode === 'sb' ? '2.5px solid #a7f3d0' : '2.5px solid #bae6fd',
                   boxShadow: activeSchoolCode === 'sb' ? '0 10px 24px rgba(16, 185, 129, 0.15)' : '0 10px 24px rgba(2, 132, 199, 0.15)'
@@ -817,7 +821,7 @@ export const Dashboard = () => {
                   src={escuelaActivaData.logo_url || localStorage.getItem(`sigae_logo_${activeSchoolCode}`) || `/assets/img/logo_${activeSchoolCode}.png`} 
                   alt="Escudo Oficial de la Escuela" 
                   className="img-fluid"
-                  style={{ maxHeight: '92px', maxWidth: '92px', objectFit: 'contain' }}
+                  style={{ maxHeight: '92px', maxWidth: '92px', objectFit: 'contain', flexShrink: 0 }}
                   onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
                 />
               </div>
@@ -982,15 +986,15 @@ export const Dashboard = () => {
                     }}
                   >
                     <div className="d-flex align-items-center gap-3 mb-2.5 pb-2 border-bottom">
-                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs">
+                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs flex-shrink-0" style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px' }}>
                         <img 
                           src="/assets/img/mision_3d.jpg" 
                           alt="Misión" 
                           className="img-fluid rounded-3"
-                          style={{ width: '48px', height: '48px', objectFit: 'cover' }}
+                          style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }}
                         />
                       </div>
-                      <div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <span 
                           className="badge text-uppercase fw-bolder px-2.5 py-1 rounded-pill extra-small"
                           style={{ backgroundColor: '#ffedd5', color: '#ea580c' }}
@@ -1022,15 +1026,15 @@ export const Dashboard = () => {
                     }}
                   >
                     <div className="d-flex align-items-center gap-3 mb-2.5 pb-2 border-bottom">
-                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs">
+                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs flex-shrink-0" style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px' }}>
                         <img 
                           src="/assets/img/vision_3d.jpg" 
                           alt="Visión" 
                           className="img-fluid rounded-3"
-                          style={{ width: '48px', height: '48px', objectFit: 'cover' }}
+                          style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }}
                         />
                       </div>
-                      <div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <span 
                           className="badge text-uppercase fw-bolder px-2.5 py-1 rounded-pill extra-small"
                           style={{ backgroundColor: '#e0f2fe', color: '#0284c7' }}
@@ -1062,15 +1066,15 @@ export const Dashboard = () => {
                     }}
                   >
                     <div className="d-flex align-items-center gap-3 mb-2.5 pb-2 border-bottom">
-                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs">
+                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs flex-shrink-0" style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px' }}>
                         <img 
                           src="/assets/img/valores_3d.jpg" 
                           alt="Valores" 
                           className="img-fluid rounded-3"
-                          style={{ width: '48px', height: '48px', objectFit: 'cover' }}
+                          style={{ width: '48px', height: '48px', objectFit: 'cover', flexShrink: 0 }}
                         />
                       </div>
-                      <div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <span 
                           className="badge text-uppercase fw-bolder px-2.5 py-1 rounded-pill extra-small"
                           style={{ backgroundColor: '#dcfce7', color: '#16a34a' }}
@@ -1102,15 +1106,15 @@ export const Dashboard = () => {
                     }}
                   >
                     <div className="d-flex align-items-center gap-3 mb-2.5 pb-2 border-bottom">
-                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs">
+                      <div className="tech-icon-wrapper rounded-3 p-1 bg-white shadow-xs flex-shrink-0" style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px' }}>
                         <img 
                           src="/assets/img/peic_3d.png" 
                           alt="PEIC" 
                           className="img-fluid rounded-3"
-                          style={{ width: '48px', height: '48px', objectFit: 'contain' }}
+                          style={{ width: '48px', height: '48px', objectFit: 'contain', flexShrink: 0 }}
                         />
                       </div>
-                      <div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <span 
                           className="badge text-uppercase fw-bolder px-2.5 py-1 rounded-pill extra-small"
                           style={{ backgroundColor: '#fef9c3', color: '#ca8a04' }}
@@ -1180,6 +1184,7 @@ export const Dashboard = () => {
               value="Formalización Presencial"
               subtitle="Acceso directo asignado para verificar datos y asentar inscripciones"
               icon="bi-journal-check"
+              customIcon={<IconoGestionAdmisiones size={32} color="#0D9488" />}
               color="#0D9488"
               percentage={100}
               statusBadge={{ text: 'Módulo Activo', type: 'success' }}
@@ -1191,10 +1196,21 @@ export const Dashboard = () => {
               onClick={() => navigate('/categoria/Gestión Estudiantil/Gestión de Admisiones')}
             >
               <div className="mt-2 pt-2 border-top border-light d-flex align-items-center gap-3">
-                <div className="rounded-circle p-2.5 text-white d-flex align-items-center justify-content-center shadow-xs" style={{ backgroundColor: '#0D9488', width: '52px', height: '52px' }}>
-                  <i className="bi bi-journal-check fs-3"></i>
+                <div 
+                  className="tech-icon-wrapper flex-shrink-0 d-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ 
+                    backgroundColor: '#0D948818', 
+                    border: '1.5px solid #0D948840',
+                    width: '52px', 
+                    height: '52px',
+                    minWidth: '52px',
+                    minHeight: '52px',
+                    borderRadius: '16px'
+                  }}
+                >
+                  <IconoGestionAdmisiones size={36} color="#0D9488" />
                 </div>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <h6 className="fw-bold text-dark mb-0.5">Atención y Recepción de Aspirantes en Plantel</h6>
                   <p className="text-muted extra-small mb-0">Verificación inmediata de documentos físicos, ratificación de datos del aspirante/representante y emisión de constancias de inscripción.</p>
                 </div>
@@ -2012,11 +2028,22 @@ export const Dashboard = () => {
             }}
           >
             <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 position-relative z-1">
-              <div className="d-flex align-items-center gap-3">
-                <div className="p-3 bg-white bg-opacity-20 rounded-circle text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '52px', height: '52px' }}>
-                  <i className="bi bi-ui-checks-grid fs-3"></i>
+              <div className="d-flex align-items-center gap-3" style={{ flex: 1, minWidth: 0 }}>
+                <div 
+                  className="tech-icon-wrapper flex-shrink-0 d-flex align-items-center justify-content-center shadow-xs" 
+                  style={{ 
+                    width: '52px', 
+                    height: '52px',
+                    minWidth: '52px',
+                    minHeight: '52px',
+                    borderRadius: '16px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    border: '1.5px solid rgba(255, 255, 255, 0.35)'
+                  }}
+                >
+                  <IconoAvisosRadar size={32} color="#ffffff" />
                 </div>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
                     <span className="badge bg-white text-dark fw-bold px-2.5 py-1 rounded-pill small">
                       {encuestasPendientes[0].es_obligatoria ? '⚠️ Consulta Obligatoria' : '📋 Consulta Institucional'}
@@ -2056,13 +2083,14 @@ export const Dashboard = () => {
           }}
         >
           <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-center gap-3" style={{ flex: 1, minWidth: 0 }}>
               <div 
-                className="tech-icon-wrapper flex-shrink-0" 
+                className="tech-icon-wrapper flex-shrink-0 d-flex align-items-center justify-content-center" 
                 style={{ 
                   width: '58px', 
                   height: '58px', 
-                  fontSize: '1.65rem',
+                  minWidth: '58px',
+                  minHeight: '58px',
                   backgroundColor: '#ecfdf5',
                   color: '#10b981',
                   border: '2px solid #a7f3d0',
@@ -2070,9 +2098,9 @@ export const Dashboard = () => {
                   boxShadow: '0 6px 16px rgba(16, 185, 129, 0.2)'
                 }}
               >
-                <i className="bi bi-diagram-3-fill"></i>
+                <IconoCadenaSupervisoria size={42} color="#10b981" />
               </div>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="d-flex align-items-center gap-2 mb-1">
                   <span className="status-beacon-live" style={{ color: '#10b981' }}></span>
                   <span className="extra-small fw-bold text-success text-uppercase" style={{ fontSize: '0.72rem' }}>

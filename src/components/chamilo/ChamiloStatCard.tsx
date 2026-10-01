@@ -89,6 +89,8 @@ export const ChamiloStatCard: React.FC<ChamiloStatCardProps> = ({
           style={{
             width: '46px',
             height: '46px',
+            minWidth: '46px',
+            minHeight: '46px',
             background: `linear-gradient(135deg, ${color}15 0%, ${color}28 100%)`,
             border: `1.5px solid ${color}40`,
             color: color,

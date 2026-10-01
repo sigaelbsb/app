@@ -3021,174 +3021,128 @@ export const SolicitudCupos = () => {
         icon="bi-envelope-paper-heart-fill"
       />
 
-      {/* ── 2. CABECERA INSTITUCIONAL CHAMILO TECH ── */}
+      {/* ── 2. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 animate__animated animate__fadeInDown" 
-        style={{ 
-          border: '2px solid #ddd6fe',
-          borderTop: '6px solid #8b5cf6',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual: Icono 3D Personalizado + Switcher Dual Interactivo */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
-                {/* Icono Tech Personalizado */}
-                <div 
-                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
-                  style={{
-                    width: '95px',
-                    height: '95px',
-                    border: '2.5px solid #ddd6fe',
-                    boxShadow: '0 10px 24px rgba(139, 92, 246, 0.15)'
-                  }}
-                  title="Módulo de Solicitud de Cupos"
-                >
-                  <IconoSolicitudCupos3D size={60} color="#8b5cf6" />
-                </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
 
-                {/* Selector Dual Interactivo de Escuelas */}
-                <div 
-                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
-                  style={{ borderColor: '#ddd6fe' }}
-                >
-                  {/* Switch Ambas */}
-                  <div 
-                    onClick={() => { setFiltroEscuela('todos'); setCurrentPage(1); }}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      filtroEscuela === 'todos' 
-                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '64px', height: '74px', cursor: 'pointer' }}
-                    title="Ver ambas instituciones"
-                  >
-                    <i className="bi bi-building fs-3 text-primary"></i>
-                    <span className={`badge ${filtroEscuela === 'todos' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.60rem' }}>
-                      Ambas {filtroEscuela === 'todos' ? '●' : ''}
-                    </span>
-                  </div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{
+                width: '95px',
+                height: '95px',
+                border: '2.5px solid rgba(255,255,255,0.4)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.2)'
+              }}
+              title="Módulo de Solicitud de Cupos"
+            >
+              <IconoSolicitudCupos3D size={64} />
+            </div>
+          </div>
 
-                  {/* Switch SB */}
-                  <div 
-                    onClick={() => { setFiltroEscuela('sb'); setCurrentPage(1); }}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      filtroEscuela === 'sb' 
-                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '64px', height: '74px', cursor: 'pointer' }}
-                    title="Filtrar por U.E. Santa Bárbara"
-                  >
-                    <img 
-                      src="/assets/img/logo_sb.png" 
-                      alt="UE Santa Bárbara" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${filtroEscuela === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      SB {filtroEscuela === 'sb' ? '●' : ''}
-                    </span>
-                  </div>
-
-                  {/* Switch LB */}
-                  <div 
-                    onClick={() => { setFiltroEscuela('lb'); setCurrentPage(1); }}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      filtroEscuela === 'lb' 
-                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '64px', height: '74px', cursor: 'pointer' }}
-                    title="Filtrar por U.E. Libertador Bolívar"
-                  >
-                    <img 
-                      src="/assets/img/logo_lb.png" 
-                      alt="UE Libertador Bolívar" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${filtroEscuela === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      LB {filtroEscuela === 'lb' ? '●' : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d" style={{ color: '#7c3aed !important' }}>
+                <i className="bi bi-mortarboard-fill me-1"></i>Admisión & Solicitudes
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className={`bi ${estadoProceso.abierto ? 'bi-unlock-fill text-warning' : 'bi-lock-fill text-danger'} me-1`}></i>
+                {estadoProceso.abierto ? 'Proceso Activo' : 'Proceso Restringido'}
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-inbox-fill me-1"></i><b>{solicitudes.length}</b> Solicitudes
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-check2-all me-1"></i><b>{stats.aprobados}</b> Aprobadas
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#8b5cf6', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-mortarboard-fill"></i>Admisión & Solicitudes
-                </span>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Solicitud de Cupos Escolares
+            </h1>
 
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#ddd6fe' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#8b5cf6' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#6d28d9', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; {filtroEscuela === 'todos' ? 'Ambas Sedes' : (filtroEscuela === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar')}
-                  </span>
-                </div>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Registro digital y postulación de nuevos ingresos y traslados para el año escolar en curso en los planteles de la División Educativa PDVSA Oriente.
+            </p>
 
-                <span className={`badge ${estadoProceso.abierto ? 'bg-success bg-opacity-10 text-success border border-success-subtle' : 'bg-danger bg-opacity-10 text-danger border border-danger-subtle'} px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs`}>
-                  <i className={`bi ${estadoProceso.abierto ? 'bi-unlock-fill' : 'bi-lock-fill'} me-1`}></i>
-                  {estadoProceso.abierto ? 'Proceso Activo' : 'Proceso Restringido'}
-                </span>
-
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
-                  <i className="bi bi-inbox-fill text-primary me-1"></i><b>{solicitudes.length}</b> Solicitudes
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
-                  <i className="bi bi-check2-all text-success me-1"></i><b>{stats.aprobados}</b> Aprobadas
-                </span>
+            {/* Cinta de Telemetría Escolar Interactiva */}
+            <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
+              <div 
+                className="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-2" 
+                title="Total de Solicitudes Registradas"
+              >
+                <i className="bi bi-folder-fill text-warning"></i>
+                <span className="font-monospace fw-bold">{solicitudes.length} Registradas</span>
               </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Solicitud de Cupos Escolares
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '820px' }}>
-                Registro digital y postulación de nuevos ingresos y traslados para el año escolar en curso en los planteles de la División Educativa PDVSA Oriente.
-              </p>
-
-              {/* Cinta de Telemetría Escolar Interactiva */}
-              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Total de Solicitudes Registradas"
-                >
-                  <i className="bi bi-folder-fill text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{solicitudes.length} Registradas</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Cupos Asignados y Aprobados"
-                >
-                  <i className="bi bi-check-circle-fill text-success"></i>
-                  <span className="text-secondary">{stats.aprobados} Cupos Aprobados</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Estado Operativo"
-                >
-                  <i className="bi bi-shield-fill-check text-info"></i>
-                  <span className="text-secondary">100% Operativo</span>
-                </div>
+              <div 
+                className="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-2" 
+                title="Cupos Asignados y Aprobados"
+              >
+                <i className="bi bi-check-circle-fill text-success"></i>
+                <span>{stats.aprobados} Cupos Aprobados</span>
+              </div>
+              <div 
+                className="badge bg-white bg-opacity-20 text-white px-3 py-2 rounded-pill shadow-xs d-inline-flex align-items-center gap-2" 
+                title="Estado Operativo"
+              >
+                <i className="bi bi-shield-fill-check text-info"></i>
+                <span>100% Operativo</span>
               </div>
             </div>
+          </div>
+
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${filtroEscuela === 'lb' ? 'lb' : 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
+          </div>
+        </div>
+
+        {/* Selector de Ámbito / Escuela */}
+        <div className="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
+          <div className="d-flex align-items-center gap-2">
+            <span className="extra-small fw-bold text-white text-uppercase" style={{ fontSize: '0.75rem', opacity: 0.9 }}>Filtrar Plantel:</span>
+            <div className="btn-group btn-group-sm shadow-sm rounded-pill overflow-hidden bg-white p-0.5" role="group">
+              <button 
+                onClick={() => { setFiltroEscuela('todos'); setCurrentPage(1); }} 
+                className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                  filtroEscuela === 'todos' ? 'btn-dark text-white shadow-sm' : 'text-dark bg-transparent'
+                }`}
+                style={{ fontSize: '0.8rem' }}
+              >
+                🏢 Ambas
+              </button>
+              <button 
+                onClick={() => { setFiltroEscuela('sb'); setCurrentPage(1); }} 
+                className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                  filtroEscuela === 'sb' ? 'btn-success text-white shadow-sm' : 'text-dark bg-transparent'
+                }`}
+                style={{ fontSize: '0.8rem' }}
+              >
+                🟢 SB
+              </button>
+              <button 
+                onClick={() => { setFiltroEscuela('lb'); setCurrentPage(1); }} 
+                className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                  filtroEscuela === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-dark bg-transparent'
+                }`}
+                style={{ fontSize: '0.8rem' }}
+              >
+                🔵 LB
+              </button>
+            </div>
+          </div>
+          <div className="text-white extra-small" style={{ opacity: 0.9 }}>
+            <i className="bi bi-shield-check me-1"></i>Postulación y Control Centralizado
           </div>
         </div>
       </div>

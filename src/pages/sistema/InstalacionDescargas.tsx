@@ -4,6 +4,7 @@ import {
   ChamiloBreadcrumb, 
   ChamiloHelpCallout, 
   IconoInstalacionDescargas,
+  IconoInstalacionDescargas3D,
   IconoWindowsApp,
   IconoAndroidApp,
   IconoLinuxApp,
@@ -126,124 +127,74 @@ export const InstalacionDescargas: React.FC = () => {
       />
 
       {/* ── CABECERA PRINCIPAL HERO ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL CON BANNER 3D ── */}
       <div 
-        className="tech-card overflow-hidden mb-4 shadow-sm animate__animated animate__fadeInDown"
-        style={{
-          border: '2px solid #fed7aa',
-          borderTop: '6px solid #FF8D00',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%)',
-          borderRadius: '26px'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #FF8D00 0%, #ea580c 50%, #c2410c 100%)' }}
       >
-        <div className="p-3 p-sm-4 p-md-4">
-          <div className="row align-items-center g-3 g-md-4">
-            
-            {/* Ícono de Instalación + Escudo */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-inline-flex align-items-center gap-3">
-                <div 
-                  className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2 position-relative"
-                  style={{ 
-                    width: '96px', 
-                    height: '96px', 
-                    borderRadius: '24px', 
-                    border: '2.5px solid #fed7aa',
-                    boxShadow: '0 10px 24px rgba(249, 115, 22, 0.15)'
-                  }}
-                >
-                  <IconoInstalacionDescargas size={62} color="#FF8D00" />
-                  <span 
-                    className="position-absolute badge rounded-pill bg-success border border-white text-white extra-small"
-                    style={{ bottom: '-6px', right: '-6px', fontSize: '0.68rem', padding: '3px 7px' }}
-                  >
-                    PWA v1.1
-                  </span>
-                </div>
-                <div 
-                  className="bg-white shadow-xs d-none d-sm-inline-flex align-items-center justify-content-center p-2 rounded-4 border"
-                  style={{ width: '68px', height: '68px', borderColor: '#fed7aa' }}
-                >
-                  <img 
-                    src={logoPath} 
-                    alt="Escudo Institucional" 
-                    className="img-fluid"
-                    style={{ maxHeight: '52px', maxWidth: '52px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
-              </div>
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="bg-white shadow-lg d-inline-flex align-items-center justify-content-center p-2 rounded-4"
+              style={{ width: '100px', height: '100px', border: '3px solid rgba(255,255,255,0.85)' }}
+            >
+              <IconoInstalacionDescargas3D size={65} color="#FF8D00" />
+            </div>
+          </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
+                <i className="bi bi-stars me-1"></i>INSTALACIÓN UNIVERSAL PWA
+              </span>
+              <span className="badge bg-white bg-opacity-25 text-white px-2.5 py-1.5 rounded-pill small fw-bold">
+                Tu Equipo: <b>{soDetectado}</b>
+              </span>
+              <span className="badge bg-emerald-500 text-white px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm" style={{ background: '#10b981' }}>
+                <i className="bi bi-check-circle me-1"></i>PWA v1.1 Lista
+              </span>
             </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#FF8D00', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-stars"></i>Centro de Instalación Oficial
-                </span>
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Instalación Universal de SIGAE
+            </h1>
 
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#fed7aa' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#ea580c' }}></span>
-                  <span 
-                    className="extra-small fw-bold" 
-                    style={{ fontSize: '0.72rem', color: '#c2410c' }}
-                  >
-                    Tu Equipo: <b>{soDetectado}</b>
-                  </span>
-                </div>
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Instala SIGAE en 1 clic en tu computadora, teléfono o tablet. Ventana nativa independiente, sin consumo de almacenamiento y con auto-actualizaciones.
+            </p>
+          </div>
 
-                <a 
-                  href={URL_PRODUCCION_OFICIAL} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="badge bg-primary text-white border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs text-decoration-none hover-efecto" 
-                  style={{ borderColor: '#93c5fd' }}
-                  title="Abrir web oficial en producción"
-                >
-                  <i className="bi bi-globe me-1"></i>Web Oficial: <b>app-delta-ten-80.vercel.app</b>
-                </a>
-              </div>
+          <div className="col-12 col-lg-auto text-end d-flex align-items-center justify-content-center justify-content-lg-end gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={abrirInstaladorPWA}
+              className="btn btn-white bg-white text-dark rounded-pill px-4 py-2.5 fw-bold shadow-sm d-inline-flex align-items-center gap-2 hover-efecto"
+              style={{ fontSize: '0.94rem' }}
+            >
+              <i className="bi bi-download fs-5 text-primary"></i>
+              <span>Instalar en {soTipo === 'windows' ? 'Windows' : soTipo === 'android' ? 'Android' : soTipo === 'ios' ? 'iPhone' : 'este Equipo'}</span>
+            </button>
 
-              <h1 className="fw-bolder mb-1 text-dark fs-3 fs-md-2" style={{ letterSpacing: '-0.5px' }}>
-                Instalación Universal de SIGAE
-              </h1>
+            <button
+              type="button"
+              onClick={() => setMostrarModalQR(true)}
+              className="btn btn-light rounded-pill px-3.5 py-2.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-sm text-dark"
+              title="Abrir código QR para escanear con la cámara del celular"
+            >
+              <i className="bi bi-qr-code-scan text-primary"></i>
+              <span>Escanear QR</span>
+            </button>
 
-              <p className="mb-0 text-muted small" style={{ maxWidth: '820px' }}>
-                Instala SIGAE en 1 clic en tu computadora, teléfono o tablet. Funciona en su propia ventana independiente, sin descargas pesadas, sin consumir espacio y con auto-actualizaciones instantáneas.
-              </p>
-            </div>
-
-            {/* Acciones Principales (ÚNICAS Y CENTRALIZADAS) */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-end gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={abrirInstaladorPWA}
-                  className="btn btn-primary rounded-pill px-4 py-2.5 fw-bold shadow-sm d-inline-flex align-items-center justify-content-center gap-2 hover-efecto"
-                  style={{ backgroundColor: '#FF8D00', borderColor: '#FF8D00', fontSize: '0.94rem' }}
-                >
-                  <i className="bi bi-download fs-5"></i>
-                  <span>Instalar en {soTipo === 'windows' ? 'Windows' : soTipo === 'android' ? 'Android' : soTipo === 'ios' ? 'iPhone' : 'este Equipo'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setMostrarModalQR(true)}
-                  className="btn btn-white bg-white text-dark rounded-pill px-3.5 py-2.5 fw-bold d-inline-flex align-items-center justify-content-center gap-1.5 hover-efecto shadow-xs border"
-                  style={{ borderColor: '#fed7aa', fontSize: '0.88rem' }}
-                  title="Abrir código QR para escanear con la cámara del celular"
-                >
-                  <i className="bi bi-qr-code-scan text-primary"></i>
-                  <span>Escanear QR Móvil</span>
-                </button>
-              </div>
-            </div>
-
+            <img 
+              src={logoPath} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner d-none d-xl-block ms-2"
+              style={{ maxHeight: '100px' }}
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
       </div>

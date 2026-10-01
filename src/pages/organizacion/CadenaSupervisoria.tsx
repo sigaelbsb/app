@@ -6,7 +6,7 @@ import { usePermisos } from '../../hooks/usePermisos';
 import { 
   ChamiloBreadcrumb, 
   ChamiloHelpCallout, 
-  IconoCadenaSupervisoria,
+  IconoCadenaSupervisoria3D,
   IconoConstructorJerarquia,
   IconoArbolOrganigrama
 } from '../../components/chamilo';
@@ -480,227 +480,141 @@ export const CadenaSupervisoria = () => {
         icon="bi-diagram-3-fill"
       />
 
-      {/* ── 3. CABECERA INSTITUCIONAL CHAMILO (TECH-CARD) ── */}
+      {/* ── 3. CABECERA INSTITUCIONAL 3D ── */}
       <div 
-        className="tech-card mb-4 rounded-4 overflow-hidden shadow-sm"
-        style={{
-          borderTop: '6px solid #7c3aed',
-          border: '2px solid #ddd6fe',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 45%, #ede9fe 100%)',
-          boxShadow: '0 10px 24px rgba(124, 58, 237, 0.12)'
-        }}
+        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
+        style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #4c1d95 100%)' }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
-            
-            {/* Contenedor Dual: Icono Personalizado + Switcher Dual de Escuelas */}
-            <div className="col-12 col-md-auto text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-3 flex-wrap">
-                {/* Icono Tech Personalizado */}
+        <div className="burbuja-3d burbuja-1"></div>
+        <div className="burbuja-3d burbuja-2"></div>
+        <div className="burbuja-3d burbuja-3"></div>
+
+        <div className="row align-items-center position-relative z-1 g-4">
+          <div className="col-12 col-md-auto text-center text-md-start">
+            <div 
+              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
+              style={{
+                width: '95px',
+                height: '95px',
+                border: '2.5px solid rgba(255,255,255,0.4)',
+                boxShadow: '0 10px 24px rgba(0,0,0,0.2)'
+              }}
+              title="Módulo de Cadena Supervisoria"
+            >
+              <IconoCadenaSupervisoria3D size={64} />
+            </div>
+          </div>
+
+          <div className="col-12 col-md text-center text-md-start">
+            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
+              <span className="badge bg-white text-primary px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d" style={{ color: '#7c3aed !important' }}>
+                <i className="bi bi-diagram-2-fill me-1"></i>Organización Jerárquica
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-briefcase-fill me-1"></i><b>{totalCargosEscuela}</b> Cargos Plantel
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-diagram-2-fill me-1"></i><b>{cargosEnlazados}</b> Enlazados ({porcentajeEnlazados}%)
+              </span>
+              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-sm">
+                <i className="bi bi-crown-fill me-1 text-warning"></i><b>{cargosRaices}</b> Puestos Raíz
+              </span>
+            </div>
+
+            <h1 className="fw-bolder mb-1 text-white" style={{ fontSize: 'calc(1.6rem + 0.8vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+              Cadena Supervisoria y Organigrama
+            </h1>
+
+            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
+              Gestión estructurada de líneas de reporte, subordinados inmediatos y visualización del organigrama jerárquico institucional.
+            </p>
+
+            {/* Barra de Consolidación Jerárquica */}
+            <div className="mt-3" style={{ maxWidth: '440px' }}>
+              <div className="d-flex justify-content-between align-items-center small fw-bold text-white mb-1">
+                <span><i className="bi bi-diagram-2-fill me-1"></i>Consolidación del Organigrama</span>
+                <span>{porcentajeEnlazados}%</span>
+              </div>
+              <div className="progress rounded-pill shadow-xs" style={{ height: '7px', backgroundColor: 'rgba(255,255,255,0.3)' }}>
                 <div 
-                  className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-sm"
-                  style={{
-                    width: '95px',
-                    height: '95px',
-                    border: '2.5px solid #ddd6fe',
-                    boxShadow: '0 10px 24px rgba(124, 58, 237, 0.15)'
+                  className="progress-bar rounded-pill bg-white" 
+                  role="progressbar" 
+                  style={{ 
+                    width: `${porcentajeEnlazados}%`, 
+                    boxShadow: '0 0 10px rgba(255,255,255,0.8)',
+                    transition: 'width 0.6s ease'
                   }}
-                  title="Módulo de Cadena Supervisoria"
-                >
-                  <IconoCadenaSupervisoria size={60} color="#7c3aed" />
-                </div>
-
-                {/* Selector Dual Interactivo de Escuelas */}
-                <div 
-                  className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-4 border shadow-xs"
-                  style={{ borderColor: '#ddd6fe' }}
-                >
-                  {/* Switch SB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('sb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      filtroEscuelaActiva === 'sb' 
-                        ? 'bg-success bg-opacity-10 border-success shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Santa Bárbara"
-                  >
-                    <img 
-                      src="/assets/img/logo_sb.png" 
-                      alt="UE Santa Bárbara" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${filtroEscuelaActiva === 'sb' ? 'bg-success text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      SB {filtroEscuelaActiva === 'sb' ? '●' : ''}
-                    </span>
-                  </div>
-
-                  {/* Switch LB */}
-                  <div 
-                    onClick={() => cambiarEscuelaActiva('lb')}
-                    className={`rounded-3 p-1.5 border d-flex flex-column align-items-center justify-content-center transition-all ${
-                      filtroEscuelaActiva === 'lb' 
-                        ? 'bg-primary bg-opacity-10 border-primary shadow-xs' 
-                        : 'bg-white border-transparent opacity-60 hover-efecto'
-                    }`}
-                    style={{ width: '68px', height: '74px', cursor: 'pointer' }}
-                    title="Activar U.E. Libertador Bolívar"
-                  >
-                    <img 
-                      src="/assets/img/logo_lb.png" 
-                      alt="UE Libertador Bolívar" 
-                      style={{ maxHeight: '38px', maxWidth: '38px', objectFit: 'contain' }}
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                    />
-                    <span className={`badge ${filtroEscuelaActiva === 'lb' ? 'bg-primary text-white' : 'bg-light text-muted'} extra-small mt-1 px-1.5 py-0`} style={{ fontSize: '0.62rem' }}>
-                      LB {filtroEscuelaActiva === 'lb' ? '●' : ''}
-                    </span>
-                  </div>
-                </div>
+                ></div>
               </div>
             </div>
+          </div>
 
-            {/* Título y Métricas Clave */}
-            <div className="col-12 col-md text-center text-md-start">
-              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill shadow-xs d-inline-flex align-items-center gap-1.5"
-                  style={{ backgroundColor: '#7c3aed', fontSize: '0.78rem' }}
-                >
-                  <i className="bi bi-diagram-2-fill"></i>Organización Jerárquica
-                </span>
-
-                <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: '#ddd6fe' }}
-                >
-                  <span className="status-beacon-live" style={{ color: '#7c3aed' }}></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: '#6d28d9', letterSpacing: '0.5px' }}
-                  >
-                    Campus Conectado &bull; Jerarquía Activa
-                  </span>
-                </div>
-
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
-                  <i className="bi bi-briefcase-fill text-primary me-1"></i><b>{totalCargosEscuela}</b> Cargos Plantel
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
-                  <i className="bi bi-diagram-2-fill text-success me-1"></i><b>{cargosEnlazados}</b> Enlazados ({porcentajeEnlazados}%)
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs" style={{ borderColor: '#ddd6fe' }}>
-                  <i className="bi bi-crown-fill text-warning me-1"></i><b>{cargosRaices}</b> Puestos Raíz
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.7vw)', letterSpacing: '-0.5px' }}>
-                Cadena Supervisoria y Organigrama
-              </h1>
-
-              <p className="mb-0 text-muted small" style={{ maxWidth: '780px' }}>
-                Gestión estructurada de líneas de reporte, subordinados inmediatos y visualización del organigrama jerárquico institucional.
-              </p>
-
-              {/* Barra de Consolidación Jerárquica */}
-              <div className="mt-3" style={{ maxWidth: '440px' }}>
-                <div className="d-flex justify-content-between align-items-center small fw-bold text-muted mb-1">
-                  <span><i className="bi bi-diagram-2-fill text-primary me-1"></i>Consolidación del Organigrama</span>
-                  <span style={{ color: '#7c3aed' }}>{porcentajeEnlazados}%</span>
-                </div>
-                <div className="progress rounded-pill shadow-xs" style={{ height: '7px', backgroundColor: '#e2e8f0' }}>
-                  <div 
-                    className="progress-bar rounded-pill" 
-                    role="progressbar" 
-                    style={{ 
-                      width: `${porcentajeEnlazados}%`, 
-                      background: 'linear-gradient(90deg, #c084fc 0%, #7c3aed 100%)',
-                      transition: 'width 0.6s ease'
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Acciones Rápidas */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/categoria/Organizaci%C3%B3n%20Escolar')}
-                className="btn btn-white bg-white text-dark rounded-pill px-4 py-2 fw-bold shadow-xs hover-efecto border d-inline-flex align-items-center justify-content-center gap-2 w-100 w-md-auto"
-                style={{ borderColor: '#ddd6fe', fontSize: '0.85rem' }}
-              >
-                <i className="bi bi-arrow-left" style={{ color: '#6d28d9' }}></i>
-                <span>Volver a Organización</span>
-              </button>
-            </div>
-
+          <div className="col-12 col-lg-3 text-end d-none d-lg-block">
+            <img 
+              src={`/assets/img/logo_${filtroEscuelaActiva === 'lb' ? 'lb' : 'sb'}.png`} 
+              alt="Logo Escuela" 
+              className="logo-escuela-banner"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+            />
           </div>
         </div>
 
-        {/* ── BARRA CHAMILO: SELECTOR DE ESCUELA Y PESTAÑAS ── */}
+        {/* ── BARRA INFERIOR: PESTAÑAS Y SELECTOR DE ÁMBITO ── */}
         <div 
-          className="px-4 py-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-3"
-          style={{ backgroundColor: 'rgba(245, 243, 255, 0.7)', borderColor: '#ddd6fe' }}
+          className="mt-4 pt-3 border-top border-white border-opacity-25 d-flex justify-content-between align-items-center flex-wrap gap-3 position-relative z-1"
         >
           {/* Pestañas de Vista */}
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => setTabActivo('constructor')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+              className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
                 tabActivo === 'constructor' 
-                  ? 'text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
+                  ? 'btn-white bg-white shadow-sm' 
+                  : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
               }`}
               style={{
-                backgroundColor: tabActivo === 'constructor' ? '#7c3aed' : '#ffffff',
-                borderColor: tabActivo === 'constructor' ? '#7c3aed' : '#ddd6fe',
-                color: tabActivo === 'constructor' ? '#ffffff' : '#475569',
-                fontSize: '0.82rem'
+                color: tabActivo === 'constructor' ? '#7c3aed' : '#ffffff',
+                fontSize: '0.85rem'
               }}
             >
-              <IconoConstructorJerarquia size={18} color={tabActivo === 'constructor' ? '#ffffff' : '#7c3aed'} />
+              <IconoConstructorJerarquia size={18} color={tabActivo === 'constructor' ? '#7c3aed' : '#ffffff'} />
               <span>1. Constructor de Jerarquías</span>
             </button>
 
             <button
               type="button"
               onClick={() => setTabActivo('mapa')}
-              className={`btn btn-xs rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
+              className={`btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold transition-all d-inline-flex align-items-center gap-2 ${
                 tabActivo === 'mapa' 
-                  ? 'text-white shadow-xs' 
-                  : 'btn-white bg-white text-muted border hover-efecto'
+                  ? 'btn-white bg-white shadow-sm' 
+                  : 'text-white border border-white border-opacity-25 bg-white bg-opacity-10 hover-efecto'
               }`}
               style={{
-                backgroundColor: tabActivo === 'mapa' ? '#7c3aed' : '#ffffff',
-                borderColor: tabActivo === 'mapa' ? '#7c3aed' : '#ddd6fe',
-                color: tabActivo === 'mapa' ? '#ffffff' : '#475569',
-                fontSize: '0.82rem'
+                color: tabActivo === 'mapa' ? '#7c3aed' : '#ffffff',
+                fontSize: '0.85rem'
               }}
             >
-              <IconoArbolOrganigrama size={18} color={tabActivo === 'mapa' ? '#ffffff' : '#7c3aed'} />
+              <IconoArbolOrganigrama size={18} color={tabActivo === 'mapa' ? '#7c3aed' : '#ffffff'} />
               <span>2. Organigrama Visual en Árbol</span>
             </button>
           </div>
 
-          {/* Selector Superior de Escuela (Incluye Ambas Escuelas / Corporativos) */}
-          <div className="d-flex align-items-center gap-1.5">
-            <span className="extra-small fw-bold text-muted text-uppercase me-1">Ámbito:</span>
+          {/* Selector Superior de Escuela */}
+          <div className="d-flex align-items-center gap-2">
+            <span className="extra-small fw-bold text-white text-uppercase" style={{ fontSize: '0.75rem', opacity: 0.9 }}>Ámbito:</span>
             
-            <div className="btn-group btn-group-sm shadow-xs border rounded-pill overflow-hidden bg-white" role="group">
+            <div className="btn-group btn-group-sm shadow-sm rounded-pill overflow-hidden bg-white p-0.5" role="group">
               {tieneDobleAcceso && (
                 <button
                   type="button"
                   onClick={() => setFiltroEscuelaActiva('todas')}
-                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
-                    filtroEscuelaActiva === 'todas' ? 'text-white' : 'text-muted'
+                  className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                    filtroEscuelaActiva === 'todas' ? 'btn-dark text-white shadow-sm' : 'text-dark bg-transparent'
                   }`}
-                  style={{ backgroundColor: filtroEscuelaActiva === 'todas' ? '#7c3aed' : 'transparent', border: 'none', fontSize: '0.78rem' }}
+                  style={{ fontSize: '0.78rem' }}
                 >
-                  🏢 Ambas Sedes / Corporativo
+                  🏢 Ambas
                 </button>
               )}
 
@@ -708,12 +622,12 @@ export const CadenaSupervisoria = () => {
                 <button
                   type="button"
                   onClick={() => setFiltroEscuelaActiva('sb')}
-                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
-                    filtroEscuelaActiva === 'sb' ? 'text-white' : 'text-muted'
+                  className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                    filtroEscuelaActiva === 'sb' ? 'btn-success text-white shadow-sm' : 'text-dark bg-transparent'
                   }`}
-                  style={{ backgroundColor: filtroEscuelaActiva === 'sb' ? '#10b981' : 'transparent', border: 'none', fontSize: '0.78rem' }}
+                  style={{ fontSize: '0.78rem' }}
                 >
-                  🟢 UE Santa Bárbara
+                  🟢 SB
                 </button>
               )}
 
@@ -721,17 +635,16 @@ export const CadenaSupervisoria = () => {
                 <button
                   type="button"
                   onClick={() => setFiltroEscuelaActiva('lb')}
-                  className={`btn btn-xs px-3 py-1 fw-bold transition-all ${
-                    filtroEscuelaActiva === 'lb' ? 'text-white' : 'text-muted'
+                  className={`btn btn-xs px-3 py-1 fw-bold rounded-pill transition-all ${
+                    filtroEscuelaActiva === 'lb' ? 'btn-primary text-white shadow-sm' : 'text-dark bg-transparent'
                   }`}
-                  style={{ backgroundColor: filtroEscuelaActiva === 'lb' ? '#0284c7' : 'transparent', border: 'none', fontSize: '0.78rem' }}
+                  style={{ fontSize: '0.78rem' }}
                 >
-                  🔵 UE Libertador Bolívar
+                  🔵 LB
                 </button>
               )}
             </div>
           </div>
-
         </div>
       </div>
 

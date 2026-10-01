@@ -222,8 +222,8 @@ function App() {
                 <Route path="categoria/Seguridad y Accesos/Auditoría del Sistema" element={<ProtectedRoute modulo="Auditoría del Sistema"><AuditoriaSistema /></ProtectedRoute>} />
                 <Route path="categoria/Dirección y Sistema/Perfil de la Escuela" element={<ProtectedRoute modulo="Perfil de la Escuela"><PerfilEscuela /></ProtectedRoute>} />
                 <Route path="categoria/Dirección y Sistema/Configuración Escolar" element={<ProtectedRoute modulo="Configuración Escolar"><ConfiguracionSistema /></ProtectedRoute>} />
-                <Route path="categoria/Dirección y Sistema/Configuración del Sistema" element={<Navigate to="/categoria/Dirección y Sistema/Configuración Escolar" replace />} />
                 <Route path="categoria/Dirección y Sistema/División Territorial" element={<ProtectedRoute modulo="División Territorial"><DivisionTerritorial /></ProtectedRoute>} />
+                <Route path="categoria/Dirección y Sistema/Cerebro de Zoe y Max" element={<ProtectedRoute modulo="Cerebro de Zoe y Max"><CerebroSigma /></ProtectedRoute>} />
                 <Route path="categoria/Dirección y Sistema/Cerebro de Sigma" element={<ProtectedRoute modulo="Cerebro de Sigma"><CerebroSigma /></ProtectedRoute>} />
                 <Route path="categoria/Dirección y Sistema/Gestión de Registros" element={<Navigate to="/categoria/Seguridad y Accesos/Gestión de Usuarios" replace />} />
                 <Route path="categoria/Dirección y Sistema/Panel de Control" element={<ProtectedRoute modulo="Panel de Control"><PanelControl /></ProtectedRoute>} />
