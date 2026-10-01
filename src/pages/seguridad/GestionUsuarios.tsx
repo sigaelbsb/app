@@ -65,9 +65,25 @@ export const GestionUsuarios = () => {
   const [filtroEscuela, setFiltroEscuela] = useState('TODAS');
   const [filtroRol, setFiltroRol] = useState('TODOS');
   const [filtroEstudiantes, setFiltroEstudiantes] = useState<'TODOS' | 'CON_ESTUDIANTES' | 'SIN_ESTUDIANTES' | 'AMBAS_ESCUELAS'>('TODOS');
+  const [filtroBloqueo, setFiltroBloqueo] = useState<'TODOS' | 'BLOQUEADOS' | 'CON_FALLIDOS' | 'SOLICITO_RESETEO'>('TODOS');
   const [searchQuery, setSearchQuery] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 10;
+
+  // Estados de Desbloqueo Temporal
+  const [formDesbloquearTemporal, setFormDesbloquearTemporal] = useState(false);
+
+  // ── UTILIDADES DE BLOQUEO TEMPORAL E INTENTOS FALLIDOS ──
+  const isUsuarioBloqueadoTemporal = (u: any): boolean => {
+    if (!u || !u.bloqueo_hasta) return false;
+    return new Date(u.bloqueo_hasta).getTime() > Date.now();
+  };
+
+  const getMinutosRestantesBloqueo = (u: any): number => {
+    if (!u || !u.bloqueo_hasta) return 0;
+    const diff = new Date(u.bloqueo_hasta).getTime() - Date.now();
+    return diff > 0 ? Math.ceil(diff / 60000) : 0;
+  };
 
   // Vinculaciones de estudiantes
   const [vinculacionesMap, setVinculacionesMap] = useState<Record<string, any[]>>({});
@@ -541,24 +557,33 @@ export const GestionUsuarios = () => {
     navigate('/', { replace: true });
   };
 
-  // 2. Resetear Contraseña Individual y Solicitudes de Reseteo (con notificación WhatsApp oficial)
-  const handleResetearClaveIndividual = async (u: any) => {
+  // 2. Desbloquear Acceso Temporal e Intentos Fallidos Directamente (Sin cambiar contraseña)
+  const handleDesbloquearTemporal = async (u: any) => {
     const canDel = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
     if (!canDel && !canCreateAny) {
-      if (Swal) Swal.fire('Error', 'No tienes permisos para resetear contraseñas de esta escuela.', 'error');
+      if (Swal) Swal.fire('Error', 'No tienes permisos para gestionar bloqueos en esta escuela.', 'error');
       return;
     }
-
     if (!Swal) return;
 
+    const minutos = getMinutosRestantesBloqueo(u);
+    const intentos = u.intentos_fallidos || 0;
+
     const res = await Swal.fire({
-      title: `¿Resetear clave de ${toTitulo(u.nombre_completo)}?`,
-      html: `La cuenta se restablecerá a <b>Primer Ingreso</b> con la contraseña temporal igual a su número de cédula (<b>${u.cedula}</b>).<br><br>Al finalizar, podrás notificar al usuario directamente por <b>WhatsApp</b> con el mensaje oficial de confirmación.`,
-      icon: 'question',
+      title: `¿Desbloquear acceso temporal a ${toTitulo(u.nombre_completo)}?`,
+      html: `
+        <div class="text-start p-3 bg-light rounded-3 border mb-3 small">
+          <p class="mb-1"><b>Cédula:</b> ${u.cedula} • <b>Rol:</b> ${u.rol}</p>
+          <p class="mb-1"><b>Estado de Bloqueo:</b> ${minutos > 0 ? `<span class="badge bg-danger">Bloqueado temporalmente (${minutos} min restantes)</span>` : '<span class="badge bg-warning text-dark">Intentos fallidos acumulados</span>'}</p>
+          <p class="mb-0"><b>Intentos fallidos registrados:</b> ${intentos} de 3</p>
+        </div>
+        <p class="mb-0 small text-muted">Esta acción <b>eliminará el bloqueo temporizado</b> y restablecerá los intentos fallidos a cero. El usuario podrá iniciar sesión de inmediato con su contraseña actual sin tener que cambiarla.</p>
+      `,
+      icon: 'info',
       showCancelButton: true,
-      confirmButtonColor: '#f59e0b',
+      confirmButtonColor: '#10b981',
       cancelButtonColor: '#64748b',
-      confirmButtonText: '<i class="bi bi-key-fill me-1"></i> Sí, ejecutar reseteo',
+      confirmButtonText: '<i class="bi bi-unlock-fill me-1"></i> Sí, desbloquear ahora',
       cancelButtonText: 'Cancelar'
     });
 
@@ -569,23 +594,139 @@ export const GestionUsuarios = () => {
       const { error } = await supabase
         .from('usuarios')
         .update({
-          clave: u.cedula,
-          primer_ingreso: true,
-          solicito_reseteo: false,
-          estado: 'Activo'
+          bloqueo_hasta: null,
+          intentos_fallidos: 0,
+          estado: u.estado === 'Bloqueado' ? 'Activo' : (u.estado || 'Activo')
         })
         .eq('cedula', u.cedula);
 
       if (error) throw error;
 
-      auditar('Gestión de Usuarios', 'Resetear Contraseña', `Reseteó credenciales de: ${u.cedula} (${u.nombre_completo})`);
+      auditar('Gestión de Usuarios', 'Desbloquear Acceso Temporal', `Eliminó bloqueo temporizado e intentos fallidos de: ${u.cedula} (${u.nombre_completo})`);
 
-      // Enviar notificación a la app dirigida exclusivamente al usuario cuya contraseña fue reseteada
       try {
         await supabase.from('notificaciones_globales').insert([{
           escuela_codigo: u.id_escuela || 'todas',
-          titulo: '🔑 Contraseña Restablecida con Éxito',
-          cuerpo: `Estimado(a) ${toTitulo(u.nombre_completo || u.cedula)}, el administrador ha restablecido tu cuenta a Primer Ingreso. Ya puedes iniciar sesión utilizando tu número de cédula como contraseña temporal.`,
+          titulo: '🔓 Acceso Temporal Desbloqueado',
+          cuerpo: `Estimado(a) ${toTitulo(u.nombre_completo || u.cedula)}, el administrador ha restablecido los intentos fallidos y eliminado el bloqueo temporal de tu cuenta. Ya puedes iniciar sesión nuevamente.`,
+          tipo: `usuario:${u.cedula}`
+        }]);
+      } catch (eNotif) {}
+
+      await Promise.all([cargarUsuarios(), cargarSolicitudesReseteo()]);
+
+      Swal.fire({
+        title: '¡Acceso Desbloqueado!',
+        html: `Se ha eliminado el bloqueo temporizado de <b>${toTitulo(u.nombre_completo)}</b> (C.I. ${u.cedula}). Los intentos fallidos han vuelto a 0.`,
+        icon: 'success',
+        confirmButtonColor: '#10b981'
+      });
+    } catch (e: any) {
+      Swal.fire('Error', e?.message || 'No se pudo desbloquear la cuenta.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2.5. Resetear Contraseña Individual y Solicitudes de Reseteo (con eliminación obligatoria de bloqueo temporizado)
+  const handleResetearClaveIndividual = async (u: any) => {
+    const canDel = u.id_escuela === 'ambas' ? (canDeleteSB && canDeleteLB) : (u.id_escuela === 'sb' ? canDeleteSB : canDeleteLB);
+    if (!canDel && !canCreateAny) {
+      if (Swal) Swal.fire('Error', 'No tienes permisos para resetear contraseñas de esta escuela.', 'error');
+      return;
+    }
+
+    if (!Swal) return;
+
+    const estaBloqueado = isUsuarioBloqueadoTemporal(u);
+    const minutos = getMinutosRestantesBloqueo(u);
+
+    // Diálogo con selección entre Reseteo de Contraseña, Reseteo Total y Desbloqueo Temporal
+    const { value: tipoReseteo } = await Swal.fire({
+      title: `¿Gestionar credenciales de ${toTitulo(u.nombre_completo)}?`,
+      html: `
+        <div class="text-start p-3 bg-light rounded-3 border mb-3 small">
+          <p class="mb-1"><b>Cédula:</b> ${u.cedula} • <b>Rol:</b> ${u.rol}</p>
+          ${estaBloqueado ? `<p class="mb-1 text-danger fw-bold"><i class="bi bi-clock-history me-1"></i> Cuenta con bloqueo temporizado activo (${minutos} min restantes)</p>` : ''}
+          ${(u.intentos_fallidos || 0) > 0 && !estaBloqueado ? `<p class="mb-1 text-warning fw-bold">⚠️ ${u.intentos_fallidos} intento(s) fallido(s) registrado(s)</p>` : ''}
+          <p class="mb-0 text-muted">Seleccione la acción de seguridad que desea ejecutar:</p>
+        </div>
+        <div class="text-start mb-2">
+          <div class="form-check mb-2.5 p-2.5 rounded border bg-white shadow-xs">
+            <input class="form-check-input ms-1 me-2.5" type="radio" name="swal-tipo-reseteo" id="tipo-contrasena" value="contrasena" checked>
+            <label class="form-check-label fw-bold text-dark cursor-pointer" for="tipo-contrasena">
+              🔑 Reseteo de Contraseña
+              <small class="d-block text-muted fw-normal mt-0.5">Restablece la clave a la cédula (${u.cedula}), activa Primer Ingreso, <b>elimina el bloqueo temporizado</b> y restablece intentos a 0. Conserva preguntas de seguridad si ya las tenía configuradas.</small>
+            </label>
+          </div>
+          <div class="form-check mb-2.5 p-2.5 rounded border bg-white shadow-xs">
+            <input class="form-check-input ms-1 me-2.5" type="radio" name="swal-tipo-reseteo" id="tipo-total" value="total">
+            <label class="form-check-label fw-bold text-dark cursor-pointer" for="tipo-total">
+              🛡️ Reseteo Total de Seguridad
+              <small class="d-block text-muted fw-normal mt-0.5">Restablecimiento absoluto: clave temporal a la cédula, <b>elimina el bloqueo temporizado</b>, limpia las preguntas de seguridad y fuerza la reconfiguración limpia de credenciales desde cero.</small>
+            </label>
+          </div>
+          ${estaBloqueado || (u.intentos_fallidos || 0) > 0 ? `
+          <div class="form-check p-2.5 rounded border border-success bg-success bg-opacity-10 shadow-xs">
+            <input class="form-check-input ms-1 me-2.5" type="radio" name="swal-tipo-reseteo" id="tipo-desbloqueo" value="desbloqueo">
+            <label class="form-check-label fw-bold text-success cursor-pointer" for="tipo-desbloqueo">
+              🔓 Solo Desbloquear Acceso Temporal
+              <small class="d-block text-muted fw-normal mt-0.5">Elimina el temporizador de bloqueo y vuelve los intentos a 0 <b>sin alterar la contraseña</b> ni las preguntas actuales del usuario.</small>
+            </label>
+          </div>
+          ` : ''}
+        </div>
+      `,
+      preConfirm: () => {
+        const checked = document.querySelector('input[name="swal-tipo-reseteo"]:checked') as HTMLInputElement;
+        return checked ? checked.value : 'contrasena';
+      },
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: '<i class="bi bi-check2-circle me-1"></i> Ejecutar Acción',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!tipoReseteo) return;
+
+    if (tipoReseteo === 'desbloqueo') {
+      await handleDesbloquearTemporal(u);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updatePayload: any = {
+        clave: u.cedula,
+        primer_ingreso: true,
+        solicito_reseteo: false,
+        estado: 'Activo',
+        bloqueo_hasta: null,       // ELIMINA EL BLOQUEO TEMPORAL
+        intentos_fallidos: 0       // RESTABLECE INTENTOS FALLIDOS A CERO
+      };
+
+      if (tipoReseteo === 'total') {
+        updatePayload.preguntas_seguridad = null; // LIMPIA PREGUNTAS EN RESETEO TOTAL
+      }
+
+      const { error } = await supabase
+        .from('usuarios')
+        .update(updatePayload)
+        .eq('cedula', u.cedula);
+
+      if (error) throw error;
+
+      const accionTexto = tipoReseteo === 'total' ? 'Reseteo Total de Credenciales' : 'Resetear Contraseña';
+      auditar('Gestión de Usuarios', accionTexto, `${accionTexto} de: ${u.cedula} (${u.nombre_completo}) - Bloqueo temporizado eliminado`);
+
+      // Enviar notificación a la app dirigida exclusivamente al usuario
+      try {
+        await supabase.from('notificaciones_globales').insert([{
+          escuela_codigo: u.id_escuela || 'todas',
+          titulo: tipoReseteo === 'total' ? '🛡️ Reseteo Total Ejecutado' : '🔑 Contraseña Restablecida con Éxito',
+          cuerpo: `Estimado(a) ${toTitulo(u.nombre_completo || u.cedula)}, el administrador ha restablecido tu cuenta (${tipoReseteo === 'total' ? 'Reseteo Total' : 'Reseteo de Contraseña'}). El bloqueo temporizado ha sido eliminado. Puedes iniciar sesión con tu número de cédula como clave temporal.`,
           tipo: `usuario:${u.cedula}`
         }]);
       } catch (eNotif) {
@@ -595,8 +736,10 @@ export const GestionUsuarios = () => {
       await Promise.all([cargarUsuarios(), cargarSolicitudesReseteo()]);
 
       Swal.fire({
-        title: '¡Reseteo Total Ejecutado!',
-        html: `La cuenta de <b>${toTitulo(u.nombre_completo)}</b> (C.I. ${u.cedula}) ha sido restablecida con éxito a <b>Primer Ingreso</b>.<br><br>¿Deseas enviar el mensaje oficial de WhatsApp indicando que la acción fue ejecutada?`,
+        title: tipoReseteo === 'total' ? '¡Reseteo Total Ejecutado!' : '¡Contraseña Restablecida!',
+        html: `La cuenta de <b>${toTitulo(u.nombre_completo)}</b> (C.I. ${u.cedula}) ha sido restablecida con éxito.<br><br>
+               <span class="badge bg-success p-1.5"><i class="bi bi-unlock-fill me-1"></i> Bloqueo temporizado eliminado e intentos en 0</span><br><br>
+               ¿Deseas enviar el mensaje oficial de WhatsApp indicando que la acción fue ejecutada?`,
         icon: 'success',
         showCancelButton: true,
         confirmButtonColor: '#25D366',
@@ -609,7 +752,7 @@ export const GestionUsuarios = () => {
         }
       });
     } catch (e: any) {
-      Swal.fire('Error', e?.message || 'No se pudo resetear la clave.', 'error');
+      Swal.fire('Error', e?.message || 'No se pudo procesar el reseteo.', 'error');
     } finally {
       setLoading(false);
     }
@@ -992,6 +1135,7 @@ export const GestionUsuarios = () => {
       setFormEstado(u.estado || 'Activo');
       setFormPrimerIngreso(String(u.primer_ingreso ?? true));
       setFormClave('');
+      setFormDesbloquearTemporal(isUsuarioBloqueadoTemporal(u) || (u.intentos_fallidos || 0) > 0);
     } else {
       setEditingUser(null);
       setFormCedula('');
@@ -1003,6 +1147,7 @@ export const GestionUsuarios = () => {
       setFormEstado('Activo');
       setFormPrimerIngreso('true');
       setFormClave('');
+      setFormDesbloquearTemporal(false);
     }
     setShowUserModal(true);
   };
@@ -1047,6 +1192,12 @@ export const GestionUsuarios = () => {
       if (editingUser) {
         if (formClave.trim()) {
           payload.clave = formClave.trim();
+          payload.bloqueo_hasta = null;
+          payload.intentos_fallidos = 0;
+        }
+        if (formDesbloquearTemporal) {
+          payload.bloqueo_hasta = null;
+          payload.intentos_fallidos = 0;
         }
         
         const { error } = await supabase
@@ -1069,7 +1220,7 @@ export const GestionUsuarios = () => {
           Swal.fire({
             icon: 'success',
             title: '¡Usuario Actualizado!',
-            html: `Los datos de <b>${newNombre}</b> (C.I. ${newCedula}) han sido actualizados.`,
+            html: `Los datos de <b>${newNombre}</b> (C.I. ${newCedula}) han sido actualizados.${formDesbloquearTemporal || formClave.trim() ? '<br><br><span class="badge bg-success p-1.5"><i class="bi bi-unlock-fill me-1"></i> Bloqueo temporal eliminado</span>' : ''}`,
             confirmButtonColor: '#6366f1'
           });
         }
@@ -1077,6 +1228,8 @@ export const GestionUsuarios = () => {
       } else {
         payload.clave = formClave.trim() || newCedula;
         payload.solicito_reseteo = false;
+        payload.bloqueo_hasta = null;
+        payload.intentos_fallidos = 0;
         
         const { error } = await supabase.from('usuarios').insert([payload]);
         if (error) {
@@ -1217,6 +1370,10 @@ export const GestionUsuarios = () => {
         if (uRol !== fRol) return false;
       }
 
+      if (filtroBloqueo === 'BLOQUEADOS' && !isUsuarioBloqueadoTemporal(u)) return false;
+      if (filtroBloqueo === 'CON_FALLIDOS' && (!u.intentos_fallidos || u.intentos_fallidos <= 0)) return false;
+      if (filtroBloqueo === 'SOLICITO_RESETEO' && !u.solicito_reseteo) return false;
+
       const listaEst = getEstudiantesDeUsuario(u, vinculacionesMap);
       const numEstudiantes = listaEst.length;
 
@@ -1252,7 +1409,7 @@ export const GestionUsuarios = () => {
 
       return true;
     });
-  }, [usuarios, filtroEscuela, filtroRol, filtroEstudiantes, searchQuery, vinculacionesMap]);
+  }, [usuarios, filtroEscuela, filtroRol, filtroEstudiantes, filtroBloqueo, searchQuery, vinculacionesMap]);
 
   // Métricas globales de vinculación estudiantil
   const { totalEstudiantesVinculados, representantesConHijos } = useMemo(() => {
@@ -1285,14 +1442,20 @@ export const GestionUsuarios = () => {
     };
   }, [usuarios, vinculacionesMap]);
 
+  // Contador de usuarios con bloqueo temporal activo
+  const usuariosBloqueadosTemporales = useMemo(() => {
+    return usuarios.filter(isUsuarioBloqueadoTemporal);
+  }, [usuarios]);
+
   const hayFiltrosUsuariosActivos = useMemo(() => {
-    return filtroEscuela !== 'TODAS' || filtroRol !== 'TODOS' || filtroEstudiantes !== 'TODOS' || searchQuery.trim() !== '';
-  }, [filtroEscuela, filtroRol, filtroEstudiantes, searchQuery]);
+    return filtroEscuela !== 'TODAS' || filtroRol !== 'TODOS' || filtroEstudiantes !== 'TODOS' || filtroBloqueo !== 'TODOS' || searchQuery.trim() !== '';
+  }, [filtroEscuela, filtroRol, filtroEstudiantes, filtroBloqueo, searchQuery]);
 
   const limpiarFiltrosUsuarios = () => {
     setFiltroEscuela('TODAS');
     setFiltroRol('TODOS');
     setFiltroEstudiantes('TODOS');
+    setFiltroBloqueo('TODOS');
     setSearchQuery('');
     setPaginaActual(1);
   };
@@ -1371,6 +1534,15 @@ export const GestionUsuarios = () => {
               {solicitudesReseteo.length > 0 && (
                 <span className="badge bg-danger text-white px-3 py-2 shadow-sm fw-bold rounded-pill animate__animated animate__pulse animate__infinite">
                   <i className="bi bi-arrow-counterclockwise me-1"></i> <b>{solicitudesReseteo.length}</b> Reseteos
+                </span>
+              )}
+              {usuariosBloqueadosTemporales.length > 0 && (
+                <span 
+                  className="badge bg-danger text-white px-3 py-2 shadow-sm fw-bold rounded-pill animate__animated animate__pulse animate__infinite cursor-pointer"
+                  onClick={() => { setFiltroBloqueo('BLOQUEADOS'); setTabPrincipal('usuarios'); }}
+                  title="Click para ver usuarios con bloqueo temporal activo"
+                >
+                  <i className="bi bi-clock-history me-1"></i> <b>{usuariosBloqueadosTemporales.length}</b> Bloqueo{usuariosBloqueadosTemporales.length > 1 ? 's' : ''} Temporal{usuariosBloqueadosTemporales.length > 1 ? 'es' : ''}
                 </span>
               )}
             </div>
@@ -1476,7 +1648,21 @@ export const GestionUsuarios = () => {
                 </select>
               </div>
 
-              <div className="col-12 col-md-3">
+              <div className="col-12 col-md-2">
+                <label className="extra-small fw-bold text-muted mb-1"><i className="bi bi-shield-lock-fill me-1"></i>Seguridad</label>
+                <select 
+                  className="form-select form-select-sm rounded-3" 
+                  value={filtroBloqueo}
+                  onChange={(e) => { setFiltroBloqueo(e.target.value as any); setPaginaActual(1); }}
+                >
+                  <option value="TODOS">Todos los estados</option>
+                  <option value="BLOQUEADOS">🔴 Bloqueo Temporal ({usuariosBloqueadosTemporales.length})</option>
+                  <option value="CON_FALLIDOS">⚠️ Con Intentos Fallidos ({usuarios.filter(u => (u.intentos_fallidos || 0) > 0).length})</option>
+                  <option value="SOLICITO_RESETEO">🔄 Solicitó Reseteo ({solicitudesReseteo.length})</option>
+                </select>
+              </div>
+
+              <div className="col-12 col-md-4">
                 <label className="extra-small fw-bold text-muted mb-1"><i className="bi bi-search me-1"></i>Buscar</label>
                 <div className="input-group input-group-sm">
                   <input 
@@ -1499,7 +1685,7 @@ export const GestionUsuarios = () => {
                 </div>
               </div>
 
-              <div className="col-12 col-md-3 text-md-end">
+              <div className="col-12 text-md-end mt-2">
                 <div className="d-flex align-items-center justify-content-md-end gap-1.5 flex-wrap">
                   {hayFiltrosUsuariosActivos && (
                     <button
@@ -1670,15 +1856,57 @@ export const GestionUsuarios = () => {
                             </td>
 
                             <td className="py-3">
-                              <span className={`badge ${u.estado === 'Activo' ? 'bg-success' : 'bg-danger'} rounded-pill extra-small px-2 py-0.5`}>
-                                {u.estado || 'Activo'}
-                              </span>
+                              {isUsuarioBloqueadoTemporal(u) ? (
+                                <div className="d-flex flex-column gap-1">
+                                  <span 
+                                    className="badge bg-danger rounded-pill extra-small px-2 py-0.5 shadow-xs d-inline-flex align-items-center gap-1 cursor-pointer"
+                                    onClick={() => handleDesbloquearTemporal(u)}
+                                    title="Click para desbloquear acceso temporal inmediatamente"
+                                  >
+                                    <i className="bi bi-clock-history"></i>
+                                    Bloqueo ({getMinutosRestantesBloqueo(u)}m)
+                                  </span>
+                                  <span className="extra-small text-danger fw-bold" style={{ fontSize: '0.65rem' }}>
+                                    3/3 intentos fallidos
+                                  </span>
+                                </div>
+                              ) : (u.intentos_fallidos || 0) > 0 ? (
+                                <div className="d-flex flex-column gap-1">
+                                  <span className={`badge ${u.estado === 'Activo' ? 'bg-success' : 'bg-danger'} rounded-pill extra-small px-2 py-0.5`}>
+                                    {u.estado || 'Activo'}
+                                  </span>
+                                  <span 
+                                    className="badge bg-warning bg-opacity-20 text-dark border border-warning rounded-pill extra-small px-1.5 py-0.5 cursor-pointer"
+                                    onClick={() => handleDesbloquearTemporal(u)}
+                                    title="Click para restablecer intentos fallidos a 0"
+                                  >
+                                    ⚠️ {u.intentos_fallidos}/3 fallidos
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className={`badge ${u.estado === 'Activo' ? 'bg-success' : 'bg-danger'} rounded-pill extra-small px-2 py-0.5`}>
+                                  {u.estado || 'Activo'}
+                                </span>
+                              )}
                             </td>
 
                             <td className="text-center pe-4 py-3">
                               <div className="d-flex align-items-center justify-content-center gap-1">
                                 
-                                {/* 0. Probar Audio de Bienvenida con Zoe y Max (Solo Rol Docente) */}
+                                {/* 0. Desbloquear Acceso Temporal e Intentos Fallidos Directo */}
+                                {(isUsuarioBloqueadoTemporal(u) || (u.intentos_fallidos || 0) > 0) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDesbloquearTemporal(u)}
+                                    className="btn btn-xs btn-danger text-white border-0 rounded-circle shadow-xs animate__animated animate__pulse animate__infinite hover-efecto"
+                                    style={{ width: '30px', height: '30px' }}
+                                    title={`🔓 Desbloquear Acceso Temporal (Eliminar bloqueo y volver intentos a 0 para ${toTitulo(u.nombre_completo)})`}
+                                  >
+                                    <i className="bi bi-unlock-fill"></i>
+                                  </button>
+                                )}
+
+                                {/* 0.5. Probar Audio de Bienvenida con Zoe y Max (Solo Rol Docente) */}
                                 {String(u.rol || '').toLowerCase().includes('docen') && (
                                   <button
                                     type="button"
@@ -1704,13 +1932,13 @@ export const GestionUsuarios = () => {
                                   </button>
                                 )}
 
-                                {/* 2. Resetear Contraseña Individual */}
+                                {/* 2. Resetear Contraseña Individual / Reseteo Total */}
                                 <button
                                   type="button"
                                   onClick={() => handleResetearClaveIndividual(u)}
                                   className="btn btn-xs btn-light text-warning border rounded-circle shadow-xs"
                                   style={{ width: '30px', height: '30px' }}
-                                  title="Resetear Contraseña a Primer Ingreso"
+                                  title="Gestionar Reseteo de Contraseña o Reseteo Total"
                                 >
                                   <i className="bi bi-key-fill text-warning"></i>
                                 </button>
@@ -2188,6 +2416,35 @@ export const GestionUsuarios = () => {
               </div>
               <form onSubmit={handleSaveUser}>
                 <div className="modal-body p-4">
+                  {/* Alerta y Switch de Desbloqueo Temporal si la cuenta está bloqueada */}
+                  {editingUser && (isUsuarioBloqueadoTemporal(editingUser) || (editingUser.intentos_fallidos || 0) > 0) && (
+                    <div className="alert alert-warning border border-warning p-2.5 rounded-3 mb-3 small d-flex align-items-center justify-content-between">
+                      <div>
+                        <div className="fw-bold text-dark d-flex align-items-center gap-1.5">
+                          <i className="bi bi-clock-history text-danger"></i>
+                          <span>Bloqueo Temporal por Intentos Fallidos</span>
+                        </div>
+                        <div className="text-muted extra-small">
+                          {isUsuarioBloqueadoTemporal(editingUser)
+                            ? `Restan ${getMinutosRestantesBloqueo(editingUser)} min de bloqueo temporal (${editingUser.intentos_fallidos || 3} intentos fallidos).`
+                            : `${editingUser.intentos_fallidos} intentos fallidos registrados.`}
+                        </div>
+                      </div>
+                      <div className="form-check form-switch m-0 ms-2">
+                        <input 
+                          className="form-check-input" 
+                          type="checkbox" 
+                          id="checkDesbloqueoTemporal"
+                          checked={formDesbloquearTemporal}
+                          onChange={(e) => setFormDesbloquearTemporal(e.target.checked)}
+                        />
+                        <label className="form-check-label extra-small fw-bold text-dark cursor-pointer" htmlFor="checkDesbloqueoTemporal">
+                          Desbloquear
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mb-3">
                     <label className="form-label fw-bold small text-dark mb-1">Cédula de Identidad <span className="text-danger">*</span></label>
                     <input type="text" className="form-control rounded-3 fw-bold" value={formCedula} onChange={(e) => setFormCedula(e.target.value.replace(/\D/g, ''))} required disabled={!!editingUser} />
