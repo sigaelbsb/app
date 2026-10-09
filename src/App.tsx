@@ -19,6 +19,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationRouteManager } from './components/NavigationRouteManager';
 import { NavigationLoader } from './components/NavigationLoader';
+import { PortalInicio } from './pages/publica/PortalInicio';
 
 if (typeof window !== 'undefined') {
   window.addEventListener('vite:preloadError', (event) => {
@@ -209,6 +210,9 @@ function App() {
           <InstallPwaModal />
           <Suspense fallback={<NavigationLoader />}>
             <Routes>
+              {/* 1. RUTAS PÚBLICAS (WEB INFORMATIVA INSTITUCIONAL POR ESCUELA) */}
+              <Route path="/portal" element={<PortalInicio />} />
+              <Route path="/portal/:schoolId" element={<PortalInicio />} />
               <Route path="/validar-constancia/:codigo" element={<ValidarConstancia />} />
               <Route path="/login" element={!usuario ? <Auth onLogin={handleLogin} /> : <Navigate to="/" replace />} />
               

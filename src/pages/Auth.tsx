@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { registrarSesionActiva } from '../utils/activeSessionsHelper';
 import '../portal_sap.css';
@@ -1204,6 +1205,20 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
               <span className="sap-fiori-title-line-2">y Administración Escolar</span>
             </div>
             <div className="sap-fiori-title-divider"></div>
+          </div>
+
+          {/* Acceso al Portal Web Informativo Público */}
+          <div className="text-center mb-3">
+            <Link 
+              to={`/portal/${selectedSchool}`} 
+              className="btn btn-sm btn-light border rounded-pill px-3 py-1 text-secondary shadow-xs d-inline-flex align-items-center gap-1.5 text-decoration-none"
+              style={{ fontSize: '0.78rem', fontWeight: 600 }}
+              title="Visitar la página web informativa de la institución"
+            >
+              <i className="bi bi-globe2 text-primary"></i>
+              <span>Ver Portal Web Informativo</span>
+              <i className="bi bi-arrow-right small text-muted"></i>
+            </Link>
           </div>
 
           {/* Alerta de Error */}
