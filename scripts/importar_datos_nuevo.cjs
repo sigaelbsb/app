@@ -9,8 +9,8 @@ const { createClient } = require('@supabase/supabase-js');
 
 // 1. CONFIGURACIÓN DEL NUEVO PROYECTO SUPABASE
 // Coloca aquí la URL y la Key (anon pública o service_role) de tu NUEVO proyecto
-const NUEVO_SUPABASE_URL = process.env.NUEVO_SUPABASE_URL || 'AQUI_TU_NUEVO_SUPABASE_URL';
-const NUEVO_SUPABASE_KEY = process.env.NUEVO_SUPABASE_KEY || 'AQUI_TU_NUEVA_KEY';
+const NUEVO_SUPABASE_URL = process.env.NUEVO_SUPABASE_URL || 'https://rysmuasawcjorhnvpeex.supabase.co';
+const NUEVO_SUPABASE_KEY = process.env.NUEVO_SUPABASE_KEY || 'sb_publishable_AuPFgZ8tUjBSOnuPD_SavA_gA8o8Lj2';
 
 // 2. RUTA DEL ARCHIVO DE RESPALDO JSON
 const ARCHIVO_DATOS = path.join(__dirname, 'datos_respaldo.json');

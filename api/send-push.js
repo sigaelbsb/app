@@ -1,8 +1,8 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://phyhwvlbvcdacjjvdymn.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_Y4IrPFScLweYgFOhOoLLUQ_wQO7q4nj';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rysmuasawcjorhnvpeex.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_AuPFgZ8tUjBSOnuPD_SavA_gA8o8Lj2';
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BClJY617XAIN2tmINIV-Y-wqWsDRymIYxxNJPSZuBLKot7AVYuv_IwB5kn5AwEAhKwGrSACYp9x7sbd5LPY3sYY';
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'mr7sHPkrOn30VpheNsFbImNR0ed1g8LyW_DGUETrNkc';
