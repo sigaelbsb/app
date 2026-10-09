@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { registrarSesionActiva } from '../utils/activeSessionsHelper';
+import '../portal_sap.css';
 
 export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
-  const [view, setView] = useState<'selector' | 'login'>('selector');
-  const [school, setSchool] = useState<'sb' | 'lb' | null>(null);
+  const [view, setView] = useState<'selector' | 'login'>('login');
+  const [school, setSchool] = useState<'sb' | 'lb' | null>(() => {
+    return (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb' | null) || 'sb';
+  });
+
+  const handleSchoolChange = (selected: 'sb' | 'lb') => {
+    setSchool(selected);
+    localStorage.setItem('sigae_escuela_codigo', selected);
+    localStorage.setItem('sigae_escuela_activa', selected === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    setErrorMsg('');
+  };
   
   // Login Steps: 'cedula' -> 'clave' OR 'invitado' OR 'recuperacion' OR 'primer-ingreso'
   const [loginStep, setLoginStep] = useState<'cedula' | 'clave' | 'invitado' | 'recuperacion' | 'primer-ingreso'>('cedula');
@@ -952,7 +962,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
   const handleOlvidoClave = async () => {
     if (!cedula) {
-      setErrorMsg('Debe ingresar su cédula primero.');
+      setErrorMsg('Por favor, ingrese su número de cédula en el recuadro para recuperar su contraseña.');
+      const inp = document.getElementById('input-cedula-login');
+      if (inp) inp.focus();
       return;
     }
     setLoading(true);
@@ -1165,426 +1177,554 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     return fuerza;
   };
 
+  const selectedSchool = school || 'sb';
   return (
-    <div id="vista-login" className="contenedor-login contenedor-login-estilo flex-column min-vh-100 position-relative" style={{ display: 'flex' }}>
-      <div className="bg-login-dark-overlay"></div>
+    <div className="sap-fiori-viewport animate__animated animate__fadeIn">
+      {/* Diálogo Central de Acceso */}
+      <main className="sap-fiori-logon-container">
+        <div className="sap-fiori-logon-card">
+          {/* Cintillo Oficial del Ministerio del Poder Popular para la Educación */}
+          <div className="sap-fiori-mppe-container">
+            <img 
+              src="/assets/img/logoMPPE.png" 
+              alt="Ministerio del Poder Popular para la Educación" 
+              className="sap-fiori-mppe-banner" 
+            />
+          </div>
 
-      <div className="m-auto w-100 d-flex justify-content-center align-items-center py-4 px-3">
-        
-        {view === 'selector' && (
-          <div id="vista-selector" className="vista-seleccion-escuela activa animate__animated animate__fadeIn">
-            <img src="/assets/img/sigae.png?v=escudo3d" alt="SIGAE" className="mb-3 img-fluid logo-selector-escuela" />
-            <h1 className="fw-bolder text-white mb-1 mt-2 selector-titulo">Escuelas DEP Oriente</h1>
-            <h4 className="text-white mb-5 fw-normal selector-subtitulo">Seleccione su Institución</h4>
-
-            <div className="row g-4 justify-content-center mx-auto">
-              <div className="col-md-6">
-                <div onClick={() => handleSchoolSelect('sb')} style={{ cursor: 'pointer' }} className="tarjeta-escuela glassmorphism p-4 p-md-5 text-center h-100 d-flex flex-column">
-                  <div className="mb-auto">
-                    <img src="/assets/img/logo_sb.png" alt="Logo UE Santa Bárbara" className="mb-3 logo-escuela img-fluid" />
-                    <h4 className="fw-bold text-dark mb-1">UE Santa Bárbara</h4>
-                    <h6 className="text-primary fw-bold mb-3 lh-sm escuela-subtexto">
-                      El Tejero<br/><small className="text-muted fw-normal">Municipio Ezequiel Zamora</small>
-                    </h6>
-                  </div>
-                  <button className="btn btn-primario w-100 rounded-pill fw-bold mt-4 btn-seleccionar">Ingresar aquí</button>
-                </div>
-              </div>
-              <div className="col-md-6">
-                <div onClick={() => handleSchoolSelect('lb')} style={{ cursor: 'pointer' }} className="tarjeta-escuela glassmorphism p-4 p-md-5 text-center h-100 d-flex flex-column">
-                  <div className="mb-auto">
-                    <img src="/assets/img/logo_lb.png" alt="Logo UE Libertador Bolívar" className="mb-3 logo-escuela img-fluid" />
-                    <h4 className="fw-bold text-dark mb-1">UE Libertador Bolívar</h4>
-                    <h6 className="text-primary fw-bold mb-3 lh-sm escuela-subtexto">
-                      Miraflores<br/><small className="text-muted fw-normal">Municipio Punceres</small>
-                    </h6>
-                  </div>
-                  <button className="btn btn-primario w-100 rounded-pill fw-bold mt-4 btn-seleccionar">Ingresar aquí</button>
-                </div>
-              </div>
+          <div className="sap-fiori-card-header">
+            <div className="sap-fiori-shield-wrapper">
+              <div className="sap-fiori-shield-glow"></div>
+              <img src="/assets/img/sigae.png?v=escudo3d" alt="Escudo SIGAE" className="sap-fiori-shield-main" />
             </div>
+            <div className="sap-fiori-system-sub">
+              <span className="sap-fiori-title-line-1">Sistema Integral de Gestión</span>
+              <span className="sap-fiori-title-line-2">y Administración Escolar</span>
+            </div>
+            <div className="sap-fiori-title-divider"></div>
+          </div>
 
-            {!isStandalone && (
-              <div className="mt-4 pt-2 text-center">
+          {/* Alerta de Error */}
+          {errorMsg && (
+            <div className="alert alert-danger py-2 px-3 mb-3 small d-flex align-items-center gap-2 animate__animated animate__shakeX" style={{ borderRadius: '8px', fontSize: '0.82rem' }}>
+              <i className="bi bi-exclamation-triangle-fill text-danger flex-shrink-0"></i>
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* PASO 1: CÉDULA */}
+          {loginStep === 'cedula' && (
+            <div>
+              {/* Selector de Plantel Educativo con Logos y Ubicación */}
+              <div className="sap-fiori-schools-grid">
+                <div 
+                  className={`sap-fiori-school-card ${selectedSchool === 'sb' ? 'active' : ''}`}
+                  onClick={() => handleSchoolChange('sb')}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <img src="/assets/img/logo_sb.png" alt="Logo UE Santa Bárbara" className="sap-fiori-school-card-logo" />
+                  <div className="sap-fiori-school-card-info">
+                    <span className="sap-fiori-school-card-title">UE Santa Bárbara</span>
+                    <span className="sap-fiori-school-card-loc">
+                      <i className="bi bi-geo-alt-fill text-danger"></i> El Tejero, Zamora
+                    </span>
+                  </div>
+                </div>
+
+                <div 
+                  className={`sap-fiori-school-card ${selectedSchool === 'lb' ? 'active' : ''}`}
+                  onClick={() => handleSchoolChange('lb')}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <img src="/assets/img/logo_lb.png" alt="Logo UE Libertador Bolívar" className="sap-fiori-school-card-logo" />
+                  <div className="sap-fiori-school-card-info">
+                    <span className="sap-fiori-school-card-title">UE Libertador Bolívar</span>
+                    <span className="sap-fiori-school-card-loc">
+                      <i className="bi bi-geo-alt-fill text-danger"></i> Miraflores, Punceres
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Niveles Educativos con Representación de Estudiantes */}
+              <div className="sap-fiori-stages-grid">
+                <div className="sap-fiori-stage-card" title="Educación Inicial: Chemise Amarilla y Roja">
+                  <img src="/assets/img/avatar_inicial.png" alt="Educación Inicial" className="sap-fiori-stage-avatar" />
+                  <span className="sap-fiori-stage-name">Inicial</span>
+                </div>
+
+                <div className="sap-fiori-stage-card" title="Educación Primaria: Chemise Blanca">
+                  <img src="/assets/img/avatar_primaria.png" alt="Educación Primaria" className="sap-fiori-stage-avatar" />
+                  <span className="sap-fiori-stage-name">Primaria</span>
+                </div>
+
+                <div className="sap-fiori-stage-card" title="Educación Media General: Chemise Azul Cielo y Beige">
+                  <img src="/assets/img/avatar_media.png" alt="Educación Media General" className="sap-fiori-stage-avatar" />
+                  <span className="sap-fiori-stage-name">Media General</span>
+                </div>
+              </div>
+
+              <form onSubmit={verificarCedula}>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CÉDULA DE IDENTIDAD</label>
+                  <div className="sap-fiori-input-wrapper">
+                    <i className="bi bi-person sap-fiori-input-icon"></i>
+                    <input 
+                      id="input-cedula-login"
+                      type="text" 
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={9}
+                      className="sap-fiori-input" 
+                      placeholder="Ej: 12345678"
+                      value={cedula}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
+                        setCedula(digits);
+                        if (errorMsg) setErrorMsg('');
+                      }}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loading} className="sap-fiori-btn-primary">
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      <span>Verificando credencial...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continuar</span>
+                      <i className="bi bi-arrow-right"></i>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {localStorage.getItem('sigae_tiene_huella') && 
+               localStorage.getItem('sigae_huella_habilitada') !== 'false' && 
+               localStorage.getItem('sigae_bloqueado_total') !== 'true' && (
                 <button 
                   type="button" 
-                  onClick={() => window.dispatchEvent(new Event('show-pwa-modal'))}
-                  className="btn btn-outline-light rounded-pill px-4 py-2 fw-semibold shadow d-inline-flex align-items-center gap-2 hover-efecto"
-                  style={{ backdropFilter: 'blur(10px)', background: 'rgba(255, 255, 255, 0.15)', border: '1px solid rgba(255, 255, 255, 0.4)' }}
+                  onClick={handleLoginBiometrico} 
+                  className="sap-fiori-btn-secondary"
+                  title="Acceso biométrico rápido"
                 >
-                  <i className="bi bi-download fs-5 text-warning"></i>
-                  <span>¿Deseas instalar SIGAE como App en tu dispositivo?</span>
+                  <i className="bi bi-fingerprint text-success fs-5"></i>
+                  <span>Ingresar con Huella / PIN</span>
+                </button>
+              )}
+
+              <div className="sap-fiori-links-row">
+                <button 
+                  type="button" 
+                  onClick={handleOlvidoClave} 
+                  className="btn btn-link p-0 sap-fiori-link"
+                >
+                  ¿Olvidó su contraseña?
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setLoginStep('invitado')} 
+                  className="btn btn-link p-0 sap-fiori-link text-secondary"
+                >
+                  <i className="bi bi-person-badge me-1"></i> Visitante
                 </button>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        {view === 'login' && (
-          <div id="vista-formulario" className="tarjeta-split animate__animated animate__zoomIn" style={{ display: 'flex' }}>
-            <div className="panel-color">
-              <div className="forma f-verde"></div>
-              <div className="forma f-amarilla"></div>
-              <div className="forma f-morada"></div>
-              <div className="forma f-roja"></div>
-              <div className="panel-contenido-z">
-                <div className="logo-login-container">
-                  <div className="logo-destello"></div>
+          {/* PASO 2: CONTRASEÑA */}
+          {loginStep === 'clave' && (
+            <div>
+              <div className="d-flex align-items-center justify-content-between p-2 mb-3 rounded" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '14px' }}>
+                <div className="d-flex align-items-center gap-2 overflow-hidden">
                   <img 
-                    src={school === 'sb' ? '/assets/img/logo_sb.png' : school === 'lb' ? '/assets/img/logo_lb.png' : '/assets/img/sigae.png?v=escudo3d'} 
-                    id="img-logo-login" 
-                    alt="Logo Escuela" 
-                    className="logo-login-animado" 
+                    src={selectedSchool === 'sb' ? '/assets/img/logo_sb.png' : '/assets/img/logo_lb.png'} 
+                    alt="Logo Plantel" 
+                    style={{ width: '38px', height: '38px', objectFit: 'contain', flexShrink: 0 }} 
+                  />
+                  <div className="text-truncate">
+                    <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.86rem' }}>{nombreUsuario || `C.I. ${cedula}`}</div>
+                    <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '0.72rem' }}>
+                      <i className="bi bi-geo-alt-fill text-danger"></i>
+                      <span>{selectedSchool === 'sb' ? 'U.E. Santa Bárbara • El Tejero' : 'U.E. Libertador Bolívar • Miraflores'}</span>
+                    </div>
+                  </div>
+                </div>
+                <span className="badge bg-success-subtle text-success border border-success-subtle" style={{ fontSize: '0.68rem', padding: '4px 8px' }}>Usuario Verificado</span>
+              </div>
+
+              <form onSubmit={iniciarSesion}>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CONTRASEÑA INSTITUCIONAL</label>
+                  <div className="sap-fiori-input-wrapper position-relative">
+                    <i className="bi bi-lock sap-fiori-input-icon"></i>
+                    <input 
+                      type={showClave ? 'text' : 'password'} 
+                      className="sap-fiori-input pe-5" 
+                      placeholder="Ingrese su contraseña"
+                      value={clave}
+                      onChange={(e) => setClave(e.target.value)}
+                      autoFocus
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowClave(!showClave)} 
+                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
+                      style={{ background: 'transparent' }}
+                    >
+                      <i className={`bi bi-eye${showClave ? '-slash' : ''} text-muted`}></i>
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loading} className="sap-fiori-btn-primary">
+                  {loading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      <span>Iniciando sesión...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Iniciar Sesión</span>
+                      <i className="bi bi-box-arrow-in-right"></i>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {localStorage.getItem('sigae_tiene_huella') && 
+               localStorage.getItem('sigae_huella_habilitada') !== 'false' && 
+               localStorage.getItem('sigae_bloqueado_total') !== 'true' && (
+                <button 
+                  type="button" 
+                  onClick={handleLoginBiometrico} 
+                  className="sap-fiori-btn-secondary"
+                  title="Acceso biométrico rápido"
+                >
+                  <i className="bi bi-fingerprint text-success fs-5"></i>
+                  <span>Ingresar con Huella / PIN</span>
+                </button>
+              )}
+
+              <div className="sap-fiori-links-row">
+                <button 
+                  type="button" 
+                  onClick={handleOlvidoClave} 
+                  className="btn btn-link p-0 sap-fiori-link"
+                >
+                  ¿Olvidó su contraseña?
+                </button>
+                <button 
+                  type="button" 
+                  onClick={resetForm} 
+                  className="btn btn-link p-0 sap-fiori-link text-secondary"
+                >
+                  <i className="bi bi-arrow-left me-1"></i> Cambiar Cédula
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* PASO: RECUPERACIÓN */}
+          {loginStep === 'recuperacion' && (
+            <div>
+              <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '1.05rem' }}>Recuperar Contraseña</h5>
+              <p className="text-muted small mb-3">Autenticación por Pregunta de Seguridad</p>
+              <form onSubmit={procesarRecuperacion}>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CORREO ELECTRÓNICO REGISTRADO</label>
+                  <input 
+                    type="email" 
+                    className="sap-fiori-input" 
+                    placeholder="correo@ejemplo.com"
+                    value={recCorreo}
+                    onChange={(e) => setRecCorreo(e.target.value)}
+                    required
                   />
                 </div>
-                <h2 id="txt-nombre-escuela-login" className="text-white">
-                  {school === 'sb' ? <React.Fragment>UE Santa <br className="d-none d-md-block"/>Bárbara</React.Fragment> : <React.Fragment>UE Libertador <br className="d-none d-md-block"/>Bolívar</React.Fragment>}
-                </h2>
-                <h3 className="text-white opacity-75">Sistema Integral de Gestión y Administración Escolar</h3>
-                <h1 className="text-white">¡Bienvenid@!</h1>
-                <p className="text-white opacity-75">Accede a tu cuenta para gestionar toda la información institucional.</p>
-                <button onClick={() => setView('selector')} className="btn btn-sm btn-light text-primary mt-3 fw-bold rounded-pill shadow-sm btn-fit">
-                  <i className="bi bi-arrow-left me-1"></i> Cambiar Escuela
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">{preguntaRecuperacion || 'Cargando pregunta de seguridad...'}</label>
+                  <input 
+                    type="text" 
+                    className="sap-fiori-input" 
+                    placeholder="Respuesta exacta"
+                    value={recRespuesta}
+                    onChange={(e) => setRecRespuesta(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="sap-fiori-form-group position-relative">
+                  <label className="sap-fiori-label">NUEVA CONTRASEÑA</label>
+                  <div className="position-relative">
+                    <input 
+                      type={showRecClave1 ? 'text' : 'password'} 
+                      className="sap-fiori-input pe-5" 
+                      placeholder="Nueva Contraseña"
+                      value={recClave1}
+                      onChange={(e) => setRecClave1(e.target.value)}
+                      required
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowRecClave1(!showRecClave1)} 
+                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
+                      style={{ background: 'transparent' }}
+                    >
+                      <i className={`bi bi-eye${showRecClave1 ? '-slash' : ''} text-muted`}></i>
+                    </button>
+                  </div>
+                </div>
+                <div className="progress mb-3" style={{ height: '6px' }}>
+                  <div 
+                    className={`progress-bar ${getFuerzaClave(recClave1) < 50 ? 'bg-danger' : getFuerzaClave(recClave1) < 75 ? 'bg-warning' : 'bg-success'}`} 
+                    role="progressbar" 
+                    style={{ width: `${getFuerzaClave(recClave1)}%` }}
+                  ></div>
+                </div>
+                <div className="sap-fiori-form-group position-relative">
+                  <label className="sap-fiori-label">CONFIRMAR CONTRASEÑA</label>
+                  <div className="position-relative">
+                    <input 
+                      type={showRecClave2 ? 'text' : 'password'} 
+                      className="sap-fiori-input pe-5" 
+                      placeholder="Confirmar Contraseña"
+                      value={recClave2}
+                      onChange={(e) => setRecClave2(e.target.value)}
+                      required
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowRecClave2(!showRecClave2)} 
+                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
+                      style={{ background: 'transparent' }}
+                    >
+                      <i className={`bi bi-eye${showRecClave2 ? '-slash' : ''} text-muted`}></i>
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loading} className="sap-fiori-btn-primary mb-2">
+                  {loading ? 'Procesando...' : 'Restablecer Contraseña'}
                 </button>
-              </div>
+
+                <button type="button" onClick={solicitarSoporte} className="btn btn-outline-danger w-100 mb-3" style={{ borderRadius: '10px', fontSize: '0.86rem', fontWeight: 700, height: '40px' }}>
+                  No recuerdo nada (Soporte TI)
+                </button>
+
+                <div className="text-center">
+                  <button type="button" onClick={() => setLoginStep('clave')} className="btn btn-link sap-fiori-link text-secondary">
+                    Cancelar y volver
+                  </button>
+                </div>
+              </form>
             </div>
+          )}
 
-            <div className="panel-form">
-              <div className="login-formulario w-100 mx-auto login-form-container">
-                
-                {errorMsg && <div className="alert alert-danger animate__animated animate__headShake">{errorMsg}</div>}
-
-                {/* PASO 1: CEDULA */}
-                {loginStep === 'cedula' && (
-                  <div id="paso-cedula" className="animate__animated animate__fadeIn">
-                    <h4>Iniciar Sesión</h4>
-                    <form onSubmit={verificarCedula}>
-                      <label className="fw-bold text-muted small mb-2 ps-2">Cédula de Identidad</label>
-                      <input 
-                        type="number" 
-                        className="form-control input-pill mb-4" 
-                        placeholder="Ej: 12345678"
-                        value={cedula}
-                        onChange={(e) => setCedula(e.target.value)}
-                      />
-                      <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-pill mb-3">
-                        {loading ? 'Verificando...' : <React.Fragment>Continuar <i className="bi bi-arrow-right ms-1"></i></React.Fragment>}
-                      </button>
-                    </form>
-                    
-                    {localStorage.getItem('sigae_tiene_huella') && 
-                     localStorage.getItem('sigae_huella_habilitada') !== 'false' && 
-                     localStorage.getItem('sigae_bloqueado_total') !== 'true' && (
-                      <div id="btn-biometrico-container" className="text-center mt-3 border-top pt-3" style={{ display: 'block' }}>
-                        <button 
-                          type="button" 
-                          id="btn-biometrico-inicial"
-                          onClick={handleLoginBiometrico} 
-                          className="btn btn-outline-success w-100 btn-pill fw-bold btn-border-2"
-                        >
-                          <i className="bi bi-fingerprint fs-4 me-2 align-middle"></i>Ingresar con Huella / PIN
-                        </button>
-                        <small className="text-muted d-block mt-2">Acceso rápido configurado en este dispositivo</small>
-                      </div>
-                    )}
+          {/* PASO: INVITADO */}
+          {loginStep === 'invitado' && (
+            <div>
+              <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '1.05rem' }}>Registro de Visitante / Acceso Transitorio</h5>
+              <p className="text-muted small mb-3">Ingrese sus datos para el registro institucional.</p>
+              <form onSubmit={registrarInvitado}>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CÉDULA DE IDENTIDAD</label>
+                  <input type="text" className="sap-fiori-input" value={cedula} disabled />
+                </div>
+                <div className="row g-2 mb-2">
+                  <div className="col-6">
+                    <label className="sap-fiori-label">NOMBRES *</label>
+                    <input type="text" className="sap-fiori-input" placeholder="Nombres" value={invNombres} onChange={e => setInvNombres(e.target.value)} required />
                   </div>
-                )}
-
-                {/* PASO 2: CLAVE */}
-                {loginStep === 'clave' && (
-                  <div id="paso-clave" className="animate__animated animate__fadeInRight" style={{ display: 'block' }}>
-                    <h4>Contraseña</h4>
-                    <div className="d-flex align-items-center bg-light p-2 rounded-pill mb-4 border px-3">
-                        <i className="bi bi-person-circle fs-4 text-primary me-2"></i>
-                        <span className="fw-bold text-dark text-truncate">{nombreUsuario}</span>
-                    </div>
-                    <form onSubmit={iniciarSesion}>
-                      <label className="fw-bold text-muted small mb-2 ps-2">Clave de Acceso</label>
-                      <div className="position-relative mb-4">
-                        <input 
-                          type={showClave ? 'text' : 'password'} 
-                          className="form-control input-pill pe-5" 
-                          placeholder="Ingresa tu contraseña"
-                          value={clave}
-                          onChange={(e) => setClave(e.target.value)}
-                        />
-                        <button 
-                          type="button" 
-                          onClick={() => setShowClave(!showClave)} 
-                          className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                        >
-                          <i className={`bi bi-eye${showClave ? '-slash' : ''} text-muted`}></i>
-                        </button>
-                      </div>
-                      <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-pill mb-3">
-                        {loading ? 'Entrando...' : <React.Fragment>Ingresar <i className="bi bi-box-arrow-in-right ms-1"></i></React.Fragment>}
-                      </button>
-                    </form>
-                    {localStorage.getItem('sigae_tiene_huella') && 
-                     localStorage.getItem('sigae_huella_habilitada') !== 'false' && 
-                     localStorage.getItem('sigae_bloqueado_total') !== 'true' && (
-                      <div id="btn-biometrico-container-clave" className="text-center mt-3 border-top pt-3" style={{ display: 'block' }}>
-                        <button 
-                          type="button" 
-                          id="btn-biometrico-inicial"
-                          onClick={handleLoginBiometrico} 
-                          className="btn btn-outline-success w-100 btn-pill fw-bold btn-border-2 mb-3"
-                        >
-                          <i className="bi bi-fingerprint fs-4 me-2 align-middle"></i>Ingresar con Huella / PIN
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="text-center">
-                        <button type="button" onClick={handleOlvidoClave} className="btn btn-link text-primary text-decoration-none small fw-bold mb-2">¿Olvidaste tu contraseña?</button><br/>
-                        <button onClick={resetForm} className="btn btn-link text-muted text-decoration-none small">Volver al inicio</button>
-                    </div>
+                  <div className="col-6">
+                    <label className="sap-fiori-label">APELLIDOS *</label>
+                    <input type="text" className="sap-fiori-input" placeholder="Apellidos" value={invApellidos} onChange={e => setInvApellidos(e.target.value)} required />
                   </div>
-                )}
+                </div>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CORREO ELECTRÓNICO</label>
+                  <input type="email" className="sap-fiori-input" placeholder="correo@ejemplo.com" value={invCorreo} onChange={e => setInvCorreo(e.target.value)} />
+                </div>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">NÚMERO DE TELÉFONO</label>
+                  <input type="text" className="sap-fiori-input" placeholder="04121234567" value={invTelefono} onChange={e => setInvTelefono(e.target.value)} />
+                </div>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">MOTIVO DE LA VISITA *</label>
+                  <input type="text" className="sap-fiori-input" placeholder="Motivo o trámite" value={invMotivo} onChange={e => setInvMotivo(e.target.value)} required />
+                </div>
 
-                {/* PASO: RECUPERACION DE CONTRASEÑA */}
-                {loginStep === 'recuperacion' && (
-                  <div id="paso-recuperacion" className="animate__animated animate__fadeInRight" style={{ display: 'block' }}>
-                    <h4>Recuperar Acceso</h4>
-                    <form onSubmit={procesarRecuperacion}>
-                      <div className="mb-3">
-                        <label className="small fw-bold text-dark mb-2 ps-2">Correo Electrónico Registrado</label>
-                        <input 
-                          type="email" 
-                          className="form-control input-pill" 
-                          placeholder="correo@ejemplo.com"
-                          value={recCorreo}
-                          onChange={(e) => setRecCorreo(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <label className="small fw-bold text-dark mb-2 ps-2" id="lbl-pregunta-recuperacion">
-                          {preguntaRecuperacion || 'Cargando pregunta...'}
-                        </label>
-                        <input 
-                          type="text" 
-                          className="form-control input-pill" 
-                          placeholder="Respuesta exacta"
-                          value={recRespuesta}
-                          onChange={(e) => setRecRespuesta(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="position-relative mb-3">
-                        <input 
-                          type={showRecClave1 ? 'text' : 'password'} 
-                          className="form-control input-pill pe-5" 
-                          placeholder="Nueva Contraseña"
-                          value={recClave1}
-                          onChange={(e) => setRecClave1(e.target.value)}
-                          required
-                        />
-                        <button 
-                          type="button" 
-                          onClick={() => setShowRecClave1(!showRecClave1)} 
-                          className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                        >
-                          <i className={`bi bi-eye${showRecClave1 ? '-slash' : ''} text-muted`}></i>
-                        </button>
-                      </div>
-                      
-                      <div className="progress mb-3 progress-clave" style={{ height: '6px' }}>
-                        <div 
-                          className={`progress-bar ${getFuerzaClave(recClave1) < 50 ? 'bg-danger' : getFuerzaClave(recClave1) < 75 ? 'bg-warning' : 'bg-success'}`} 
-                          role="progressbar" 
-                          style={{ width: `${getFuerzaClave(recClave1)}%` }}
-                        ></div>
-                      </div>
-
-                      <div className="position-relative mb-4">
-                        <input 
-                          type={showRecClave2 ? 'text' : 'password'} 
-                          className="form-control input-pill pe-5" 
-                          placeholder="Confirmar Contraseña"
-                          value={recClave2}
-                          onChange={(e) => setRecClave2(e.target.value)}
-                          required
-                        />
-                        <button 
-                          type="button" 
-                          onClick={() => setShowRecClave2(!showRecClave2)} 
-                          className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                        >
-                          <i className={`bi bi-eye${showRecClave2 ? '-slash' : ''} text-muted`}></i>
-                        </button>
-                      </div>
-
-                      <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-pill mb-3">
-                        {loading ? 'Procesando...' : 'Restablecer Contraseña'}
-                      </button>
-                      
-                      <button type="button" onClick={solicitarSoporte} className="btn btn-outline-danger w-100 btn-pill mb-3">
-                        No recuerdo nada (Soporte)
-                      </button>
-                      
-                      <div className="text-center">
-                        <button type="button" onClick={() => setLoginStep('clave')} className="btn btn-link text-muted text-decoration-none">
-                          Cancelar
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                )}
-
-                {/* PASO 3: INVITADO */}
-                {loginStep === 'invitado' && (
-                  <div id="paso-invitado" className="animate__animated animate__fadeInUp" style={{ display: 'block' }}>
-                    <h4>Visitante</h4>
-                    <p className="small text-muted mb-3">Ingresa tus datos para registrar tu visita.</p>
-                    <form onSubmit={registrarInvitado}>
-                      <input type="number" className="form-control input-pill mb-3" value={cedula} disabled />
-                      <input type="text" className="form-control input-pill mb-3" placeholder="Nombres *" value={invNombres} onChange={e => setInvNombres(e.target.value)} />
-                      <input type="text" className="form-control input-pill mb-3" placeholder="Apellidos *" value={invApellidos} onChange={e => setInvApellidos(e.target.value)} />
-                      <input type="email" className="form-control input-pill mb-3" placeholder="Correo Electrónico" value={invCorreo} onChange={e => setInvCorreo(e.target.value)} />
-                      <input type="text" className="form-control input-pill mb-3" placeholder="Número de Teléfono" value={invTelefono} onChange={e => setInvTelefono(e.target.value)} />
-                      <input type="text" className="form-control input-pill mb-4" placeholder="Motivo de la Visita *" value={invMotivo} onChange={e => setInvMotivo(e.target.value)} />
-                      
-                      <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-pill mb-3">Registrar Ingreso</button>
-                      <button type="button" onClick={resetForm} className="btn btn-outline-secondary w-100 btn-pill">Volver</button>
-                    </form>
-                  </div>
-                )}
-
-                {/* PASO: PRIMER INGRESO */}
-                {loginStep === 'primer-ingreso' && (
-                  <div id="paso-primer-ingreso" className="animate__animated animate__fadeInUp" style={{ display: 'block' }}>
-                    <h4 className="mb-3 text-primary">Configuración Inicial</h4>
-                    <p className="small text-muted mb-4">
-                      Hola <span className="fw-bold text-dark">{nombreUsuario}</span>, por ser tu primer ingreso debes configurar tu cuenta.
-                    </p>
-                    <form onSubmit={procesarPrimerIngreso}>
-                      <div className="position-relative mb-1">
-                        <input 
-                          type={showPiClave1 ? 'text' : 'password'} 
-                          className="form-control input-pill pe-5" 
-                          placeholder="Crea tu contraseña *" 
-                          value={piClave1}
-                          onChange={handlePiClave1Change}
-                          required 
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setShowPiClave1(!showPiClave1)} 
-                          className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                        >
-                          <i className={`bi bi-eye${showPiClave1 ? '-slash' : ''} text-muted`}></i>
-                        </button>
-                      </div>
-
-                      <div className="progress mb-2 progress-clave" style={{ height: '6px' }}>
-                        <div 
-                          className={`progress-bar ${fuerzaPiClave < 50 ? 'bg-danger' : fuerzaPiClave < 75 ? 'bg-warning' : 'bg-success'}`} 
-                          role="progressbar" 
-                          style={{ width: `${fuerzaPiClave}%` }}
-                        ></div>
-                      </div>
-                      <small className={`d-block mb-3 ps-2 ${fuerzaPiClave < 50 ? 'text-danger' : fuerzaPiClave < 75 ? 'text-warning' : 'text-success'}`} style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
-                        {fuerzaPiClave === 0 && ''}
-                        {fuerzaPiClave > 0 && fuerzaPiClave < 50 && 'Contraseña débil (Mínimo 8 caracteres, letras y números)'}
-                        {fuerzaPiClave >= 50 && fuerzaPiClave < 75 && 'Contraseña media (Agregue mayúsculas y símbolos)'}
-                        {fuerzaPiClave >= 75 && 'Contraseña fuerte (Segura)'}
-                      </small>
-
-                      <div className="position-relative mb-3">
-                        <input 
-                          type={showPiClave2 ? 'text' : 'password'} 
-                          className="form-control input-pill pe-5" 
-                          placeholder="Confirma tu contraseña *" 
-                          value={piClave2}
-                          onChange={e => setPiClave2(e.target.value)}
-                          required 
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setShowPiClave2(!showPiClave2)} 
-                          className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                        >
-                          <i className={`bi bi-eye${showPiClave2 ? '-slash' : ''} text-muted`}></i>
-                        </button>
-                      </div>
-
-                      <input 
-                        type="email" 
-                        className="form-control input-pill mb-3" 
-                        placeholder="Correo Electrónico (Ej: usuario@correo.com) *" 
-                        value={piEmail}
-                        onChange={e => setPiEmail(e.target.value)}
-                        required 
-                      />
-
-                      <input 
-                        type="tel" 
-                        className="form-control input-pill mb-3" 
-                        placeholder="Teléfono Celular (Ej: 04121234567) *" 
-                        value={piTelefono}
-                        onChange={e => setPiTelefono(e.target.value)}
-                        required 
-                        maxLength={11}
-                      />
-
-                      <label className="small text-muted fw-bold ps-2 mb-1">Preguntas de Seguridad (Obligatorias) *</label>
-                      <select 
-                        className="form-select input-pill mb-2" 
-                        value={piPreg1} 
-                        onChange={e => setPiPreg1(e.target.value)}
-                        required
-                      >
-                        <option value="">Seleccione una pregunta...</option>
-                        {preguntasSeguridad.map(p => (
-                          <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
-                        ))}
-                      </select>
-                      <input 
-                        type="text" 
-                        className="form-control input-pill mb-3" 
-                        placeholder="Respuesta 1 *" 
-                        value={piResp1}
-                        onChange={e => setPiResp1(e.target.value)}
-                        required 
-                      />
-
-                      <select 
-                        className="form-select input-pill mb-2" 
-                        value={piPreg2} 
-                        onChange={e => setPiPreg2(e.target.value)}
-                        required
-                      >
-                        <option value="">Seleccione una pregunta...</option>
-                        {preguntasSeguridad.map(p => (
-                          <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
-                        ))}
-                      </select>
-                      <input 
-                        type="text" 
-                        className="form-control input-pill mb-4" 
-                        placeholder="Respuesta 2 *" 
-                        value={piResp2}
-                        onChange={e => setPiResp2(e.target.value)}
-                        required 
-                      />
-
-                      <button type="submit" disabled={loading} className="btn btn-primary w-100 btn-pill mb-3">
-                        {loading ? 'Procesando...' : 'Completar Registro'}
-                      </button>
-                      <button type="button" onClick={resetForm} className="btn btn-outline-secondary w-100 btn-pill">
-                        Cancelar
-                      </button>
-                    </form>
-                  </div>
-                )}
-
-              </div>
+                <button type="submit" disabled={loading} className="sap-fiori-btn-primary mb-2">
+                  {loading ? 'Registrando ingreso...' : 'Registrar Ingreso'}
+                </button>
+                <button type="button" onClick={resetForm} className="sap-fiori-btn-secondary">
+                  Volver al Inicio
+                </button>
+              </form>
             </div>
-          </div>
-        )}
+          )}
 
-      </div>
+          {/* PASO: PRIMER INGRESO */}
+          {loginStep === 'primer-ingreso' && (
+            <div>
+              <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '1.05rem' }}>Configuración Inicial de Cuenta</h5>
+              <p className="text-muted small mb-3">
+                Hola <span className="fw-bold text-dark">{nombreUsuario || `C.I. ${cedula}`}</span>, configure sus credenciales de acceso.
+              </p>
+              <form onSubmit={procesarPrimerIngreso}>
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CREAR CONTRASEÑA *</label>
+                  <div className="position-relative">
+                    <input 
+                      type={showPiClave1 ? 'text' : 'password'} 
+                      className="sap-fiori-input pe-5" 
+                      placeholder="Mínimo 8 caracteres" 
+                      value={piClave1}
+                      onChange={handlePiClave1Change}
+                      required 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPiClave1(!showPiClave1)} 
+                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
+                      style={{ background: 'transparent' }}
+                    >
+                      <i className={`bi bi-eye${showPiClave1 ? '-slash' : ''} text-muted`}></i>
+                    </button>
+                  </div>
+                  <div className="progress mt-2" style={{ height: '6px' }}>
+                    <div 
+                      className={`progress-bar ${fuerzaPiClave < 50 ? 'bg-danger' : fuerzaPiClave < 75 ? 'bg-warning' : 'bg-success'}`} 
+                      role="progressbar" 
+                      style={{ width: `${fuerzaPiClave}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CONFIRMAR CONTRASEÑA *</label>
+                  <div className="position-relative">
+                    <input 
+                      type={showPiClave2 ? 'text' : 'password'} 
+                      className="sap-fiori-input pe-5" 
+                      placeholder="Repita la contraseña" 
+                      value={piClave2}
+                      onChange={e => setPiClave2(e.target.value)}
+                      required 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPiClave2(!showPiClave2)} 
+                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
+                      style={{ background: 'transparent' }}
+                    >
+                      <i className={`bi bi-eye${showPiClave2 ? '-slash' : ''} text-muted`}></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">CORREO ELECTRÓNICO *</label>
+                  <input 
+                    type="email" 
+                    className="sap-fiori-input" 
+                    placeholder="usuario@correo.com" 
+                    value={piEmail}
+                    onChange={e => setPiEmail(e.target.value)}
+                    required 
+                  />
+                </div>
+
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">TELÉFONO CELULAR *</label>
+                  <input 
+                    type="tel" 
+                    className="sap-fiori-input" 
+                    placeholder="04121234567" 
+                    value={piTelefono}
+                    onChange={e => setPiTelefono(e.target.value)}
+                    required 
+                    maxLength={11}
+                  />
+                </div>
+
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">PREGUNTA DE SEGURIDAD 1 *</label>
+                  <select 
+                    className="sap-fiori-select mb-2" 
+                    value={piPreg1} 
+                    onChange={e => setPiPreg1(e.target.value)}
+                    required
+                  >
+                    <option value="">Seleccione una pregunta...</option>
+                    {preguntasSeguridad.map(p => (
+                      <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
+                    ))}
+                  </select>
+                  <input 
+                    type="text" 
+                    className="sap-fiori-input" 
+                    placeholder="Respuesta 1" 
+                    value={piResp1}
+                    onChange={e => setPiResp1(e.target.value)}
+                    required 
+                  />
+                </div>
+
+                <div className="sap-fiori-form-group">
+                  <label className="sap-fiori-label">PREGUNTA DE SEGURIDAD 2 *</label>
+                  <select 
+                    className="sap-fiori-select mb-2" 
+                    value={piPreg2} 
+                    onChange={e => setPiPreg2(e.target.value)}
+                    required
+                  >
+                    <option value="">Seleccione una pregunta...</option>
+                    {preguntasSeguridad.map(p => (
+                      <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
+                    ))}
+                  </select>
+                  <input 
+                    type="text" 
+                    className="sap-fiori-input" 
+                    placeholder="Respuesta 2" 
+                    value={piResp2}
+                    onChange={e => setPiResp2(e.target.value)}
+                    required 
+                  />
+                </div>
+
+                <button type="submit" disabled={loading} className="sap-fiori-btn-primary mb-2">
+                  {loading ? 'Configurando cuenta...' : 'Completar Activación'}
+                </button>
+                <button type="button" onClick={resetForm} className="sap-fiori-btn-secondary">
+                  Cancelar
+                </button>
+              </form>
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      {/* 3. Footer Corporativo */}
+      <footer className="sap-fiori-footer">
+        <div className="sap-fiori-footer-left">
+          <span>© 2026 SIGAE v1.1 • Sistema Integral de Gestión y Administración Escolar</span>
+        </div>
+        <div className="sap-fiori-footer-right">
+          <span>DEP Oriente</span>
+          <span>•</span>
+          <span>Monagas, Venezuela</span>
+          <span>•</span>
+          <span className="text-info fw-bold">Conexión Segura</span>
+        </div>
+      </footer>
     </div>
   );
 };

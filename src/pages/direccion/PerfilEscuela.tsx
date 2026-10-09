@@ -11,6 +11,7 @@ interface EscuelaData {
   codigo_dea: string;
   rif: string;
   direccion: string;
+  google_maps_url?: string;
   mision: string;
   vision: string;
   objetivo: string;
@@ -26,6 +27,7 @@ const ESCUELAS_DEFAULT: EscuelaData[] = [
     codigo_dea: 'OD05561615',
     rif: 'G-20000041-4',
     direccion: 'Campo Residencial El Tejero, Municipio Ezequiel Zamora, Edo. Monagas',
+    google_maps_url: 'https://maps.google.com/?q=V%C3%ADa+Nacional+Monagas+-+Anzo%C3%A1tegui%2C+Calle+1%2C+Campo+Sur+El+Tejero%2C+municipio+Ezequiel+Zamora%2C+estado+Monagas',
     mision: 'Formar integralmente a los estudiantes mediante una educación humanista, científica y tecnológica con alto compromiso ético y ciudadano.',
     vision: 'Consolidarse como una institución educativa modelo en excelencia pedagógica, innovación y liderazgo comunitario.',
     objetivo: 'Fomentar la excelencia académica, el pensamiento crítico, la disciplina y los valores de solidaridad y pertenencia.',
@@ -38,6 +40,7 @@ const ESCUELAS_DEFAULT: EscuelaData[] = [
     codigo_dea: 'OD05561614',
     rif: 'G-20000041-4',
     direccion: 'Campo Residencial Miraflores, Temblador, Edo. Monagas',
+    google_maps_url: 'https://maps.google.com/?q=V%C3%ADa+Nacional+Monagas+-+Sucre%2C+Campo+Monagas+Miraflores%2C+municipio+Punceres%2C+estado+Monagas',
     mision: 'Formar integralmente a los estudiantes mediante una educación humanista, científica y tecnológica con alto compromiso ético y ciudadano.',
     vision: 'Consolidarse como una institución educativa modelo en excelencia pedagógica, innovación y liderazgo comunitario.',
     objetivo: 'Fomentar la excelencia académica, el pensamiento crítico, la disciplina y los valores de solidaridad y pertenencia.',
@@ -80,18 +83,24 @@ export const PerfilEscuela = () => {
         const loaded: EscuelaData[] = data.map((esc: any) => {
           const key = esc.id_escuela?.toLowerCase();
           const localSavedLogo = localStorage.getItem(`sigae_logo_${key}`);
+          const localMapsUrl = localStorage.getItem(`sigae_maps_url_${key}`);
+          const defaultMapUrl = key === 'lb'
+            ? 'https://maps.google.com/?q=V%C3%ADa+Nacional+Monagas+-+Sucre%2C+Campo+Monagas+Miraflores%2C+municipio+Punceres%2C+estado+Monagas'
+            : 'https://maps.google.com/?q=V%C3%ADa+Nacional+Monagas+-+Anzo%C3%A1tegui%2C+Calle+1%2C+Campo+Sur+El+Tejero%2C+municipio+Ezequiel+Zamora%2C+estado+Monagas';
+
           return {
             id_escuela: key,
             nombre_institucion: esc.nombre_institucion || '',
             codigo_dea: esc.codigo_dea || '',
             rif: esc.rif || '',
             direccion: esc.direccion || '',
+            google_maps_url: esc.google_maps_url || localMapsUrl || defaultMapUrl,
             mision: esc.mision || '',
             vision: esc.vision || '',
             objetivo: esc.objetivo || '',
             peic: esc.peic || '',
             logo_url: esc.logo_url || localSavedLogo || '',
-            nivel_educativo: esc.nivel_educativo || (key === 'sb' ? 'Educación Inicial y Primaria' : 'Educación Media General')
+            nivel_educativo: esc.nivel_educativo || localStorage.getItem(`sigae_nivel_${key}`) || (key === 'sb' ? 'Educación Inicial y Primaria' : 'Educación Media General')
           };
         });
 
@@ -258,9 +267,14 @@ export const PerfilEscuela = () => {
             </div>
           </div>
 
-          <div class="mb-1">
+          <div class="mb-2">
             <label class="form-label fw-bold small text-dark mb-1">Dirección / Ubicación</label>
             <input id="swal-escuela-dir" class="form-control form-control-sm" placeholder="Ej: Campo Residencial El Tejero" />
+          </div>
+
+          <div class="mb-1">
+            <label class="form-label fw-bold small text-dark mb-1">Enlace de Ubicación en Google Maps (opcional)</label>
+            <input id="swal-escuela-maps" class="form-control form-control-sm" placeholder="https://maps.app.goo.gl/... o https://maps.google.com/?q=..." />
           </div>
         </div>
       `,
@@ -276,6 +290,7 @@ export const PerfilEscuela = () => {
         const deaInput = (document.getElementById('swal-escuela-dea') as HTMLInputElement)?.value.trim().toUpperCase();
         const rifInput = (document.getElementById('swal-escuela-rif') as HTMLInputElement)?.value.trim().toUpperCase();
         const dirInput = (document.getElementById('swal-escuela-dir') as HTMLInputElement)?.value.trim();
+        const mapsInput = (document.getElementById('swal-escuela-maps') as HTMLInputElement)?.value.trim();
 
         if (!idInput) {
           Swal.showValidationMessage('El identificador de la escuela es obligatorio.');
@@ -299,6 +314,7 @@ export const PerfilEscuela = () => {
           codigo_dea: deaInput || 'Por Asignar',
           rif: rifInput || 'G-20000041-4',
           direccion: dirInput || 'Sin dirección registrada',
+          google_maps_url: mapsInput || '',
           mision: 'Formar integralmente a los estudiantes mediante una educación humanista, científica y tecnológica.',
           vision: 'Consolidarse como una institución educativa modelo en excelencia pedagógica y liderazgo comunitario.',
           objetivo: 'Fomentar la excelencia académica, disciplina y valores ciudadanos.',
@@ -312,11 +328,40 @@ export const PerfilEscuela = () => {
         setLoadingData(true);
         try {
           // Guardar en Supabase
+          const basePayload = {
+            id_escuela: nuevaEsc.id_escuela,
+            nombre_institucion: nuevaEsc.nombre_institucion,
+            codigo_dea: nuevaEsc.codigo_dea,
+            rif: nuevaEsc.rif,
+            direccion: nuevaEsc.direccion,
+            mision: nuevaEsc.mision,
+            vision: nuevaEsc.vision,
+            objetivo: nuevaEsc.objetivo,
+            peic: nuevaEsc.peic
+          };
+
+          const fullPayload: any = { ...basePayload };
+          if (nuevaEsc.nivel_educativo) fullPayload.nivel_educativo = nuevaEsc.nivel_educativo;
+          if (nuevaEsc.google_maps_url) fullPayload.google_maps_url = nuevaEsc.google_maps_url;
+          if (nuevaEsc.logo_url) fullPayload.logo_url = nuevaEsc.logo_url;
+
           const { error } = await supabase
             .from('perfil_escuela')
-            .upsert([nuevaEsc]);
+            .upsert([fullPayload]);
 
-          if (error) throw error;
+          if (error) {
+            const { error: errRetry } = await supabase
+              .from('perfil_escuela')
+              .upsert([basePayload]);
+            if (errRetry) throw errRetry;
+          }
+
+          if (nuevaEsc.nivel_educativo) {
+            localStorage.setItem(`sigae_nivel_${nuevaEsc.id_escuela}`, nuevaEsc.nivel_educativo);
+          }
+          if (nuevaEsc.google_maps_url) {
+            localStorage.setItem(`sigae_maps_url_${nuevaEsc.id_escuela}`, nuevaEsc.google_maps_url);
+          }
 
           const updated = [...listaEscuelas, nuevaEsc];
           setListaEscuelas(updated);
@@ -385,6 +430,8 @@ export const PerfilEscuela = () => {
           setEscuelaActivaId(nextEsc);
           localStorage.setItem('sigae_cached_perfiles', JSON.stringify(updated));
           localStorage.removeItem(`sigae_logo_${escuelaActivaId}`);
+          localStorage.removeItem(`sigae_maps_url_${escuelaActivaId}`);
+          localStorage.removeItem(`sigae_nivel_${escuelaActivaId}`);
 
           auditar('Perfil de la Escuela', 'Eliminar Sede', `Se eliminó la sede institucional: ${escuelaActual.nombre_institucion} (${escuelaActivaId})`);
 
@@ -424,7 +471,8 @@ export const PerfilEscuela = () => {
     setGuardando(true);
 
     try {
-      const payload: any = {
+      // 1. Columnas base nativas garantizadas en PostgreSQL
+      const basePayload = {
         id_escuela: escuelaActual.id_escuela,
         nombre_institucion: escuelaActual.nombre_institucion.trim(),
         codigo_dea: escuelaActual.codigo_dea.trim().toUpperCase(),
@@ -433,29 +481,35 @@ export const PerfilEscuela = () => {
         mision: escuelaActual.mision.trim(),
         vision: escuelaActual.vision.trim(),
         objetivo: escuelaActual.objetivo.trim(),
-        peic: escuelaActual.peic.trim(),
-        nivel_educativo: escuelaActual.nivel_educativo || ''
+        peic: escuelaActual.peic.trim()
       };
 
-      // Si existe columna logo_url o se guarda en local
-      if (escuelaActual.logo_url) {
-        payload.logo_url = escuelaActual.logo_url;
-      }
+      // 2. Intentar primero con propiedades extendidas por si fueron migradas en la base de datos
+      const fullPayload: any = { ...basePayload };
+      if (escuelaActual.nivel_educativo) fullPayload.nivel_educativo = escuelaActual.nivel_educativo;
+      if (escuelaActual.google_maps_url !== undefined) fullPayload.google_maps_url = escuelaActual.google_maps_url.trim();
+      if (escuelaActual.logo_url) fullPayload.logo_url = escuelaActual.logo_url;
 
       const { error } = await supabase
         .from('perfil_escuela')
-        .upsert([payload], { onConflict: 'id_escuela' });
+        .upsert([fullPayload], { onConflict: 'id_escuela' });
 
       if (error) {
-        // En caso de que falle por la columna logo_url, intentar sin esa columna
-        delete payload.logo_url;
+        // Si el esquema de PostgreSQL no tiene nivel_educativo, google_maps_url o logo_url, guardar columnas base
+        console.warn('Esquema de perfil_escuela sin columnas extendidas, guardando columnas nativas:', error.message);
         const { error: errRetry } = await supabase
           .from('perfil_escuela')
-          .upsert([payload], { onConflict: 'id_escuela' });
+          .upsert([basePayload], { onConflict: 'id_escuela' });
         if (errRetry) throw errRetry;
       }
 
-      // Guardar caché local
+      // 3. Guardar en caché local y persistencia para nivel, mapas y logos
+      if (escuelaActual.nivel_educativo) {
+        localStorage.setItem(`sigae_nivel_${escuelaActivaId}`, escuelaActual.nivel_educativo);
+      }
+      if (escuelaActual.google_maps_url !== undefined) {
+        localStorage.setItem(`sigae_maps_url_${escuelaActivaId}`, (escuelaActual.google_maps_url || '').trim());
+      }
       localStorage.setItem('sigae_cached_perfiles', JSON.stringify(listaEscuelas));
       if (escuelaActual.logo_url) {
         localStorage.setItem(`sigae_logo_${escuelaActivaId}`, escuelaActual.logo_url);
@@ -845,6 +899,57 @@ export const PerfilEscuela = () => {
                     className="form-control rounded-end-3"
                     placeholder="Dirección física completa, estado, municipio y parroquia de la institución."
                   />
+                </div>
+              </div>
+
+              {/* CAMPO: ENLACE / LINK DE UBICACIÓN EXACTA EN GOOGLE MAPS */}
+              <div className="col-12">
+                <div className="d-flex align-items-center justify-content-between mb-1">
+                  <label className="form-label fw-bold text-dark small mb-0 d-flex align-items-center gap-1.5">
+                    <i className="bi bi-geo-alt-fill text-danger"></i>
+                    <span>Enlace de Ubicación en Google Maps (Link del Plantel)</span>
+                  </label>
+                  {escuelaActual.google_maps_url?.trim() && (
+                    <a
+                      href={escuelaActual.google_maps_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="extra-small text-decoration-none fw-bold text-danger d-inline-flex align-items-center gap-1 hover-opacity"
+                    >
+                      <i className="bi bi-box-arrow-up-right"></i>
+                      <span>Probar Ubicación en Google Maps</span>
+                    </a>
+                  )}
+                </div>
+                <div className="input-group">
+                  <span className="input-group-text bg-light border-end-0 rounded-start-3 text-danger">
+                    <i className="bi bi-pin-map-fill"></i>
+                  </span>
+                  <input
+                    type="url"
+                    value={escuelaActual.google_maps_url || ''}
+                    onChange={(e) => handleChange('google_maps_url', e.target.value)}
+                    className="form-control rounded-end-3"
+                    placeholder="Ej: https://maps.app.goo.gl/... o https://www.google.com/maps/place/..."
+                  />
+                  {escuelaActual.google_maps_url?.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(escuelaActual.google_maps_url, '_blank', 'noopener,noreferrer')}
+                      className="btn btn-outline-danger btn-sm px-3 fw-bold d-inline-flex align-items-center gap-1.5"
+                      title="Abrir y verificar la ubicación en Google Maps"
+                    >
+                      <i className="bi bi-geo-fill"></i>
+                      <span className="d-none d-sm-inline">Ver Mapa</span>
+                    </button>
+                  )}
+                </div>
+                <div className="form-text extra-small text-muted mt-1.5 d-flex align-items-center gap-1.5">
+                  <i className="bi bi-info-circle-fill text-primary"></i>
+                  <span>
+                    Ingresa aquí el enlace exacto obtenido al compartir la ubicación de la escuela desde Google Maps. 
+                    Este enlace creará un acceso directo interactivo en el menú principal donde se muestra la dirección del plantel.
+                  </span>
                 </div>
               </div>
             </div>

@@ -77,6 +77,9 @@ const GestionColectivos = safeLazy(() => import('./pages/organizacion/GestionCol
 const GradosSalones = safeLazy(() => import('./pages/estudios/GradosSalones').then(m => ({ default: m.GradosSalones })));
 const MiExpediente = safeLazy(() => import('./pages/docente/MiExpediente').then(m => ({ default: m.MiExpediente })));
 const GestorExpedientes = safeLazy(() => import('./pages/docente/GestorExpedientes').then(m => ({ default: m.GestorExpedientes })));
+const ReporteGestionDiariaPage = safeLazy(() => import('./pages/gestion_diaria/ReporteGestionDiariaPage').then(m => ({ default: m.ReporteGestionDiariaPage })));
+const AprobacionGestionDiariaPage = safeLazy(() => import('./pages/gestion_diaria/AprobacionGestionDiariaPage').then(m => ({ default: m.AprobacionGestionDiariaPage })));
+const GestionDiariaSubmodulo = safeLazy(() => import('./pages/gestion_diaria/GestionDiariaSubmodulo').then(m => ({ default: m.GestionDiariaSubmodulo })));
 
 const SolicitudCupos = safeLazy(() => import('./pages/estudiantil/SolicitudCupos').then(m => ({ default: m.SolicitudCupos })));
 const GestionAdmisiones = safeLazy(() => import('./pages/estudiantil/GestionAdmisiones').then(m => ({ default: m.GestionAdmisiones })));
@@ -239,6 +242,13 @@ function App() {
                 <Route path="categoria/Dirección y Sistema/Grados y Salones" element={<ProtectedRoute modulo="Grados y Salones"><GradosSalones /></ProtectedRoute>} />
                 <Route path="categoria/Gestión Docente/Mi Expediente" element={<ProtectedRoute modulo="Mi Expediente"><MiExpediente /></ProtectedRoute>} />
                 <Route path="categoria/Gestión Docente/Gestor de Expedientes" element={<ProtectedRoute modulo="Gestor de Expedientes"><GestorExpedientes /></ProtectedRoute>} />
+                <Route path="categoria/Gestión Docente/Gestión Diaria y Aprobaciones" element={<ProtectedRoute modulo="Gestión Diaria y Aprobaciones"><GestionDiariaSubmodulo /></ProtectedRoute>} />
+                <Route path="categoria/Dirección y Sistema/Gestión Diaria y Aprobaciones" element={<ProtectedRoute modulo="Gestión Diaria y Aprobaciones"><GestionDiariaSubmodulo /></ProtectedRoute>} />
+                <Route path="categoria/Gestión Docente/Reporte de Gestión Diaria" element={<ProtectedRoute modulo="Reporte de Gestión Diaria"><GestionDiariaSubmodulo /></ProtectedRoute>} />
+                <Route path="categoria/Dirección y Sistema/Aprobación de Gestión Diaria" element={<ProtectedRoute modulo="Aprobación de Gestión Diaria"><GestionDiariaSubmodulo /></ProtectedRoute>} />
+                <Route path="gestion-diaria" element={<ProtectedRoute modulo="Gestión Diaria y Aprobaciones"><GestionDiariaSubmodulo /></ProtectedRoute>} />
+                <Route path="gestion-diaria/cargar" element={<ProtectedRoute modulo="Gestión Diaria y Aprobaciones"><GestionDiariaSubmodulo /></ProtectedRoute>} />
+                <Route path="gestion-diaria/aprobacion" element={<ProtectedRoute modulo="Gestión Diaria y Aprobaciones"><GestionDiariaSubmodulo /></ProtectedRoute>} />
                 <Route path="categoria/Admisiones y Nuevos Ingresos/Solicitud de Cupos" element={<ProtectedRoute modulo="Solicitud de Cupos"><SolicitudCupos /></ProtectedRoute>} />
                 <Route path="categoria/Admisiones y Nuevos Ingresos/Gestión de Admisiones" element={<ProtectedRoute modulo="Gestión de Admisiones"><GestionAdmisiones /></ProtectedRoute>} />
                 <Route path="categoria/Admisiones y Nuevos Ingresos/Mensajes de Admisión" element={<ProtectedRoute modulo="Mensajes de Admisión"><RedactorMensajesAdmision /></ProtectedRoute>} />

@@ -13,24 +13,35 @@
     --sigma-size: 90px;
 }
 
-/* Contenedor Principal Arrastrable */
-.sigma-container {
-    position: fixed;
-    z-index: 999999;
-    /* Ubicación inicial: Esquina inferior derecha */
-    bottom: 30px;
-    right: 25px;
-    left: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: grab;
-    user-select: none;
-    touch-action: none;
+/* Contenedor Principal en el Cintillo Superior (Sin flotar sobre la pantalla) */
+.bot-cintillo-wrapper,
+#sigma-container {
+    position: relative;
+    display: inline-block;
+    z-index: 1040;
 }
 
-.sigma-container:active {
-    cursor: grabbing;
+/* ==========================================================
+   DROPDOWN DEL ASISTENTE EN EL CINTILLO SUPERIOR
+============================================================= */
+.sigma-cintillo-dropdown {
+    width: min(420px, 94vw);
+    max-height: min(620px, 86vh);
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+@media (max-width: 576px) {
+    .sigma-cintillo-dropdown {
+        position: fixed !important;
+        top: 60px !important;
+        left: 10px !important;
+        right: 10px !important;
+        width: calc(100vw - 20px) !important;
+        max-height: calc(100vh - 140px) !important;
+    }
 }
 
 /* ==========================================================
@@ -946,13 +957,6 @@ body.dark-mode .sigma-btn-minimize:hover {
    Flota encima de la barra inferior sin obstruir la pantalla
    ============================================================= */
 @media (max-width: 991.98px) {
-    .sigma-container {
-        /* Ubicación segura encima de la barra inferior móvil de 65px */
-        bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
-        right: 12px !important;
-        left: auto !important;
-    }
-
     .sigma-avatar-wrapper {
         width: 75px !important;
         height: 80px !important;

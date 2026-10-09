@@ -1,54 +1,181 @@
 /* =========================================================================
-   SIGAE - TRANSPORTE ESCOLAR CHAMILO TECH UI (transporte.css)
-   Diseño de alta gama, micro-animaciones, badges 3D y 100% Mobile Responsive
+   SIGAE - TRANSPORTE ESCOLAR UI (transporte.css)
+   Diseño Dinámico, Vibrante y Animado - Identidad Escolar
+   Integración: 3D Halo Crest, Floating Orbs, Pill Navigation, Rich Saturated Colors
    ========================================================================= */
 
-/* Hero Card Tech */
-.transporte-hero-card {
-  border: 2px solid #fed7aa;
-  border-top: 6px solid #f97316;
-  background: linear-gradient(135deg, #ffffff 0%, #fff7ed 45%, #ffedd5 100%);
-  border-radius: 26px;
-  box-shadow: 0 10px 30px rgba(249, 115, 22, 0.08);
-  transition: all 0.3s ease;
+:root {
+  --transporte-blue: #0062ff;
+  --transporte-blue-hover: #0047d9;
+  --transporte-emerald: #059669;
+  --transporte-emerald-hover: #047857;
+  --transporte-amber: #f59e0b;
+  --transporte-amber-dark: #d97706;
+  --transporte-purple: #8b5cf6;
+  --transporte-cyan: #0284c7;
+  --transporte-dark: #0f172a;
+  --transporte-muted: #475569;
+  --transporte-border: #e2e8f0;
+  --transporte-card-bg: #ffffff;
 }
 
-/* Dual Badge Container */
-.transporte-dual-badge {
+/* ── 1. CABECERA INSTITUCIONAL VIBRANTE Y DINÁMICA ── */
+.transporte-campus-banner {
+  border-radius: 24px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.12), 0 2px 10px rgba(0, 0, 0, 0.06);
+  color: #ffffff;
+}
+
+/* Gradientes Vibrantes por Sede Escolar */
+.transporte-campus-banner.theme-lb {
+  background: linear-gradient(135deg, #0c2d6b 0%, #1d4ed8 32%, #0284c7 68%, #d97706 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-top: 4px solid #38bdf8;
+}
+
+.transporte-campus-banner.theme-sb {
+  background: linear-gradient(135deg, #064e3b 0%, #059669 32%, #10b981 68%, #d97706 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-top: 4px solid #34d399;
+}
+
+/* Burbujas y Órbitas 3D Ligeras con Movimiento Fluido */
+.transporte-banner-orb {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 60%, transparent 80%);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  animation: bannerOrbFloat 14s ease-in-out infinite alternate;
+}
+
+.transporte-banner-orb-1 {
+  width: 320px;
+  height: 320px;
+  top: -100px;
+  right: -60px;
+}
+
+.transporte-banner-orb-2 {
+  width: 230px;
+  height: 230px;
+  bottom: -70px;
+  left: 18%;
+  animation-delay: -5s;
+}
+
+.transporte-banner-orb-3 {
+  width: 170px;
+  height: 170px;
+  top: 20%;
+  right: 28%;
+  animation-delay: -9s;
+}
+
+@keyframes bannerOrbFloat {
+  0%   { transform: translateY(0) scale(1) rotate(0deg); }
+  50%  { transform: translateY(-16px) scale(1.08) rotate(5deg); }
+  100% { transform: translateY(8px) scale(0.95) rotate(-5deg); }
+}
+
+@keyframes avatarHaloBreath {
+  0%   { opacity: 0.55; transform: scale(0.96); filter: blur(12px); }
+  100% { opacity: 0.95; transform: scale(1.10); filter: blur(18px); }
+}
+
+/* Sub-barra de Telemetría Inferior con Glassmorphism Oscuro */
+.transporte-banner-subbar {
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 10px 18px;
+}
+
+/* Badges y Pastillas Translúcidas del Banner */
+.transporte-glass-pill {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.transporte-glass-pill:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.transporte-glass-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 0.76rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+}
+
+.transporte-glass-btn:hover {
+  background: #f8fafc;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  color: #0062ff;
+}
+
+.transporte-glass-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.76rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.transporte-glass-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+/* ── 2. BARRA DE NAVEGACIÓN DE SUBMÓDULOS (PILL BUTTONS DINÁMICOS) ── */
+.transporte-submod-container {
   background: #ffffff;
   border-radius: 20px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
-  border: 2px solid #fed7aa;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  padding: 8px 12px;
+  margin-bottom: 22px;
 }
 
-.transporte-icon-box {
-  width: 82px;
-  height: 82px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-  border: 1.5px solid #fed7aa;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.transporte-logo-box {
-  width: 82px;
-  height: 82px;
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-}
-
-/* Barra de Modos de Trabajo con Scroll Horizontal en Móviles */
 .transporte-submod-nav {
   display: flex;
   align-items: center;
@@ -57,8 +184,9 @@
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  padding: 2px 0;
 }
+
 .transporte-submod-nav::-webkit-scrollbar {
   display: none;
 }
@@ -66,179 +194,255 @@
 .transporte-submod-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
+  gap: 8px;
+  padding: 8px 18px;
   border-radius: 9999px;
   font-weight: 700;
-  font-size: 0.82rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid transparent;
+  font-size: 0.83rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
   text-decoration: none;
   cursor: pointer;
   flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
-.transporte-submod-btn.active {
-  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+.transporte-submod-btn:hover:not(.active) {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.07);
+}
+
+/* Botones Activos con Colores Específicos de Submódulo */
+.transporte-submod-btn.active.btn-dash {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
-  border-color: #ea580c;
+  border-color: #0f172a !important;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35) !important;
+  transform: translateY(-2px);
 }
 
-.transporte-submod-btn:not(.active) {
+.transporte-submod-btn.active.btn-coord {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%) !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.38) !important;
+  transform: translateY(-2px);
+}
+
+.transporte-submod-btn.active.btn-oper {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.38) !important;
+  transform: translateY(-2px);
+}
+
+.transporte-submod-btn.active.btn-visor {
+  background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%) !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.38) !important;
+  transform: translateY(-2px);
+}
+
+.transporte-submod-btn.active.btn-list {
+  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%) !important;
+  color: #ffffff !important;
+  border-color: #7c3aed !important;
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.38) !important;
+  transform: translateY(-2px);
+}
+
+.transporte-submod-btn.active.btn-stat {
+  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%) !important;
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.38) !important;
+  transform: translateY(-2px);
+}
+
+.transporte-submod-btn.active.btn-wsp {
+  background: linear-gradient(135deg, #15803d 0%, #16a34a 100%) !important;
+  color: #ffffff !important;
+  border-color: #15803d !important;
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.38) !important;
+  transform: translateY(-2px);
+}
+
+/* ── 3. TARJETAS DE CARACTERÍSTICAS Y SUBMÓDULOS (DASHBOARD) ── */
+.transporte-kpi-card {
   background: #ffffff;
-  color: #475569;
-  border-color: #e2e8f0;
-}
-.transporte-submod-btn:not(.active):hover {
-  background: #fff7ed;
-  color: #c2410c;
-  border-color: #fed7aa;
-  transform: translateY(-1px);
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-/* Tarjetas de Dashboard Chamilo */
+.transporte-kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: #cbd5e1;
+}
+
 .transporte-feature-card {
   background: #ffffff;
-  border-radius: 22px;
+  border-radius: 24px;
   border: 1.5px solid #e2e8f0;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
-  padding: 22px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+  padding: 24px;
   height: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
+
 .transporte-feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+  transform: translateY(-5px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e1;
 }
+
 .transporte-feature-card.card-disabled {
-  opacity: 0.65;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
 }
 
 .transporte-card-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   margin-bottom: 16px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
+
 .transporte-feature-card:hover .transporte-card-icon {
-  transform: scale(1.08) rotate(3deg);
+  transform: scale(1.12) rotate(4deg);
 }
 
 .transporte-bg-watermark {
   position: absolute;
-  right: -10px;
-  bottom: -15px;
-  font-size: 8rem;
+  right: -12px;
+  bottom: -20px;
+  font-size: 8.5rem;
   line-height: 1;
   opacity: 0.04;
   pointer-events: none;
-  transition: all 0.3s ease;
+  transition: all 0.35s ease;
 }
+
 .transporte-feature-card:hover .transporte-bg-watermark {
   opacity: 0.09;
-  transform: scale(1.08);
+  transform: scale(1.1) rotate(-3deg);
 }
 
-/* Stepper y Timeline Responsive */
-.transporte-stepper-wrap {
+/* ── 4. CONTENEDORES DE SUBMÓDULOS (CARD WRAPPER) ── */
+.transporte-submod-card {
+  background: #ffffff;
+  border-radius: 22px;
+  border: 1.5px solid #bae6fd;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.transporte-submod-card-header {
+  padding: 16px 22px;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.06);
+}
+
+.transporte-submod-card.card-coord {
+  border-top: 5px solid #0284c7;
+  border-color: #bae6fd;
+}
+.transporte-submod-card.card-coord .transporte-submod-card-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%);
+  border-bottom: 1.5px solid #bae6fd;
+}
+
+.transporte-submod-card.card-oper {
+  border-top: 5px solid #10b981;
+  border-color: #a7f3d0;
+}
+.transporte-submod-card.card-oper .transporte-submod-card-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 45%, #dcfce7 100%);
+  border-bottom: 1.5px solid #a7f3d0;
+}
+
+.transporte-submod-card.card-visor {
+  border-top: 5px solid #0284c7;
+  border-color: #bae6fd;
+}
+.transporte-submod-card.card-visor .transporte-submod-card-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%);
+  border-bottom: 1.5px solid #bae6fd;
+}
+
+.transporte-submod-card.card-list {
+  border-top: 5px solid #8b5cf6;
+  border-color: #ddd6fe;
+}
+.transporte-submod-card.card-list .transporte-submod-card-header {
+  background: linear-gradient(135deg, #ffffff 0%, #faf5ff 45%, #f3e8ff 100%);
+  border-bottom: 1.5px solid #ddd6fe;
+}
+
+.transporte-submod-card.card-stat {
+  border-top: 5px solid #f59e0b;
+  border-color: #fde68a;
+}
+.transporte-submod-card.card-stat .transporte-submod-card-header {
+  background: linear-gradient(135deg, #ffffff 0%, #fffbeb 45%, #fef3c7 100%);
+  border-bottom: 1.5px solid #fde68a;
+}
+
+/* ── 5. STATUS BEACON Y PULSOS EN VIVO ── */
+.status-beacon-live {
+  display: inline-block;
+  border-radius: 50%;
+  background-color: currentColor;
   position: relative;
-  padding: 8px 0;
 }
 
-.stepper-stop-mobile {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-  margin-bottom: 10px;
-  animation: fadeIn 0.3s ease;
+.status-beacon-live::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0.6;
+  animation: beaconPulse 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
 }
 
-.stepper-card-mobile {
-  flex: 1;
-  min-width: 0;
-  background: #ffffff;
-  border-radius: 14px;
-  padding: 12px 14px;
-  border: 1.5px solid #f1f5f9;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-  transition: all 0.2s ease;
+@keyframes beaconPulse {
+  0%   { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
 
-/* Vista Móvil de Tablas (Cards para teléfono) */
-.mobile-entity-card {
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  transition: all 0.2s ease;
-}
-.mobile-entity-card:active {
-  background: #f8fafc;
-}
-
-/* Ajustes Responsive para Pantallas Pequeñas (< 768px) */
-@media (max-width: 768px) {
-  .transporte-dual-badge {
-    gap: 8px;
-    padding: 6px;
-  }
-  .transporte-icon-box,
-  .transporte-logo-box {
-    width: 64px;
-    height: 64px;
-  }
-  .transporte-hero-card {
-    border-radius: 20px;
-  }
-  .transporte-hero-card .p-4 {
-    padding: 16px !important;
-  }
-  .transporte-feature-card {
-    padding: 16px;
-    border-radius: 18px;
-  }
-  .transporte-card-icon {
-    width: 44px;
-    height: 44px;
-    font-size: 1.25rem;
-    margin-bottom: 12px;
-  }
-  .card-body.p-4.p-md-5 {
-    padding: 16px !important;
-  }
-  .stepper-card {
-    padding: 10px !important;
-    gap: 8px !important;
-  }
-  .stepper-pin {
-    width: 34px !important;
-    height: 34px !important;
-    font-size: 0.9rem !important;
-  }
-  .btn-pasamos {
-    padding: 6px 10px !important;
-    font-size: 0.72rem !important;
-  }
-}
-
-/* =========================================================================
-   ESTILOS MODERNOS Y RESPONSIVE PARA EL ENSAMBLADO DE RUTAS (ModalRuta)
-   ========================================================================= */
-
+/* ── 6. ENSAMBLADO DE RUTAS (ModalRuta & Paradas) ── */
 .ruta-paradas-stepper {
   display: flex;
   flex-direction: column;
@@ -261,8 +465,8 @@
 }
 
 .ruta-parada-item:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.1);
+  border-color: #0062ff;
+  box-shadow: 0 4px 14px rgba(0, 98, 255, 0.12);
 }
 
 .ruta-parada-badge {
@@ -270,14 +474,14 @@
   height: 34px;
   min-width: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #0062ff 0%, #0047d9 100%);
   color: #ffffff;
   font-weight: 800;
   font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 3px 8px rgba(0, 98, 255, 0.35);
   flex-shrink: 0;
 }
 
@@ -328,7 +532,7 @@
 
 .btn-step-order:hover:not(:disabled) {
   background: #eff6ff;
-  color: #2563eb;
+  color: #0062ff;
   border-color: #bfdbfe;
 }
 
@@ -387,3 +591,55 @@
   flex-shrink: 0;
 }
 
+/* ── 7. RESPONSIVE MÓVIL ── */
+@media (max-width: 768px) {
+  .transporte-campus-banner {
+    padding: 1.25rem !important;
+    border-radius: 18px;
+  }
+  .transporte-feature-card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+  .transporte-card-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.35rem;
+    margin-bottom: 12px;
+  }
+}
+
+/* ── 8. ENLACES DE GOOGLE MAPS EN CABECERA ── */
+.transporte-maps-link {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+.transporte-maps-link:hover {
+  opacity: 0.82;
+  filter: brightness(0.9);
+  text-decoration: underline;
+}
+a.transporte-dir-link {
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+a.transporte-dir-link:hover {
+  text-shadow: 0 0 8px currentColor;
+}
+
+/* ── 9. ANIMACIÓN ESCUDO: DOBLE HALO PULSANTE ── */
+@keyframes avatarHaloBreath {
+  0%   { opacity: 0.55; transform: scale(0.96); }
+  100% { opacity: 1;    transform: scale(1.04); }
+}
+@keyframes avatarRingPulse {
+  0%   { opacity: 0.25; transform: scale(0.98); }
+  100% { opacity: 0.7;  transform: scale(1.02); }
+}
+.sigae-banner-logo-container {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.sigae-banner-logo-container:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 16px 36px rgba(2, 132, 199, 0.32), 0 0 22px rgba(2, 132, 199, 0.18) !important;
+}

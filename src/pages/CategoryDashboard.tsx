@@ -126,6 +126,16 @@ export const ModulosSistema = {
         badgeText: "Multiplataforma",
         badgeType: "active",
         hint: "Instalador Windows & Android"
+      },
+      { 
+        vista: "Gestión Diaria y Aprobaciones", 
+        icono: "bi-shield-check", 
+        color: "#059669",
+        desc: "Moderación, aprobación y carga de reportes de gestión diaria para el carrusel de novedades del plantel.", 
+        tag: "Editorial", 
+        badgeText: "Aprobación Semanal",
+        badgeType: "active",
+        hint: "Carga & Aprobación de Gestión"
       }
     ] 
   },
@@ -298,7 +308,17 @@ export const ModulosSistema = {
     ayuda: "Control de expedientes de profesores, carga horaria, asignaturas y registros de desempeño laboral.",
     items: [
       { vista: "Mi Expediente", icono: "bi-person-vcard", color: "#0284c7", desc: "Ficha personal, títulos, experiencia y datos de contacto del docente." },
-      { vista: "Gestor de Expedientes", icono: "bi-folder-symlink", color: "#10b981", desc: "Buscador global de expedientes de la nómina docente activa." }
+      { vista: "Gestor de Expedientes", icono: "bi-folder-symlink", color: "#10b981", desc: "Buscador global de expedientes de la nómina docente activa." },
+      { 
+        vista: "Gestión Diaria y Aprobaciones", 
+        icono: "bi-calendar2-week-fill", 
+        color: "#059669", 
+        desc: "Carga de gestión diaria pedagógica, evidencias fotográficas, moderación y aprobación institucional.",
+        tag: "Bitácora Oficial",
+        badgeText: "Semanal",
+        badgeType: "active",
+        hint: "Carga & Aprobación de Gestión"
+      }
     ] 
   },
   "Diseños": { 

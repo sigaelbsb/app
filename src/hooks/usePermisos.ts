@@ -349,7 +349,10 @@ export const usePermisos = () => {
       "Redactor de Mensajes": ["Mensajes de Admisión"],
       "Transporte Escolar": ["Transporte y Logística"],
       "Transporte y Logística": ["Transporte Escolar"],
-      "Orientaciones Nuevos Ingresos": ["Orientación Nuevos Ingresos", "Guía Nuevos Ingresos"]
+      "Orientaciones Nuevos Ingresos": ["Orientación Nuevos Ingresos", "Guía Nuevos Ingresos"],
+      "Gestión Diaria y Aprobaciones": ["Reporte de Gestión Diaria", "Aprobación de Gestión Diaria"],
+      "Reporte de Gestión Diaria": ["Gestión Diaria y Aprobaciones"],
+      "Aprobación de Gestión Diaria": ["Gestión Diaria y Aprobaciones"]
     };
 
     if (aliasMap[modulo]) {
@@ -394,6 +397,10 @@ export const usePermisos = () => {
       "Tarjeta: Solicitudes de Cupos": !esRep && !esEst,
       "Tarjeta: Ruta y Parada del Trabajador/Personal": !esRep && !esEst,
       "Tarjeta: Notificaciones y Avisos Activos": true,
+      "Carrusel de Gestión Diaria": true,
+      "Reporte de Gestión Diaria": !esRep && !esEst,
+      "Aprobación de Gestión Diaria": esDirectivo || rolLower.includes('coordinad') || rolLower.includes('admin') || rolLower.includes('super'),
+      "Gestión Diaria y Aprobaciones": !esRep && !esEst,
     };
 
     if (defaultPermsByCard[modulo] !== undefined) {

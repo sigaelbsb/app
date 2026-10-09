@@ -1,0 +1,968 @@
+/* =========================================================================
+   SIGAE - TEMA Y EXPERIENCIA DE LOGIN ESTILO SAP FIORI HORIZON (SAP ESCOLAR)
+   Inspirado en el sistema de diseño oficial SAP Fiori (Morning Horizon)
+   ========================================================================= */
+
+:root {
+  --tech-blue: #0062ff;
+  --tech-cyan: #00d2ff;
+  --tech-gradient: linear-gradient(135deg, #0056f7 0%, #0084ff 55%, #00d2ff 100%);
+  --tech-gradient-hover: linear-gradient(135deg, #0047d9 0%, #0070e0 55%, #00b8e6 100%);
+  --sap-blue: #0062ff;
+  --sap-blue-hover: #0050d4;
+  --sap-blue-active: #003fa8;
+  --sap-navy: #031b4e;
+  --sap-dark: #0f172a;
+  --sap-muted: #475569;
+  --sap-border: #cbd5e1;
+  --sap-card-bg: #ffffff;
+}
+
+/* ── 1. VIEWPORT DE ACCESO DIGITAL ESCOLAR Y CIBERSEGURIDAD ── */
+.sap-fiori-viewport {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100vw;
+  background: url('/assets/img/fondo_digital_escolar.jpg') no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: -apple-system, BlinkMacSystemFont, '72', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--sap-dark);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Superposición semitransparente para realce de contraste y nitidez */
+.sap-fiori-viewport::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 35%, rgba(6, 17, 36, 0.42) 0%, rgba(3, 9, 22, 0.78) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Pulso ambiental cibernético de fondo */
+.sap-fiori-viewport::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 45%, rgba(0, 112, 242, 0.16) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 1;
+  animation: techAmbientBreath 8s ease-in-out infinite alternate;
+}
+
+@keyframes techAmbientBreath {
+  0% { opacity: 0.45; transform: scale(0.98); }
+  100% { opacity: 0.95; transform: scale(1.04); }
+}
+
+/* ── 2. BARRA CORPORATIVA SUPERIOR (DARK GLASSMORPHISM) ── */
+.sap-fiori-shellbar {
+  height: 54px;
+  background: rgba(5, 15, 33, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 10;
+}
+
+.sap-fiori-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sap-fiori-logo-img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 112, 242, 0.4));
+}
+
+.sap-fiori-brand-text {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+.sap-fiori-brand-badge {
+  font-size: 0.66rem;
+  font-weight: 800;
+  background: rgba(0, 112, 242, 0.22);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sap-fiori-shell-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sap-fiori-status-pill {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(52, 211, 153, 0.38);
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.15);
+}
+
+/* ── 3. CONTENEDOR CENTRAL DE LOGON DIALOG ── */
+.sap-fiori-logon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  flex: 1;
+  z-index: 5;
+}
+
+@keyframes cardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.sap-fiori-logon-card {
+  width: 100%;
+  max-width: 500px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 24px 64px rgba(0, 15, 35, 0.52), 0 0 45px rgba(0, 112, 242, 0.16), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  padding: 28px 28px 30px 28px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: cardEntrance 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
+}
+
+.sap-fiori-logon-card:hover {
+  box-shadow: 0 30px 72px rgba(0, 15, 35, 0.58), 0 0 55px rgba(0, 112, 242, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.95);
+}
+
+@media (max-width: 540px) {
+  .sap-fiori-logon-card {
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
+}
+
+.sap-fiori-mppe-container {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(0, 20, 50, 0.08);
+}
+
+.sap-fiori-mppe-banner {
+  max-height: 40px;
+  max-width: 250px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.sap-fiori-mppe-banner:hover {
+  transform: scale(1.02);
+  opacity: 0.96;
+}
+
+.sap-fiori-card-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+/* Envoltorio con flotación magnética para el escudo institucional */
+.sap-fiori-shield-wrapper,
+.sigae-banner-logo-container {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  animation: sigaeShieldFloat 4s ease-in-out infinite;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+  cursor: pointer;
+}
+
+.sigae-banner-logo-container:hover {
+  transform: translateY(-8px) scale(1.08) rotate(-2deg);
+}
+
+@keyframes sigaeShieldFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  25% {
+    transform: translateY(-5px) rotate(-1.5deg) scale(1.02);
+  }
+  50% {
+    transform: translateY(-9px) rotate(0deg) scale(1.035);
+  }
+  75% {
+    transform: translateY(-4px) rotate(1.5deg) scale(1.015);
+  }
+}
+
+.sap-fiori-shield-glow {
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 140, 255, 0.28) 0%, rgba(0, 210, 255, 0.12) 50%, transparent 75%);
+  filter: blur(14px);
+  z-index: 0;
+  pointer-events: none;
+  animation: sigaeGlowPulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes sigaeGlowPulse {
+  0% { transform: scale(0.88); opacity: 0.55; }
+  100% { transform: scale(1.18); opacity: 0.95; }
+}
+
+.sap-fiori-shield-main {
+  width: 180px;
+  height: 180px;
+  max-width: 100%;
+  object-fit: contain;
+  margin: 0 auto;
+  display: block;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 12px 28px rgba(0, 98, 255, 0.32)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12));
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+}
+
+.sap-fiori-shield-wrapper:hover .sap-fiori-shield-main {
+  transform: scale(1.04);
+  filter: drop-shadow(0 16px 36px rgba(0, 140, 255, 0.48)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.16));
+}
+
+.sap-fiori-system-title {
+  display: none;
+}
+
+.sap-fiori-system-sub {
+  margin-bottom: 14px;
+  line-height: 1.3;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.sap-fiori-title-line-1 {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #08213d;
+  letter-spacing: -0.35px;
+  text-shadow: 0 1px 2px rgba(8, 33, 61, 0.08);
+}
+
+.sap-fiori-title-line-2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.25px;
+  background: linear-gradient(90deg, #0052cc 0%, #0077ff 50%, #00b4d8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.sap-fiori-title-divider {
+  width: 48px;
+  height: 3px;
+  background: linear-gradient(90deg, #0062ff, #00d2ff);
+  border-radius: 4px;
+  margin: 10px auto 0 auto;
+  box-shadow: 0 0 12px rgba(0, 180, 255, 0.5);
+  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+}
+
+.sap-fiori-logon-card:hover .sap-fiori-title-divider {
+  width: 76px;
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.7);
+}
+
+@media (max-width: 520px) {
+  .sap-fiori-title-line-1 {
+    font-size: 1.1rem;
+  }
+  .sap-fiori-title-line-2 {
+    font-size: 1.02rem;
+  }
+}
+
+/* ── 4. SELECTOR DE PLANTEL EDUCATIVO CON LOGOS Y UBICACIÓN ── */
+.sap-fiori-schools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .sap-fiori-schools-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+.sap-fiori-school-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  user-select: none;
+}
+
+.sap-fiori-school-card:hover {
+  border-color: #38bdf8;
+  background: #f0f7ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 112, 242, 0.14);
+}
+
+.sap-fiori-school-card.active {
+  border-color: #0070f3;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e0f2fe 100%);
+  box-shadow: 0 6px 20px rgba(0, 112, 242, 0.22), 0 0 0 1px rgba(0, 112, 242, 0.25);
+  transform: translateY(-1px);
+}
+
+.sap-fiori-school-card-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+.sap-fiori-school-card-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.sap-fiori-school-card-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1e293b;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.sap-fiori-school-card.active .sap-fiori-school-card-title {
+  color: var(--sap-blue);
+}
+
+.sap-fiori-school-card-loc {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+/* ── NIVELES EDUCATIVOS CON ILUSTRACIONES DE ESTUDIANTES Y UNIFORMES ── */
+.sap-fiori-stages-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 440px) {
+  .sap-fiori-stages-grid {
+    gap: 6px;
+  }
+}
+
+.sap-fiori-stage-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 6px 9px 6px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: default;
+  position: relative;
+  text-align: center;
+}
+
+.sap-fiori-stage-card:hover {
+  border-color: #38bdf8;
+  background: #f0f7ff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 112, 242, 0.14);
+}
+
+.sap-fiori-stage-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #ffffff;
+  box-shadow: 0 3px 8px rgba(0, 20, 60, 0.16);
+  transition: transform 0.25s ease;
+}
+
+.sap-fiori-stage-card:hover .sap-fiori-stage-avatar {
+  transform: scale(1.08);
+}
+
+.sap-fiori-stage-name {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1e293b;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+
+/* ── 5. FORMULARIO CORPORATIVO SAP FIORI ── */
+.sap-fiori-form-group {
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.sap-fiori-label {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+}
+
+.sap-fiori-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sap-fiori-input-icon {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.sap-fiori-input {
+  width: 100%;
+  height: 46px;
+  background: #ffffff;
+  border: 1.5px solid var(--sap-border);
+  border-radius: 12px;
+  padding: 0 14px 0 42px;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--sap-dark);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.sap-fiori-input:focus {
+  border-color: #0070f3;
+  box-shadow: 0 0 0 3.5px rgba(0, 112, 242, 0.18), 0 0 16px rgba(0, 210, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+/* Deshabilitar flechas de stepper y spin buttons en cualquier navegador */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.sap-fiori-btn-primary {
+  width: 100%;
+  height: 48px;
+  background: var(--tech-gradient);
+  border: none;
+  border-radius: 12px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 18px rgba(0, 98, 255, 0.38), 0 0 12px rgba(0, 210, 255, 0.22);
+  margin-top: 8px;
+  letter-spacing: 0.2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sap-fiori-btn-primary::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -70%;
+  width: 45%;
+  height: 200%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.36), transparent);
+  transform: rotate(25deg);
+  animation: btnLightShimmer 4.5s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes btnLightShimmer {
+  0% { left: -70%; }
+  30% { left: 150%; }
+  100% { left: 150%; }
+}
+
+.sap-fiori-btn-primary:hover {
+  background: var(--tech-gradient-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0, 98, 255, 0.55), 0 0 20px rgba(0, 210, 255, 0.38);
+}
+
+.sap-fiori-btn-primary:active {
+  transform: translateY(0);
+}
+
+.sap-fiori-btn-secondary {
+  width: 100%;
+  height: 44px;
+  background: #ffffff;
+  border: 1.5px solid var(--sap-border);
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--sap-navy);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  transition: all 0.22s ease;
+}
+
+.sap-fiori-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.sap-fiori-links-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 0.74rem;
+}
+
+.sap-fiori-link {
+  color: var(--sap-blue);
+  text-decoration: none;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sap-fiori-link:hover {
+  text-decoration: underline;
+  color: #0052cc;
+  transform: translateX(1px);
+}
+
+/* ── 6. PIE DE PÁGINA CORPORATIVO INSTITUCIONAL ── */
+.sap-fiori-footer {
+  padding: 16px 28px;
+  font-size: 0.76rem;
+  color: #94a3b8;
+  border-top: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(5, 15, 33, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  z-index: 10;
+}
+
+.sap-fiori-footer-left {
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.sap-fiori-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #94a3b8;
+}
+
+.sap-fiori-select {
+  width: 100%;
+  height: 44px;
+  background: #ffffff;
+  border: 1.5px solid var(--sap-border);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--sap-dark);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.sap-fiori-select:focus {
+  border-color: var(--sap-blue);
+  box-shadow: 0 0 0 3px rgba(0, 112, 242, 0.15);
+}
+
+.sap-fiori-textarea {
+  width: 100%;
+  background: #ffffff;
+  border: 1.5px solid var(--sap-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--sap-dark);
+  transition: all 0.2s ease;
+  outline: none;
+  resize: vertical;
+}
+
+.sap-fiori-textarea:focus {
+  border-color: var(--sap-blue);
+  box-shadow: 0 0 0 3px rgba(0, 112, 242, 0.15);
+}
+
+/* ── 7. INTEGRACIÓN VISUAL DEL PANEL PRINCIPAL (DASHBOARD DIGITAL ERA) ── */
+.sap-dashboard-hero {
+  border-radius: 26px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.sap-dashboard-hero:hover {
+  box-shadow: 0 20px 48px rgba(0, 20, 50, 0.08), 0 0 30px rgba(0, 112, 242, 0.08);
+}
+
+.sap-dashboard-stage-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1.5px solid #e2e8f0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sap-dashboard-stage-mini:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 112, 242, 0.12);
+}
+
+.sap-dashboard-stage-mini.active-stage-sb {
+  border-color: #a7f3d0;
+  background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.14);
+}
+
+.sap-dashboard-stage-mini.active-stage-lb {
+  border-color: #bae6fd;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.14);
+}
+
+.sap-dashboard-stage-avatar-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 10px rgba(0, 20, 60, 0.12);
+  transition: transform 0.25s ease;
+}
+
+.sap-dashboard-stage-mini:hover .sap-dashboard-stage-avatar-img {
+  transform: scale(1.08);
+}
+
+/* =========================================================================
+   SIGAE DASHBOARD - TARJETAS DE NIVELES EDUCATIVOS Y CARRUSEL ESTILO FIORI 3D
+   Inspirado en la experiencia de Login Horizon con animación, auras y 3D
+   ========================================================================= */
+
+@keyframes cardShimmerSweep {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  100% { transform: translateX(250%) skewX(-20deg); }
+}
+
+@keyframes avatarHaloBreath {
+  0%, 100% { transform: scale(0.92); opacity: 0.45; }
+  50% { transform: scale(1.15); opacity: 0.85; }
+}
+
+@keyframes liveBeaconPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.sigae-level-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 22px;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 6px 20px -3px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.sigae-level-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  transform: translateX(-150%) skewX(-20deg);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sigae-level-card:hover::before {
+  animation: cardShimmerSweep 0.9s ease-in-out forwards;
+}
+
+.sigae-level-card:hover {
+  transform: translateY(-7px);
+}
+
+.sigae-avatar-halo {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 50%;
+  filter: blur(12px);
+  z-index: 0;
+  pointer-events: none;
+  animation: avatarHaloBreath 3.5s ease-in-out infinite alternate;
+}
+
+.sigae-avatar-ring {
+  position: relative;
+  border-radius: 50%;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+}
+
+.sigae-level-card:hover .sigae-avatar-ring {
+  transform: scale(1.1) rotate(2deg);
+}
+
+.sigae-avatar-inner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  background-color: #ffffff;
+  object-fit: cover;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.sigae-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  display: inline-block;
+  animation: liveBeaconPulse 2s infinite;
+}
+
+.sigae-progress-track {
+  width: 100%;
+  height: 6px;
+  background-color: #f1f5f9;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.sigae-progress-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.sigae-breakdown-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(241, 245, 249, 0.8);
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  transition: all 0.2s ease;
+}
+
+.sigae-breakdown-chip:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+@keyframes sigaeAvatarFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(1.5deg);
+  }
+}
+
+.sigae-avatar-floating {
+  animation: sigaeAvatarFloat 3.8s ease-in-out infinite;
+}
+
+/* Modos de Color con Gradientes Vibrantes de Alto Contraste (Elimina por completo la sensación de tarjeta blanca) */
+.sigae-level-card-inicial {
+  background: linear-gradient(150deg, #f0fdf4 0%, #e6fcf0 45%, #cbf7da 100%) !important;
+  border-color: #86efac !important;
+  box-shadow: 0 10px 26px -6px rgba(16, 185, 129, 0.18), 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+}
+.sigae-level-card-inicial:hover {
+  background: linear-gradient(150deg, #ecfdf5 0%, #dcfce7 40%, #bbf7d0 100%) !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 20px 40px -8px rgba(16, 185, 129, 0.32), 0 0 24px rgba(16, 185, 129, 0.2) !important;
+}
+
+.sigae-level-card-primaria {
+  background: linear-gradient(150deg, #f0f9ff 0%, #e0f2fe 45%, #bae6fd 100%) !important;
+  border-color: #7dd3fc !important;
+  box-shadow: 0 10px 26px -6px rgba(2, 132, 199, 0.18), 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+}
+.sigae-level-card-primaria:hover {
+  background: linear-gradient(150deg, #e0f2fe 0%, #bae6fd 40%, #93c5fd 100%) !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 20px 40px -8px rgba(2, 132, 199, 0.32), 0 0 24px rgba(2, 132, 199, 0.2) !important;
+}
+
+.sigae-level-card-media {
+  background: linear-gradient(150deg, #faf5ff 0%, #f3e8ff 45%, #e9d5ff 100%) !important;
+  border-color: #d8b4fe !important;
+  box-shadow: 0 10px 26px -6px rgba(124, 58, 237, 0.18), 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+}
+.sigae-level-card-media:hover {
+  background: linear-gradient(150deg, #f5f3ff 0%, #e9d5ff 40%, #ddd6fe 100%) !important;
+  border-color: #c084fc !important;
+  box-shadow: 0 20px 40px -8px rgba(124, 58, 237, 0.32), 0 0 24px rgba(124, 58, 237, 0.2) !important;
+}
+
+.sigae-level-card-docentes {
+  background: linear-gradient(150deg, #f0fdfa 0%, #ccfbf1 45%, #99f6e4 100%) !important;
+  border-color: #5eead4 !important;
+  box-shadow: 0 10px 26px -6px rgba(13, 148, 136, 0.18), 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+}
+.sigae-level-card-docentes:hover {
+  background: linear-gradient(150deg, #f0fdfa 0%, #99f6e4 40%, #5eead4 100%) !important;
+  border-color: #2dd4bf !important;
+  box-shadow: 0 20px 40px -8px rgba(13, 148, 136, 0.32), 0 0 24px rgba(13, 148, 136, 0.2) !important;
+}
+
+/* Optimización móvil rigurosa para smartphones y tablets */
+@media (max-width: 576px) {
+  .sigae-level-card {
+    padding: 18px 16px !important;
+    border-radius: 22px !important;
+  }
+  .sigae-avatar-inner {
+    width: 56px !important;
+    height: 56px !important;
+  }
+}
+
+
+
+

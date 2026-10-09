@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 interface ChamiloSecurityShieldProps {
   protectionScore?: number; // 0 to 100
   activeSessions?: number;
+  deviceSummary?: string;
   twoFactorEnabled?: boolean;
   backupStatus?: 'al-dia' | 'pendiente' | 'proceso';
   lastAudit?: string;
@@ -11,209 +12,138 @@ interface ChamiloSecurityShieldProps {
 }
 
 export const ChamiloSecurityShield: React.FC<ChamiloSecurityShieldProps> = ({
-  protectionScore = 98,
-  activeSessions = 3,
+  protectionScore = 100,
+  activeSessions = 2,
+  deviceSummary,
   twoFactorEnabled = true,
   backupStatus = 'al-dia',
-  lastAudit = 'Hoy 08:00 AM',
-  roleName = 'Superadmin / Rector',
-  darkTheme = true,
+  lastAudit = 'Hoy Activa',
+  darkTheme = false,
 }) => {
-  const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
-
-  // SVG parameters for radial gauge arc
-  const radius = 32;
-  const strokeWidth = 5.5;
+  const size = 78;
+  const strokeWidth = 7;
+  const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  // We use a 240-degree arc
-  const arcLength = circumference * (240 / 360);
-  const strokeDashoffset = arcLength - (arcLength * (protectionScore / 100));
+  const strokeDashoffset = circumference - (protectionScore / 100) * circumference;
 
   return (
-    <div style={{ width: '100%', marginTop: '4px', userSelect: 'none' }}>
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: '2px 8px',
-            borderRadius: '12px',
-            fontSize: '0.72rem',
-            fontWeight: 700,
-            background: darkTheme ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.1)',
-            color: darkTheme ? '#818cf8' : '#4f46e5',
-            border: `1px solid ${darkTheme ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.25)'}`
-          }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            Nivel Alto
-          </span>
-          <span style={{ fontSize: '0.73rem', color: darkTheme ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
-            {roleName}
-          </span>
-        </div>
+    <div className="w-100 d-flex align-items-center justify-content-between gap-2.5 my-1" style={{ userSelect: 'none', minHeight: '82px' }}>
+      {/* ── GRÁFICO 1: RADIAL SECURITY GAUGE CON GLOW Y ANIMACIÓN ── */}
+      <div className="position-relative flex-shrink-0 d-flex align-items-center justify-content-center" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible" style={{ transform: 'rotate(-90deg)' }}>
+          <defs>
+            <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0284c7" />
+              <stop offset="50%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#10b981" />
+            </linearGradient>
+            <filter id="shieldGlowFilter" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0284c7" floodOpacity="0.35" />
+            </filter>
+          </defs>
 
-        <div style={{ fontSize: '0.72rem', color: darkTheme ? '#94a3b8' : '#64748b' }}>
-          Auditoría: <strong style={{ color: darkTheme ? '#f8fafc' : '#0f172a' }}>{lastAudit}</strong>
+          {/* Anillo de fondo */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            stroke={darkTheme ? 'rgba(255, 255, 255, 0.08)' : 'rgba(2, 132, 199, 0.12)'}
+            strokeWidth={strokeWidth}
+          />
+
+          {/* Anillo de progreso animado */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            stroke="url(#shieldGrad)"
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            filter="url(#shieldGlowFilter)"
+            style={{
+              transition: 'stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          />
+        </svg>
+
+        {/* Centro del radar de seguridad */}
+        <div 
+          className="position-absolute text-center d-flex flex-column align-items-center justify-content-center"
+          style={{ inset: 0 }}
+        >
+          <span className="fw-black text-dark" style={{ fontSize: '0.98rem', lineHeight: 1, letterSpacing: '-0.5px' }}>
+            {protectionScore}%
+          </span>
+          <span 
+            className="fw-bold text-uppercase mt-0.5" 
+            style={{ 
+              fontSize: '0.52rem', 
+              letterSpacing: '0.4px', 
+              color: '#0284c7',
+              lineHeight: 1
+            }}
+          >
+            Blindado
+          </span>
         </div>
       </div>
 
-      {/* Main Gauge & Badges Row */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        background: darkTheme ? 'rgba(11, 18, 36, 0.75)' : 'rgba(248, 250, 252, 0.7)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        borderRadius: '12px',
-        padding: '8px 12px',
-        border: darkTheme ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0',
-        gap: '12px'
-      }}>
-        {/* Radial Arc Gauge */}
-        <div style={{ position: 'relative', width: '74px', height: '62px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="74" height="62" viewBox="0 0 80 72" style={{ overflow: 'visible' }}>
-            <defs>
-              <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#818cf8" />
-                <stop offset="100%" stopColor="#34d399" />
-              </linearGradient>
-              <filter id="shieldGlow">
-                <feDropShadow dx="0" dy="1" stdDeviation="3" floodColor="#818cf8" floodOpacity="0.5" />
-              </filter>
-            </defs>
+      {/* ── CUADRÍCULA 2x2 DE PARÁMETROS CRÍTICOS DE ACCESO ── */}
+      <div className="flex-grow-1 d-flex flex-column justify-content-between gap-1" style={{ minWidth: 0 }}>
+        {/* Fila 1: 2FA & Cifrado */}
+        <div className="d-flex gap-1">
+          <div 
+            className="p-1 px-1.5 rounded-2 border bg-white flex-grow-1 d-flex align-items-center justify-content-between shadow-2xs hover-efecto"
+            style={{ borderColor: 'rgba(16, 185, 129, 0.25)', minWidth: 0 }}
+          >
+            <span className="text-secondary text-truncate me-1" style={{ fontSize: '0.62rem' }}>
+              <i className="bi bi-shield-check text-success me-1"></i>2FA Token
+            </span>
+            <strong className="text-success" style={{ fontSize: '0.68rem' }}>{twoFactorEnabled ? 'Activo' : 'Off'}</strong>
+          </div>
 
-            {/* Background Arc */}
-            <circle
-              cx="40"
-              cy="36"
-              r={radius}
-              fill="none"
-              stroke={darkTheme ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${arcLength} ${circumference}`}
-              strokeDashoffset="0"
-              strokeLinecap="round"
-              transform="rotate(150 40 36)"
-            />
-
-            {/* Foreground Arc */}
-            <circle
-              cx="40"
-              cy="36"
-              r={radius}
-              fill="none"
-              stroke="url(#shieldGradient)"
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${arcLength} ${circumference}`}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              transform="rotate(150 40 36)"
-              filter="url(#shieldGlow)"
-              style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-            />
-          </svg>
-
-          {/* Center text */}
-          <div style={{
-            position: 'absolute',
-            top: '52%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: darkTheme ? '#ffffff' : '#0f172a', lineHeight: 1 }}>
-              {protectionScore}%
-            </div>
-            <div style={{ fontSize: '0.58rem', fontWeight: 700, color: '#34d399', marginTop: '2px', textTransform: 'uppercase' }}>
-              SEGURO
-            </div>
+          <div 
+            className="p-1 px-1.5 rounded-2 border bg-white flex-grow-1 d-flex align-items-center justify-content-between shadow-2xs hover-efecto"
+            style={{ borderColor: 'rgba(2, 132, 199, 0.25)', minWidth: 0 }}
+          >
+            <span className="text-secondary text-truncate me-1" style={{ fontSize: '0.62rem' }}>
+              <i className="bi bi-key-fill text-primary me-1"></i>SSL
+            </span>
+            <strong className="text-primary" style={{ fontSize: '0.68rem' }}>AES-256</strong>
           </div>
         </div>
 
-        {/* Security Feature Pills */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-          {/* Item 1: 2FA */}
-          <div
-            onMouseEnter={() => setHoveredBadge('2fa')}
-            onMouseLeave={() => setHoveredBadge(null)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.72rem',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: hoveredBadge === '2fa' ? (darkTheme ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9') : 'transparent',
-              transition: 'all 0.15s ease'
-            }}
+        {/* Fila 2: Sesiones Activas & Nube */}
+        <div className="d-flex gap-1">
+          <div 
+            className="p-1 px-1.5 rounded-2 border bg-white flex-grow-1 d-flex align-items-center justify-content-between shadow-2xs hover-efecto"
+            style={{ borderColor: 'rgba(14, 165, 233, 0.25)', minWidth: 0 }}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: darkTheme ? '#e2e8f0' : '#334155' }}>
-              <span style={{ color: '#34d399' }}>✓</span> 2FA Token Biométrico
+            <span className="text-secondary text-truncate me-1" style={{ fontSize: '0.62rem' }}>
+              <i className="bi bi-laptop text-info me-1"></i>Sesiones
             </span>
-            <span style={{ fontWeight: 700, color: '#34d399', fontSize: '0.68rem' }}>
-              {twoFactorEnabled ? 'Activo' : 'Inactivo'}
-            </span>
+            <strong className="text-dark text-nowrap" style={{ fontSize: '0.68rem' }} title={deviceSummary || `${activeSessions} sesiones activas`}>
+              {activeSessions} {activeSessions === 1 ? 'activa' : 'activas'}
+            </strong>
           </div>
 
-          {/* Item 2: Cifrado */}
-          <div
-            onMouseEnter={() => setHoveredBadge('aes')}
-            onMouseLeave={() => setHoveredBadge(null)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.72rem',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: hoveredBadge === 'aes' ? (darkTheme ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9') : 'transparent',
-              transition: 'all 0.15s ease'
-            }}
+          <div 
+            className="p-1 px-1.5 rounded-2 border bg-white flex-grow-1 d-flex align-items-center justify-content-between shadow-2xs hover-efecto"
+            style={{ borderColor: 'rgba(13, 148, 136, 0.25)', minWidth: 0 }}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: darkTheme ? '#e2e8f0' : '#334155' }}>
-              <span style={{ color: '#818cf8' }}>🔒</span> Cifrado SSL / AES-256
+            <span className="text-secondary text-truncate me-1" style={{ fontSize: '0.62rem' }}>
+              <i className="bi bi-cloud-check-fill me-1" style={{ color: '#0d9488' }}></i>Cloud
             </span>
-            <span style={{ fontWeight: 700, color: '#818cf8', fontSize: '0.68rem' }}>
-              Blindado
-            </span>
-          </div>
-
-          {/* Item 3: Sesiones Activas */}
-          <div
-            onMouseEnter={() => setHoveredBadge('sessions')}
-            onMouseLeave={() => setHoveredBadge(null)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '0.72rem',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              background: hoveredBadge === 'sessions' ? (darkTheme ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9') : 'transparent',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: darkTheme ? '#e2e8f0' : '#334155' }}>
-              <span style={{ color: '#38bdf8' }}>💻</span> Dispositivos en Línea
-            </span>
-            <span style={{ fontWeight: 700, color: darkTheme ? '#ffffff' : '#0f172a', fontSize: '0.68rem' }}>
-              {activeSessions} sesiones
-            </span>
+            <strong style={{ fontSize: '0.68rem', color: '#0d9488' }}>{backupStatus === 'al-dia' ? 'Al día' : 'Pend.'}</strong>
           </div>
         </div>
-      </div>
-
-      {/* Footer hint */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.7rem', color: darkTheme ? '#94a3b8' : '#64748b' }}>
-        <span>Copia de Respaldo: <strong style={{ color: backupStatus === 'al-dia' ? '#34d399' : backupStatus === 'proceso' ? '#38bdf8' : '#f59e0b' }}>{backupStatus === 'al-dia' ? 'En la Nube' : backupStatus === 'proceso' ? 'Sincronizando' : 'Pendiente'}</strong></span>
-        <span style={{ color: '#818cf8', fontWeight: 600 }}>Permisos OK</span>
       </div>
     </div>
   );
 };
+
 export default ChamiloSecurityShield;

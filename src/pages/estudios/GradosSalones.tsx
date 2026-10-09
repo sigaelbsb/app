@@ -246,7 +246,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const cargarDatosCompletos = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      // 1. Cargar datos básicos, estudiantes activos y nuevos ingresos formalizados en paralelo
+      // 1. Cargar datos básicos, estudiantes activos y solicitudes de cupo en paralelo
       const [nivRes, graRes, secRes, espRes, salRes, docRes, estPage1, estPage2, estPage3, estPage4, solCuposRes] = await Promise.all([
         supabase.from('conf_niveles').select('id_parametro, valor').order('valor', { ascending: true }),
         supabase.from('conf_grados').select('id_parametro, valor, orden').order('orden', { ascending: true }),
@@ -254,27 +254,26 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         supabase.from('espacios').select('*'),
         supabase.from('salones').select('*'),
         supabase.from('usuarios').select('cedula, nombre_completo, id_escuela, telefono, email').eq('rol', 'Docente').eq('estado', 'Activo').order('nombre_completo', { ascending: true }),
-        // Carga paralela de bloques de estudiantes con solo las columnas requeridas (súper veloz)
+        // Carga de bloques de estudiantes incluyendo metadatos de vinculación y datos_actualizados
         supabase.from('estudiantes_vinculaciones')
-          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at, datos_actualizados')
           .eq('estado', 'Activo')
           .range(0, 999),
         supabase.from('estudiantes_vinculaciones')
-          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at, datos_actualizados')
           .eq('estado', 'Activo')
           .range(1000, 1999),
         supabase.from('estudiantes_vinculaciones')
-          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at, datos_actualizados')
           .eq('estado', 'Activo')
           .range(2000, 2999),
         supabase.from('estudiantes_vinculaciones')
-          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at')
+          .select('id, cedula_estudiante, nombres_estudiante, apellidos_estudiante, grado_actual, seccion_actual, codigo_escuela, cedula_representante, nombres_representante, apellidos_representante, estado, created_at, datos_actualizados')
           .eq('estado', 'Activo')
           .range(3000, 3999),
-        // Nuevos ingresos ya formalizados
+        // Solicitudes de cupos para determinar formalización presencial en escuela
         supabase.from('solicitud_cupos')
-          .select('id, codigo_escuela, grado_solicitado, estado, estudiante_cedula, estudiante_nombres, estudiante_apellidos, representante_cedula, representante_nombres, representante_apellidos, created_at')
-          .eq('estado', 'Formalizado')
+          .select('id, codigo_escuela, grado_solicitado, estado, estudiante_cedula, codigo_unico, estudiante_nombres, estudiante_apellidos, representante_cedula, representante_nombres, representante_apellidos, created_at, datos_actualizados')
       ]);
 
       const rawEstudiantes: EstudianteVinculado[] = [
@@ -284,24 +283,119 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         ...(estPage4.data || [])
       ];
 
-      const formalizados = solCuposRes.data || [];
-      const setCedulasFormalizadas = new Set(formalizados.map(s => (s.estudiante_cedula || '').trim()));
+      const todasSolicitudes = solCuposRes.data || [];
+      const normId = (val?: string) => (val || '').trim().toUpperCase();
+      const normNum = (val?: string) => (val || '').replace(/\D/g, '');
 
-      // 1. Estudiantes de vinculaciones clasificados como Regulares o Nuevos Ingresos Formalizados
-      const regularAndFormalizedInVinc: EstudianteVinculado[] = rawEstudiantes.map(e => ({
-        ...e,
-        tipo_ingreso: setCedulasFormalizadas.has((e.cedula_estudiante || '').trim())
-          ? ('Nuevo Ingreso Formalizado' as const)
-          : ('Regular' as const)
-      }));
+      // Mapear cédulas y códigos formalizados presencialmente en plantel
+      const setCedulasFormalizadas = new Set<string>();
+      const setCodigosFormalizados = new Set<string>();
+      const setCedulasNoFormalizadas = new Set<string>();
+      const setCodigosNoFormalizados = new Set<string>();
 
-      // 2. Nuevos ingresos formalizados que aún no están en estudiantes_vinculaciones
-      const setCedulasEnVinc = new Set(rawEstudiantes.map(e => (e.cedula_estudiante || '').trim()));
-      const formalizadosNuevos: EstudianteVinculado[] = formalizados
-        .filter(s => s.estudiante_cedula && !setCedulasEnVinc.has(s.estudiante_cedula.trim()))
+      todasSolicitudes.forEach(s => {
+        const estadoNorm = (s.estado || '').trim().toLowerCase();
+        const dSol = s.datos_actualizados || {};
+        const esFormalizadoFisico = (
+          s.estado === 'Formalizado' ||
+          ['formalizado', 'formalizada', 'inscrito', 'inscrita'].includes(estadoNorm) ||
+          dSol.formalizado_en_fisico === true ||
+          dSol.estado === 'Formalizado'
+        );
+
+        const cRaw = normId(s.estudiante_cedula);
+        const cNum = normNum(s.estudiante_cedula);
+        const cuRaw = normId(s.codigo_unico);
+        const cuSinT = cuRaw.replace(/^T-/, '');
+
+        if (esFormalizadoFisico) {
+          if (cRaw) setCedulasFormalizadas.add(cRaw);
+          if (cNum) setCedulasFormalizadas.add(cNum);
+          if (cuRaw) setCodigosFormalizados.add(cuRaw);
+          if (cuSinT) setCodigosFormalizados.add(cuSinT);
+        } else {
+          if (cRaw) setCedulasNoFormalizadas.add(cRaw);
+          if (cNum) setCedulasNoFormalizadas.add(cNum);
+          if (cuRaw) setCodigosNoFormalizados.add(cuRaw);
+          if (cuSinT) setCodigosNoFormalizados.add(cuSinT);
+        }
+      });
+
+      // 1. Filtrar estudiantes de vinculaciones: EXCLUSIVAMENTE Regulares y Formalizados Presencialmente
+      const regularAndFormalizedInVinc: EstudianteVinculado[] = [];
+
+      rawEstudiantes.forEach(e => {
+        const d = (e as any).datos_actualizados || {};
+        const cRaw = normId(e.cedula_estudiante);
+        const cNum = normNum(e.cedula_estudiante);
+
+        // Determinación rigurosa de formalización presencial en plantel
+        const esFormalizadoPresencial = (
+          d.formalizado_en_fisico === true ||
+          (e as any).formalizado_en_fisico === true ||
+          d.estado === 'Formalizado' ||
+          e.estado === 'Formalizado' ||
+          (cRaw && setCedulasFormalizadas.has(cRaw)) ||
+          (cNum && setCedulasFormalizadas.has(cNum)) ||
+          (cRaw && setCodigosFormalizados.has(cRaw))
+        );
+
+        // Determinación de si proviene de admisión (nuevo ingreso)
+        const esNuevoIngreso = (
+          d.origen_admision === 'nuevo_ingreso' ||
+          (e as any).es_nuevo_ingreso === true ||
+          d.es_nuevo_ingreso === true ||
+          (cRaw && setCedulasNoFormalizadas.has(cRaw)) ||
+          (cNum && setCedulasNoFormalizadas.has(cNum)) ||
+          (cRaw && setCodigosNoFormalizados.has(cRaw)) ||
+          esFormalizadoPresencial
+        );
+
+        // REGLA INSTITUCIONAL: Los estudiantes a listar para asignación a grados deben ser
+        // los regulares y los ya formalizados presencialmente en la escuela.
+        // Si es un nuevo ingreso pero aún NO ha formalizado en físico, se excluye de la lista.
+        if (esNuevoIngreso && !esFormalizadoPresencial) {
+          return; // Omitir: aspirante con cupo otorgado que aún no ha formalizado presencialmente
+        }
+
+        regularAndFormalizedInVinc.push({
+          ...e,
+          tipo_ingreso: esFormalizadoPresencial
+            ? ('Nuevo Ingreso Formalizado' as const)
+            : ('Regular' as const)
+        });
+      });
+
+      // 2. Nuevos ingresos formalizados en solicitud_cupos que aún no estén en estudiantes_vinculaciones
+      const setCedulasEnVinc = new Set(rawEstudiantes.map(e => normId(e.cedula_estudiante)).filter(Boolean));
+      const setCedulasNumEnVinc = new Set(rawEstudiantes.map(e => normNum(e.cedula_estudiante)).filter(Boolean));
+
+      const formalizadosNuevos: EstudianteVinculado[] = todasSolicitudes
+        .filter(s => {
+          const estadoNorm = (s.estado || '').trim().toLowerCase();
+          const dSol = s.datos_actualizados || {};
+          const esFormalizadoFisico = (
+            s.estado === 'Formalizado' ||
+            ['formalizado', 'formalizada', 'inscrito', 'inscrita'].includes(estadoNorm) ||
+            dSol.formalizado_en_fisico === true ||
+            dSol.estado === 'Formalizado'
+          );
+          if (!esFormalizadoFisico) return false;
+
+          const cRaw = normId(s.estudiante_cedula);
+          const cNum = normNum(s.estudiante_cedula);
+          const cuRaw = normId(s.codigo_unico);
+
+          const yaExiste = (
+            (cRaw && setCedulasEnVinc.has(cRaw)) ||
+            (cNum && setCedulasNumEnVinc.has(cNum)) ||
+            (cuRaw && setCedulasEnVinc.has(cuRaw))
+          );
+          return !yaExiste;
+        })
         .map(s => ({
           id: `sol-${s.id}`,
-          cedula_estudiante: s.estudiante_cedula.trim(),
+          cedula_estudiante: (s.estudiante_cedula || s.codigo_unico || '').trim(),
           nombres_estudiante: s.estudiante_nombres || '',
           apellidos_estudiante: s.estudiante_apellidos || '',
           grado_actual: s.grado_solicitado || '',
@@ -1931,6 +2025,19 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           </div>
         </div>
 
+        <!-- Criterio Oficial Institucional -->
+        <div class="p-2.5 mb-2.5 rounded-3 bg-light border border-info-subtle d-flex align-items-center justify-content-between gap-2 flex-wrap">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-shield-check text-info fs-5"></i>
+            <span class="small text-secondary" style="font-size: 11.5px;">
+              <b>Control de Estudios:</b> Se listan exclusivamente estudiantes <b>regulares</b> y <b>nuevos ingresos ya formalizados presencialmente</b> en la escuela.
+            </span>
+          </div>
+          <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2.5 py-1" style="font-size: 11px;">
+            ${todosCandidatos.length} Candidatos Habilitados
+          </span>
+        </div>
+
         <!-- Filtros por Tipo de Matrícula y Asignación de Sección -->
         <div class="row g-2 mb-2 align-items-center">
           <div class="col-12 col-md-7">
@@ -2062,8 +2169,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                     <div class="small text-muted">Rep: ${c.nombres_representante || c.cedula_representante || 'N/A'}</div>
                   </td>
                   <td class="text-center">
-                    <span class="badge ${esNuevoFormalizado ? 'bg-success-subtle text-success border border-success' : 'bg-primary-subtle text-primary border border-primary'} rounded-pill px-2 py-0.5" style="font-size: 11px;">
-                      ${esNuevoFormalizado ? '⭐ Nuevo Ingreso' : '👤 Regular'}
+                    <span class="badge ${esNuevoFormalizado ? 'bg-success-subtle text-success border border-success' : 'bg-primary-subtle text-primary border border-primary'} rounded-pill px-2.5 py-0.5 fw-bold" style="font-size: 11px;">
+                      ${esNuevoFormalizado ? '⭐ Nuevo Ingreso Formalizado' : '👤 Estudiante Regular'}
                     </span>
                   </td>
                   <td class="text-center font-monospace">${c.cedula_estudiante}</td>
@@ -3688,7 +3795,10 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                                   <td><span className="badge bg-light text-dark border">C.I. {est.cedula_estudiante}</span></td>
                                   <td><span className="small text-muted">{est.cedula_representante || 'Sin asignar'}</span></td>
                                   <td className="text-center">
-                                    <span className="badge bg-success text-white rounded-pill px-2 py-1">Activo</span>
+                                    <span className={`badge ${est.tipo_ingreso === 'Nuevo Ingreso Formalizado' ? 'bg-success-subtle text-success border border-success' : 'bg-primary-subtle text-primary border border-primary'} rounded-pill px-2 py-0.5 me-1`} style={{ fontSize: '10.5px' }}>
+                                      {est.tipo_ingreso === 'Nuevo Ingreso Formalizado' ? '⭐ Nuevo Ingreso' : '👤 Regular'}
+                                    </span>
+                                    <span className="badge bg-success text-white rounded-pill px-2 py-0.5" style={{ fontSize: '10px' }}>Activo</span>
                                   </td>
                                   <td className="text-end pe-4">
                                     <div className="btn-group btn-group-sm">

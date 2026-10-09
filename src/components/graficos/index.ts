@@ -3,6 +3,9 @@ export * from './ChamiloSparkline';
 export * from './ChamiloAttendanceBars';
 export * from './ChamiloRutogramaVisual';
 export * from './ChamiloSecurityShield';
+export * from './ChamiloFormalizacionGauge';
+export * from './ChamiloCensoDonutWidget';
+export * from './ChamiloSolicitudesCuposWidget';
 
 export type { DonutSegment } from './ChamiloDonutChart';
 export type { SparklinePoint } from './ChamiloSparkline';

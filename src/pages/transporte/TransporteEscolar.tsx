@@ -11,6 +11,11 @@ import { VisorView } from './components/VisorView';
 import { CargaMasivaView } from './components/CargaMasivaView';
 import { DespachoRutogramaView } from './components/DespachoRutogramaView';
 import { CensoEstudiantesRutasView } from './components/CensoEstudiantesRutasView';
+import { SubmoduloCoordinacion } from './components/SubmoduloCoordinacion';
+import { SubmoduloOperacion } from './components/SubmoduloOperacion';
+import { SubmoduloVisor } from './components/SubmoduloVisor';
+import { SubmoduloListadosCarta } from './components/SubmoduloListadosCarta';
+import { SubmoduloEstadisticas } from './components/SubmoduloEstadisticas';
 import { ModalParada, ModalRuta, ModalAsignacion } from './components/Modals';
 import { ChamiloBreadcrumb, ChamiloHelpCallout, IconoTransporteEscolar3D } from '../../components/chamilo';
 import './transporte.css';
@@ -334,7 +339,25 @@ export const TransporteEscolar = () => {
     }
   };
 
-  const [vistaActual, setVistaActual] = useState<'dashboard' | 'Configuracion' | 'Operacion' | 'Visor' | 'CargaMasiva' | 'DespachoRutograma' | 'CensoEstudiantes'>('dashboard');
+  type VistaTransporte = 
+    | 'dashboard' 
+    | 'coordinacion' 
+    | 'operacion' 
+    | 'visor' 
+    | 'listados' 
+    | 'estadisticas' 
+    | 'Configuracion' 
+    | 'Operacion' 
+    | 'Visor' 
+    | 'CargaMasiva' 
+    | 'DespachoRutograma' 
+    | 'CensoEstudiantes';
+
+  const [vistaActual, setVistaActual] = useState<VistaTransporte>(() => {
+    const rol = (user?.rol || '').toLowerCase();
+    if (rol.includes('representante')) return 'visor';
+    return 'dashboard';
+  });
   const [configTab, setConfigTab] = useState<'Paradas' | 'Rutas' | 'Asignacion'>('Paradas');
   const [escCodigo, setEscCodigo] = useState<'sb' | 'lb'>(() => {
     // Si el usuario/coordinador tiene una escuela asignada fija, inicializar de inmediato en ella
@@ -346,6 +369,17 @@ export const TransporteEscolar = () => {
     const cached = localStorage.getItem('sigae_escuela_codigo');
     return cached === 'lb' ? 'lb' : 'sb';
   });
+
+  const [relojDigital, setRelojDigital] = useState<string>('');
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setRelojDigital(d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const canManageRutas    = isSuperAdmin || esCoordinadorTransporte || tienePermiso('Tarjeta: Gestión de Rutas')    || tienePermiso('Gestión de Rutas');
   const canManageParadas  = isSuperAdmin || esCoordinadorTransporte || tienePermiso('Tarjeta: Gestión de Paradas')  || tienePermiso('Gestión de Paradas');
@@ -370,6 +404,12 @@ export const TransporteEscolar = () => {
   const [docentes, setDocentes] = useState<any[]>(() => {
     try {
       const cached = localStorage.getItem(`sigae_cache_docentes_${escCodigo}`);
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
+  const [estudiantes, setEstudiantes] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem(`sigae_cache_estudiantes_${escCodigo}`);
       return cached ? JSON.parse(cached) : [];
     } catch { return []; }
   });
@@ -644,13 +684,21 @@ export const TransporteEscolar = () => {
         })
         .catch((err: any) => { console.error("Error al cargar docentes:", err); throw err; });
 
+      const p5 = Promise.resolve(supabase.from('estudiantes_vinculaciones').select('*').eq('codigo_escuela', escCodigo))
+        .then(res => {
+          if (res.error) throw res.error;
+          setEstudiantes(res.data || []);
+          try { localStorage.setItem(`sigae_cache_estudiantes_${escCodigo}`, JSON.stringify(res.data || [])); } catch (e) {}
+        })
+        .catch((err: any) => { console.error("Error al cargar estudiantes:", err); });
+
       const withTimeout = <T,>(promise: Promise<T>, ms = 4000): Promise<T> =>
         Promise.race([
           promise,
           new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timeout de red Supabase')), ms))
         ]);
 
-      await withTimeout(Promise.all([p1, p2, p3, p4]), 4000);
+      await withTimeout(Promise.all([p1, p2, p3, p4, p5]), 4000);
 
     } catch (e: any) {
       console.warn("Aviso en cargarTodo (usando caché de respaldo si aplica):", e);
@@ -659,9 +707,11 @@ export const TransporteEscolar = () => {
         const cachedParadas = JSON.parse(localStorage.getItem(`sigae_cache_paradas_${escCodigo}`) || '[]');
         const cachedRutas = JSON.parse(localStorage.getItem(`sigae_cache_rutas_${escCodigo}`) || '[]');
         const cachedDocentes = JSON.parse(localStorage.getItem(`sigae_cache_docentes_${escCodigo}`) || '[]');
+        const cachedEstudiantes = JSON.parse(localStorage.getItem(`sigae_cache_estudiantes_${escCodigo}`) || '[]');
         if (cachedParadas.length > 0) setParadas(cachedParadas);
         if (cachedRutas.length > 0) setRutas(cachedRutas);
         if (cachedDocentes.length > 0) setDocentes(cachedDocentes);
+        if (cachedEstudiantes.length > 0) setEstudiantes(cachedEstudiantes);
         setTrackingHoy(mergeOfflineTracking([]));
       } catch (errCache) {
         console.error("Error al cargar desde cache local:", errCache);
@@ -2215,129 +2265,378 @@ export const TransporteEscolar = () => {
         </small>
       </ChamiloHelpCallout>
 
-      {/* ── 2. CABECERA INSTITUCIONAL 3D ── */}
+      {/* ── 2. CABECERA INSTITUCIONAL Y CAMPUS EDUCATIVO (ESTILO CANÓNICO UNIFICADO) ── */}
       <div 
-        className="banner-modulo p-4 p-md-5 mb-4 shadow-sm text-white position-relative overflow-hidden rounded-4 animate__animated animate__fadeInDown" 
-        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)' }}
+        className="tech-card overflow-hidden mb-3.5 shadow-sm animate__animated animate__fadeInDown" 
+        style={{ 
+          border: escCodigo === 'sb' ? '1.5px solid #a7f3d0' : '1.5px solid #bae6fd',
+          borderTop: `5px solid ${escCodigo === 'sb' ? '#10b981' : '#0284c7'}`,
+          background: escCodigo === 'sb'
+            ? 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 45%, #dcfce7 100%)'
+            : 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%)',
+          borderRadius: '22px'
+        }}
       >
-        <div className="burbuja-3d burbuja-1"></div>
-        <div className="burbuja-3d burbuja-2"></div>
-        <div className="burbuja-3d burbuja-3"></div>
+        <div className="p-3 p-md-3.5">
+          {/* Bloque Superior: Escudo + Identidad + Acciones */}
+          <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            
+            {/* Lado Izquierdo: Escudo e Identidad Escolar lado a lado */}
+            <div className="d-flex align-items-center gap-3 min-w-0">
+              {/* Escudo Oficial con Flotación 3D, Halo Luminoso */}
+              <div 
+                className="position-relative flex-shrink-0 cursor-pointer" 
+                title={`Escudo Oficial ${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}`}
+              >
+                {/* Halo exterior (glow difuso) */}
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: '-14px',
+                    left: '-14px',
+                    right: '-14px',
+                    bottom: '-14px',
+                    borderRadius: '32px',
+                    background: escCodigo === 'sb'
+                      ? 'radial-gradient(circle, rgba(16, 185, 129, 0.65) 0%, rgba(16, 185, 129, 0.18) 55%, transparent 75%)'
+                      : 'radial-gradient(circle, rgba(2, 132, 199, 0.65) 0%, rgba(2, 132, 199, 0.18) 55%, transparent 75%)',
+                    filter: 'blur(16px)',
+                    zIndex: 0,
+                    animation: 'avatarHaloBreath 3.2s ease-in-out infinite alternate'
+                  }}
+                />
+                {/* Anillo interno pulsante */}
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    left: '-4px',
+                    right: '-4px',
+                    bottom: '-4px',
+                    borderRadius: '26px',
+                    border: escCodigo === 'sb' ? '1.5px solid rgba(16, 185, 129, 0.45)' : '1.5px solid rgba(2, 132, 199, 0.45)',
+                    zIndex: 0,
+                    animation: 'avatarHaloBreath 2.8s ease-in-out infinite alternate-reverse'
+                  }}
+                />
+                <div 
+                  className="bg-white rounded-4 d-flex align-items-center justify-content-center p-2 position-relative sigae-banner-logo-container"
+                  style={{ 
+                    width: 'clamp(72px, 16vw, 92px)', 
+                    height: 'clamp(72px, 16vw, 92px)',
+                    borderRadius: '22px',
+                    border: escCodigo === 'sb' ? '2.5px solid #a7f3d0' : '2.5px solid #bae6fd',
+                    boxShadow: escCodigo === 'sb' 
+                      ? '0 12px 28px rgba(16, 185, 129, 0.25), 0 0 16px rgba(16, 185, 129, 0.12)' 
+                      : '0 12px 28px rgba(2, 132, 199, 0.25), 0 0 16px rgba(2, 132, 199, 0.12)',
+                    zIndex: 1
+                  }}
+                >
+                  <img 
+                    src={`/assets/img/logo_${escCodigo}.png`} 
+                    alt="Escudo Oficial de la Escuela" 
+                    className="img-fluid"
+                    style={{ 
+                      maxHeight: '92%', 
+                      maxWidth: '92%', 
+                      objectFit: 'contain', 
+                      filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.16))' 
+                    }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
 
-        <div className="row align-items-center position-relative z-1 g-4">
-          {/* Contenedor: Icono 3D Isométrico */}
-          <div className="col-12 col-md-auto text-center text-md-start">
-            <div 
-              className="rounded-4 p-2 bg-white d-inline-flex align-items-center justify-content-center shadow-lg"
-              style={{ width: '95px', height: '95px', border: '2.5px solid rgba(255,255,255,0.4)', boxShadow: '0 10px 24px rgba(0,0,0,0.2)' }}
-            >
-              <IconoTransporteEscolar3D size={64} />
+              {/* Textos y Badges de la Escuela */}
+              <div className="min-w-0 flex-grow-1">
+                {/* Badges superiores inline: Nivel + Live Beacon + Estatus Módulo */}
+                <div className="d-flex align-items-center gap-1.5 flex-wrap mb-1">
+                  <span 
+                    className="badge text-white fw-bold px-2 py-0.5 rounded-pill extra-small shadow-xs"
+                    style={{ 
+                      fontSize: '0.67rem',
+                      background: escCodigo === 'sb' 
+                        ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' 
+                        : 'linear-gradient(135deg, #0284c7 0%, #0066ff 100%)' 
+                    }}
+                  >
+                    <i className="bi bi-patch-check-fill me-1"></i>
+                    {escCodigo === 'sb' ? 'Educación Inicial y Primaria' : 'Educación Media General'}
+                  </span>
+
+                  <div 
+                    className="d-inline-flex align-items-center gap-1 px-2 py-0.5 rounded-pill bg-white border shadow-xs"
+                    style={{ borderColor: escCodigo === 'sb' ? '#a7f3d0' : '#bae6fd' }}
+                  >
+                    <span 
+                      className="status-beacon-live" 
+                      style={{ color: escCodigo === 'sb' ? '#10b981' : '#0284c7', width: '6px', height: '6px' }}
+                    ></span>
+                    <span 
+                      className="extra-small fw-bold text-uppercase" 
+                      style={{ fontSize: '0.63rem', color: escCodigo === 'sb' ? '#047857' : '#0369a1', letterSpacing: '0.3px' }}
+                    >
+                      Campus Conectado
+                    </span>
+                  </div>
+
+                  <span 
+                    className="badge px-2 py-0.5 rounded-pill extra-small border shadow-xs d-none d-sm-inline-flex align-items-center gap-1"
+                    style={{ 
+                      fontSize: '0.65rem',
+                      backgroundColor: escCodigo === 'sb' ? '#d1fae5' : '#e0f2fe',
+                      color: escCodigo === 'sb' ? '#065f46' : '#0369a1',
+                      borderColor: escCodigo === 'sb' ? '#a7f3d0' : '#bae6fd'
+                    }}
+                  >
+                    <i className="bi bi-bus-front-fill"></i>
+                    <span>Transporte Escolar Institucional</span>
+                  </span>
+
+                  {esCoordinador && (
+                    <span 
+                      className="badge px-2 py-0.5 rounded-pill extra-small border shadow-xs text-uppercase fw-bold"
+                      style={{ 
+                        fontSize: '0.63rem',
+                        backgroundColor: '#fef3c7',
+                        color: '#92400e',
+                        borderColor: '#fde68a'
+                      }}
+                    >
+                      <i className="bi bi-person-badge-fill me-1"></i>
+                      Coordinación {escCodigo.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Título de la Escuela */}
+                <div className="mb-0.5">
+                  <div className="text-secondary text-uppercase fw-bold" style={{ fontSize: '0.66rem', letterSpacing: '0.7px', lineHeight: '1.2' }}>
+                    Unidad Educativa
+                  </div>
+                  <h1 
+                    className="fw-black mb-0 text-truncate d-flex align-items-center gap-2" 
+                    style={{ 
+                      fontSize: 'clamp(1.2rem, 3.8vw, 1.65rem)', 
+                      letterSpacing: '-0.4px',
+                      lineHeight: '1.15'
+                    }}
+                    title={escCodigo === 'sb' ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar'}
+                  >
+                    <span 
+                      style={{
+                        background: escCodigo === 'sb' 
+                          ? 'linear-gradient(90deg, #065f46 0%, #059669 50%, #047857 100%)' 
+                          : 'linear-gradient(90deg, #0f172a 0%, #0284c7 50%, #0066ff 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        display: 'inline-block'
+                      }}
+                    >
+                      {escCodigo === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                    </span>
+                    <AnimatedBusSVG size={24} className="bus-bounce d-none d-sm-inline-block text-primary" />
+                  </h1>
+                </div>
+
+                {/* Datos Jurídicos DEA & RIF en 1 línea */}
+                <div className="text-secondary extra-small fw-semibold d-flex align-items-center gap-1.5 flex-wrap" style={{ fontSize: '0.71rem' }}>
+                  <span>DEA: <strong className="text-dark">{escCodigo === 'sb' ? 'OD05561615' : 'S3355D1410'}</strong></span>
+                  <span className="text-muted">&bull;</span>
+                  <span>RIF: <strong className="text-dark">{escCodigo === 'sb' ? 'G-20000041-4' : 'J404012060'}</strong></span>
+                  <span className="text-muted d-none d-sm-inline">&bull;</span>
+                  <span className="badge bg-white text-secondary border px-1.5 py-0 rounded-pill extra-small d-none d-sm-inline">
+                    DEP PDVSA Oriente
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Título y Métricas Clave de Telemetría */}
-          <div className="col-12 col-md text-center text-md-start">
-            <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2 flex-wrap">
-              <span className="badge bg-white text-dark px-3 py-1.5 shadow-sm fw-bold rounded-pill badge-3d">
-                <i className="bi bi-bus-front me-1 text-warning"></i> Servicios, Bienestar & Movilidad
-              </span>
-              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                <i className="bi bi-signpost-split-fill me-1"></i><b>{rutas.length}</b> Rutas
-              </span>
-              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                <i className="bi bi-geo-alt-fill me-1"></i><b>{paradas.length}</b> Paradas
-              </span>
-              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                <i className="bi bi-building me-1"></i><b>{escCodigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar'}</b>
-              </span>
-              {esCoordinador && (
-                <span className="badge bg-white bg-opacity-25 text-white border border-white border-opacity-30 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  <i className="bi bi-person-badge-fill me-1"></i>Coordinador {escCodigo.toUpperCase()}
-                </span>
+            {/* Lado Derecho: Botones de Acción */}
+            <div className="d-flex align-items-center gap-2 flex-wrap ms-lg-auto">
+              {vistaActual !== 'dashboard' && (
+                <button
+                  type="button"
+                  onClick={() => setVistaActual('dashboard')}
+                  className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-xs bg-white border hover-efecto"
+                  style={{ 
+                    fontSize: '0.75rem', 
+                    color: escCodigo === 'sb' ? '#047857' : '#0369a1', 
+                    borderColor: escCodigo === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                  }}
+                  title="Volver a la vista general de transporte"
+                >
+                  <i className="bi bi-grid-fill text-primary"></i>
+                  <span>Panel Principal</span>
+                </button>
               )}
-              <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                <span className="d-inline-block rounded-circle bg-success me-1.5 animate__animated animate__pulse animate__infinite" style={{ width: '8px', height: '8px' }}></span>
-                <span className="text-white fw-bold">Live</span> / GPS Satelital
-              </span>
+
+              <button
+                type="button"
+                onClick={requestNotifPermission}
+                className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-xs bg-white border hover-efecto"
+                style={{ 
+                  fontSize: '0.75rem', 
+                  color: escCodigo === 'sb' ? '#047857' : '#0369a1', 
+                  borderColor: escCodigo === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                }}
+                title="Activar alertas push para recibir avisos del bus escolar"
+              >
+                <i className="bi bi-bell-fill text-warning"></i>
+                <span>Alertas Push</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVistaActual(vistaActual === 'CensoEstudiantes' ? 'dashboard' : 'CensoEstudiantes')}
+                className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-xs bg-white border hover-efecto"
+                style={{ 
+                  fontSize: '0.75rem', 
+                  color: escCodigo === 'sb' ? '#047857' : '#0369a1', 
+                  borderColor: escCodigo === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                }}
+                title="Balance institucional de rutas, demanda y censo"
+              >
+                <i className="bi bi-bar-chart-fill text-info"></i>
+                <span>Balance Matrícula</span>
+              </button>
             </div>
 
-            <h1 className="fw-bolder mb-1 text-white d-flex align-items-center justify-content-center justify-content-md-start gap-2 flex-wrap" style={{ fontSize: 'calc(1.5rem + 0.7vw)', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-              <span className="bus-header-icon"><AnimatedBusSVG size={32} className="bus-bounce" /></span>
-              <span>Transporte Escolar Institucional</span>
-            </h1>
-
-            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '820px' }}>
-              Monitoreo satelital de rutas, paradas estratégicas, despacho de unidades en tiempo real y notificaciones push masivas para representantes.
-            </p>
           </div>
 
-          {/* Logo Escuela Flotante 3D */}
-          <div className="col-12 col-lg-auto text-end d-none d-lg-block">
-            <img 
-              src={`/assets/img/logo_${escCodigo}.png`} 
-              alt="Logo Escuela" 
-              className="logo-escuela-banner"
-              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-            />
-          </div>
-        </div>
-
-        {/* Barra de Selector de Sede y Navegación de Submódulos */}
-        <div className="mt-4 pt-3 border-top border-white border-opacity-20 d-flex justify-content-between align-items-center flex-wrap gap-2 position-relative z-1">
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <div 
-              className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill bg-white bg-opacity-20 border border-white border-opacity-25 shadow-xs"
-              title={`Sede institucional activa: ${escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}`}
-            >
-              <span 
-                className="badge rounded-pill text-white fw-bold px-3 py-1.5 d-flex align-items-center gap-1.5"
+          {/* ── SUB-BARRA INFERIOR COMPACTA: UBICACIÓN + TELEMETRÍA UNIFICADA ── */}
+          <div 
+            className="mt-2.5 pt-2 border-top d-flex align-items-center justify-content-between flex-wrap gap-2"
+            style={{ borderColor: 'rgba(0,0,0,0.06)' }}
+          >
+            {/* Dirección completa con enlace a Google Maps */}
+            <div className="d-flex align-items-center gap-1.5 min-w-0" style={{ fontSize: '0.73rem' }}>
+              <i className="bi bi-geo-alt-fill text-danger flex-shrink-0"></i>
+              <a 
+                href={
+                  localStorage.getItem(`sigae_maps_url_${escCodigo}`) ||
+                  (escCodigo === 'sb'
+                    ? 'https://www.google.com/maps/search/Campo+Residencial+El+Tejero,+municipio+Ezequiel+Zamora,+Estado+Monagas,+Venezuela'
+                    : 'https://www.google.com/maps/search/Via+Nacional+Monagas+Sucre+Campo+Monagas+Miraflores+municipio+Punceres+Monagas+Venezuela')
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="fw-medium text-decoration-none d-inline-flex align-items-center gap-1"
                 style={{ 
-                  backgroundColor: escCodigo === 'sb' ? '#0284c7' : '#059669', 
-                  fontSize: '0.8rem'
+                  color: escCodigo === 'sb' ? '#047857' : '#0369a1',
+                  transition: 'color 0.2s ease'
+                }}
+                title="Ver ubicación en Google Maps"
+              >
+                <span>
+                  {escCodigo === 'sb' 
+                    ? 'Campo Residencial El Tejero, municipio Ezequiel Zamora, Estado Monagas, Venezuela' 
+                    : 'Vía Nacional Monagas - Sucre, Campo Monagas Miraflores, municipio Púnceres, Estado Monagas, Venezuela'}
+                </span>
+                <i className="bi bi-box-arrow-up-right flex-shrink-0" style={{ fontSize: '0.65rem', opacity: 0.7 }}></i>
+              </a>
+            </div>
+
+            {/* Telemetría Integrada (Reloj Oficial, Periodo y Sedes) */}
+            <div className="d-flex align-items-center gap-2 flex-wrap ms-auto">
+              <div 
+                className="d-inline-flex align-items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-white border shadow-xs"
+                style={{ 
+                  fontSize: '0.71rem', 
+                  borderColor: escCodigo === 'sb' ? '#a7f3d0' : '#bae6fd',
+                  boxShadow: escCodigo === 'sb' ? '0 2px 8px rgba(16,185,129,0.12)' : '0 2px 8px rgba(2,132,199,0.12)'
                 }}
               >
-                <i className="bi bi-building"></i>
-                <span>{escCodigo === 'sb' ? 'Sede: U.E. Santa Bárbara' : 'Sede: U.E. Libertador Bolívar'}</span>
-              </span>
-              {esCoordinador && (
-                <span 
-                  className="badge rounded-pill border border-white border-opacity-30 px-2 py-0.5 fw-bold text-white"
-                  style={{ fontSize: '0.72rem' }}
-                >
-                  <i className="bi bi-person-badge-fill text-warning me-1"></i>
-                  Coordinación {escCodigo.toUpperCase()}
+                <i className="bi bi-clock-history" style={{ color: escCodigo === 'sb' ? '#10b981' : '#0284c7' }}></i>
+                <span className="font-monospace fw-bold text-dark">{relojDigital || '12:00:00'} VET</span>
+                <span className="text-muted">&bull;</span>
+                <i className="bi bi-calendar-check text-success"></i>
+                <span className="text-secondary fw-medium">Periodo 2025–2026</span>
+                <span className="text-muted d-none d-sm-inline">&bull;</span>
+                <span className={`fw-bold d-none d-sm-inline ${escCodigo === 'sb' ? 'text-success' : 'text-primary'}`}>
+                  <i className="bi bi-building me-1" style={{ fontSize: '0.65rem' }}></i>
+                  {escCodigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
                 </span>
-              )}
+              </div>
             </div>
-
-            <button
-              onClick={requestNotifPermission}
-              className="btn btn-light rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 text-dark"
-              style={{ fontSize: '0.82rem' }}
-            >
-              <i className="bi bi-bell-fill text-warning"></i>
-              <span>Alertas Push</span>
-            </button>
-
-            <button
-              onClick={() => setVistaActual(vistaActual === 'CensoEstudiantes' ? 'dashboard' : 'CensoEstudiantes')}
-              className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold shadow-xs hover-efecto d-flex align-items-center gap-1.5 ${vistaActual === 'CensoEstudiantes' ? 'btn-light text-dark shadow-sm' : 'btn-light bg-opacity-75 text-dark border-0'}`}
-              style={{ fontSize: '0.82rem' }}
-              title="Estadísticas de Transporte: Balance de demanda, rutas y matrícula de ambas escuelas"
-            >
-              <i className={`bi bi-bar-chart-fill ${vistaActual === 'CensoEstudiantes' ? 'text-primary' : 'text-dark'}`}></i>
-              <span>Estadísticas de Transporte</span>
-            </button>
           </div>
 
-          {vistaActual !== 'dashboard' && (
+        </div>
+      </div>
+
+      {/* ── BARRA SUPERIOR DE NAVEGACIÓN ENTRE LOS 5 SUBMÓDULOS DE TRANSPORTE ── */}
+      <div className="transporte-submod-container d-print-none">
+        <div className="transporte-submod-nav">
+          <button
+            type="button"
+            className={`transporte-submod-btn btn-dash ${vistaActual === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setVistaActual('dashboard')}
+          >
+            <i className="bi bi-grid-fill text-primary"></i>
+            <span>Panel Principal</span>
+          </button>
+
+          {(canManageParadas || canManageRutas) && (
             <button
-              onClick={() => setVistaActual('dashboard')}
-              className="btn btn-light rounded-pill px-3 py-1.5 fw-bold shadow-sm hover-efecto d-flex align-items-center gap-1.5 text-dark"
-              style={{ fontSize: '0.82rem' }}
+              type="button"
+              className={`transporte-submod-btn btn-coord ${vistaActual === 'coordinacion' || vistaActual === 'Configuracion' ? 'active' : ''}`}
+              onClick={() => setVistaActual('coordinacion')}
             >
-              <i className="bi bi-arrow-left text-primary"></i>
-              <span>Volver al Dashboard</span>
+              <i className="bi bi-sliders text-primary"></i>
+              <span>1. Coordinación y Rutas</span>
+            </button>
+          )}
+
+          {canOperateTracking && (
+            <button
+              type="button"
+              className={`transporte-submod-btn btn-oper ${vistaActual === 'operacion' || vistaActual === 'Operacion' ? 'active' : ''}`}
+              onClick={() => setVistaActual('operacion')}
+            >
+              <i className="bi bi-broadcast text-success"></i>
+              <span>2. Operación y Guardia</span>
+            </button>
+          )}
+
+          {canViewRecorrido && (
+            <button
+              type="button"
+              className={`transporte-submod-btn btn-visor ${vistaActual === 'visor' || vistaActual === 'Visor' ? 'active' : ''}`}
+              onClick={() => setVistaActual('visor')}
+            >
+              <i className="bi bi-eye-fill text-info"></i>
+              <span>3. Monitoreo en Vivo</span>
+            </button>
+          )}
+
+          {(canManageRutas || isSuperAdmin) && (
+            <button
+              type="button"
+              className={`transporte-submod-btn btn-list ${vistaActual === 'listados' ? 'active' : ''}`}
+              onClick={() => setVistaActual('listados')}
+            >
+              <i className="bi bi-file-earmark-text-fill" style={{ color: '#8b5cf6' }}></i>
+              <span>4. Censo y Listados Carta</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            className={`transporte-submod-btn btn-stat ${vistaActual === 'estadisticas' ? 'active' : ''}`}
+            onClick={() => setVistaActual('estadisticas')}
+          >
+            <i className="bi bi-bar-chart-fill text-warning"></i>
+            <span>5. Estadísticas y Asistencia</span>
+          </button>
+
+          {(canManageRutas || canOperateTracking) && (
+            <button
+              type="button"
+              className={`transporte-submod-btn btn-wsp ${vistaActual === 'DespachoRutograma' ? 'active' : ''}`}
+              onClick={() => setVistaActual('DespachoRutograma')}
+            >
+              <i className="bi bi-whatsapp text-success"></i>
+              <span>Despacho WhatsApp</span>
             </button>
           )}
         </div>
@@ -2513,34 +2812,111 @@ export const TransporteEscolar = () => {
         />
       )}
 
-      {/* VISTA: CONFIGURACION */}
-      {vistaActual === 'Configuracion' && (
-        <ConfiguracionView
+      {/* SUBMÓDULO 1: COORDINACION Y RUTAS */}
+      {(vistaActual === 'coordinacion' || vistaActual === 'Configuracion') && (
+        <SubmoduloCoordinacion
           onBack={() => setVistaActual('dashboard')}
-          configTab={configTab}
-          setConfigTab={setConfigTab}
           canManageParadas={canManageParadas}
           canManageRutas={canManageRutas}
           paradas={paradas}
           rutas={rutas}
           docentes={docentes}
+          estudiantes={estudiantes}
+          escCodigo={escCodigo}
+          cargarTodo={cargarTodo}
           setParadaForm={setParadaForm}
           setShowModalParada={setShowModalParada}
           setRutaForm={setRutaForm}
           setParadasTemporales={setParadasTemporales}
           setShowModalRuta={setShowModalRuta}
           setShowModalAsignacion={setShowModalAsignacion}
-          setShowModalCargaMasiva={(val) => { if (val) setVistaActual('CargaMasiva'); }}
           deleteParada={deleteParada}
           deleteParadasMasivo={deleteParadasMasivo}
           deleteRuta={deleteRuta}
           deleteRutasMasivo={deleteRutasMasivo}
           compartirRuta={compartirRuta}
-          compartirRutasMasivo={compartirRutasMasivo}
-          limpiarAsignacionesMasivo={limpiarAsignacionesMasivo}
           editRuta={editRuta}
+          salidaMasiva={salidaMasiva}
+          resetMasivo={resetMasivo}
           BusStopIcon={BusStopIcon}
           AnimatedBusSVG={AnimatedBusSVG}
+        />
+      )}
+
+      {/* SUBMÓDULO 2: OPERACION Y GUARDIA */}
+      {(vistaActual === 'operacion' || vistaActual === 'Operacion') && (
+        <SubmoduloOperacion
+          onBack={() => setVistaActual('dashboard')}
+          opRutaId={opRutaId}
+          setOpRutaId={setOpRutaId}
+          opSentido={opSentido}
+          setOpSentido={setOpSentido}
+          rutas={rutas}
+          opActual={opActual}
+          estudiantes={estudiantes}
+          customPids={customPids}
+          setCustomPids={setCustomPids}
+          iniciarRecorrido={iniciarRecorrido}
+          marcarParada={marcarParada}
+          resetRutaActual={resetRutaActual}
+          getIdsWithEscuela={getIdsWithEscuela}
+          getParadasWithEscuela={getParadasWithEscuela}
+          BusProgressBar={BusProgressBar}
+          AnimatedBusSVG={AnimatedBusSVG}
+          BusStopIcon={BusStopIcon}
+          user={user}
+          docentes={docentes}
+          cargarTrackingSolo={cargarTrackingSolo}
+          offlineMode={offlineMode}
+          escCodigo={escCodigo}
+        />
+      )}
+
+      {/* SUBMÓDULO 3: MONITOREO EN VIVO (REPRESENTANTES) */}
+      {(vistaActual === 'visor' || vistaActual === 'Visor') && (
+        <SubmoduloVisor
+          onBack={() => setVistaActual('dashboard')}
+          opRutaId={opRutaId}
+          setOpRutaId={setOpRutaId}
+          opSentido={opSentido}
+          setOpSentido={setOpSentido}
+          rutas={rutas}
+          opActual={opActual}
+          user={user}
+          estudiantes={estudiantes}
+          docentes={docentes}
+          getIdsWithEscuela={getIdsWithEscuela}
+          getParadasWithEscuela={getParadasWithEscuela}
+          BusProgressBar={BusProgressBar}
+          AnimatedBusSVG={AnimatedBusSVG}
+          BusStopIcon={BusStopIcon}
+          escCodigo={escCodigo}
+        />
+      )}
+
+      {/* SUBMÓDULO 4: CENSO Y LISTADOS OFICIALES (CARTA) */}
+      {vistaActual === 'listados' && (
+        <SubmoduloListadosCarta
+          onBack={() => setVistaActual('dashboard')}
+          escCodigo={escCodigo}
+          estudiantes={estudiantes}
+          rutas={rutas}
+          paradas={paradas}
+          docentes={docentes}
+          cargarTodo={cargarTodo}
+          user={user}
+        />
+      )}
+
+      {/* SUBMÓDULO 5: ESTADÍSTICAS Y ASISTENCIA */}
+      {vistaActual === 'estadisticas' && (
+        <SubmoduloEstadisticas
+          onBack={() => setVistaActual('dashboard')}
+          escCodigo={escCodigo}
+          rutas={rutas}
+          paradas={paradas}
+          estudiantes={estudiantes}
+          docentes={docentes}
         />
       )}
 
@@ -2549,53 +2925,6 @@ export const TransporteEscolar = () => {
         <CargaMasivaView
           onBack={() => setVistaActual('dashboard')}
           onSave={procesarCargaMasiva}
-        />
-      )}
-
-      {/* VISTA: OPERACION */}
-      {vistaActual === 'Operacion' && (
-        <OperacionView
-          onBack={() => setVistaActual('dashboard')}
-          opRutaId={opRutaId}
-          setOpRutaId={setOpRutaId}
-          opSentido={opSentido}
-          setOpSentido={setOpSentido}
-          rutas={rutas}
-          opActual={opActual}
-          customPids={customPids}
-          setCustomPids={setCustomPids}
-          dragIdx={dragIdx}
-          setDragIdx={setDragIdx}
-          iniciarRecorrido={iniciarRecorrido}
-          marcarParada={marcarParada}
-          resetRutaActual={resetRutaActual}
-          resetMasivo={resetMasivo}
-          getIdsWithEscuela={getIdsWithEscuela}
-          getParadasWithEscuela={getParadasWithEscuela}
-          BusProgressBar={BusProgressBar}
-          AnimatedBusSVG={AnimatedBusSVG}
-          BusStopIcon={BusStopIcon}
-          canControlCoordinacion={canControlCoordinacion}
-          salidaMasiva={salidaMasiva}
-          offlineMode={offlineMode}
-        />
-      )}
-
-      {/* VISTA: VISOR */}
-      {vistaActual === 'Visor' && (
-        <VisorView
-          onBack={() => setVistaActual('dashboard')}
-          opRutaId={opRutaId}
-          setOpRutaId={setOpRutaId}
-          opSentido={opSentido}
-          setOpSentido={setOpSentido}
-          rutas={rutas}
-          opActual={opActual}
-          getIdsWithEscuela={getIdsWithEscuela}
-          getParadasWithEscuela={getParadasWithEscuela}
-          BusProgressBar={BusProgressBar}
-          AnimatedBusSVG={AnimatedBusSVG}
-          BusStopIcon={BusStopIcon}
         />
       )}
 

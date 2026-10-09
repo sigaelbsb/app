@@ -602,9 +602,34 @@ export const ConfiguracionSistema = () => {
               <i className="bi bi-sliders me-1"></i>Configuración Escolar
             </h1>
 
-            <p className="mb-0 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '850px' }}>
+            <p className="mb-2 text-white text-opacity-90 fs-5 fw-semibold" style={{ maxWidth: '850px' }}>
               Gestión centralizada de períodos lectivos, lapsos académicos, niveles formativos y parámetros maestros del sistema.
             </p>
+
+            {/* Dirección con enlace a Google Maps */}
+            <div className="d-flex align-items-center gap-1.5 flex-wrap">
+              <i className="bi bi-geo-alt-fill text-white text-opacity-75" style={{ fontSize: '0.9rem' }}></i>
+              <a
+                href={
+                  localStorage.getItem(`sigae_maps_url_${escuelaCodigo}`) ||
+                  (escuelaCodigo === 'sb'
+                    ? 'https://www.google.com/maps/search/Campo+Residencial+El+Tejero,+municipio+Ezequiel+Zamora,+Estado+Monagas,+Venezuela'
+                    : 'https://www.google.com/maps/search/Via+Nacional+Monagas+Sucre+Campo+Monagas+Miraflores+municipio+Punceres+Monagas+Venezuela')
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white text-opacity-90 fw-semibold text-decoration-none d-inline-flex align-items-center gap-1"
+                style={{ fontSize: '0.88rem', transition: 'opacity 0.2s ease' }}
+                title="Ver ubicación en Google Maps"
+              >
+                <span>
+                  {escuelaCodigo === 'sb'
+                    ? 'Campo Residencial El Tejero, municipio Ezequiel Zamora, Estado Monagas, Venezuela'
+                    : 'Vía Nacional Monagas - Sucre, Campo Monagas Miraflores, municipio Púnceres, Estado Monagas, Venezuela'}
+                </span>
+                <i className="bi bi-box-arrow-up-right" style={{ fontSize: '0.7rem' }}></i>
+              </a>
+            </div>
           </div>
 
           <div className="col-lg-3 text-end d-none d-lg-block">

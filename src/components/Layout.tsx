@@ -1668,9 +1668,17 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
 
           {/* TÍTULO / MIGA DE PAN DE LA SECCIÓN */}
           <div className="d-none d-md-flex align-items-center gap-2">
-            <h5 id="titulo-pagina" className="mb-0 fw-bold text-dark">
-              {activeCategory === 'Inicio' ? 'Panel Principal' : activeCategory}
+            <h5 id="titulo-pagina" className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+              <span className="p-1 rounded-2 bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px' }}>
+                <i className={`bi ${activeCategory === 'Inicio' ? 'bi-grid-1x2-fill' : 'bi-folder2-open'} fs-6`}></i>
+              </span>
+              <span>{activeCategory === 'Inicio' ? 'Panel Principal' : activeCategory}</span>
             </h5>
+            {activeCategory === 'Inicio' && (
+              <span className="badge rounded-pill fw-bold text-uppercase extra-small" style={{ backgroundColor: 'rgba(0, 112, 242, 0.1)', color: '#0062ff', border: '1px solid rgba(0, 112, 242, 0.25)', fontSize: '0.66rem', letterSpacing: '0.4px' }}>
+                Campus Digital
+              </span>
+            )}
           </div>
 
           <div className="ms-auto d-flex align-items-center gap-2 gap-md-3">
@@ -1680,6 +1688,9 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               <span className="small fw-bold text-dark">{anioEscolar}</span>
               <span className="text-muted extra-small">&bull; {lapsoEscolar}</span>
             </div>
+
+            {/* BOTÓN ASISTENTE ZOE & MAX EN EL CINTILLO SUPERIOR */}
+            <ChatbotSigma />
 
             {/* CAMPANA DE NOTIFICACIONES */}
             <div 
@@ -2143,7 +2154,6 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
         unreadTransportCount={notificaciones.filter(n => !n.leido && n.tipo === 'transporte').length}
         onAbrirNotificaciones={() => setMostrarNotifDropdown(prev => !prev)}
       />
-      <ChatbotSigma />
       <TourOrientacion />
       {esPersonalEscuela && (
         <ModalAsignacionSorpresa 

@@ -37,3 +37,8 @@ public/downloads/*.exe
 
 # Temporary scratch scripts
 scratch/
+scratch_*.cjs
+scripts/test_conn.cjs
+scripts/datos_respaldo.json
+clean_excel.cjs
+test-supabase.mjs

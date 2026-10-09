@@ -50,11 +50,11 @@ export const TourOrientacion: React.FC = () => {
     },
     {
       selector: '#sigma-container',
-      titulo: 'Tus Guías Virtuales siempre contigo',
-      descripcion: 'En la esquina inferior izquierda nos encontrarás siempre listos para ayudarte. Puedes chatear con nosotros, buscar cualquier módulo al instante o activar nuestro micro-video interactivo de saludo.',
+      titulo: 'Tus Guías Virtuales en el Cintillo Superior',
+      descripcion: 'En el cintillo superior encontrarás a Zoe y Max listos para orientarte en todo momento. Haz clic en su botón para resolver cualquier duda, encontrar módulos al instante o recibir asistencia guiada.',
       icono: 'bi-chat-heart-fill',
       consejo: '¡Puedes alternar entre Zoe y Max con un solo clic en la cabecera del chat!',
-      posicion: 'top'
+      posicion: 'bottom'
     }
   ];
 

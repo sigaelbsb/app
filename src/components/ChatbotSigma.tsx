@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase';
 import { usePermisos } from '../hooks/usePermisos';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { obtenerInfoModulo } from '../lib/guiasZoeMaxData';
+
 /**
  * Figura Visual de Guías Escolares (Zoe y Max)
- * Figuras 3D transparentes
+ * Figuras 3D transparentes utilizadas en CerebroSigma y vistas del sistema
  */
 export interface SigmaFiguraVisualProps { 
   style?: React.CSSProperties; 
@@ -75,6 +76,10 @@ export const SigmaFiguraVisual: React.FC<SigmaFiguraVisualProps> = ({
 
 export const SigmaFiguraAnimada = SigmaFiguraVisual;
 
+/**
+ * ChatbotSigma: Asistente Integrado en el Cintillo Superior
+ * (Zoe y Max - Guías Escolares SIGAE)
+ */
 export const ChatbotSigma = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,63 +88,63 @@ export const ChatbotSigma = () => {
   const [activo, setActivo] = useState(false);
   const [pensando, setPensando] = useState(false);
   const [hablando, setHablando] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [minimizado, setMinimizado] = useState(false);
 
-  // Estados de Personaje (Zoe o Max seleccionados aleatoriamente)
+  // Personaje activo (Zoe o Max)
   const [personaje, setPersonaje] = useState<'zoe' | 'max'>(() => {
     return Math.random() < 0.5 ? 'zoe' : 'max';
   });
 
   const [poseActual, setPoseActual] = useState<'saludo' | 'documentos' | 'senala' | 'pulgar'>('saludo');
 
+  // Estados para Navegación y Recomendaciones
+  const [modulosRecomendados, setModulosRecomendados] = useState<any[]>([]);
+  const [chipsSugeridos, setChipsSugeridos] = useState<Array<{ texto: string; accion: () => void }>>([]);
+  const [mensaje, setMensaje] = useState('¡Hola! Conectando mis sistemas...');
+  const [acciones, setAcciones] = useState<any[]>([]);
+  const [inputValue, setInputValue] = useState('');
+
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastPath = useRef<string | null>(null);
+
+  const [conocimientoCache, setConocimientoCache] = useState<any[]>([]);
+  const [fuseInstance, setFuseInstance] = useState<Fuse<any> | null>(null);
+
   const alternarPersonaje = () => {
-    marcarInteraccionUsuario();
     const nuevo = personaje === 'zoe' ? 'max' : 'zoe';
     setPersonaje(nuevo);
     setMensaje(
       nuevo === 'zoe'
-        ? '¡Hola! Soy <b>Zoe</b> 👧. ¡Qué gusto acompañarte en SIGAE! Dime qué necesitas hacer hoy.'
+        ? '¡Hola! Soy <b>Zoe</b> 👧. ¡Qué gusto acompañarte en SIGAE! Dime qué necesitas gestionar hoy.'
         : '¡Hola! Soy <b>Max</b> 👦. ¡Listo para ayudarte a navegar por el sistema! ¿En qué te puedo orientar?'
     );
   };
 
-  // Estados para Navegación y Recomendaciones Interactivas
-  const [modulosRecomendados, setModulosRecomendados] = useState<any[]>([]);
-  const [chipsSugeridos, setChipsSugeridos] = useState<Array<{ texto: string; accion: () => void }>>([]);
-  const chatInputRef = useRef<HTMLInputElement>(null);
-
-  const [position, setPosition] = useState(() => {
-    const defaultX = typeof window !== 'undefined' ? Math.max(50, window.innerWidth - 130) : 1100;
-    const defaultY = typeof window !== 'undefined' ? Math.max(50, window.innerHeight - 150) : 600;
-    try {
-      const savedX = parseInt(localStorage.getItem('sigma_pos_x') || '');
-      const savedY = parseInt(localStorage.getItem('sigma_pos_y') || '');
-      // Respetar posición guardada únicamente si está en la franja derecha (nuevo anclaje)
-      if (!isNaN(savedX) && !isNaN(savedY) && savedX >= (typeof window !== 'undefined' ? window.innerWidth * 0.45 : 500) && savedY >= 0) {
-        return { x: savedX, y: savedY };
+  // Cierre al hacer clic fuera del componente
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setActivo(false);
       }
-    } catch (e) {}
-    return { x: defaultX, y: defaultY };
-  });
-  const [mensaje, setMensaje] = useState('¡Hola! Conectando mis sistemas...');
-  const [acciones, setAcciones] = useState<any[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  
-  const dragStart = useRef({ x: 0, y: 0 });
-  const initialPos = useRef({ x: 0, y: 0 });
-  const dragMoved = useRef(false);
-  const lastPath = useRef<string | null>(null);
-  const userInteractedRef = useRef(false);
-  const autoRetireTimerRef = useRef<any>(null);
-  
-  const inactividadTimerRef = useRef<any>(null);
-  const isHoveringBubbleRef = useRef(false);
-  const isInputFocusedRef = useRef(false);
-  
-  const [conocimientoCache, setConocimientoCache] = useState<any[]>([]);
-  const [fuseInstance, setFuseInstance] = useState<Fuse<any> | null>(null);
+    };
+    if (activo) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activo]);
 
+  // Cierre con la tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activo) {
+        setActivo(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activo]);
 
   // Carga de conocimientos y filtrado por rol
   const cargarConocimiento = async () => {
@@ -186,7 +191,7 @@ export const ChatbotSigma = () => {
     }
   };
 
-  // Mapeo semántico de palabras clave para navegación interactiva
+  // Mapeo semántico de palabras clave
   const KEYWORDS_MAP: Record<string, string[]> = {
     "Perfil de la Escuela": ["escuela", "plantel", "colegio", "dea", "director", "directora", "mision", "vision", "peic", "sede"],
     "Configuración Escolar": ["configuracion", "parametros", "lapsos", "periodos", "periodo", "niveles", "fases", "año", "ano", "escolar"],
@@ -219,7 +224,7 @@ export const ChatbotSigma = () => {
     "Auditoría del Sistema": ["auditoria", "logs", "movimientos", "historial", "acciones", "quien hizo"]
   };
 
-  // Índice de herramientas disponibles con permisos para búsqueda interactiva
+  // Herramientas disponibles según permisos
   const toolsIndex = React.useMemo(() => {
     const list: Array<{
       categoria: string;
@@ -259,42 +264,66 @@ export const ChatbotSigma = () => {
   }, [tienePermiso, tienePermisoEnEscuela]);
 
   const navegarInteractivo = (item: any) => {
-    marcarInteraccionUsuario();
     setHablando(true);
-    setMensaje(`🚀 <b>¡Excelente!</b> Abriendo <b>${item.submodulo}</b>...`);
+    setMensaje(`🚀 Abriendo <b>${item.submodulo}</b>...`);
     setModulosRecomendados([]);
     setChipsSugeridos([]);
     setTimeout(() => {
       navigate(item.url);
       setActivo(false);
       setHablando(false);
-    }, 450);
+    }, 350);
   };
 
   const abrirChatSigma = () => {
-    marcarInteraccionUsuario();
-    setMinimizado(false);
     setActivo(true);
     setHablando(true);
-    setTimeout(() => setHablando(false), 1200);
+    setTimeout(() => setHablando(false), 1000);
 
     const nombreGuia = personaje === 'zoe' ? 'Zoe' : 'Max';
-    setMensaje(`¡Hola! Soy <b>${nombreGuia}</b> 👋, tu guía en SIGAE. Cuéntame qué necesitas gestionar o qué duda tienes sobre la plataforma:`);
+    const modData = obtenerInfoModulo(location.pathname);
+
+    if (modData) {
+      const textoGuia = personaje === 'zoe' ? modData.info.descZoe : modData.info.descMax;
+      setMensaje(`
+        <div class="guia-modulo-chat-wrapper">
+          <div class="d-flex align-items-center gap-1.5 mb-2">
+            <span class="badge ${personaje === 'zoe' ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary'} rounded-pill px-2.5 py-1" style="font-size: 0.72rem; font-weight: 700;">
+              <i class="bi ${modData.info.icono} me-1"></i> ${modData.info.titulo}
+            </span>
+            <span class="badge bg-light text-secondary border" style="font-size: 0.68rem;">
+              ${modData.info.categoria}
+            </span>
+          </div>
+          <div style="font-size: 0.86rem; line-height: 1.45; color: #1e293b;" class="mb-2">
+            ${textoGuia}
+          </div>
+          ${modData.info.tip ? `
+            <div class="p-2 rounded-3 border bg-light text-secondary d-flex align-items-start gap-1.5" style="font-size: 0.78rem; line-height: 1.38;">
+              <i class="bi bi-lightbulb-fill text-warning flex-shrink-0 mt-0.5"></i>
+              <span><b>Tip:</b> ${modData.info.tip}</span>
+            </div>
+          ` : ''}
+        </div>
+      `);
+    } else {
+      setMensaje(`¡Hola! Soy <b>${nombreGuia}</b> 👋, tu guía en SIGAE. ¿En qué te puedo orientar o qué necesitas gestionar hoy?`);
+    }
+
     setModulosRecomendados(toolsIndex.slice(0, 4));
     setAcciones([]);
     setChipsSugeridos([
-      { texto: '🎒 Tour Guiado', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
+      { texto: '🎒 Tour Guiado', accion: () => { setActivo(false); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
       { texto: `🔄 Hablar con ${personaje === 'zoe' ? 'Max' : 'Zoe'}`, accion: () => alternarPersonaje() },
       { texto: '🚌 Transporte Escolar', accion: () => procesarPreguntaUsuario('transporte') },
       { texto: '👥 Usuarios y Claves', accion: () => procesarPreguntaUsuario('usuarios') },
       { texto: '🏫 Grados y Salones', accion: () => procesarPreguntaUsuario('grados') },
-      { texto: '📝 Carga de Notas', accion: () => procesarPreguntaUsuario('notas') },
-      { texto: '📋 Ver mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') }
+      { texto: '📋 Mis módulos activos', accion: () => procesarPreguntaUsuario('mis modulos') }
     ]);
-    setTimeout(() => chatInputRef.current?.focus(), 80);
+    setTimeout(() => chatInputRef.current?.focus(), 100);
   };
 
-  // Cargar datos al montar y escuchar eventos de cambio de conocimiento y apertura de chat
+  // Cargar datos al montar y escuchar eventos de apertura
   useEffect(() => {
     cargarConocimiento();
 
@@ -308,95 +337,26 @@ export const ChatbotSigma = () => {
 
     window.addEventListener('sigae-sigma-refresh', refrescarCanal);
     window.addEventListener('sigae-abrir-sigma-busqueda', handleAbrirChat);
+    window.addEventListener('sigae-abrir-guia', handleAbrirChat);
     return () => {
       window.removeEventListener('sigae-sigma-refresh', refrescarCanal);
       window.removeEventListener('sigae-abrir-sigma-busqueda', handleAbrirChat);
-      if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
+      window.removeEventListener('sigae-abrir-guia', handleAbrirChat);
     };
   }, [toolsIndex]);
 
-  // Saludo de bienvenida y presentación automática al ingresar
-  useEffect(() => {
-    const nombreGuia = personaje === 'zoe' ? 'Zoe' : 'Max';
-    let saludo = `¡Hola! Soy <b>${nombreGuia}</b> 👋, tu guía en SIGAE. Tócame si necesitas ayuda o deseas ir a algún módulo.`;
-    
-    if (conocimientoCache.length > 0) {
-      const saludoBD = conocimientoCache.find(c => 
-        c.tema && (
-          c.tema.toLowerCase() === 'bienvenida' || 
-          c.tema.toLowerCase() === 'saludo' || 
-          c.tema.toLowerCase() === 'mensaje de bienvenida'
-        )
-      );
-
-      if (saludoBD) {
-        saludo = saludoBD.respuesta;
-        let userName = 'visitante';
-        try {
-          const usStr = localStorage.getItem('usuario_sigae');
-          if (usStr) {
-            const us = JSON.parse(usStr);
-            if (us && (us.nombre || us.nombres)) {
-              userName = (us.nombre || us.nombres).split(' ')[0];
-            }
-          }
-        } catch (e) {}
-        saludo = saludo.replace(/\{\s*nombre\s*\}/gi, userName);
-      }
-    }
-    setMensaje(saludo);
-    setAcciones([]);
-    setModulosRecomendados([]);
-    setChipsSugeridos([
-      { texto: '🎒 Tour Guiado', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } },
-      { texto: `🔄 Hablar con ${personaje === 'zoe' ? 'Max' : 'Zoe'}`, accion: () => alternarPersonaje() },
-      { texto: '💬 ¿Qué puedes hacer?', accion: () => procesarPreguntaUsuario('que puedes hacer') },
-      { texto: '🚀 Mis módulos activos', accion: () => procesarPreguntaUsuario('mis modulos') },
-      { texto: '🏫 ¿En qué escuela estoy?', accion: () => procesarPreguntaUsuario('escuela') }
-    ]);
-
-    // Cargar posición guardada con anclaje predeterminado en la esquina inferior derecha
-    const defaultX = typeof window !== 'undefined' ? Math.max(50, window.innerWidth - 130) : 1100;
-    const defaultY = Math.max(50, window.innerHeight - 150);
-    let savedX = parseInt(localStorage.getItem('sigma_pos_x') || '');
-    let savedY = parseInt(localStorage.getItem('sigma_pos_y') || '');
-    const maxX = window.innerWidth - 110;
-    const maxY = window.innerHeight - 120;
-    
-    // Si no es válida o si estaba en la franja izquierda previa, ubicar en esquina inferior derecha
-    if (isNaN(savedX) || savedX < (window.innerWidth * 0.45) || savedX > maxX) {
-      savedX = defaultX;
-      localStorage.setItem('sigma_pos_x', String(savedX));
-    }
-    if (isNaN(savedY) || savedY < 0 || savedY > maxY) {
-      savedY = defaultY;
-      localStorage.setItem('sigma_pos_y', String(savedY));
-    }
-    setPosition({ x: savedX, y: savedY });
-
-    // Mantener la burbuja de Zoe / Max cerrada por defecto para no entorpecer la pantalla
-    const isMin = localStorage.getItem('sigma_minimizada') === 'true';
-    setMinimizado(isMin);
-    setActivo(false);
-    sessionStorage.setItem('sigma_presentado', 'true');
-    sessionStorage.removeItem('sigma_presentando_ahora');
-  }, [conocimientoCache]);
-
-  // Registro de cambio de sección y orientación automática de Zoe & Max por Chatbot
+  // Actualizar contenido contextual al cambiar de ruta
   useEffect(() => {
     if (location.pathname === lastPath.current) return;
     lastPath.current = location.pathname;
 
     const modData = obtenerInfoModulo(location.pathname);
     if (modData) {
-      // 1. Elegir aleatoriamente entre Zoe y Max (50% de probabilidad) al entrar al módulo
       const guiaAleatorio: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
       setPersonaje(guiaAleatorio);
 
-      // 2. Determinar la pose 3D adecuada al contenido del módulo o submódulo
       const pathLower = location.pathname.toLowerCase();
       const nombreLower = (modData.nombre || '').toLowerCase();
-      
       let poseElegida: 'saludo' | 'documentos' | 'senala' | 'pulgar' = 'saludo';
       
       if (/ficha|actualiza|documento|expediente|constancia|recaudo|formulario|inscrip|solicitud/i.test(nombreLower) || 
@@ -408,13 +368,9 @@ export const ChatbotSigma = () => {
       } else if (/transporte|ruta|carnet|asistencia|pago|reporte|verific|bienvenida|exito/i.test(nombreLower) || 
                  /transporte|carnet|reporte/i.test(pathLower)) {
         poseElegida = 'pulgar';
-      } else {
-        const opciones: Array<'saludo' | 'pulgar' | 'senala'> = ['saludo', 'pulgar', 'senala'];
-        poseElegida = opciones[Math.floor(Math.random() * opciones.length)];
       }
       setPoseActual(poseElegida);
 
-      // 3. Redactar el mensaje descriptivo en la burbuja del chatbot
       const textoGuia = guiaAleatorio === 'zoe' ? modData.info.descZoe : modData.info.descMax;
       const htmlMensaje = `
         <div class="guia-modulo-chat-wrapper">
@@ -426,11 +382,11 @@ export const ChatbotSigma = () => {
               ${modData.info.categoria}
             </span>
           </div>
-          <div style="font-size: 0.88rem; line-height: 1.48; color: #1e293b;" class="mb-2">
+          <div style="font-size: 0.86rem; line-height: 1.45; color: #1e293b;" class="mb-2">
             ${textoGuia}
           </div>
           ${modData.info.tip ? `
-            <div class="p-2 rounded-3 border bg-light text-secondary d-flex align-items-start gap-1.5" style="font-size: 0.78rem; line-height: 1.4;">
+            <div class="p-2 rounded-3 border bg-light text-secondary d-flex align-items-start gap-1.5" style="font-size: 0.78rem; line-height: 1.38;">
               <i class="bi bi-lightbulb-fill text-warning flex-shrink-0 mt-0.5"></i>
               <span><b>Tip:</b> ${modData.info.tip}</span>
             </div>
@@ -442,7 +398,6 @@ export const ChatbotSigma = () => {
       setModulosRecomendados([]);
       setAcciones([]);
 
-      // 4. Configurar chips contextuales para el módulo
       const chips: Array<{ texto: string; accion: () => void }> = [
         { 
           texto: `🔄 Cambiar a ${guiaAleatorio === 'zoe' ? 'Max' : 'Zoe'}`, 
@@ -451,7 +406,7 @@ export const ChatbotSigma = () => {
         { 
           texto: '🎒 Tour Guiado', 
           accion: () => { 
-            marcarInteraccionUsuario(); 
+            setActivo(false);
             window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); 
           } 
         }
@@ -466,203 +421,18 @@ export const ChatbotSigma = () => {
         });
       }
 
-      chips.push({
-        texto: '💬 Preguntar algo',
-        accion: () => {
-          marcarInteraccionUsuario();
-          chatInputRef.current?.focus();
-        }
-      });
-
       setChipsSugeridos(chips);
-
-      // 5. Los mensajes y la burbuja de Zoe/Max permanecen cerrados por defecto para mantener la pantalla limpia.
-      // Solo se abren cuando el usuario hace clic sobre el personaje o solicita su ayuda.
-      setActivo(false);
-      setHablando(false);
-      cancelarTemporizadorInactividad();
-    } else {
-      // Para rutas y submódulos secundarios sin ficha en guiasZoeMaxData
-      const guiaAleatorio: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
-      setPersonaje(guiaAleatorio);
-      const opciones: Array<'saludo' | 'pulgar' | 'senala' | 'documentos'> = ['saludo', 'pulgar', 'senala', 'documentos'];
-      setPoseActual(opciones[Math.floor(Math.random() * opciones.length)]);
-      setActivo(false);
-      setHablando(false);
-      cancelarTemporizadorInactividad();
     }
   }, [location.pathname]);
 
-  // Escuchar solicitud explícita del usuario para abrir el guía (por ejemplo desde un botón de ayuda)
-  useEffect(() => {
-    const handleAbrirGuia = () => {
-      setMinimizado(false);
-      setActivo(true);
-      reiniciarTemporizadorInactividad(15);
-    };
-    window.addEventListener('sigae-abrir-guia', handleAbrirGuia);
-    return () => window.removeEventListener('sigae-abrir-guia', handleAbrirGuia);
-  }, []);
-
-  const cancelarTemporizadorInactividad = () => {
-    if (inactividadTimerRef.current) {
-      clearTimeout(inactividadTimerRef.current);
-      inactividadTimerRef.current = null;
-    }
-  };
-
-  const reiniciarTemporizadorInactividad = (segundos = 10) => {
-    cancelarTemporizadorInactividad();
-
-    // Si el usuario tiene el cursor sobre la conversación o está con el input enfocado, no cerrar
-    if (isHoveringBubbleRef.current || isInputFocusedRef.current) {
-      return;
-    }
-
-    inactividadTimerRef.current = setTimeout(() => {
-      if (!isHoveringBubbleRef.current && !isInputFocusedRef.current) {
-        setActivo(false);
-      }
-    }, segundos * 1000);
-  };
-
-  useEffect(() => {
-    if (activo) {
-      reiniciarTemporizadorInactividad(10);
-    } else {
-      cancelarTemporizadorInactividad();
-    }
-    return () => {
-      cancelarTemporizadorInactividad();
-    };
-  }, [activo, mensaje]);
-
-  const marcarInteraccionUsuario = () => {
-    userInteractedRef.current = true;
-    if (autoRetireTimerRef.current) clearTimeout(autoRetireTimerRef.current);
-    sessionStorage.removeItem('sigma_presentando_ahora');
-    reiniciarTemporizadorInactividad(10);
-  };
-
-  // Drag logic handlers
-  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest('.sigma-speech-bubble')) return;
-    if ((e.target as HTMLElement).closest('.sigma-btn-minimize')) return;
-    
-    marcarInteraccionUsuario();
-    setIsDragging(true);
-    dragMoved.current = false;
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    dragStart.current = { x: clientX, y: clientY };
-    initialPos.current = { x: position.x, y: position.y };
-  };
-
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-      const dx = clientX - dragStart.current.x;
-      const dy = clientY - dragStart.current.y;
-
-      let newLeft = initialPos.current.x + dx;
-      let newTop = initialPos.current.y + dy;
-
-      const maxX = window.innerWidth - 100;
-      const maxY = window.innerHeight - 120;
-
-      if (newLeft < 0) newLeft = 0;
-      if (newTop < 0) newTop = 0;
-      if (newLeft > maxX) newLeft = maxX;
-      if (newTop > maxY) newTop = maxY;
-
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-        dragMoved.current = true;
-      }
-
-      setPosition({ x: newLeft, y: newTop });
-    };
-
-    const handleEnd = (_e: MouseEvent | TouchEvent) => {
-      setIsDragging(false);
-      localStorage.setItem('sigma_pos_x', String(position.x));
-      localStorage.setItem('sigma_pos_y', String(position.y));
-
-      // Si el movimiento fue mínimo, tratar como click
-      if (!dragMoved.current) {
-        if (minimizado) {
-          restaurar();
-        } else {
-          setActivo(prev => !prev);
-        }
-      }
-    };
-
-    window.addEventListener('mousemove', handleMove, { passive: false });
-    window.addEventListener('mouseup', handleEnd);
-    window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', handleEnd);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleEnd);
-      window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('touchend', handleEnd);
-    };
-  }, [isDragging, position, minimizado]);
-
-  // Mantener a Sigma visible y en límites cuando cambia el tamaño de la ventana
-  useEffect(() => {
-    const handleResize = () => {
-      setPosition(prev => {
-        const maxX = window.innerWidth - 100;
-        const maxY = window.innerHeight - 120;
-        return {
-          x: Math.min(Math.max(15, prev.x), maxX),
-          y: Math.min(Math.max(20, prev.y), maxY)
-        };
-      });
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const minimizar = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    marcarInteraccionUsuario();
-    setMinimizado(true);
-    setActivo(false);
-    localStorage.setItem('sigma_minimizada', 'true');
-  };
-
-  const restaurar = () => {
-    marcarInteraccionUsuario();
-    // Alternar o seleccionar aleatoriamente para garantizar variedad dinámica entre Zoe y Max
-    const nuevoPersonaje: 'zoe' | 'max' = Math.random() < 0.5 ? 'zoe' : 'max';
-    setPersonaje(nuevoPersonaje);
-    const poses: Array<'saludo' | 'senala' | 'documentos' | 'pulgar'> = ['saludo', 'senala', 'documentos', 'pulgar'];
-    setPoseActual(poses[Math.floor(Math.random() * poses.length)]);
-    setMinimizado(false);
-    setActivo(true);
-    localStorage.setItem('sigma_minimizada', 'false');
-  };
-
-
-
-  // Procesar preguntas del usuario y búsqueda interactiva de módulos
+  // Procesar preguntas del usuario y búsqueda de módulos
   const procesarPreguntaUsuario = (textoManual: string | null = null) => {
     const query = (textoManual !== null ? textoManual : inputValue).trim();
     if (!query) return;
 
-    marcarInteraccionUsuario();
     setInputValue('');
     setPensando(true);
-    setMensaje("<div class='text-center py-2'><span class='spinner-border spinner-border-sm text-primary'></span> <i>Procesando tu solicitud y consultando mis módulos...</i></div>");
+    setMensaje("<div class='text-center py-3'><span class='spinner-border spinner-border-sm text-primary me-2'></span><i>Consultando mis módulos y conocimientos...</i></div>");
     setAcciones([]);
     setModulosRecomendados([]);
     setChipsSugeridos([]);
@@ -670,28 +440,27 @@ export const ChatbotSigma = () => {
 
     const queryClean = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    // Si pregunta por capacidades o qué puede hacer
+    // Si pregunta por capacidades
     const pideCapacidades = /\b(que puedes hacer|que haces|para que sirves|ayuda|funciones|capacidades|quien eres)\b/i.test(queryClean);
     if (pideCapacidades) {
       setTimeout(() => {
         setPensando(false);
         setHablando(true);
         setTimeout(() => setHablando(false), 1500);
-        setMensaje(`¡Hola! Soy <b>${personaje === 'zoe' ? 'Zoe' : 'Max'}</b>, tu guía de Inteligencia Artificial para SIGAE (junto a mi compañero <b>${personaje === 'zoe' ? 'Max' : 'Zoe'}</b>).<br><br>
-          Podemos orientarte sobre cualquier proceso escolar, explicarte términos del sistema y acompañarte al instante al módulo que necesites. Solo dime qué deseas hacer (por ejemplo: <i>"cargar notas"</i>, <i>"gestionar colectivos"</i>, <i>"ver transporte"</i> o <i>"crear usuarios"</i>).<br><br>
-          Aquí tienes algunos accesos recomendados para tu perfil:`);
+        setMensaje(`¡Hola! Soy <b>${personaje === 'zoe' ? 'Zoe' : 'Max'}</b>, tu guía para SIGAE (junto a mi compañero <b>${personaje === 'zoe' ? 'Max' : 'Zoe'}</b>).<br><br>
+          Podemos orientarte sobre procesos escolares, resolver dudas frecuentes y acompañarte de inmediato al módulo que necesites. Escribe lo que buscas (por ejemplo: <i>"cargar notas"</i>, <i>"transporte"</i> o <i>"crear usuarios"</i>).<br><br>
+          Accesos rápidos recomendados:`);
         setModulosRecomendados(toolsIndex.slice(0, 4));
         setAcciones([]);
         setChipsSugeridos([
           { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') },
           { texto: '🏫 ¿En qué escuela estoy?', accion: () => procesarPreguntaUsuario('escuela') },
-          { texto: '🧭 Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } }
+          { texto: '🧭 Tour de Orientación', accion: () => { setActivo(false); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } }
         ]);
-      }, 350);
+      }, 300);
       return;
     }
 
-    // Limpiamos preámbulos y palabras de relleno para detectar el tema/módulo central
     const queryFiltrada = queryClean
       .replace(/\b(donde|dónde|puedo|ver|esta|está|estan|están|como|cómo|hago|para|quiero|necesito|muestrame|muéstrame|abrir|ir|al|a|la|el|los|las|de|del|en|un|una|por|favor|busca|buscame|búscame|consultar|gestionar)\b/gi, " ")
       .replace(/\s+/g, " ")
@@ -699,7 +468,7 @@ export const ChatbotSigma = () => {
 
     const terminoBusqueda = queryFiltrada.length >= 2 ? queryFiltrada : queryClean;
 
-    // 0. BÚSQUEDA INTELIGENTE DE MÓDULOS INTEGRADA EN LAS RESPUESTAS
+    // Búsqueda en módulos del sistema
     const modulosCoincidentes = toolsIndex.filter(t => {
       const sub = t.submodulo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       const cat = t.categoria.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -712,33 +481,32 @@ export const ChatbotSigma = () => {
       return matchExacto || matchFiltrado || matchKeywords;
     });
 
-    // Si coincide con herramientas del sistema, responder conversacionalmente como IA:
     if (modulosCoincidentes.length > 0) {
       setTimeout(() => {
         setPensando(false);
         setHablando(true);
-        setTimeout(() => setHablando(false), 2000);
+        setTimeout(() => setHablando(false), 1500);
 
         if (modulosCoincidentes.length === 1) {
           const m = modulosCoincidentes[0];
           const descHtml = m.desc ? `<div class="p-2 my-2 rounded bg-light border-start border-3 border-primary text-secondary small">${m.desc}</div>` : '';
-          setMensaje(`¡Por supuesto! Para gestionar eso, el módulo indicado es <b>${m.submodulo}</b> (en la sección de <i>${m.categoria}</i>).${descHtml}Toca la tarjeta a continuación y te llevaré de inmediato:`);
+          setMensaje(`¡Por supuesto! Para gestionar eso, el módulo indicado es <b>${m.submodulo}</b> (${m.categoria}).${descHtml}Toca la tarjeta para abrirlo:`);
           setModulosRecomendados([m]);
         } else {
-          setMensaje(`¡Entendido! Encontré <b>${modulosCoincidentes.length} secciones</b> en SIGAE disponibles para tu rol que pueden ayudarte. Pulsa sobre la que deseas abrir:`);
+          setMensaje(`Encontré <b>${modulosCoincidentes.length} secciones</b> disponibles para tu perfil que pueden ayudarte:`);
           setModulosRecomendados(modulosCoincidentes.slice(0, 4));
         }
 
         setAcciones([]);
         setChipsSugeridos([
           { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') },
-          { texto: '💬 Hacer otra consulta', accion: () => { setModulosRecomendados([]); setMensaje('Dime qué otra duda o requerimiento tienes y con gusto te oriento:'); } }
+          { texto: '💬 Otra consulta', accion: () => { setModulosRecomendados([]); setMensaje('Dime qué otra duda tienes y te oriento:'); } }
         ]);
-      }, 400);
+      }, 350);
       return;
     }
 
-    // 1. CHEQUEAR PALABRAS CLAVE DEL DICCIONARIO
+    // Chequear glosario/diccionario
     const pideDiccionario = /\b(diccionario|glosario|terminos|conceptos|definiciones)\b/i.test(queryClean);
     if (pideDiccionario) {
       setTimeout(() => {
@@ -753,10 +521,9 @@ export const ChatbotSigma = () => {
           .filter((value, index, self) => self.indexOf(value) === index);
         
         const terminosHtml = terminosList.map(t => `<li>${t}</li>`).join('');
-        
-        setMensaje(`📚 <b>Glosario Educativo y Guía de SIGAE</b><br/><br/>
-          Aquí tienes una lista de conceptos y temas del ámbito escolar que puedo explicarte. Escribe su nombre o pregúntame sobre ellos:<br/><br/>
-          <ul>${terminosHtml}</ul>`);
+        setMensaje(`📚 <b>Glosario Educativo SIGAE</b><br/><br/>
+          Conceptos y temas disponibles:<br/><br/>
+          <ul class="mb-0 ps-3">${terminosHtml}</ul>`);
         
         const glosarioItems = conocimientoCache.filter(item => {
           if (!item || !item.tema || typeof item.tema !== 'string') return false;
@@ -775,11 +542,11 @@ export const ChatbotSigma = () => {
           }));
 
         setAcciones(quickActions);
-      }, 500);
+      }, 400);
       return;
     }
     
-    // 2. DETECTAR SI PREGUNTA POR LA ESCUELA O MÓDULOS ACTIVOS
+    // Preguntas por escuela o módulos
     const preguntaEscuela = /\b(escuela|plantel|colegio|sede|institucion|institución|donde estoy|dónde estoy|en que escuela|en qué escuela)\b/i.test(queryClean);
     const preguntaModulos = /\b(modulo|módulo|modulos|módulos|seccion|sección|activo|permiso|acceso|que puedo hacer|qué puedo hacer|mis accesos)\b/i.test(queryClean);
 
@@ -791,50 +558,41 @@ export const ChatbotSigma = () => {
         
         let userRole = 'Invitado';
         let userName = 'visitante';
-        let userObj: any = null;
         try {
           const usStr = localStorage.getItem('usuario_sigae');
           if (usStr) {
-            userObj = JSON.parse(usStr);
+            const userObj = JSON.parse(usStr);
             userRole = userObj.rol || 'Invitado';
             userName = (userObj.nombre || userObj.nombres || 'visitante').split(' ')[0];
           }
         } catch (e) {}
 
         if (preguntaEscuela && !preguntaModulos) {
-          setMensaje(`Hola <b>${userName}</b>, actualmente has ingresado a la institución: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>).<br/><br/>Toda la información y registros que gestiones corresponden a esta sede.`);
+          setMensaje(`Hola <b>${userName}</b>, estás en la sede: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>).`);
           const escuelaTool = toolsIndex.find(t => t.submodulo === 'Perfil de la Escuela');
           if (escuelaTool) {
             setModulosRecomendados([escuelaTool]);
           }
-        } else if (preguntaModulos && !preguntaEscuela) {
-          if (toolsIndex.length > 0) {
-            setMensaje(`Hola <b>${userName}</b>, con tu rol de <b>${userRole}</b> en <b>${schoolName}</b> tienes <b>${toolsIndex.length} herramientas activas</b>. Toca cualquiera para ir directamente:`);
-            setModulosRecomendados(toolsIndex.slice(0, 5));
-          } else {
-            setMensaje(`Hola <b>${userName}</b>, actualmente no posees ningún módulo con permisos activos en <b>${schoolName}</b>.`);
-            setModulosRecomendados([]);
-          }
-          setAcciones([]);
-          setChipsSugeridos([
-            { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') },
-            { texto: '🏫 Ver datos de la escuela', accion: () => procesarPreguntaUsuario('escuela') }
-          ]);
         } else {
-          setMensaje(`Te encuentras en la institución: <b>${schoolName}</b> (Código: <b>${schoolCode.toUpperCase()}</b>) con el rol de <b>${userRole}</b>.<br/><br/>Tienes <b>${toolsIndex.length} módulos disponibles</b> en el sistema:`);
-          setModulosRecomendados(toolsIndex.slice(0, 4));
-          setAcciones([]);
+          setMensaje(`Hola <b>${userName}</b>, con tu rol de <b>${userRole}</b> en <b>${schoolName}</b> tienes <b>${toolsIndex.length} módulos disponibles</b>:`);
+          setModulosRecomendados(toolsIndex.slice(0, 5));
         }
-      }, 450);
+        setAcciones([]);
+        setChipsSugeridos([
+          { texto: '📋 Ver todos mis módulos', accion: () => procesarPreguntaUsuario('mis modulos') },
+          { texto: '🏫 Ver datos de la escuela', accion: () => procesarPreguntaUsuario('escuela') }
+        ]);
+      }, 350);
       return;
     }
 
-    // 3. CONSULTA A LA BASE DE CONOCIMIENTO (FUSE SEARCH)
+    // Consulta Fuse en la base de datos
     setTimeout(() => {
       setPensando(false);
 
       if (!fuseInstance) {
-        setMensaje("En este momento estoy desconectada de la base de datos central, pero sigo disponible para orientarte en tus módulos.");
+        setMensaje("En este momento estoy sincronizando con la base de datos, pero puedes navegar directamente con los módulos recomendados.");
+        setModulosRecomendados(toolsIndex.slice(0, 3));
         return;
       }
 
@@ -846,16 +604,16 @@ export const ChatbotSigma = () => {
       } else {
         registrarPreguntaPendiente(query);
       }
-    }, 500);
+    }, 400);
   };
 
   const registrarPreguntaPendiente = async (query: string) => {
-    setMensaje(`Aún no tengo una respuesta exacta para "<b>${query}</b>", pero ya registré tu consulta para que la directiva me la enseñe pronto.<br><br>¿Deseas que te oriente hacia alguno de tus módulos principales?`);
+    setMensaje(`Aún no tengo una respuesta exacta para "<b>${query}</b>", pero registré tu consulta para que el equipo la incorpore pronto.<br><br>¿Deseas explorar tus módulos activos?`);
     setAcciones([]);
     setModulosRecomendados(toolsIndex.slice(0, 3));
     setChipsSugeridos([
       { texto: '📋 Ver módulos disponibles', accion: () => procesarPreguntaUsuario('mis modulos') },
-      { texto: '🧭 Iniciar Tour de Orientación', accion: () => { marcarInteraccionUsuario(); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } }
+      { texto: '🧭 Tour de Orientación', accion: () => { setActivo(false); window.dispatchEvent(new CustomEvent('sigae-iniciar-tour')); } }
     ]);
     try {
       const { error } = await supabase.from('sigma_preguntas_pendientes').insert([
@@ -870,7 +628,6 @@ export const ChatbotSigma = () => {
   };
 
   const ejecutarRespuesta = (items: any[]) => {
-    marcarInteraccionUsuario();
     if (!items || items.length === 0) return;
     const item = items[0];
     let htmlRespuesta = item?.respuesta || '';
@@ -891,7 +648,6 @@ export const ChatbotSigma = () => {
 
     const listAcciones: any[] = [];
     
-    // Acción principal
     if (item?.accion_tipo && item?.accion_valor) {
       const vistaInfo = getVistaFromKeyword(item.accion_valor);
       const allowed = tienePermiso(vistaInfo, 'ver') || vistaInfo === 'Inicio' || vistaInfo === 'Mi Perfil' || !vistaInfo;
@@ -904,7 +660,6 @@ export const ChatbotSigma = () => {
       });
     }
 
-    // Sugerencias alternativas
     if (items.length > 1) {
       for (let i = 1; i < items.length; i++) {
         const alt = items[i];
@@ -924,7 +679,7 @@ export const ChatbotSigma = () => {
 
     setAcciones(listAcciones);
     setHablando(true);
-    setTimeout(() => setHablando(false), 2000);
+    setTimeout(() => setHablando(false), 1500);
   };
 
   const getVistaFromKeyword = (keyword: string | null | undefined): string => {
@@ -968,7 +723,6 @@ export const ChatbotSigma = () => {
     const v = vista.toLowerCase().trim();
     if (v === 'inicio' || v === 'panel principal' || v === '/') return '/';
 
-    // Búsqueda dinámica en herramientas disponibles
     const foundTool = toolsIndex.find(t => 
       t.submodulo && t.submodulo.toLowerCase().trim() === v
     );
@@ -993,14 +747,11 @@ export const ChatbotSigma = () => {
   };
 
   const ejecutarAccion = (tipo: string, valor: string) => {
-    marcarInteraccionUsuario();
     if (tipo === 'navegar') {
       const vistaNombre = getVistaFromKeyword(valor);
       const url = mapVistaToUrl(vistaNombre);
       if (url) {
         navigate(url);
-      } else {
-        console.warn(`No se encontró ruta para la vista: ${vistaNombre}`);
       }
     } else if (tipo === 'abrir_modal') {
       const bootstrap = (window as any).bootstrap;
@@ -1019,341 +770,358 @@ export const ChatbotSigma = () => {
     setActivo(false);
   };
 
-  const isRightSide = true;
-
-  const stylePosition = isDragging ? {
-    left: `${position.x}px`,
-    top: `${position.y}px`,
-    right: 'auto',
-    bottom: 'auto'
-  } : undefined;
-
   return (
     <div 
       id="sigma-container" 
-      className={`sigma-container ${isRightSide ? 'align-right' : 'align-left'} ${personaje === 'zoe' ? 'tema-zoe' : 'tema-max'} ${minimizado ? 'minimized' : ''} ${pensando ? 'thinking' : ''} ${hablando ? 'talking' : ''} ${isDragging ? 'dragging' : ''}`}
-      style={stylePosition}
+      ref={containerRef}
+      className={`position-relative bot-cintillo-wrapper ${personaje === 'zoe' ? 'tema-zoe' : 'tema-max'}`}
+      style={{ display: 'inline-block' }}
     >
-      {/* Burbuja de Diálogo Interactiva */}
-      <div 
-        className={`sigma-speech-bubble ${activo ? 'active' : ''}`} 
-        id="sigma-speech-bubble"
-        onMouseEnter={() => {
-          isHoveringBubbleRef.current = true;
-          cancelarTemporizadorInactividad();
-        }}
-        onMouseMove={() => {
-          isHoveringBubbleRef.current = true;
-          cancelarTemporizadorInactividad();
-        }}
-        onMouseLeave={() => {
-          isHoveringBubbleRef.current = false;
-          if (activo) {
-            reiniciarTemporizadorInactividad(10);
+      {/* Botón interactivo en el Cintillo Superior */}
+      <button
+        type="button"
+        id="btn-bot-cintillo"
+        onClick={() => {
+          if (!activo) {
+            abrirChatSigma();
+          } else {
+            setActivo(false);
           }
         }}
-      >
-        <div className="sigma-bubble-header d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center gap-2">
-            <div className="position-relative">
-              <img 
-                src={personaje === 'zoe' ? '/zoe_avatar.png' : '/max_avatar.png'} 
-                alt={personaje === 'zoe' ? 'Zoe' : 'Max'} 
-                className="rounded-circle shadow-xs border border-white" 
-                style={{ width: '26px', height: '26px', objectFit: 'cover' }} 
-              />
-              <span 
-                style={{ 
-                  position: 'absolute', 
-                  bottom: '-1px', 
-                  right: '-1px', 
-                  width: '8px', 
-                  height: '8px', 
-                  borderRadius: '50%', 
-                  backgroundColor: '#22c55e', 
-                  border: '1.5px solid #fff' 
-                }} 
-              />
-            </div>
-            <span 
-              className="sigma-bubble-title" 
-              style={{ 
-                fontSize: '0.85rem', 
-                color: personaje === 'zoe' ? '#db2777' : '#0284c7' 
-              }}
-            >
-              <i 
-                className="bi bi-stars me-1" 
-                style={{ color: personaje === 'zoe' ? '#ec4899' : '#38bdf8' }}
-              ></i> 
-              {personaje === 'zoe' ? 'Zoe' : 'Max'} &bull; Guía SIGAE
-            </span>
-          </div>
-
-          <div className="d-flex align-items-center gap-1.5">
-            <button 
-              type="button"
-              className={`btn btn-sm py-0 px-2 rounded-pill fw-bold hover-efecto ${
-                personaje === 'zoe' 
-                  ? 'btn-outline-primary border-primary-subtle text-primary bg-primary bg-opacity-10' 
-                  : 'btn-outline-danger border-danger-subtle text-danger bg-danger bg-opacity-10'
-              }`}
-              style={{ fontSize: '0.72rem' }}
-              onClick={alternarPersonaje}
-              title={`Cambiar de guía a ${personaje === 'zoe' ? 'Max' : 'Zoe'}`}
-            >
-              {personaje === 'zoe' ? '👦 Max (Azul)' : '👧 Zoe (Rosa)'}
-            </button>
-            <button className="sigma-bubble-close" onClick={() => { marcarInteraccionUsuario(); setActivo(false); }}>&times;</button>
-          </div>
-        </div>
-
-        <div className="sigma-bubble-content">
-          <div dangerouslySetInnerHTML={{ __html: mensaje }} />
-
-          {/* Tarjetas Interactivas de Módulos */}
-          {modulosRecomendados.length > 0 && (
-            <div className="sigma-interactive-cards">
-              {modulosRecomendados.map((item, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => navegarInteractivo(item)}
-                  className="sigma-module-card"
-                  title={`Abrir ${item.submodulo}`}
-                >
-                  <div className="sigma-module-icon" style={{ backgroundColor: item.color }}>
-                    <i className={`bi ${item.icono}`}></i>
-                  </div>
-                  <div className="sigma-module-info">
-                    <div className="sigma-module-title">{item.submodulo}</div>
-                    <div className="sigma-module-sub">{item.categoria}</div>
-                  </div>
-                  <span className="badge bg-primary text-white rounded-pill px-2 py-1 extra-small d-flex align-items-center gap-1">
-                    Ir <i className="bi bi-arrow-right"></i>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Chips Interactivos de Sugerencia / Accesos Rápidos */}
-          {chipsSugeridos.length > 0 && (
-            <div className="sigma-quick-chips">
-              {chipsSugeridos.map((chip, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={chip.accion}
-                  className="sigma-chip-btn"
-                >
-                  {chip.texto}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {location.pathname === '/' && modulosRecomendados.length === 0 && (
-            <div className="mt-2.5">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm w-100 mb-1 fw-bold text-start d-flex align-items-center justify-content-between hover-efecto"
-                onClick={() => {
-                  marcarInteraccionUsuario();
-                  window.dispatchEvent(new CustomEvent('sigae-iniciar-tour'));
-                }}
-              >
-                <span><i className="bi bi-compass-fill me-1"></i> Ver Tour / Orientación Inicial</span>
-                <span className="badge bg-primary rounded-pill"><i className="bi bi-play-fill"></i></span>
-              </button>
-            </div>
-          )}
-
-          {acciones.length > 0 && (
-            <div className="mt-3">
-              {/* Acción Principal */}
-              {acciones.filter(a => !a.esAlternativa).map((act, idx) => {
-                if (act.tipo === 'navegar') {
-                  return act.allowed ? (
-                    <button 
-                      key={idx}
-                      className="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100 mb-2"
-                      onClick={() => ejecutarAccion(act.tipo, act.valor)}
-                    >
-                      <i className="bi bi-link me-1"></i> Ir a {act.tema}
-                    </button>
-                  ) : (
-                    <button 
-                      key={idx}
-                      className="btn btn-sm btn-secondary rounded-pill px-3 shadow-sm w-100 mb-2 opacity-75"
-                      disabled
-                    >
-                      <i className="bi bi-lock-fill me-1"></i> Acceso denegado a {act.tema}
-                    </button>
-                  );
-                } else if (act.tipo === 'abrir_modal') {
-                  return (
-                    <button 
-                      key={idx}
-                      className="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100 mb-2"
-                      onClick={() => ejecutarAccion(act.tipo, act.valor)}
-                    >
-                      <i className="bi bi-window me-1"></i> Abrir {act.tema}
-                    </button>
-                  );
-                }
-                return null;
-              })}
-
-              {/* Sugerencias Alternativas */}
-              {acciones.some(a => a.esAlternativa) && (
-                <>
-                  <hr className="my-2 border-secondary" />
-                  <div className="small text-muted mb-2"><i className="bi bi-info-circle me-1"></i>¿O te referías a...?</div>
-                  {acciones.filter(a => a.esAlternativa).map((act, idx) => {
-                    if (act.tipo === 'navegar') {
-                      return act.allowed ? (
-                        <button 
-                          key={idx}
-                          className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate"
-                          onClick={() => ejecutarAccion(act.tipo, act.valor)}
-                        >
-                          <i className="bi bi-link me-1"></i> {act.tema}
-                        </button>
-                      ) : (
-                        <button 
-                          key={idx}
-                          className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate opacity-50"
-                          disabled
-                        >
-                          <i className="bi bi-lock-fill me-1 text-danger"></i> {act.tema}
-                        </button>
-                      );
-                    } else if (act.tipo === 'abrir_modal') {
-                      return (
-                        <button 
-                          key={idx}
-                          className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate"
-                          onClick={() => ejecutarAccion(act.tipo, act.valor)}
-                        >
-                          <i className="bi bi-window me-1"></i> {act.tema}
-                        </button>
-                      );
-                    } else {
-                      return (
-                        <button 
-                          key={idx}
-                          className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate"
-                          onClick={() => {
-                            if (act.tipo === 'texto') {
-                              procesarPreguntaUsuario(act.valor);
-                            } else {
-                              const itemMatch = conocimientoCache.filter(c => c.id === act.id);
-                              if (itemMatch.length > 0) ejecutarRespuesta(itemMatch);
-                            }
-                          }}
-                        >
-                          <i className="bi bi-chat-dots me-1"></i> {act.tema}
-                        </button>
-                      );
-                    }
-                  })}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Entrada de texto */}
-        <div className="sigma-input-group">
-          <input 
-            ref={chatInputRef}
-            type="text" 
-            value={inputValue}
-            onFocus={() => {
-              isInputFocusedRef.current = true;
-              marcarInteraccionUsuario();
-              cancelarTemporizadorInactividad();
-            }}
-            onBlur={() => {
-              isInputFocusedRef.current = false;
-              if (activo) {
-                reiniciarTemporizadorInactividad(10);
-              }
-            }}
-            onChange={(e) => {
-              marcarInteraccionUsuario();
-              setInputValue(e.target.value);
-              cancelarTemporizadorInactividad();
-            }}
-            onKeyDown={(e) => { 
-              if (e.key === 'Enter') {
-                procesarPreguntaUsuario(); 
-              } else {
-                cancelarTemporizadorInactividad();
-              }
-            }}
-            className="sigma-input" 
-            placeholder="Pregúntame lo que necesites o qué deseas gestionar..."
-          />
-          <button onClick={() => procesarPreguntaUsuario()} className="sigma-btn-send" title="Consultar a Zoe y Max">
-            <i className="bi bi-send-fill"></i>
-          </button>
-        </div>
-      </div>
-
-      {/* Avatar Gráfico de Sigma (Figura transparente con micro-animaciones) */}
-      <div 
-        className="sigma-avatar-wrapper" 
-        id="sigma-avatar"
-        onMouseDown={handleDragStart}
-        onTouchStart={handleDragStart}
-      >
-        <button className="sigma-btn-minimize" onClick={minimizar} title="Minimizar Guía">
-          <i className="bi bi-eye-slash-fill"></i>
-        </button>
-        <SigmaFiguraVisual personaje={personaje} pose={poseActual} />
-      </div>
-      
-      {/* Sombra de profundidad */}
-      <div className="sigma-shadow"></div>
-
-      {/* Lanzador Flotante (minimizado) */}
-      <div 
-        className={`sigma-launcher ${personaje === 'zoe' ? 'launcher-zoe' : 'launcher-max'}`} 
-        onClick={restaurar}
-        onMouseDown={handleDragStart}
-        onTouchStart={handleDragStart}
-        title={`Hablar con ${personaje === 'zoe' ? 'Zoe' : 'Max'}`}
+        className={`btn btn-sm d-flex align-items-center gap-1.5 gap-md-2 rounded-pill px-2.5 py-1.5 border shadow-xs transition-all ${
+          activo
+            ? (personaje === 'zoe' ? 'btn-danger text-white border-0' : 'btn-primary text-white border-0')
+            : 'btn-light border text-dark'
+        }`}
         style={{
-          background: personaje === 'max' 
-            ? 'linear-gradient(135deg, #0284c7, #2563eb)' 
-            : 'linear-gradient(135deg, #ec4899, #f43f5e)',
-          boxShadow: personaje === 'max'
-            ? '0 6px 20px rgba(2, 132, 199, 0.5), 0 0 16px rgba(56, 189, 248, 0.45)'
-            : '0 6px 20px rgba(236, 72, 153, 0.5), 0 0 16px rgba(244, 114, 182, 0.4)',
-          border: '2.5px solid #ffffff'
+          height: '38px',
+          background: activo
+            ? (personaje === 'zoe' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #0284c7, #2563eb)')
+            : '#ffffff',
+          borderColor: activo ? 'transparent' : '#e2e8f0',
+          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
+        title={`Guía Escolar Virtual (${personaje === 'zoe' ? 'Zoe' : 'Max'}) - Clic para abrir asistencia y orientación`}
       >
-        <img 
-          src={personaje === 'zoe' ? '/zoe_avatar.png' : '/max_avatar.png'} 
-          alt={personaje === 'zoe' ? 'Zoe' : 'Max'} 
-          className="sigma-launcher-img" 
-          draggable={false}
+        <div className="position-relative d-flex align-items-center justify-content-center" style={{ width: '26px', height: '26px' }}>
+          <img 
+            src={personaje === 'zoe' ? '/zoe_avatar.png' : '/max_avatar.png'}
+            alt={personaje === 'zoe' ? 'Zoe' : 'Max'}
+            className="rounded-circle shadow-xs"
+            style={{ width: '26px', height: '26px', objectFit: 'cover' }}
+          />
+          <span 
+            className="position-absolute rounded-circle"
+            style={{
+              width: '8px',
+              height: '8px',
+              bottom: '-1px',
+              right: '-1px',
+              backgroundColor: '#22c55e',
+              border: '1.5px solid #fff'
+            }}
+          />
+        </div>
+        <div className="d-none d-md-flex flex-column text-start" style={{ lineHeight: 1.1 }}>
+          <span className="fw-bold" style={{ fontSize: '0.78rem', color: activo ? '#ffffff' : '#1e293b' }}>
+            {personaje === 'zoe' ? 'Zoe' : 'Max'}
+          </span>
+          <span className="extra-small" style={{ fontSize: '0.64rem', color: activo ? 'rgba(255,255,255,0.85)' : '#64748b' }}>
+            Guía SIGAE
+          </span>
+        </div>
+        <i 
+          className={`bi ${activo ? 'bi-chevron-up text-white' : 'bi-stars'} ms-0.5`}
+          style={{ 
+            fontSize: '0.8rem', 
+            color: activo ? '#ffffff' : (personaje === 'zoe' ? '#ec4899' : '#0284c7') 
+          }}
         />
-        <span 
-          className="sigma-launcher-badge"
+      </button>
+
+      {/* Menú desplegable del Asistente en el Cintillo Superior */}
+      {activo && (
+        <div 
+          className="dropdown-menu show dropdown-menu-end shadow-lg border-0 p-0 sigma-cintillo-dropdown animate__animated animate__fadeIn"
           style={{
-            background: personaje === 'max' 
-              ? 'linear-gradient(135deg, #0284c7, #2563eb)' 
-              : 'linear-gradient(135deg, #ec4899, #f43f5e)',
-            boxShadow: personaje === 'max'
-              ? '0 2px 6px rgba(2, 132, 199, 0.5)'
-              : '0 2px 6px rgba(236, 72, 153, 0.5)'
+            position: 'absolute',
+            top: '44px',
+            right: 0,
+            width: 'min(420px, 94vw)',
+            maxHeight: 'min(620px, 86vh)',
+            zIndex: 1060,
+            display: 'flex',
+            flexDirection: 'column',
+            borderRadius: '20px',
+            border: '1px solid rgba(0,0,0,0.08)',
+            overflow: 'hidden',
+            background: '#ffffff',
+            boxShadow: '0 20px 45px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0,0,0,0.1)'
           }}
         >
-          {personaje === 'zoe' ? 'Z' : 'M'}
-        </span>
-      </div>
+          {/* Cabecera del Asistente */}
+          <div 
+            className="d-flex align-items-center justify-content-between p-3 border-bottom"
+            style={{
+              background: personaje === 'zoe' 
+                ? 'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)' 
+                : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+              borderBottomColor: personaje === 'zoe' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(2, 132, 199, 0.2)'
+            }}
+          >
+            <div className="d-flex align-items-center gap-2">
+              <div className="position-relative">
+                <img 
+                  src={personaje === 'zoe' ? '/zoe_avatar.png' : '/max_avatar.png'} 
+                  alt={personaje === 'zoe' ? 'Zoe' : 'Max'} 
+                  className="rounded-circle shadow-xs border border-white" 
+                  style={{ width: '32px', height: '32px', objectFit: 'cover' }} 
+                />
+                <span 
+                  style={{ 
+                    position: 'absolute', 
+                    bottom: '-1px', 
+                    right: '-1px', 
+                    width: '9px', 
+                    height: '9px', 
+                    borderRadius: '50%', 
+                    backgroundColor: '#22c55e', 
+                    border: '1.5px solid #fff' 
+                  }} 
+                />
+              </div>
+              <div>
+                <div className="fw-bold small d-flex align-items-center gap-1.5" style={{ color: personaje === 'zoe' ? '#db2777' : '#0284c7', lineHeight: 1.2 }}>
+                  <i className="bi bi-stars"></i>
+                  <span>{personaje === 'zoe' ? 'Zoe' : 'Max'} &bull; Guía Virtual</span>
+                </div>
+                <div className="text-muted extra-small" style={{ fontSize: '0.68rem' }}>
+                  Asistente Inteligente SIGAE
+                </div>
+              </div>
+            </div>
+
+            <div className="d-flex align-items-center gap-1.5">
+              <button 
+                type="button"
+                className={`btn btn-sm py-0.5 px-2 rounded-pill fw-bold hover-efecto ${
+                  personaje === 'zoe' 
+                    ? 'btn-outline-primary border-primary-subtle text-primary bg-primary bg-opacity-10' 
+                    : 'btn-outline-danger border-danger-subtle text-danger bg-danger bg-opacity-10'
+                }`}
+                style={{ fontSize: '0.72rem' }}
+                onClick={alternarPersonaje}
+                title={`Cambiar de guía a ${personaje === 'zoe' ? 'Max' : 'Zoe'}`}
+              >
+                {personaje === 'zoe' ? '👦 Max' : '👧 Zoe'}
+              </button>
+              <button 
+                type="button"
+                className="btn btn-sm btn-light rounded-circle p-1 d-flex align-items-center justify-content-center text-muted border-0"
+                style={{ width: '28px', height: '28px' }}
+                onClick={() => setActivo(false)}
+                title="Cerrar Asistente"
+              >
+                <i className="bi bi-x-lg" style={{ fontSize: '0.75rem' }}></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Cuerpo conversacional con scroll */}
+          <div 
+            className="p-3 overflow-auto flex-grow-1"
+            style={{ maxHeight: 'min(460px, 60vh)', backgroundColor: '#fafbfc' }}
+          >
+            <div 
+              className="p-3 rounded-4 bg-white shadow-xs border mb-2.5"
+              style={{ 
+                borderColor: personaje === 'zoe' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(2, 132, 199, 0.2)',
+                fontSize: '0.84rem',
+                lineHeight: 1.45,
+                color: '#1e293b'
+              }}
+              dangerouslySetInnerHTML={{ __html: mensaje }} 
+            />
+
+            {/* Tarjetas Interactivas de Módulos */}
+            {modulosRecomendados.length > 0 && (
+              <div className="sigma-interactive-cards mb-2.5">
+                {modulosRecomendados.map((item, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => navegarInteractivo(item)}
+                    className="sigma-module-card"
+                    title={`Abrir ${item.submodulo}`}
+                  >
+                    <div className="sigma-module-icon" style={{ backgroundColor: item.color }}>
+                      <i className={`bi ${item.icono}`}></i>
+                    </div>
+                    <div className="sigma-module-info">
+                      <div className="sigma-module-title">{item.submodulo}</div>
+                      <div className="sigma-module-sub">{item.categoria}</div>
+                    </div>
+                    <span className="badge bg-primary text-white rounded-pill px-2 py-1 extra-small d-flex align-items-center gap-1">
+                      Ir <i className="bi bi-arrow-right"></i>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Chips Interactivos de Sugerencia / Accesos Rápidos */}
+            {chipsSugeridos.length > 0 && (
+              <div className="sigma-quick-chips mb-2.5">
+                {chipsSugeridos.map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={chip.accion}
+                    className="sigma-chip-btn"
+                  >
+                    {chip.texto}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Tour Guiado */}
+            {location.pathname === '/' && modulosRecomendados.length === 0 && (
+              <div className="mb-2">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm w-100 mb-1 fw-bold text-start d-flex align-items-center justify-content-between hover-efecto"
+                  onClick={() => {
+                    setActivo(false);
+                    window.dispatchEvent(new CustomEvent('sigae-iniciar-tour'));
+                  }}
+                >
+                  <span><i className="bi bi-compass-fill me-1"></i> Ver Tour / Orientación Inicial</span>
+                  <span className="badge bg-primary rounded-pill"><i className="bi bi-play-fill"></i></span>
+                </button>
+              </div>
+            )}
+
+            {/* Acciones */}
+            {acciones.length > 0 && (
+              <div className="mt-2.5">
+                {acciones.filter(a => !a.esAlternativa).map((act, idx) => {
+                  if (act.tipo === 'navegar') {
+                    return act.allowed ? (
+                      <button 
+                        key={idx}
+                        className="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100 mb-2"
+                        onClick={() => ejecutarAccion(act.tipo, act.valor)}
+                      >
+                        <i className="bi bi-link me-1"></i> Ir a {act.tema}
+                      </button>
+                    ) : (
+                      <button 
+                        key={idx}
+                        className="btn btn-sm btn-secondary rounded-pill px-3 shadow-sm w-100 mb-2 opacity-75"
+                        disabled
+                      >
+                        <i className="bi bi-lock-fill me-1"></i> Acceso denegado a {act.tema}
+                      </button>
+                    );
+                  } else if (act.tipo === 'abrir_modal') {
+                    return (
+                      <button 
+                        key={idx}
+                        className="btn btn-sm btn-primary rounded-pill px-3 shadow-sm w-100 mb-2"
+                        onClick={() => ejecutarAccion(act.tipo, act.valor)}
+                      >
+                        <i className="bi bi-window me-1"></i> Abrir {act.tema}
+                      </button>
+                    );
+                  }
+                  return null;
+                })}
+
+                {acciones.some(a => a.esAlternativa) && (
+                  <>
+                    <hr className="my-2 border-secondary" />
+                    <div className="small text-muted mb-2"><i className="bi bi-info-circle me-1"></i>¿O te referías a...?</div>
+                    {acciones.filter(a => a.esAlternativa).map((act, idx) => {
+                      if (act.tipo === 'navegar') {
+                        return act.allowed ? (
+                          <button 
+                            key={idx}
+                            className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate"
+                            onClick={() => ejecutarAccion(act.tipo, act.valor)}
+                          >
+                            <i className="bi bi-link me-1"></i> {act.tema}
+                          </button>
+                        ) : (
+                          <button 
+                            key={idx}
+                            className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate opacity-50"
+                            disabled
+                          >
+                            <i className="bi bi-lock-fill me-1 text-danger"></i> {act.tema}
+                          </button>
+                        );
+                      } else if (act.tipo === 'abrir_modal') {
+                        return (
+                          <button 
+                            key={idx}
+                            className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate"
+                            onClick={() => ejecutarAccion(act.tipo, act.valor)}
+                          >
+                            <i className="bi bi-window me-1"></i> {act.tema}
+                          </button>
+                        );
+                      } else {
+                        return (
+                          <button 
+                            key={idx}
+                            className="btn btn-sm btn-outline-secondary rounded-pill px-2 shadow-sm w-100 mb-1 text-start text-truncate"
+                            onClick={() => {
+                              if (act.tipo === 'texto') {
+                                procesarPreguntaUsuario(act.valor);
+                              } else {
+                                const itemMatch = conocimientoCache.filter(c => c.id === act.id);
+                                if (itemMatch.length > 0) ejecutarRespuesta(itemMatch);
+                              }
+                            }}
+                          >
+                            <i className="bi bi-chat-dots me-1"></i> {act.tema}
+                          </button>
+                        );
+                      }
+                    })}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Barra de entrada de texto */}
+          <div className="p-2.5 bg-white border-top">
+            <div className="sigma-input-group">
+              <input 
+                ref={chatInputRef}
+                type="text" 
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => { 
+                  if (e.key === 'Enter') {
+                    procesarPreguntaUsuario(); 
+                  }
+                }}
+                className="sigma-input" 
+                placeholder="Pregúntame o escribe qué deseas hacer..."
+              />
+              <button 
+                onClick={() => procesarPreguntaUsuario()} 
+                className="sigma-btn-send" 
+                title="Consultar a Zoe y Max"
+              >
+                <i className="bi bi-send-fill"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -12,17 +12,23 @@ import {
   IconoAvisosRadar,
   IconoPersonalDocente,
   IconoSolicitudCupos,
-  IconoGestionAdmisiones,
-  IconoCadenaSupervisoria
+  IconoGestionAdmisiones
 } from '../components/chamilo';
 import {
   ChamiloDonutChart,
   ChamiloAttendanceBars,
   ChamiloRutogramaVisual,
   ChamiloSecurityShield,
+  ChamiloFormalizacionGauge,
+  ChamiloCensoDonutWidget,
+  ChamiloSolicitudesCuposWidget,
   ChamiloSparkline,
   type RouteStop
 } from '../components/graficos';
+import { CarruselGestionDiaria } from '../components/CarruselGestionDiaria';
+import { EstadisticasNivelesEducativos } from '../components/EstadisticasNivelesEducativos';
+import { obtenerSesionesUsuario } from '../utils/activeSessionsHelper';
+import '../portal_sap.css';
 
 const RUTAS_FALLBACK_SB = [
   { id: 'c612ebbb-8725-4ee0-b5f1-a773c86c1679', escuela_codigo: 'sb', nombre: 'Ruta 1 - Campo Rojo', paradas_json: ['p-sb-1', 'p-sb-2', 'p-sb-3'], unidad_modelo: 'Unidad 02 • Ford Interceptor', chofer_nombre: 'Carlos Mendoza' },
@@ -71,6 +77,7 @@ interface EscuelaPerfil {
   codigo_dea: string;
   rif: string;
   direccion: string;
+  google_maps_url?: string;
   mision: string;
   vision: string;
   objetivo: string;
@@ -85,6 +92,7 @@ export const Dashboard = () => {
   const { tieneAccesoEscuela, tienePermiso, tienePermisoEnEscuela, loading: permLoading } = usePermisos();
 
   const activeSchoolCode = localStorage.getItem('sigae_escuela_codigo') || 'sb';
+  const isSb = activeSchoolCode === 'sb';
 
   const cambiarEscuelaActiva = (nuevaEscuela: string) => {
     localStorage.setItem('sigae_escuela_codigo', nuevaEscuela);
@@ -118,6 +126,32 @@ export const Dashboard = () => {
   const [guiaDashboard] = useState<'zoe' | 'max'>(() => Math.random() < 0.5 ? 'zoe' : 'max');
   const [poseGuiaDashboard] = useState<'saludo' | 'pulgar'>(() => Math.random() < 0.5 ? 'saludo' : 'pulgar');
 
+  const [numSesionesActivas, setNumSesionesActivas] = useState<number>(() => (esModoEmulacion ? 0 : 2));
+  const [resumenSesiones, setResumenSesiones] = useState<string>('2 (PC + Teléfono)');
+
+  useEffect(() => {
+    if (!usuario?.cedula || esModoEmulacion) return;
+    const cargarSesionesActivas = async () => {
+      try {
+        const list = await obtenerSesionesUsuario(String(usuario.cedula).trim());
+        const activas = list.filter(s => s.activa !== false);
+        if (activas.length > 0) {
+          setNumSesionesActivas(activas.length);
+          const hasPc = activas.some(s => s.tipo_dispositivo === 'computadora');
+          const hasTel = activas.some(s => s.tipo_dispositivo === 'telefono');
+          if (hasPc && hasTel) {
+            setResumenSesiones(`${activas.length} (PC + Teléfono)`);
+          } else {
+            setResumenSesiones(`${activas.length} ${activas.length === 1 ? 'activa' : 'activas'}`);
+          }
+        }
+      } catch (e) {
+        console.warn('Error al sincronizar sesiones activas en Dashboard:', e);
+      }
+    };
+    cargarSesionesActivas();
+  }, [usuario?.cedula, esModoEmulacion]);
+
   useEffect(() => {
     const tick = () => {
       const d = new Date();
@@ -127,6 +161,53 @@ export const Dashboard = () => {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Descarga del logo oficial de la escuela activa (PNG alta resolución con fondo blanco y peso ligero)
+  const descargarLogoInstitucional = async () => {
+    const isSb = activeSchoolCode === 'sb';
+    const nombreLimpio = isSb ? 'UE_Santa_Barbara' : 'UE_Libertador_Bolivar';
+    const fileName = `Logo_Oficial_${nombreLimpio}_FondoBlanco_HD.png`;
+    const logoUrl = isSb 
+      ? '/assets/img/logo_sb_fondo_blanco.png' 
+      : '/assets/img/logo_lb_fondo_blanco.png';
+
+    try {
+      const response = await fetch(logoUrl);
+      if (!response.ok) throw new Error('No se pudo descargar el archivo');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+
+      const Swal = (window as any).Swal;
+      if (Swal) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: `Logo ${isSb ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}`,
+          text: 'Descargado en PNG alta calidad (fondo blanco)',
+          showConfirmButton: false,
+          timer: 3200,
+          timerProgressBar: true
+        });
+      }
+    } catch (error) {
+      console.warn('Fallback para descarga directa del logo:', error);
+      const link = document.createElement('a');
+      link.href = logoUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   useEffect(() => {
     const cacheKey = 'sigae_cached_perfiles';
@@ -208,6 +289,52 @@ export const Dashboard = () => {
   const [estudiantesVinculados, setEstudiantesVinculados] = useState<any[]>([]);
   const [avanceActualizacionPromedio, setAvanceActualizacionPromedio] = useState<number>(100);
   const [rutasEstudiantes, setRutasEstudiantes] = useState<string[]>([]);
+
+  // ── MÉTRICAS DE ADMISIÓN Y FORMALIZACIÓN DE CUPOS EN PLANTEL ──────────
+  const [statsAdmision, setStatsAdmision] = useState({
+    solicitados: isSb ? 146 : 186,
+    aprobados: isSb ? 110 : 95,
+    rechazados: isSb ? 33 : 91,
+    formalizados: isSb ? 74 : 77,
+    porFormalizar: isSb ? 36 : 18,
+    porcentajeFormalizado: isSb ? 67 : 81
+  });
+
+  useEffect(() => {
+    const cargarMetricasAdmisiones = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('solicitud_cupos')
+          .select('id, codigo_escuela, estado');
+
+        if (!error && data && data.length > 0) {
+          const deEscuela = data.filter(s => (s.codigo_escuela || '').toLowerCase().trim() === activeSchoolCode);
+          const list = deEscuela.length > 0 ? deEscuela : data;
+
+          const solicitados = list.length;
+          const formalizados = list.filter(s => s.estado === 'Formalizado').length;
+          const soloAprobados = list.filter(s => s.estado === 'Aprobado').length;
+          const rechazados = list.filter(s => s.estado === 'Rechazado').length;
+          const aprobadosTotales = formalizados + soloAprobados;
+          const porFormalizar = soloAprobados;
+          const pct = aprobadosTotales > 0 ? Math.round((formalizados / aprobadosTotales) * 100) : 0;
+
+          setStatsAdmision({
+            solicitados,
+            aprobados: aprobadosTotales,
+            rechazados,
+            formalizados,
+            porFormalizar,
+            porcentajeFormalizado: pct
+          });
+        }
+      } catch (err) {
+        console.warn('Error al cargar métricas de admisiones en Dashboard:', err);
+      }
+    };
+
+    cargarMetricasAdmisiones();
+  }, [activeSchoolCode]);
   interface MetricasPlantelEstudiantes {
     total: number;
     actualizados: number;
@@ -279,10 +406,7 @@ export const Dashboard = () => {
   }, []);
 
 
-  // Estados para el bloque interactivo de transporte (Escuela -> Ruta -> Recorrido -> Estatus)
-  const [escuelaTransporte, setEscuelaTransporte] = useState<'sb' | 'lb'>(() => {
-    return activeSchoolCode === 'lb' ? 'lb' : 'sb';
-  });
+  // Estados para el bloque interactivo de transporte (Ruta -> Recorrido -> Estatus de la Escuela Activa)
   const [rutasTransporteData, setRutasTransporteData] = useState<any[]>(() => {
     return [...RUTAS_FALLBACK_SB, ...RUTAS_FALLBACK_LB];
   });
@@ -741,12 +865,25 @@ export const Dashboard = () => {
 
   const getEscuelaData = (code: string): EscuelaPerfil => {
     const esc = escuelas.find(e => e.id_escuela?.toLowerCase() === code.toLowerCase());
-    return esc || {
+    const localMaps = localStorage.getItem(`sigae_maps_url_${code.toLowerCase()}`);
+    const defaultMap = code === 'lb'
+      ? 'https://maps.google.com/?q=V%C3%ADa+Nacional+Monagas+-+Sucre%2C+Campo+Monagas+Miraflores%2C+municipio+Punceres%2C+estado+Monagas'
+      : 'https://maps.google.com/?q=V%C3%ADa+Nacional+Monagas+-+Anzo%C3%A1tegui%2C+Calle+1%2C+Campo+Sur+El+Tejero%2C+municipio+Ezequiel+Zamora%2C+estado+Monagas';
+
+    if (esc) {
+      return {
+        ...esc,
+        google_maps_url: esc.google_maps_url || localMaps || defaultMap
+      };
+    }
+
+    return {
       id_escuela: code,
       nombre_institucion: code === 'lb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara',
       codigo_dea: code === 'lb' ? 'OD05561614' : 'OD05561615',
       rif: 'G-20000041-4',
       direccion: code === 'lb' ? 'Campo Residencial Miraflores, Temblador, Edo. Monagas' : 'Campo Residencial El Tejero, Municipio Ezequiel Zamora, Edo. Monagas',
+      google_maps_url: localMaps || defaultMap,
       mision: 'Formar integralmente a los estudiantes mediante una educación humanista, científica y tecnológica con alto compromiso ético y ciudadano.',
       vision: 'Consolidarse como una institución educativa modelo en excelencia pedagógica, innovación y liderazgo comunitario.',
       objetivo: 'Fomentar la excelencia académica, el pensamiento crítico, la disciplina y los valores de solidaridad y pertenencia.',
@@ -778,195 +915,256 @@ export const Dashboard = () => {
   const canEstudiantesVinculados = tienePermiso('Tarjeta: Estudiantes Vinculados y Avance', 'ver');
   const canRutasEstudiantes = tienePermiso('Tarjeta: Rutas Escolares de Representados', 'ver');
   const canCensoGeneral = tienePermiso('Tarjeta: Censo General de la Escuela', 'ver');
-  const canSolicitudesCupos = tienePermiso('Tarjeta: Solicitudes de Cupos', 'ver');
+  const canSolicitudesCupos = tienePermiso('Tarjeta: Solicitudes de Cupos', 'ver') || ((usuario?.rol || '').trim().toLowerCase().includes('admin')) || ((usuario?.rol || '').trim().toLowerCase() === 'formalizador');
   const canPersonalInstitucional = tienePermiso('Tarjeta: Personal Institucional', 'ver');
   const canRutaTrabajador = tienePermiso('Tarjeta: Ruta y Parada del Trabajador/Personal', 'ver');
   const canNotificaciones = tienePermiso('Tarjeta: Notificaciones y Avisos Activos', 'ver');
   const canFormalizacionTarjeta = tienePermiso('Tarjeta: Formalización de Matrícula', 'ver') || tienePermiso('Formalización Física', 'ver');
   const esRolFormalizador = (usuario?.rol || '').trim().toLowerCase() === 'formalizador' || canFormalizacionTarjeta;
+  const canCarruselGestion = tienePermiso('Carrusel de Gestión Diaria', 'ver');
 
   return (
     <div className="container-fluid p-0 animate__animated animate__fadeIn">
 
-      {/* ── 1. CENTRO DE CONTROL INSTITUCIONAL Y CAMPUS EDUCATIVO (TECNOLÓGICO & INTERACTIVO) ── */}
+      {/* ── 1. CENTRO DE CONTROL INSTITUCIONAL Y CAMPUS EDUCATIVO (COMPACTO & OPTIMIZADO PARA MÓVIL) ── */}
       <div 
-        className="tech-card overflow-hidden mb-4" 
+        className="tech-card overflow-hidden mb-3.5 shadow-sm" 
         style={{ 
-          border: activeSchoolCode === 'sb' ? '2px solid #a7f3d0' : '2px solid #bae6fd',
-          borderTop: `6px solid ${activeSchoolCode === 'sb' ? '#10b981' : '#0284c7'}`,
+          border: activeSchoolCode === 'sb' ? '1.5px solid #a7f3d0' : '1.5px solid #bae6fd',
+          borderTop: `5px solid ${activeSchoolCode === 'sb' ? '#10b981' : '#0284c7'}`,
           background: activeSchoolCode === 'sb'
-            ? 'linear-gradient(135deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%)'
-            : 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #dbeafe 100%)',
-          borderRadius: '26px'
+            ? 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 45%, #dcfce7 100%)'
+            : 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%)',
+          borderRadius: '22px'
         }}
       >
-        <div className="p-4 p-md-5">
-          <div className="row align-items-center g-4">
+        <div className="p-3 p-md-3.5">
+          {/* Bloque Superior: Escudo + Identidad + Acciones (En móvil horizontal, sin columnas gigantes apiladas) */}
+          <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
             
-            {/* Escudo Oficial con Contenedor Interactivo */}
-            <div className="col-12 col-md-auto text-center text-md-start">
+            {/* Lado Izquierdo: Escudo e Identidad Escolar lado a lado */}
+            <div className="d-flex align-items-center gap-3 min-w-0">
+              {/* Escudo Oficial con Flotación 3D, Halo Luminoso y Descarga Interactivas */}
               <div 
-                className="tech-icon-wrapper bg-white shadow-sm d-inline-flex align-items-center justify-content-center p-2 flex-shrink-0"
-                style={{ 
-                  width: '110px', 
-                  height: '110px',
-                  minWidth: '110px',
-                  minHeight: '110px',
-                  borderRadius: '24px',
-                  border: activeSchoolCode === 'sb' ? '2.5px solid #a7f3d0' : '2.5px solid #bae6fd',
-                  boxShadow: activeSchoolCode === 'sb' ? '0 10px 24px rgba(16, 185, 129, 0.15)' : '0 10px 24px rgba(2, 132, 199, 0.15)'
-                }}
+                className="position-relative flex-shrink-0 cursor-pointer" 
+                onClick={descargarLogoInstitucional} 
+                title="Haga clic para descargar el Escudo Oficial en alta definición (PNG transparente)"
               >
-                <img 
-                  src={escuelaActivaData.logo_url || localStorage.getItem(`sigae_logo_${activeSchoolCode}`) || `/assets/img/logo_${activeSchoolCode}.png`} 
-                  alt="Escudo Oficial de la Escuela" 
-                  className="img-fluid"
-                  style={{ maxHeight: '92px', maxWidth: '92px', objectFit: 'contain', flexShrink: 0 }}
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                />
-              </div>
-            </div>
-
-            {/* Datos Jurídicos, Identidad y Beacon Tecnológico */}
-            <div className="col-12 col-md">
-              <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                {/* Live Campus Beacon */}
                 <div 
-                  className="d-inline-flex align-items-center gap-1.5 px-3 py-1 rounded-pill bg-white border shadow-xs"
-                  style={{ borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' }}
+                  style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    left: '-8px',
+                    right: '-8px',
+                    bottom: '-8px',
+                    borderRadius: '26px',
+                    background: activeSchoolCode === 'sb'
+                      ? 'radial-gradient(circle, rgba(16, 185, 129, 0.55) 0%, rgba(16, 185, 129, 0.15) 55%, transparent 75%)'
+                      : 'radial-gradient(circle, rgba(2, 132, 199, 0.55) 0%, rgba(2, 132, 199, 0.15) 55%, transparent 75%)',
+                    filter: 'blur(12px)',
+                    zIndex: 0,
+                    animation: 'avatarHaloBreath 3.2s ease-in-out infinite alternate'
+                  }}
+                />
+                <div 
+                  className="bg-white rounded-4 d-flex align-items-center justify-content-center p-2 position-relative sigae-banner-logo-container"
+                  style={{ 
+                    width: 'clamp(72px, 16vw, 92px)', 
+                    height: 'clamp(72px, 16vw, 92px)',
+                    borderRadius: '22px',
+                    border: activeSchoolCode === 'sb' ? '2.5px solid #a7f3d0' : '2.5px solid #bae6fd',
+                    boxShadow: activeSchoolCode === 'sb' 
+                      ? '0 12px 28px rgba(16, 185, 129, 0.25), 0 0 16px rgba(16, 185, 129, 0.12)' 
+                      : '0 12px 28px rgba(2, 132, 199, 0.25), 0 0 16px rgba(2, 132, 199, 0.12)',
+                    zIndex: 1
+                  }}
                 >
-                  <span 
-                    className="status-beacon-live" 
-                    style={{ color: activeSchoolCode === 'sb' ? '#10b981' : '#0284c7' }}
-                  ></span>
-                  <span 
-                    className="extra-small fw-bold text-uppercase" 
-                    style={{ fontSize: '0.72rem', color: activeSchoolCode === 'sb' ? '#047857' : '#0369a1', letterSpacing: '0.5px' }}
+                  <img 
+                    src={escuelaActivaData.logo_url || localStorage.getItem(`sigae_logo_${activeSchoolCode}`) || `/assets/img/logo_${activeSchoolCode}.png`} 
+                    alt="Escudo Oficial de la Escuela" 
+                    className="img-fluid"
+                    style={{ 
+                      maxHeight: '92%', 
+                      maxWidth: '92%', 
+                      objectFit: 'contain', 
+                      filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.16))' 
+                    }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                  />
+                </div>
+              </div>
+
+              {/* Textos y Badges de la Escuela */}
+              <div className="min-w-0 flex-grow-1">
+                {/* Badge superior: Sistema Conectado */}
+                <div className="d-flex align-items-center gap-1.5 flex-wrap mb-1">
+                  <div 
+                    className="d-inline-flex align-items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-white border shadow-xs"
+                    style={{ borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' }}
                   >
-                    Campus Conectado &bull; SIGAE v1.1
+                    <span 
+                      className="status-beacon-live" 
+                      style={{ color: activeSchoolCode === 'sb' ? '#10b981' : '#0284c7', width: '6px', height: '6px' }}
+                    ></span>
+                    <span 
+                      className="extra-small fw-bold text-uppercase" 
+                      style={{ fontSize: '0.64rem', color: activeSchoolCode === 'sb' ? '#047857' : '#0369a1', letterSpacing: '0.3px' }}
+                    >
+                      Sistema Conectado
+                    </span>
+                  </div>
+                </div>
+
+                {/* Título de la Escuela */}
+                <div className="mb-0.5">
+                  <div className="text-secondary text-uppercase fw-bold" style={{ fontSize: '0.66rem', letterSpacing: '0.7px', lineHeight: '1.2' }}>
+                    Unidad Educativa
+                  </div>
+                  <h1 
+                    className="fw-black mb-0 text-truncate" 
+                    style={{ 
+                      fontSize: 'clamp(1.2rem, 3.8vw, 1.65rem)', 
+                      letterSpacing: '-0.4px',
+                      lineHeight: '1.15'
+                    }}
+                    title={escuelaActivaData.nombre_institucion}
+                  >
+                    <span 
+                      style={{
+                        background: activeSchoolCode === 'sb' 
+                          ? 'linear-gradient(90deg, #065f46 0%, #059669 50%, #047857 100%)' 
+                          : 'linear-gradient(90deg, #0f172a 0%, #0284c7 50%, #0066ff 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        display: 'inline-block'
+                      }}
+                    >
+                      {escuelaActivaData.nombre_institucion.replace(/^Unidad\s+Educativa\s+/i, '') || escuelaActivaData.nombre_institucion}
+                    </span>
+                  </h1>
+                </div>
+
+                {/* Datos Jurídicos DEA & RIF en 1 línea */}
+                <div className="text-secondary extra-small fw-semibold d-flex align-items-center gap-1.5 flex-wrap" style={{ fontSize: '0.71rem' }}>
+                  <span>DEA: <strong className="text-dark">{escuelaActivaData.codigo_dea}</strong></span>
+                  <span className="text-muted">&bull;</span>
+                  <span>RIF: <strong className="text-dark">{escuelaActivaData.rif}</strong></span>
+                  <span className="text-muted d-none d-sm-inline">&bull;</span>
+                  <span className="badge bg-white text-secondary border px-1.5 py-0 rounded-pill extra-small d-none d-sm-inline">
+                    DEP PDVSA Oriente
                   </span>
                 </div>
-
-                <span 
-                  className="badge text-white fw-bold px-3 py-1.5 rounded-pill small shadow-xs"
-                  style={{ backgroundColor: activeSchoolCode === 'sb' ? '#10b981' : '#0284c7' }}
-                >
-                  <i className="bi bi-patch-check-fill me-1"></i>
-                  {escuelaActivaData.nivel_educativo || (activeSchoolCode === 'sb' ? 'Educación Inicial y Primaria' : 'Educación Media General')}
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  DEA: {escuelaActivaData.codigo_dea}
-                </span>
-                <span className="badge bg-white text-dark border px-2.5 py-1.5 rounded-pill small fw-bold shadow-xs">
-                  RIF: {escuelaActivaData.rif}
-                </span>
-              </div>
-
-              <h1 className="fw-bolder mb-1.5 text-dark" style={{ fontSize: 'calc(1.5rem + 0.75vw)', letterSpacing: '-0.6px' }}>
-                {escuelaActivaData.nombre_institucion}
-              </h1>
-
-              <p className="mb-0 text-muted small d-flex align-items-center gap-1.5 flex-wrap">
-                <i className="bi bi-geo-alt-fill text-danger flex-shrink-0"></i>
-                <span className="fw-semibold">{escuelaActivaData.direccion}</span>
-                <span className="badge bg-white text-secondary border px-2 py-0.5 rounded-pill extra-small ms-1 d-none d-lg-inline">
-                  <i className="bi bi-building me-1 text-primary"></i>DEP PDVSA Oriente
-                </span>
-              </p>
-
-              {/* Cinta de Telemetría Escolar Interactiva */}
-              <div className="d-flex align-items-center gap-2 mt-3 flex-wrap">
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Hora Oficial del Sistema"
-                >
-                  <i className="bi bi-clock-history text-primary"></i>
-                  <span className="font-monospace fw-bold text-dark">{relojDigital || '12:00:00'} VET</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Ciclo Académico Actual"
-                >
-                  <i className="bi bi-calendar-check-fill text-success"></i>
-                  <span className="text-secondary">Periodo 2025-2026</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Red de Sedes Activas"
-                >
-                  <i className="bi bi-diagram-3-fill text-info"></i>
-                  <span className="text-secondary">2 Sedes Interconectadas</span>
-                </div>
-                <div 
-                  className="tech-pill-badge shadow-xs cursor-pointer" 
-                  title="Estado Operativo de la Plataforma"
-                >
-                  <i className="bi bi-shield-fill-check text-warning"></i>
-                  <span className="text-secondary">100% Operativo</span>
-                </div>
               </div>
             </div>
 
-            {/* Selector Tecnológico de Sede (SB / LB) y Toggle de Identidad */}
-            <div className="col-12 col-md-auto text-md-end text-center">
-              <div className="d-flex flex-column align-items-md-end align-items-center gap-2.5">
-                <div className="text-muted extra-small">
-                  Sesión activa: <strong className="text-dark">{primerNombre}</strong> &bull; Perfil: <strong style={{ color: activeSchoolCode === 'sb' ? '#059669' : '#0284c7' }}>{usuario.rol || 'Comunidad'}</strong>
-                </div>
+            {/* Lado Derecho: Botones de Acción (Descargar Logo y Misión/Visión 3D) */}
+            <div className="d-flex align-items-center gap-2 flex-wrap ms-lg-auto">
+              {/* Botón para descarga de Logo PNG Fondo Blanco en Alta Calidad */}
+              <button
+                type="button"
+                onClick={descargarLogoInstitucional}
+                className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-2 shadow-xs bg-white border hover-efecto"
+                style={{ 
+                  fontSize: '0.75rem', 
+                  color: activeSchoolCode === 'sb' ? '#047857' : '#0369a1', 
+                  borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                }}
+                title="Descargar Logo Oficial en PNG con fondo blanco (alta calidad y peso ligero)"
+              >
+                <i className="bi bi-download text-primary"></i>
+                <span>Descargar Logo</span>
+                <span 
+                  className="badge px-1.5 py-0.5 rounded-pill text-uppercase"
+                  style={{ 
+                    fontSize: '0.58rem', 
+                    backgroundColor: activeSchoolCode === 'sb' ? '#d1fae5' : '#e0f2fe',
+                    color: activeSchoolCode === 'sb' ? '#065f46' : '#0369a1'
+                  }}
+                >
+                  PNG HD
+                </span>
+              </button>
 
-                {/* Segmented Switcher Tecnológico para Sedes */}
-                {escuelasPermitidas.length > 1 && (
-                  <div className="tech-segmented-container shadow-xs">
-                    {escuelasPermitidas.map((esc: any) => {
-                      const isSelected = esc.id_escuela === activeSchoolCode;
-                      const nombreCorto = esc.id_escuela === 'sb' ? 'UE Santa Bárbara' : esc.id_escuela === 'lb' ? 'UE Libertador Bolívar' : esc.nombre_institucion;
-                      return (
-                        <button
-                          key={esc.id_escuela}
-                          type="button"
-                          onClick={() => cambiarEscuelaActiva(esc.id_escuela)}
-                          className={`tech-segmented-btn d-flex align-items-center gap-1.5 ${isSelected ? 'active' : ''}`}
-                          style={{
-                            color: isSelected ? (esc.id_escuela === 'sb' ? '#047857' : '#0284c7') : '#64748b',
-                            fontWeight: isSelected ? '800' : '600'
-                          }}
-                        >
-                          <i 
-                            className={`bi ${esc.id_escuela === 'sb' ? 'bi-tree-fill text-success' : 'bi-mortarboard-fill text-primary'}`}
-                          ></i>
-                          <span>{nombreCorto}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Botón Tecnológico Interactivo para Desplegar Misión y Visión */}
-                {canVerIdentidad && (canMision || canVision || canValores || canPeic) && (
-                  <button
-                    type="button"
-                    onClick={() => setMostrarIdentidad(!mostrarIdentidad)}
-                    className="btn btn-sm rounded-pill px-3.5 py-1.5 fw-bold d-inline-flex align-items-center gap-2 shadow-xs bg-white border hover-efecto"
+              {/* Botón Misión y Visión 3D */}
+              {canVerIdentidad && (canMision || canVision || canValores || canPeic) && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarIdentidad(!mostrarIdentidad)}
+                  className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-xs bg-white border hover-efecto"
+                  style={{ 
+                    fontSize: '0.75rem', 
+                    color: activeSchoolCode === 'sb' ? '#059669' : '#0284c7', 
+                    borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                  }}
+                >
+                  <i 
+                    className={`bi ${mostrarIdentidad ? 'bi-chevron-up' : 'bi-compass-fill'}`} 
                     style={{ 
-                      fontSize: '0.8rem', 
-                      color: activeSchoolCode === 'sb' ? '#059669' : '#0284c7', 
-                      borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                      transition: 'transform 0.3s ease',
+                      transform: mostrarIdentidad ? 'rotate(180deg)' : 'none'
                     }}
-                  >
-                    <i 
-                      className={`bi ${mostrarIdentidad ? 'bi-chevron-up' : 'bi-compass-fill'}`} 
-                      style={{ 
-                        transition: 'transform 0.3s ease',
-                        transform: mostrarIdentidad ? 'rotate(180deg)' : 'none'
-                      }}
-                    ></i>
-                    <span>{mostrarIdentidad ? 'Ocultar Identidad 3D' : 'Misión y Visión 3D'}</span>
-                  </button>
-                )}
-              </div>
+                  ></i>
+                  <span>{mostrarIdentidad ? 'Ocultar Identidad' : 'Misión y Visión 3D'}</span>
+                </button>
+              )}
             </div>
 
           </div>
+
+          {/* ── SUB-BARRA INFERIOR COMPACTA: UBICACIÓN + TELEMETRÍA UNIFICADA ── */}
+          <div 
+            className="mt-2.5 pt-2 border-top d-flex align-items-center justify-content-between flex-wrap gap-2"
+            style={{ borderColor: 'rgba(0,0,0,0.06)' }}
+          >
+            {/* Ubicación Concisa con Enlace Directo a Google Maps */}
+            {(() => {
+              const mapsUrl = escuelaActivaData.google_maps_url?.trim() 
+                || (escuelaActivaData.direccion 
+                    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(escuelaActivaData.direccion)}`
+                    : 'https://maps.google.com');
+
+              return (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="d-inline-flex align-items-center gap-1.5 extra-small min-w-0 text-decoration-none px-2.5 py-1 rounded-pill transition-all"
+                  style={{
+                    fontSize: '0.73rem',
+                    backgroundColor: activeSchoolCode === 'sb' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(2, 132, 199, 0.08)',
+                    border: `1px solid ${activeSchoolCode === 'sb' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(2, 132, 199, 0.25)'}`,
+                    color: activeSchoolCode === 'sb' ? '#065f46' : '#0369a1'
+                  }}
+                  title="Abrir ubicación de la escuela en Google Maps (nueva pestaña)"
+                >
+                  <i className="bi bi-geo-alt-fill text-danger flex-shrink-0 animate__animated animate__pulse animate__infinite"></i>
+                  <span className="fw-semibold">
+                    {escuelaActivaData.direccion}
+                  </span>
+                  <span 
+                    className="badge rounded-pill bg-white text-dark border px-1.5 py-0.5 d-inline-flex align-items-center gap-1 shadow-2xs ms-1 flex-shrink-0"
+                    style={{ fontSize: '0.62rem' }}
+                  >
+                    <span>Google Maps</span>
+                    <i className="bi bi-box-arrow-up-right text-primary" style={{ fontSize: '0.58rem' }}></i>
+                  </span>
+                </a>
+              );
+            })()}
+
+            {/* Telemetría Integrada (Reloj Oficial) */}
+            <div className="d-flex align-items-center gap-2 flex-wrap ms-auto">
+              <div 
+                className="d-inline-flex align-items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-white border shadow-xs"
+                style={{ fontSize: '0.71rem', borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' }}
+                title="Hora Oficial del Sistema"
+              >
+                <i className="bi bi-clock-history text-primary"></i>
+                <span className="font-monospace fw-bold text-dark">{relojDigital || '12:00:00'} VET</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         {/* ── 2. IDENTIDAD INSTITUCIONAL INTERACTIVA 3D (MISIÓN, VISIÓN, VALORES, PEIC) ── */}
@@ -1137,23 +1335,51 @@ export const Dashboard = () => {
         )}
       </div>
 
+      {/* ── 2. CARRUSEL INFORMATIVO DE GESTIÓN DIARIA & NOVEDADES INSTITUCIONALES (PROGRAMACIÓN SEMANAL) ── */}
+      {canCarruselGestion && (
+        <CarruselGestionDiaria activeSchoolCode={activeSchoolCode} />
+      )}
 
+      {/* ── 2.1 ESTADÍSTICAS POR NIVELES CON AVATARES DE NIÑOS Y DOCENTE (CONTADORES ANIMADOS) ── */}
+      <EstadisticasNivelesEducativos activeSchoolCode={activeSchoolCode} />
 
-      {/* ── 3. INDICADORES RESUMEN CONFIGURABLES (ESTILO ÁRBOL ABC) ── */}
+      {/* ── 3. INDICADORES DE GESTIÓN Y ADMISIÓN INSTITUCIONAL & OPERACIÓN ESTUDIANTIL (2 FILAS DE 3 TARJETAS ALINEADAS) ── */}
       <div className="row g-3 mb-4">
         {/* Tarjeta 1: Rol en Sesión y Nivel de Seguridad de Claves */}
         {canRolSeguridad && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
+          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
             <ChamiloStatCard
               id="card-stat-rol-seguridad"
               title="Rol y Seguridad de Claves"
-              value={usuario.rol || 'Comunidad'}
-              subtitle="Nivel de seguridad: Alto • Métodos de acceso al día"
+              value={
+                <div className="d-flex align-items-baseline gap-1.5 flex-wrap">
+                  <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
+                    {usuario.rol || 'Comunidad'}
+                  </span>
+                  <span className="text-muted fw-semibold extra-small" style={{ fontSize: '0.74rem' }}>
+                    (Sesión Activa)
+                  </span>
+                </div>
+              }
+              subtitle="Métodos de acceso al día"
               icon="bi-shield-check"
-              customIcon={<IconoSeguridadRol size={30} color="#0284c7" />}
+              customIcon={
+                <img 
+                  src="/assets/img/seguridad_3d.png" 
+                  alt="Icono 3D de Seguridad y Claves" 
+                  className="animate__animated animate__pulse animate__infinite"
+                  style={{ 
+                    width: '42px', 
+                    height: '42px', 
+                    objectFit: 'contain', 
+                    borderRadius: '10px', 
+                    filter: 'drop-shadow(0 4px 10px rgba(2, 132, 199, 0.45))' 
+                  }} 
+                />
+              }
               color="#0284c7"
               percentage={nivelSeguridadScore}
-              statusBadge={{ text: nivelSeguridadScore === 100 ? '100% Seguro' : `${nivelSeguridadScore}% Seguro`, type: 'success' }}
+              statusBadge={{ text: '100% Blindado', type: 'success' }}
               actionButton={{
                 label: 'Mejorar',
                 icon: 'bi-shield-check',
@@ -1161,11 +1387,18 @@ export const Dashboard = () => {
               }}
               onClick={() => navigate('/categoria/Seguridad y Accesos/Mi Perfil')}
             >
-              <div className="mt-2 pt-2 border-top border-light">
+              <div className="mt-2 pt-2 border-top border-light w-100">
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
+                    Blindaje y Telemetría de Acceso
+                  </span>
+                  <span className="badge bg-success bg-opacity-10 text-success fw-bold extra-small">2FA Activo</span>
+                </div>
                 <ChamiloSecurityShield
                   protectionScore={nivelSeguridadScore}
                   roleName={usuario.rol || 'Comunidad'}
-                  activeSessions={esModoEmulacion ? 0 : 1}
+                  activeSessions={numSesionesActivas}
+                  deviceSummary={resumenSesiones}
                   twoFactorEnabled={true}
                   lastAudit={esModoEmulacion ? 'Virtualizado' : 'Hoy Activa'}
                   darkTheme={false}
@@ -1175,210 +1408,111 @@ export const Dashboard = () => {
           </div>
         )}
 
-        {/* Tarjeta Exclusiva de Formalizador: Acceso Directo a Taquilla de Formalización */}
+        {/* Tarjeta 2: Solicitudes de Cupos & Admisión Institucional */}
         {esRolFormalizador && (
-          <div className="col-12 col-md-8 col-lg-8 d-flex align-items-stretch">
+          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
             <ChamiloStatCard
               id="card-formalizador-taquilla"
-              title="Taquilla de Formalización Física de Matrícula"
-              value="Formalización Presencial"
-              subtitle="Acceso directo asignado para verificar datos y asentar inscripciones"
-              icon="bi-journal-check"
-              customIcon={<IconoGestionAdmisiones size={32} color="#0D9488" />}
-              color="#0D9488"
-              percentage={100}
-              statusBadge={{ text: 'Módulo Activo', type: 'success' }}
-              actionButton={{
-                label: 'Ingresar a Taquilla',
-                icon: 'bi-box-arrow-in-right',
-                onClick: () => navigate('/categoria/Gestión Estudiantil/Gestión de Admisiones')
-              }}
-              onClick={() => navigate('/categoria/Gestión Estudiantil/Gestión de Admisiones')}
-            >
-              <div className="mt-2 pt-2 border-top border-light d-flex align-items-center gap-3">
-                <div 
-                  className="tech-icon-wrapper flex-shrink-0 d-flex align-items-center justify-content-center shadow-xs" 
-                  style={{ 
-                    backgroundColor: '#0D948818', 
-                    border: '1.5px solid #0D948840',
-                    width: '52px', 
-                    height: '52px',
-                    minWidth: '52px',
-                    minHeight: '52px',
-                    borderRadius: '16px'
-                  }}
-                >
-                  <IconoGestionAdmisiones size={36} color="#0D9488" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h6 className="fw-bold text-dark mb-0.5">Atención y Recepción de Aspirantes en Plantel</h6>
-                  <p className="text-muted extra-small mb-0">Verificación inmediata de documentos físicos, ratificación de datos del aspirante/representante y emisión de constancias de inscripción.</p>
-                </div>
-              </div>
-            </ChamiloStatCard>
-          </div>
-        )}
-
-        {/* Tarjeta 2: Personal Institucional UE Santa Bárbara & UE Libertador Bolívar (DEP Oriente) */}
-        {canPersonalInstitucional && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
-            <ChamiloStatCard
-              id="card-stat-personal-dep-oriente"
-              title="Personal Escolar DEP Oriente"
+              title="Solicitudes de Cupos"
               value={
-                <div className="d-flex flex-column gap-1">
-                  <div className="d-flex align-items-baseline">
-                    <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
-                      {personalEscuelas.total}
-                    </span>
-                    <span className="text-muted fw-semibold" style={{ fontSize: '0.78rem', marginLeft: '6px' }}>
-                      trabajadores en nómina
-                    </span>
-                  </div>
-                  <div className="d-flex flex-wrap gap-1 mt-0.5">
-                    <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }}>
-                      <i className="bi bi-building me-1"></i>UE Santa Bárbara: {personalEscuelas.sb}
-                    </span>
-                    <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }}>
-                      <i className="bi bi-building me-1"></i>UE Libertador Bolívar: {personalEscuelas.lb}
-                    </span>
-                  </div>
+                <div className="d-flex align-items-baseline gap-1.5 flex-wrap">
+                  <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
+                    {statsAdmision.solicitados} Solicitudes
+                  </span>
+                  <span className="text-muted fw-semibold extra-small" style={{ fontSize: '0.74rem' }}>
+                    ({statsAdmision.aprobados} Aprobadas • {Math.round((statsAdmision.aprobados / (statsAdmision.solicitados || 1)) * 100)}%)
+                  </span>
                 </div>
               }
-              subtitle={`Total general activo: ${personalEscuelas.total} trabajadores en Escuelas DEP Oriente`}
-              icon="bi-people-fill"
-              customIcon={<IconoPersonalDocente size={30} color="#6366f1" />}
-              color="#6366f1"
-              percentage={100}
-              statusBadge={{ text: '100% Activo', type: 'success' }}
-              actionButton={{
-                label: 'Organigrama',
-                icon: 'bi-diagram-3-fill',
-                onClick: () => navigate('/categoria/Organización Escolar/Cadena Supervisoria')
+              subtitle={isSb ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
+              icon="bi-journal-check"
+              customIcon={
+                <img 
+                  src="/assets/img/formalizacion_3d.png" 
+                  alt="Icono 3D de Solicitudes de Cupos" 
+                  className="animate__animated animate__pulse animate__infinite"
+                  style={{ 
+                    width: '42px', 
+                    height: '42px', 
+                    objectFit: 'contain', 
+                    borderRadius: '10px', 
+                    filter: 'drop-shadow(0 4px 10px rgba(13, 148, 136, 0.45))' 
+                  }} 
+                />
+              }
+              color="#0D9488"
+              percentage={statsAdmision.porcentajeFormalizado}
+              statusBadge={{ 
+                text: `${statsAdmision.formalizados} Formalizados (${statsAdmision.porcentajeFormalizado}%)`, 
+                type: statsAdmision.formalizados > 0 ? 'success' : 'warning' 
               }}
-              onClick={() => navigate('/categoria/Organización Escolar/Cadena Supervisoria')}
+              actionButton={{
+                label: 'Taquilla',
+                icon: 'bi-box-arrow-in-right',
+                onClick: () => navigate('/categoria/Admisiones y Nuevos Ingresos/Formalización')
+              }}
+              onClick={() => navigate('/categoria/Admisiones y Nuevos Ingresos/Formalización')}
             >
-              <div className="mt-2 pt-2 border-top border-light d-flex flex-column align-items-center w-100">
-                <div className="d-flex justify-content-between w-100 align-items-center mb-1">
+              <div className="mt-2 pt-2 border-top border-light w-100">
+                <div className="d-flex justify-content-between align-items-center mb-1">
                   <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                    Distribución de Plantilla
+                    Proceso de Admisión y Taquilla
                   </span>
-                  <span className="badge fw-bold extra-small" style={{ backgroundColor: '#e0e7ff', color: '#4338ca', fontSize: '0.67rem' }}>
-                    Total DEP Oriente: {personalEscuelas.total}
+                  <span className="badge bg-opacity-10 fw-bold extra-small" style={{ color: '#0d9488', backgroundColor: '#ccfbf1' }}>
+                    {statsAdmision.formalizados} de {statsAdmision.aprobados} formalizados
                   </span>
                 </div>
-
-                <ChamiloDonutChart
-                  segments={[
-                    { label: 'U.E. Santa Bárbara', value: personalEscuelas.sb, color: '#10b981' },
-                    { label: 'U.E. Libertador Bolívar', value: personalEscuelas.lb, color: '#0066FF' }
-                  ]}
-                  total={personalEscuelas.total || 1}
-                  size={95}
-                  thickness={11}
-                  centerTitle={String(personalEscuelas.total)}
-                  centerSubtitle="Docentes"
+                <ChamiloFormalizacionGauge
+                  solicitados={statsAdmision.solicitados}
+                  aprobados={statsAdmision.aprobados}
+                  formalizados={statsAdmision.formalizados}
+                  porFormalizar={statsAdmision.porFormalizar}
+                  rechazados={statsAdmision.rechazados}
+                  porcentaje={statsAdmision.porcentajeFormalizado}
                   darkTheme={false}
                 />
-
-                {/* Leyenda comparativa con cifras exactas */}
-                <div className="d-flex justify-content-between align-items-center w-100 mt-2 pt-1 border-top border-light" style={{ fontSize: '0.7rem' }}>
-                  <div className="d-flex align-items-center gap-1.5">
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
-                    <span className="fw-semibold text-dark">UE Santa Bárbara:</span>
-                    <strong className="text-success">{personalEscuelas.sb} ({Math.round((personalEscuelas.sb / (personalEscuelas.total || 1)) * 100)}%)</strong>
-                  </div>
-                  <div className="d-flex align-items-center gap-1.5">
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#0066FF', display: 'inline-block' }}></span>
-                    <span className="fw-semibold text-dark">UE Libertador Bolívar:</span>
-                    <strong className="text-primary">{personalEscuelas.lb} ({Math.round((personalEscuelas.lb / (personalEscuelas.total || 1)) * 100)}%)</strong>
-                  </div>
-                </div>
               </div>
             </ChamiloStatCard>
           </div>
         )}
 
-        {/* Tarjeta 3: Censo y Estado de Actualización por Plantel */}
+        {/* Tarjeta 3: Censo y Estado de Actualización de la Escuela Activa */}
         {canCensoGeneral && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
+          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
             {(() => {
-              const datosActivos = vistaFiltroCenso === 'sb' ? censoPlanteles.sb : (vistaFiltroCenso === 'lb' ? censoPlanteles.lb : censoPlanteles.consolidado);
-              const nombreSede = vistaFiltroCenso === 'sb' ? 'UE Santa Bárbara' : (vistaFiltroCenso === 'lb' ? 'UE Libertador Bolívar' : 'Ambos Planteles');
+              const datosActivos = isSb ? censoPlanteles.sb : censoPlanteles.lb;
+              const nombreSede = isSb ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
 
               return (
                 <ChamiloStatCard
                   id="card-stat-censo-general"
-                  title="Censo y Matrícula por Plantel"
+                  title="Censo y Expedientes"
                   value={
-                    <div className="d-flex flex-column gap-1">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-baseline">
-                          <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
-                            {datosActivos.total}
-                          </span>
-                          <span className="text-muted fw-semibold" style={{ fontSize: '0.78rem', marginLeft: '6px' }}>
-                            estudiantes vinculados
-                          </span>
-                        </div>
-                        <span className={`badge rounded-pill fw-bold px-2 py-0.5 ${
-                          vistaFiltroCenso === 'sb' ? 'bg-success text-white' : (vistaFiltroCenso === 'lb' ? 'bg-primary text-white' : 'bg-dark text-white')
-                        }`} style={{ fontSize: '0.67rem' }}>
-                          {nombreSede}
-                        </span>
-                      </div>
-
-                      {/* Selector Rápido de Sede */}
-                      <div className="d-flex gap-1">
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); setVistaFiltroCenso('consolidado'); }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            vistaFiltroCenso === 'consolidado' ? 'btn-dark text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
-                        >
-                          Consolidado ({censoPlanteles.consolidado.total})
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); setVistaFiltroCenso('sb'); }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            vistaFiltroCenso === 'sb' ? 'btn-success text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
-                        >
-                          SB ({censoPlanteles.sb.total})
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); setVistaFiltroCenso('lb'); }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            vistaFiltroCenso === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
-                        >
-                          LB ({censoPlanteles.lb.total})
-                        </button>
-                      </div>
-
-                      {/* 3 Estados de Actualización: Actualizados (100%), En Proceso, Sin Iniciar */}
-                      <div className="d-flex flex-wrap gap-1 mt-0.5">
-                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }} title="Expedientes con actualización completada (100%)">
-                          <i className="bi bi-check2-circle me-1"></i>{datosActivos.pctActualizados}% Actualizados ({datosActivos.actualizados})
-                        </span>
-                        <span className="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-50 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }} title="Expedientes con actualización en proceso">
-                          <i className="bi bi-clock-history me-1 text-warning"></i>{datosActivos.pctIniciados}% En Proceso ({datosActivos.iniciados})
-                        </span>
-                        <span className="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }} title="Expedientes sin iniciar por el representante">
-                          <i className="bi bi-exclamation-circle me-1"></i>{datosActivos.pctNoIniciados}% Sin Iniciar ({datosActivos.noIniciados})
-                        </span>
-                      </div>
+                    <div className="d-flex align-items-baseline gap-1.5 flex-wrap">
+                      <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
+                        {datosActivos.total} Estudiantes
+                      </span>
+                      <span className="text-muted fw-semibold extra-small" style={{ fontSize: '0.74rem' }}>
+                        ({datosActivos.pctActualizados}% al día)
+                      </span>
                     </div>
                   }
-                  subtitle={`Auditoría del censo: ${datosActivos.pctActualizados}% de expedientes completados al día`}
+                  subtitle={nombreSede}
                   icon="bi-bar-chart-line-fill"
-                  customIcon={<IconoMatriculaCenso size={30} color="#06b6d4" />}
+                  customIcon={
+                    <img 
+                      src="/assets/img/censo_3d.png" 
+                      alt="Icono 3D de Censo y Expedientes" 
+                      className="animate__animated animate__pulse animate__infinite"
+                      style={{ 
+                        width: '42px', 
+                        height: '42px', 
+                        objectFit: 'contain', 
+                        borderRadius: '10px', 
+                        filter: 'drop-shadow(0 4px 10px rgba(6, 182, 212, 0.45))' 
+                      }} 
+                    />
+                  }
                   color="#06b6d4"
                   percentage={datosActivos.pctActualizados}
                   statusBadge={{ text: `${datosActivos.pctActualizados}% Al Día`, type: datosActivos.pctActualizados >= 75 ? 'success' : 'warning' }}
@@ -1389,52 +1523,25 @@ export const Dashboard = () => {
                   }}
                   onClick={() => navigate('/categoria/Gestión Estudiantil/Vincular Estudiante')}
                 >
-                  <div className="mt-2 pt-2 border-top border-light d-flex flex-column align-items-center w-100">
-                    <div className="d-flex justify-content-between w-100 align-items-center mb-1">
+                  <div className="mt-2 pt-2 border-top border-light w-100">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
                       <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                        Distribución de Matrícula
+                        Estado de Expedientes Estudiantiles
                       </span>
-                      <span className="badge bg-info bg-opacity-10 text-info fw-bold extra-small" style={{ fontSize: '0.67rem' }}>
-                        {nombreSede}
+                      <span className="badge bg-info bg-opacity-10 text-info fw-bold extra-small">
+                        {datosActivos.actualizados} al día
                       </span>
                     </div>
-                    <ChamiloDonutChart
-                      segments={[
-                        { label: 'Actualizados', value: datosActivos.actualizados, color: '#10b981' },
-                        { label: 'En Proceso', value: datosActivos.iniciados, color: '#f59e0b' },
-                        { label: 'Sin Iniciar', value: datosActivos.noIniciados, color: '#94a3b8' },
-                      ]}
-                      total={datosActivos.total || 1}
-                      size={95}
-                      thickness={11}
-                      centerTitle={String(datosActivos.total)}
-                      centerSubtitle="Alumnos"
+                    <ChamiloCensoDonutWidget
+                      total={datosActivos.total}
+                      actualizados={datosActivos.actualizados}
+                      iniciados={datosActivos.iniciados}
+                      noIniciados={datosActivos.noIniciados}
+                      pctActualizados={datosActivos.pctActualizados}
+                      pctIniciados={datosActivos.pctIniciados}
+                      pctNoIniciados={datosActivos.pctNoIniciados}
                       darkTheme={false}
                     />
-
-                    {/* Leyenda comparativa de ambos planteles con cifras institucionales exactas */}
-                    <div className="d-flex flex-column gap-1 w-100 mt-2 pt-1 border-top border-light" style={{ fontSize: '0.7rem' }}>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-center gap-1.5">
-                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
-                          <span className="fw-semibold text-dark">UE Santa Bárbara:</span>
-                          <strong className="text-success">{censoPlanteles.sb.total} est.</strong>
-                        </div>
-                        <span className="text-muted" style={{ fontSize: '0.66rem' }}>
-                          <b className="text-success">{censoPlanteles.sb.pctActualizados}%</b> act. &bull; <b className="text-warning">{censoPlanteles.sb.pctIniciados}%</b> proc. &bull; <b className="text-secondary">{censoPlanteles.sb.pctNoIniciados}%</b> sin inic.
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-center gap-1.5">
-                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#0066FF', display: 'inline-block' }}></span>
-                          <span className="fw-semibold text-dark">UE Libertador Bolívar:</span>
-                          <strong className="text-primary">{censoPlanteles.lb.total} est.</strong>
-                        </div>
-                        <span className="text-muted" style={{ fontSize: '0.66rem' }}>
-                          <b className="text-success">{censoPlanteles.lb.pctActualizados}%</b> act. &bull; <b className="text-warning">{censoPlanteles.lb.pctIniciados}%</b> proc. &bull; <b className="text-secondary">{censoPlanteles.lb.pctNoIniciados}%</b> sin inic.
-                        </span>
-                      </div>
-                    </div>
                   </div>
                 </ChamiloStatCard>
               );
@@ -1442,152 +1549,10 @@ export const Dashboard = () => {
           </div>
         )}
 
-        {/* Tarjeta: Solicitudes de Cupos por Plantel (Aprobados, En Evaluación, Rechazados) */}
-        {canSolicitudesCupos && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
-            {(() => {
-              const datosActivosCupos = vistaFiltroCupos === 'sb' ? solicitudesCupos.sb : (vistaFiltroCupos === 'lb' ? solicitudesCupos.lb : solicitudesCupos.consolidado);
-              const nombreSedeCupos = vistaFiltroCupos === 'sb' ? 'UE Santa Bárbara' : (vistaFiltroCupos === 'lb' ? 'UE Libertador Bolívar' : 'Ambos Planteles');
-
-              return (
-                <ChamiloStatCard
-                  id="card-stat-solicitudes-cupos"
-                  title="Solicitudes de Cupos por Plantel"
-                  value={
-                    <div className="d-flex flex-column gap-1">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-baseline">
-                          <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
-                            {datosActivosCupos.total}
-                          </span>
-                          <span className="text-muted fw-semibold" style={{ fontSize: '0.78rem', marginLeft: '6px' }}>
-                            solicitudes recibidas
-                          </span>
-                        </div>
-                        <span className={`badge rounded-pill fw-bold px-2 py-0.5 ${
-                          vistaFiltroCupos === 'sb' ? 'bg-success text-white' : (vistaFiltroCupos === 'lb' ? 'bg-primary text-white' : 'bg-dark text-white')
-                        }`} style={{ fontSize: '0.67rem' }}>
-                          {nombreSedeCupos}
-                        </span>
-                      </div>
-
-                      {/* Selector Rápido de Sede */}
-                      <div className="d-flex gap-1">
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); setVistaFiltroCupos('consolidado'); }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            vistaFiltroCupos === 'consolidado' ? 'btn-dark text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
-                        >
-                          Consolidado ({solicitudesCupos.consolidado.total})
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); setVistaFiltroCupos('sb'); }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            vistaFiltroCupos === 'sb' ? 'btn-success text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
-                        >
-                          SB ({solicitudesCupos.sb.total})
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={(e) => { e.stopPropagation(); setVistaFiltroCupos('lb'); }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            vistaFiltroCupos === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
-                        >
-                          LB ({solicitudesCupos.lb.total})
-                        </button>
-                      </div>
-
-                      {/* 3 Estados de Solicitud: Aprobados, En Evaluación, Rechazados */}
-                      <div className="d-flex flex-wrap gap-1 mt-0.5">
-                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }} title="Solicitudes aprobadas / admitidas">
-                          <i className="bi bi-check-circle-fill me-1"></i>{datosActivosCupos.pctAprobados}% Aprobados ({datosActivosCupos.aprobados})
-                        </span>
-                        <span className="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-50 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }} title="Solicitudes en evaluación / revisión">
-                          <i className="bi bi-hourglass-split me-1 text-warning"></i>{datosActivosCupos.pctEvaluacion}% En Evaluación ({datosActivosCupos.evaluacion})
-                        </span>
-                        <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.67rem' }} title="Solicitudes no admitidas / rechazadas">
-                          <i className="bi bi-x-circle-fill me-1"></i>{datosActivosCupos.pctRechazados}% Rechazados ({datosActivosCupos.rechazados})
-                        </span>
-                      </div>
-                    </div>
-                  }
-                  subtitle={`Progreso de asignación: ${datosActivosCupos.pctProgreso}% de avance (${datosActivosCupos.aprobados} aprobados de ${datosActivosCupos.baseProgreso} activos)`}
-                  icon="bi-envelope-paper-heart-fill"
-                  customIcon={<IconoSolicitudCupos size={30} color="#8b5cf6" />}
-                  color="#8b5cf6"
-                  percentage={datosActivosCupos.pctProgreso}
-                  statusBadge={{ text: `${datosActivosCupos.pctProgreso}% Avance`, type: datosActivosCupos.pctProgreso >= 75 ? 'success' : 'warning' }}
-                  actionButton={{
-                    label: 'Gestionar Cupos',
-                    icon: 'bi-clipboard-check-fill',
-                    onClick: () => navigate('/categoria/Gestión Estudiantil/Gestión de Admisiones')
-                  }}
-                  onClick={() => navigate('/categoria/Gestión Estudiantil/Gestión de Admisiones')}
-                >
-                  <div className="mt-2 pt-2 border-top border-light d-flex flex-column align-items-center w-100">
-                    <div className="d-flex justify-content-between w-100 align-items-center mb-1">
-                      <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                        Distribución de Solicitudes
-                      </span>
-                      <span className="badge bg-opacity-10 fw-bold extra-small" style={{ color: '#7c3aed', backgroundColor: '#ede9fe', fontSize: '0.67rem' }}>
-                        {nombreSedeCupos}
-                      </span>
-                    </div>
-                    <ChamiloDonutChart
-                      segments={[
-                        { label: 'Aprobados', value: datosActivosCupos.aprobados, color: '#10b981' },
-                        { label: 'En Evaluación', value: datosActivosCupos.evaluacion, color: '#f59e0b' },
-                        { label: 'Rechazados', value: datosActivosCupos.rechazados, color: '#ef4444' },
-                      ]}
-                      total={datosActivosCupos.total || 1}
-                      size={95}
-                      thickness={11}
-                      centerTitle={String(datosActivosCupos.total)}
-                      centerSubtitle="Cupos"
-                      darkTheme={false}
-                    />
-
-                    {/* Leyenda comparativa de ambos planteles con cifras institucionales exactas */}
-                    <div className="d-flex flex-column gap-1 w-100 mt-2 pt-1 border-top border-light" style={{ fontSize: '0.7rem' }}>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-center gap-1.5">
-                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
-                          <span className="fw-semibold text-dark">UE Santa Bárbara:</span>
-                          <strong className="text-success">{solicitudesCupos.sb.total} sol.</strong>
-                        </div>
-                        <span className="text-muted" style={{ fontSize: '0.66rem' }}>
-                          <b className="text-success">{solicitudesCupos.sb.pctAprobados}%</b> apr. &bull; <b className="text-warning">{solicitudesCupos.sb.pctEvaluacion}%</b> eval. &bull; <b className="text-danger">{solicitudesCupos.sb.pctRechazados}%</b> rech.
-                        </span>
-                      </div>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-center gap-1.5">
-                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#0066FF', display: 'inline-block' }}></span>
-                          <span className="fw-semibold text-dark">UE Libertador Bolívar:</span>
-                          <strong className="text-primary">{solicitudesCupos.lb.total} sol.</strong>
-                        </div>
-                        <span className="text-muted" style={{ fontSize: '0.66rem' }}>
-                          <b className="text-success">{solicitudesCupos.lb.pctAprobados}%</b> apr. &bull; <b className="text-warning">{solicitudesCupos.lb.pctEvaluacion}%</b> eval. &bull; <b className="text-danger">{solicitudesCupos.lb.pctRechazados}%</b> rech.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </ChamiloStatCard>
-              );
-            })()}
-          </div>
-        )}
-
+        {/* ── 4. OPERACIÓN ESTUDIANTIL Y TRANSPORTE ESCOLAR (FILA 2 - 3 TARJETAS ALINEADAS) ── */}
         {/* Tarjeta 4: Estudiantes Vinculados a él y Avance de Actualización */}
         {canEstudiantesVinculados && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
+          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
             <ChamiloStatCard
               id="card-stat-estudiantes-vinculados"
               title="Estudiantes Vinculados"
@@ -1614,7 +1579,20 @@ export const Dashboard = () => {
                   : `Avance general de expedientes: ${avanceActualizacionPromedio}% al día`
               }
               icon="bi-mortarboard-fill"
-              customIcon={<IconoEstudiante size={30} color="#10b981" />}
+              customIcon={
+                <img 
+                  src="/assets/img/avatar_primaria.png" 
+                  alt="Icono 3D Estudiantes Vinculados" 
+                  className="animate__animated animate__pulse animate__infinite"
+                  style={{ 
+                    width: '42px', 
+                    height: '42px', 
+                    objectFit: 'contain', 
+                    borderRadius: '10px', 
+                    filter: 'drop-shadow(0 4px 10px rgba(16, 185, 129, 0.45))' 
+                  }} 
+                />
+              }
               color="#10b981"
               percentage={avanceActualizacionPromedio}
               statusBadge={{ text: `${avanceActualizacionPromedio}% Al Día`, type: avanceActualizacionPromedio === 100 ? 'success' : 'info' }}
@@ -1644,7 +1622,7 @@ export const Dashboard = () => {
 
         {/* Tarjeta 5: Rutas Escolares de Representados */}
         {canRutasEstudiantes && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
+          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
             <ChamiloStatCard
               id="card-stat-rutas-seleccionadas"
               title="Rutas Escolares de Representados"
@@ -1669,7 +1647,20 @@ export const Dashboard = () => {
               }
               subtitle="Rutas escolares asignadas en el formulario de actualización"
               icon="bi-bus-front-fill"
-              customIcon={<IconoUnidadTransporte size={30} color="#f97316" />}
+              customIcon={
+                <img 
+                  src="/assets/img/3.png" 
+                  alt="Icono 3D Ruta Escolar" 
+                  className="animate__animated animate__pulse animate__infinite"
+                  style={{ 
+                    width: '42px', 
+                    height: '42px', 
+                    objectFit: 'contain', 
+                    borderRadius: '10px', 
+                    filter: 'drop-shadow(0 4px 10px rgba(249, 115, 22, 0.45))' 
+                  }} 
+                />
+              }
               color="#f97316"
               percentage={rutasEstudiantes.length > 0 ? 100 : 0}
               statusBadge={{ text: rutasEstudiantes.length > 0 ? 'En Servicio' : 'Pendiente', type: rutasEstudiantes.length > 0 ? 'success' : 'warning' }}
@@ -1700,10 +1691,10 @@ export const Dashboard = () => {
 
         {/* Tarjeta 6: Monitoreo y Rutas de Transporte */}
         {canRutaTrabajador && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
+          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
             {(() => {
-              // Rutas filtradas según la escuela seleccionada
-              const rutasDisponibles = rutasTransporteData.filter(r => r.escuela_codigo === escuelaTransporte);
+              // Rutas filtradas exclusivamente para la escuela activa
+              const rutasDisponibles = rutasTransporteData.filter(r => r.escuela_codigo === activeSchoolCode);
               const rutaActiva = rutasDisponibles.find(r => r.id === rutaSeleccionadaId) || rutasDisponibles[0] || null;
 
               // Obtener IDs de paradas de la ruta
@@ -1723,7 +1714,7 @@ export const Dashboard = () => {
                 return PARADAS_FALLBACK[id] || null;
               }).filter(Boolean);
 
-              const nombrePlantel = escuelaTransporte === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+              const nombrePlantel = activeSchoolCode === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
               const paradaEscuela = {
                 id: 'escuela_virtual',
                 nombre_parada: nombrePlantel,
@@ -1826,38 +1817,14 @@ export const Dashboard = () => {
                         </span>
                       </div>
 
-                      {/* Fila 2: Selector 1 - Plantel / Escuela */}
+                      {/* Fila 2: Sede Institucional Activa */}
                       <div className="d-flex gap-1 align-items-center">
-                        <button 
-                          type="button" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEscuelaTransporte('sb');
-                            const sbRutas = rutasTransporteData.filter(r => r.escuela_codigo === 'sb');
-                            if (sbRutas.length > 0) setRutaSeleccionadaId(sbRutas[0].id);
-                          }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            escuelaTransporte === 'sb' ? 'btn-success text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
+                        <span 
+                          className={`badge ${isSb ? 'bg-success' : 'bg-primary'} bg-opacity-10 ${isSb ? 'text-success' : 'text-primary'} border ${isSb ? 'border-success' : 'border-primary'} border-opacity-25 px-2 py-0.5 fw-bold`}
+                          style={{ fontSize: '0.67rem' }}
                         >
-                          <i className="bi bi-building me-1"></i>UE Santa Bárbara
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEscuelaTransporte('lb');
-                            const lbRutas = rutasTransporteData.filter(r => r.escuela_codigo === 'lb');
-                            if (lbRutas.length > 0) setRutaSeleccionadaId(lbRutas[0].id);
-                          }}
-                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold transition-all ${
-                            escuelaTransporte === 'lb' ? 'btn-primary text-white shadow-xs' : 'btn-white bg-white border text-muted'
-                          }`}
-                          style={{ fontSize: '0.65rem' }}
-                        >
-                          <i className="bi bi-building me-1"></i>UE Libertador Bolívar
-                        </button>
+                          <i className="bi bi-building me-1"></i>{nombrePlantel} &bull; Rutas Asignadas
+                        </span>
                       </div>
 
                       {/* Fila 3: Selector 2 - Ruta (Select) & Selector 3 - Sentido (Ida / Vuelta) */}
@@ -1919,7 +1886,20 @@ export const Dashboard = () => {
                   }
                   subtitle={`Recorrido: ${sentidoTransporte === 'Casa - Escuela' ? 'Ida a la Escuela' : 'Vuelta a las Casas'} (${stopsParaVisual.length} paradas registradas)`}
                   icon="bi-bus-front-fill"
-                  customIcon={<IconoUnidadPersonal size={30} color="#8b5cf6" />}
+                  customIcon={
+                    <img 
+                      src="/assets/img/3.png" 
+                      alt="Icono 3D Ruta del Trabajador" 
+                      className="animate__animated animate__pulse animate__infinite"
+                      style={{ 
+                        width: '42px', 
+                        height: '42px', 
+                        objectFit: 'contain', 
+                        borderRadius: '10px', 
+                        filter: 'drop-shadow(0 4px 10px rgba(139, 92, 246, 0.45))' 
+                      }} 
+                    />
+                  }
                   color="#8b5cf6"
                   percentage={pctProgresoRecorrido}
                   statusBadge={{
@@ -1941,7 +1921,7 @@ export const Dashboard = () => {
                       occupancyPercent={pctProgresoRecorrido}
                       percentLabel="avance"
                       nextStopName={paradaEnfocada?.name}
-                      accentColor={escuelaTransporte === 'sb' ? '#10b981' : '#0284c7'}
+                      accentColor={activeSchoolCode === 'sb' ? '#10b981' : '#0284c7'}
                       darkTheme={false}
                       stops={stopsRutograma}
                     />
@@ -1954,7 +1934,7 @@ export const Dashboard = () => {
 
         {/* Tarjeta 7: Notificaciones y Avisos Activos */}
         {canNotificaciones && (
-          <div className="col-12 col-md-6 col-lg-4 d-flex align-items-stretch">
+          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
             <ChamiloStatCard
               id="card-stat-notificaciones"
               title="Notificaciones y Avisos Activos"
@@ -2072,61 +2052,6 @@ export const Dashboard = () => {
         </div>
       )}
 
-      {/* ── 5. PIE DE PÁGINA: ORGANIGRAMA Y ESTRUCTURA INSTITUCIONAL (TECNOLÓGICO) ── */}
-      {tienePermiso('Cadena Supervisoria', 'ver') && (
-        <div 
-          className="tech-card p-4 bg-white mb-3"
-          style={{
-            borderRadius: '26px',
-            border: '1.5px solid #e2e8f0',
-            borderTop: '5px solid #10b981'
-          }}
-        >
-          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div className="d-flex align-items-center gap-3" style={{ flex: 1, minWidth: 0 }}>
-              <div 
-                className="tech-icon-wrapper flex-shrink-0 d-flex align-items-center justify-content-center" 
-                style={{ 
-                  width: '58px', 
-                  height: '58px', 
-                  minWidth: '58px',
-                  minHeight: '58px',
-                  backgroundColor: '#ecfdf5',
-                  color: '#10b981',
-                  border: '2px solid #a7f3d0',
-                  borderRadius: '18px',
-                  boxShadow: '0 6px 16px rgba(16, 185, 129, 0.2)'
-                }}
-              >
-                <IconoCadenaSupervisoria size={42} color="#10b981" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="d-flex align-items-center gap-2 mb-1">
-                  <span className="status-beacon-live" style={{ color: '#10b981' }}></span>
-                  <span className="extra-small fw-bold text-success text-uppercase" style={{ fontSize: '0.72rem' }}>
-                    Red Escolar Interconectada
-                  </span>
-                </div>
-                <h5 className="fw-bolder mb-0.5 text-dark">Estructura Organizativa Institucional</h5>
-                <p className="text-muted small mb-0 d-none d-md-block">Consulte en tiempo real el mapa de dependencias, la cadena supervisoria y el personal activo de ambas instituciones.</p>
-              </div>
-            </div>
-            <button 
-              className="btn text-white rounded-pill px-4 py-2.5 fw-bold shadow hover-efecto d-flex align-items-center gap-2" 
-              style={{ 
-                backgroundColor: '#10b981',
-                borderRadius: '50px',
-                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.3)' 
-              }}
-              onClick={() => navigate('/categoria/Organización%20Escolar/Cadena%20Supervisoria')}
-            >
-              <i className="bi bi-diagram-2"></i>
-              <span>Explorar Organigrama Dinámico</span>
-              <i className="bi bi-arrow-right extra-small"></i>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

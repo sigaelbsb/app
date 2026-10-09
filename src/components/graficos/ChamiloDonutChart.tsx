@@ -18,6 +18,7 @@ interface ChamiloDonutChartProps {
   centerLabel?: string;
   centerSublabel?: string;
   centerPercent?: number;
+  showLegend?: boolean;
   darkTheme?: boolean;
 }
 
@@ -32,8 +33,10 @@ export const ChamiloDonutChart: React.FC<ChamiloDonutChartProps> = ({
   centerLabel,
   centerSublabel,
   centerPercent,
+  showLegend,
   darkTheme = true
 }) => {
+  const shouldShowLegend = showLegend !== undefined ? showLegend : size >= 110;
   const strokeWidth = propStrokeWidth || thickness;
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -170,45 +173,47 @@ export const ChamiloDonutChart: React.FC<ChamiloDonutChartProps> = ({
       </div>
 
       {/* Leyenda interactiva debajo */}
-      <div className="d-flex flex-wrap justify-content-center gap-1.5 mt-2">
-        {segments.map((segment, index) => {
-          const isHovered = hoveredIndex === index;
-          return (
-            <button
-              key={index}
-              type="button"
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-              onClick={() => setHoveredIndex(hoveredIndex === index ? null : index)}
-              className="btn btn-xs p-1 px-2 border-0 rounded-pill d-inline-flex align-items-center gap-1.5 transition-all"
-              style={{
-                backgroundColor: isHovered 
-                  ? `${segment.color}25` 
-                  : (darkTheme ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc'),
-                border: `1px solid ${isHovered ? segment.color : (darkTheme ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0')}`,
-                transform: isHovered ? 'scale(1.05)' : 'none',
-                cursor: 'pointer'
-              }}
-            >
-              <span
-                className="rounded-circle d-inline-block"
+      {shouldShowLegend && (
+        <div className="d-flex flex-wrap justify-content-center gap-1.5 mt-2">
+          {segments.map((segment, index) => {
+            const isHovered = hoveredIndex === index;
+            return (
+              <button
+                key={index}
+                type="button"
+                onMouseEnter={() => setHoveredIndex(index)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                onClick={() => setHoveredIndex(hoveredIndex === index ? null : index)}
+                className="btn btn-xs p-1 px-2 border-0 rounded-pill d-inline-flex align-items-center gap-1.5 transition-all"
                 style={{
-                  width: '8px',
-                  height: '8px',
-                  backgroundColor: segment.color,
-                  boxShadow: isHovered ? `0 0 8px ${segment.color}` : 'none'
+                  backgroundColor: isHovered 
+                    ? `${segment.color}25` 
+                    : (darkTheme ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc'),
+                  border: `1px solid ${isHovered ? segment.color : (darkTheme ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0')}`,
+                  transform: isHovered ? 'scale(1.05)' : 'none',
+                  cursor: 'pointer'
                 }}
-              />
-              <span className="extra-small fw-bold" style={{ fontSize: '0.67rem', color: darkTheme ? '#cbd5e1' : '#0f172a' }}>
-                {segment.label}:
-              </span>
-              <span className="extra-small fw-bolder" style={{ fontSize: '0.67rem', color: segment.color }}>
-                {segment.value}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+              >
+                <span
+                  className="rounded-circle d-inline-block"
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: segment.color,
+                    boxShadow: isHovered ? `0 0 8px ${segment.color}` : 'none'
+                  }}
+                />
+                <span className="extra-small fw-bold" style={{ fontSize: '0.67rem', color: darkTheme ? '#cbd5e1' : '#0f172a' }}>
+                  {segment.label}:
+                </span>
+                <span className="extra-small fw-bolder" style={{ fontSize: '0.67rem', color: segment.color }}>
+                  {segment.value}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
