@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { ModulosSistema } from '../pages/CategoryDashboard';
 import { usePermisos } from '../hooks/usePermisos';
 import { supabase } from '../lib/supabase';
-import { salirEmulacionSesion } from '../utils/sessionHelper';
+import { salirEmulacionSesion, notificarCambioEscuela } from '../utils/sessionHelper';
 import { subscribeToWebPush, solicitarPermisoWebPush, actualizarAppBadge } from '../lib/webPush';
 import { registrarSesionActiva, verificarSesionActualValida, cambiarEstadoSesion, getOrInitSessionId } from '../utils/activeSessionsHelper';
 import { ChatbotSigma } from './ChatbotSigma';
@@ -53,6 +53,45 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
       window.removeEventListener('sigae-escuela-update', handleEscuelaUpdate);
     };
   }, []);
+
+  const userEscAsignada = (
+    usuario?.id_escuela_asignada || 
+    usuario?.id_escuela || 
+    ''
+  ).toLowerCase().trim();
+
+  const userInsts = (usuario?.perfil_acceso?.instituciones || []).map((i: string) => (i || '').toLowerCase().trim());
+  const tieneInstsMultiples = userInsts.length > 1 || userInsts.some((i: string) => i.includes('ambas') || i.includes('todas'));
+
+  const puedeCambiarEscuela = Boolean(
+    usuario?.rol === 'SuperAdmin' ||
+    userEscAsignada === 'ambas' ||
+    userEscAsignada === 'todas' ||
+    userEscAsignada === 'global' ||
+    tieneInstsMultiples ||
+    (tieneAccesoEscuela && tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb')) ||
+    ['administrador', 'administradora', 'director', 'directora', 'subdirector', 'subdirectora', 'coordinador', 'coordinadora', 'gestor'].includes((usuario?.rol || '').toLowerCase().trim())
+  );
+
+  const handleCambiarSede = (target: 'sb' | 'lb') => {
+    if (target === escuelaCodigo) return;
+    const targetNombre = target === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
+    localStorage.setItem('sigae_escuela_codigo', target);
+    localStorage.setItem('sigae_escuela_activa', targetNombre);
+    try {
+      const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
+      u.nombre_escuela = targetNombre;
+      if (u.id_escuela !== 'ambas' && u.id_escuela !== 'todas') {
+        u.id_escuela = target;
+      }
+      localStorage.setItem('usuario_sigae', JSON.stringify(u));
+    } catch (e) {
+      console.warn(e);
+    }
+    notificarCambioEscuela(target, targetNombre);
+    setMostrarUserDropdown(false);
+    window.location.reload();
+  };
 
   const [anioEscolar, setAnioEscolar] = useState<string>('Cargando...');
   const [lapsoEscolar, setLapsoEscolar] = useState<string>('Cargando...');
@@ -1972,6 +2011,57 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                     </div>
                   </div>
 
+                  {/* Selector Interactivo de Sede Dual */}
+                  {puedeCambiarEscuela && (
+                    <div className="p-2 border-bottom bg-light">
+                      <div className="d-flex align-items-center justify-content-between mb-1.5 px-1">
+                        <span className="extra-small text-muted fw-bold text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>
+                          <i className="bi bi-arrow-left-right text-primary me-1"></i>Intercambiar Sede
+                        </span>
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle extra-small py-0.5 px-1.5" style={{ fontSize: '9px' }}>
+                          Acceso Dual
+                        </span>
+                      </div>
+                      <div className="d-flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleCambiarSede('sb')}
+                          className={`btn btn-sm flex-fill d-flex align-items-center justify-content-between py-1.5 px-2 rounded-2 fw-bold transition-all ${
+                            escuelaCodigo === 'sb'
+                              ? 'btn-success text-white shadow-sm'
+                              : 'btn-outline-secondary bg-white text-dark border'
+                          }`}
+                          style={{ fontSize: '11px' }}
+                          title="Cambiar a U.E. Santa Bárbara"
+                        >
+                          <span className="d-flex align-items-center gap-1">
+                            <img src="/assets/img/logo_sb.png" alt="SB" style={{ width: '15px', height: '15px', objectFit: 'contain' }} onError={(e) => { (e.target as any).style.display = 'none'; }} />
+                            <span>Santa Bárbara</span>
+                          </span>
+                          {escuelaCodigo === 'sb' && <i className="bi bi-check-circle-fill text-white ms-1"></i>}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCambiarSede('lb')}
+                          className={`btn btn-sm flex-fill d-flex align-items-center justify-content-between py-1.5 px-2 rounded-2 fw-bold transition-all ${
+                            escuelaCodigo === 'lb'
+                              ? 'btn-primary text-white shadow-sm'
+                              : 'btn-outline-secondary bg-white text-dark border'
+                          }`}
+                          style={{ fontSize: '11px' }}
+                          title="Cambiar a U.E. Libertador Bolívar"
+                        >
+                          <span className="d-flex align-items-center gap-1">
+                            <img src="/assets/img/logo_lb.png" alt="LB" style={{ width: '15px', height: '15px', objectFit: 'contain' }} onError={(e) => { (e.target as any).style.display = 'none'; }} />
+                            <span>Libertador Bolívar</span>
+                          </span>
+                          {escuelaCodigo === 'lb' && <i className="bi bi-check-circle-fill text-white ms-1"></i>}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Opciones Principales */}
                   <button
                     type="button"
@@ -2001,27 +2091,14 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
                   )}
 
                   {/* Selector de Sede Dual si está autorizado */}
-                  {((usuario.rol === 'SuperAdmin' || ['Administrador', 'Director', 'Coordinador'].includes(usuario.rol) || usuario.id_escuela === 'ambas' || usuario.id_escuela === 'todas') && tieneAccesoEscuela('sb') && tieneAccesoEscuela('lb')) && (
+                  {puedeCambiarEscuela && (
                     <button
                       type="button"
-                      onClick={() => {
-                        const target = escuelaCodigo === 'sb' ? 'lb' : 'sb';
-                        localStorage.setItem('sigae_escuela_codigo', target);
-                        localStorage.setItem('sigae_escuela_activa', target === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
-                        try {
-                          const u = JSON.parse(localStorage.getItem('usuario_sigae') || '{}');
-                          u.id_escuela = target;
-                          u.nombre_escuela = target === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar';
-                          localStorage.setItem('usuario_sigae', JSON.stringify(u));
-                        } catch {
-                          // ignorar error de lectura/escritura de json
-                        }
-                        window.location.reload();
-                      }}
-                      className="chamilo-dropdown-item"
+                      onClick={() => handleCambiarSede(escuelaCodigo === 'sb' ? 'lb' : 'sb')}
+                      className="chamilo-dropdown-item text-primary fw-semibold"
                     >
-                      <i className="bi bi-arrow-left-right text-success"></i>
-                      <span>Cambiar a sede {escuelaCodigo === 'sb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara'}</span>
+                      <i className="bi bi-arrow-left-right text-primary"></i>
+                      <span>Cambiar a {escuelaCodigo === 'sb' ? 'U.E. Libertador Bolívar' : 'U.E. Santa Bárbara'}</span>
                     </button>
                   )}
 

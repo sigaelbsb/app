@@ -54,29 +54,53 @@ export const usePermisos = () => {
       sessionStorage.getItem('sigae_emulacion_activa') === 'true'
     );
 
-    let userEsc = (usr.id_escuela || '').trim().toLowerCase();
+    let userEsc = (usr.id_escuela_asignada || usr.id_escuela || '').trim().toLowerCase();
     // Resolución de respaldo si id_escuela no está explícito en el perfil
-    if (userEsc !== 'sb' && userEsc !== 'lb') {
+    if (userEsc !== 'sb' && userEsc !== 'lb' && userEsc !== 'ambas' && userEsc !== 'todas') {
       if (usr.perfil_acceso?.instituciones && Array.isArray(usr.perfil_acceso.instituciones)) {
         const insts = usr.perfil_acceso.instituciones.map((i: string) => i.toLowerCase());
         const hasSB = insts.some((i: string) => i.includes('santa b') || i === 'sb');
         const hasLB = insts.some((i: string) => i.includes('bolívar') || i === 'lb');
-        if (hasSB && !hasLB) userEsc = 'sb';
+        if (hasSB && hasLB) userEsc = 'ambas';
+        else if (hasSB && !hasLB) userEsc = 'sb';
         else if (hasLB && !hasSB) userEsc = 'lb';
       }
-      if (userEsc !== 'sb' && userEsc !== 'lb') {
+      if (userEsc !== 'sb' && userEsc !== 'lb' && userEsc !== 'ambas' && userEsc !== 'todas') {
         const cargoLower = (usr.cargo || '').toLowerCase();
         if (cargoLower.includes('(sb)') || cargoLower.includes('santa b')) userEsc = 'sb';
         else if (cargoLower.includes('(lb)') || cargoLower.includes('libertador') || cargoLower.includes('bolívar')) userEsc = 'lb';
       }
     }
 
-    let currentEsc = localStorage.getItem('sigae_escuela_codigo') || userEsc || 'sb';
+    let currentEsc = localStorage.getItem('sigae_escuela_codigo') || (userEsc === 'lb' ? 'lb' : 'sb');
     
-    const hasMultipleEscuelas = usr.perfil_acceso?.instituciones && Array.isArray(usr.perfil_acceso.instituciones) && usr.perfil_acceso.instituciones.length > 1;
+    const hasAmbas = userEsc === 'ambas' || userEsc === 'todas' || userEsc === 'global';
+    const hasMultipleEscuelas = (usr.perfil_acceso?.instituciones && Array.isArray(usr.perfil_acceso.instituciones) && usr.perfil_acceso.instituciones.length > 1) || hasAmbas;
     const isSuperAdmin = !esModoEmulacion && (['SuperAdmin', 'Administrador', 'Administradora'].includes((usr.rol || '').trim()) || hasMultipleEscuelas);
+
+    // Sincronizar en segundo plano si en la BD el usuario tiene 'ambas'
+    if (usr?.cedula && !usr.es_emulacion && !hasAmbas) {
+      (async () => {
+        try {
+          const { data: dbU } = await supabase.from('usuarios').select('id_escuela, perfil_acceso').eq('cedula', usr.cedula).maybeSingle();
+          if (dbU) {
+            const escDb = (dbU.id_escuela || '').trim().toLowerCase();
+            if (escDb === 'ambas' || escDb === 'todas' || escDb === 'global') {
+              usr.id_escuela_asignada = escDb;
+              usr.id_escuela = escDb;
+              if (dbU.perfil_acceso) usr.perfil_acceso = dbU.perfil_acceso;
+              localStorage.setItem('usuario_sigae', JSON.stringify(usr));
+              setUser({ ...usr });
+            }
+          }
+        } catch {
+          // ignorar error de sincronizacion en segundo plano
+        }
+      })();
+    }
+
     // Aislamiento estricto: usuarios/coordinadores asignados a una escuela fija ('sb' o 'lb') siempre operan en su escuela
-    if (!isSuperAdmin && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
+    if (!isSuperAdmin && !hasAmbas && (userEsc === 'sb' || userEsc === 'lb') && currentEsc !== userEsc) {
       currentEsc = userEsc;
       localStorage.setItem('sigae_escuela_codigo', userEsc);
       localStorage.setItem('sigae_escuela_activa', userEsc === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
@@ -223,14 +247,16 @@ export const usePermisos = () => {
   const tieneAccesoEscuela = useCallback((escuelaCodigo: string) => {
     if (!user) return false;
     
-    // SuperAdmin y Administradores tienen acceso irrestricto universal a ambos planteles en sesión real
+    const userEsc = (user.id_escuela_asignada || user.id_escuela || '').trim().toLowerCase();
+    const hasAmbas = userEsc === 'ambas' || userEsc === 'todas' || userEsc === 'global';
+
+    // SuperAdmin, Administradores y cuentas con asignación dual ('ambas') tienen acceso a ambos planteles
     const rolNorm = (user.rol || '').trim().toLowerCase();
-    if (!esModoEmulacion && (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora')) {
+    if (!esModoEmulacion && (rolNorm === 'superadmin' || rolNorm === 'administrador' || rolNorm === 'administradora' || hasAmbas)) {
       return true;
     }
 
     const codNormalizado = escuelaCodigo.toLowerCase().trim();
-    const userEsc = (user.id_escuela || '').trim().toLowerCase();
 
     // MODO EMULACIÓN: Si el usuario está emulando un rol (como Invitado) o una cuenta de usuario,
     // debe tener acceso irrestricto a la escuela seleccionada para la prueba,

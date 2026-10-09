@@ -644,7 +644,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       cedula: userData.cedula,
       rol: rolCanonico,
       cargo: userData.cargo || '',
-      id_escuela: activeSchool,
+      id_escuela: userData.id_escuela || activeSchool,
+      id_escuela_asignada: userData.id_escuela || activeSchool,
+      perfil_acceso: userData.perfil_acceso || { instituciones: [] },
       nombre_escuela: activeSchool === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar',
       email: userData.email || userData.correo
     };
