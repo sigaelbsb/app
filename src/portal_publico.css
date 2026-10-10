@@ -155,100 +155,129 @@
   transition: background 0.2s ease;
 }
 
-/* ── 4. LA AUTÉNTICA BARRA DE MENÚ FLOTANTE CÁPSULA (PILL FLOATING NAVBAR) ── */
+/* ── 4. LA AUTÉNTICA BARRA DE MENÚ FLOTANTE CÁPSULA (SUPERPUESTA / FLOTANTE BDT) ── */
 .bdt-floating-navbar-container {
-  position: sticky;
+  position: fixed;
   top: 14px;
-  z-index: 1060;
+  left: 0;
+  right: 0;
+  z-index: 1080;
   padding: 0 16px;
   width: 100%;
   pointer-events: none;
   display: flex;
   justify-content: center;
-  margin-top: 10px;
-  margin-bottom: -32px;
+  margin: 0 auto;
   transition: all 0.25s ease;
-}
-
-/* Cuando se desplaza (scrolled), se mantiene fija y flotando en pantalla */
-.bdt-floating-navbar-container.is-scrolled {
-  position: fixed;
-  top: 14px;
-  left: 0;
-  right: 0;
-  margin-top: 0;
-  margin-bottom: 0;
-  z-index: 1080;
 }
 
 .bdt-floating-navbar {
   pointer-events: auto;
-  max-width: 1240px;
+  max-width: 1340px;
   width: 100%;
   margin: 0 auto;
-  /* Fondo exacto azul de la imagen BDT */
-  background: linear-gradient(180deg, #1f3277 0%, var(--bdt-pill-blue) 100%);
-  border-radius: 9999px; /* Forma de píldora continua idéntica al screenshot */
-  padding: 8px 12px 8px 22px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  /* Fondo institucional translúcido con desenfoque de cristal */
+  background: linear-gradient(135deg, rgba(27, 44, 110, 0.95) 0%, rgba(14, 44, 83, 0.98) 100%);
+  border-radius: 9999px; /* Forma de píldora continua idéntica al screenshot BDT */
+  padding: 8px 18px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  gap: 16px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   transition: all 0.28s ease;
 }
 
-.bdt-floating-navbar-container.is-scrolled .bdt-floating-navbar {
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* Marca Oficial SIGAE dentro de la Cápsula */
-.bdt-float-brand {
+/* ── CENTRO PROTAGONISTA: LOGO DEL SIGAE Y TÍTULO INSTITUCIONAL ── */
+.bdt-float-center-branding {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
-  color: #ffffff;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.bdt-float-center-branding:hover {
+  opacity: 0.95;
 }
 
 .bdt-float-logo-badge {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  padding: 5px;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
 }
 
-.bdt-float-brand-title {
+.bdt-float-center-branding:hover .bdt-float-logo-badge {
+  transform: scale(1.08) rotate(3deg);
+}
+
+.bdt-float-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.bdt-float-title-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+}
+
+.bdt-float-brand-acronym {
   font-family: var(--font-title);
-  font-weight: 850;
-  font-size: 1.18rem;
+  font-weight: 900;
+  font-size: 1.25rem;
   color: #ffffff;
   line-height: 1;
-  margin: 0;
   letter-spacing: -0.2px;
 }
 
-.bdt-float-brand-sub {
-  font-size: 0.62rem;
-  color: #cbd5e1;
-  text-transform: uppercase;
-  margin: 0;
-  letter-spacing: 0.3px;
-}
-
-/* Enlaces Centrales de la Barra Flotante */
-.bdt-float-navlink {
+.bdt-float-brand-full {
   font-family: var(--font-body);
-  font-size: 0.86rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: #e2e8f0;
-  padding: 7px 12px;
+  letter-spacing: 0.25px;
+  line-height: 1.2;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .bdt-float-brand-full {
+    font-size: 0.65rem;
+    white-space: normal;
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .bdt-float-brand-full {
+    display: none;
+  }
+}
+
+/* Enlaces de Navegación de la Barra Flotante */
+.bdt-float-navlink {
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  padding: 6px 12px;
   border-radius: 20px;
   text-decoration: none;
   transition: all 0.2s ease;
@@ -322,7 +351,7 @@
 .bdt-hero-section {
   background: radial-gradient(circle at 70% 30%, #1a2c6d 0%, var(--bdt-navy-deep) 65%, #050a1a 100%);
   color: #ffffff;
-  padding: 65px 20px 80px 20px;
+  padding: 105px 20px 80px 20px;
   position: relative;
   overflow: hidden;
 }

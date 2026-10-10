@@ -85,125 +85,61 @@ export const PortalGeneralSIGAE: React.FC = () => {
   return (
     <div className="portal-bdt-wrapper">
       
-      {/* ── 1. CINTILLO SUPERIOR DINÁMICO RESCATADO (MARQUEE CON FECHA Y UBICACIÓN) ── */}
-      <div 
-        className="py-1 px-3 text-white small" 
-        style={{ 
-          background: 'linear-gradient(90deg, #0e2c53 0%, #1b2c6e 50%, #92278f 100%)',
-          fontSize: '0.82rem',
-          letterSpacing: '0.3px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.15)'
-        }}
-      >
-        <div className="container-fluid d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center gap-2 overflow-hidden text-truncate">
-            <i className="bi bi-geo-alt-fill text-warning"></i>
-            <span className="fw-semibold">
-              Miraflores, municipio Punceres, estado Monagas: Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}
-            </span>
-          </div>
-          <div className="d-none d-md-flex align-items-center gap-3 opacity-90 extra-small">
-            <span><i className="bi bi-shield-check text-success me-1"></i>Portal Oficial MPPE</span>
-            <span>&bull;</span>
-            <span><i className="bi bi-lightning-charge-fill text-warning me-1"></i>SIGAE v1.4.0</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 2. CABECERA SUPERIOR INSTITUCIONAL BLANCA (TOP HEADER BDT) ── */}
-      <div className="bdt-top-institutional-header">
-        <div className="d-flex align-items-center gap-3">
-          {/* Cintillo oficial del Ministerio del Poder Popular para la Educación */}
-          <img 
-            src="/assets/img/logoMPPE.png" 
-            alt="Ministerio del Poder Popular para la Educación" 
-            className="bdt-mppe-logo"
-          />
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          {/* Escudo institucional oficial de SIGAE */}
-          <img 
-            src="/assets/img/sigae.png" 
-            alt="SIGAE Institucional" 
-            className="bdt-bicentenario-logo"
-          />
-        </div>
-      </div>
-
-      {/* ── 3. BARRA DE UTILIDADES AZUL NOCHE (SUB-HEADER BDT) ── */}
-      <div className="bdt-utility-bar d-none d-md-flex">
-        {/* Canales y redes comunitarias */}
-        <div className="d-flex align-items-center gap-2">
-          <span className="small me-1 text-light opacity-75">Atención comunitaria y soporte:</span>
-          <a href="#" className="bdt-social-icon" title="Instagram"><i className="bi bi-instagram"></i></a>
-          <a href="#" className="bdt-social-icon" title="Facebook"><i className="bi bi-facebook"></i></a>
-          <a href="#" className="bdt-social-icon" title="Telegram"><i className="bi bi-telegram"></i></a>
-        </div>
-
-        {/* Botones de acción rápida institucional */}
-        <div className="d-flex align-items-center gap-2.5">
-          <button 
-            type="button" 
-            className="bdt-btn-pill-white"
-            onClick={abrirSelectorEscuela}
-          >
-            <i className="bi bi-geo-alt-fill text-danger"></i>
-            <span>SEDES EDUCATIVAS</span>
-          </button>
-
-          <a href="#verificar" className="bdt-btn-pill-green">
-            <i className="bi bi-qr-code-scan"></i>
-            <span>VALIDAR CONSTANCIA</span>
-          </a>
-        </div>
-      </div>
-
-      {/* ── 4. LA AUTÉNTICA BARRA DE MENÚ FLOTANTE CÁPSULA (ESTILO EXACTO BDT) ── */}
-      <div className={`bdt-floating-navbar-container ${esFlotante ? 'is-scrolled' : ''}`}>
+      {/* ── 1. LA AUTÉNTICA BARRA SUPERPUESTA Y FLOTANTE (ESTILO BDT CON LOGO SIGAE AL CENTRO) ── */}
+      <header className="bdt-floating-navbar-container">
         <nav className="bdt-floating-navbar">
           
-          {/* Logo y Nombre Institucional dentro de la Cápsula */}
-          <Link to="/" className="bdt-float-brand" title="SIGAE - Portal General">
+          {/* LADO IZQUIERDO: Cintillo oficial MPPE en pastilla blanca + Enlaces de navegación rápida */}
+          <div className="d-flex align-items-center gap-2 gap-xl-3">
+            <div 
+              className="d-none d-sm-flex align-items-center bg-white px-2.5 py-1 rounded-pill shadow-xs"
+              style={{ height: '36px' }}
+              title="Ministerio del Poder Popular para la Educación"
+            >
+              <img 
+                src="/assets/img/logoMPPE.png" 
+                alt="MPPE Venezuela" 
+                style={{ height: '24px', width: 'auto', objectFit: 'contain' }}
+              />
+            </div>
+
+            {/* Enlaces rápidos */}
+            <div className="d-none d-xl-flex align-items-center gap-1">
+              <a href="#inicio" className="bdt-float-navlink">
+                <span>Inicio</span>
+              </a>
+              <a href="#modalidades" className="bdt-float-navlink">
+                <span>Modalidades</span>
+              </a>
+              <a href="#modulos" className="bdt-float-navlink">
+                <span>Módulos</span>
+              </a>
+              <a href="#planteles" className="bdt-float-navlink">
+                <span>Planteles</span>
+              </a>
+            </div>
+          </div>
+
+          {/* CENTRO PROTAGONISTA: LOGO DEL SIGAE Y TÍTULO INSTITUCIONAL "Sistema Integral de Gestión y Administración Escolar" */}
+          <Link to="/" className="bdt-float-center-branding" title="SIGAE - Sistema Integral de Gestión y Administración Escolar">
             <div className="bdt-float-logo-badge">
               <img 
                 src="/assets/img/sigae.png" 
-                alt="SIGAE Logo" 
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                alt="Escudo Oficial SIGAE" 
+                className="bdt-float-logo-img"
               />
             </div>
-            <div>
-              <h2 className="bdt-float-brand-title">SIGAE</h2>
-              <p className="bdt-float-brand-sub">Sistema Escolar</p>
+            <div className="bdt-float-title-group">
+              <span className="bdt-float-brand-acronym">SIGAE</span>
+              <span className="bdt-float-brand-full">Sistema Integral de Gestión y Administración Escolar</span>
             </div>
           </Link>
 
-          {/* Enlaces Centrales de Navegación del Portal */}
-          <div className="d-none d-lg-flex align-items-center gap-1">
-            <a href="#inicio" className="bdt-float-navlink">
-              <span>Inicio</span>
-            </a>
-            <a href="#modalidades" className="bdt-float-navlink">
-              <span>Modalidades</span>
-            </a>
-            <a href="#modulos" className="bdt-float-navlink">
-              <span>Módulos</span>
-            </a>
-            <a href="#historia" className="bdt-float-navlink">
-              <span>Conócenos</span>
-            </a>
-            <a href="#planteles" className="bdt-float-navlink">
-              <span>Planteles</span>
-            </a>
-            <a href="#verificar" className="bdt-float-navlink">
-              <span>Validar QR</span>
-            </a>
-          </div>
-
-          {/* Lado Derecho: Badge Gráfico (Zoe & Max) + Botón Cápsula 'SIGAEenLínea' */}
-          <div className="d-flex align-items-center gap-2.5">
+          {/* LADO DERECHO: Badge Zoe & Max + Botón Cápsula 'SIGAEenLínea' */}
+          <div className="d-flex align-items-center gap-2 gap-md-2.5">
             
-            {/* Badge de Asistentes Zoe & Max (Inspirado en el badge con estrellas de BDT) */}
-            <div className="bdt-badge-renace d-none d-xl-flex">
+            {/* Badge de Asistentes Zoe & Max */}
+            <div className="bdt-badge-renace d-none d-lg-flex" title="Asistentes Inteligentes Escolares">
               <i className="bi bi-stars text-warning fs-6"></i>
               <div>
                 <div className="bdt-badge-renace-title">ZOE & MAX</div>
@@ -225,7 +161,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
           </div>
 
         </nav>
-      </div>
+      </header>
 
       {/* ── 5. HERO BANNER PRINCIPAL CON ZOE Y MAX (ASISTENTES INSTITUCIONALES) ── */}
       <section id="inicio" className="bdt-hero-section">
@@ -235,9 +171,9 @@ export const PortalGeneralSIGAE: React.FC = () => {
             {/* Columna Izquierda: Titular y Llamado a la Acción */}
             <div className="col-lg-6 text-center text-lg-start">
               
-              <div className="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold">
-                <i className="bi bi-robot text-warning"></i>
-                <span>Asistido por Zoe y Max &bull; Año Escolar 2026-2027</span>
+              <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold">
+                <i className="bi bi-geo-alt-fill text-warning"></i>
+                <span>Miraflores, municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
               </div>
 
               <h1 className="bdt-hero-title">
