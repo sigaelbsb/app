@@ -1,13 +1,22 @@
 /**
  * ==============================================================================
  * ARCHIVO: src/pages/publica/PortalGeneralSIGAE.tsx
- * PROPÓSITO: Portal Web General (Landing Page Centralizada) de SIGAE.
- * ESTILO VISUAL: SAP Fiori Horizon + Apple Glassmorphism + Mobile-First.
- * DESCRIPCIÓN:
- *  - Presenta qué es el sistema SIGAE y sus módulos (Control, Transporte, Cupos, QR).
- *  - Ofrece el botón central "🏛️ Ingresar a mi Escuela" que abre el Selector Dinámico.
- *  - Expone el validador público de documentos criptográficos oficiales.
- *  - Código completamente comentado en español línea por línea.
+ * PROPÓSITO: Landing Page Centralizada Institucional del Sistema SIGAE.
+ * ESTILO VISUAL: Portal Corporativo / Bancario de Alta Gama (Inspirado en BDT).
+ * CARACTERÍSTICAS:
+ *  - Tipografías oficiales: 'Ruda' (Títulos formales) y 'Open Sans' (Textos limpios).
+ *  - Paleta de color: Azul institucional (#26367B), blanco, grises sutiles y
+ *    acento dorado/ámbar (#f59e0b) para botones de acción destacados.
+ *  - Componentes:
+ *      1. Cintillo superior oficial MPPE y datos institucionales.
+ *      2. Barra de navegación corporativa estilo Banca en Línea.
+ *      3. Hero banner con escudo 3D flotante y llamado central de acceso.
+ *      4. Banda de 4 accesos rápidos flotantes con iconos grandes e intuitivos.
+ *      5. Red de planteles educativos conectados (SB y LB).
+ *      6. Módulo de ciberseguridad, RLS en Supabase y almacenamiento en Google Drive.
+ *      7. Validador público directo de constancias oficiales.
+ *      8. Pie de página institucional y dock flotante para móviles.
+ *  - 100% comentado en español línea por línea para facilitar auditoría y comprensión.
  * ==============================================================================
  */
 
@@ -18,184 +27,190 @@ import { SelectorEscuelaModal } from '../../components/escuelas/SelectorEscuelaM
 import '../../portal_publico.css';
 
 export const PortalGeneralSIGAE: React.FC = () => {
+  // Hook de navegación de React Router
   const navigate = useNavigate();
-  const { escuelas, setSelectorModalAbierto } = useSchool();
 
-  // Estado para el buscador directo de constancias oficiales
+  // Contexto multi-escuela global (proporciona la lista de escuelas y control del modal)
+  const { escuelas, setSelectorModalAbierto, cambiarEscuela } = useSchool();
+
+  // Estado para capturar el código hash introducido en el validador de constancias
   const [codigoHash, setCodigoHash] = useState<string>('');
 
-  // Función para abrir el selector dinámico de instituciones
+  // Función para abrir la ventana modal de selección de institución
   const abrirSelectorEscuela = () => {
     setSelectorModalAbierto(true);
   };
 
-  // Función para validar un documento oficial por código
+  // Función para enviar el formulario de validación de constancia oficial
   const handleValidarDocumento = (e: React.FormEvent) => {
     e.preventDefault();
     if (codigoHash.trim()) {
+      // Redirige a la vista de validación con el código ingresado
       navigate(`/validar-constancia/${codigoHash.trim()}`);
     }
   };
 
   return (
-    <div className="portal-pub-container portal-tema-lb">
+    <div className="portal-pub-container">
       
-      {/* Luz ambiental sutil en el fondo */}
-      <div className="portal-pub-ambient-glow"></div>
-
-      {/* ── 1. CINTILLO INSTITUCIONAL OFICIAL (MPPE) ── */}
+      {/* ── SECCIÓN 1: CINTILLO INSTITUCIONAL OFICIAL (MPPE Y GOBIERNO) ── */}
       <div className="portal-mppe-ribbon d-flex align-items-center justify-content-between px-3 px-md-4">
         <div className="d-flex align-items-center gap-2">
+          {/* Logo del Ministerio del Poder Popular para la Educación */}
           <img 
             src="/assets/img/logoMPPE.png" 
             alt="Ministerio del Poder Popular para la Educación" 
             className="portal-mppe-banner-img"
           />
         </div>
-        <div className="portal-mppe-text d-none d-sm-block text-end">
-          <span>República Bolivariana de Venezuela &bull; Plataforma Educativa Oficial</span>
+        <div className="d-none d-sm-flex align-items-center gap-3">
+          <span>República Bolivariana de Venezuela</span>
+          <span className="opacity-50">|</span>
+          <span>Plataforma Educativa Oficial Multi-Institución</span>
         </div>
       </div>
 
-      {/* ── 2. SHELLBAR SUPERIOR CENTRALIZADO (DARK GLASS) ── */}
-      <header className="portal-shellbar py-2 px-3 px-md-4">
+      {/* ── SECCIÓN 2: BARRA DE NAVEGACIÓN CORPORATIVA TIPO BANCO (BDT STYLE) ── */}
+      <header className="portal-bdt-navbar py-2.5 px-3 px-md-4">
         <div className="container-fluid p-0 d-flex align-items-center justify-content-between">
           
-          {/* Logo y Marca SIGAE */}
-          <Link to="/" className="portal-brand-badge" title="SIGAE - Inicio">
-            <div className="portal-escudo-wrapper" style={{ boxShadow: '0 0 16px rgba(0, 98, 255, 0.4)' }}>
+          {/* Marca Institucional y Escudo Oficial */}
+          <Link to="/" className="portal-bdt-brand" title="SIGAE - Portal Central">
+            <div className="portal-bdt-brand-logo">
               <img 
                 src="/assets/img/sigae.png" 
-                alt="Escudo SIGAE" 
-                className="portal-escudo-img" 
+                alt="Escudo Oficial SIGAE" 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
               />
             </div>
             <div>
-              <h2 className="portal-brand-title">SIGAE</h2>
-              <p className="portal-brand-subtitle">Gestión y Administración Escolar</p>
+              <h2 className="portal-bdt-brand-title">SIGAE</h2>
+              <p className="portal-bdt-brand-sub">Gestión y Administración Escolar</p>
             </div>
           </Link>
 
-          {/* Menú de Navegación Rápida */}
-          <nav className="d-none d-lg-flex align-items-center gap-2">
-            <a href="#inicio" className="portal-nav-link">
+          {/* Menú de Navegación en Computadoras */}
+          <nav className="d-none d-lg-flex align-items-center gap-1">
+            <a href="#inicio" className="portal-bdt-navlink">
               <i className="bi bi-house-door"></i>
               <span>Inicio</span>
             </a>
-            <a href="#modulos" className="portal-nav-link">
+            <a href="#servicios" className="portal-bdt-navlink">
               <i className="bi bi-grid-3x3-gap"></i>
-              <span>Capacidades</span>
+              <span>Servicios</span>
             </a>
-            <a href="#escuelas" className="portal-nav-link">
+            <a href="#planteles" className="portal-bdt-navlink">
               <i className="bi bi-buildings"></i>
-              <span>Planteles</span>
+              <span>Planteles Conectados</span>
             </a>
-            <a href="#verificar" className="portal-nav-link">
+            <a href="#seguridad" className="portal-bdt-navlink">
               <i className="bi bi-shield-check"></i>
+              <span>Seguridad RLS</span>
+            </a>
+            <a href="#verificar" className="portal-bdt-navlink">
+              <i className="bi bi-qr-code-scan"></i>
               <span>Validar Constancia</span>
             </a>
           </nav>
 
-          {/* Acciones de Acceso */}
+          {/* Botón Central Estilo "Banca en Línea" / Acceso al Campus */}
           <div className="d-flex align-items-center gap-2">
-            {/* Botón Central: Seleccionar Escuela */}
-            <button 
-              type="button" 
-              className="portal-btn-sede"
-              onClick={abrirSelectorEscuela}
-              title="Elegir tu institución educativa"
-            >
-              <i className="bi bi-buildings text-info"></i>
-              <span className="d-none d-sm-inline">Seleccionar Escuela</span>
-              <span className="d-inline d-sm-none">Escuelas</span>
-              <i className="bi bi-chevron-down small opacity-75"></i>
-            </button>
-
-            {/* Botón Ingresar */}
             <button 
               type="button"
-              className="portal-btn-ingresar"
+              className="btn-bdt-acceso"
               onClick={abrirSelectorEscuela}
-              title="Acceder al Campus Digital"
+              title="Seleccionar institución y acceder al campus"
             >
-              <i className="bi bi-shield-lock-fill"></i>
-              <span>Ingresar</span>
+              <i className="bi bi-buildings-fill"></i>
+              <span>Ingresar a mi Escuela</span>
             </button>
           </div>
 
         </div>
       </header>
 
-      {/* ── 3. HERO CENTRAL DE BIENVENIDA Y ACCESO AL ECOSISTEMA ── */}
-      <section id="inicio" className="portal-hero-section">
-        <div className="container py-3 py-lg-5">
+      {/* ── SECCIÓN 3: HERO BANNER INSTITUCIONAL CORPORATIVO ── */}
+      <section id="inicio" className="portal-bdt-hero">
+        <div className="container py-3 py-lg-4">
           <div className="row align-items-center g-4 g-lg-5">
             
-            {/* Información Principal del Sistema */}
+            {/* Titular y Descripción Formal */}
             <div className="col-lg-7 text-center text-lg-start">
               
-              <div className="portal-badge-status mb-3">
-                <i className="bi bi-cpu-fill text-primary"></i>
-                <span>Ecosistema Multi-Escuela &bull; Costo Cero de Operación</span>
+              {/* Badge de Estatus Oficial */}
+              <div className="portal-bdt-hero-badge">
+                <i className="bi bi-patch-check-fill text-warning"></i>
+                <span>Plataforma Digital Oficial Multi-Escuela &bull; Año 2026-2027</span>
               </div>
 
-              <h1 className="portal-hero-title">
+              {/* Título en Fuente 'Ruda' */}
+              <h1 className="portal-bdt-hero-title">
                 Sistema Integral de Gestión y Administración Escolar
               </h1>
 
-              <p className="portal-hero-peic mx-auto mx-lg-0 mb-4" style={{ fontSize: '1.12rem' }}>
-                Plataforma unificada para la gestión académica, control de cupos, rutas de transporte y verificación criptográfica de documentos para las instituciones educativas de Venezuela.
+              {/* Subtítulo en Fuente 'Open Sans' */}
+              <p className="portal-bdt-hero-desc mx-auto mx-lg-0">
+                La solución tecnológica institucional para la administración escolar, admisiones digitales sin costo operativo, control de rutas de transporte y verificación criptográfica con respaldo en la nube.
               </p>
 
-              {/* Botones Centrales de Acción */}
+              {/* Botón de Acción Prominente (Acento Dorado/Ámbar) */}
               <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
-                
-                {/* BOTÓN CENTRAL: INGRESAR A MI ESCUELA */}
                 <button 
                   type="button" 
-                  className="btn btn-lg px-4 py-2.5 rounded-pill text-white fw-bold shadow-sm d-inline-flex align-items-center gap-2"
-                  style={{ background: 'var(--pub-gradient)' }}
+                  className="btn-bdt-accent"
                   onClick={abrirSelectorEscuela}
                 >
                   <i className="bi bi-buildings-fill"></i>
-                  <span>🏛️ Ingresar a mi Escuela</span>
+                  <span>🏛️ Seleccionar mi Institución y Acceder</span>
                 </button>
 
-                {/* Botón Secundario: Validar Constancia */}
                 <a 
                   href="#verificar" 
-                  className="btn btn-lg btn-white border px-3.5 py-2.5 rounded-pill text-dark fw-semibold shadow-xs d-inline-flex align-items-center gap-2"
+                  className="btn btn-outline-light rounded-pill px-4 py-2.5 fw-semibold d-inline-flex align-items-center gap-2"
+                  style={{ fontFamily: 'var(--font-title)', fontSize: '0.88rem' }}
                 >
-                  <i className="bi bi-qr-code-scan text-primary"></i>
+                  <i className="bi bi-qr-code-scan"></i>
                   <span>Validar Constancia QR</span>
                 </a>
-
               </div>
 
-              {/* Resumen de estadísticas o sedes disponibles */}
-              <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3 mt-4 pt-2 text-muted small">
+              {/* Métricas de Seguridad y Alcance */}
+              <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3 mt-4 pt-2 small text-light opacity-80">
                 <span className="d-inline-flex align-items-center gap-1.5">
-                  <i className="bi bi-check-circle-fill text-success"></i> 2 Sedes Activas
+                  <i className="bi bi-shield-lock-fill text-warning"></i> Blindaje Supabase RLS
                 </span>
                 <span className="d-inline-flex align-items-center gap-1.5">
-                  <i className="bi bi-shield-fill-check text-info"></i> Seguridad RLS
+                  <i className="bi bi-cloud-arrow-up-fill text-info"></i> Google Drive Pro (5TB)
                 </span>
                 <span className="d-inline-flex align-items-center gap-1.5">
-                  <i className="bi bi-phone-fill text-warning"></i> 100% Mobile-First
+                  <i className="bi bi-phone-fill text-success"></i> Optimizado Móvil (Mobile-First)
                 </span>
               </div>
 
             </div>
 
-            {/* Escudo 3D Central de SIGAE */}
+            {/* Tarjeta Flotante con Escudo 3D */}
             <div className="col-lg-5 text-center">
-              <div className="portal-hero-shield-card">
+              <div className="portal-bdt-hero-card">
                 <img 
                   src="/assets/img/sigae.png" 
                   alt="Escudo Central SIGAE" 
-                  className="portal-hero-shield-img"
-                  style={{ width: '190px', height: '190px' }}
+                  className="portal-bdt-hero-shield-img mb-3"
                 />
+                <h3 className="fw-bolder fs-5 text-dark m-0 font-ruda">
+                  Ecosistema Escolar Centralizado
+                </h3>
+                <p className="text-muted extra-small mt-1 mb-3" style={{ fontSize: '0.78rem' }}>
+                  Conexión segura para directores, docentes, estudiantes y representantes
+                </p>
+                <div className="d-flex justify-content-center gap-2">
+                  <span className="badge bg-light text-primary border px-2.5 py-1.5 extra-small fw-semibold">
+                    U.E. Santa Bárbara
+                  </span>
+                  <span className="badge bg-light text-primary border px-2.5 py-1.5 extra-small fw-semibold">
+                    U.E. Libertador Bolívar
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -203,128 +218,92 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 4. CAPACIDADES Y MÓDULOS DEL SISTEMA (TARJETAS 3D) ── */}
-      <section id="modulos" className="py-5 px-3">
-        <div className="container">
+      {/* ── SECCIÓN 4: BANDA DE ACCESOS RÁPIDOS ESTILO BANCARIO (QUICK ACTIONS) ── */}
+      <section className="portal-bdt-quickactions container">
+        <div className="row g-3">
           
-          <div className="text-center max-w-xl mx-auto mb-5">
-            <span className="badge bg-white text-dark border px-3 py-1.5 rounded-pill fw-bold text-uppercase small shadow-xs">
-              <i className="bi bi-stars text-warning me-1"></i>
-              Capacidades Tecnológicas
-            </span>
-            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2">Todo el Ecosistema Escolar en un Solo Lugar</h2>
-            <p className="text-muted small">Herramientas diseñadas para directores, docentes, estudiantes y representantes.</p>
+          {/* Tarjeta Rápida 1: Solicitud de Cupos */}
+          <div className="col-sm-6 col-lg-3">
+            <a href="#planteles" className="portal-bdt-quick-card">
+              <div className="portal-bdt-quick-icon">
+                <i className="bi bi-person-plus-fill"></i>
+              </div>
+              <div>
+                <h4 className="portal-bdt-quick-title">Solicitud de Cupos</h4>
+                <p className="portal-bdt-quick-desc">Admisiones en línea 2026-2027</p>
+              </div>
+            </a>
           </div>
 
-          <div className="row g-4">
-            
-            {/* Módulo 1: Admisiones y Formalización */}
-            <div className="col-md-6 col-lg-3">
-              <div className="portal-card-3d">
-                <img src="/assets/img/formalizacion_3d.png" alt="Admisiones Digitales" className="portal-card-3d-header-img" />
-                <div className="portal-card-3d-body">
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <div className="portal-icon-box">
-                      <i className="bi bi-person-check-fill"></i>
-                    </div>
-                    <h3 className="fs-5 fw-bold text-dark m-0">Admisiones en Línea</h3>
-                  </div>
-                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
-                    Solicitud de cupos y carga de recaudos digitalmente desde el celular con cero costo de almacenamiento.
-                  </p>
-                </div>
+          {/* Tarjeta Rápida 2: Red de Transporte */}
+          <div className="col-sm-6 col-lg-3">
+            <a href="#servicios" className="portal-bdt-quick-card">
+              <div className="portal-bdt-quick-icon">
+                <i className="bi bi-bus-front-fill"></i>
+              </div>
+              <div>
+                <h4 className="portal-bdt-quick-title">Transporte Escolar</h4>
+                <p className="portal-bdt-quick-desc">Rutas, paradas y horarios</p>
+              </div>
+            </a>
+          </div>
+
+          {/* Tarjeta Rápida 3: Verificación Criptográfica */}
+          <div className="col-sm-6 col-lg-3">
+            <a href="#verificar" className="portal-bdt-quick-card">
+              <div className="portal-bdt-quick-icon">
+                <i className="bi bi-qr-code-scan"></i>
+              </div>
+              <div>
+                <h4 className="portal-bdt-quick-title">Validar Documento</h4>
+                <p className="portal-bdt-quick-desc">Comprobación con código hash</p>
+              </div>
+            </a>
+          </div>
+
+          {/* Tarjeta Rápida 4: Campus Privado */}
+          <div className="col-sm-6 col-lg-3">
+            <div className="portal-bdt-quick-card cursor-pointer" onClick={abrirSelectorEscuela}>
+              <div className="portal-bdt-quick-icon">
+                <i className="bi bi-shield-lock-fill"></i>
+              </div>
+              <div>
+                <h4 className="portal-bdt-quick-title">Acceso Institucional</h4>
+                <p className="portal-bdt-quick-desc">Personal, directivos y docentes</p>
               </div>
             </div>
-
-            {/* Módulo 2: Transporte Escolar */}
-            <div className="col-md-6 col-lg-3">
-              <div className="portal-card-3d">
-                <img src="/assets/img/censo_3d.png" alt="Transporte Escolar" className="portal-card-3d-header-img" />
-                <div className="portal-card-3d-body">
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <div className="portal-icon-box">
-                      <i className="bi bi-bus-front-fill"></i>
-                    </div>
-                    <h3 className="fs-5 fw-bold text-dark m-0">Red de Transporte</h3>
-                  </div>
-                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
-                    Gestión de unidades, rutogramas por comunidad, censo estudiantil y control de horarios matutinos.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Módulo 3: Ciberseguridad y QR */}
-            <div className="col-md-6 col-lg-3">
-              <div className="portal-card-3d">
-                <img src="/assets/img/seguridad_3d.png" alt="Ciberseguridad SIGAE" className="portal-card-3d-header-img" />
-                <div className="portal-card-3d-body">
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <div className="portal-icon-box">
-                      <i className="bi bi-shield-lock-fill"></i>
-                    </div>
-                    <h3 className="fs-5 fw-bold text-dark m-0">Seguridad & RLS</h3>
-                  </div>
-                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
-                    Aislamiento estricto de datos por institución educativa y verificación criptográfica de constancias con QR.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Módulo 4: Gestión Docente y Expedientes */}
-            <div className="col-md-6 col-lg-3">
-              <div className="portal-card-3d">
-                <img src="/assets/img/personal_3d.png" alt="Gestión Docente" className="portal-card-3d-header-img" />
-                <div className="portal-card-3d-body">
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <div className="portal-icon-box">
-                      <i className="bi bi-journal-bookmark-fill"></i>
-                    </div>
-                    <h3 className="fs-5 fw-bold text-dark m-0">Control Pedagógico</h3>
-                  </div>
-                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
-                    Gestión diaria docente, expedientes del personal, matrícula escolar, actas y emisión de constancias.
-                  </p>
-                </div>
-              </div>
-            </div>
-
           </div>
 
         </div>
       </section>
 
-      {/* ── 5. PLANTELES EDUCATIVOS ACTIVOS EN EL SIGAE ── */}
-      <section id="escuelas" className="py-5 px-3 bg-white border-top border-bottom">
-        <div className="container">
+      {/* ── SECCIÓN 5: PLANTELES CONECTADOS (RED MULTI-ESCUELA) ── */}
+      <section id="planteles" className="py-5 px-3">
+        <div className="container py-3">
           
           <div className="text-center max-w-xl mx-auto mb-5">
-            <span className="badge bg-light text-dark border px-3 py-1.5 rounded-pill fw-bold text-uppercase small shadow-xs">
-              <i className="bi bi-buildings-fill text-primary me-1"></i>
-              Red de Instituciones
+            <span className="badge bg-light text-primary border px-3 py-1.5 rounded-pill fw-bold text-uppercase small">
+              <i className="bi bi-buildings-fill me-1"></i>
+              Red de Instituciones Afiliadas
             </span>
-            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2">Planteles Conectados al Sistema</h2>
-            <p className="text-muted small">Selecciona tu institución para acceder a su portal o ingresar al campus:</p>
+            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2 font-ruda">
+              Planteles Educativos Activos
+            </h2>
+            <p className="text-muted small">
+              Elige tu institución para iniciar sesión en el campus o consultar su información académica:
+            </p>
           </div>
 
           <div className="row g-4 justify-content-center">
             {escuelas.map((esc) => {
               const esSB = esc.id_escuela === 'sb';
-              const colorTema = esSB ? '#10b981' : '#0062ff';
-
               return (
                 <div key={esc.id_escuela} className="col-md-6 col-lg-5">
-                  <div 
-                    className="p-4 p-lg-5 rounded-4 border h-100 d-flex flex-column justify-content-between shadow-xs transition-all"
-                    style={{ background: '#ffffff', borderColor: '#e2e8f0' }}
-                  >
+                  <div className="portal-bdt-school-card">
                     <div>
+                      {/* Cabecera con Escudo y Código DEA */}
                       <div className="d-flex align-items-center gap-3 mb-3">
-                        <div 
-                          className="rounded-3 p-1.5 border d-flex align-items-center justify-content-center bg-white shadow-xs"
-                          style={{ width: '64px', height: '64px', flexShrink: 0 }}
-                        >
+                        <div className="portal-bdt-school-logo">
                           <img 
                             src={esc.logo_url || `/assets/img/logo_${esc.id_escuela}.png`} 
                             alt={esc.nombre_institucion}
@@ -333,42 +312,50 @@ export const PortalGeneralSIGAE: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <h3 className="fw-bolder fs-5 text-dark m-0">{esc.nombre_institucion}</h3>
+                          <h3 className="fw-bolder fs-5 text-dark m-0 font-ruda">
+                            {esc.nombre_institucion}
+                          </h3>
                           <span className="badge bg-light text-muted border extra-small mt-1">
-                            DEA: {esc.codigo_dea}
+                            DEA: {esc.codigo_dea} &bull; RIF: {esc.rif}
                           </span>
                         </div>
                       </div>
 
-                      <p className="text-muted small mb-3">
+                      {/* Dirección Geográfica */}
+                      <p className="text-muted small mb-2" style={{ fontSize: '0.85rem' }}>
                         <i className="bi bi-geo-alt-fill text-danger me-1"></i>
                         {esc.direccion}
                       </p>
 
-                      <p className="text-secondary small fst-italic mb-4" style={{ fontSize: '0.82rem' }}>
-                        &ldquo;{esc.peic || 'Educación integral y valores comunitarios.'}&rdquo;
+                      {/* Lema Institucional PEIC */}
+                      <p className="text-secondary small fst-italic mb-4" style={{ fontSize: '0.82rem', lineHeight: 1.5 }}>
+                        &ldquo;{esc.peic || 'Educación integral y valores comunitarios para el futuro.'}&rdquo;
                       </p>
                     </div>
 
-                    {/* Botones de Acción por Escuela */}
-                    <div className="d-flex gap-2">
+                    {/* Botones de Acción */}
+                    <div className="d-flex gap-2 pt-2 border-top">
                       <Link 
                         to={`/portal/${esc.id_escuela}`} 
                         className="btn btn-outline-secondary rounded-pill py-2 px-3 fw-bold small flex-grow-1"
+                        style={{ fontFamily: 'var(--font-title)' }}
                       >
-                        Ver Portal Escolar
+                        Ver Información
                       </Link>
+                      
                       <button 
                         type="button" 
-                        className="btn rounded-pill py-2 px-3 fw-bold small text-white flex-grow-1"
-                        style={{ backgroundColor: colorTema }}
+                        className="btn rounded-pill py-2 px-3 fw-bold small text-white flex-grow-1 shadow-xs"
+                        style={{ 
+                          backgroundColor: esSB ? '#059669' : '#26367B',
+                          fontFamily: 'var(--font-title)' 
+                        }}
                         onClick={() => {
-                          // Fijamos la escuela y abrimos el login
-                          localStorage.setItem('sigae_escuela_codigo', esc.id_escuela);
+                          cambiarEscuela(esc.id_escuela);
                           navigate('/login');
                         }}
                       >
-                        Ingresar 🔐
+                        <span>Ingresar 🔐</span>
                       </button>
                     </div>
 
@@ -381,29 +368,120 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 6. VALIDADOR PÚBLICO DE CONSTANCIAS (CIBERSEGURIDAD QR) ── */}
+      {/* ── SECCIÓN 6: CAPACIDADES Y SERVICIOS INSTITUCIONALES (TARJETAS CORPORATIVAS) ── */}
+      <section id="servicios" className="py-5 px-3 bg-white border-top border-bottom">
+        <div className="container py-3">
+          
+          <div className="text-center max-w-xl mx-auto mb-5">
+            <span className="badge bg-light text-primary border px-3 py-1.5 rounded-pill fw-bold text-uppercase small">
+              <i className="bi bi-cpu-fill me-1"></i>
+              Arquitectura de Servicios
+            </span>
+            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2 font-ruda">
+              Tecnología de Vanguardia al Servicio de la Educación
+            </h2>
+            <p className="text-muted small">
+              Módulos diseñados bajo estrictas normas de formalidad, seguridad y alta disponibilidad.
+            </p>
+          </div>
+
+          <div className="row g-4">
+            
+            {/* Tarjeta 1: Admisiones Digitales */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-bdt-feature-card">
+                <img src="/assets/img/formalizacion_3d.png" alt="Admisiones" className="portal-bdt-feature-img" />
+                <div className="portal-bdt-feature-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <i className="bi bi-person-check-fill text-primary fs-5"></i>
+                    <h3 className="fs-6 fw-bold text-dark m-0 font-ruda">Admisiones en Línea</h3>
+                  </div>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.55 }}>
+                    Registro de solicitudes, carga de partida de nacimiento y asignación de matrícula sin colas presenciales.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tarjeta 2: Red de Transporte */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-bdt-feature-card">
+                <img src="/assets/img/censo_3d.png" alt="Transporte Escolar" className="portal-bdt-feature-img" />
+                <div className="portal-bdt-feature-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <i className="bi bi-bus-front-fill text-info fs-5"></i>
+                    <h3 className="fs-6 fw-bold text-dark m-0 font-ruda">Rutas de Transporte</h3>
+                  </div>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.55 }}>
+                    Censo de estudiantes, unidades de transporte (Yutong/Encava), paradas y monitoreo de rutogramas por sector.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tarjeta 3: Ciberseguridad y RLS */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-bdt-feature-card">
+                <img src="/assets/img/seguridad_3d.png" alt="Ciberseguridad" className="portal-bdt-feature-img" />
+                <div className="portal-bdt-feature-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <i className="bi bi-shield-check text-success fs-5"></i>
+                    <h3 className="fs-6 fw-bold text-dark m-0 font-ruda">Seguridad y RLS</h3>
+                  </div>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.55 }}>
+                    Aislamiento total de bases de datos por escuela. Ningún usuario puede ver registros ajenos a su institución.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tarjeta 4: Gestión Docente y Expedientes */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-bdt-feature-card">
+                <img src="/assets/img/personal_3d.png" alt="Gestión Docente" className="portal-bdt-feature-img" />
+                <div className="portal-bdt-feature-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <i className="bi bi-journal-text text-warning fs-5"></i>
+                    <h3 className="fs-6 fw-bold text-dark m-0 font-ruda">Control Pedagógico</h3>
+                  </div>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.55 }}>
+                    Reportes diarios de clase, expedientes de estudiantes y personal, notas y emisión de constancias oficiales.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── SECCIÓN 7: VALIDADOR PÚBLICO DE DOCUMENTOS Y CONSTANCIAS QR ── */}
       <section id="verificar" className="py-5 px-3">
-        <div className="container">
+        <div className="container py-3">
           <div className="row align-items-center g-4">
             
             <div className="col-lg-4 text-center">
               <img 
                 src="/assets/img/seguridad_3d.png" 
-                alt="Validador Criptográfico" 
-                style={{ width: '160px', height: '160px', objectFit: 'contain' }}
+                alt="Validador de Constancias" 
+                style={{ width: '150px', height: '150px', objectFit: 'contain' }}
               />
             </div>
 
             <div className="col-lg-8">
-              <span className="badge bg-white text-dark border px-3 py-1 rounded-pill small fw-bold mb-2 d-inline-block shadow-xs">
-                <i className="bi bi-shield-check text-success me-1"></i>
-                Validación Oficial Criptográfica
+              <span className="badge bg-light text-primary border px-3 py-1 rounded-pill small fw-bold mb-2 d-inline-block">
+                <i className="bi bi-patch-check-fill text-success me-1"></i>
+                Validador Oficial Criptográfico
               </span>
-              <h3 className="fs-3 fw-bold text-dark mb-2">Portal Público de Verificación de Documentos</h3>
+              <h3 className="fs-3 fw-bold text-dark mb-2 font-ruda">
+                Verificación de Autenticidad de Constancias
+              </h3>
               <p className="text-muted small mb-4" style={{ maxWidth: '640px' }}>
-                Cualquier institución o representante puede comprobar la legitimidad de una constancia de estudio, retiro, carnet o carta emitida por SIGAE ingresando el código hash impreso en el documento:
+                Cualquier organismo, empleador o representante puede certificar la autenticidad de una constancia de estudio, notas, carnet o retiro emitida por SIGAE introduciendo el código hash único impreso en el documento:
               </p>
 
+              {/* Formulario de Verificación Directo */}
               <form onSubmit={handleValidarDocumento} className="d-flex flex-column flex-sm-row gap-2 max-w-lg">
                 <div className="input-group">
                   <span className="input-group-text bg-white border-end-0">
@@ -417,7 +495,11 @@ export const PortalGeneralSIGAE: React.FC = () => {
                     onChange={(e) => setCodigoHash(e.target.value)}
                   />
                 </div>
-                <button type="submit" className="btn btn-dark rounded-pill px-4 fw-semibold text-nowrap">
+                <button 
+                  type="submit" 
+                  className="btn btn-dark rounded-pill px-4 fw-bold text-nowrap"
+                  style={{ fontFamily: 'var(--font-title)' }}
+                >
                   Validar Documento
                 </button>
               </form>
@@ -427,21 +509,49 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 7. PIE DE PÁGINA (FOOTER CORPORATIVO OFICIAL) ── */}
-      <footer className="portal-footer">
+      {/* ── SECCIÓN 8: DOCK FLOTANTE MÓVIL (MOBILE-FIRST) ── */}
+      <nav className="portal-bdt-mobile-dock" aria-label="Navegación Móvil Rápida">
+        <a href="#inicio" className="portal-bdt-mobile-dock-btn activo">
+          <i className="bi bi-house-door"></i>
+          <span>Inicio</span>
+        </a>
+        <a href="#planteles" className="portal-bdt-mobile-dock-btn">
+          <i className="bi bi-buildings"></i>
+          <span>Planteles</span>
+        </a>
+        <a href="#servicios" className="portal-bdt-mobile-dock-btn">
+          <i className="bi bi-grid"></i>
+          <span>Servicios</span>
+        </a>
+        <a href="#verificar" className="portal-bdt-mobile-dock-btn">
+          <i className="bi bi-qr-code-scan"></i>
+          <span>Validar</span>
+        </a>
+        <button 
+          type="button" 
+          className="portal-bdt-mobile-dock-btn destacado border-0"
+          onClick={abrirSelectorEscuela}
+        >
+          <i className="bi bi-shield-lock-fill"></i>
+          <span>Ingresar</span>
+        </button>
+      </nav>
+
+      {/* ── SECCIÓN 9: PIE DE PÁGINA (FOOTER CORPORATIVO BANCARIO) ── */}
+      <footer className="portal-bdt-footer">
         <div className="container">
           <div className="row g-4 align-items-center">
             
             <div className="col-md-6 text-center text-md-start">
               <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2">
                 <img src="/assets/img/sigae.png" alt="SIGAE Logo" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
-                <span className="fw-bolder text-white fs-5">SIGAE</span>
+                <span className="fw-bolder text-white fs-5 font-ruda">SIGAE</span>
                 <span className="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-50 extra-small">
                   v1.4.0
                 </span>
               </div>
-              <p className="small text-muted m-0" style={{ maxWidth: '420px', lineHeight: 1.5 }}>
-                Sistema Integral de Gestión y Administración Escolar. Solución tecnológica unificada con arquitectura multi-escuela protegida por Row Level Security (RLS).
+              <p className="small text-muted m-0" style={{ maxWidth: '440px', lineHeight: 1.5 }}>
+                Sistema Integral de Gestión y Administración Escolar. Solución institucional centralizada multi-escuela para el control pedagógico y comunitario.
               </p>
             </div>
 
@@ -458,7 +568,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </footer>
 
-      {/* ── 8. MODAL INTERACTIVO DE SELECCIÓN DE ESCUELA ── */}
+      {/* ── SECCIÓN 10: MODAL INTERACTIVO DE SELECCIÓN DE ESCUELA ── */}
       <SelectorEscuelaModal destino="login" />
 
     </div>
