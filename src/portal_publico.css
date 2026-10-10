@@ -1,516 +1,402 @@
 /**
  * ==============================================================================
  * ARCHIVO: src/portal_publico.css
- * PROPÓSITO: Hoja de estilos institucional y corporativa para la Web de SIGAE.
- * ESTILO VISUAL: Portal Institucional / Bancario de Alta Gama (Inspirado en BDT).
- * CARACTERÍSTICAS:
- *  - Tipografías: 'Ruda' para títulos y encabezados, 'Open Sans' para textos.
- *  - Paleta de Colores: Azul institucional profundo (#26367B y #1b285a), blanco,
- *    grises sutiles y acentos dorados/ámbar (#f59e0b) para acciones clave.
- *  - Componentes: Tarjetas flotantes con hover lift, dock móvil, y shellbar corporativo.
- *  - 100% comentado en español línea por línea para facilitar auditoría y edición.
+ * PROPÓSITO: Hoja de estilos fiel al portal corporativo BDT (Banco Digital de los Trabajadores).
+ * CARACTERÍSTICAS IDÉNTICAS A BDT (bdt.com.ve):
+ *  1. Barra Superior Institucional Blanca con logos oficiales.
+ *  2. Barra de Utilidades Azul Noche con botones de canales y sedes.
+ *  3. BARRA DE MENÚ FLOTANTE: Cápsula horizontal flotante (border-radius: 40px,
+ *     fondo #0D1739, sticky en scroll, con botón azul vivo 'SIGAE en Línea').
+ *  4. Hero Banner Azul Espacial con constelación y tarjetas de razones con checks de colores.
+ *  5. Paleta BDT: Azul Marino #0D1739, Azul Eléctrico #2A52BE, Verde Vivo #28C76F.
+ *  6. 100% comentado en español línea por línea.
  * ==============================================================================
  */
 
-/* ── 1. VARIABLES DEL SISTEMA INSTITUCIONAL / ESTILO BANCARIO BDT ── */
 :root {
-  /* Azules institucionales oficiales estilo Banco / Corporativo */
-  --bdt-blue: #26367B;                  /* Azul corporativo institucional principal */
-  --bdt-blue-dark: #1b285a;             /* Azul marino profundo de fondo y cabeceras */
-  --bdt-blue-deep: #111c42;             /* Tono noche institucional para footer y ribbon */
-  --bdt-blue-light: #eff4fc;            /* Fondo suave para badges y cajas destacadas */
-  --bdt-blue-hover: #32479e;            /* Estado hover de botones primarios */
+  /* Paleta Oficial BDT (Banco Digital de los Trabajadores) */
+  --bdt-navy-dark: #0D1739;             /* Azul marino oscuro de la barra flotante */
+  --bdt-navy-deep: #0B132B;             /* Fondo noche del hero y barra de utilidades */
+  --bdt-blue-btn: #2A52BE;              /* Azul eléctrico del botón BDTenLínea / SIGAEenLínea */
+  --bdt-blue-btn-hover: #1e3fa8;        /* Hover del botón azul eléctrico */
+  --bdt-green-accent: #28C76F;          /* Verde brillante de canales de atención y check 1 */
+  --bdt-green-hover: #22a95c;           /* Hover del verde brillante */
+  --bdt-orange-accent: #f97316;         /* Naranja del check 4 / acentos */
+  --bdt-purple-accent: #8b5cf6;         /* Púrpura del check 3 */
+  --bdt-sky-accent: #0ea5e9;            /* Azul cielo del check 2 */
+  --bdt-white: #ffffff;                 /* Blanco puro */
+  --bdt-gray-light: #f8fafc;            /* Fondo neutro claro */
+  --bdt-text-dark: #1e293b;             /* Texto principal oscuro */
+  --bdt-text-muted: #64748b;            /* Texto secundario */
 
-  /* Acentos de acción y seguridad (Ámbar / Dorado institucional) */
-  --bdt-accent: #f59e0b;                /* Botones de acción llamativos y elegantes */
-  --bdt-accent-hover: #d97706;          /* Hover del botón de acción */
-  --bdt-cyan: #0284c7;                  /* Acento tecnológico secundario */
-
-  /* Tipografías oficiales solicitadas */
+  /* Fuentes oficiales solicitadas */
   --font-title: 'Ruda', sans-serif;
   --font-body: 'Open Sans', sans-serif;
-
-  /* Superficies y sombras */
-  --bdt-bg-light: #f8fafc;
-  --bdt-surface-white: #ffffff;
-  --bdt-text-main: #1e293b;
-  --bdt-text-muted: #64748b;
-  --bdt-border-subtle: #e2e8f0;
-  
-  /* Sombras y elevaciones corporativas */
-  --bdt-shadow-sm: 0 2px 6px rgba(38, 54, 123, 0.05);
-  --bdt-shadow-card: 0 8px 24px -4px rgba(38, 54, 123, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03);
-  --bdt-shadow-hover: 0 20px 40px -8px rgba(38, 54, 123, 0.18), 0 6px 14px rgba(0, 0, 0, 0.05);
-
-  /* Radios de borde elegantes */
-  --bdt-radius-card: 18px;
-  --bdt-radius-btn: 30px;
 }
 
-/* ── 2. ESTILOS BASE Y CONTENEDOR GENERAL ── */
-.portal-pub-container {
+/* ── 1. ESTILOS GLOBALES ── */
+.portal-bdt-wrapper {
   min-height: 100vh;
   width: 100%;
-  background-color: var(--bdt-bg-light);
+  background-color: var(--bdt-gray-light);
   font-family: var(--font-body);
-  color: var(--bdt-text-main);
+  color: var(--bdt-text-dark);
   position: relative;
   overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
 }
 
-/* Tipografía de títulos oficiales en Ruda */
-.portal-pub-container h1,
-.portal-pub-container h2,
-.portal-pub-container h3,
-.portal-pub-container h4,
-.portal-pub-container h5,
-.portal-pub-container h6,
-.font-ruda {
+.portal-bdt-wrapper h1,
+.portal-bdt-wrapper h2,
+.portal-bdt-wrapper h3,
+.portal-bdt-wrapper h4,
+.portal-bdt-wrapper h5,
+.portal-bdt-wrapper h6 {
   font-family: var(--font-title);
   letter-spacing: -0.3px;
 }
 
-/* ── 3. CINTILLO SUPERIOR CORPORATIVO (MPPE & DATOS INSTITUCIONALES) ── */
-.portal-mppe-ribbon {
-  background: var(--bdt-blue-deep);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 6px 20px;
-  position: relative;
-  z-index: 1050;
-  font-size: 0.78rem;
-  color: #cbd5e1;
-}
-
-.portal-mppe-banner-img {
-  max-height: 26px;
-  width: auto;
-  object-fit: contain;
-  filter: brightness(1.08);
-}
-
-/* ── 4. BARRA DE NAVEGACIÓN INSTITUCIONAL TIPO BANCO (TOPBAR HEADER) ── */
-.portal-bdt-navbar {
-  background: var(--bdt-surface-white);
-  border-bottom: 2px solid var(--bdt-blue-light);
-  box-shadow: 0 4px 18px rgba(38, 54, 123, 0.06);
-  position: sticky;
-  top: 0;
-  z-index: 1040;
-  transition: all 0.25s ease;
-}
-
-.portal-bdt-brand {
+/* ── 2. CABECERA SUPERIOR INSTITUCIONAL BLANCA (TOP HEADER BDT) ── */
+.bdt-top-institutional-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  text-decoration: none;
+  justify-content: space-between;
 }
 
-.portal-bdt-brand-logo {
-  width: 42px;
-  height: 42px;
+.bdt-mppe-logo {
+  max-height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+.bdt-bicentenario-logo {
+  max-height: 38px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ── 3. BARRA DE UTILIDADES Y REDES (SUB-HEADER OSCURO BDT) ── */
+.bdt-utility-bar {
+  background: var(--bdt-navy-deep);
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+}
+
+.bdt-social-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--bdt-navy-deep);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: transform 0.2s ease;
+}
+
+.bdt-social-icon:hover {
+  transform: scale(1.12);
+  color: var(--bdt-blue-btn);
+}
+
+.bdt-btn-pill-white {
+  background: #ffffff;
+  color: var(--bdt-navy-deep) !important;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 0.76rem;
+  padding: 5px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.bdt-btn-pill-white:hover {
+  background: #f1f5f9;
+}
+
+.bdt-btn-pill-green {
+  background: var(--bdt-green-accent);
+  color: #ffffff !important;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 0.76rem;
+  padding: 5px 14px;
+  border-radius: 20px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.bdt-btn-pill-green:hover {
+  background: var(--bdt-green-hover);
+}
+
+/* ── 4. BARRA DE MENÚ FLOTANTE CÁPSULA (PILL FLOATING NAVBAR BDT) ── */
+.bdt-floating-navbar-container {
+  position: sticky;
+  top: 14px;
+  z-index: 1040;
+  padding: 0 16px;
+  width: 100%;
+  pointer-events: none; /* Permite clicks solo dentro de la cápsula */
+}
+
+.bdt-floating-navbar {
+  pointer-events: auto; /* Restablece clicks */
+  max-width: 1220px;
+  margin: 0 auto;
+  background: var(--bdt-navy-dark);
+  border-radius: 40px;
+  padding: 8px 14px 8px 20px;
+  box-shadow: 0 12px 32px rgba(11, 19, 43, 0.42), 0 2px 6px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Marca BDT / SIGAE en la Barra Flotante */
+.bdt-float-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: #ffffff;
+}
+
+.bdt-float-logo-badge {
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
-  background: var(--bdt-blue-light);
-  border: 1.5px solid rgba(38, 54, 123, 0.15);
+  background: rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  transition: transform 0.25s ease;
+  padding: 3px;
 }
 
-.portal-bdt-brand:hover .portal-bdt-brand-logo {
-  transform: scale(1.05);
-}
-
-.portal-bdt-brand-title {
+.bdt-float-brand-title {
   font-family: var(--font-title);
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: var(--bdt-blue);
-  line-height: 1.1;
+  font-weight: 850;
+  font-size: 1.15rem;
+  color: #ffffff;
+  line-height: 1.05;
   margin: 0;
+  letter-spacing: -0.2px;
 }
 
-.portal-bdt-brand-sub {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--bdt-text-muted);
+.bdt-float-brand-sub {
+  font-size: 0.64rem;
+  color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
   margin: 0;
+  letter-spacing: 0.4px;
 }
 
-/* Enlaces del Menú de Navegación */
-.portal-bdt-navlink {
+/* Enlaces del Menú Flotante */
+.bdt-float-navlink {
   font-family: var(--font-body);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #334155;
-  padding: 8px 14px;
-  border-radius: 8px;
+  color: #cbd5e1;
+  padding: 7px 12px;
+  border-radius: 20px;
   text-decoration: none;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
-.portal-bdt-navlink:hover {
-  color: var(--bdt-blue);
-  background: var(--bdt-blue-light);
-}
-
-/* Botón Destacado Estilo "Banca en Línea" / "Ingresar a mi Escuela" */
-.btn-bdt-acceso {
-  font-family: var(--font-title);
-  background: var(--bdt-blue);
-  color: #ffffff !important;
-  font-size: 0.88rem;
-  font-weight: 700;
-  padding: 9px 22px;
-  border-radius: var(--bdt-radius-btn);
-  border: none;
-  box-shadow: 0 4px 14px rgba(38, 54, 123, 0.28);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.btn-bdt-acceso:hover {
-  background: var(--bdt-blue-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(38, 54, 123, 0.36);
-}
-
-/* Botón de Acción Acento Dorado/Ámbar */
-.btn-bdt-accent {
-  font-family: var(--font-title);
-  background: var(--bdt-accent);
-  color: #1b285a !important;
-  font-size: 0.92rem;
-  font-weight: 800;
-  padding: 10px 24px;
-  border-radius: var(--bdt-radius-btn);
-  border: none;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.btn-bdt-accent:hover {
-  background: var(--bdt-accent-hover);
-  color: #ffffff !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(245, 158, 11, 0.45);
-}
-
-/* ── 5. SECCIÓN HERO BANNER CORPORATIVO ── */
-.portal-bdt-hero {
-  background: linear-gradient(135deg, var(--bdt-blue-dark) 0%, var(--bdt-blue) 65%, #1e40af 100%);
+.bdt-float-navlink:hover {
   color: #ffffff;
-  padding: 65px 20px 75px 20px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Botón de Enlace Directo "SIGAE en Línea" (Estilo BDTenLínea) */
+.bdt-btn-en-linea {
+  background: var(--bdt-blue-btn);
+  color: #ffffff !important;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 0.86rem;
+  padding: 9px 22px;
+  border-radius: 28px;
+  border: none;
+  box-shadow: 0 4px 14px rgba(42, 82, 190, 0.45);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-decoration: none;
+}
+
+.bdt-btn-en-linea:hover {
+  background: var(--bdt-blue-btn-hover);
+  transform: scale(1.03);
+  box-shadow: 0 6px 18px rgba(42, 82, 190, 0.6);
+}
+
+/* ── 5. HERO BANNER PRINCIPAL (AZUL ESPACIAL BDT) ── */
+.bdt-hero-section {
+  background: radial-gradient(circle at 65% 25%, #182755 0%, var(--bdt-navy-deep) 70%, #070e24 100%);
+  color: #ffffff;
+  padding: 75px 20px 85px 20px;
   position: relative;
   overflow: hidden;
 }
 
-/* Patrón geométrico sutil de fondo */
-.portal-bdt-hero::after {
+/* Patrón de Constelación de Puntos Digitales */
+.bdt-hero-section::before {
   content: '';
   position: absolute;
-  top: 0; right: 0; bottom: 0; left: 0;
-  background-image: radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 26px 26px;
   pointer-events: none;
+  opacity: 0.6;
 }
 
-.portal-bdt-hero-badge {
+.bdt-hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(8px);
-  padding: 6px 16px;
-  border-radius: var(--bdt-radius-btn);
-  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
   font-weight: 700;
   color: #ffffff;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
-.portal-bdt-hero-title {
+.bdt-hero-title {
   font-family: var(--font-title);
-  font-size: clamp(2.1rem, 4.2vw, 3.2rem);
+  font-size: clamp(2.2rem, 4.4vw, 3.4rem);
   font-weight: 900;
-  line-height: 1.15;
+  line-height: 1.12;
+  letter-spacing: -0.6px;
   color: #ffffff;
-  margin-bottom: 16px;
-  letter-spacing: -0.5px;
+  margin-bottom: 18px;
 }
 
-.portal-bdt-hero-desc {
+.bdt-hero-desc {
   font-family: var(--font-body);
   font-size: 1.05rem;
-  color: #e2e8f0;
+  color: #cbd5e1;
   line-height: 1.6;
-  max-width: 620px;
+  max-width: 600px;
   margin-bottom: 28px;
 }
 
-/* Tarjeta flotante del Escudo 3D en el Hero */
-.portal-bdt-hero-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 26px;
-  padding: 32px;
-  box-shadow: 0 24px 60px rgba(11, 23, 66, 0.45);
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  text-align: center;
-  transition: transform 0.3s ease;
-}
-
-.portal-bdt-hero-card:hover {
-  transform: translateY(-5px);
-}
-
-.portal-bdt-hero-shield-img {
-  width: 160px;
-  height: 160px;
-  object-fit: contain;
-  filter: drop-shadow(0 12px 24px rgba(38, 54, 123, 0.28));
-}
-
-/* ── 6. BANDA DE ACCESOS RÁPIDOS ESTILO BANCARIO (QUICK ACTION PILLS) ── */
-.portal-bdt-quickactions {
-  margin-top: -38px;
-  position: relative;
-  z-index: 1030;
-  padding: 0 16px;
-}
-
-.portal-bdt-quick-card {
-  background: var(--bdt-surface-white);
-  border: 1.5px solid var(--bdt-border-subtle);
+/* Tarjetas de Razones con Checks de Colores (Estilo BDT Hero) */
+.bdt-reason-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(10px);
   border-radius: 16px;
-  padding: 20px;
-  box-shadow: var(--bdt-shadow-card);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 14px 18px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  height: 100%;
-  text-decoration: none;
-  color: var(--bdt-text-main);
+  gap: 14px;
+  transition: all 0.25s ease;
+  margin-bottom: 12px;
 }
 
-.portal-bdt-quick-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--bdt-blue);
-  box-shadow: var(--bdt-shadow-hover);
-  color: var(--bdt-blue);
+.bdt-reason-card:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateX(4px);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
-.portal-bdt-quick-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: var(--bdt-blue-light);
-  color: var(--bdt-blue);
+.bdt-reason-check {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  flex-shrink: 0;
-  transition: transform 0.25s ease;
-}
-
-.portal-bdt-quick-card:hover .portal-bdt-quick-icon {
-  transform: scale(1.12);
-  background: var(--bdt-blue);
   color: #ffffff;
+  font-size: 1.1rem;
+  flex-shrink: 0;
 }
 
-.portal-bdt-quick-title {
-  font-family: var(--font-title);
-  font-size: 0.95rem;
-  font-weight: 700;
+.bdt-reason-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.35;
   margin: 0;
-  line-height: 1.25;
 }
 
-.portal-bdt-quick-desc {
-  font-size: 0.78rem;
-  color: var(--bdt-text-muted);
-  margin: 2px 0 0 0;
-}
-
-/* ── 7. TARJETAS CORPORATIVAS / SERVICIOS (CARDS CON HOVER SHADOW) ── */
-.portal-bdt-feature-card {
-  background: var(--bdt-surface-white);
-  border-radius: var(--bdt-radius-card);
-  border: 1.5px solid var(--bdt-border-subtle);
-  box-shadow: var(--bdt-shadow-card);
-  transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.portal-bdt-feature-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--bdt-blue);
-  box-shadow: var(--bdt-shadow-hover);
-}
-
-.portal-bdt-feature-img {
-  width: 100%;
-  height: 155px;
-  object-fit: cover;
-  border-bottom: 1px solid var(--bdt-border-subtle);
-  transition: transform 0.4s ease;
-}
-
-.portal-bdt-feature-card:hover .portal-bdt-feature-img {
-  transform: scale(1.03);
-}
-
-.portal-bdt-feature-body {
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-}
-
-/* ── 8. RED DE ESCUELAS CONECTADAS AL SIGAE ── */
-.portal-bdt-school-card {
-  background: var(--bdt-surface-white);
+/* ── 6. SECCIÓN DE PLANTELES CONECTADOS (CARDS BDT) ── */
+.bdt-school-card {
+  background: #ffffff;
   border-radius: 20px;
-  border: 2px solid var(--bdt-border-subtle);
-  box-shadow: var(--bdt-shadow-card);
-  padding: 26px;
-  transition: all 0.3s ease;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 8px 24px -4px rgba(13, 23, 57, 0.07);
+  padding: 24px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
-.portal-bdt-school-card:hover {
-  transform: translateY(-5px);
-  border-color: var(--bdt-blue);
-  box-shadow: var(--bdt-shadow-hover);
+.bdt-school-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--bdt-blue-btn);
+  box-shadow: 0 20px 40px -8px rgba(13, 23, 57, 0.18);
 }
 
-.portal-bdt-school-logo {
-  width: 60px;
-  height: 60px;
-  border-radius: 14px;
-  background: var(--bdt-blue-light);
-  border: 1px solid rgba(38, 54, 123, 0.15);
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-/* ── 9. MÓDULO DE VERIFICACIÓN CRIPTOGRÁFICA (TIPO BANCO) ── */
-.portal-bdt-verify-box {
-  background: var(--bdt-surface-white);
-  border: 2px dashed rgba(38, 54, 123, 0.25);
-  border-radius: 22px;
-  padding: 32px 24px;
-  box-shadow: var(--bdt-shadow-sm);
-  transition: all 0.25s ease;
-}
-
-.portal-bdt-verify-box:hover {
-  border-color: var(--bdt-blue);
-  background: #fdfefe;
-}
-
-/* ── 10. DOCK FLOTANTE MÓVIL (MOBILE-FIRST) ── */
-.portal-bdt-mobile-dock {
-  display: none;
-}
-
-@media (max-width: 991px) {
-  .portal-bdt-mobile-dock {
-    display: flex;
-    position: fixed;
-    bottom: 12px;
-    left: 14px;
-    right: 14px;
-    background: rgba(27, 40, 90, 0.95);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 26px;
-    padding: 8px 12px;
-    z-index: 1060;
-    box-shadow: 0 10px 30px rgba(11, 23, 66, 0.45);
-    justify-content: space-around;
-    align-items: center;
-  }
-
-  .portal-bdt-mobile-dock-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #cbd5e1;
-    text-decoration: none;
-    font-size: 0.68rem;
-    font-family: var(--font-body);
-    font-weight: 600;
-    gap: 2px;
-    padding: 4px 8px;
-    border-radius: 10px;
-    transition: all 0.2s ease;
-  }
-
-  .portal-bdt-mobile-dock-btn i {
-    font-size: 1.15rem;
-  }
-
-  .portal-bdt-mobile-dock-btn.activo,
-  .portal-bdt-mobile-dock-btn:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.12);
-  }
-
-  .portal-bdt-mobile-dock-btn.destacado {
-    background: var(--bdt-accent);
-    color: #1b285a;
-    font-family: var(--font-title);
-    font-weight: 800;
-    padding: 6px 14px;
-    border-radius: 18px;
-  }
-}
-
-/* ── 11. PIE DE PÁGINA (FOOTER CORPORATIVO BANCARIO) ── */
-.portal-bdt-footer {
-  background: var(--bdt-blue-deep);
+/* ── 7. PIE DE PÁGINA (FOOTER BDT) ── */
+.bdt-footer {
+  background: var(--bdt-navy-deep);
   color: #94a3b8;
-  border-top: 3px solid var(--bdt-blue);
-  padding: 50px 20px 85px 20px;
-  font-size: 0.85rem;
+  border-top: 3px solid var(--bdt-blue-btn);
+  padding: 48px 20px 75px 20px;
 }
 
-.portal-bdt-footer a {
+.bdt-footer a {
   color: #cbd5e1;
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
-.portal-bdt-footer a:hover {
+.bdt-footer a:hover {
   color: #ffffff;
+}
+
+/* ── 8. RESPONSIVE MÓVIL (MENÚ COLAPSABLE) ── */
+@media (max-width: 991px) {
+  .bdt-floating-navbar {
+    padding: 6px 12px 6px 14px;
+    border-radius: 28px;
+  }
+  .bdt-float-navlink {
+    display: none;
+  }
 }
