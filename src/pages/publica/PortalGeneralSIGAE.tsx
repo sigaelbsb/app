@@ -31,6 +31,22 @@ export const PortalGeneralSIGAE: React.FC = () => {
     '¡Hola! Somos Zoe y Max, tus guías inteligentes en SIGAE. ¿En qué podemos ayudarte hoy?'
   );
 
+  // Control para asegurar que la barra flote fija sobre todo el contenido al hacer scroll
+  const [esFlotante, setEsFlotante] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 35) {
+        setEsFlotante(true);
+      } else {
+        setEsFlotante(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Función para abrir la ventana modal del selector de escuelas
   const abrirSelectorEscuela = () => {
     setSelectorModalAbierto(true);
@@ -96,7 +112,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
       </div>
 
       {/* ── 3. LA AUTÉNTICA BARRA DE MENÚ FLOTANTE CÁPSULA (ESTILO EXACTO BDT) ── */}
-      <div className="bdt-floating-navbar-container">
+      <div className={`bdt-floating-navbar-container ${esFlotante ? 'is-scrolled' : ''}`}>
         <nav className="bdt-floating-navbar">
           
           {/* Logo y Nombre Institucional dentro de la Cápsula */}

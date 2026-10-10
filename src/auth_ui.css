@@ -9,7 +9,7 @@
 
 body.auth-body { 
     background-color: #f0f4f8 !important; 
-    overflow-x: hidden; 
+    overflow-x: clip; 
 }
 
 /* LOADER INICIAL: PULSO DE RADAR A COLOR */

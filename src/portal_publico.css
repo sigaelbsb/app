@@ -40,7 +40,7 @@
   font-family: var(--font-body);
   color: var(--bdt-text-main);
   position: relative;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .portal-bdt-wrapper h1,
@@ -144,28 +144,49 @@
 .bdt-floating-navbar-container {
   position: sticky;
   top: 14px;
-  z-index: 1040;
+  z-index: 1060;
   padding: 0 16px;
   width: 100%;
   pointer-events: none;
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  margin-bottom: -32px;
+  transition: all 0.25s ease;
+}
+
+/* Estado flotante activo permanente al hacer scroll */
+.bdt-floating-navbar-container.is-scrolled {
+  position: fixed;
+  top: 14px;
+  left: 0;
+  right: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  z-index: 1080;
 }
 
 .bdt-floating-navbar {
   pointer-events: auto;
-  max-width: 1240px;
+  max-width: 1220px;
+  width: 100%;
   margin: 0 auto;
   /* Fondo exacto azul de la imagen BDT */
   background: linear-gradient(180deg, #1f3277 0%, var(--bdt-pill-blue) 100%);
   border-radius: 9999px; /* Forma de píldora continua idéntica al screenshot */
   padding: 8px 12px 8px 22px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   transition: all 0.28s ease;
+}
+
+.bdt-floating-navbar-container.is-scrolled .bdt-floating-navbar {
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Marca Oficial SIGAE dentro de la Cápsula */
