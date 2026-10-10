@@ -1,22 +1,26 @@
 /**
  * ==============================================================================
  * ARCHIVO: src/components/layout/NavbarPublica.tsx
- * PROPÓSITO: Barra de navegación superior para la Web Informativa Pública de SIGAE.
+ * PROPÓSITO: Barra de navegación superior de alta gama para la Web Informativa Pública.
+ * ESTILO: SAP Fiori Horizon Shellbar + Dark Glassmorphism + MPPE Oficial.
  * CARACTERÍSTICAS:
- *  1. Multi-escuela: Selector dinámico para alternar entre planteles (SB y LB).
- *  2. Móvil-Primero: Menú colapsable suave adaptado a pantallas táctiles.
- *  3. Seguridad: No expone rutas privadas hasta que el usuario se autentica.
+ *  1. Cintillo Superior Institucional con el logo del MPPE.
+ *  2. Shellbar cristalino oscuro con bordes cyan/neón sutiles.
+ *  3. Escudo 3D del plantel activo con aura luminosa (Glow).
+ *  4. Selector rápido e interactivo de sede escolar (SB / LB).
+ *  5. Botón de acceso directo al Campus Digital con gradiente y candado.
+ *  6. Menú colapsable suave para pantallas táctiles y teléfonos móviles.
  * ==============================================================================
  */
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
-// Propiedades que recibe la barra de navegación pública
+// Propiedades recibidas por el componente de la barra de navegación
 interface NavbarPublicaProps {
-  // Código de la escuela actual ('sb' para Santa Bárbara, 'lb' para Libertador Bolívar)
+  // Código identificador de la escuela activa ('sb' = Santa Bárbara, 'lb' = Libertador Bolívar)
   escuelaActiva: 'sb' | 'lb';
-  // Función para cambiar de escuela desde el selector
+  // Función para cambiar de institución educativa
   onCambiarEscuela: (nuevaEscuela: 'sb' | 'lb') => void;
 }
 
@@ -24,182 +28,258 @@ export const NavbarPublica: React.FC<NavbarPublicaProps> = ({
   escuelaActiva,
   onCambiarEscuela
 }) => {
-  // Hook de navegación de React Router para movernos entre páginas
+  // Hook de enrutamiento para navegar entre vistas
   const navigate = useNavigate();
 
-  // Estado para controlar la apertura del menú en teléfonos móviles (hamburguesa)
-  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
+  // Control del menú desplegable en dispositivos móviles
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState<boolean>(false);
+  // Control del selector desplegable de cambio de sede
+  const [dropdownSedeAbierto, setDropdownSedeAbierto] = useState<boolean>(false);
 
-  // Datos dinámicos según el colegio seleccionado
-  const nombreColegio = escuelaActiva === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+  // Datos dinámicos según la escuela seleccionada
+  const esSantaBarbara = escuelaActiva === 'sb';
+  const nombreColegio = esSantaBarbara ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
   const logoColegio = `/assets/img/logo_${escuelaActiva}.png`;
-  const colorAcento = escuelaActiva === 'sb' ? '#10b981' : '#2563eb'; // Verde para SB, Azul para LB
 
   return (
-    <header className="sticky-top bg-white border-bottom shadow-xs" style={{ zIndex: 1040 }}>
-      {/* ── BARRA SUPERIOR DE AVISO INSTITUCIONAL (Cintillo Superior) ── */}
-      <div 
-        className="py-1 px-3 text-white text-center d-flex justify-content-between align-items-center"
-        style={{ 
-          backgroundColor: colorAcento,
-          fontSize: '0.75rem',
-          letterSpacing: '0.3px',
-          fontWeight: 600
-        }}
-      >
-        <div className="d-flex align-items-center gap-1.5 mx-auto">
-          <span>🏛️ República Bolivariana de Venezuela &bull; MPPE &bull; {nombreColegio}</span>
+    <>
+      {/* ── SECCIÓN 1: CINTILLO OFICIAL DEL MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN ── */}
+      <div className="portal-mppe-ribbon d-flex align-items-center justify-content-between px-3 px-md-4">
+        <div className="d-flex align-items-center gap-2">
+          {/* Logo oficial MPPE */}
+          <img 
+            src="/assets/img/logoMPPE.png" 
+            alt="Ministerio del Poder Popular para la Educación" 
+            className="portal-mppe-banner-img"
+          />
+        </div>
+        <div className="portal-mppe-text d-none d-sm-block text-end">
+          <span>República Bolivariana de Venezuela &bull; Monagas</span>
         </div>
       </div>
 
-      {/* ── BARRA PRINCIPAL DE NAVEGACIÓN ── */}
-      <nav className="navbar navbar-expand-lg navbar-light py-2 px-3 px-md-4">
-        <div className="container-fluid p-0 d-flex justify-content-between align-items-center">
+      {/* ── SECCIÓN 2: SHELLBAR PRINCIPAL ESTILO SAP FIORI HORIZON (DARK GLASS) ── */}
+      <header className="portal-shellbar py-2 px-3 px-md-4">
+        <div className="container-fluid p-0 d-flex align-items-center justify-content-between">
           
-          {/* 1. LOGO Y NOMBRE INSTITUCIONAL */}
+          {/* LOGO INSTITUCIONAL Y NOMBRE DEL COLEGIO */}
           <Link 
-            to={`/portal/${escuelaActiva}`}
-            className="d-flex align-items-center gap-2 text-decoration-none"
+            to={`/portal/${escuelaActiva}`} 
+            className="portal-brand-badge"
+            title={`Página principal de ${nombreColegio}`}
           >
-            {/* Escudo del Plantel */}
-            <div 
-              className="rounded-circle d-flex align-items-center justify-content-center bg-light border p-1"
-              style={{ width: '42px', height: '42px', flexShrink: 0 }}
-            >
+            {/* Escudo 3D del Plantel con Aura */}
+            <div className="portal-escudo-wrapper">
               <img 
                 src={logoColegio} 
-                alt={`Escudo ${nombreColegio}`}
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                alt={`Escudo oficial ${nombreColegio}`} 
+                className="portal-escudo-img"
+                onError={(e) => { 
+                  // Si no carga la imagen específica, usamos el escudo central de SIGAE
+                  (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; 
+                }}
               />
             </div>
-            
-            {/* Texto del Plantel */}
-            <div className="text-start" style={{ lineHeight: 1.15 }}>
-              <span className="fw-bolder text-dark d-block fs-6 m-0">
-                {nombreColegio}
-              </span>
-              <span className="badge bg-light text-muted border extra-small px-1.5 py-0 fw-semibold" style={{ fontSize: '0.65rem' }}>
-                Portal Informativo Oficial
-              </span>
+
+            {/* Titular del Colegio */}
+            <div>
+              <h2 className="portal-brand-title">{nombreColegio}</h2>
+              <p className="portal-brand-subtitle">Portal Web Institucional</p>
             </div>
           </Link>
 
-          {/* 2. BOTONES CENTRALES EN PANTALLAS GRANDES */}
-          <div className="d-none d-lg-flex align-items-center gap-3">
-            <Link to={`/portal/${escuelaActiva}#inicio`} className="nav-link fw-semibold text-dark hover-primary px-2">
-              Inicio
-            </Link>
-            <Link to={`/portal/${escuelaActiva}#identidad`} className="nav-link fw-semibold text-dark hover-primary px-2">
-              Misión & Visión
-            </Link>
-            <Link to={`/portal/${escuelaActiva}#admisiones`} className="nav-link fw-semibold text-dark hover-primary px-2">
-              Admisiones 2026-2027
-            </Link>
-            <Link to={`/portal/${escuelaActiva}#contacto`} className="nav-link fw-semibold text-dark hover-primary px-2">
-              Ubicación & Contacto
-            </Link>
-          </div>
+          {/* NAVEGACIÓN EN COMPUTADORAS Y TABLETS GRANDES */}
+          <nav className="d-none d-lg-flex align-items-center gap-2">
+            <a href="#inicio" className="portal-nav-link">
+              <i className="bi bi-house-door"></i>
+              <span>Inicio</span>
+            </a>
+            <a href="#identidad" className="portal-nav-link">
+              <i className="bi bi-award"></i>
+              <span>Identidad</span>
+            </a>
+            <a href="#niveles" className="portal-nav-link">
+              <i className="bi bi-mortarboard"></i>
+              <span>Niveles</span>
+            </a>
+            <a href="#transporte" className="portal-nav-link">
+              <i className="bi bi-bus-front"></i>
+              <span>Transporte</span>
+            </a>
+            <a href="#admisiones" className="portal-nav-link">
+              <i className="bi bi-person-plus"></i>
+              <span>Admisiones</span>
+            </a>
+            <a href="#contacto" className="portal-nav-link">
+              <i className="bi bi-geo-alt"></i>
+              <span>Contacto</span>
+            </a>
+          </nav>
 
-          {/* 3. SELECTOR DE SEDE Y ACCESO AL CAMPUS */}
+          {/* ACCIONES DE LA DERECHA: CAMBIO DE SEDE Y BOTÓN DE INGRESO */}
           <div className="d-flex align-items-center gap-2">
             
-            {/* SELECTOR INTERACTIVO ENTRE COLEGIOS */}
-            <div className="dropdown">
+            {/* SELECTOR INTERACTIVO DE SEDE (SB / LB) */}
+            <div className="position-relative">
               <button 
-                className="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1.5 rounded-pill px-2.5 py-1.5 shadow-xs"
-                type="button" 
-                id="dropdownSelectorSedePublica" 
-                data-bs-toggle="dropdown" 
-                aria-expanded="false"
-                style={{ fontSize: '0.78rem', fontWeight: 600 }}
+                type="button"
+                className="portal-btn-sede"
+                onClick={() => setDropdownSedeAbierto(!dropdownSedeAbierto)}
+                title="Cambiar entre sedes educativas"
               >
-                <i className="bi bi-arrow-left-right text-primary"></i>
-                <span className="d-none d-sm-inline">Cambiar Sede:</span>
-                <span className="text-dark fw-bold">{escuelaActiva === 'sb' ? 'Santa Bárbara' : 'Libertador'}</span>
+                <i className="bi bi-arrow-repeat text-info"></i>
+                <span className="d-none d-sm-inline">{esSantaBarbara ? 'Sede SB' : 'Sede LB'}</span>
+                <span className="d-inline d-sm-none">{escuelaActiva.toUpperCase()}</span>
+                <i className="bi bi-chevron-down small opacity-75"></i>
               </button>
-              <ul className="dropdown-menu dropdown-menu-end shadow-sm rounded-3 border py-1" aria-labelledby="dropdownSelectorSedePublica">
-                <li>
+
+              {/* Menú Flotante para cambiar de Sede */}
+              {dropdownSedeAbierto && (
+                <div 
+                  className="dropdown-menu show dropdown-menu-end shadow-lg p-2 animate__animated animate__fadeIn"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    minWidth: '240px',
+                    backgroundColor: 'rgba(5, 17, 43, 0.96)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    borderRadius: '16px',
+                    zIndex: 1100,
+                    marginTop: '8px'
+                  }}
+                >
+                  <div className="px-2 py-1 small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
+                    Seleccionar Institución
+                  </div>
+
+                  {/* Opción 1: Santa Bárbara */}
                   <button 
-                    onClick={() => onCambiarEscuela('sb')}
-                    className={`dropdown-item d-flex align-items-center gap-2 py-2 px-3 small ${escuelaActiva === 'sb' ? 'active fw-bold' : ''}`}
+                    type="button"
+                    className={`dropdown-item d-flex align-items-center gap-2.5 rounded-3 py-2 px-2.5 text-white ${esSantaBarbara ? 'bg-success bg-opacity-25 border border-success border-opacity-50' : ''}`}
+                    onClick={() => {
+                      onCambiarEscuela('sb');
+                      setDropdownSedeAbierto(false);
+                    }}
                   >
-                    <img src="/assets/img/logo_sb.png" alt="SB" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
-                    <span>U.E. Santa Bárbara</span>
+                    <img 
+                      src="/assets/img/logo_sb.png" 
+                      alt="SB" 
+                      style={{ width: '28px', height: '28px', objectFit: 'contain' }} 
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <div>
+                      <div className="fw-bold small">U.E. Santa Bárbara</div>
+                      <div className="text-muted extra-small" style={{ fontSize: '0.7rem' }}>Sector Santa Bárbara</div>
+                    </div>
+                    {esSantaBarbara && <i className="bi bi-check-circle-fill ms-auto text-success"></i>}
                   </button>
-                </li>
-                <li>
+
+                  {/* Opción 2: Libertador Bolívar */}
                   <button 
-                    onClick={() => onCambiarEscuela('lb')}
-                    className={`dropdown-item d-flex align-items-center gap-2 py-2 px-3 small ${escuelaActiva === 'lb' ? 'active fw-bold' : ''}`}
+                    type="button"
+                    className={`dropdown-item d-flex align-items-center gap-2.5 rounded-3 py-2 px-2.5 text-white mt-1 ${!esSantaBarbara ? 'bg-primary bg-opacity-25 border border-primary border-opacity-50' : ''}`}
+                    onClick={() => {
+                      onCambiarEscuela('lb');
+                      setDropdownSedeAbierto(false);
+                    }}
                   >
-                    <img src="/assets/img/logo_lb.png" alt="LB" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
-                    <span>U.E. Libertador Bolívar</span>
+                    <img 
+                      src="/assets/img/logo_lb.png" 
+                      alt="LB" 
+                      style={{ width: '28px', height: '28px', objectFit: 'contain' }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                    />
+                    <div>
+                      <div className="fw-bold small">U.E. Libertador Bolívar</div>
+                      <div className="text-muted extra-small" style={{ fontSize: '0.7rem' }}>Punta de Mata</div>
+                    </div>
+                    {!esSantaBarbara && <i className="bi bi-check-circle-fill ms-auto text-primary"></i>}
                   </button>
-                </li>
-              </ul>
+                </div>
+              )}
             </div>
 
-            {/* BOTÓN DESTACADO: ENTRAR AL SISTEMA / CAMPUS */}
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="btn btn-sm btn-primary d-flex align-items-center gap-1.5 rounded-pill px-3 py-1.5 shadow-xs fw-bold"
-              style={{ fontSize: '0.8rem', background: '#0062ff', borderColor: '#0062ff' }}
+            {/* BOTÓN OFICIAL: INGRESAR AL CAMPUS PRIVADO (LOGIN) */}
+            <Link 
+              to="/login" 
+              className="portal-btn-ingresar"
+              title="Acceder al Panel de Gestión Escolar"
             >
               <i className="bi bi-shield-lock-fill"></i>
-              <span>Ingresar</span>
-            </button>
+              <span className="d-none d-sm-inline">Ingresar</span>
+            </Link>
 
-            {/* BOTÓN MENÚ MÓVIL (Hamburguesa táctil) */}
-            <button
+            {/* BOTÓN HAMBURGUESA PARA TELÉFONOS MÓVILES */}
+            <button 
               type="button"
+              className="btn btn-sm text-white d-lg-none p-1.5 ms-1"
               onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}
-              className="btn btn-sm btn-light border d-lg-none p-1.5 rounded-3 ms-1"
               aria-label="Abrir menú"
             >
-              <i className={`bi ${menuMovilAbierto ? 'bi-x-lg' : 'bi-list'} fs-5`}></i>
+              <i className={`bi ${menuMovilAbierto ? 'bi-x-lg' : 'bi-list'} fs-4`}></i>
             </button>
-          </div>
 
+          </div>
         </div>
 
-        {/* ── MENÚ DESPLEGABLE MÓVIL (Se muestra solo en celulares al tocar hamburguesa) ── */}
+        {/* ── MENÚ COLAPSABLE DESPLEGABLE EN MÓVILES ── */}
         {menuMovilAbierto && (
-          <div className="w-100 mt-2 pt-2 border-top d-lg-none bg-white animate-fade-in">
-            <div className="d-flex flex-column gap-1 pb-2">
-              <Link 
-                to={`/portal/${escuelaActiva}#inicio`} 
+          <div className="d-lg-none mt-3 pt-3 border-top border-secondary border-opacity-25 animate__animated animate__fadeInDown">
+            <div className="d-flex flex-column gap-1.5 pb-2">
+              <a 
+                href="#inicio" 
+                className="portal-nav-link"
                 onClick={() => setMenuMovilAbierto(false)}
-                className="py-2 px-3 rounded-2 text-dark text-decoration-none fw-semibold hover-bg-light d-flex align-items-center gap-2"
               >
-                <i className="bi bi-house-door text-primary"></i> Inicio
-              </Link>
-              <Link 
-                to={`/portal/${escuelaActiva}#identidad`} 
+                <i className="bi bi-house-door"></i>
+                <span>Inicio & Presentación</span>
+              </a>
+              <a 
+                href="#identidad" 
+                className="portal-nav-link"
                 onClick={() => setMenuMovilAbierto(false)}
-                className="py-2 px-3 rounded-2 text-dark text-decoration-none fw-semibold hover-bg-light d-flex align-items-center gap-2"
               >
-                <i className="bi bi-bookmark-star text-primary"></i> Misión, Visión & PEIC
-              </Link>
-              <Link 
-                to={`/portal/${escuelaActiva}#admisiones`} 
+                <i className="bi bi-award"></i>
+                <span>Identidad (Misión, Visión y PEIC)</span>
+              </a>
+              <a 
+                href="#niveles" 
+                className="portal-nav-link"
                 onClick={() => setMenuMovilAbierto(false)}
-                className="py-2 px-3 rounded-2 text-dark text-decoration-none fw-semibold hover-bg-light d-flex align-items-center gap-2"
               >
-                <i className="bi bi-clipboard2-check text-success"></i> Solicitud de Cupos
-              </Link>
-              <Link 
-                to={`/portal/${escuelaActiva}#contacto`} 
+                <i className="bi bi-mortarboard"></i>
+                <span>Niveles Educativos</span>
+              </a>
+              <a 
+                href="#transporte" 
+                className="portal-nav-link"
                 onClick={() => setMenuMovilAbierto(false)}
-                className="py-2 px-3 rounded-2 text-dark text-decoration-none fw-semibold hover-bg-light d-flex align-items-center gap-2"
               >
-                <i className="bi bi-geo-alt text-danger"></i> Ubicación y Contacto
-              </Link>
+                <i className="bi bi-bus-front"></i>
+                <span>Transporte & Rutas</span>
+              </a>
+              <a 
+                href="#admisiones" 
+                className="portal-nav-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <i className="bi bi-person-plus"></i>
+                <span>Admisiones y Cupos 2026-2027</span>
+              </a>
+              <a 
+                href="#contacto" 
+                className="portal-nav-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <i className="bi bi-geo-alt"></i>
+                <span>Ubicación y Contacto</span>
+              </a>
             </div>
           </div>
         )}
-      </nav>
-    </header>
+      </header>
+    </>
   );
 };

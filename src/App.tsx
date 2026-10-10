@@ -4,7 +4,8 @@ import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router
 const esEntornoLocal = typeof window !== 'undefined' && (
   window.location.protocol === 'file:' || 
   !!(window as any).electronAPI?.isElectron ||
-  !!(window as any).Capacitor
+  !!(window as any).Capacitor ||
+  window.location.hash.startsWith('#/')
 );
 
 const AppRouter = esEntornoLocal ? HashRouter : BrowserRouter;

@@ -1,20 +1,25 @@
 /**
  * ==============================================================================
  * ARCHIVO: src/pages/publica/PortalInicio.tsx
- * PROPÓSITO: Página principal de presentación pública e institucional por colegio.
+ * PROPÓSITO: Web Informativa Oficial y Pública por Institución Educativa.
+ * ESTILO VISUAL: SAP Fiori Horizon + Apple Glassmorphism + Mobile-First.
  * DESCRIPCIÓN:
- *  - Carga los datos oficiales del colegio desde la tabla `perfil_escuela` en Supabase.
- *  - Ofrece una experiencia visualmente moderna, rápida y totalmente adaptada a celulares.
- *  - Incluye accesos directos para que los representantes inicien trámites o verifiquen documentos.
+ *  - Presenta la identidad, oferta académica, rutas de transporte y proceso de
+ *    admisiones de cada plantel (U.E. Santa Bárbara o U.E. Libertador Bolívar).
+ *  - Integra ilustraciones 3D reales del proyecto (Misión, Visión, PEIC, Rutas).
+ *  - Ofrece enlaces directos para representantes y verificador de constancias QR.
+ *  - Completamente adaptado y optimizado para teléfonos celulares (Mobile-First).
  * ==============================================================================
  */
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { NavbarPublica } from '../../components/layout/NavbarPublica';
+import '../../portal_publico.css';
 
-// Interfaz para tipar los datos institucionales provenientes de Supabase
+// ── DEFINICIÓN DE TIPOS DE DATOS ──
+// Estructura de la información institucional cargada desde Supabase
 interface PerfilEscuelaData {
   id_escuela: string;
   nombre_institucion: string;
@@ -25,33 +30,34 @@ interface PerfilEscuelaData {
   vision: string;
   objetivo: string;
   peic: string;
+  telefono?: string;
+  email?: string;
 }
 
 export const PortalInicio: React.FC = () => {
-  // Obtenemos el parámetro de la URL (ej: /portal/sb o /portal/lb)
+  // Parámetro de la ruta: /portal/:schoolId ('sb' o 'lb')
   const { schoolId } = useParams<{ schoolId?: string }>();
   const navigate = useNavigate();
 
-  // Validamos si la escuela en la URL es válida ('sb' o 'lb'); de lo contrario, usamos 'sb'
+  // Determinamos el código activo ('sb' por defecto si no es 'lb')
   const escuelaCodigo: 'sb' | 'lb' = (schoolId === 'lb' ? 'lb' : 'sb');
+  const esSantaBarbara = escuelaCodigo === 'sb';
 
-  // Estado para guardar los datos cargados desde la base de datos Supabase
+  // Estado para los datos institucionales desde Supabase
   const [perfil, setPerfil] = useState<PerfilEscuelaData | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
 
-  // Paleta de colores institucional según la escuela
-  const esSantaBarbara = escuelaCodigo === 'sb';
-  const colorPrimario = esSantaBarbara ? '#10b981' : '#2563eb'; // Verde Esmeralda vs Azul Real
-  const colorFondoSuave = esSantaBarbara ? 'rgba(16, 185, 129, 0.08)' : 'rgba(37, 99, 235, 0.08)';
+  // Estado para el buscador rápido de constancias por código
+  const [codigoVerificacion, setCodigoVerificacion] = useState<string>('');
 
-  // EFECTO: Carga los datos de la institución desde Supabase cada vez que cambia la escuela
+  // ── EFECTO: CARGAR DATOS INSTITUCIONALES DESDE SUPABASE ──
   useEffect(() => {
     let cancelado = false;
 
-    async function cargarPerfilInstitucional() {
+    async function cargarDatosColegio() {
       setCargando(true);
       try {
-        // Consultamos la tabla perfil_escuela filtrando por id_escuela ('sb' o 'lb')
+        // Consultamos la tabla `perfil_escuela` para la sede seleccionada
         const { data, error } = await supabase
           .from('perfil_escuela')
           .select('*')
@@ -59,131 +65,143 @@ export const PortalInicio: React.FC = () => {
           .maybeSingle();
 
         if (error) {
-          console.warn('Aviso al cargar perfil de escuela pública:', error.message);
+          console.warn('Aviso al consultar perfil de escuela:', error.message);
         }
 
         if (!cancelado) {
           if (data) {
             setPerfil(data as PerfilEscuelaData);
           } else {
-            // Si la base de datos no tiene datos aún, usamos valores de respaldo predeterminados
+            // Valores de respaldo si la base de datos aún no tiene registros
             setPerfil({
               id_escuela: escuelaCodigo,
-              nombre_institucion: esSantaBarbara ? 'Unidad Educativa Santa Bárbara' : 'Unidad Educativa Libertador Bolívar',
+              nombre_institucion: esSantaBarbara ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar',
               codigo_dea: esSantaBarbara ? 'OD05241620' : 'OD05241621',
               rif: esSantaBarbara ? 'J-30589123-0' : 'J-30589124-0',
-              direccion: esSantaBarbara ? 'Sector Santa Bárbara, Monagas, Venezuela' : 'Av. Bolívar, Punta de Mata, Monagas, Venezuela',
-              mision: 'Formar integralmente a niños, niñas y jóvenes mediante una educación liberadora, científica y humanista.',
-              vision: 'Ser una institución modelo de excelencia pedagógica y tecnológica comunitaria en el oriente venezolano.',
-              objetivo: 'Garantizar el pleno desarrollo de las capacidades de los estudiantes en un ambiente seguro y participativo.',
-              peic: 'Educando con amor, ciencia e innovación tecnológica para el desarrollo de la patria.'
+              direccion: esSantaBarbara 
+                ? 'Sector Santa Bárbara, Municipio Santa Bárbara, Monagas, Venezuela' 
+                : 'Av. Bolívar cruce con Calle Comercio, Punta de Mata, Monagas, Venezuela',
+              mision: 'Formar integralmente a niños, niñas y jóvenes mediante una educación humanista, científica y productiva, afianzando valores de identidad, disciplina y excelencia.',
+              vision: 'Consolidarse como la institución educativa líder y vanguardista del oriente venezolano, destacada por la innovación tecnológica comunitaria y calidad docente.',
+              objetivo: 'Garantizar una educación pública de máxima calidad, inclusiva y participativa en articulación con las familias y la comunidad.',
+              peic: esSantaBarbara
+                ? 'Innovación pedagógica, ciencia y valores para la transformación comunitaria de Santa Bárbara.'
+                : 'Educación bolivariana, amor patrio y liderazgo productivo para el porvenir de Punta de Mata.',
+              telefono: '(0292) 332-1145',
+              email: esSantaBarbara ? 'contacto@uesantabarbara.edu.ve' : 'contacto@uelibertadorbolivar.edu.ve'
             });
           }
         }
       } catch (err) {
-        console.error('Error de red al cargar escuela pública:', err);
+        console.error('Error de conexión:', err);
       } finally {
         if (!cancelado) setCargando(false);
       }
     }
 
-    cargarPerfilInstitucional();
+    cargarDatosColegio();
 
     return () => {
       cancelado = true;
     };
   }, [escuelaCodigo, esSantaBarbara]);
 
-  // Función para alternar de colegio
+  // Función para cambiar de institución
   const handleCambiarEscuela = (nueva: 'sb' | 'lb') => {
     navigate(`/portal/${nueva}`);
   };
 
+  // Función para redirigir a la verificación de constancia
+  const handleVerificarConstancia = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (codigoVerificacion.trim()) {
+      navigate(`/validar-constancia/${codigoVerificacion.trim()}`);
+    }
+  };
+
+  // Logo y nombres oficiales según la sede
+  const logoColegio = `/assets/img/logo_${escuelaCodigo}.png`;
+  const nombreColegio = perfil?.nombre_institucion || (esSantaBarbara ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar');
+
   return (
-    <div className="min-vh-100 bg-light d-flex flex-column text-dark">
-      {/* ── BARRA SUPERIOR PÚBLICA ── */}
+    <div className={`portal-pub-container ${esSantaBarbara ? 'portal-tema-sb' : 'portal-tema-lb'}`}>
+      
+      {/* Luz ambiental sutil en el fondo */}
+      <div className="portal-pub-ambient-glow"></div>
+
+      {/* ── 1. BARRA SUPERIOR INSTITUCIONAL (SHELLBAR DE ALTA GAMA) ── */}
       <NavbarPublica 
         escuelaActiva={escuelaCodigo} 
         onCambiarEscuela={handleCambiarEscuela} 
       />
 
-      {/* ── SECCIÓN 1: HERO BANNER INSTITUCIONAL ── */}
-      <section 
-        id="inicio"
-        className="py-5 px-3 position-relative overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, ${colorFondoSuave} 0%, #ffffff 100%)`,
-          borderBottom: '1px solid rgba(0,0,0,0.06)'
-        }}
-      >
-        <div className="container py-3">
-          <div className="row align-items-center g-4">
+      {/* ── 2. SECCIÓN HERO DE BIENVENIDA Y PRESENTACIÓN ── */}
+      <section id="inicio" className="portal-hero-section">
+        <div className="container py-2 py-lg-4">
+          <div className="row align-items-center g-4 g-lg-5">
             
-            {/* Texto y Título Principal */}
+            {/* Columna Izquierda: Información Principal y Accesos */}
             <div className="col-lg-7 text-center text-lg-start">
               
-              {/* Insignia / Badge de Bienvenida */}
-              <div 
-                className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-3 shadow-xs border"
-                style={{ backgroundColor: '#ffffff', color: colorPrimario, fontSize: '0.8rem', fontWeight: 700 }}
-              >
-                <i className="bi bi-patch-check-fill"></i>
-                <span>Año Escolar 2026-2027 &bull; Matrícula Abierta</span>
+              {/* Badge de Estatus Oficial */}
+              <div className="portal-badge-status mb-3">
+                <i className="bi bi-patch-check-fill text-success"></i>
+                <span>Año Escolar 2026-2027 &bull; Plantel Oficial MPPE</span>
               </div>
 
-              {/* Nombre de la Institución */}
-              <h1 className="fw-bolder display-5 mb-2 text-dark" style={{ letterSpacing: '-0.5px' }}>
-                {perfil?.nombre_institucion || (esSantaBarbara ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar')}
+              {/* Título Oficial de la Institución */}
+              <h1 className="portal-hero-title">
+                {nombreColegio}
               </h1>
 
-              {/* Subtítulo / Códigos Ministeriales */}
-              <p className="text-muted fs-6 mb-3">
-                <span className="fw-semibold text-dark">DEA: {perfil?.codigo_dea || 'Registrado MPPE'}</span> &bull; 
-                <span className="ms-1">RIF: {perfil?.rif || 'G-20000000'}</span>
+              {/* Datos Legales y Ubicación */}
+              <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-2 mb-3">
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 fw-semibold shadow-xs">
+                  <i className="bi bi-file-earmark-check text-primary me-1"></i>
+                  DEA: {perfil?.codigo_dea || 'OD05241620'}
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 fw-semibold shadow-xs">
+                  <i className="bi bi-building text-secondary me-1"></i>
+                  RIF: {perfil?.rif || 'J-30589123-0'}
+                </span>
+                <span className="badge bg-white text-dark border px-2.5 py-1.5 fw-semibold shadow-xs">
+                  <i className="bi bi-geo-alt-fill text-danger me-1"></i>
+                  Monagas, Venezuela
+                </span>
+              </div>
+
+              {/* Lema Institucional (PEIC) */}
+              <p className="portal-hero-peic mx-auto mx-lg-0 mb-4">
+                &ldquo;{perfil?.peic || 'Educación integral y valores comunitarios para el futuro de nuestras familias.'}&rdquo;
               </p>
 
-              {/* Lema Educativo (PEIC) */}
-              <p className="lead text-secondary mb-4 fs-6 pe-lg-4" style={{ lineHeight: 1.6 }}>
-                &ldquo;{perfil?.peic || 'Educación integral y valores para el futuro de nuestras familias.'}&rdquo;
-              </p>
-
-              {/* Botones de Acción Inmediata (Mobile-First) */}
-              <div className="d-flex flex-wrap justify-content-center justify-content-lg-start gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="btn btn-primary px-4 py-2.5 rounded-pill shadow-sm fw-bold d-flex align-items-center gap-2"
-                  style={{ backgroundColor: colorPrimario, borderColor: colorPrimario }}
-                >
-                  <i className="bi bi-door-open-fill"></i>
-                  <span>Ingresar al Campus Digital</span>
-                </button>
-
-                <a
-                  href="#admisiones"
-                  className="btn btn-outline-secondary px-4 py-2.5 rounded-pill fw-bold d-flex align-items-center gap-2 bg-white"
-                >
-                  <i className="bi bi-clipboard2-plus"></i>
-                  <span>Solicitar Cupo</span>
+              {/* Botones de Acción Rápida (Mobile-First) */}
+              <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                <a href="#admisiones" className="btn btn-lg px-4 py-2.5 rounded-pill text-white fw-bold shadow-sm d-inline-flex align-items-center gap-2" style={{ background: 'var(--pub-gradient)' }}>
+                  <i className="bi bi-pencil-square"></i>
+                  <span>Solicitar Cupo Escolar</span>
                 </a>
+                <a href="#transporte" className="btn btn-lg btn-white border px-3.5 py-2.5 rounded-pill text-dark fw-semibold shadow-xs d-inline-flex align-items-center gap-2">
+                  <i className="bi bi-bus-front text-primary"></i>
+                  <span>Rutas de Transporte</span>
+                </a>
+                <Link to="/login" className="btn btn-lg btn-light border px-3 py-2.5 rounded-pill text-secondary fw-semibold shadow-xs d-inline-flex align-items-center gap-2">
+                  <i className="bi bi-shield-lock-fill text-warning"></i>
+                  <span>Acceso Campus</span>
+                </Link>
               </div>
+
             </div>
 
-            {/* Escudo Gigante / Ilustración Institucional */}
+            {/* Columna Derecha: Escudo Institucional 3D con Aura */}
             <div className="col-lg-5 text-center">
-              <div className="position-relative d-inline-block p-3">
-                <div 
-                  className="rounded-circle d-flex align-items-center justify-content-center mx-auto shadow-lg bg-white p-4 border"
-                  style={{ width: '230px', height: '230px', maxWidth: '85vw', maxHeight: '85vw' }}
-                >
-                  <img 
-                    src={`/assets/img/logo_${escuelaCodigo}.png`} 
-                    alt="Escudo Oficial" 
-                    className="img-fluid"
-                    style={{ maxHeight: '180px', objectFit: 'contain' }}
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-                  />
-                </div>
+              <div className="portal-hero-shield-card">
+                <img 
+                  src={logoColegio} 
+                  alt={`Escudo oficial ${nombreColegio}`} 
+                  className="portal-hero-shield-img"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
               </div>
             </div>
 
@@ -191,225 +209,569 @@ export const PortalInicio: React.FC = () => {
         </div>
       </section>
 
-      {/* ── SECCIÓN 2: TARJETAS DE SERVICIOS RÁPIDOS PARA FAMILIAS ── */}
-      <section className="py-4 px-3 bg-white border-bottom">
-        <div className="container">
-          <div className="row g-3">
-            
-            {/* Tarjeta 1: Solicitud de Cupos */}
-            <div className="col-12 col-md-4">
-              <div 
-                className="p-3.5 rounded-4 border bg-light h-100 d-flex flex-column justify-content-between hover-shadow transition-all"
-                style={{ borderLeft: `4px solid ${colorPrimario}` }}
-              >
-                <div>
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <span className="p-2 rounded-3 bg-white text-primary shadow-xs">
-                      <i className="bi bi-person-plus-fill fs-5" style={{ color: colorPrimario }}></i>
-                    </span>
-                    <h5 className="fw-bold mb-0 fs-6">Admisiones & Nuevos Ingresos</h5>
-                  </div>
-                  <p className="small text-muted mb-3">
-                    Registra la postulación de tu representado para el período escolar 2026-2027 de forma 100% digital.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100"
-                >
-                  Iniciar Solicitud &rarr;
-                </button>
-              </div>
-            </div>
-
-            {/* Tarjeta 2: Transporte Escolar */}
-            <div className="col-12 col-md-4">
-              <div 
-                className="p-3.5 rounded-4 border bg-light h-100 d-flex flex-column justify-content-between hover-shadow transition-all"
-                style={{ borderLeft: `4px solid #f59e0b` }}
-              >
-                <div>
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <span className="p-2 rounded-3 bg-white text-warning shadow-xs">
-                      <i className="bi bi-bus-front-fill fs-5 text-warning"></i>
-                    </span>
-                    <h5 className="fw-bold mb-0 fs-6">Rutas de Transporte</h5>
-                  </div>
-                  <p className="small text-muted mb-3">
-                    Consulta las unidades activas, paradas autorizadas y horarios de los recorridos escolares.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100"
-                >
-                  Ver Horarios &rarr;
-                </button>
-              </div>
-            </div>
-
-            {/* Tarjeta 3: Validación de Constancias */}
-            <div className="col-12 col-md-4">
-              <div 
-                className="p-3.5 rounded-4 border bg-light h-100 d-flex flex-column justify-content-between hover-shadow transition-all"
-                style={{ borderLeft: `4px solid #0062ff` }}
-              >
-                <div>
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <span className="p-2 rounded-3 bg-white text-primary shadow-xs">
-                      <i className="bi bi-shield-check fs-5 text-primary"></i>
-                    </span>
-                    <h5 className="fw-bold mb-0 fs-6">Verificación de Documentos</h5>
-                  </div>
-                  <p className="small text-muted mb-3">
-                    Comprueba la autenticidad de constancias de estudio y notas certificadas con código QR y serial único.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/validar-constancia/buscar')}
-                  className="btn btn-sm btn-outline-dark rounded-pill fw-semibold w-100"
-                >
-                  Validar Código &rarr;
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECCIÓN 3: IDENTIDAD INSTITUCIONAL (MISIÓN Y VISIÓN) ── */}
+      {/* ── 3. SECCIÓN DE IDENTIDAD: MISIÓN, VISIÓN, VALORES Y PEIC (TARJETAS 3D) ── */}
       <section id="identidad" className="py-5 px-3">
         <div className="container">
-          <div className="text-center mb-4">
-            <span className="badge bg-secondary-subtle text-secondary px-3 py-1 rounded-pill extra-small fw-bold text-uppercase">
-              Filosofía Pedagógica
+          
+          <div className="text-center max-w-xl mx-auto mb-5">
+            <span className="badge bg-white text-dark border px-3 py-1.5 rounded-pill fw-bold text-uppercase small shadow-xs">
+              <i className="bi bi-award-fill text-warning me-1"></i>
+              Pilares Fundamentales
             </span>
-            <h2 className="fw-bolder fs-3 mt-2 text-dark">Nuestros Principios y Compromiso</h2>
+            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2">Identidad Institucional</h2>
+            <p className="text-muted small">Nuestros principios rectores para la formación de las futuras generaciones.</p>
           </div>
 
           <div className="row g-4">
-            {/* Misión */}
-            <div className="col-md-6">
-              <div className="card h-100 border-0 shadow-sm rounded-4 p-4 bg-white">
-                <div className="d-flex align-items-center gap-3 mb-3">
-                  <div className="rounded-3 p-2.5 text-white shadow-xs" style={{ backgroundColor: colorPrimario }}>
-                    <i className="bi bi-compass-fill fs-5"></i>
+            
+            {/* Tarjeta 1: Misión Institucional */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-card-3d">
+                <img src="/assets/img/mision_3d.jpg" alt="Misión Institucional" className="portal-card-3d-header-img" />
+                <div className="portal-card-3d-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <div className="portal-icon-box">
+                      <i className="bi bi-compass"></i>
+                    </div>
+                    <h3 className="fs-5 fw-bold text-dark m-0">Nuestra Misión</h3>
                   </div>
-                  <h4 className="fw-bold mb-0 fs-5">Nuestra Misión</h4>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
+                    {perfil?.mision}
+                  </p>
                 </div>
-                <p className="text-muted small" style={{ lineHeight: 1.7 }}>
-                  {perfil?.mision || 'Brindar educación de calidad sustentada en valores éticos, morales y comunitarios, desarrollando las potencialidades cognitivas y creativas de los estudiantes.'}
-                </p>
               </div>
             </div>
 
-            {/* Visión */}
-            <div className="col-md-6">
-              <div className="card h-100 border-0 shadow-sm rounded-4 p-4 bg-white">
-                <div className="d-flex align-items-center gap-3 mb-3">
-                  <div className="rounded-3 p-2.5 text-white shadow-xs bg-dark">
-                    <i className="bi bi-eye-fill fs-5"></i>
+            {/* Tarjeta 2: Visión de Futuro */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-card-3d">
+                <img src="/assets/img/vision_3d.jpg" alt="Visión Institucional" className="portal-card-3d-header-img" />
+                <div className="portal-card-3d-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <div className="portal-icon-box">
+                      <i className="bi bi-eye"></i>
+                    </div>
+                    <h3 className="fs-5 fw-bold text-dark m-0">Nuestra Visión</h3>
                   </div>
-                  <h4 className="fw-bold mb-0 fs-5">Nuestra Visión</h4>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
+                    {perfil?.vision}
+                  </p>
                 </div>
-                <p className="text-muted small" style={{ lineHeight: 1.7 }}>
-                  {perfil?.vision || 'Consolidarnos como un referente educativo nacional por nuestra innovación pedagógica, disciplina y compromiso con la formación integral de los ciudadanos del mañana.'}
-                </p>
               </div>
+            </div>
+
+            {/* Tarjeta 3: Valores y Convivencia */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-card-3d">
+                <img src="/assets/img/valores_3d.jpg" alt="Valores Institucionales" className="portal-card-3d-header-img" />
+                <div className="portal-card-3d-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <div className="portal-icon-box">
+                      <i className="bi bi-heart-pulse"></i>
+                    </div>
+                    <h3 className="fs-5 fw-bold text-dark m-0">Valores Clave</h3>
+                  </div>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
+                    Responsabilidad, honestidad, disciplina escolar, patriotismo, solidaridad y trabajo colaborativo para la comunidad.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tarjeta 4: Proyecto Educativo (PEIC) */}
+            <div className="col-md-6 col-lg-3">
+              <div className="portal-card-3d">
+                <img src="/assets/img/peic_3d.png" alt="PEIC Institucional" className="portal-card-3d-header-img" />
+                <div className="portal-card-3d-body">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <div className="portal-icon-box">
+                      <i className="bi bi-lightbulb"></i>
+                    </div>
+                    <h3 className="fs-5 fw-bold text-dark m-0">Proyecto PEIC</h3>
+                  </div>
+                  <p className="text-muted small mb-0" style={{ lineHeight: 1.6 }}>
+                    {perfil?.peic}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 4. OFERTA ACADÉMICA / NIVELES EDUCATIVOS (GALERÍA OFICIAL) ── */}
+      <section id="niveles" className="py-5 px-3 bg-white border-top border-bottom">
+        <div className="container">
+          
+          <div className="text-center max-w-xl mx-auto mb-5">
+            <span className="badge bg-light text-dark border px-3 py-1.5 rounded-pill fw-bold text-uppercase small shadow-xs">
+              <i className="bi bi-mortarboard-fill text-primary me-1"></i>
+              Niveles de Formación
+            </span>
+            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2">Oferta Académica</h2>
+            <p className="text-muted small">Desde la educación inicial hasta la educación media general.</p>
+          </div>
+
+          <div className="row g-4 align-items-stretch">
+            
+            {/* Nivel 1: Educación Inicial */}
+            <div className="col-md-4">
+              <div className="portal-card-3d">
+                <img src="/assets/img/nivel_inicial.jpg" alt="Educación Inicial" className="portal-card-3d-header-img" />
+                <div className="portal-card-3d-body">
+                  <span className="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-50 small mb-2 w-auto align-self-start">
+                    Maternal &bull; Preescolar
+                  </span>
+                  <h3 className="fs-5 fw-bold text-dark mb-2">Educación Inicial</h3>
+                  <p className="text-muted small mb-3" style={{ lineHeight: 1.6 }}>
+                    Desarrollo integral psicomotor, social y cognitivo en un entorno seguro, cálido y estimulante para los más pequeños.
+                  </p>
+                  <ul className="list-unstyled small text-secondary mt-auto">
+                    <li className="mb-1"><i className="bi bi-check2 text-success me-1.5"></i> Estimulación temprana</li>
+                    <li className="mb-1"><i className="bi bi-check2 text-success me-1.5"></i> Ambientes lúdicos seguros</li>
+                    <li><i className="bi bi-check2 text-success me-1.5"></i> Turno matutino</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Nivel 2: Educación Primaria */}
+            <div className="col-md-4">
+              <div className="portal-card-3d">
+                <img src="/assets/img/nivel_primaria.jpg" alt="Educación Primaria" className="portal-card-3d-header-img" />
+                <div className="portal-card-3d-body">
+                  <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-50 small mb-2 w-auto align-self-start">
+                    1° a 6° Grado
+                  </span>
+                  <h3 className="fs-5 fw-bold text-dark mb-2">Educación Primaria</h3>
+                  <p className="text-muted small mb-3" style={{ lineHeight: 1.6 }}>
+                    Consolidación de competencias en lectura, cálculo, ciencia básica, formación en valores patrios e informática.
+                  </p>
+                  <ul className="list-unstyled small text-secondary mt-auto">
+                    <li className="mb-1"><i className="bi bi-check2 text-success me-1.5"></i> Proyectos de aprendizaje</li>
+                    <li className="mb-1"><i className="bi bi-check2 text-success me-1.5"></i> Actividades culturales y deportivas</li>
+                    <li><i className="bi bi-check2 text-success me-1.5"></i> Laboratorio digital escolar</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Nivel 3: Educación Media General */}
+            <div className="col-md-4">
+              <div className="portal-card-3d">
+                <img src="/assets/img/nivel_media.jpg" alt="Educación Media" className="portal-card-3d-header-img" />
+                <div className="portal-card-3d-body">
+                  <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-50 small mb-2 w-auto align-self-start">
+                    1° a 5° Año &bull; Bachillerato
+                  </span>
+                  <h3 className="fs-5 fw-bold text-dark mb-2">Educación Media General</h3>
+                  <p className="text-muted small mb-3" style={{ lineHeight: 1.6 }}>
+                    Formación científica rigurosa, tecnológica y cívica preparando a los jóvenes bachilleres para la universidad.
+                  </p>
+                  <ul className="list-unstyled small text-secondary mt-auto">
+                    <li className="mb-1"><i className="bi bi-check2 text-success me-1.5"></i> Ciencias exactas y naturales</li>
+                    <li className="mb-1"><i className="bi bi-check2 text-success me-1.5"></i> Orientación vocacional</li>
+                    <li><i className="bi bi-check2 text-success me-1.5"></i> Certificación oficial MPPE</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 5. TRANSPORTE ESCOLAR Y RUTAS ACTIVAS ── */}
+      <section id="transporte" className="py-5 px-3">
+        <div className="container">
+          
+          <div className="row align-items-center g-4 mb-4">
+            <div className="col-lg-8">
+              <span className="badge bg-white text-dark border px-3 py-1.5 rounded-pill fw-bold text-uppercase small shadow-xs">
+                <i className="bi bi-bus-front-fill text-info me-1"></i>
+                Logística y Movilidad
+              </span>
+              <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2">Sistema de Transporte Escolar</h2>
+              <p className="text-muted small m-0">Rutas seguras y planificadas para el traslado de los estudiantes en las comunidades de la región.</p>
+            </div>
+            <div className="col-lg-4 text-lg-end">
+              <div className="d-inline-flex align-items-center gap-2 p-2 bg-white rounded-pill border shadow-xs">
+                <img src="/assets/img/censo_3d.png" alt="Censo 3D" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
+                <div className="text-start pe-2">
+                  <div className="fw-bold small text-dark">Monitoreo Oficial</div>
+                  <div className="text-muted extra-small" style={{ fontSize: '0.72rem' }}>Padrón y Rutograma Activo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="row g-3">
+            {esSantaBarbara ? (
+              <>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-success bg-opacity-10 text-success fw-bold">Ruta 1</span>
+                      <span className="small text-muted">06:15 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">Campo Rojo &bull; Centro</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>Garita Campo Rojo &rarr; Plaza Bolívar &rarr; Potrero</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 02 &bull; Interceptor</span>
+                  </div>
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-success bg-opacity-10 text-success fw-bold">Ruta 5</span>
+                      <span className="small text-muted">06:20 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">La Esmeralda &bull; Menca</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>Cancha La Esmeralda &rarr; Menca &rarr; Av. Bolívar</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 04 &bull; Encava</span>
+                  </div>
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-success bg-opacity-10 text-success fw-bold">Ruta 8</span>
+                      <span className="small text-muted">06:20 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">Casupal &bull; El Tejero</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>El Tanque &rarr; Tejero Viejo &rarr; Redoma Sucre</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 06 &bull; Yutong</span>
+                  </div>
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-success bg-opacity-10 text-success fw-bold">Ruta 2</span>
+                      <span className="small text-muted">06:25 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">Osiris &bull; El Samán</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>El Samán &rarr; Garita Osiris &rarr; Sector Don Luis</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 03 &bull; Encava</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-primary bg-opacity-10 text-primary fw-bold">Ruta 1</span>
+                      <span className="small text-muted">06:20 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">Puertas del Sur &bull; Valle</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>Entrada Garita &rarr; Valle de Luna &rarr; Bello Campo</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 01 &bull; Yutong</span>
+                  </div>
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-primary bg-opacity-10 text-primary fw-bold">Ruta 2</span>
+                      <span className="small text-muted">06:15 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">Las Flores &bull; Centro CVP</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>Las Flores &rarr; Edif. CVP &rarr; Terranostra</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 05 &bull; Encava</span>
+                  </div>
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-primary bg-opacity-10 text-primary fw-bold">Ruta 4</span>
+                      <span className="small text-muted">06:20 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">Las Vírgenes &bull; Arboleda</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>Plaza Central &rarr; La Arboleda &rarr; Las Casitas</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 07 &bull; Yutong</span>
+                  </div>
+                </div>
+                <div className="col-md-6 col-lg-3">
+                  <div className="p-3 bg-white rounded-4 border shadow-xs h-100">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="badge bg-primary bg-opacity-10 text-primary fw-bold">Ruta 19</span>
+                      <span className="small text-muted">06:25 AM</span>
+                    </div>
+                    <div className="fw-bold text-dark small">Campo Miraflores &bull; CC</div>
+                    <p className="text-muted extra-small mt-1 mb-2" style={{ fontSize: '0.75rem' }}>Garita Miraflores &rarr; Tecnológico &rarr; CC Mañoca</p>
+                    <span className="badge bg-light text-muted border extra-small">Unidad 09 &bull; Shuttle</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 6. PROCESO DE ADMISIONES Y NUEVOS INGRESOS (BANNER DESTACADO) ── */}
+      <section id="admisiones" className="py-5 px-3">
+        <div className="container">
+          <div className="portal-admissions-banner">
+            <div className="row align-items-center g-4">
+              
+              <div className="col-lg-8">
+                <span className="badge bg-white bg-opacity-20 text-white border border-white border-opacity-25 px-3 py-1 rounded-pill small fw-bold mb-3 d-inline-block">
+                  <i className="bi bi-clock-history me-1.5"></i>
+                  Proceso de Inscripción y Cupos 2026-2027
+                </span>
+                <h2 className="display-6 fw-bold text-white mb-3">
+                  ¡Asegura el Futuro Escolar de tu Representado!
+                </h2>
+                <p className="text-light opacity-90 mb-4" style={{ maxWidth: '650px', lineHeight: 1.6 }}>
+                  El proceso de admisión es 100% digital, transparente y simplificado. Como padre o representante puedes registrar la solicitud desde tu teléfono móvil.
+                </p>
+
+                {/* Pasos Visuales del Proceso */}
+                <div className="row g-3 mb-4">
+                  <div className="col-sm-4">
+                    <div className="portal-step-pill">
+                      <div className="fw-bold text-white small">1. Solicitud en Línea</div>
+                      <div className="text-light opacity-75 extra-small">Llenar datos del estudiante</div>
+                    </div>
+                  </div>
+                  <div className="col-sm-4">
+                    <div className="portal-step-pill">
+                      <div className="fw-bold text-white small">2. Carga de Recaudos</div>
+                      <div className="text-light opacity-75 extra-small">Partida y fotos sin costo</div>
+                    </div>
+                  </div>
+                  <div className="col-sm-4">
+                    <div className="portal-step-pill">
+                      <div className="fw-bold text-white small">3. Formalización</div>
+                      <div className="text-light opacity-75 extra-small">Asignación oficial de matrícula</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botón hacia el Sistema Privado / Login de Admisión */}
+                <Link to="/login" className="btn btn-light btn-lg rounded-pill px-4 py-2.5 fw-bold text-dark shadow-sm d-inline-flex align-items-center gap-2">
+                  <i className="bi bi-send-fill text-primary"></i>
+                  <span>Iniciar Solicitud de Cupo Ahora</span>
+                </Link>
+
+              </div>
+
+              {/* Imagen 3D de Formalización y Admisión */}
+              <div className="col-lg-4 text-center">
+                <img 
+                  src="/assets/img/formalizacion_3d.png" 
+                  alt="Formalización de Matrícula" 
+                  style={{ maxHeight: '230px', maxWidth: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.3))' }}
+                />
+              </div>
+
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── SECCIÓN 4: PROCESO DE ADMISIONES 2026-2027 ── */}
-      <section id="admisiones" className="py-5 px-3 bg-white border-top border-bottom">
+      {/* ── 7. VERIFICACIÓN DE CONSTANCIAS (CIBERSEGURIDAD QR) ── */}
+      <section className="py-5 px-3 bg-white border-top border-bottom">
         <div className="container">
           <div className="row align-items-center g-4">
-            <div className="col-lg-6">
-              <span className="badge bg-success-subtle text-success px-3 py-1 rounded-pill extra-small fw-bold text-uppercase mb-2">
-                Convocatoria Activa
+            
+            <div className="col-lg-4 text-center">
+              <img 
+                src="/assets/img/seguridad_3d.png" 
+                alt="Seguridad y Criptografía SIGAE" 
+                style={{ width: '160px', height: '160px', objectFit: 'contain' }}
+              />
+            </div>
+
+            <div className="col-lg-8">
+              <span className="badge bg-light text-dark border px-3 py-1 rounded-pill small fw-bold mb-2 d-inline-block">
+                <i className="bi bi-shield-check text-success me-1"></i>
+                Validador Público de Autenticidad
               </span>
-              <h2 className="fw-bolder fs-3 text-dark mb-3">¿Deseas Inscribir a tu Representado?</h2>
-              <p className="text-muted small mb-4" style={{ lineHeight: 1.6 }}>
-                El proceso de solicitud de cupos para Educación Inicial, Primaria y Media General se gestiona de forma transparente y sin intermediarios a través de nuestro campus digital.
+              <h3 className="fs-3 fw-bold text-dark mb-2">Verificación de Constancias y Documentos</h3>
+              <p className="text-muted small mb-4" style={{ maxWidth: '640px' }}>
+                Cualquier constancia de estudio, retiro, carnet o carta de aceptación emitida por SIGAE posee un código hash criptográfico y un código QR único para validar su autenticidad oficial.
               </p>
 
-              <div className="d-flex flex-column gap-2 mb-4">
-                <div className="d-flex align-items-start gap-2">
-                  <i className="bi bi-check2-circle text-success fs-5"></i>
-                  <span className="small text-dark"><strong>Paso 1:</strong> Ingresa al sistema o solicita el registro como nuevo representante.</span>
+              {/* Formulario de Verificación por Código */}
+              <form onSubmit={handleVerificarConstancia} className="d-flex flex-column flex-sm-row gap-2 max-w-lg">
+                <div className="input-group">
+                  <span className="input-group-text bg-white border-end-0">
+                    <i className="bi bi-qr-code-scan text-muted"></i>
+                  </span>
+                  <input 
+                    type="text" 
+                    className="form-control border-start-0" 
+                    placeholder="Ingresa el código hash (ej: CE-2026-XYZ123)"
+                    value={codigoVerificacion}
+                    onChange={(e) => setCodigoVerificacion(e.target.value)}
+                  />
                 </div>
-                <div className="d-flex align-items-start gap-2">
-                  <i className="bi bi-check2-circle text-success fs-5"></i>
-                  <span className="small text-dark"><strong>Paso 2:</strong> Completa los datos médicos, residenciales y académicos del alumno.</span>
-                </div>
-                <div className="d-flex align-items-start gap-2">
-                  <i className="bi bi-check2-circle text-success fs-5"></i>
-                  <span className="small text-dark"><strong>Paso 3:</strong> Adjunta la partida de nacimiento y cédula digitalmente.</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => navigate('/login')}
-                className="btn btn-primary px-4 py-2.5 rounded-pill shadow-xs fw-bold"
-                style={{ backgroundColor: colorPrimario, borderColor: colorPrimario }}
-              >
-                Comenzar Registro Digital &rarr;
-              </button>
+                <button type="submit" className="btn btn-dark rounded-pill px-4 fw-semibold text-nowrap">
+                  Validar Documento
+                </button>
+              </form>
             </div>
 
-            <div className="col-lg-6 text-center">
-              <div className="p-4 bg-light rounded-4 border text-start">
-                <h5 className="fw-bold mb-3 d-flex align-items-center gap-2">
-                  <i className="bi bi-file-earmark-text text-primary"></i>
-                  <span>Requisitos Básicos Obligatorios</span>
-                </h5>
-                <ul className="list-unstyled d-flex flex-column gap-2 mb-0 small text-muted">
-                  <li>&bull; Fotocopia de la Cédula de Identidad del Representante legal.</li>
-                  <li>&bull; Partida de Nacimiento legible del estudiante.</li>
-                  <li>&bull; Informe o certificación médica actualizada.</li>
-                  <li>&bull; Boleta de calificaciones o constancia de promoción del año anterior.</li>
-                  <li>&bull; Comprobante de residencia reciente.</li>
-                </ul>
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* ── PIE DE PÁGINA (FOOTER) INSTITUCIONAL ── */}
-      <footer id="contacto" className="py-4 px-3 bg-dark text-white-50 mt-auto">
+      {/* ── 8. SECCIÓN DE CONTACTO Y UBICACIÓN GEOGRÁFICA ── */}
+      <section id="contacto" className="py-5 px-3">
         <div className="container">
-          <div className="row g-4 mb-3">
-            <div className="col-md-6">
-              <h5 className="text-white fw-bold mb-2">
-                {perfil?.nombre_institucion || 'Institución Educativa'}
-              </h5>
-              <p className="small mb-1 text-white-50">
+          <div className="row g-4">
+            
+            {/* Información de Contacto */}
+            <div className="col-lg-5">
+              <span className="badge bg-white text-dark border px-3 py-1.5 rounded-pill fw-bold text-uppercase small shadow-xs">
                 <i className="bi bi-geo-alt-fill text-danger me-1"></i>
-                {perfil?.direccion || 'Monagas, Venezuela'}
+                Comunícate con Nosotros
+              </span>
+              <h2 className="fw-bolder fs-2 text-dark mt-2 mb-3">Atención a la Comunidad</h2>
+              <p className="text-muted small mb-4">
+                Estamos al servicio de las familias. Puedes visitarnos en nuestra sede o escribirnos a través de los canales institucionales.
               </p>
-              <p className="small mb-0 text-white-50">
-                <i className="bi bi-envelope-fill text-primary me-1"></i>
-                soporte@sigae.com
+
+              <div className="d-flex flex-column gap-3">
+                <div className="d-flex align-items-start gap-3 p-3 bg-white rounded-4 border shadow-xs">
+                  <div className="portal-icon-box">
+                    <i className="bi bi-geo-alt-fill"></i>
+                  </div>
+                  <div>
+                    <div className="fw-bold small text-dark">Dirección de la Sede</div>
+                    <div className="text-muted extra-small" style={{ fontSize: '0.8rem' }}>{perfil?.direccion}</div>
+                  </div>
+                </div>
+
+                <div className="d-flex align-items-start gap-3 p-3 bg-white rounded-4 border shadow-xs">
+                  <div className="portal-icon-box">
+                    <i className="bi bi-telephone-fill"></i>
+                  </div>
+                  <div>
+                    <div className="fw-bold small text-dark">Teléfono Institucional</div>
+                    <div className="text-muted extra-small" style={{ fontSize: '0.8rem' }}>{perfil?.telefono || '(0292) 332-1145'}</div>
+                  </div>
+                </div>
+
+                <div className="d-flex align-items-start gap-3 p-3 bg-white rounded-4 border shadow-xs">
+                  <div className="portal-icon-box">
+                    <i className="bi bi-envelope-fill"></i>
+                  </div>
+                  <div>
+                    <div className="fw-bold small text-dark">Correo Electrónico Oficial</div>
+                    <div className="text-muted extra-small" style={{ fontSize: '0.8rem' }}>{perfil?.email || 'contacto@escuela.edu.ve'}</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Cuadro de Horarios y Atención Docente */}
+            <div className="col-lg-7">
+              <div className="p-4 p-md-5 bg-white rounded-4 border shadow-xs h-100 d-flex flex-column justify-content-between">
+                <div>
+                  <div className="d-flex align-items-center gap-2 mb-3">
+                    <i className="bi bi-calendar-week fs-3 text-primary"></i>
+                    <h3 className="fs-4 fw-bold text-dark m-0">Horarios de Atención</h3>
+                  </div>
+                  <p className="text-muted small mb-4">
+                    Jornadas administrativas y atención al representante en la dirección del plantel:
+                  </p>
+
+                  <div className="table-responsive">
+                    <table className="table table-sm table-borderless small">
+                      <tbody>
+                        <tr className="border-bottom">
+                          <td className="fw-bold py-2 text-dark">Lunes a Viernes (Turno Mañana)</td>
+                          <td className="text-end text-muted py-2">07:00 AM &ndash; 12:00 PM</td>
+                        </tr>
+                        <tr className="border-bottom">
+                          <td className="fw-bold py-2 text-dark">Lunes a Jueves (Turno Tarde)</td>
+                          <td className="text-end text-muted py-2">01:00 PM &ndash; 05:00 PM</td>
+                        </tr>
+                        <tr>
+                          <td className="fw-bold py-2 text-dark">Atención a Representantes (Docentes)</td>
+                          <td className="text-end text-muted py-2">Previa cita programada</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-3 bg-light border mt-4">
+                  <div className="small fw-bold text-dark mb-1">
+                    <i className="bi bi-info-circle-fill text-info me-1.5"></i>
+                    Constancias y Trámites Digitales
+                  </div>
+                  <div className="extra-small text-muted" style={{ fontSize: '0.78rem' }}>
+                    Si eres representante registrado en SIGAE, puedes solicitar y descargar tus constancias de estudio en línea las 24 horas del día ingresando al campus con tu cédula.
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ── 9. DOCK FLOTANTE INFERIOR PARA TELÉFONOS MÓVILES (MOBILE-FIRST) ── */}
+      <nav className="portal-mobile-dock" aria-label="Navegación Móvil Rápida">
+        <a href="#inicio" className="portal-mobile-dock-btn activo">
+          <i className="bi bi-house-door"></i>
+          <span>Inicio</span>
+        </a>
+        <a href="#identidad" className="portal-mobile-dock-btn">
+          <i className="bi bi-award"></i>
+          <span>Identidad</span>
+        </a>
+        <a href="#niveles" className="portal-mobile-dock-btn">
+          <i className="bi bi-mortarboard"></i>
+          <span>Niveles</span>
+        </a>
+        <a href="#transporte" className="portal-mobile-dock-btn">
+          <i className="bi bi-bus-front"></i>
+          <span>Rutas</span>
+        </a>
+        <Link to="/login" className="portal-mobile-dock-btn destacado">
+          <i className="bi bi-shield-lock-fill"></i>
+          <span>Ingresar</span>
+        </Link>
+      </nav>
+
+      {/* ── 10. PIE DE PÁGINA (FOOTER CORPORATIVO OFICIAL) ── */}
+      <footer className="portal-footer">
+        <div className="container">
+          <div className="row g-4 align-items-center">
+            
+            <div className="col-md-6 text-center text-md-start">
+              <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2">
+                <img src="/assets/img/sigae.png" alt="SIGAE Logo" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                <span className="fw-bolder text-white fs-5">SIGAE</span>
+                <span className="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-50 extra-small">
+                  v1.4.0
+                </span>
+              </div>
+              <p className="small text-muted m-0" style={{ maxWidth: '420px', lineHeight: 1.5 }}>
+                Sistema Integral de Gestión y Administración Escolar. Solución tecnológica oficial multi-escuela para el control pedagógico y comunitario.
               </p>
             </div>
-            <div className="col-md-6 text-md-end">
-              <p className="small text-white-50 mb-1">
-                Sistema Integral de Gestión y Administración Escolar (SIGAE v1.1)
+
+            <div className="col-md-6 text-center text-md-end">
+              <p className="extra-small text-muted mb-1" style={{ fontSize: '0.78rem' }}>
+                &copy; 2026 {nombreColegio}. Todos los derechos reservados.
               </p>
-              <p className="extra-small text-secondary mb-0">
-                Plataforma tecnológica multi-escuela con costo cero &bull; 2026-2027
+              <p className="extra-small text-muted m-0" style={{ fontSize: '0.74rem' }}>
+                Ministerio del Poder Popular para la Educación &bull; República Bolivariana de Venezuela
               </p>
             </div>
+
           </div>
         </div>
       </footer>
+
     </div>
   );
 };
