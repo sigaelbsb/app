@@ -1,16 +1,12 @@
 /**
  * ==============================================================================
  * ARCHIVO: src/pages/publica/PortalGeneralSIGAE.tsx
- * PROPÓSITO: Landing Page Centralizada Oficial de SIGAE inspirada en BDT (bdt.com.ve).
- * CARACTERÍSTICAS VISUALES (IDÉNTICAS AL BANCO DIGITAL DE LOS TRABAJADORES):
- *  1. Cabecera institucional superior blanca con logos oficiales.
- *  2. Barra de utilidades azul noche con redes sociales y botones de acceso rápido.
- *  3. BARRA DE MENÚ FLOTANTE CÁPSULA:
- *     - Flotante con border-radius de 40px, fondo #0D1739 y sticky en scroll.
- *     - Botón cápsula azul eléctrico integrado: "SIGAE en Línea" (Acceso multi-escuela).
- *  4. Hero Banner azul espacial con constelación de puntos y 4 tarjetas con checks de colores.
- *  5. Tipografías: 'Ruda' para títulos y 'Open Sans' para textos.
- *  6. 100% comentado en español línea por línea.
+ * PROPÓSITO: Landing Page Centralizada Oficial de SIGAE con diseño BDT y Zoe & Max.
+ * INSPIRACIÓN VISUAL:
+ *  1. Barra de menú flotante en cápsula continua (#1b2c6e) idéntica al screenshot BDT.
+ *  2. Botón píldora azul vibrante "SIGAEenLínea" (equivalente exacto a BDTenLínea).
+ *  3. Presencia destacada de Zoe y Max (asistentes inteligentes 3D de SIGAE).
+ *  4. 100% comentado en español línea por línea.
  * ==============================================================================
  */
 
@@ -29,6 +25,11 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
   // Estado para capturar el código hash en el validador de constancias
   const [codigoHash, setCodigoHash] = useState<string>('');
+
+  // Estado para alternar el mensaje de asistencia de Zoe y Max
+  const [mensajeAsistente, setMensajeAsistente] = useState<string>(
+    '¡Hola! Somos Zoe y Max, tus guías inteligentes en SIGAE. ¿En qué podemos ayudarte hoy?'
+  );
 
   // Función para abrir la ventana modal del selector de escuelas
   const abrirSelectorEscuela = () => {
@@ -68,15 +69,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
       {/* ── 2. BARRA DE UTILIDADES AZUL NOCHE (SUB-HEADER BDT) ── */}
       <div className="bdt-utility-bar d-none d-md-flex">
-        {/* Redes sociales institucionales en circulitos blancos */}
+        {/* Canales y redes oficiales */}
         <div className="d-flex align-items-center gap-2">
-          <span className="small me-1 text-light opacity-75">Canales oficiales:</span>
+          <span className="small me-1 text-light opacity-75">Atención comunitaria:</span>
           <a href="#" className="bdt-social-icon" title="Instagram"><i className="bi bi-instagram"></i></a>
           <a href="#" className="bdt-social-icon" title="Facebook"><i className="bi bi-facebook"></i></a>
           <a href="#" className="bdt-social-icon" title="Telegram"><i className="bi bi-telegram"></i></a>
         </div>
 
-        {/* Botones cápsula de Sedes y Validador */}
+        {/* Botones de acción institucional */}
         <div className="d-flex align-items-center gap-2.5">
           <button 
             type="button" 
@@ -94,11 +95,11 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 3. BARRA DE MENÚ FLOTANTE CÁPSULA (ESTILO EXACTO BDT) ── */}
+      {/* ── 3. LA AUTÉNTICA BARRA DE MENÚ FLOTANTE CÁPSULA (ESTILO EXACTO BDT) ── */}
       <div className="bdt-floating-navbar-container">
         <nav className="bdt-floating-navbar">
           
-          {/* Logo y Nombre de la Barra Flotante */}
+          {/* Logo y Nombre Institucional dentro de la Cápsula */}
           <Link to="/" className="bdt-float-brand" title="SIGAE">
             <div className="bdt-float-logo-badge">
               <img 
@@ -109,17 +110,17 @@ export const PortalGeneralSIGAE: React.FC = () => {
             </div>
             <div>
               <h2 className="bdt-float-brand-title">SIGAE</h2>
-              <p className="bdt-float-brand-sub">Gestión Escolar</p>
+              <p className="bdt-float-brand-sub">Sistema Escolar</p>
             </div>
           </Link>
 
-          {/* Enlaces de Navegación Centrales */}
+          {/* Enlaces Centrales de Navegación */}
           <div className="d-none d-lg-flex align-items-center gap-1">
             <a href="#inicio" className="bdt-float-navlink">
               <span>Conócenos</span>
             </a>
-            <a href="#razones" className="bdt-float-navlink">
-              <span>Beneficios</span>
+            <a href="#asistentes" className="bdt-float-navlink">
+              <span>Zoe & Max</span>
             </a>
             <a href="#planteles" className="bdt-float-navlink">
               <span>Planteles</span>
@@ -132,33 +133,45 @@ export const PortalGeneralSIGAE: React.FC = () => {
             </a>
           </div>
 
-          {/* Botón Píldora Azul Eléctrico: "SIGAE en Línea" (Abre el Selector de Escuelas) */}
-          <div className="d-flex align-items-center gap-2">
+          {/* Lado Derecho: Badge Gráfico (Estilo 'Venezuela RENACE') + Botón Cápsula 'SIGAEenLínea' */}
+          <div className="d-flex align-items-center gap-2.5">
+            
+            {/* Badge de Asistentes Zoe & Max (Inspirado en el badge Venezuela RENACE con estrellas) */}
+            <div className="bdt-badge-renace d-none d-xl-flex">
+              <i className="bi bi-stars text-warning fs-6"></i>
+              <div>
+                <div className="bdt-badge-renace-title">ZOE & MAX</div>
+                <div className="bdt-badge-renace-sub">IA ESCOLAR ★</div>
+              </div>
+            </div>
+
+            {/* BOTÓN PÍLDORA EXACTO: 'SIGAEenLínea' (Equivalente fiel a BDTenLínea) */}
             <button 
               type="button" 
               className="bdt-btn-en-linea"
               onClick={abrirSelectorEscuela}
-              title="Acceder a tu institución educativa"
+              title="Acceder a tu institución escolar"
             >
               <i className="bi bi-shield-lock-fill"></i>
-              <span>SIGAE en Línea</span>
+              <span>SIGAEenLínea</span>
             </button>
+
           </div>
 
         </nav>
       </div>
 
-      {/* ── 4. HERO BANNER AZUL ESPACIAL CON CONSTELACIÓN DE PUNTOS Y RAZONES BDT ── */}
+      {/* ── 4. HERO BANNER PRINCIPAL CON ZOE Y MAX (ASISTENTES INSTITUCIONALES) ── */}
       <section id="inicio" className="bdt-hero-section">
         <div className="container py-3 py-lg-4 position-relative" style={{ zIndex: 2 }}>
           <div className="row align-items-center g-4 g-lg-5">
             
-            {/* Columna Izquierda: Titular y Botón de Ingreso */}
+            {/* Columna Izquierda: Titular y Llamado a la Acción */}
             <div className="col-lg-6 text-center text-lg-start">
               
-              <div className="bdt-hero-badge">
-                <i className="bi bi-patch-check-fill text-warning"></i>
-                <span>Plataforma Oficial Multi-Institución &bull; MPPE 2026-2027</span>
+              <div className="d-inline-flex align-items-center gap-2 bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold">
+                <i className="bi bi-robot text-warning"></i>
+                <span>Asistido por Zoe y Max &bull; Año Escolar 2026-2027</span>
               </div>
 
               <h1 className="bdt-hero-title">
@@ -166,7 +179,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </h1>
 
               <p className="bdt-hero-desc mx-auto mx-lg-0">
-                La solución digital unificada que transforma la gestión de instituciones educativas con costo cero de operación y máxima ciberseguridad.
+                La plataforma institucional unificada que moderniza la educación pública con costo cero de operación, respaldo de documentos y acompañamiento de inteligencia artificial.
               </p>
 
               {/* Botón de Acción Principal */}
@@ -192,56 +205,128 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
             </div>
 
-            {/* Columna Derecha: Las 4 Tarjetas de Razones con Checks de Colores (Estilo BDT) */}
-            <div id="razones" className="col-lg-6">
-              
-              {/* Razón 1: Check Verde */}
-              <div className="bdt-reason-card">
-                <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-green-accent)' }}>
-                  <i className="bi bi-check-lg"></i>
+            {/* Columna Derecha: Ilustración 3D de Zoe y Max con Globo de Diálogo */}
+            <div id="asistentes" className="col-lg-6 text-center">
+              <div className="bdt-zoe-max-hero-card">
+                
+                {/* Globo de Diálogo de Zoe y Max */}
+                <div className="bdt-zoe-max-speech-bubble mx-auto">
+                  <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small mb-1">
+                    <i className="bi bi-chat-quote-fill"></i>
+                    <span>Zoe & Max te dan la bienvenida</span>
+                  </div>
+                  <p className="m-0 extra-small" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
+                    {mensajeAsistente}
+                  </p>
                 </div>
-                <p className="bdt-reason-text">
-                  Garantizas la seguridad, confidencialidad y aislamiento de datos de cada escuela con Row Level Security (RLS).
-                </p>
-              </div>
 
-              {/* Razón 2: Check Azul Cielo */}
-              <div className="bdt-reason-card">
-                <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-sky-accent)' }}>
-                  <i className="bi bi-check-lg"></i>
+                {/* Ilustración 3D Oficial de Zoe y Max */}
+                <img 
+                  src="/zoe_max_duo_3d.png" 
+                  alt="Zoe y Max - Asistentes Escolares SIGAE" 
+                  className="bdt-zoe-max-img"
+                  onError={(e) => {
+                    // Respaldo alternativo en caso de no cargar el archivo 3D
+                    (e.target as HTMLImageElement).src = '/zoe_max_duo.png';
+                  }}
+                />
+
+                <div className="mt-2 text-light opacity-90 small fw-bold">
+                  <span>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span>Max &bull; Asistente Tecnológico</span>
                 </div>
-                <p className="bdt-reason-text">
-                  Cumplimiento estricto de las directrices y normativas pedagógicas del Ministerio del Poder Popular para la Educación.
-                </p>
-              </div>
 
-              {/* Razón 3: Check Púrpura */}
-              <div className="bdt-reason-card">
-                <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-purple-accent)' }}>
-                  <i className="bi bi-check-lg"></i>
-                </div>
-                <p className="bdt-reason-text">
-                  Cero costo de operación integrando el almacenamiento de documentos pesados en Google Drive Pro institucional (5TB).
-                </p>
               </div>
-
-              {/* Razón 4: Check Naranja */}
-              <div className="bdt-reason-card">
-                <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-orange-accent)' }}>
-                  <i className="bi bi-check-lg"></i>
-                </div>
-                <p className="bdt-reason-text">
-                  Automatización completa de admisiones en línea, red de transporte escolar y validación criptográfica de constancias QR.
-                </p>
-              </div>
-
             </div>
 
           </div>
         </div>
       </section>
 
-      {/* ── 5. PLANTELES EDUCATIVOS AFILIADOS (SEDES ACTIVAS) ── */}
+      {/* ── 5. SECCIÓN DE LAS 4 RAZONES CON CHECKS MULTICOLOR (ESTILO BDT) ── */}
+      <section className="py-5 px-3 bg-white border-bottom">
+        <div className="container py-2">
+          
+          <div className="text-center max-w-xl mx-auto mb-5">
+            <span className="badge bg-light text-primary border px-3 py-1.5 rounded-pill fw-bold text-uppercase small">
+              <i className="bi bi-shield-check me-1"></i>
+              Pilares de Confianza
+            </span>
+            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2 font-ruda">
+              Garantías del Ecosistema Institucional
+            </h2>
+            <p className="text-muted small">
+              Estructura formal diseñada para la tranquilidad de directores, docentes y familias:
+            </p>
+          </div>
+
+          <div className="row g-3">
+            
+            {/* Razón 1: Check Verde */}
+            <div className="col-md-6 col-lg-3">
+              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="d-flex align-items-center gap-2.5 mb-2">
+                  <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-green)' }}>
+                    <i className="bi bi-check-lg"></i>
+                  </div>
+                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Aislamiento RLS</h3>
+                </div>
+                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                  Row Level Security en Supabase garantiza que cada escuela accede exclusivamente a sus propios registros.
+                </p>
+              </div>
+            </div>
+
+            {/* Razón 2: Check Azul Cielo */}
+            <div className="col-md-6 col-lg-3">
+              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="d-flex align-items-center gap-2.5 mb-2">
+                  <div className="bdt-reason-check" style={{ backgroundColor: '#0ea5e9' }}>
+                    <i className="bi bi-check-lg"></i>
+                  </div>
+                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Normativa MPPE</h3>
+                </div>
+                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                  Cumplimiento estricto con los formatos oficiales, PEIC y directrices del Ministerio de Educación.
+                </p>
+              </div>
+            </div>
+
+            {/* Razón 3: Check Púrpura */}
+            <div className="col-md-6 col-lg-3">
+              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="d-flex align-items-center gap-2.5 mb-2">
+                  <div className="bdt-reason-check" style={{ backgroundColor: '#8b5cf6' }}>
+                    <i className="bi bi-check-lg"></i>
+                  </div>
+                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Google Drive Pro</h3>
+                </div>
+                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                  Almacenamiento de archivos pesados (5TB) a costo cero sin saturar la base de datos de Supabase.
+                </p>
+              </div>
+            </div>
+
+            {/* Razón 4: Check Naranja */}
+            <div className="col-md-6 col-lg-3">
+              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="d-flex align-items-center gap-2.5 mb-2">
+                  <div className="bdt-reason-check" style={{ backgroundColor: '#f97316' }}>
+                    <i className="bi bi-check-lg"></i>
+                  </div>
+                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Validación QR</h3>
+                </div>
+                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                  Constancias de estudio y carnets con código hash criptográfico inviolable verificable en línea.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 6. PLANTELES EDUCATIVOS AFILIADOS (SEDES ACTIVAS) ── */}
       <section id="planteles" className="py-5 px-3">
         <div className="container py-2">
           
@@ -312,7 +397,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
                       <button 
                         type="button" 
                         className="btn rounded-pill py-2 px-3 fw-bold small text-white flex-grow-1 shadow-xs font-ruda"
-                        style={{ backgroundColor: esSB ? '#059669' : '#2A52BE' }}
+                        style={{ backgroundColor: esSB ? '#059669' : '#2957cd' }}
                         onClick={() => {
                           cambiarEscuela(esc.id_escuela);
                           navigate('/login');
@@ -331,7 +416,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 6. SERVICIOS Y MÓDULOS DE LA PLATAFORMA ── */}
+      {/* ── 7. SERVICIOS Y MÓDULOS DE LA PLATAFORMA ── */}
       <section id="servicios" className="py-5 px-3 bg-white border-top border-bottom">
         <div className="container py-2">
           
@@ -419,7 +504,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 7. VALIDADOR PÚBLICO CRIPTOGRÁFICO DE CONSTANCIAS QR ── */}
+      {/* ── 8. VALIDADOR PÚBLICO CRIPTOGRÁFICO DE CONSTANCIAS QR ── */}
       <section id="verificar" className="py-5 px-3">
         <div className="container py-2">
           <div className="row align-items-center g-4">
@@ -471,7 +556,30 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 8. PIE DE PÁGINA CORPORATIVO (FOOTER BDT) ── */}
+      {/* ── 9. WIDGET FLOTANTE INTERACTIVO DE ZOE Y MAX (ASISTENTE ESCOLAR) ── */}
+      <div 
+        className="bdt-zoe-max-floating-widget" 
+        onClick={() => {
+          setMensajeAsistente(
+            'Para ingresar a tu escuela o solicitar un cupo escolar, haz clic en el botón azul "SIGAEenLínea" arriba en el menú flotante.'
+          );
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        title="Consultar orientación con Zoe y Max"
+      >
+        <img 
+          src="/zoe_avatar.png" 
+          alt="Avatar Zoe" 
+          className="bdt-zoe-max-widget-avatar"
+          onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+        />
+        <div>
+          <div className="bdt-zoe-max-widget-title">Asistente Zoe & Max</div>
+          <div className="bdt-zoe-max-widget-sub">¿Preguntas sobre el sistema?</div>
+        </div>
+      </div>
+
+      {/* ── 10. PIE DE PÁGINA CORPORATIVO (FOOTER BDT) ── */}
       <footer className="bdt-footer">
         <div className="container">
           <div className="row g-4 align-items-center">
@@ -502,7 +610,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </footer>
 
-      {/* ── 9. MODAL INTERACTIVO DE SELECCIÓN DE ESCUELA ── */}
+      {/* ── 11. MODAL INTERACTIVO DE SELECCIÓN DE ESCUELA ── */}
       <SelectorEscuelaModal destino="login" />
 
     </div>
