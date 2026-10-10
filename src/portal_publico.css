@@ -1,33 +1,35 @@
 /**
  * ==============================================================================
  * ARCHIVO: src/portal_publico.css
- * PROPÓSITO: Hoja de estilos con la auténtica barra flotante BDT y personajes Zoe & Max.
- * INSPIRACIÓN: Portal BDT (bdt.com.ve) + Asistentes Virtuales Escolares Zoe y Max.
- * CARACTERÍSTICAS:
- *  1. Barra Superior Institucional blanca y barra de utilidades oscura.
- *  2. BARRA DE MENÚ FLOTANTE CÁPSULA:
- *     - Fondo: Azul marino BDT (#1b2c6e a #192764).
- *     - Forma: Píldora redondeada (border-radius: 9999px).
- *     - Sombra: 0 12px 30px rgba(0,0,0,0.45).
- *     - Botón integrado: 'SIGAEenLínea' en azul eléctrico #2957cd.
- *  3. Integración de Zoe y Max: Ilustración 3D en el Hero, badge y burbuja asistente.
- *  4. 100% comentado en español línea por línea.
+ * PROPÓSITO: Hoja de estilos con la barra flotante BDT y la identidad gráfica
+ *            rescatada de la web anterior de la U.E. Libertador Bolívar.
+ * COLORES OFICIALES RESCATADOS:
+ *  - Azul Marino Institucional: #0e2c53 / #1b2c6e (Color principal y barra flotante)
+ *  - Púrpura Bicentenario: #92278f / #782075 (Identidad institucional de la escuela)
+ *  - Naranja Energético: #f26522 (Botones destacados y acciones)
+ *  - Verde Lima Pedagógico: #8dc63f (Estatus activos y logros)
+ *  - Fondos suaves: #fff8eb / #f8fafc
+ * TIPOGRAFÍAS:
+ *  - Títulos: 'Ruda', sans-serif
+ *  - Textos: 'Open Sans', sans-serif
  * ==============================================================================
  */
 
 :root {
-  /* Paleta exacta BDT (Banco Digital de los Trabajadores) */
-  --bdt-pill-blue: #1b2c6e;             /* Fondo exacto de la barra flotante BDT */
-  --bdt-pill-blue-dark: #142258;        /* Tono degradado de la cápsula */
-  --bdt-btn-online: #2957cd;            /* Azul vibrante del botón BDTenLínea */
+  /* ── PALETA BDT & U.E. LIBERTADOR BOLÍVAR RESCATADA ── */
+  --bdt-pill-blue: #1b2c6e;             /* Azul marino de la barra flotante BDT */
+  --bdt-navy-deep: #0e2c53;             /* Azul institucional profundo original */
+  --bdt-purple-bicentenario: #92278f;   /* Púrpura Bicentenario oficial */
+  --bdt-orange-action: #f26522;         /* Naranja energético para botones */
+  --bdt-orange-hover: #d95314;          /* Hover del botón naranja */
+  --bdt-lime-green: #8dc63f;            /* Verde lima pedagógico */
+  --bdt-btn-online: #2957cd;            /* Azul vibrante del botón SIGAEenLínea */
   --bdt-btn-online-hover: #1e44a8;      /* Hover del botón en línea */
-  --bdt-green: #28c76f;                 /* Verde brillante para acciones de atención */
-  --bdt-gold: #fbbf24;                  /* Dorado institucional */
-  --bdt-navy-deep: #0b132b;             /* Azul noche profundo del Hero */
-  --bdt-text-main: #1e293b;             /* Texto oscuro */
-  --bdt-text-light: #e2e8f0;            /* Texto claro */
+  --bdt-warm-cream: #fff8eb;            /* Fondo crema cálido rescatado */
+  --bdt-text-dark: #1e293b;             /* Texto principal oscuro */
+  --bdt-text-light: #e2e8f0;            /* Texto claro sobre fondos oscuros */
 
-  /* Tipografías */
+  /* Tipografías oficiales */
   --font-title: 'Ruda', sans-serif;
   --font-body: 'Open Sans', sans-serif;
 }
@@ -38,9 +40,9 @@
   width: 100%;
   background-color: #f8fafc;
   font-family: var(--font-body);
-  color: var(--bdt-text-main);
+  color: var(--bdt-text-dark);
   position: relative;
-  overflow-x: clip;
+  overflow-x: clip; /* clip garantiza que position: sticky/fixed no se rompa */
 }
 
 .portal-bdt-wrapper h1,
@@ -54,7 +56,7 @@
   letter-spacing: -0.3px;
 }
 
-/* ── 2. CABECERA SUPERIOR INSTITUCIONAL BLANCA ── */
+/* ── 2. CABECERA SUPERIOR INSTITUCIONAL BLANCA Y MARQUESINA ── */
 .bdt-top-institutional-header {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
@@ -71,9 +73,22 @@
 }
 
 .bdt-bicentenario-logo {
-  max-height: 36px;
+  max-height: 38px;
   width: auto;
   object-fit: contain;
+}
+
+/* Marquesina Superior Rescatada */
+.bdt-marquee-bar {
+  background: linear-gradient(90deg, #0e2c53 0%, #1a3c70 50%, #0e2c53 100%);
+  color: #f8fafc;
+  padding: 5px 16px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* ── 3. BARRA DE UTILIDADES AZUL NOCHE ── */
@@ -124,7 +139,7 @@
 }
 
 .bdt-btn-pill-green {
-  background: var(--bdt-green);
+  background: var(--bdt-lime-green);
   color: #ffffff !important;
   font-family: var(--font-title);
   font-weight: 700;
@@ -155,7 +170,7 @@
   transition: all 0.25s ease;
 }
 
-/* Estado flotante activo permanente al hacer scroll */
+/* Cuando se desplaza (scrolled), se mantiene fija y flotando en pantalla */
 .bdt-floating-navbar-container.is-scrolled {
   position: fixed;
   top: 14px;
@@ -168,7 +183,7 @@
 
 .bdt-floating-navbar {
   pointer-events: auto;
-  max-width: 1220px;
+  max-width: 1240px;
   width: 100%;
   margin: 0 auto;
   /* Fondo exacto azul de la imagen BDT */
@@ -230,16 +245,16 @@
 /* Enlaces Centrales de la Barra Flotante */
 .bdt-float-navlink {
   font-family: var(--font-body);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
   color: #e2e8f0;
-  padding: 7px 14px;
+  padding: 7px 12px;
   border-radius: 20px;
   text-decoration: none;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .bdt-float-navlink:hover {
@@ -247,7 +262,7 @@
   background: rgba(255, 255, 255, 0.14);
 }
 
-/* Insignia / Badge "Venezuela RENACE" / Zoe & Max */
+/* Insignia / Badge Zoe & Max IA */
 .bdt-badge-renace {
   display: flex;
   align-items: center;
@@ -263,7 +278,7 @@
   font-family: var(--font-title);
   font-weight: 800;
   font-size: 0.72rem;
-  color: #facc15; /* Amarillo dorado */
+  color: #facc15;
   line-height: 1;
   margin: 0;
   letter-spacing: 0.5px;
@@ -272,13 +287,13 @@
 .bdt-badge-renace-sub {
   font-size: 0.62rem;
   font-weight: 700;
-  color: #38bdf8; /* Cyan */
+  color: #38bdf8;
   line-height: 1;
   margin: 0;
   letter-spacing: 0.3px;
 }
 
-/* BOTÓN CÁPSULA IDÉNTICO: 'SIGAEenLínea' (Equivalente exacto a BDTenLínea) */
+/* BOTÓN CÁPSULA IDÉNTICO: 'SIGAEenLínea' */
 .bdt-btn-en-linea {
   background: var(--bdt-btn-online);
   color: #ffffff !important;
@@ -286,7 +301,7 @@
   font-weight: 850;
   font-size: 0.88rem;
   padding: 8px 22px;
-  border-radius: 9999px; /* Píldora idéntica al screenshot */
+  border-radius: 9999px;
   border: none;
   box-shadow: 0 4px 14px rgba(41, 87, 205, 0.45);
   display: inline-flex;
@@ -312,7 +327,6 @@
   overflow: hidden;
 }
 
-/* Patrón de puntos digitales de fondo */
 .bdt-hero-section::before {
   content: '';
   position: absolute;
@@ -342,7 +356,7 @@
   margin-bottom: 26px;
 }
 
-/* CONTENEDOR 3D DE ZOE Y MAX EN EL HERO */
+/* Contenedor 3D de Zoe y Max en el Hero */
 .bdt-zoe-max-hero-card {
   position: relative;
   display: inline-flex;
@@ -375,7 +389,6 @@
   max-width: 320px;
   margin-bottom: 12px;
   position: relative;
-  animation: fadeInDown 0.6s ease;
 }
 
 .bdt-zoe-max-speech-bubble::after {
@@ -391,47 +404,99 @@
   border-top: 9px solid rgba(255, 255, 255, 0.96);
 }
 
-/* Tarjetas de Razones con Checks Multicolor */
-.bdt-reason-card {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  padding: 14px 18px;
+/* ── 6. SECCIÓN RESCATADA: LAS 4 MODALIDADES EDUCATIVAS ── */
+.bdt-modalidad-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 6px 20px -2px rgba(14, 44, 83, 0.06);
+  padding: 24px;
+  height: 100%;
   display: flex;
-  align-items: center;
-  gap: 14px;
-  transition: all 0.25s ease;
-  margin-bottom: 12px;
+  flex-direction: column;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-.bdt-reason-card:hover {
-  background: rgba(255, 255, 255, 0.14);
-  transform: translateX(4px);
-  border-color: rgba(255, 255, 255, 0.3);
+.bdt-modalidad-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--bdt-purple-bicentenario);
+  box-shadow: 0 18px 36px -6px rgba(146, 39, 143, 0.18);
 }
 
-.bdt-reason-check {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+.bdt-modalidad-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.6rem;
+  margin-bottom: 14px;
   color: #ffffff;
-  font-size: 1.1rem;
+}
+
+/* ── 7. SECCIÓN RESCATADA: MÓDULOS POPULARES (CARDS FRECUENTADAS) ── */
+.bdt-popular-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1.5px solid #e2e8f0;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.28s ease;
+  text-decoration: none;
+  color: var(--bdt-text-dark);
+}
+
+.bdt-popular-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--bdt-orange-action);
+  box-shadow: 0 14px 28px -4px rgba(242, 101, 34, 0.15);
+  color: var(--bdt-orange-action);
+}
+
+.bdt-popular-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
   flex-shrink: 0;
+  background: var(--bdt-warm-cream);
+  color: var(--bdt-orange-action);
+  transition: transform 0.25s ease;
 }
 
-.bdt-reason-text {
-  font-size: 0.9rem;
-  font-weight: 600;
+.bdt-popular-card:hover .bdt-popular-icon {
+  transform: scale(1.12);
+  background: var(--bdt-orange-action);
   color: #ffffff;
-  line-height: 1.35;
-  margin: 0;
 }
 
-/* ── 6. SECCIÓN DE PLANTELES CONECTADOS (CARDS BDT) ── */
+/* ── 8. SECCIÓN RESCATADA: CARACTERIZACIÓN Y COMUNIDAD (ESTADÍSTICAS) ── */
+.bdt-stat-box {
+  background: linear-gradient(135deg, #ffffff 0%, #fdfcf9 100%);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 22px 18px;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(14, 44, 83, 0.05);
+  transition: all 0.25s ease;
+}
+
+.bdt-stat-box:hover {
+  transform: translateY(-4px);
+  border-color: var(--bdt-pill-blue);
+  box-shadow: 0 14px 28px rgba(14, 44, 83, 0.12);
+}
+
+/* ── 9. PLANTELES EDUCATIVOS AFILIADOS (SEDES ACTIVAS) ── */
 .bdt-school-card {
   background: #ffffff;
   border-radius: 20px;
@@ -451,7 +516,7 @@
   box-shadow: 0 20px 40px -8px rgba(13, 23, 57, 0.18);
 }
 
-/* ── 7. WIDGET FLOTANTE INFERIOR DE ZOE Y MAX (ASISTENTE ESCOLAR) ── */
+/* ── 10. WIDGET FLOTANTE INFERIOR DE ZOE Y MAX ── */
 .bdt-zoe-max-floating-widget {
   position: fixed;
   bottom: 24px;
@@ -487,26 +552,12 @@
   background: #ffffff;
 }
 
-.bdt-zoe-max-widget-title {
-  font-family: var(--font-title);
-  font-size: 0.82rem;
-  font-weight: 800;
-  line-height: 1.1;
-  margin: 0;
-}
-
-.bdt-zoe-max-widget-sub {
-  font-size: 0.68rem;
-  color: #cbd5e1;
-  margin: 0;
-}
-
-/* ── 8. PIE DE PÁGINA (FOOTER BDT) ── */
+/* ── 11. PIE DE PÁGINA (FOOTER RESCATADO) ── */
 .bdt-footer {
   background: var(--bdt-navy-deep);
   color: #94a3b8;
-  border-top: 3px solid var(--bdt-btn-online);
-  padding: 48px 20px 85px 20px;
+  border-top: 3px solid var(--bdt-purple-bicentenario);
+  padding: 48px 20px 75px 20px;
 }
 
 .bdt-footer a {
@@ -519,7 +570,7 @@
   color: #ffffff;
 }
 
-/* ── 9. RESPONSIVE MÓVIL ── */
+/* ── 12. RESPONSIVE MÓVIL ── */
 @media (max-width: 991px) {
   .bdt-floating-navbar {
     padding: 6px 12px 6px 16px;
