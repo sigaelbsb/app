@@ -28,6 +28,7 @@ import { useSchool } from '../../context/SchoolContext';
 import { SelectorEscuelaModal } from '../../components/escuelas/SelectorEscuelaModal';
 import { gestionDiariaService, type ReporteGestionDiaria } from '../../services/gestionDiariaService';
 import { ModalDetalleReporteGestion } from '../../components/ModalDetalleReporteGestion';
+import { EstadisticasNivelesEducativos } from '../../components/EstadisticasNivelesEducativos';
 import '../../portal_publico.css';
 
 export const PortalGeneralSIGAE: React.FC = () => {
@@ -35,7 +36,19 @@ export const PortalGeneralSIGAE: React.FC = () => {
   const navigate = useNavigate();
 
   // Contexto multi-escuela global (provee lista de escuelas y control del modal selector)
-  const { escuelas, setSelectorModalAbierto, cambiarEscuela } = useSchool();
+  const { escuelas, escuelaActiva, setSelectorModalAbierto, cambiarEscuela } = useSchool();
+
+  // Estado local para seleccionar la institución cuyas estadísticas de matrícula se desean visualizar ('sb' | 'lb')
+  const [escuelaStatsActiva, setEscuelaStatsActiva] = useState<'sb' | 'lb'>(
+    (escuelaActiva as 'sb' | 'lb') || 'sb'
+  );
+
+  // Sincronizar si cambia la escuela activa del contexto multi-escuela
+  useEffect(() => {
+    if (escuelaActiva === 'sb' || escuelaActiva === 'lb') {
+      setEscuelaStatsActiva(escuelaActiva);
+    }
+  }, [escuelaActiva]);
 
   // Estado para capturar el código hash en el validador de constancias
   const [codigoHash, setCodigoHash] = useState<string>('');
@@ -148,6 +161,10 @@ export const PortalGeneralSIGAE: React.FC = () => {
             <a href="#inicio" className="bdt-float-navlink" title="Ir al inicio del portal">
               <img src="/icons3d/icono_inicio_3d.png" alt="Inicio" className="bdt-menu-icon-3d" />
               <span>Inicio</span>
+            </a>
+            <a href="#matricula" className="bdt-float-navlink" title="Consultar matrícula escolar y estadísticas oficiales">
+              <img src="/icons3d/icono_estudiantil_3d.png" alt="Matrícula" className="bdt-menu-icon-3d" />
+              <span>Matrícula</span>
             </a>
             <a href="#modalidades" className="bdt-float-navlink" title="Ver modalidades educativas integradas">
               <img src="/icons3d/icono_academico_3d.png" alt="Modalidades" className="bdt-menu-icon-3d" />
@@ -287,6 +304,18 @@ export const PortalGeneralSIGAE: React.FC = () => {
                 <div>
                   <span className="d-block">Inicio y Bienvenida</span>
                   <span className="extra-small text-muted fw-normal" style={{ fontSize: '0.72rem' }}>Portada principal y novedades</span>
+                </div>
+              </a>
+
+              <a 
+                href="#matricula" 
+                className="bdt-mobile-drawer-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <img src="/icons3d/icono_estudiantil_3d.png" alt="Matrícula" className="bdt-mobile-menu-icon-3d" />
+                <div>
+                  <span className="d-block">Matrícula Escolar & Cifras</span>
+                  <span className="extra-small text-muted fw-normal" style={{ fontSize: '0.72rem' }}>Estadísticas oficiales por nivel educativo</span>
                 </div>
               </a>
 
@@ -688,85 +717,155 @@ export const PortalGeneralSIGAE: React.FC = () => {
         onClose={() => setReporteModal(null)} 
       />
 
-      {/* ── 6. SECCIÓN DE LAS 4 RAZONES CON CHECKS MULTICOLOR (ESTILO BDT) ── */}
-      <section className="py-5 px-3 bg-white border-bottom">
+      {/* ── 6. SECCIÓN DE MATRÍCULA ESCOLAR EN VIVO & GARANTÍAS INSTITUCIONALES ── */}
+      <section id="matricula" className="py-5 px-3 bg-white border-bottom">
         <div className="container py-2">
           
-          <div className="text-center max-w-xl mx-auto mb-5">
-            <span className="badge bg-light text-primary border px-3 py-1.5 rounded-pill fw-bold text-uppercase small">
-              <i className="bi bi-shield-check me-1"></i>
-              Pilares de Confianza
-            </span>
-            <h2 className="fw-bolder fs-2 text-dark mt-2 mb-2 font-ruda">
-              4 Garantías del Ecosistema Institucional
-            </h2>
-            <p className="text-muted small">
-              Estructura formal diseñada para la tranquilidad de directores, docentes y familias:
-            </p>
+          {/* Encabezado y Conmutador de Plantel Escolar para Matrícula */}
+          <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+            <div>
+              <span className="badge bg-light text-primary border px-3 py-1.5 rounded-pill fw-bold text-uppercase small">
+                <i className="bi bi-mortarboard-fill me-1 text-success"></i>
+                Censo & Expedientes Validados
+              </span>
+              <h2 className="fw-bolder fs-2 text-dark mt-2 mb-1 font-ruda">
+                Matrícula Estudiantil & Plantilla Escolar
+              </h2>
+              <p className="text-muted small m-0">
+                Cifras oficiales de censo y expedientes validados en tiempo real por nivel formativo:
+              </p>
+            </div>
+
+            {/* Selector interactivo de escuela activa para estadísticas en tiempo real */}
+            <div className="d-flex align-items-center gap-2 p-1.5 bg-light rounded-pill border shadow-2xs flex-wrap">
+              <span className="text-muted extra-small fw-bold px-2 d-none d-sm-inline" style={{ fontSize: '0.75rem' }}>
+                Sede Activa:
+              </span>
+              <button
+                type="button"
+                onClick={() => setEscuelaStatsActiva('sb')}
+                className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-2 transition-all ${
+                  escuelaStatsActiva === 'sb'
+                    ? 'btn-success text-white shadow-xs'
+                    : 'text-secondary border-0 bg-transparent'
+                }`}
+                style={{ fontSize: '0.82rem' }}
+                title="Ver matrícula oficial de U.E. Santa Bárbara"
+              >
+                <img 
+                  src="/assets/img/logo_sb.png" 
+                  alt="U.E. Santa Bárbara" 
+                  style={{ width: '18px', height: '18px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
+                <span>U.E. Santa Bárbara</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEscuelaStatsActiva('lb')}
+                className={`btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-2 transition-all ${
+                  escuelaStatsActiva === 'lb'
+                    ? 'btn-primary text-white shadow-xs'
+                    : 'text-secondary border-0 bg-transparent'
+                }`}
+                style={{ fontSize: '0.82rem' }}
+                title="Ver matrícula oficial de U.E. Libertador Bolívar"
+              >
+                <img 
+                  src="/assets/img/logo_lb.png" 
+                  alt="U.E. Libertador Bolívar" 
+                  style={{ width: '18px', height: '18px', objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                />
+                <span>U.E. Libertador Bolívar</span>
+              </button>
+            </div>
           </div>
 
-          <div className="row g-3">
-            
-            {/* Razón 1: Check Verde */}
-            <div className="col-md-6 col-lg-3">
-              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
-                <div className="d-flex align-items-center gap-2.5 mb-2">
-                  <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-green)' }}>
-                    <i className="bi bi-check-lg"></i>
-                  </div>
-                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Aislamiento RLS</h3>
-                </div>
-                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
-                  Row Level Security en Supabase garantiza que cada escuela accede exclusivamente a sus propios registros de forma hermética.
-                </p>
-              </div>
+          {/* Componente idéntico al de la App: EstadisticasNivelesEducativos con Avatares 3D */}
+          <div className="mb-5">
+            <EstadisticasNivelesEducativos activeSchoolCode={escuelaStatsActiva} />
+          </div>
+
+          {/* ── Subsección: 4 Garantías del Ecosistema Institucional (Estilo BDT) ── */}
+          <div className="pt-4 border-top">
+            <div className="text-center max-w-xl mx-auto mb-4">
+              <span className="badge bg-light text-primary border px-3 py-1.5 rounded-pill fw-bold text-uppercase small">
+                <i className="bi bi-shield-check me-1"></i>
+                Pilares de Confianza
+              </span>
+              <h3 className="fw-bolder fs-3 text-dark mt-2 mb-2 font-ruda">
+                4 Garantías del Ecosistema Institucional
+              </h3>
+              <p className="text-muted small">
+                Estructura formal diseñada para la tranquilidad de directores, docentes y familias:
+              </p>
             </div>
 
-            {/* Razón 2: Check Azul Cielo */}
-            <div className="col-md-6 col-lg-3">
-              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
-                <div className="d-flex align-items-center gap-2.5 mb-2">
-                  <div className="bdt-reason-check" style={{ backgroundColor: '#0ea5e9' }}>
-                    <i className="bi bi-check-lg"></i>
+            <div className="row g-3">
+              
+              {/* Razón 1: Check Verde */}
+              <div className="col-md-6 col-lg-3">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                  <div className="d-flex align-items-center gap-2.5 mb-2">
+                    <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-green)' }}>
+                      <i className="bi bi-check-lg"></i>
+                    </div>
+                    <h4 className="fs-6 fw-bold text-dark font-ruda m-0">Aislamiento RLS</h4>
                   </div>
-                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Normativa MPPE</h3>
+                  <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                    Row Level Security en Supabase garantiza que cada escuela accede exclusivamente a sus propios registros de forma hermética.
+                  </p>
                 </div>
-                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
-                  Cumplimiento estricto con los formatos oficiales, PEIC y directrices del Ministerio de Educación y Colección Bicentenario.
-                </p>
               </div>
-            </div>
 
-            {/* Razón 3: Check Púrpura Bicentenario */}
-            <div className="col-md-6 col-lg-3">
-              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
-                <div className="d-flex align-items-center gap-2.5 mb-2">
-                  <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-purple-bicentenario)' }}>
-                    <i className="bi bi-check-lg"></i>
+              {/* Razón 2: Check Azul Cielo */}
+              <div className="col-md-6 col-lg-3">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                  <div className="d-flex align-items-center gap-2.5 mb-2">
+                    <div className="bdt-reason-check" style={{ backgroundColor: '#0ea5e9' }}>
+                      <i className="bi bi-check-lg"></i>
+                    </div>
+                    <h4 className="fs-6 fw-bold text-dark font-ruda m-0">Normativa MPPE</h4>
                   </div>
-                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Google Drive Pro</h3>
+                  <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                    Cumplimiento estricto con los formatos oficiales, PEIC y directrices del Ministerio de Educación y Colección Bicentenario.
+                  </p>
                 </div>
-                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
-                  Almacenamiento institucional para archivos pesados (hasta 5TB) a costo cero sin saturar la base de datos de Supabase.
-                </p>
               </div>
-            </div>
 
-            {/* Razón 4: Check Naranja de Acción */}
-            <div className="col-md-6 col-lg-3">
-              <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
-                <div className="d-flex align-items-center gap-2.5 mb-2">
-                  <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-orange-action)' }}>
-                    <i className="bi bi-check-lg"></i>
+              {/* Razón 3: Check Púrpura Bicentenario */}
+              <div className="col-md-6 col-lg-3">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                  <div className="d-flex align-items-center gap-2.5 mb-2">
+                    <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-purple-bicentenario)' }}>
+                      <i className="bi bi-check-lg"></i>
+                    </div>
+                    <h4 className="fs-6 fw-bold text-dark font-ruda m-0">Google Drive Pro</h4>
                   </div>
-                  <h3 className="fs-6 fw-bold text-dark font-ruda m-0">Validación QR</h3>
+                  <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                    Almacenamiento institucional para archivos pesados (hasta 5TB) a costo cero sin saturar la base de datos de Supabase.
+                  </p>
                 </div>
-                <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
-                  Constancias de estudio, carnets y notas con código hash criptográfico inviolable verificable públicamente en línea.
-                </p>
               </div>
-            </div>
 
+              {/* Razón 4: Check Naranja de Acción */}
+              <div className="col-md-6 col-lg-3">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                  <div className="d-flex align-items-center gap-2.5 mb-2">
+                    <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-orange-action)' }}>
+                      <i className="bi bi-check-lg"></i>
+                    </div>
+                    <h4 className="fs-6 fw-bold text-dark font-ruda m-0">Validación QR</h4>
+                  </div>
+                  <p className="text-muted small m-0" style={{ lineHeight: 1.5 }}>
+                    Constancias de estudio, carnets y notas con código hash criptográfico inviolable verificable públicamente en línea.
+                  </p>
+                </div>
+              </div>
+
+            </div>
           </div>
 
         </div>
