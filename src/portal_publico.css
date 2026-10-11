@@ -526,6 +526,141 @@
   border-top: 9px solid #ffffff;
 }
 
+/* ── CARRUSEL INTERACTIVO DEL HERO BANNER: GESTIÓN DIARIA ESCOLAR APROBADA ── */
+.bdt-hero-carousel-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.bdt-hero-slide {
+  animation: heroSlideFadeIn 0.45s ease-out;
+}
+
+@keyframes heroSlideFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bdt-hero-nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1.5px solid rgba(146, 39, 143, 0.25);
+  color: var(--bdt-navy-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 8px 20px rgba(14, 44, 83, 0.12);
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.22s ease;
+  backdrop-filter: blur(8px);
+}
+
+.bdt-hero-nav-arrow:hover {
+  background: #ffffff;
+  color: var(--bdt-purple-bicentenario);
+  border-color: var(--bdt-purple-bicentenario);
+  transform: translateY(-50%) scale(1.12);
+  box-shadow: 0 12px 24px rgba(146, 39, 143, 0.25);
+}
+
+.bdt-hero-nav-arrow.prev {
+  left: -20px;
+}
+
+.bdt-hero-nav-arrow.next {
+  right: -20px;
+}
+
+@media (max-width: 991px) {
+  .bdt-hero-nav-arrow {
+    display: none;
+  }
+}
+
+.bdt-hero-dots-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+  z-index: 5;
+}
+
+.bdt-hero-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+  font-family: var(--font-title);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.bdt-hero-dot:hover {
+  background: #ffffff;
+  border-color: var(--bdt-purple-bicentenario);
+  color: var(--bdt-purple-bicentenario);
+  transform: translateY(-1px);
+}
+
+.bdt-hero-dot.active {
+  background: linear-gradient(135deg, var(--bdt-navy-deep) 0%, #1e3a8a 100%);
+  color: #ffffff;
+  border-color: var(--bdt-navy-deep);
+  box-shadow: 0 4px 14px rgba(14, 44, 83, 0.25);
+}
+
+.bdt-hero-photo-card {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -10px rgba(14, 44, 83, 0.16), 0 0 0 1.5px rgba(146, 39, 143, 0.16);
+  background: #ffffff;
+  transition: transform 0.3s ease;
+}
+
+.bdt-hero-photo-card:hover {
+  transform: translateY(-4px);
+}
+
+.bdt-hero-photo-img {
+  width: 100%;
+  height: 290px;
+  object-fit: cover;
+  display: block;
+}
+
+.bdt-hero-photo-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(14, 44, 83, 0.92) 0%, rgba(14, 44, 83, 0.45) 60%, transparent 100%);
+  padding: 16px 20px 14px 20px;
+  color: #ffffff;
+}
+
 /* ── 6. SECCIÓN RESCATADA: LAS 4 MODALIDADES EDUCATIVAS ── */
 .bdt-modalidad-card {
   background: #ffffff;

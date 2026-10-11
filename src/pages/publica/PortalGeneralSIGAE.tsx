@@ -26,6 +26,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSchool } from '../../context/SchoolContext';
 import { SelectorEscuelaModal } from '../../components/escuelas/SelectorEscuelaModal';
+import { gestionDiariaService, type ReporteGestionDiaria } from '../../services/gestionDiariaService';
+import { ModalDetalleReporteGestion } from '../../components/ModalDetalleReporteGestion';
 import '../../portal_publico.css';
 
 export const PortalGeneralSIGAE: React.FC = () => {
@@ -45,6 +47,55 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
   // Control para asegurar que la barra flote fija sobre todo el contenido al hacer scroll (efecto cápsula BDT)
   const [esFlotante, setEsFlotante] = useState<boolean>(false);
+
+  // ── ESTADOS DEL CARRUSEL DE GESTIÓN DIARIA APROBADA ──
+  // Reportes de actividades escolares aprobadas en el sistema (U.E. Libertador Bolívar, U.E. Santa Bárbara)
+  const [reportesGestion, setReportesGestion] = useState<ReporteGestionDiaria[]>([]);
+  // Índice de la diapositiva activa (0 = Bienvenida con Zoe y Max, 1..N = Reportes de Gestión Diaria)
+  const [slideActivo, setSlideActivo] = useState<number>(0);
+  // Pausar rotación automática cuando el usuario pasa el ratón por encima
+  const [carruselPausado, setCarruselPausado] = useState<boolean>(false);
+  // Reporte seleccionado para visualizar en el modal emergente con detalles oficiales
+  const [reporteModal, setReporteModal] = useState<ReporteGestionDiaria | null>(null);
+
+  // Cargar reportes de gestión diaria aprobados desde el servicio
+  useEffect(() => {
+    const cargarReportes = async () => {
+      try {
+        const datos = await gestionDiariaService.obtenerReportesCarrusel();
+        setReportesGestion(datos);
+      } catch (e) {
+        console.error('Error cargando reportes de gestión diaria para el carrusel:', e);
+      }
+    };
+
+    cargarReportes();
+
+    // Escuchar actualizaciones dinámicas si se aprueba un nuevo reporte en el sistema
+    const handleActualizacion = () => cargarReportes();
+    window.addEventListener('sigae-reportes-actualizados', handleActualizacion);
+    return () => window.removeEventListener('sigae-reportes-actualizados', handleActualizacion);
+  }, []);
+
+  // Autoplay del carrusel del Hero Banner cada 7.5 segundos
+  useEffect(() => {
+    const totalSlides = 1 + reportesGestion.length;
+    if (totalSlides <= 1 || carruselPausado) return;
+
+    const timer = setInterval(() => {
+      setSlideActivo((prev) => (prev + 1) % totalSlides);
+    }, 7500);
+
+    return () => clearInterval(timer);
+  }, [carruselPausado, reportesGestion.length]);
+
+  const totalSlides = 1 + reportesGestion.length;
+  const slideAnterior = () => {
+    setSlideActivo((prev) => (prev - 1 + totalSlides) % totalSlides);
+  };
+  const slideSiguiente = () => {
+    setSlideActivo((prev) => (prev + 1) % totalSlides);
+  };
 
   // Efecto para escuchar el desplazamiento vertical y activar la clase flotante
   useEffect(() => {
@@ -182,87 +233,296 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </nav>
       </header>
 
-      {/* ── 5. HERO BANNER PRINCIPAL CON ZOE Y MAX (ASISTENTES INSTITUCIONALES) ── */}
-      <section id="inicio" className="bdt-hero-section">
+      {/* ── 5. HERO BANNER PRINCIPAL: CARRUSEL INTERACTIVO CON ZOE, MAX Y GESTIÓN DIARIA APROBADA ── */}
+      <section 
+        id="inicio" 
+        className="bdt-hero-section"
+        onMouseEnter={() => setCarruselPausado(true)}
+        onMouseLeave={() => setCarruselPausado(false)}
+      >
         <div className="container py-3 py-lg-4 position-relative" style={{ zIndex: 2 }}>
-          <div className="row align-items-center g-4 g-lg-5">
+          
+          <div className="bdt-hero-carousel-wrapper">
             
-            {/* Columna Izquierda: Titular y Llamado a la Acción */}
-            <div className="col-lg-6 text-center text-lg-start">
-              
-              <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white border border-secondary border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-dark">
-                <i className="bi bi-geo-alt-fill text-warning"></i>
-                <span>Miraflores, municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
-              </div>
-
-              <h1 className="bdt-hero-title">
-                Portal Integral de Gestión y Administración Escolar
-              </h1>
-
-              <p className="bdt-hero-desc mx-auto mx-lg-0">
-                La plataforma unificada de las instituciones educativas de Punceres y Monagas. Administración pedagógica, boletines de calificaciones, control de matrícula y expedientes con seguridad RLS y costo cero.
-              </p>
-
-              {/* Botón de Acción Principal */}
-              <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
-                <button 
-                  type="button" 
-                  className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
-                  style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none' }}
-                  onClick={abrirSelectorEscuela}
+            {/* Flechas de Navegación del Carrusel (Anterior / Siguiente) */}
+            {totalSlides > 1 && (
+              <>
+                <button
+                  type="button"
+                  className="bdt-hero-nav-arrow prev"
+                  onClick={slideAnterior}
+                  title="Ver diapositiva anterior"
+                  aria-label="Anterior"
                 >
-                  <i className="bi bi-buildings-fill"></i>
-                  <span>🏛️ Ingresar a mi Escuela</span>
+                  <i className="bi bi-chevron-left"></i>
+                </button>
+                <button
+                  type="button"
+                  className="bdt-hero-nav-arrow next"
+                  onClick={slideSiguiente}
+                  title="Ver diapositiva siguiente"
+                  aria-label="Siguiente"
+                >
+                  <i className="bi bi-chevron-right"></i>
+                </button>
+              </>
+            )}
+
+            {/* CONTENIDO DEL SLIDE ACTIVO */}
+            {slideActivo === 0 ? (
+              /* DIAPOSITIVA 0: BIENVENIDA INSTITUCIONAL CON ZOE Y MAX */
+              <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide" key="slide-bienvenida">
+                
+                {/* Columna Izquierda: Titular y Llamado a la Acción */}
+                <div className="col-lg-6 text-center text-lg-start">
+                  <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white border border-secondary border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-dark">
+                    <i className="bi bi-geo-alt-fill text-warning"></i>
+                    <span>Miraflores, municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
+                  </div>
+
+                  <h1 className="bdt-hero-title">
+                    Portal Integral de Gestión y Administración Escolar
+                  </h1>
+
+                  <p className="bdt-hero-desc mx-auto mx-lg-0">
+                    La plataforma unificada de las instituciones educativas de Punceres y Monagas. Administración pedagógica, boletines de calificaciones, control de matrícula y expedientes con seguridad RLS y costo cero.
+                  </p>
+
+                  <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                    <button 
+                      type="button" 
+                      className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                      style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none' }}
+                      onClick={abrirSelectorEscuela}
+                    >
+                      <i className="bi bi-buildings-fill"></i>
+                      <span>🏛️ Ingresar a mi Escuela</span>
+                    </button>
+
+                    <a 
+                      href="#modulos" 
+                      className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                      style={{ fontSize: '0.86rem', borderColor: '#0e2c53', color: '#0e2c53', backgroundColor: '#ffffff' }}
+                    >
+                      <i className="bi bi-grid-fill text-warning"></i>
+                      <span>Explorar Módulos Populares</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Columna Derecha: Ilustración 3D de Zoe y Max */}
+                <div id="asistentes" className="col-lg-6 text-center">
+                  <div className="bdt-zoe-max-hero-card">
+                    <div className="bdt-zoe-max-speech-bubble mx-auto">
+                      <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small mb-1">
+                        <i className="bi bi-chat-quote-fill text-warning"></i>
+                        <span>Zoe & Max te dan la bienvenida</span>
+                      </div>
+                      <p className="m-0 extra-small text-secondary" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
+                        {mensajeAsistente}
+                      </p>
+                    </div>
+
+                    <img 
+                      src="/zoe_max_duo_3d.png" 
+                      alt="Zoe y Max - Asistentes Escolares SIGAE" 
+                      className="bdt-zoe-max-img"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/zoe_max_duo.png';
+                      }}
+                    />
+
+                    <div className="mt-2 text-secondary small fw-bold">
+                      <span style={{ color: '#0284c7' }}>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span style={{ color: '#ea580c' }}>Max &bull; Asistente Tecnológico</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              /* DIAPOSITIVA 1..N: GESTIÓN DIARIA ESCOLAR APROBADA */
+              (() => {
+                const rep = reportesGestion[slideActivo - 1];
+                if (!rep) return null;
+
+                const nombreEscuela = rep.proceso || (rep.escuela_codigo === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar');
+                const fotoBanner = rep.banner_superior || rep.imagenes?.[0] || '/assets/img/gestion_diaria/reporte_ejemplo_collage.png';
+
+                return (
+                  <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide" key={rep.id}>
+                    
+                    {/* Columna Izquierda: Información de la Gestión Diaria Aprobada */}
+                    <div className="col-lg-6 text-center text-lg-start">
+                      
+                      {/* Badges de Verificación y Escuela */}
+                      <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-2 mb-3">
+                        <span 
+                          className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs d-inline-flex align-items-center gap-1.5"
+                          style={{ backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac', fontSize: '0.78rem' }}
+                        >
+                          <i className="bi bi-patch-check-fill text-success"></i>
+                          <span>Gestión Aprobada en Sistema</span>
+                        </span>
+
+                        <span 
+                          className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs bg-white text-dark d-inline-flex align-items-center gap-1.5 border"
+                          style={{ fontSize: '0.78rem' }}
+                        >
+                          <i className="bi bi-building text-primary"></i>
+                          <span>{nombreEscuela}</span>
+                        </span>
+
+                        <span 
+                          className="badge rounded-pill px-2.5 py-1.5 fw-semibold bg-white text-muted d-inline-flex align-items-center gap-1 border extra-small"
+                          style={{ fontSize: '0.75rem' }}
+                        >
+                          <i className="bi bi-calendar-event"></i>
+                          <span>{rep.fecha_actividad}</span>
+                        </span>
+                      </div>
+
+                      {/* Título de la Actividad */}
+                      <h2 className="bdt-hero-title mb-2.5" style={{ fontSize: 'clamp(1.7rem, 3vw, 2.4rem)' }}>
+                        {rep.actividad}
+                      </h2>
+
+                      {/* Descripción de la Actividad */}
+                      <p className="bdt-hero-desc mx-auto mx-lg-0 mb-3" style={{ fontSize: '0.98rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {rep.descripcion}
+                      </p>
+
+                      {/* Indicadores de Participación Escolar */}
+                      {rep.participantes && (
+                        <div className="d-inline-flex flex-wrap align-items-center gap-2.5 bg-white p-2.5 px-3 rounded-4 border shadow-xs mb-3.5 small">
+                          <span className="fw-bold text-dark d-inline-flex align-items-center gap-1.5">
+                            <i className="bi bi-people-fill text-primary"></i>
+                            <span>{rep.participantes.total} Asistentes</span>
+                          </span>
+                          <span className="text-secondary">&bull;</span>
+                          <span className="text-secondary">{rep.participantes.estudiantes || 0} Estudiantes</span>
+                          <span className="text-secondary">&bull;</span>
+                          <span className="text-secondary">{rep.participantes.docentes || 0} Docentes</span>
+                          {rep.lugar_actividad && (
+                            <>
+                              <span className="text-secondary">&bull;</span>
+                              <span className="text-muted text-truncate" style={{ maxWidth: '180px' }}>📍 {rep.lugar_actividad}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Botones de Acción para la Gestión Diaria */}
+                      <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                        <button 
+                          type="button" 
+                          className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: 'var(--bdt-purple-bicentenario)', border: 'none' }}
+                          onClick={() => setReporteModal(rep)}
+                        >
+                          <i className="bi bi-file-earmark-text-fill"></i>
+                          <span>📖 Ver Reporte Completo de Gestión</span>
+                        </button>
+
+                        <button 
+                          type="button" 
+                          className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                          style={{ fontSize: '0.86rem', borderColor: 'var(--bdt-orange-action)', color: 'var(--bdt-orange-action)', backgroundColor: '#ffffff' }}
+                          onClick={() => {
+                            if (rep.escuela_codigo === 'sb' || rep.escuela_codigo === 'lb') {
+                              cambiarEscuela(rep.escuela_codigo);
+                              navigate('/login');
+                            } else {
+                              abrirSelectorEscuela();
+                            }
+                          }}
+                        >
+                          <i className="bi bi-box-arrow-in-right"></i>
+                          <span>Ir al Plantel</span>
+                        </button>
+                      </div>
+
+                    </div>
+
+                    {/* Columna Derecha: Tarjeta Fotográfica de la Actividad Escolar */}
+                    <div className="col-lg-6 text-center">
+                      <div 
+                        className="bdt-hero-photo-card cursor-pointer"
+                        onClick={() => setReporteModal(rep)}
+                        title="Haz clic para ver la galería completa y detalles oficiales"
+                      >
+                        <img 
+                          src={fotoBanner} 
+                          alt={rep.actividad} 
+                          className="bdt-hero-photo-img"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/assets/img/gestion_diaria/reporte_ejemplo_collage.png';
+                          }}
+                        />
+                        <div className="bdt-hero-photo-overlay d-flex align-items-end justify-content-between">
+                          <div className="text-start">
+                            <div className="extra-small fw-bold text-uppercase tracking-wider opacity-90 text-warning mb-0.5">
+                              {rep.fuente || 'Gestión Escolar Comprobada'}
+                            </div>
+                            <h6 className="fw-bold mb-0 text-white text-truncate" style={{ maxWidth: '380px' }}>
+                              {rep.actividad}
+                            </h6>
+                          </div>
+                          <span className="badge bg-white text-dark rounded-pill px-3 py-1.5 shadow-sm fw-bold extra-small">
+                            🔍 Ampliar
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                );
+              })()
+            )}
+
+            {/* Indicadores de Puntos Inferiores (Dots) */}
+            {totalSlides > 1 && (
+              <div className="bdt-hero-dots-container">
+                <button
+                  type="button"
+                  className={`bdt-hero-dot ${slideActivo === 0 ? 'active' : ''}`}
+                  onClick={() => setSlideActivo(0)}
+                  title="Diapositiva institucional de bienvenida con Zoe y Max"
+                >
+                  <span>★ Bienvenida SIGAE</span>
                 </button>
 
-                <a 
-                  href="#modulos" 
-                  className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
-                  style={{ fontSize: '0.86rem', borderColor: '#0e2c53', color: '#0e2c53', backgroundColor: '#ffffff' }}
-                >
-                  <i className="bi bi-grid-fill text-warning"></i>
-                  <span>Explorar Módulos Populares</span>
-                </a>
+                {reportesGestion.map((rep, idx) => {
+                  const num = idx + 1;
+                  const etiqueta = rep.escuela_codigo === 'sb' 
+                    ? 'U.E. Santa Bárbara' 
+                    : rep.escuela_codigo === 'lb' 
+                      ? 'U.E. Libertador Bolívar' 
+                      : `Gestión #${num}`;
+                  return (
+                    <button
+                      key={rep.id}
+                      type="button"
+                      className={`bdt-hero-dot ${slideActivo === num ? 'active' : ''}`}
+                      onClick={() => setSlideActivo(num)}
+                      title={rep.actividad}
+                    >
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }}></span>
+                      <span>{etiqueta}</span>
+                    </button>
+                  );
+                })}
               </div>
-
-            </div>
-
-            {/* Columna Derecha: Ilustración 3D de Zoe y Max con Globo de Diálogo */}
-            <div id="asistentes" className="col-lg-6 text-center">
-              <div className="bdt-zoe-max-hero-card">
-                
-                {/* Globo de Diálogo de Zoe y Max */}
-                <div className="bdt-zoe-max-speech-bubble mx-auto">
-                  <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small mb-1">
-                    <i className="bi bi-chat-quote-fill text-warning"></i>
-                    <span>Zoe & Max te dan la bienvenida</span>
-                  </div>
-                  <p className="m-0 extra-small text-secondary" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
-                    {mensajeAsistente}
-                  </p>
-                </div>
-
-                {/* Ilustración 3D Oficial de Zoe y Max */}
-                <img 
-                  src="/zoe_max_duo_3d.png" 
-                  alt="Zoe y Max - Asistentes Escolares SIGAE" 
-                  className="bdt-zoe-max-img"
-                  onError={(e) => {
-                    // Respaldo alternativo en caso de no cargar el archivo 3D
-                    (e.target as HTMLImageElement).src = '/zoe_max_duo.png';
-                  }}
-                />
-
-                <div className="mt-2 text-secondary small fw-bold">
-                  <span style={{ color: '#0284c7' }}>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span style={{ color: '#ea580c' }}>Max &bull; Asistente Tecnológico</span>
-                </div>
-
-              </div>
-            </div>
+            )}
 
           </div>
         </div>
       </section>
+
+      {/* Ventana Modal de Detalle de Gestión Diaria Oficial */}
+      <ModalDetalleReporteGestion 
+        reporte={reporteModal} 
+        onClose={() => setReporteModal(null)} 
+      />
 
       {/* ── 6. SECCIÓN DE LAS 4 RAZONES CON CHECKS MULTICOLOR (ESTILO BDT) ── */}
       <section className="py-5 px-3 bg-white border-bottom">
