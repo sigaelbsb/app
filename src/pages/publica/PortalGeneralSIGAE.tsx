@@ -58,6 +58,9 @@ export const PortalGeneralSIGAE: React.FC = () => {
   // Reporte seleccionado para visualizar en el modal emergente con detalles oficiales
   const [reporteModal, setReporteModal] = useState<ReporteGestionDiaria | null>(null);
 
+  // ── ESTADO DEL MENÚ REDUCIDO PARA TELÉFONOS (MOBILE DRAWER) ──
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState<boolean>(false);
+
   // Cargar reportes de gestión diaria aprobados desde el servicio
   useEffect(() => {
     const cargarReportes = async () => {
@@ -140,26 +143,26 @@ export const PortalGeneralSIGAE: React.FC = () => {
       <header className="bdt-floating-navbar-container">
         <nav className="bdt-floating-navbar">
           
-          {/* LADO IZQUIERDO: Enlaces de navegación rápida con los colores emblemáticos de la web escolar */}
+          {/* LADO IZQUIERDO: Enlaces de navegación rápida con auténticos ICONOS 3D del SIGAE */}
           <div className="d-none d-lg-flex align-items-center gap-1">
             <a href="#inicio" className="bdt-float-navlink" title="Ir al inicio del portal">
-              <i className="bi bi-house-door-fill" style={{ color: 'var(--bdt-navy-deep)' }}></i>
+              <img src="/icons3d/icono_inicio_3d.png" alt="Inicio" className="bdt-menu-icon-3d" />
               <span>Inicio</span>
             </a>
             <a href="#modalidades" className="bdt-float-navlink" title="Ver modalidades educativas integradas">
-              <i className="bi bi-mortarboard-fill" style={{ color: 'var(--bdt-purple-bicentenario)' }}></i>
+              <img src="/icons3d/icono_academico_3d.png" alt="Modalidades" className="bdt-menu-icon-3d" />
               <span>Modalidades</span>
             </a>
             <a href="#modulos" className="bdt-float-navlink" title="Explorar servicios y módulos más solicitados">
-              <i className="bi bi-grid-fill" style={{ color: 'var(--bdt-orange-action)' }}></i>
+              <img src="/icons3d/icono_organizacion_3d.png" alt="Módulos" className="bdt-menu-icon-3d" />
               <span>Módulos</span>
             </a>
             <a href="#planteles" className="bdt-float-navlink" title="Red de planteles conectados">
-              <i className="bi bi-buildings-fill" style={{ color: 'var(--bdt-lime-green)' }}></i>
+              <img src="/icons3d/icono_direccion_3d.png" alt="Planteles" className="bdt-menu-icon-3d" />
               <span>Planteles</span>
             </a>
             <a href="#verificar" className="bdt-float-navlink" title="Verificar validez de documentos QR">
-              <i className="bi bi-qr-code-scan" style={{ color: '#00bfff' }}></i>
+              <img src="/icons3d/icono_seguridad_3d.png" alt="Validar QR" className="bdt-menu-icon-3d" />
               <span>Validar QR</span>
             </a>
           </div>
@@ -179,7 +182,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
             </div>
           </Link>
 
-          {/* LADO DERECHO: Badge Zoe & Max + Botón Cápsula 'SIGAEenLínea' */}
+          {/* LADO DERECHO: Badge Zoe & Max + Botón Cápsula 'SIGAEenLínea' + Botón Menú Móvil */}
           <div className="d-flex align-items-center gap-2 gap-md-2.5">
             
             {/* Botón Asistente IA Zoe & Max Integrado en la Barra de Menú */}
@@ -228,10 +231,171 @@ export const PortalGeneralSIGAE: React.FC = () => {
               <span>SIGAEenLínea</span>
             </button>
 
+            {/* BOTÓN HAMBURGUESA PARA TELÉFONOS (VISUALIZACIÓN DE PARTES DE LA WEB EN MÓVIL) */}
+            <button
+              type="button"
+              className="bdt-mobile-menu-btn d-flex d-lg-none"
+              onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}
+              title="Ver todas las secciones del portal"
+              aria-label="Abrir menú de navegación móvil"
+            >
+              <i className={`bi ${menuMovilAbierto ? 'bi-x-lg' : 'bi-list'}`}></i>
+            </button>
+
           </div>
 
         </nav>
       </header>
+
+      {/* ── 2. MENÚ MÓVIL DESPLEGABLE REDUCIDO CON ICONOS 3D PARA TELÉFONOS ── */}
+      {menuMovilAbierto && (
+        <div className="bdt-mobile-drawer-backdrop" onClick={() => setMenuMovilAbierto(false)}>
+          <div className="bdt-mobile-drawer" onClick={(e) => e.stopPropagation()}>
+            
+            {/* Cabecera del Menú Móvil */}
+            <div className="bdt-mobile-drawer-header">
+              <div className="d-flex align-items-center gap-2.5">
+                <img 
+                  src="/assets/img/sigae.png?v=escudo3d" 
+                  alt="Escudo SIGAE" 
+                  style={{ width: '38px', height: '38px', objectFit: 'contain' }} 
+                />
+                <div>
+                  <span className="fw-black text-dark font-ruda fs-6 d-block" style={{ lineHeight: 1.1 }}>SIGAE</span>
+                  <span className="extra-small fw-bold" style={{ color: 'var(--bdt-purple-bicentenario)', fontSize: '0.68rem' }}>
+                    Menú del Portal Escolar
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                className="btn-close"
+                aria-label="Cerrar menú"
+                onClick={() => setMenuMovilAbierto(false)}
+              ></button>
+            </div>
+
+            {/* Lista de Secciones con Iconos 3D */}
+            <div className="bdt-mobile-drawer-body">
+              
+              <a 
+                href="#inicio" 
+                className="bdt-mobile-drawer-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <img src="/icons3d/icono_inicio_3d.png" alt="Inicio" className="bdt-mobile-menu-icon-3d" />
+                <div>
+                  <span className="d-block">Inicio y Bienvenida</span>
+                  <span className="extra-small text-muted fw-normal" style={{ fontSize: '0.72rem' }}>Portada principal y novedades</span>
+                </div>
+              </a>
+
+              <a 
+                href="#modalidades" 
+                className="bdt-mobile-drawer-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <img src="/icons3d/icono_academico_3d.png" alt="Modalidades" className="bdt-mobile-menu-icon-3d" />
+                <div>
+                  <span className="d-block">Modalidades Educativas</span>
+                  <span className="extra-small text-muted fw-normal" style={{ fontSize: '0.72rem' }}>Presencial, E-Learning, B-Learning y M-Learning</span>
+                </div>
+              </a>
+
+              <a 
+                href="#modulos" 
+                className="bdt-mobile-drawer-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <img src="/icons3d/icono_organizacion_3d.png" alt="Módulos" className="bdt-mobile-menu-icon-3d" />
+                <div>
+                  <span className="d-block">Servicios y Módulos Frecuentes</span>
+                  <span className="extra-small text-muted fw-normal" style={{ fontSize: '0.72rem' }}>Boletines, cupos, datos y transporte</span>
+                </div>
+              </a>
+
+              <a 
+                href="#planteles" 
+                className="bdt-mobile-drawer-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <img src="/icons3d/icono_direccion_3d.png" alt="Planteles" className="bdt-mobile-menu-icon-3d" />
+                <div>
+                  <span className="d-block">Planteles y Sedes Conectadas</span>
+                  <span className="extra-small text-muted fw-normal" style={{ fontSize: '0.72rem' }}>U.E. Libertador Bolívar y U.E. Santa Bárbara</span>
+                </div>
+              </a>
+
+              <a 
+                href="#verificar" 
+                className="bdt-mobile-drawer-link"
+                onClick={() => setMenuMovilAbierto(false)}
+              >
+                <img src="/icons3d/icono_seguridad_3d.png" alt="Validar QR" className="bdt-mobile-menu-icon-3d" />
+                <div>
+                  <span className="d-block">Validar Constancia con Código QR</span>
+                  <span className="extra-small text-muted fw-normal" style={{ fontSize: '0.72rem' }}>Verificador criptográfico de documentos</span>
+                </div>
+              </a>
+
+              {/* Acceso a Asistentes Zoe y Max */}
+              <div 
+                className="p-3 rounded-4 d-flex align-items-center justify-content-between cursor-pointer mt-1"
+                style={{ background: '#fff8eb', border: '1.5px solid #fed7aa' }}
+                onClick={() => {
+                  setMenuMovilAbierto(false);
+                  const elem = document.getElementById('asistentes');
+                  if (elem) elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+              >
+                <div className="d-flex align-items-center gap-2">
+                  <div className="d-flex align-items-center">
+                    <img src="/zoe_avatar.png" alt="Zoe" style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2px solid #fff' }} />
+                    <img src="/max_avatar.png" alt="Max" style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2px solid #fff', marginLeft: '-9px' }} />
+                  </div>
+                  <div>
+                    <span className="fw-bold d-block text-dark small" style={{ lineHeight: 1.1 }}>Zoe & Max</span>
+                    <span className="extra-small text-muted" style={{ fontSize: '0.7rem' }}>Asistentes de Inteligencia Escolar</span>
+                  </div>
+                </div>
+                <span className="badge rounded-pill text-white px-2.5 py-1 extra-small fw-bold" style={{ backgroundColor: 'var(--bdt-orange-action)' }}>
+                  Orientación ★
+                </span>
+              </div>
+
+              {/* Botón de Acceso en Línea y Plantel */}
+              <div className="pt-2 border-top mt-2 d-flex flex-column gap-2">
+                <button 
+                  type="button" 
+                  className="btn text-white fw-bold rounded-pill py-2.5 d-flex align-items-center justify-content-center gap-2 w-100 font-ruda shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, var(--bdt-orange-action) 0%, #e05314 100%)', border: 'none' }}
+                  onClick={() => {
+                    setMenuMovilAbierto(false);
+                    abrirSelectorEscuela();
+                  }}
+                >
+                  <i className="bi bi-shield-lock-fill"></i>
+                  <span>Acceder a SIGAEenLínea</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="btn btn-outline-secondary fw-bold rounded-pill py-2 d-flex align-items-center justify-content-center gap-2 w-100 font-ruda extra-small"
+                  onClick={() => {
+                    setMenuMovilAbierto(false);
+                    abrirSelectorEscuela();
+                  }}
+                >
+                  <i className="bi bi-buildings"></i>
+                  <span>Seleccionar Mi Plantel Educativo</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ── 5. HERO BANNER PRINCIPAL: CARRUSEL INTERACTIVO CON ZOE, MAX Y GESTIÓN DIARIA APROBADA ── */}
       <section 
@@ -725,15 +889,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
           <div className="row g-3">
             
-            {/* Módulo Popular 1: Boletines y Calificaciones */}
+            {/* Módulo Popular 1: Boletines y Calificaciones con Icono 3D */}
             <div className="col-md-6 col-lg-4">
               <div 
                 className="bdt-popular-card cursor-pointer"
                 onClick={abrirSelectorEscuela}
                 title="Consultar boletines académicos"
               >
-                <div className="bdt-popular-icon">
-                  <i className="bi bi-file-earmark-bar-graph-fill"></i>
+                <div className="bdt-popular-icon" style={{ background: 'transparent' }}>
+                  <img src="/icons3d/icono_academico_3d.png" alt="Boletines" className="bdt-module-icon-3d" />
                 </div>
                 <div>
                   <h4 className="fs-6 fw-bold m-0 font-ruda">Boletines y Resumen</h4>
@@ -744,15 +908,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </div>
             </div>
 
-            {/* Módulo Popular 2: Actualización de Datos */}
+            {/* Módulo Popular 2: Actualización de Datos con Icono 3D */}
             <div className="col-md-6 col-lg-4">
               <div 
                 className="bdt-popular-card cursor-pointer"
                 onClick={abrirSelectorEscuela}
                 title="Actualizar datos escolares"
               >
-                <div className="bdt-popular-icon" style={{ color: 'var(--bdt-purple-bicentenario)', background: '#fae8ff' }}>
-                  <i className="bi bi-person-vcard-fill"></i>
+                <div className="bdt-popular-icon" style={{ background: 'transparent' }}>
+                  <img src="/icons3d/icono_estudiantil_3d.png" alt="Actualización" className="bdt-module-icon-3d" />
                 </div>
                 <div>
                   <h4 className="fs-6 fw-bold m-0 font-ruda">Actualización de Datos</h4>
@@ -763,15 +927,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </div>
             </div>
 
-            {/* Módulo Popular 3: Solicitud de Cupos */}
+            {/* Módulo Popular 3: Solicitud de Cupos con Icono 3D */}
             <div className="col-md-6 col-lg-4">
               <div 
                 className="bdt-popular-card cursor-pointer"
                 onClick={abrirSelectorEscuela}
                 title="Solicitar cupo escolar"
               >
-                <div className="bdt-popular-icon" style={{ color: '#0284c7', background: '#e0f2fe' }}>
-                  <i className="bi bi-envelope-paper-fill"></i>
+                <div className="bdt-popular-icon" style={{ background: 'transparent' }}>
+                  <img src="/icons3d/icono_admisiones_3d.png" alt="Cupos" className="bdt-module-icon-3d" />
                 </div>
                 <div>
                   <h4 className="fs-6 fw-bold m-0 font-ruda">Solicitud de Cupos</h4>
@@ -782,15 +946,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </div>
             </div>
 
-            {/* Módulo Popular 4: Guías Pedagógicas & Colección Bicentenario */}
+            {/* Módulo Popular 4: Guías Pedagógicas & Colección Bicentenario con Icono 3D */}
             <div className="col-md-6 col-lg-4">
               <div 
                 className="bdt-popular-card cursor-pointer"
                 onClick={abrirSelectorEscuela}
                 title="Descargar recursos educativos"
               >
-                <div className="bdt-popular-icon" style={{ color: '#16a34a', background: '#dcfce7' }}>
-                  <i className="bi bi-book-half"></i>
+                <div className="bdt-popular-icon" style={{ background: 'transparent' }}>
+                  <img src="/icons3d/icono_disenos_3d.png" alt="Bicentenario" className="bdt-module-icon-3d" />
                 </div>
                 <div>
                   <h4 className="fs-6 fw-bold m-0 font-ruda">Colección Bicentenario</h4>
@@ -801,15 +965,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </div>
             </div>
 
-            {/* Módulo Popular 5: Constancias y Carnetización con QR */}
+            {/* Módulo Popular 5: Constancias y Carnetización con QR con Icono 3D */}
             <div className="col-md-6 col-lg-4">
               <a 
                 href="#verificar"
                 className="bdt-popular-card"
                 title="Validar o tramitar constancias con QR"
               >
-                <div className="bdt-popular-icon" style={{ color: '#d97706', background: '#fef3c7' }}>
-                  <i className="bi bi-qr-code-scan"></i>
+                <div className="bdt-popular-icon" style={{ background: 'transparent' }}>
+                  <img src="/icons3d/icono_seguridad_3d.png" alt="Constancias QR" className="bdt-module-icon-3d" />
                 </div>
                 <div>
                   <h4 className="fs-6 fw-bold m-0 font-ruda">Constancias con Código QR</h4>
@@ -820,15 +984,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </a>
             </div>
 
-            {/* Módulo Popular 6: Rutas de Transporte Escolar */}
+            {/* Módulo Popular 6: Rutas de Transporte Escolar con Icono 3D */}
             <div className="col-md-6 col-lg-4">
               <div 
                 className="bdt-popular-card cursor-pointer"
                 onClick={abrirSelectorEscuela}
                 title="Consultar censo y rutas de transporte"
               >
-                <div className="bdt-popular-icon" style={{ color: '#6366f1', background: '#e0e7ff' }}>
-                  <i className="bi bi-bus-front-fill"></i>
+                <div className="bdt-popular-icon" style={{ background: 'transparent' }}>
+                  <img src="/icons3d/icono_transporte_3d.png" alt="Transporte" className="bdt-module-icon-3d" />
                 </div>
                 <div>
                   <h4 className="fs-6 fw-bold m-0 font-ruda">Transporte y Rutogramas</h4>
