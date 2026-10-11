@@ -89,44 +89,33 @@ export const PortalGeneralSIGAE: React.FC = () => {
       <header className="bdt-floating-navbar-container">
         <nav className="bdt-floating-navbar">
           
-          {/* LADO IZQUIERDO: Cintillo oficial MPPE en pastilla blanca + Enlaces de navegación rápida */}
-          <div className="d-flex align-items-center gap-2 gap-xl-3">
-            <div 
-              className="d-none d-sm-flex align-items-center bg-white px-2.5 py-1 rounded-pill shadow-xs"
-              style={{ height: '36px' }}
-              title="Ministerio del Poder Popular para la Educación"
-            >
-              <img 
-                src="/assets/img/logoMPPE.png" 
-                alt="MPPE Venezuela" 
-                style={{ height: '24px', width: 'auto', objectFit: 'contain' }}
-              />
-            </div>
-
-            {/* Enlaces rápidos */}
-            <div className="d-none d-xl-flex align-items-center gap-1">
-              <a href="#inicio" className="bdt-float-navlink">
-                <span>Inicio</span>
-              </a>
-              <a href="#modalidades" className="bdt-float-navlink">
-                <span>Modalidades</span>
-              </a>
-              <a href="#modulos" className="bdt-float-navlink">
-                <span>Módulos</span>
-              </a>
-              <a href="#planteles" className="bdt-float-navlink">
-                <span>Planteles</span>
-              </a>
-            </div>
+          {/* LADO IZQUIERDO: Enlaces de navegación rápida (sin logo ministerial en el menú) */}
+          <div className="d-none d-lg-flex align-items-center gap-1">
+            <a href="#inicio" className="bdt-float-navlink">
+              <span>Inicio</span>
+            </a>
+            <a href="#modalidades" className="bdt-float-navlink">
+              <span>Modalidades</span>
+            </a>
+            <a href="#modulos" className="bdt-float-navlink">
+              <span>Módulos</span>
+            </a>
+            <a href="#planteles" className="bdt-float-navlink">
+              <span>Planteles</span>
+            </a>
+            <a href="#verificar" className="bdt-float-navlink">
+              <span>Validar QR</span>
+            </a>
           </div>
 
-          {/* CENTRO PROTAGONISTA: LOGO DEL SIGAE Y TÍTULO INSTITUCIONAL "Sistema Integral de Gestión y Administración Escolar" */}
+          {/* CENTRO PROTAGONISTA: ESCUDO FLOTANTE DE SIGAE (ESTILO LOGIN CON RESPLANDOR Y LEVITACIÓN) Y TÍTULO INSTITUCIONAL */}
           <Link to="/" className="bdt-float-center-branding" title="SIGAE - Sistema Integral de Gestión y Administración Escolar">
-            <div className="bdt-float-logo-badge">
+            <div className="sigae-login-style-shield-wrapper">
+              <div className="sigae-login-style-shield-glow"></div>
               <img 
-                src="/assets/img/sigae.png" 
-                alt="Escudo Oficial SIGAE" 
-                className="bdt-float-logo-img"
+                src="/assets/img/sigae.png?v=escudo3d" 
+                alt="Escudo Oficial SIGAE 3D Flotante" 
+                className="sigae-login-style-shield-img"
               />
             </div>
             <div className="bdt-float-title-group">
@@ -835,6 +824,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
           <div className="row g-4 align-items-center mb-4">
             
             <div className="col-md-6 text-center text-md-start">
+              {/* Logo Oficial del Ministerio del Poder Popular para la Educación (trasladado al pie de página) */}
+              <div className="mb-3 d-inline-block p-2 bg-white rounded-3 shadow-xs">
+                <img 
+                  src="/assets/img/logoMPPE.png" 
+                  alt="Ministerio del Poder Popular para la Educación" 
+                  style={{ height: '38px', width: 'auto', objectFit: 'contain' }}
+                />
+              </div>
+
               <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2">
                 <img src="/assets/img/sigae.png" alt="SIGAE Logo" style={{ width: '34px', height: '34px', objectFit: 'contain' }} />
                 <span className="fw-bolder text-white fs-5 font-ruda">SIGAE</span>
