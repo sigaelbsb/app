@@ -158,7 +158,7 @@
 /* ── 4. LA AUTÉNTICA BARRA DE MENÚ FLOTANTE CÁPSULA (CON COLORES DE LA WEB VIEJA) ── */
 .bdt-floating-navbar-container {
   position: fixed;
-  top: 24px;
+  top: 18px;
   left: 0;
   right: 0;
   z-index: 1080;
@@ -179,35 +179,37 @@
   /* Fondo claro luminoso con sutil tinte cálido y borde Púrpura Bicentenario de la web vieja */
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 248, 235, 0.96) 50%, rgba(255, 255, 255, 0.98) 100%);
   border-radius: 9999px;
-  padding: 10px 22px;
-  box-shadow: 0 16px 40px rgba(14, 44, 83, 0.12), 0 2px 10px rgba(146, 39, 143, 0.1);
-  border: 2.5px solid rgba(146, 39, 143, 0.35);
+  padding: 4px 18px; /* Altura más compacta y estilizada */
+  box-shadow: 0 10px 30px rgba(14, 44, 83, 0.1), 0 2px 8px rgba(146, 39, 143, 0.08);
+  border: 2px solid rgba(146, 39, 143, 0.32);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: all 0.28s ease;
   position: relative;
 }
 
-/* ── CENTRO PROTAGONISTA: LOGO DEL SIGAE MÁS GRANDE Y FLOTANTE SOBRE LA BARRA ── */
+/* ── CENTRO PROTAGONISTA: LOGO DEL SIGAE SIN FONDO NI CÍRCULO, FLOTANTE Y JUSTIFICADO ── */
 .bdt-float-center-branding {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 12px;
   text-decoration: none;
   cursor: pointer;
   transition: opacity 0.2s ease;
   z-index: 20;
+  padding: 0 4px;
 }
 
 .bdt-float-center-branding:hover {
   opacity: 0.96;
 }
 
-/* Escudo SIGAE agrandado y flotando majestuosamente sobre el borde superior de la barra de menú */
+/* Escudo SIGAE sin fondo ni círculo exterior, flotando sobre la barra y justificado arriba y abajo */
 .sigae-login-style-shield-wrapper {
   position: relative;
   display: inline-flex;
@@ -215,66 +217,47 @@
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
-  margin-top: -44px; /* Flotando y sobresaliendo con gran presencia por encima de la barra */
-  background: radial-gradient(circle, #ffffff 65%, #fff8eb 100%);
-  border-radius: 50%;
-  padding: 8px;
-  border: 3.5px solid var(--bdt-purple-bicentenario);
-  box-shadow: 0 14px 32px rgba(14, 44, 83, 0.24), 0 0 22px rgba(146, 39, 143, 0.35), 0 0 0 3px rgba(242, 101, 34, 0.25);
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin-top: -16px;    /* Flotando sobre la barra justificado arriba */
+  margin-bottom: -16px; /* Flotando simétricamente justificado abajo */
   animation: sigaeShieldFloat 4s ease-in-out infinite;
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 25;
 }
 
 .sigae-login-style-shield-wrapper:hover {
-  transform: translateY(-8px) scale(1.1);
-  box-shadow: 0 18px 38px rgba(14, 44, 83, 0.3), 0 0 28px rgba(146, 39, 143, 0.5), 0 0 0 4px rgba(242, 101, 34, 0.4);
+  transform: translateY(-4px) scale(1.08);
 }
 
 .sigae-login-style-shield-glow {
-  position: absolute;
-  width: 110px;
-  height: 110px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(146, 39, 143, 0.45) 0%, rgba(242, 101, 34, 0.25) 45%, rgba(0, 140, 255, 0.2) 70%, transparent 85%);
-  filter: blur(12px);
-  z-index: 0;
-  pointer-events: none;
-  animation: sigaeGlowPulse 3s ease-in-out infinite alternate;
+  display: none !important; /* Sin círculo ni resplandor circular de fondo */
 }
 
 .sigae-login-style-shield-img {
-  width: 82px; /* Más grande como solicitó el usuario */
-  height: 82px;
+  width: 80px; /* Tamaño generoso mantenido */
+  height: 80px;
   object-fit: contain;
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 10px 18px rgba(14, 44, 83, 0.4));
+  filter: drop-shadow(0 6px 14px rgba(14, 44, 83, 0.35));
   transition: filter 0.3s ease;
 }
 
 .sigae-login-style-shield-wrapper:hover .sigae-login-style-shield-img {
-  filter: drop-shadow(0 14px 26px rgba(146, 39, 143, 0.65));
+  filter: drop-shadow(0 10px 20px rgba(146, 39, 143, 0.55));
 }
 
 @keyframes sigaeShieldFloat {
   0%, 100% {
-    transform: translateY(0px) rotate(0deg) scale(1);
-  }
-  25% {
-    transform: translateY(-5px) rotate(-1.5deg) scale(1.03);
+    transform: translateY(0px) scale(1);
   }
   50% {
-    transform: translateY(-9px) rotate(0deg) scale(1.05);
+    transform: translateY(-5px) scale(1.04);
   }
-  75% {
-    transform: translateY(-5px) rotate(1.5deg) scale(1.02);
-  }
-}
-
-@keyframes sigaeGlowPulse {
-  0% { transform: scale(0.92); opacity: 0.6; }
-  100% { transform: scale(1.28); opacity: 0.98; }
 }
 
 .bdt-float-title-group {
@@ -287,7 +270,7 @@
 .bdt-float-brand-acronym {
   font-family: var(--font-title);
   font-weight: 900;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   background: linear-gradient(135deg, var(--bdt-navy-deep) 0%, var(--bdt-purple-bicentenario) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -297,18 +280,18 @@
 
 .bdt-float-brand-full {
   font-family: var(--font-body);
-  font-size: 0.74rem;
+  font-size: 0.70rem;
   font-weight: 700;
   color: var(--bdt-purple-bicentenario); /* Púrpura Bicentenario de la web vieja */
-  letter-spacing: 0.3px;
-  line-height: 1.2;
-  margin-top: 2px;
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+  margin-top: 1px;
   white-space: nowrap;
 }
 
 @media (max-width: 1100px) {
   .bdt-float-brand-full {
-    font-size: 0.65rem;
+    font-size: 0.64rem;
     white-space: normal;
     max-width: 200px;
   }
@@ -316,17 +299,12 @@
 
 @media (max-width: 768px) {
   .sigae-login-style-shield-wrapper {
-    margin-top: -24px;
-    padding: 5px;
-    border-width: 2.5px;
+    margin-top: -8px;
+    margin-bottom: -8px;
   }
   .sigae-login-style-shield-img {
-    width: 58px;
-    height: 58px;
-  }
-  .sigae-login-style-shield-glow {
-    width: 80px;
-    height: 80px;
+    width: 54px;
+    height: 54px;
   }
   .bdt-float-brand-full {
     display: none;
@@ -336,21 +314,21 @@
 /* Enlaces de Navegación de la Barra Flotante con Colores de la Web Vieja */
 .bdt-float-navlink {
   font-family: var(--font-body);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--bdt-navy-deep);
-  padding: 6px 13px;
+  padding: 5px 11px; /* Menos alto */
   border-radius: 9999px;
   text-decoration: none;
   transition: all 0.22s ease;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: 1px solid transparent;
 }
 
 .bdt-float-navlink i {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   transition: transform 0.2s ease;
 }
 
@@ -362,18 +340,18 @@
 }
 
 .bdt-float-navlink:hover i {
-  transform: scale(1.18);
+  transform: scale(1.15);
 }
 
 /* ── ASISTENTE ZOE & MAX EN LA BARRA DE MENÚ (INTEGRADO CON COLORES VIEJOS) ── */
 .bdt-menu-ia-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   background: #fff8eb;
   border: 1.5px solid rgba(146, 39, 143, 0.25);
   border-radius: 9999px;
-  padding: 4px 12px 4px 6px;
+  padding: 3px 10px 3px 4px; /* Menos alto */
   cursor: pointer;
   transition: all 0.25s ease;
   text-decoration: none;
@@ -394,8 +372,8 @@
 }
 
 .bdt-menu-ia-avatar {
-  width: 28px;
-  height: 28px;
+  width: 25px; /* Más compacto */
+  height: 25px;
   border-radius: 50%;
   border: 2px solid #ffffff;
   object-fit: cover;
@@ -404,7 +382,7 @@
 }
 
 .bdt-menu-ia-avatar.max {
-  margin-left: -10px;
+  margin-left: -9px;
   border-color: #fef3c7;
 }
 
@@ -418,13 +396,13 @@
 .bdt-menu-ia-title {
   font-family: var(--font-title);
   font-weight: 800;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: #b45309;
   letter-spacing: -0.2px;
 }
 
 .bdt-menu-ia-sub {
-  font-size: 0.62rem;
+  font-size: 0.60rem;
   font-weight: 700;
   color: #0284c7;
   letter-spacing: 0.3px;
@@ -442,14 +420,14 @@
   color: #ffffff !important;
   font-family: var(--font-title);
   font-weight: 850;
-  font-size: 0.88rem;
-  padding: 8px 22px;
+  font-size: 0.84rem;
+  padding: 6px 18px; /* Altura compacta y elegante */
   border-radius: 9999px;
   border: none;
   box-shadow: 0 4px 14px rgba(242, 101, 34, 0.4);
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   cursor: pointer;
   transition: all 0.25s ease;
   text-decoration: none;
@@ -465,7 +443,7 @@
 .bdt-hero-section {
   background: linear-gradient(135deg, #ffffff 0%, #f0f6ff 45%, #fff9ee 100%);
   color: var(--bdt-text-dark);
-  padding: 125px 20px 75px 20px; /* Margen superior para el escudo grande sobresaliente */
+  padding: 105px 20px 65px 20px; /* Ajustado armoniosamente para la barra menos alta */
   position: relative;
   overflow: hidden;
   border-bottom: 1px solid #e2e8f0;

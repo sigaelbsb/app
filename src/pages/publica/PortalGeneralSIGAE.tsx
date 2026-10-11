@@ -113,13 +113,12 @@ export const PortalGeneralSIGAE: React.FC = () => {
             </a>
           </div>
 
-          {/* CENTRO PROTAGONISTA: ESCUDO FLOTANTE DE SIGAE MÁS GRANDE Y FLOTANTE SOBRE LA BARRA DE MENÚ */}
+          {/* CENTRO PROTAGONISTA: ESCUDO FLOTANTE DE SIGAE LIMPIO Y JUSTIFICADO SOBRE LA BARRA DE MENÚ */}
           <Link to="/" className="bdt-float-center-branding" title="SIGAE - Sistema Integral de Gestión y Administración Escolar">
             <div className="sigae-login-style-shield-wrapper">
-              <div className="sigae-login-style-shield-glow"></div>
               <img 
                 src="/assets/img/sigae.png?v=escudo3d" 
-                alt="Escudo Oficial SIGAE 3D Flotante" 
+                alt="Escudo Oficial SIGAE Flotante" 
                 className="sigae-login-style-shield-img"
               />
             </div>
