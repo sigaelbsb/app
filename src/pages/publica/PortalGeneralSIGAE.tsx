@@ -89,26 +89,31 @@ export const PortalGeneralSIGAE: React.FC = () => {
       <header className="bdt-floating-navbar-container">
         <nav className="bdt-floating-navbar">
           
-          {/* LADO IZQUIERDO: Enlaces de navegación rápida (sin logo ministerial en el menú) */}
+          {/* LADO IZQUIERDO: Enlaces de navegación rápida con los colores emblemáticos de la web escolar */}
           <div className="d-none d-lg-flex align-items-center gap-1">
-            <a href="#inicio" className="bdt-float-navlink">
+            <a href="#inicio" className="bdt-float-navlink" title="Ir al inicio del portal">
+              <i className="bi bi-house-door-fill" style={{ color: 'var(--bdt-navy-deep)' }}></i>
               <span>Inicio</span>
             </a>
-            <a href="#modalidades" className="bdt-float-navlink">
+            <a href="#modalidades" className="bdt-float-navlink" title="Ver modalidades educativas integradas">
+              <i className="bi bi-mortarboard-fill" style={{ color: 'var(--bdt-purple-bicentenario)' }}></i>
               <span>Modalidades</span>
             </a>
-            <a href="#modulos" className="bdt-float-navlink">
+            <a href="#modulos" className="bdt-float-navlink" title="Explorar servicios y módulos más solicitados">
+              <i className="bi bi-grid-fill" style={{ color: 'var(--bdt-orange-action)' }}></i>
               <span>Módulos</span>
             </a>
-            <a href="#planteles" className="bdt-float-navlink">
+            <a href="#planteles" className="bdt-float-navlink" title="Red de planteles conectados">
+              <i className="bi bi-buildings-fill" style={{ color: 'var(--bdt-lime-green)' }}></i>
               <span>Planteles</span>
             </a>
-            <a href="#verificar" className="bdt-float-navlink">
+            <a href="#verificar" className="bdt-float-navlink" title="Verificar validez de documentos QR">
+              <i className="bi bi-qr-code-scan" style={{ color: '#00bfff' }}></i>
               <span>Validar QR</span>
             </a>
           </div>
 
-          {/* CENTRO PROTAGONISTA: ESCUDO FLOTANTE DE SIGAE (ESTILO LOGIN CON RESPLANDOR Y LEVITACIÓN) Y TÍTULO INSTITUCIONAL */}
+          {/* CENTRO PROTAGONISTA: ESCUDO FLOTANTE DE SIGAE MÁS GRANDE Y FLOTANTE SOBRE LA BARRA DE MENÚ */}
           <Link to="/" className="bdt-float-center-branding" title="SIGAE - Sistema Integral de Gestión y Administración Escolar">
             <div className="sigae-login-style-shield-wrapper">
               <div className="sigae-login-style-shield-glow"></div>
@@ -133,7 +138,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
               className="bdt-menu-ia-btn d-none d-sm-inline-flex"
               onClick={() => {
                 setMensajeAsistente(
-                  '¡Hola! Somos Zoe y Max. Puedes ingresar a tu institución educativa con el botón azul "SIGAEenLínea", explorar los módulos populares o consultar constancias con código QR.'
+                  '¡Hola! Somos Zoe y Max. Puedes ingresar a tu institución educativa con el botón naranja "SIGAEenLínea", explorar los módulos escolares o verificar constancias con código QR.'
                 );
                 const elem = document.getElementById('asistentes');
                 if (elem) {
@@ -162,7 +167,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </div>
             </button>
 
-            {/* BOTÓN PÍLDORA EXACTO: 'SIGAEenLínea' (Equivalente fiel a BDTenLínea) */}
+            {/* BOTÓN PÍLDORA EXACTO: 'SIGAEenLínea' (Equivalente fiel con naranja de acción de la web vieja) */}
             <button 
               type="button" 
               className="bdt-btn-en-linea"
