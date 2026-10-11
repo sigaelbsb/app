@@ -127,14 +127,40 @@ export const PortalGeneralSIGAE: React.FC = () => {
           {/* LADO DERECHO: Badge Zoe & Max + Botón Cápsula 'SIGAEenLínea' */}
           <div className="d-flex align-items-center gap-2 gap-md-2.5">
             
-            {/* Badge de Asistentes Zoe & Max */}
-            <div className="bdt-badge-renace d-none d-lg-flex" title="Asistentes Inteligentes Escolares">
-              <i className="bi bi-stars text-warning fs-6"></i>
-              <div>
-                <div className="bdt-badge-renace-title">ZOE & MAX</div>
-                <div className="bdt-badge-renace-sub">IA ESCOLAR ★</div>
+            {/* Botón Asistente IA Zoe & Max Integrado en la Barra de Menú */}
+            <button
+              type="button"
+              className="bdt-menu-ia-btn d-none d-sm-inline-flex"
+              onClick={() => {
+                setMensajeAsistente(
+                  '¡Hola! Somos Zoe y Max. Puedes ingresar a tu institución educativa con el botón azul "SIGAEenLínea", explorar los módulos populares o consultar constancias con código QR.'
+                );
+                const elem = document.getElementById('asistentes');
+                if (elem) {
+                  elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }}
+              title="Consultar orientación con los asistentes Zoe y Max"
+            >
+              <div className="bdt-menu-ia-avatars">
+                <img 
+                  src="/zoe_avatar.png" 
+                  alt="Zoe" 
+                  className="bdt-menu-ia-avatar zoe" 
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }} 
+                />
+                <img 
+                  src="/max_avatar.png" 
+                  alt="Max" 
+                  className="bdt-menu-ia-avatar max" 
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }} 
+                />
               </div>
-            </div>
+              <div className="bdt-menu-ia-text">
+                <span className="bdt-menu-ia-title">Zoe & Max</span>
+                <span className="bdt-menu-ia-sub">Asistente IA ★</span>
+              </div>
+            </button>
 
             {/* BOTÓN PÍLDORA EXACTO: 'SIGAEenLínea' (Equivalente fiel a BDTenLínea) */}
             <button 
@@ -796,30 +822,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 12. WIDGET FLOTANTE INTERACTIVO DE ZOE Y MAX (ASISTENTE ESCOLAR) ── */}
-      <div 
-        className="bdt-zoe-max-floating-widget" 
-        onClick={() => {
-          setMensajeAsistente(
-            'Para ingresar a tu escuela o solicitar un cupo escolar, haz clic en el botón azul "SIGAEenLínea" arriba en el menú flotante.'
-          );
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        title="Consultar orientación con Zoe y Max"
-      >
-        <img 
-          src="/zoe_avatar.png" 
-          alt="Avatar Zoe" 
-          className="bdt-zoe-max-widget-avatar"
-          onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
-        />
-        <div>
-          <div className="bdt-zoe-max-widget-title">Asistente Zoe & Max</div>
-          <div className="bdt-zoe-max-widget-sub">¿Preguntas sobre el sistema?</div>
-        </div>
-      </div>
-
-      {/* ── 13. PIE DE PÁGINA CORPORATIVO (FOOTER BDT + CRÉDITOS RESCATADOS) ── */}
+      {/* ── 12. PIE DE PÁGINA CORPORATIVO (FOOTER BDT + CRÉDITOS RESCATADOS) ── */}
       <footer className="bdt-footer">
         <div className="container">
           <div className="row g-4 align-items-center mb-4">
