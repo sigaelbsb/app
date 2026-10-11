@@ -160,7 +160,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
             {/* Columna Izquierda: Titular y Llamado a la Acción */}
             <div className="col-lg-6 text-center text-lg-start">
               
-              <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold">
+              <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white border border-secondary border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-dark">
                 <i className="bi bi-geo-alt-fill text-warning"></i>
                 <span>Miraflores, municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
               </div>
@@ -177,7 +177,8 @@ export const PortalGeneralSIGAE: React.FC = () => {
               <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
                 <button 
                   type="button" 
-                  className="bdt-btn-pill-green py-2.5 px-4 fs-6 shadow-sm"
+                  className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                  style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none' }}
                   onClick={abrirSelectorEscuela}
                 >
                   <i className="bi bi-buildings-fill"></i>
@@ -186,8 +187,8 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
                 <a 
                   href="#modulos" 
-                  className="btn btn-outline-light rounded-pill px-4 py-2.5 fw-semibold d-inline-flex align-items-center gap-2 font-ruda"
-                  style={{ fontSize: '0.86rem' }}
+                  className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                  style={{ fontSize: '0.86rem', borderColor: '#0e2c53', color: '#0e2c53', backgroundColor: '#ffffff' }}
                 >
                   <i className="bi bi-grid-fill text-warning"></i>
                   <span>Explorar Módulos Populares</span>
@@ -206,7 +207,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
                     <i className="bi bi-chat-quote-fill text-warning"></i>
                     <span>Zoe & Max te dan la bienvenida</span>
                   </div>
-                  <p className="m-0 extra-small" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
+                  <p className="m-0 extra-small text-secondary" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
                     {mensajeAsistente}
                   </p>
                 </div>
@@ -222,8 +223,8 @@ export const PortalGeneralSIGAE: React.FC = () => {
                   }}
                 />
 
-                <div className="mt-2 text-light opacity-90 small fw-bold">
-                  <span style={{ color: '#38bdf8' }}>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span style={{ color: '#facc15' }}>Max &bull; Asistente Tecnológico</span>
+                <div className="mt-2 text-secondary small fw-bold">
+                  <span style={{ color: '#0284c7' }}>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span style={{ color: '#ea580c' }}>Max &bull; Asistente Tecnológico</span>
                 </div>
 
               </div>
@@ -835,8 +836,8 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
               <div className="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2">
                 <img src="/assets/img/sigae.png" alt="SIGAE Logo" style={{ width: '34px', height: '34px', objectFit: 'contain' }} />
-                <span className="fw-bolder text-white fs-5 font-ruda">SIGAE</span>
-                <span className="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-50 extra-small">
+                <span className="fw-bolder fs-5 font-ruda" style={{ color: 'var(--bdt-navy-deep)' }}>SIGAE</span>
+                <span className="badge bg-light text-primary border extra-small">
                   v1.4.0
                 </span>
               </div>
@@ -846,18 +847,18 @@ export const PortalGeneralSIGAE: React.FC = () => {
             </div>
 
             <div className="col-md-6 text-center text-md-end">
-              <div className="p-3 rounded-3 bg-white bg-opacity-5 border border-white border-opacity-10 d-inline-block text-start">
-                <div className="text-white small fw-bold mb-1">
+              <div className="p-3 rounded-3 bg-white border shadow-xs d-inline-block text-start">
+                <div className="small fw-bold mb-1" style={{ color: 'var(--bdt-navy-deep)' }}>
                   <i className="bi bi-code-slash text-warning me-1"></i>
                   Créditos de Desarrollo Institucional:
                 </div>
-                <div className="extra-small text-light opacity-80">
-                  Desarrollador y Diseñador: <strong>Prof. Luis Velásquez</strong>
+                <div className="extra-small text-secondary">
+                  Desarrollador y Diseñador: <strong className="text-dark">Prof. Luis Velásquez</strong>
                 </div>
-                <div className="extra-small text-light opacity-80">
-                  Asesor Pedagógico: <strong>Prof. Luis Salmerón</strong>
+                <div className="extra-small text-secondary">
+                  Asesor Pedagógico: <strong className="text-dark">Prof. Luis Salmerón</strong>
                 </div>
-                <div className="extra-small text-light opacity-60 mt-1">
+                <div className="extra-small text-muted mt-1">
                   Vía Nacional Monagas - Sucre, Campo Monagas Miraflores.
                 </div>
               </div>
@@ -865,7 +866,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
           </div>
 
-          <div className="pt-3 border-top border-secondary border-opacity-25 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 extra-small text-muted">
+          <div className="pt-3 border-top border-slate-200 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 extra-small text-muted">
             <div>
               &copy; 2026 SIGAE &bull; Licencia Creative Commons Atribución-CompartirIgual 3.0 Venezuela
             </div>
