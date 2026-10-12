@@ -3631,7 +3631,8 @@ const STEPS = [
         </div>
       </div>
 
-      {/* ─── DOCUMENTOS FOTOGRÁFICOS DEL ESTUDIANTE ─── */}
+      {/* ─── DOCUMENTOS FOTOGRÁFICOS DEL ESTUDIANTE (OCULTO TEMPORALMENTE) ─── */}
+      {false && (
       <div className="mt-4">
         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
           <i className="bi bi-camera-fill text-success fs-5"></i>
@@ -3696,6 +3697,7 @@ const STEPS = [
           })}
         </div>
       </div>
+      )}
 
       <div className="d-flex justify-content-between mt-4 pt-3 border-top">
         <button className="btn btn-outline-secondary rounded-pill px-4" onClick={() => setStep(2)}>
@@ -3933,6 +3935,7 @@ const STEPS = [
                     value={form.madre_direccion || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('madre_direccion', v))} />
                 </div>
 
+                {false && (
                 <div className="col-md-12 mt-3">
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden" style={{ maxWidth: 380 }}>
                     <div className="card-header bg-danger-subtle d-flex align-items-center gap-2 py-2">
@@ -3974,6 +3977,7 @@ const STEPS = [
                     </div>
                   </div>
                 </div>
+                )}
               </>
             )}
           </div>
@@ -4115,6 +4119,7 @@ const STEPS = [
                         value={form.padre_direccion || ''} onChange={(e) => handleTituloChange(e, (v) => updateForm('padre_direccion', v))} />
                     </div>
 
+                    {false && (
                     <div className="col-md-12 mt-3">
                       <div className="card border-0 shadow-sm rounded-4 overflow-hidden" style={{ maxWidth: 380 }}>
                         <div className="card-header bg-primary-subtle d-flex align-items-center gap-2 py-2">
@@ -4156,6 +4161,7 @@ const STEPS = [
                         </div>
                       </div>
                     </div>
+                    )}
                   </>
                 )}
               </div>
@@ -4224,7 +4230,7 @@ const STEPS = [
                     </button>
                   ))}
                 </div>
-                {form.estudiante_informe_neuro && (
+                {form.estudiante_informe_neuro && false && (
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden animate__animated animate__fadeIn">
                     <div className="card-header bg-danger-subtle d-flex align-items-center gap-2 py-2">
                       <i className="bi bi-file-earmark-medical text-danger fs-5"></i>
@@ -4281,7 +4287,7 @@ const STEPS = [
                     </button>
                   ))}
                 </div>
-                {form.estudiante_certificado_conapdis && (
+                {form.estudiante_certificado_conapdis && false && (
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden animate__animated animate__fadeIn">
                     <div className="card-header bg-warning-subtle d-flex align-items-center gap-2 py-2">
                       <i className="bi bi-shield-check text-warning fs-5"></i>
@@ -4661,7 +4667,7 @@ const STEPS = [
                 <option value="Sí">Sí</option>
               </select>
               
-              {form.habilidad_cultura_orquesta === 'Sí' && (
+              {form.habilidad_cultura_orquesta === 'Sí' && false && (
                 <div className="mt-3 animate__animated animate__fadeIn">
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <div className="card-header bg-primary-subtle d-flex align-items-center justify-content-between py-2">
@@ -4748,7 +4754,7 @@ const STEPS = [
                 <option value="Sí">Sí</option>
               </select>
 
-              {form.habilidad_danza_academia === 'Sí' && (
+              {form.habilidad_danza_academia === 'Sí' && false && (
                 <div className="mt-3 animate__animated animate__fadeIn">
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <div className="card-header bg-info-subtle d-flex align-items-center justify-content-between py-2">
@@ -4840,7 +4846,7 @@ const STEPS = [
                 <option value="Sí">Sí</option>
               </select>
 
-              {form.habilidad_deporte_academia === 'Sí' && (
+              {form.habilidad_deporte_academia === 'Sí' && false && (
                 <div className="mt-3 animate__animated animate__fadeIn">
                   <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <div className="card-header bg-warning-subtle d-flex align-items-center justify-content-between py-2">
@@ -5010,8 +5016,8 @@ const STEPS = [
           <Row label={form.representante_trabaja_pdvsa === 'Sí' ? 'Parentesco con el Trabajador/a' : 'Parentesco con el Representante'} value={form.parentesco} />
           <Row label="Vive con" value={conQuienVive} />
           <Row label="Reconocido por el Padre" value={form.estudiante_reconocido_por_padre} />
-          {/* Documentos fotográficos */}
-          {(form.foto_carnet_url || form.foto_cedula_estudiante_url || form.foto_partida_nacimiento_url) && (
+          {/* Documentos fotográficos (Oculto) */}
+          {false && (form.foto_carnet_url || form.foto_cedula_estudiante_url || form.foto_partida_nacimiento_url) && (
             <div className="d-flex flex-wrap gap-2 mt-2">
               {form.foto_carnet_url && <a href={form.foto_carnet_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill"><i className="bi bi-person-bounding-box me-1"></i>Foto Carnet</a>}
               {form.foto_cedula_estudiante_url && <a href={form.foto_cedula_estudiante_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-warning rounded-pill"><i className="bi bi-card-image me-1"></i>Cédula</a>}
@@ -5118,7 +5124,8 @@ const STEPS = [
           </Section>
         )}
 
-        {/* ── DOCUMENTOS E IMÁGENES DIGITALIZADOS (OPCIONALES) ── */}
+        {/* ── DOCUMENTOS E IMÁGENES DIGITALIZADOS (OCULTO TEMPORALMENTE) ── */}
+        {false && (
         <Section icon="bi-paperclip" title="Documentos e Imágenes Digitalizados (Opcionales)" color="dark">
           <div className="d-flex flex-wrap gap-2 py-2">
             {form.foto_carnet_url ? (
@@ -5186,6 +5193,7 @@ const STEPS = [
             )}
           </div>
         </Section>
+        )}
 
         {/* ── BOTÓN GUARDAR Y DESCARGAR ── */}
         <div className="sticky-bottom pt-3 pb-2" style={{ background: 'linear-gradient(transparent, white 30%)', marginTop: 8 }}>
