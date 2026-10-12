@@ -406,31 +406,54 @@ export const PortalGeneralSIGAE: React.FC = () => {
       <header className="bdt-floating-navbar-container">
         <nav className="bdt-floating-navbar">
           
-          {/* LADO IZQUIERDO: Enlaces de navegación rápida con auténticos ICONOS 3D del SIGAE y Colores de la Web Vieja */}
+          {/* LADO IZQUIERDO: Enlaces de navegación rápida tipo cápsula con efecto Liquid-Y al estilo BDT */}
           <div className="d-none d-lg-flex align-items-center gap-1.5">
             <a href="#inicio" className="bdt-float-navlink bdt-navlink-inicio" title="Ir al inicio del portal">
               <img src="/icons3d/icono_inicio_3d.png" alt="Inicio" className="bdt-menu-icon-3d" />
-              <span>Inicio</span>
+              <span className="bdt-navlink-txt-wrap">
+                <span className="bdt-navlink-txt">INICIO</span>
+                <span className="bdt-navlink-txt-clone" aria-hidden="true">INICIO</span>
+              </span>
             </a>
+
             <a href="#matricula" className="bdt-float-navlink bdt-navlink-matricula" title="Consultar matrícula escolar y estadísticas oficiales">
               <img src="/icons3d/icono_estudiantil_3d.png" alt="Matrícula" className="bdt-menu-icon-3d" />
-              <span>Matrícula</span>
+              <span className="bdt-navlink-txt-wrap">
+                <span className="bdt-navlink-txt">MATRÍCULA</span>
+                <span className="bdt-navlink-txt-clone" aria-hidden="true">MATRÍCULA</span>
+              </span>
             </a>
+
             <a href="#modalidades" className="bdt-float-navlink bdt-navlink-modalidades" title="Ver modalidades educativas integradas">
               <img src="/icons3d/icono_academico_3d.png" alt="Modalidades" className="bdt-menu-icon-3d" />
-              <span>Modalidades</span>
+              <span className="bdt-navlink-txt-wrap">
+                <span className="bdt-navlink-txt">MODALIDADES</span>
+                <span className="bdt-navlink-txt-clone" aria-hidden="true">MODALIDADES</span>
+              </span>
             </a>
+
             <a href="#modulos" className="bdt-float-navlink bdt-navlink-modulos" title="Explorar servicios y módulos más solicitados">
               <img src="/icons3d/icono_organizacion_3d.png" alt="Módulos" className="bdt-menu-icon-3d" />
-              <span>Módulos</span>
+              <span className="bdt-navlink-txt-wrap">
+                <span className="bdt-navlink-txt">MÓDULOS</span>
+                <span className="bdt-navlink-txt-clone" aria-hidden="true">MÓDULOS</span>
+              </span>
             </a>
+
             <a href="#planteles" className="bdt-float-navlink bdt-navlink-planteles" title="Red de planteles conectados">
               <img src="/icons3d/icono_direccion_3d.png" alt="Planteles" className="bdt-menu-icon-3d" />
-              <span>Planteles</span>
+              <span className="bdt-navlink-txt-wrap">
+                <span className="bdt-navlink-txt">PLANTELES</span>
+                <span className="bdt-navlink-txt-clone" aria-hidden="true">PLANTELES</span>
+              </span>
             </a>
+
             <a href="#verificar" className="bdt-float-navlink bdt-navlink-verificar" title="Verificar validez de documentos QR">
               <img src="/icons3d/icono_seguridad_3d.png" alt="Validar QR" className="bdt-menu-icon-3d" />
-              <span>Validar QR</span>
+              <span className="bdt-navlink-txt-wrap">
+                <span className="bdt-navlink-txt">VALIDAR QR</span>
+                <span className="bdt-navlink-txt-clone" aria-hidden="true">VALIDAR QR</span>
+              </span>
             </a>
           </div>
 
@@ -495,7 +518,10 @@ export const PortalGeneralSIGAE: React.FC = () => {
               title="Acceder a tu institución escolar"
             >
               <i className="bi bi-shield-lock-fill"></i>
-              <span>SIGAEenLínea</span>
+              <span className="bdt-navlink-txt-wrap">
+                <span className="bdt-navlink-txt">SIGAEenLínea</span>
+                <span className="bdt-navlink-txt-clone" aria-hidden="true">SIGAEenLínea</span>
+              </span>
             </button>
 
             {/* BOTÓN HAMBURGUESA PARA TELÉFONOS (VISUALIZACIÓN DE PARTES DE LA WEB EN MÓVIL) */}

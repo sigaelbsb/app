@@ -311,119 +311,161 @@
   }
 }
 
-/* ── ENLACES DE NAVEGACIÓN CON COLORES DE LA WEB VIEJA Y EFECTO ALUMBRAR AL HOVER (LETRA BLANCA) ── */
+/* ── ENLACES DE NAVEGACIÓN TIPO CÁPSULA BDT (EFECTO BOTONES BDT CON LIQUID-Y ROLL Y ALUMBRADO) ── */
 .bdt-float-navlink {
   font-family: var(--font-title);
-  font-size: 0.82rem;
-  font-weight: 800;
-  padding: 5px 12px;
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  padding: 5.5px 12px;
   border-radius: 9999px;
   text-decoration: none;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 6.5px;
   border: 1.5px solid transparent;
   position: relative;
-  letter-spacing: -0.2px;
+  white-space: nowrap;
   user-select: none;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(14, 44, 83, 0.05);
 }
 
 .bdt-float-navlink .bdt-menu-icon-3d {
-  width: 19px;
-  height: 19px;
+  width: 17.5px;
+  height: 17.5px;
   object-fit: contain;
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.22s ease;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.28s ease;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.12));
+  flex-shrink: 0;
 }
 
-/* 1. Inicio: Azul Marino BDT Institucional */
+/* Efecto Liquid-Y: contenedor con máscara de desbordamiento (como btn-hover-txt-liquid-y de BDT) */
+.bdt-navlink-txt-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  height: 1.15em;
+  line-height: 1.15em;
+  overflow: hidden;
+  position: relative;
+  white-space: nowrap;
+}
+
+.bdt-navlink-txt {
+  display: block;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s ease;
+  will-change: transform;
+}
+
+.bdt-navlink-txt-clone {
+  display: block;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s ease;
+  will-change: transform;
+  color: #ffffff !important;
+}
+
+/* Hover general del botón cápsula: elevación y microescala */
+.bdt-float-navlink:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.bdt-float-navlink:hover .bdt-navlink-txt {
+  transform: translateY(-100%);
+  color: #ffffff !important;
+}
+
+.bdt-float-navlink:hover .bdt-navlink-txt-clone {
+  transform: translateY(-100%);
+  color: #ffffff !important;
+}
+
+.bdt-float-navlink:hover .bdt-menu-icon-3d {
+  transform: scale(1.18) rotate(4deg);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+}
+
+/* 1. INICIO: Azul Marino BDT Institucional */
 .bdt-navlink-inicio {
   color: #1b2c6e;
-  background: rgba(27, 44, 110, 0.05);
-  border-color: rgba(27, 44, 110, 0.12);
+  background: #ffffff;
+  border-color: rgba(27, 44, 110, 0.18);
 }
 .bdt-navlink-inicio:hover {
   background: linear-gradient(135deg, #1b2c6e 0%, #2563eb 100%) !important;
   color: #ffffff !important;
   border-color: transparent !important;
-  box-shadow: 0 4px 15px rgba(27, 44, 110, 0.45);
-  transform: translateY(-2px);
+  box-shadow: 0 5px 18px rgba(27, 44, 110, 0.45);
 }
 
-/* 2. Matrícula: Verde Lima Pedagógico Oficial */
+/* 2. MATRÍCULA: Verde Lima Pedagógico Oficial (Como el botón verde CANALES DE ATENCIÓN de BDT) */
 .bdt-navlink-matricula {
   color: #059669;
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(5, 150, 105, 0.15);
+  background: #ffffff;
+  border-color: rgba(16, 185, 129, 0.22);
 }
 .bdt-navlink-matricula:hover {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
   color: #ffffff !important;
   border-color: transparent !important;
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.5);
-  transform: translateY(-2px);
+  box-shadow: 0 5px 18px rgba(16, 185, 129, 0.5);
 }
 
-/* 3. Modalidades: Púrpura Bicentenario */
+/* 3. MODALIDADES: Púrpura Bicentenario */
 .bdt-navlink-modalidades {
   color: var(--bdt-purple-bicentenario);
-  background: rgba(146, 39, 143, 0.06);
-  border-color: rgba(146, 39, 143, 0.15);
+  background: #ffffff;
+  border-color: rgba(146, 39, 143, 0.22);
 }
 .bdt-navlink-modalidades:hover {
   background: linear-gradient(135deg, #92278f 0%, #7c3aed 100%) !important;
   color: #ffffff !important;
   border-color: transparent !important;
-  box-shadow: 0 4px 15px rgba(146, 39, 143, 0.5);
-  transform: translateY(-2px);
+  box-shadow: 0 5px 18px rgba(146, 39, 143, 0.5);
 }
 
-/* 4. Módulos: Naranja de Acción Energético */
+/* 4. MÓDULOS: Naranja de Acción Energético */
 .bdt-navlink-modulos {
   color: var(--bdt-orange-action);
-  background: rgba(242, 101, 34, 0.06);
-  border-color: rgba(242, 101, 34, 0.15);
+  background: #ffffff;
+  border-color: rgba(242, 101, 34, 0.22);
 }
 .bdt-navlink-modulos:hover {
   background: linear-gradient(135deg, #f26522 0%, #ea580c 100%) !important;
   color: #ffffff !important;
   border-color: transparent !important;
-  box-shadow: 0 4px 15px rgba(242, 101, 34, 0.5);
-  transform: translateY(-2px);
+  box-shadow: 0 5px 18px rgba(242, 101, 34, 0.5);
 }
 
-/* 5. Planteles: Azul Cielo Institucional */
+/* 5. PLANTELES: Azul Cielo Institucional */
 .bdt-navlink-planteles {
   color: #0284c7;
-  background: rgba(2, 132, 199, 0.06);
-  border-color: rgba(2, 132, 199, 0.15);
+  background: #ffffff;
+  border-color: rgba(2, 132, 199, 0.22);
 }
 .bdt-navlink-planteles:hover {
   background: linear-gradient(135deg, #0284c7 0%, #0066ff 100%) !important;
   color: #ffffff !important;
   border-color: transparent !important;
-  box-shadow: 0 4px 15px rgba(2, 132, 199, 0.5);
-  transform: translateY(-2px);
+  box-shadow: 0 5px 18px rgba(2, 132, 199, 0.5);
 }
 
-/* 6. Validar QR: Rojo / Carmesí de Seguridad Criptográfica */
+/* 6. VALIDAR QR: Carmesí de Seguridad Criptográfica */
 .bdt-navlink-verificar {
   color: #e11d48;
-  background: rgba(225, 29, 72, 0.06);
-  border-color: rgba(225, 29, 72, 0.15);
+  background: #ffffff;
+  border-color: rgba(225, 29, 72, 0.22);
 }
 .bdt-navlink-verificar:hover {
   background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
   color: #ffffff !important;
   border-color: transparent !important;
-  box-shadow: 0 4px 15px rgba(225, 29, 72, 0.5);
-  transform: translateY(-2px);
-}
-
-.bdt-float-navlink:hover .bdt-menu-icon-3d {
-  transform: scale(1.18) rotate(3deg);
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.22));
+  box-shadow: 0 5px 18px rgba(225, 29, 72, 0.5);
 }
 
 /* ── ASISTENTE ZOE & MAX EN LA BARRA DE MENÚ (INTEGRADO CON COLORES VIEJOS) ── */
@@ -520,6 +562,16 @@
   background: linear-gradient(135deg, #e05314 0%, #c2410c 100%);
   transform: scale(1.03);
   box-shadow: 0 6px 20px rgba(242, 101, 34, 0.55);
+}
+
+.bdt-btn-en-linea:hover .bdt-navlink-txt {
+  transform: translateY(-100%);
+  color: #ffffff !important;
+}
+
+.bdt-btn-en-linea:hover .bdt-navlink-txt-clone {
+  transform: translateY(-100%);
+  color: #ffffff !important;
 }
 
 /* ── 5. HERO BANNER PRINCIPAL CON FONDO CLARO LUMINOSO (ESTILO WEB ESCOLAR & APP) ── */
