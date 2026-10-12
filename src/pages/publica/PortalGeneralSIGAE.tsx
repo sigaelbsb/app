@@ -74,6 +74,34 @@ function useCountUpPortal(endValue: number, duration: number = 1000): number {
   return count;
 }
 
+// Componente de texto interactivo con ola líquida letra por letra (efecto auténtico BDT btn-hover-txt-liquid-y)
+const LiquidWaveText: React.FC<{ text: string }> = ({ text }) => {
+  return (
+    <span className="bdt-liquid-wave-wrap">
+      {text.split('').map((char, index) => (
+        <span 
+          key={index} 
+          className="bdt-liquid-char-box"
+        >
+          <span 
+            className="bdt-liquid-char-up" 
+            style={{ transitionDelay: `${index * 0.025}s` }}
+          >
+            {char === ' ' ? '\u00A0' : char}
+          </span>
+          <span 
+            className="bdt-liquid-char-down" 
+            aria-hidden="true" 
+            style={{ transitionDelay: `${index * 0.025}s` }}
+          >
+            {char === ' ' ? '\u00A0' : char}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+};
+
 // Tarjeta de Nivel Educativo adaptada 100% a la identidad tipográfica y estética del portal
 interface TarjetaNivelMatriculaProps {
   id: string;
@@ -410,50 +438,32 @@ export const PortalGeneralSIGAE: React.FC = () => {
           <div className="d-none d-lg-flex align-items-center gap-1.5">
             <a href="#inicio" className="bdt-float-navlink bdt-navlink-inicio" title="Ir al inicio del portal">
               <img src="/icons3d/icono_inicio_3d.png" alt="Inicio" className="bdt-menu-icon-3d" />
-              <span className="bdt-navlink-txt-wrap">
-                <span className="bdt-navlink-txt">INICIO</span>
-                <span className="bdt-navlink-txt-clone" aria-hidden="true">INICIO</span>
-              </span>
+              <LiquidWaveText text="INICIO" />
             </a>
 
             <a href="#matricula" className="bdt-float-navlink bdt-navlink-matricula" title="Consultar matrícula escolar y estadísticas oficiales">
               <img src="/icons3d/icono_estudiantil_3d.png" alt="Matrícula" className="bdt-menu-icon-3d" />
-              <span className="bdt-navlink-txt-wrap">
-                <span className="bdt-navlink-txt">MATRÍCULA</span>
-                <span className="bdt-navlink-txt-clone" aria-hidden="true">MATRÍCULA</span>
-              </span>
+              <LiquidWaveText text="MATRÍCULA" />
             </a>
 
             <a href="#modalidades" className="bdt-float-navlink bdt-navlink-modalidades" title="Ver modalidades educativas integradas">
               <img src="/icons3d/icono_academico_3d.png" alt="Modalidades" className="bdt-menu-icon-3d" />
-              <span className="bdt-navlink-txt-wrap">
-                <span className="bdt-navlink-txt">MODALIDADES</span>
-                <span className="bdt-navlink-txt-clone" aria-hidden="true">MODALIDADES</span>
-              </span>
+              <LiquidWaveText text="MODALIDADES" />
             </a>
 
             <a href="#modulos" className="bdt-float-navlink bdt-navlink-modulos" title="Explorar servicios y módulos más solicitados">
               <img src="/icons3d/icono_organizacion_3d.png" alt="Módulos" className="bdt-menu-icon-3d" />
-              <span className="bdt-navlink-txt-wrap">
-                <span className="bdt-navlink-txt">MÓDULOS</span>
-                <span className="bdt-navlink-txt-clone" aria-hidden="true">MÓDULOS</span>
-              </span>
+              <LiquidWaveText text="MÓDULOS" />
             </a>
 
             <a href="#planteles" className="bdt-float-navlink bdt-navlink-planteles" title="Red de planteles conectados">
               <img src="/icons3d/icono_direccion_3d.png" alt="Planteles" className="bdt-menu-icon-3d" />
-              <span className="bdt-navlink-txt-wrap">
-                <span className="bdt-navlink-txt">PLANTELES</span>
-                <span className="bdt-navlink-txt-clone" aria-hidden="true">PLANTELES</span>
-              </span>
+              <LiquidWaveText text="PLANTELES" />
             </a>
 
             <a href="#verificar" className="bdt-float-navlink bdt-navlink-verificar" title="Verificar validez de documentos QR">
               <img src="/icons3d/icono_seguridad_3d.png" alt="Validar QR" className="bdt-menu-icon-3d" />
-              <span className="bdt-navlink-txt-wrap">
-                <span className="bdt-navlink-txt">VALIDAR QR</span>
-                <span className="bdt-navlink-txt-clone" aria-hidden="true">VALIDAR QR</span>
-              </span>
+              <LiquidWaveText text="VALIDAR QR" />
             </a>
           </div>
 
@@ -518,10 +528,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
               title="Acceder a tu institución escolar"
             >
               <i className="bi bi-shield-lock-fill"></i>
-              <span className="bdt-navlink-txt-wrap">
-                <span className="bdt-navlink-txt">SIGAEenLínea</span>
-                <span className="bdt-navlink-txt-clone" aria-hidden="true">SIGAEenLínea</span>
-              </span>
+              <LiquidWaveText text="SIGAEenLínea" />
             </button>
 
             {/* BOTÓN HAMBURGUESA PARA TELÉFONOS (VISUALIZACIÓN DE PARTES DE LA WEB EN MÓVIL) */}
@@ -977,7 +984,6 @@ export const PortalGeneralSIGAE: React.FC = () => {
                       onClick={() => setSlideActivo(num)}
                       title={rep.actividad}
                     >
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block' }}></span>
                       <span>{etiqueta}</span>
                     </button>
                   );
