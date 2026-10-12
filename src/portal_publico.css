@@ -615,18 +615,57 @@
   width: 100%;
 }
 
-.bdt-hero-slide {
-  animation: heroSlideFadeIn 0.45s ease-out;
+/* Contenedor que se remonta en cada cambio de diapositiva con animación fluida */
+.bdt-hero-slide-container {
+  animation: bdtHeroSlideTransition 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, filter;
 }
 
-@keyframes heroSlideFadeIn {
-  from {
+@keyframes bdtHeroSlideTransition {
+  0% {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(18px) scale(0.985);
+    filter: blur(3px);
   }
-  to {
+  70% {
+    opacity: 0.96;
+    filter: blur(0px);
+  }
+  100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* Animaciones sutilmente escalonadas para texto e imagen */
+.bdt-hero-text-col {
+  animation: bdtHeroTextIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.bdt-hero-visual-col {
+  animation: bdtHeroVisualIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bdtHeroTextIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bdtHeroVisualIn {
+  0% {
+    opacity: 0;
+    transform: translateX(16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
 }
 
@@ -1155,4 +1194,80 @@
 .bdt-matricula-pill-item strong {
   color: var(--card-accent, #1e293b);
   font-weight: 850;
+}
+
+/* ── 15. ANIMACIONES DE TRANSICIÓN PARA CONMUTADOR DE ESCUELAS Y MATRÍCULA ── */
+.bdt-school-switch-btn {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.bdt-school-switch-btn:hover {
+  transform: translateY(-1.5px);
+}
+
+.bdt-school-switch-btn.active {
+  transform: scale(1.03);
+  box-shadow: 0 4px 14px -2px rgba(14, 44, 83, 0.18) !important;
+}
+
+/* Barra resumen de matrícula: transición al cambiar de escuela */
+.bdt-matricula-summary-bar {
+  animation: bdtSummaryTransition 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes bdtSummaryTransition {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Grid de tarjetas de matrícula: animación de entrada al cambiar de sede */
+.bdt-matricula-cards-grid {
+  animation: bdtCardsGridTransition 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bdtCardsGridTransition {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Cascada escalonada en las 4 tarjetas de nivel */
+.bdt-matricula-cards-grid > div:nth-child(1) {
+  animation: bdtCardStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.03s backwards;
+}
+
+.bdt-matricula-cards-grid > div:nth-child(2) {
+  animation: bdtCardStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.08s backwards;
+}
+
+.bdt-matricula-cards-grid > div:nth-child(3) {
+  animation: bdtCardStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.13s backwards;
+}
+
+.bdt-matricula-cards-grid > div:nth-child(4) {
+  animation: bdtCardStagger 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.18s backwards;
+}
+
+@keyframes bdtCardStagger {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

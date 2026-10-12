@@ -28,7 +28,7 @@ export interface EscuelaItem {
 const ESCUELAS_DEFAULT: EscuelaItem[] = [
   {
     id_escuela: 'sb',
-    nombre_institucion: 'U.E. Santa Bárbara',
+    nombre_institucion: 'UE Santa Bárbara',
     codigo_dea: 'OD05241620',
     rif: 'J-30589123-0',
     direccion: 'Sector Santa Bárbara, Monagas, Venezuela',
@@ -37,7 +37,7 @@ const ESCUELAS_DEFAULT: EscuelaItem[] = [
   },
   {
     id_escuela: 'lb',
-    nombre_institucion: 'U.E. Libertador Bolívar',
+    nombre_institucion: 'UE Libertador Bolívar',
     codigo_dea: 'OD05241621',
     rif: 'J-30589124-0',
     direccion: 'Av. Bolívar, Punta de Mata, Monagas, Venezuela',
