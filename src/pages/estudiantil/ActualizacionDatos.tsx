@@ -3576,16 +3576,6 @@ const STEPS = [
           </div>
         </div>
 
-        <div className="col-12">
-          <button type="button" className="btn btn-outline-success rounded-pill fw-semibold hover-efecto"
-            onClick={handleObtenerUbicacion} disabled={loadingGPS}>
-            {loadingGPS
-              ? <><span className="spinner-border spinner-border-sm me-2"></span>Obteniendo ubicación...</>
-              : <><i className="bi bi-geo-alt-fill me-2"></i>Usar mi ubicación actual (GPS)</>}
-          </button>
-          <span className="text-muted small ms-3">O completa los campos manualmente</span>
-        </div>
-
         <div className="col-md-4">
           <label className="form-label fw-semibold">Estado <span className="text-danger">*</span></label>
           <select className="form-select input-moderno" value={form.estado_habitacion}

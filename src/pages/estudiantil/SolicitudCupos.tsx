@@ -1994,21 +1994,7 @@ export const SolicitudCupos = () => {
           </div>
         </div>
 
-        {/* Botón GPS */}
-        <div className="col-12">
-          <button
-            type="button"
-            className="btn btn-outline-success rounded-pill fw-semibold hover-efecto"
-            onClick={handleObtenerUbicacion}
-            disabled={loadingGPS}
-          >
-            {loadingGPS
-              ? <><span className="spinner-border spinner-border-sm me-2"></span>Obteniendo ubicación...</>
-              : <><i className="bi bi-geo-alt-fill me-2"></i>Usar mi ubicación actual (GPS)</>
-            }
-          </button>
-          <span className="text-muted small ms-3">O completa los campos manualmente</span>
-        </div>
+
 
         {/* Estado */}
         <div className="col-md-4">
