@@ -2345,15 +2345,44 @@ export const ActualizacionDatos: React.FC = () => {
       const escuelaCod = (estudianteSeleccionado.codigo_escuela || 'documentos').toString().toLowerCase();
       const fileName = `${tipo}_${cedulaEst}_${Date.now()}.${ext}`;
       const filePath = `${escuelaCod}/${fileName}`;
-      const { error } = await supabase.storage.from('documentos_solicitudes').upload(filePath, file, { upsert: true });
-      if (error) throw error;
-      const { data } = supabase.storage.from('documentos_solicitudes').getPublicUrl(filePath);
-      updateForm(`${tipo}_url` as keyof SolicitudForm, data.publicUrl);
+      
+      let subido = false;
+      try {
+        const { error } = await supabase.storage.from('documentos_solicitudes').upload(filePath, file, { upsert: true });
+        if (!error) {
+          const { data } = supabase.storage.from('documentos_solicitudes').getPublicUrl(filePath);
+          updateForm(`${tipo}_url` as keyof SolicitudForm, data.publicUrl);
+          subido = true;
+        } else {
+          console.warn('Storage falló, intentando respaldo en base64...', error);
+        }
+      } catch (storageErr) {
+        console.warn('Error en conexión storage, usando respaldo base64:', storageErr);
+      }
+
+      // Si falla storage de Supabase (ej. restricciones de bucket o red), guardamos la versión optimizada en Base64
+      if (!subido && !isPdf) {
+        const base64Url = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+        });
+        if (base64Url) {
+          updateForm(`${tipo}_url` as keyof SolicitudForm, base64Url);
+          subido = true;
+        }
+      }
+
       window.dispatchEvent(new Event('reset-inactivity-timer'));
-      if (Swal) Swal.fire({ icon: 'success', title: 'Documento cargado', text: 'Documento optimizado y guardado correctamente.', timer: 2000, showConfirmButton: false });
+      if (subido) {
+        if (Swal) Swal.fire({ icon: 'success', title: 'Documento cargado', text: 'Documento optimizado y guardado correctamente.', timer: 2000, showConfirmButton: false });
+      } else {
+        if (Swal) Swal.fire('Aviso', 'No se pudo procesar el archivo. Recuerde que todas las imágenes son opcionales y puede continuar sin adjuntarlas.', 'info');
+      }
     } catch (err: any) {
       console.error('Error al subir documento:', err);
-      if (Swal) Swal.fire('Error', `No se pudo subir el archivo: ${err.message}`, 'error');
+      if (Swal) Swal.fire('Aviso', `No se pudo adjuntar el archivo: ${err.message || 'Error de red'}. Las imágenes son opcionales y puede omitirlas.`, 'info');
     } finally {
       setUploadingDoc(tipo, false);
       e.target.value = ''; // Reset input
@@ -2777,11 +2806,7 @@ export const ActualizacionDatos: React.FC = () => {
         if (!form.estudiante_folio_nacimiento) faltantes.push('Folio o Tomo de la Partida de Nacimiento');
         if (!form.estudiante_acta_nacimiento) faltantes.push('Acta de la Partida de Nacimiento');
         
-        if (!form.foto_carnet_url) faltantes.push('Foto Carnet del Estudiante');
-        if (form.estudiante_tipo_documento !== 'Cédula Escolar' && !form.foto_cedula_estudiante_url) {
-          faltantes.push('Foto Cédula de Identidad del Estudiante');
-        }
-        if (!form.foto_partida_nacimiento_url) faltantes.push('Foto Partida de Nacimiento');
+        // Todas las fotos y documentos son opcionales para no bloquear a los representantes
 
         if (!form.estudiante_sexo) faltantes.push('Género');
         if (!form.parentesco) faltantes.push(form.representante_trabaja_pdvsa === 'Sí' ? 'Parentesco con el Trabajador/a' : 'Parentesco con el Representante Legal');
@@ -2863,9 +2888,8 @@ export const ActualizacionDatos: React.FC = () => {
         else if (!/^\d{6,10}$/.test(form.madre_cedula)) faltantes.push('Cédula de la Madre (inválida, solo 6-10 dígitos)');
         if (!form.madre_lugar_nacimiento) faltantes.push('Lugar de Nacimiento de la Madre');
         
-        // Solo exigir foto, dirección y datos de contacto si la madre se encuentra con vida
+        // Solo exigir dirección y datos de contacto si la madre se encuentra con vida (foto es opcional)
         if (form.madre_vive !== 'No') {
-          if (!form.foto_cedula_madre_url) faltantes.push('Foto Cédula de la Madre');
           if (!form.madre_direccion) faltantes.push('Dirección de Habitación de la Madre');
           if (form.madre_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.madre_email)) faltantes.push('Correo de la Madre (formato inválido)');
           if (form.madre_telefono && !/^\d{11}$/.test(form.madre_telefono.replace(/\D/g, ''))) faltantes.push('Teléfono de la Madre (formato inválido)');
@@ -2878,9 +2902,8 @@ export const ActualizacionDatos: React.FC = () => {
           else if (!/^\d{6,10}$/.test(form.padre_cedula)) faltantes.push('Cédula del Padre (inválida, solo 6-10 dígitos)');
           if (!form.padre_lugar_nacimiento) faltantes.push('Lugar de Nacimiento del Padre');
           
-          // Solo exigir foto, dirección y datos de contacto si el padre se encuentra con vida
+          // Solo exigir dirección y datos de contacto si el padre se encuentra con vida (foto es opcional)
           if (form.padre_vive !== 'No') {
-            if (!form.foto_cedula_padre_url) faltantes.push('Foto Cédula del Padre');
             if (!form.padre_direccion) faltantes.push('Dirección de Habitación del Padre');
             if (form.padre_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.padre_email)) faltantes.push('Correo del Padre (formato inválido)');
             if (form.padre_telefono && !/^\d{11}$/.test(form.padre_telefono.replace(/\D/g, ''))) faltantes.push('Teléfono del Padre (formato inválido)');
@@ -3318,7 +3341,7 @@ const STEPS = [
           {form.estudiante_tipo_documento === 'Cédula Escolar' && (
             <div className="form-text text-success mt-1">
               <i className="bi bi-info-circle-fill me-1"></i>
-              Al tener Cédula Escolar, solo se solicitará la Foto Carnet y la Partida de Nacimiento.
+              Al tener Cédula Escolar, no se requiere cédula de identidad física (todas las imágenes son opcionales).
             </div>
           )}
         </div>
@@ -3613,17 +3636,17 @@ const STEPS = [
         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
           <i className="bi bi-camera-fill text-success fs-5"></i>
           <div>
-            <h6 className="fw-bold text-dark mb-0">Documentos Fotográficos del Estudiante</h6>
-            <span className="text-muted small">Imágenes optimizadas automáticamente al mínimo peso con máxima nitidez</span>
+            <h6 className="fw-bold text-dark mb-0">Documentos Fotográficos del Estudiante (Opcionales)</h6>
+            <span className="text-muted small">Carga opcional. Si no dispone de los archivos en este momento, puede continuar sin adjuntarlos.</span>
           </div>
         </div>
         <div className="row g-3">
           {([
-            { tipo: 'foto_carnet' as TipoDocumento, label: 'Foto Tipo Carnet', sub: 'Fondo blanco · cara visible *', icon: 'bi-person-bounding-box', color: 'primary', urlKey: 'foto_carnet_url' as keyof SolicitudForm, uploading: uploadingFotoCarnet },
+            { tipo: 'foto_carnet' as TipoDocumento, label: 'Foto Tipo Carnet', sub: 'Fondo blanco · cara visible (Opcional)', icon: 'bi-person-bounding-box', color: 'primary', urlKey: 'foto_carnet_url' as keyof SolicitudForm, uploading: uploadingFotoCarnet },
             ...(form.estudiante_tipo_documento !== 'Cédula Escolar' ? [
-              { tipo: 'foto_cedula_estudiante' as TipoDocumento, label: 'Foto Cédula del Estudiante', sub: 'Ambas caras legibles *', icon: 'bi-card-image', color: 'warning', urlKey: 'foto_cedula_estudiante_url' as keyof SolicitudForm, uploading: uploadingFotoCedulaEst }
+              { tipo: 'foto_cedula_estudiante' as TipoDocumento, label: 'Foto Cédula del Estudiante', sub: 'Ambas caras legibles (Opcional)', icon: 'bi-card-image', color: 'warning', urlKey: 'foto_cedula_estudiante_url' as keyof SolicitudForm, uploading: uploadingFotoCedulaEst }
             ] : []),
-            { tipo: 'foto_partida_nacimiento' as TipoDocumento, label: 'Partida de Nacimiento', sub: 'Copia legible del documento *', icon: 'bi-file-earmark-person', color: 'info', urlKey: 'foto_partida_nacimiento_url' as keyof SolicitudForm, uploading: uploadingFotoPartida },
+            { tipo: 'foto_partida_nacimiento' as TipoDocumento, label: 'Partida de Nacimiento', sub: 'Copia legible del documento (Opcional)', icon: 'bi-file-earmark-person', color: 'info', urlKey: 'foto_partida_nacimiento_url' as keyof SolicitudForm, uploading: uploadingFotoPartida },
           ]).map(({ tipo, label, sub, icon, color, urlKey, uploading }) => {
             const url = form[urlKey] as string;
             const colClass = form.estudiante_tipo_documento === 'Cédula Escolar' ? 'col-md-6' : 'col-md-4';
@@ -3915,8 +3938,8 @@ const STEPS = [
                     <div className="card-header bg-danger-subtle d-flex align-items-center gap-2 py-2">
                       <i className="bi bi-card-image text-danger fs-5"></i>
                       <div>
-                        <div className="fw-bold small text-dark">Foto Cédula de la Madre</div>
-                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Ambas caras legibles *</div>
+                        <div className="fw-bold small text-dark">Foto Cédula de la Madre (Opcional)</div>
+                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Ambas caras legibles (Opcional)</div>
                       </div>
                     </div>
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
@@ -3941,8 +3964,8 @@ const STEPS = [
                             <><span className="spinner-border spinner-border-sm text-danger"></span><span className="small text-muted">Subiendo cédula...</span></>
                           ) : (
                             <><i className="bi bi-cloud-arrow-up fs-2 text-danger"></i>
-                              <span className="small fw-semibold text-dark text-center">Foto Cédula de la Madre</span>
-                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen</span></>
+                              <span className="small fw-semibold text-dark text-center">Foto Cédula de la Madre (Opcional)</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen (Opcional)</span></>
                           )}
                           <input type="file" accept="image/*" className="d-none" disabled={uploadingFotoCedulaMadre}
                             onChange={(e) => handleSubirDocumento(e, 'foto_cedula_madre')} />
@@ -4097,8 +4120,8 @@ const STEPS = [
                         <div className="card-header bg-primary-subtle d-flex align-items-center gap-2 py-2">
                           <i className="bi bi-card-image text-primary fs-5"></i>
                           <div>
-                            <div className="fw-bold small text-dark">Foto Cédula del Padre</div>
-                            <div className="text-muted" style={{ fontSize: '0.7rem' }}>Ambas caras legibles *</div>
+                            <div className="fw-bold small text-dark">Foto Cédula del Padre (Opcional)</div>
+                            <div className="text-muted" style={{ fontSize: '0.7rem' }}>Ambas caras legibles (Opcional)</div>
                           </div>
                         </div>
                         <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
@@ -4123,8 +4146,8 @@ const STEPS = [
                                 <><span className="spinner-border spinner-border-sm text-primary"></span><span className="small text-muted">Subiendo cédula...</span></>
                               ) : (
                                 <><i className="bi bi-cloud-arrow-up fs-2 text-primary"></i>
-                                  <span className="small fw-semibold text-dark text-center">Foto Cédula del Padre</span>
-                                  <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen</span></>
+                                  <span className="small fw-semibold text-dark text-center">Foto Cédula del Padre (Opcional)</span>
+                                  <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen (Opcional)</span></>
                               )}
                               <input type="file" accept="image/*" className="d-none" disabled={uploadingFotoCedulaPadre}
                                 onChange={(e) => handleSubirDocumento(e, 'foto_cedula_padre')} />
@@ -4206,8 +4229,8 @@ const STEPS = [
                     <div className="card-header bg-danger-subtle d-flex align-items-center gap-2 py-2">
                       <i className="bi bi-file-earmark-medical text-danger fs-5"></i>
                       <div>
-                        <div className="fw-bold small text-dark">Informe Médico</div>
-                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Foto o copia legible *</div>
+                        <div className="fw-bold small text-dark">Informe Médico (Opcional)</div>
+                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Foto o copia legible (Opcional)</div>
                       </div>
                     </div>
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
@@ -4232,8 +4255,8 @@ const STEPS = [
                             <><span className="spinner-border spinner-border-sm text-danger"></span><span className="small text-muted">Subiendo informe...</span></>
                           ) : (
                             <><i className="bi bi-cloud-arrow-up fs-2 text-danger"></i>
-                              <span className="small fw-semibold text-dark text-center">Informe Médico</span>
-                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen</span></>
+                              <span className="small fw-semibold text-dark text-center">Informe Médico (Opcional)</span>
+                              <span className="text-muted" style={{ fontSize: '0.7rem' }}>Clic para seleccionar imagen (Opcional)</span></>
                           )}
                           <input type="file" accept="image/*" className="d-none" disabled={uploadingFotoInforme}
                             onChange={(e) => handleSubirDocumento(e, 'foto_informe_medico')} />
@@ -4263,8 +4286,8 @@ const STEPS = [
                     <div className="card-header bg-warning-subtle d-flex align-items-center gap-2 py-2">
                       <i className="bi bi-shield-check text-warning fs-5"></i>
                       <div>
-                        <div className="fw-bold small text-dark">Carnet CONAPDIS</div>
-                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Foto o copia legible *</div>
+                        <div className="fw-bold small text-dark">Carnet CONAPDIS (Opcional)</div>
+                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>Foto o copia legible (Opcional)</div>
                       </div>
                     </div>
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
@@ -5095,28 +5118,28 @@ const STEPS = [
           </Section>
         )}
 
-        {/* ── DOCUMENTOS E IMÁGENES CARGADOS EN EL REGISTRO ── */}
-        <Section icon="bi-paperclip" title="Documentos e Imágenes Digitalizados Cargados" color="dark">
+        {/* ── DOCUMENTOS E IMÁGENES DIGITALIZADOS (OPCIONALES) ── */}
+        <Section icon="bi-paperclip" title="Documentos e Imágenes Digitalizados (Opcionales)" color="dark">
           <div className="d-flex flex-wrap gap-2 py-2">
             {form.foto_carnet_url ? (
               <a href={form.foto_carnet_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
                 <i className="bi bi-person-bounding-box me-1"></i>Foto Carnet Estudiante
               </a>
-            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Foto Carnet: No cargada</span>}
+            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Foto Carnet: No adjuntada (opcional)</span>}
 
             {form.estudiante_tipo_documento !== 'Cédula Escolar' && (
               form.foto_cedula_estudiante_url ? (
                 <a href={form.foto_cedula_estudiante_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
                   <i className="bi bi-card-image me-1"></i>Cédula de Identidad Estudiante
                 </a>
-              ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Estudiante: No cargada</span>
+              ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Estudiante: No adjuntada (opcional)</span>
             )}
 
             {form.foto_partida_nacimiento_url ? (
               <a href={form.foto_partida_nacimiento_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info rounded-pill px-3 fw-semibold">
                 <i className="bi bi-file-earmark-person me-1"></i>Partida de Nacimiento
               </a>
-            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Partida Nacimiento: No cargada</span>}
+            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Partida Nacimiento: No adjuntada (opcional)</span>}
 
             {form.foto_informe_medico_url && (
               <a href={form.foto_informe_medico_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold">
@@ -5134,14 +5157,14 @@ const STEPS = [
               <a href={form.foto_cedula_madre_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold">
                 <i className="bi bi-card-heading me-1"></i>Cédula de la Madre
               </a>
-            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Madre: No cargada</span>}
+            ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Madre: No adjuntada (opcional)</span>}
 
             {form.estudiante_reconocido_por_padre !== 'No' && (
               form.foto_cedula_padre_url ? (
                 <a href={form.foto_cedula_padre_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
                   <i className="bi bi-card-heading me-1"></i>Cédula del Padre
                 </a>
-              ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Padre: No cargada</span>
+              ) : <span className="badge bg-secondary bg-opacity-10 text-secondary border">Cédula Padre: No adjuntada (opcional)</span>
             )}
 
             {form.constancia_cultura_url && (
