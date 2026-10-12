@@ -717,42 +717,54 @@
   width: 100%;
 }
 
-/* Contenedor que se remonta en cada cambio de diapositiva con animación fluida */
-.bdt-hero-slide-container {
-  animation: bdtHeroSlideTransition 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity, filter;
+/* Viewport con máscara de desbordamiento horizontal continuo estilo BDT */
+.bdt-hero-carousel-viewport {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  border-radius: 20px;
 }
 
-@keyframes bdtHeroSlideTransition {
-  0% {
-    opacity: 0;
-    transform: translateY(18px) scale(0.985);
-    filter: blur(3px);
-  }
-  70% {
-    opacity: 0.96;
-    filter: blur(0px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0px);
-  }
+/* Riel (Track) continuo que se desplaza horizontalmente con aceleración GPU */
+.bdt-hero-carousel-track {
+  display: flex;
+  width: 100%;
+  will-change: transform;
+}
+
+/* Cada diapositiva ocupa exactamente el 100% del ancho del riel sin desbordes */
+.bdt-hero-slide-item {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0 6px;
+  opacity: 0.35;
+  transform: scale(0.985);
+  transition: opacity 0.5s ease, transform 0.65s cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+}
+
+.bdt-hero-slide-item.is-active {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
 }
 
 /* Animaciones sutilmente escalonadas para texto e imagen */
-.bdt-hero-text-col {
+.bdt-hero-slide-item.is-active .bdt-hero-text-col {
   animation: bdtHeroTextIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.bdt-hero-visual-col {
+.bdt-hero-slide-item.is-active .bdt-hero-visual-col {
   animation: bdtHeroVisualIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes bdtHeroTextIn {
   0% {
     opacity: 0;
-    transform: translateX(-14px);
+    transform: translateX(-16px);
   }
   100% {
     opacity: 1;
@@ -763,7 +775,7 @@
 @keyframes bdtHeroVisualIn {
   0% {
     opacity: 0;
-    transform: translateX(16px) scale(0.97);
+    transform: translateX(18px) scale(0.97);
   }
   100% {
     opacity: 1;

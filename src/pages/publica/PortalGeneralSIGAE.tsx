@@ -383,6 +383,25 @@ export const PortalGeneralSIGAE: React.FC = () => {
     return () => clearInterval(timer);
   }, [carruselPausado, reportesGestion.length]);
 
+  // Soporte para gestos táctiles (swipe) en dispositivos móviles para el carrusel
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffX = touchStartX - touchEndX;
+    if (diffX > 45) {
+      slideSiguiente();
+    } else if (diffX < -45) {
+      slideAnterior();
+    }
+    setTouchStartX(null);
+  };
+
   const totalSlides = 1 + reportesGestion.length;
   const slideAnterior = () => {
     setSlideActivo((prev) => (prev - 1 + totalSlides) % totalSlides);
@@ -744,217 +763,231 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </>
             )}
 
-            {/* CONTENIDO DEL SLIDE ACTIVO CON TRANSICIÓN FLUIDA */}
-            <div className="bdt-hero-slide-container" key={`hero-slide-step-${slideActivo}`}>
-              {slideActivo === 0 ? (
-                /* DIAPOSITIVA 0: BIENVENIDA INSTITUCIONAL CON ZOE Y MAX */
-                <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
-                  
-                  {/* Columna Izquierda: Titular y Llamado a la Acción */}
-                  <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
-                    <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white border border-secondary border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-dark">
-                      <i className="bi bi-geo-alt-fill text-warning"></i>
-                      <span>Miraflores, municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
+            {/* CONTENEDOR VIEWPORT Y TRACK CONTINUO CON DESPLAZAMIENTO HORIZONTAL ESTILO BDT */}
+            <div 
+              className="bdt-hero-carousel-viewport"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div 
+                className="bdt-hero-carousel-track"
+                style={{
+                  transform: `translateX(-${slideActivo * 100}%)`,
+                  transition: 'transform 0.65s cubic-bezier(0.25, 1, 0.5, 1)'
+                }}
+              >
+                {/* ── DIAPOSITIVA 0: BIENVENIDA INSTITUCIONAL CON ZOE Y MAX ── */}
+                <div className={`bdt-hero-slide-item ${slideActivo === 0 ? 'is-active' : ''}`}>
+                  <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
+                    
+                    {/* Columna Izquierda: Titular y Llamado a la Acción */}
+                    <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
+                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white border border-secondary border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-dark">
+                        <i className="bi bi-geo-alt-fill text-warning"></i>
+                        <span>Miraflores, municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
+                      </div>
+
+                      <h1 className="bdt-hero-title">
+                        Portal Integral de Gestión y Administración Escolar
+                      </h1>
+
+                      <p className="bdt-hero-desc mx-auto mx-lg-0">
+                        La plataforma unificada de las instituciones educativas de Punceres y Monagas. Administración pedagógica, boletines de calificaciones, control de matrícula y expedientes con seguridad RLS y costo cero.
+                      </p>
+
+                      <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                        <button 
+                          type="button" 
+                          className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none' }}
+                          onClick={abrirSelectorEscuela}
+                        >
+                          <i className="bi bi-buildings-fill"></i>
+                          <span>🏛️ Ingresar a mi Escuela</span>
+                        </button>
+
+                        <a 
+                          href="#modulos" 
+                          className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                          style={{ fontSize: '0.86rem', borderColor: '#0e2c53', color: '#0e2c53', backgroundColor: '#ffffff' }}
+                        >
+                          <i className="bi bi-grid-fill text-warning"></i>
+                          <span>Explorar Módulos Populares</span>
+                        </a>
+                      </div>
                     </div>
 
-                    <h1 className="bdt-hero-title">
-                      Portal Integral de Gestión y Administración Escolar
-                    </h1>
-
-                    <p className="bdt-hero-desc mx-auto mx-lg-0">
-                      La plataforma unificada de las instituciones educativas de Punceres y Monagas. Administración pedagógica, boletines de calificaciones, control de matrícula y expedientes con seguridad RLS y costo cero.
-                    </p>
-
-                    <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
-                      <button 
-                        type="button" 
-                        className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
-                        style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none' }}
-                        onClick={abrirSelectorEscuela}
-                      >
-                        <i className="bi bi-buildings-fill"></i>
-                        <span>🏛️ Ingresar a mi Escuela</span>
-                      </button>
-
-                      <a 
-                        href="#modulos" 
-                        className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
-                        style={{ fontSize: '0.86rem', borderColor: '#0e2c53', color: '#0e2c53', backgroundColor: '#ffffff' }}
-                      >
-                        <i className="bi bi-grid-fill text-warning"></i>
-                        <span>Explorar Módulos Populares</span>
-                      </a>
-                    </div>
-                  </div>
-
-                  {/* Columna Derecha: Ilustración 3D de Zoe y Max */}
-                  <div id="asistentes" className="col-lg-6 text-center bdt-hero-visual-col">
-                    <div className="bdt-zoe-max-hero-card">
-                      <div className="bdt-zoe-max-speech-bubble mx-auto">
-                        <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small mb-1">
-                          <i className="bi bi-chat-quote-fill text-warning"></i>
-                          <span>Zoe & Max te dan la bienvenida</span>
+                    {/* Columna Derecha: Ilustración 3D de Zoe y Max */}
+                    <div id="asistentes" className="col-lg-6 text-center bdt-hero-visual-col">
+                      <div className="bdt-zoe-max-hero-card">
+                        <div className="bdt-zoe-max-speech-bubble mx-auto">
+                          <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small mb-1">
+                            <i className="bi bi-chat-quote-fill text-warning"></i>
+                            <span>Zoe & Max te dan la bienvenida</span>
+                          </div>
+                          <p className="m-0 extra-small text-secondary" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
+                            {mensajeAsistente}
+                          </p>
                         </div>
-                        <p className="m-0 extra-small text-secondary" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
-                          {mensajeAsistente}
-                        </p>
-                      </div>
 
-                      <img 
-                        src="/zoe_max_duo_3d.png" 
-                        alt="Zoe y Max - Asistentes Escolares SIGAE" 
-                        className="bdt-zoe-max-img"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/zoe_max_duo.png';
-                        }}
-                      />
+                        <img 
+                          src="/zoe_max_duo_3d.png" 
+                          alt="Zoe y Max - Asistentes Escolares SIGAE" 
+                          className="bdt-zoe-max-img"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/zoe_max_duo.png';
+                          }}
+                        />
 
-                      <div className="mt-2 text-secondary small fw-bold">
-                        <span style={{ color: '#0284c7' }}>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span style={{ color: '#ea580c' }}>Max &bull; Asistente Tecnológico</span>
+                        <div className="mt-2 text-secondary small fw-bold">
+                          <span style={{ color: '#0284c7' }}>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span style={{ color: '#ea580c' }}>Max &bull; Asistente Tecnológico</span>
+                        </div>
                       </div>
                     </div>
+
                   </div>
-
                 </div>
-              ) : (
-                /* DIAPOSITIVA 1..N: GESTIÓN DIARIA ESCOLAR APROBADA */
-                (() => {
-                  const rep = reportesGestion[slideActivo - 1];
-                  if (!rep) return null;
 
+                {/* ── DIAPOSITIVAS 1..N: GESTIONES DIARIAS ESCOLARES APROBADAS EN SISTEMA ── */}
+                {reportesGestion.map((rep, idx) => {
+                  const num = idx + 1;
                   const nombreEscuela = rep.proceso || (rep.escuela_codigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
                   const fotoBanner = rep.banner_superior || rep.imagenes?.[0] || '/assets/img/gestion_diaria/reporte_ejemplo_collage.png';
+                  const isActive = slideActivo === num;
 
                   return (
-                    <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
-                      
-                      {/* Columna Izquierda: Información de la Gestión Diaria Aprobada */}
-                      <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
+                    <div key={rep.id} className={`bdt-hero-slide-item ${isActive ? 'is-active' : ''}`}>
+                      <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
                         
-                        {/* Badges de Verificación y Escuela */}
-                        <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-2 mb-3">
-                          <span 
-                            className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs d-inline-flex align-items-center gap-1.5"
-                            style={{ backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac', fontSize: '0.78rem' }}
-                          >
-                            <i className="bi bi-patch-check-fill text-success"></i>
-                            <span>Gestión Aprobada en Sistema</span>
-                          </span>
-
-                          <span 
-                            className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs bg-white text-dark d-inline-flex align-items-center gap-1.5 border"
-                            style={{ fontSize: '0.78rem' }}
-                          >
-                            <i className="bi bi-building text-primary"></i>
-                            <span>{nombreEscuela}</span>
-                          </span>
-
-                          <span 
-                            className="badge rounded-pill px-2.5 py-1.5 fw-semibold bg-white text-muted d-inline-flex align-items-center gap-1 border extra-small"
-                            style={{ fontSize: '0.75rem' }}
-                          >
-                            <i className="bi bi-calendar-event"></i>
-                            <span>{rep.fecha_actividad}</span>
-                          </span>
-                        </div>
-
-                        {/* Título de la Actividad */}
-                        <h2 className="bdt-hero-title mb-2.5" style={{ fontSize: 'clamp(1.7rem, 3vw, 2.4rem)' }}>
-                          {rep.actividad}
-                        </h2>
-
-                        {/* Descripción de la Actividad */}
-                        <p className="bdt-hero-desc mx-auto mx-lg-0 mb-3" style={{ fontSize: '0.98rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                          {rep.descripcion}
-                        </p>
-
-                        {/* Indicadores de Participación Escolar */}
-                        {rep.participantes && (
-                          <div className="d-inline-flex flex-wrap align-items-center gap-2.5 bg-white p-2.5 px-3 rounded-4 border shadow-xs mb-3.5 small">
-                            <span className="fw-bold text-dark d-inline-flex align-items-center gap-1.5">
-                              <i className="bi bi-people-fill text-primary"></i>
-                              <span>{rep.participantes.total} Asistentes</span>
+                        {/* Columna Izquierda: Información de la Gestión Diaria Aprobada */}
+                        <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
+                          
+                          {/* Badges de Verificación y Escuela */}
+                          <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-2 mb-3">
+                            <span 
+                              className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs d-inline-flex align-items-center gap-1.5"
+                              style={{ backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac', fontSize: '0.78rem' }}
+                            >
+                              <i className="bi bi-patch-check-fill text-success"></i>
+                              <span>Gestión Aprobada en Sistema</span>
                             </span>
-                            <span className="text-secondary">&bull;</span>
-                            <span className="text-secondary">{rep.participantes.estudiantes || 0} Estudiantes</span>
-                            <span className="text-secondary">&bull;</span>
-                            <span className="text-secondary">{rep.participantes.docentes || 0} Docentes</span>
-                            {rep.lugar_actividad && (
-                              <>
-                                <span className="text-secondary">&bull;</span>
-                                <span className="text-muted text-truncate" style={{ maxWidth: '180px' }}>📍 {rep.lugar_actividad}</span>
-                              </>
-                            )}
+
+                            <span 
+                              className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs bg-white text-dark d-inline-flex align-items-center gap-1.5 border"
+                              style={{ fontSize: '0.78rem' }}
+                            >
+                              <i className="bi bi-building text-primary"></i>
+                              <span>{nombreEscuela}</span>
+                            </span>
+
+                            <span 
+                              className="badge rounded-pill px-2.5 py-1.5 fw-semibold bg-white text-muted d-inline-flex align-items-center gap-1 border extra-small"
+                              style={{ fontSize: '0.75rem' }}
+                            >
+                              <i className="bi bi-calendar-event"></i>
+                              <span>{rep.fecha_actividad}</span>
+                            </span>
                           </div>
-                        )}
 
-                        {/* Botones de Acción para la Gestión Diaria */}
-                        <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
-                          <button 
-                            type="button" 
-                            className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
-                            style={{ backgroundColor: 'var(--bdt-purple-bicentenario)', border: 'none' }}
-                            onClick={() => setReporteModal(rep)}
-                          >
-                            <i className="bi bi-file-earmark-text-fill"></i>
-                            <span>📖 Ver Reporte Completo de Gestión</span>
-                          </button>
+                          {/* Título de la Actividad */}
+                          <h2 className="bdt-hero-title mb-2.5" style={{ fontSize: 'clamp(1.7rem, 3vw, 2.4rem)' }}>
+                            {rep.actividad}
+                          </h2>
 
-                          <button 
-                            type="button" 
-                            className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
-                            style={{ fontSize: '0.86rem', borderColor: 'var(--bdt-orange-action)', color: 'var(--bdt-orange-action)', backgroundColor: '#ffffff' }}
-                            onClick={() => {
-                              if (rep.escuela_codigo === 'sb' || rep.escuela_codigo === 'lb') {
-                                cambiarEscuela(rep.escuela_codigo);
-                                navigate('/login');
-                              } else {
-                                abrirSelectorEscuela();
-                              }
-                            }}
-                          >
-                            <i className="bi bi-box-arrow-in-right"></i>
-                            <span>Ir al Plantel</span>
-                          </button>
-                        </div>
+                          {/* Descripción de la Actividad */}
+                          <p className="bdt-hero-desc mx-auto mx-lg-0 mb-3" style={{ fontSize: '0.98rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {rep.descripcion}
+                          </p>
 
-                      </div>
-
-                      {/* Columna Derecha: Tarjeta Fotográfica de la Actividad Escolar */}
-                      <div className="col-lg-6 text-center bdt-hero-visual-col">
-                        <div 
-                          className="bdt-hero-photo-card cursor-pointer"
-                          onClick={() => setReporteModal(rep)}
-                          title="Haz clic para ver la galería completa y detalles oficiales"
-                        >
-                          <img 
-                            src={fotoBanner} 
-                            alt={rep.actividad} 
-                            className="bdt-hero-photo-img"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/assets/img/gestion_diaria/reporte_ejemplo_collage.png';
-                            }}
-                          />
-                          <div className="bdt-hero-photo-overlay d-flex align-items-end justify-content-between">
-                            <div className="text-start">
-                              <div className="extra-small fw-bold text-uppercase tracking-wider opacity-90 text-warning mb-0.5">
-                                {rep.fuente || 'Gestión Escolar Comprobada'}
-                              </div>
-                              <h6 className="fw-bold mb-0 text-white text-truncate" style={{ maxWidth: '380px' }}>
-                                {rep.actividad}
-                              </h6>
+                          {/* Indicadores de Participación Escolar */}
+                          {rep.participantes && (
+                            <div className="d-inline-flex flex-wrap align-items-center gap-2.5 bg-white p-2.5 px-3 rounded-4 border shadow-xs mb-3.5 small">
+                              <span className="fw-bold text-dark d-inline-flex align-items-center gap-1.5">
+                                <i className="bi bi-people-fill text-primary"></i>
+                                <span>{rep.participantes.total} Asistentes</span>
+                              </span>
+                              <span className="text-secondary">&bull;</span>
+                              <span className="text-secondary">{rep.participantes.estudiantes || 0} Estudiantes</span>
+                              <span className="text-secondary">&bull;</span>
+                              <span className="text-secondary">{rep.participantes.docentes || 0} Docentes</span>
+                              {rep.lugar_actividad && (
+                                <>
+                                  <span className="text-secondary">&bull;</span>
+                                  <span className="text-muted text-truncate" style={{ maxWidth: '180px' }}>📍 {rep.lugar_actividad}</span>
+                                </>
+                              )}
                             </div>
-                            <span className="badge bg-white text-dark rounded-pill px-3 py-1.5 shadow-sm fw-bold extra-small">
-                              🔍 Ampliar
-                            </span>
+                          )}
+
+                          {/* Botones de Acción para la Gestión Diaria */}
+                          <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                            <button 
+                              type="button" 
+                              className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                              style={{ backgroundColor: 'var(--bdt-purple-bicentenario)', border: 'none' }}
+                              onClick={() => setReporteModal(rep)}
+                            >
+                              <i className="bi bi-file-earmark-text-fill"></i>
+                              <span>📖 Ver Reporte Completo de Gestión</span>
+                            </button>
+
+                            <button 
+                              type="button" 
+                              className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                              style={{ fontSize: '0.86rem', borderColor: 'var(--bdt-orange-action)', color: 'var(--bdt-orange-action)', backgroundColor: '#ffffff' }}
+                              onClick={() => {
+                                if (rep.escuela_codigo === 'sb' || rep.escuela_codigo === 'lb') {
+                                  cambiarEscuela(rep.escuela_codigo);
+                                  navigate('/login');
+                                } else {
+                                  abrirSelectorEscuela();
+                                }
+                              }}
+                            >
+                              <i className="bi bi-box-arrow-in-right"></i>
+                              <span>Ir al Plantel</span>
+                            </button>
+                          </div>
+
+                        </div>
+
+                        {/* Columna Derecha: Tarjeta Fotográfica de la Actividad Escolar */}
+                        <div className="col-lg-6 text-center bdt-hero-visual-col">
+                          <div 
+                            className="bdt-hero-photo-card cursor-pointer"
+                            onClick={() => setReporteModal(rep)}
+                            title="Haz clic para ver la galería completa y detalles oficiales"
+                          >
+                            <img 
+                              src={fotoBanner} 
+                              alt={rep.actividad} 
+                              className="bdt-hero-photo-img"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/assets/img/gestion_diaria/reporte_ejemplo_collage.png';
+                              }}
+                            />
+                            <div className="bdt-hero-photo-overlay d-flex align-items-end justify-content-between">
+                              <div className="text-start">
+                                <div className="extra-small fw-bold text-uppercase tracking-wider opacity-90 text-warning mb-0.5">
+                                  {rep.fuente || 'Gestión Escolar Comprobada'}
+                                </div>
+                                <h6 className="fw-bold mb-0 text-white text-truncate" style={{ maxWidth: '380px' }}>
+                                  {rep.actividad}
+                                </h6>
+                              </div>
+                              <span className="badge bg-white text-dark rounded-pill px-3 py-1.5 shadow-sm fw-bold extra-small">
+                                🔍 Ampliar
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
+                      </div>
                     </div>
                   );
-                })()
-              )}
+                })}
+
+              </div>
             </div>
 
             {/* Indicadores de Puntos Inferiores (Dots) */}
