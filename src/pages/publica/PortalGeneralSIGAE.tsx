@@ -410,7 +410,8 @@ export const PortalGeneralSIGAE: React.FC = () => {
     setSlideActivo((prev) => (prev + 1) % totalSlides);
   };
 
-  // ── EFECTO PARALLAX INTERACTIVO (MOUSE 3D + SCROLL DEPTH) ──
+  // ── MOTOR GLOBAL DE PARALLAX INTERACTIVO (MOUSE 3D EN TODA LA WEB + PROFUNDIDAD SCROLL) ──
+  const portalRef = useRef<HTMLDivElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
   const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 });
   const [scrollParallax, setScrollParallax] = useState(0);
@@ -425,25 +426,62 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
   const handleHeroMouseLeave = () => {
     setCarruselPausado(false);
-    setParallaxOffset({ x: 0, y: 0 });
   };
 
-  // Efecto para escuchar el desplazamiento vertical y activar la clase flotante + scroll parallax
+  // Efecto para escuchar el mouse y desplazamiento vertical en toda la ventana (Parallax Global)
   useEffect(() => {
+    let ticking = false;
+    let currentX = 0;
+    let currentY = 0;
+    let currentScroll = window.scrollY;
+
+    const updateCSSVariables = () => {
+      if (portalRef.current) {
+        portalRef.current.style.setProperty('--global-px', currentX.toFixed(4));
+        portalRef.current.style.setProperty('--global-py', currentY.toFixed(4));
+        portalRef.current.style.setProperty('--parallax-x', currentX.toFixed(4));
+        portalRef.current.style.setProperty('--parallax-y', currentY.toFixed(4));
+        portalRef.current.style.setProperty('--global-scroll', `${currentScroll}px`);
+        portalRef.current.style.setProperty('--scroll-parallax', `${(currentScroll * 0.22).toFixed(2)}px`);
+      }
+      ticking = false;
+    };
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      // Coordenadas normalizadas respecto a la ventana completa (-1 a 1)
+      currentX = ((e.clientX / window.innerWidth) - 0.5) * 2;
+      currentY = ((e.clientY / window.innerHeight) - 0.5) * 2;
+
+      if (!ticking) {
+        window.requestAnimationFrame(updateCSSVariables);
+        ticking = true;
+      }
+    };
+
     const handleScroll = () => {
-      // Si el usuario hace scroll hacia abajo más de 35px, fijamos la barra en el aire
+      currentScroll = window.scrollY;
       if (window.scrollY > 35) {
         setEsFlotante(true);
       } else {
         setEsFlotante(false);
       }
-      if (window.scrollY < 800) {
+      if (window.scrollY < 1200) {
         setScrollParallax(window.scrollY);
+      }
+
+      if (!ticking) {
+        window.requestAnimationFrame(updateCSSVariables);
+        ticking = true;
       }
     };
 
+    window.addEventListener('mousemove', handleGlobalMouseMove, { passive: true });
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   // Función para abrir la ventana modal del selector de escuelas
@@ -468,7 +506,17 @@ export const PortalGeneralSIGAE: React.FC = () => {
   });
 
   return (
-    <div className="portal-bdt-wrapper">
+    <div 
+      ref={portalRef}
+      className="portal-bdt-wrapper"
+      style={{
+        '--global-px': parallaxOffset.x,
+        '--global-py': parallaxOffset.y,
+        '--parallax-x': parallaxOffset.x,
+        '--parallax-y': parallaxOffset.y,
+        '--scroll-parallax': `${scrollParallax * 0.22}px`,
+      } as React.CSSProperties}
+    >
       
       {/* ── 1. LA AUTÉNTICA BARRA SUPERPUESTA Y FLOTANTE (ESTILO BDT CON LOGO SIGAE AL CENTRO) ── */}
       <header className="bdt-floating-navbar-container">
@@ -1836,7 +1884,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
               
               {/* Razón 1: Check Verde */}
               <div className="col-md-6 col-lg-3">
-                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column bdt-guarantee-card">
                   <div className="d-flex align-items-center gap-2.5 mb-2">
                     <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-green)' }}>
                       <i className="bi bi-check-lg"></i>
@@ -1851,7 +1899,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
               {/* Razón 2: Check Azul Cielo */}
               <div className="col-md-6 col-lg-3">
-                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column bdt-guarantee-card">
                   <div className="d-flex align-items-center gap-2.5 mb-2">
                     <div className="bdt-reason-check" style={{ backgroundColor: '#0ea5e9' }}>
                       <i className="bi bi-check-lg"></i>
@@ -1866,7 +1914,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
               {/* Razón 3: Check Púrpura Bicentenario */}
               <div className="col-md-6 col-lg-3">
-                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column bdt-guarantee-card">
                   <div className="d-flex align-items-center gap-2.5 mb-2">
                     <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-purple-bicentenario)' }}>
                       <i className="bi bi-check-lg"></i>
@@ -1881,7 +1929,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
               {/* Razón 4: Check Naranja de Acción */}
               <div className="col-md-6 col-lg-3">
-                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column">
+                <div className="p-3.5 bg-light rounded-4 border h-100 d-flex flex-column bdt-guarantee-card">
                   <div className="d-flex align-items-center gap-2.5 mb-2">
                     <div className="bdt-reason-check" style={{ backgroundColor: 'var(--bdt-orange-action)' }}>
                       <i className="bi bi-check-lg"></i>
@@ -2332,11 +2380,15 @@ export const PortalGeneralSIGAE: React.FC = () => {
           <div className="row align-items-center g-4">
             
             <div className="col-lg-4 text-center">
-              <img 
-                src="/assets/img/seguridad_3d.png" 
-                alt="Validador de Constancias" 
-                style={{ width: '160px', height: '160px', objectFit: 'contain' }}
-              />
+              <div className="bdt-verifier-3d-wrap">
+                <div className="bdt-verifier-glow-circle"></div>
+                <img 
+                  src="/assets/img/seguridad_3d.png" 
+                  alt="Validador de Constancias" 
+                  className="bdt-verifier-3d-shield"
+                  style={{ width: '165px', height: '165px', objectFit: 'contain' }}
+                />
+              </div>
             </div>
 
             <div className="col-lg-8">

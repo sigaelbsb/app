@@ -34,7 +34,7 @@
   --font-body: 'Open Sans', sans-serif;
 }
 
-/* ── 1. CONTENEDOR GENERAL ── */
+/* ── 1. CONTENEDOR GENERAL CON MOTOR PARALLAX GLOBAL ── */
 .portal-bdt-wrapper {
   min-height: 100vh;
   width: 100%;
@@ -43,6 +43,13 @@
   color: var(--bdt-text-dark);
   position: relative;
   overflow-x: clip; /* clip garantiza que position: sticky/fixed no se rompa */
+  --global-px: 0;
+  --global-py: 0;
+  --global-scroll: 0px;
+  --parallax-x: 0;
+  --parallax-y: 0;
+  --scroll-parallax: 0px;
+  perspective: 1200px;
 }
 
 .portal-bdt-wrapper h1,
@@ -1281,10 +1288,14 @@
   text-align: center;
   gap: 10px;
   border-right: 1px solid #e2e8f0;
-  transition: all 0.25s ease;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 3deg)) rotateX(calc(var(--global-py, 0) * -2.5deg));
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease, box-shadow 0.25s ease, color 0.2s ease;
   cursor: pointer;
   text-decoration: none;
   color: #1e293b;
+  will-change: transform;
 }
 
 .bdt-quick-tile:last-child {
@@ -1294,19 +1305,20 @@
 .bdt-quick-tile:hover {
   background: #f8fafc;
   color: var(--bdt-navy-deep);
-  box-shadow: inset 0 -3px 0 var(--bdt-orange-action);
-  transform: translateY(-2px);
+  box-shadow: inset 0 -3px 0 var(--bdt-orange-action), 0 10px 25px -5px rgba(14, 44, 83, 0.12);
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 5.5deg)) rotateX(calc(var(--global-py, 0) * -4deg)) translateY(-4px) scale3d(1.02, 1.02, 1.02);
 }
 
 .bdt-quick-tile-icon {
   font-size: 1.85rem;
   color: #1b2c6e;
-  transition: transform 0.25s ease, color 0.25s ease;
+  transform: translateZ(16px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s ease;
 }
 
 .bdt-quick-tile:hover .bdt-quick-tile-icon {
   color: var(--bdt-orange-action);
-  transform: scale(1.15);
+  transform: translateZ(28px) scale(1.16);
 }
 
 .bdt-quick-tile-title {
@@ -1356,15 +1368,19 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 4.2deg)) rotateX(calc(var(--global-py, 0) * -3.5deg));
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.25s ease;
   position: relative;
   overflow: hidden;
+  will-change: transform;
 }
 
 .bdt-modalidad-card:hover {
-  transform: translateY(-6px);
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 8.5deg)) rotateX(calc(var(--global-py, 0) * -6.5deg)) translateY(-8px) scale3d(1.025, 1.025, 1.025);
   border-color: var(--bdt-purple-bicentenario);
-  box-shadow: 0 18px 36px -6px rgba(146, 39, 143, 0.18);
+  box-shadow: 0 20px 42px -6px rgba(146, 39, 143, 0.2);
 }
 
 .bdt-modalidad-icon {
@@ -1377,9 +1393,16 @@
   font-size: 1.6rem;
   margin-bottom: 14px;
   color: #ffffff;
+  transform: translateZ(26px);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
 }
 
-/* ── 7. SECCIÓN RESCATADA: MÓDULOS POPULARES (CARDS FRECUENTADAS) ── */
+.bdt-modalidad-card:hover .bdt-modalidad-icon {
+  transform: translateZ(42px) scale(1.16) rotate(5deg);
+  box-shadow: 0 10px 24px rgba(146, 39, 143, 0.35);
+}
+
+/* ── 7. SECCIÓN RESCATADA: MÓDULOS POPULARES (CARDS FRECUENTADAS CON PARALLAX 3D) ── */
 .bdt-popular-card {
   background: #ffffff;
   border-radius: 18px;
@@ -1389,15 +1412,19 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  transition: all 0.28s ease;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 4deg)) rotateX(calc(var(--global-py, 0) * -3.2deg));
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.25s ease;
   text-decoration: none;
   color: var(--bdt-text-dark);
+  will-change: transform;
 }
 
 .bdt-popular-card:hover {
-  transform: translateY(-5px);
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 8deg)) rotateX(calc(var(--global-py, 0) * -5.5deg)) translateY(-6px) scale3d(1.02, 1.02, 1.02);
   border-color: var(--bdt-orange-action);
-  box-shadow: 0 14px 28px -4px rgba(242, 101, 34, 0.15);
+  box-shadow: 0 18px 36px -4px rgba(242, 101, 34, 0.18);
   color: var(--bdt-orange-action);
 }
 
@@ -1412,16 +1439,17 @@
   flex-shrink: 0;
   background: var(--bdt-warm-cream);
   color: var(--bdt-orange-action);
-  transition: transform 0.25s ease;
+  transform: translateZ(20px);
+  transition: transform 0.25s ease, background 0.25s ease, color 0.25s ease;
 }
 
 .bdt-popular-card:hover .bdt-popular-icon {
-  transform: scale(1.12);
+  transform: translateZ(32px) scale(1.12);
   background: var(--bdt-orange-action);
   color: #ffffff;
 }
 
-/* ── 8. SECCIÓN RESCATADA: CARACTERIZACIÓN Y COMUNIDAD (ESTADÍSTICAS) ── */
+/* ── 8. SECCIÓN RESCATADA: CARACTERIZACIÓN Y COMUNIDAD (ESTADÍSTICAS 3D) ── */
 .bdt-stat-box {
   background: linear-gradient(135deg, #ffffff 0%, #fdfcf9 100%);
   border: 1.5px solid #e2e8f0;
@@ -1429,33 +1457,51 @@
   padding: 22px 18px;
   text-align: center;
   box-shadow: 0 6px 18px rgba(14, 44, 83, 0.05);
-  transition: all 0.25s ease;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 3.8deg)) rotateX(calc(var(--global-py, 0) * -3deg));
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.25s ease;
+  will-change: transform;
 }
 
 .bdt-stat-box:hover {
-  transform: translateY(-4px);
+  transform: perspective(1000px) translateY(-6px) scale3d(1.025, 1.025, 1.025);
   border-color: var(--bdt-pill-blue);
-  box-shadow: 0 14px 28px rgba(14, 44, 83, 0.12);
+  box-shadow: 0 16px 32px rgba(14, 44, 83, 0.14);
 }
 
-/* ── 9. PLANTELES EDUCATIVOS AFILIADOS (SEDES ACTIVAS) ── */
+.bdt-stat-box i {
+  display: inline-block;
+  transform: translateZ(22px);
+  transition: transform 0.25s ease;
+}
+
+.bdt-stat-box:hover i {
+  transform: translateZ(36px) scale(1.18);
+}
+
+/* ── 9. PLANTELES EDUCATIVOS AFILIADOS (SEDES ACTIVAS CON 3D TILT) ── */
 .bdt-school-card {
   background: #ffffff;
   border-radius: 20px;
   border: 1.5px solid #e2e8f0;
   box-shadow: 0 8px 24px -4px rgba(13, 23, 57, 0.07);
   padding: 24px;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 4deg)) rotateX(calc(var(--global-py, 0) * -3.2deg));
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.25s ease;
   height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  will-change: transform;
 }
 
 .bdt-school-card:hover {
-  transform: translateY(-6px);
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 8deg)) rotateX(calc(var(--global-py, 0) * -5.5deg)) translateY(-8px) scale3d(1.02, 1.02, 1.02);
   border-color: var(--bdt-btn-online);
-  box-shadow: 0 20px 40px -8px rgba(13, 23, 57, 0.18);
+  box-shadow: 0 22px 45px -8px rgba(13, 23, 57, 0.2);
 }
 
 /* ── 10. PIE DE PÁGINA (FOOTER CLARO INSTITUCIONAL RESCATADO) ── */
@@ -1515,11 +1561,12 @@
   height: 44px;
   object-fit: contain;
   filter: drop-shadow(0 4px 8px rgba(14, 44, 83, 0.15));
-  transition: transform 0.25s ease;
+  transform: translateZ(26px) scale(1.05);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .bdt-popular-card:hover .bdt-module-icon-3d {
-  transform: scale(1.16) translateY(-2px);
+  transform: translateZ(44px) scale(1.22) rotate(-5deg);
 }
 
 /* ── BOTÓN HAMBURGUESA PARA TELÉFONOS ── */
@@ -1652,20 +1699,24 @@
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
-/* ── 14. TARJETAS DE MATRÍCULA ESCOLAR INTEGRALES (ADAPTADAS AL DISEÑO DEL PORTAL) ── */
+/* ── 14. TARJETAS DE MATRÍCULA ESCOLAR INTEGRALES (CON PARALLAX 3D) ── */
 .bdt-matricula-card {
   background: #ffffff;
   border-radius: 24px;
   border: 1.8px solid #e2e8f0;
   padding: 22px 20px;
   box-shadow: 0 8px 24px -4px rgba(14, 44, 83, 0.06);
-  transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 4deg)) rotateX(calc(var(--global-py, 0) * -3.2deg));
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.25s ease;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
+  will-change: transform;
 }
 
 .bdt-matricula-card::before {
@@ -1681,9 +1732,9 @@
 }
 
 .bdt-matricula-card:hover {
-  transform: translateY(-6px);
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 7.5deg)) rotateX(calc(var(--global-py, 0) * -5.5deg)) translateY(-8px) scale3d(1.02, 1.02, 1.02);
   border-color: var(--card-accent, #10b981);
-  box-shadow: 0 16px 36px -6px var(--card-shadow, rgba(16, 185, 129, 0.2));
+  box-shadow: 0 20px 42px -6px var(--card-shadow, rgba(16, 185, 129, 0.22));
 }
 
 .bdt-matricula-card:hover::before {
@@ -1695,6 +1746,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transform: translateZ(20px);
 }
 
 .bdt-matricula-avatar-ring {
@@ -1707,11 +1759,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translateZ(26px);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .bdt-matricula-card:hover .bdt-matricula-avatar-ring {
-  transform: scale(1.08) rotate(3deg);
+  transform: translateZ(38px) scale(1.12) rotate(4deg);
 }
 
 .bdt-matricula-avatar-img {
@@ -1751,7 +1804,12 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  transition: all 0.2s ease;
+  transform: translateZ(16px);
+  transition: all 0.22s ease;
+}
+
+.bdt-matricula-pill-item:hover {
+  transform: translateZ(26px) scale(1.06);
 }
 
 .bdt-matricula-pill-item strong {
@@ -1834,3 +1892,84 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── 16. GARANTÍAS DEL ECOSISTEMA INSTITUCIONAL (PARALLAX 3D) ── */
+.bdt-guarantee-card {
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 3.5deg)) rotateX(calc(var(--global-py, 0) * -2.8deg));
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s ease, border-color 0.25s ease;
+  will-change: transform;
+}
+
+.bdt-guarantee-card:hover {
+  transform: perspective(1000px) rotateY(calc(var(--global-px, 0) * 6.5deg)) rotateX(calc(var(--global-py, 0) * -4.5deg)) translateY(-6px) scale3d(1.02, 1.02, 1.02);
+  box-shadow: 0 16px 32px -4px rgba(14, 44, 83, 0.12);
+  border-color: #cbd5e1;
+}
+
+.bdt-guarantee-card .bdt-reason-check {
+  transform: translateZ(20px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bdt-guarantee-card:hover .bdt-reason-check {
+  transform: translateZ(32px) scale(1.18) rotate(6deg);
+}
+
+/* ── 17. VALIDADOR CRIPTOGRÁFICO CON PARALLAX 3D HOLOGRÁFICO ── */
+.bdt-verifier-3d-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+  perspective: 1200px;
+}
+
+.bdt-verifier-glow-circle {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, rgba(16, 185, 129, 0.14) 50%, transparent 70%);
+  filter: blur(28px);
+  pointer-events: none;
+  transform: translate3d(calc(var(--global-px, 0) * -24px), calc(var(--global-py, 0) * -18px), 0);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.bdt-verifier-3d-shield {
+  transform: perspective(1000px) 
+    translate3d(calc(var(--global-px, 0) * 24px), calc(var(--global-py, 0) * 18px), 35px)
+    rotateY(calc(var(--global-px, 0) * 12deg)) 
+    rotateX(calc(var(--global-py, 0) * -8deg));
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 14px 28px rgba(14, 44, 83, 0.22));
+  animation: bdtShieldFloat 5s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes bdtShieldFloat {
+  0% { transform: translateY(0px) rotateY(calc(var(--global-px, 0) * 10deg)); }
+  100% { transform: translateY(-8px) rotateY(calc(var(--global-px, 0) * 10deg)); }
+}
+
+/* ── 18. ACCESIBILIDAD Y DISPOSITIVOS TÁCTILES ── */
+@media (prefers-reduced-motion: reduce) {
+  .portal-bdt-wrapper *,
+  .bdt-matricula-card,
+  .bdt-guarantee-card,
+  .bdt-modalidad-card,
+  .bdt-popular-card,
+  .bdt-stat-box,
+  .bdt-school-card,
+  .bdt-quick-tile,
+  .bdt-verifier-3d-shield {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
