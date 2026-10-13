@@ -624,23 +624,28 @@
   color: #ffffff !important;
 }
 
-/* ── 5. HERO BANNER PRINCIPAL: ENTORNO ESCOLAR Y PEDAGÓGICO DE VANGUARDIA ── */
+/* ── 5. HERO BANNER PRINCIPAL: ENTORNO ESCOLAR CON EFECTO PARALLAX INTERACTIVO ── */
 .bdt-hero-section {
   background: 
     linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 247, 255, 0.95) 28%, rgba(255, 252, 235, 0.94) 68%, rgba(246, 243, 255, 0.96) 100%),
-    url('/assets/img/fondo_digital_escolar.jpg') center/cover no-repeat;
+    url('/assets/img/fondo_digital_escolar.jpg') no-repeat;
+  background-position: calc(50% + var(--slide-bg-offset, 0px) - calc(var(--parallax-x, 0) * 22px)) calc(50% + var(--scroll-parallax, 0px) - calc(var(--parallax-y, 0) * 16px));
+  background-size: 110% auto;
   color: #0f172a;
   padding: 110px 0 0 0;
   position: relative;
   overflow: hidden;
   border-bottom: 1.5px solid #e2e8f0;
+  perspective: 1400px;
+  transform-style: preserve-3d;
+  transition: background-position 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Trama sutil de cuaderno escolar y retícula pedagógica */
+/* Trama sutil de cuaderno escolar con Parallax de fondo invertido */
 .bdt-hero-section::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: -30px; left: -30px; right: -30px; bottom: -30px;
   background-image: 
     radial-gradient(rgba(37, 99, 235, 0.12) 1.5px, transparent 1.5px),
     linear-gradient(to right, rgba(14, 44, 83, 0.035) 1px, transparent 1px),
@@ -648,29 +653,36 @@
   background-size: 32px 32px, 64px 64px, 64px 64px;
   pointer-events: none;
   opacity: 0.85;
+  transform: translate3d(calc(var(--parallax-x, 0) * -18px), calc(var(--parallax-y, 0) * -14px), 0);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
-/* Resplandor cálido de atmósfera escolar */
+/* Resplandor cálido de atmósfera escolar con Parallax */
 .bdt-hero-glow-atmosphere {
   position: absolute;
   width: 650px;
   height: 650px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, rgba(59, 130, 246, 0.12) 50%, transparent 70%);
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.16) 0%, rgba(59, 130, 246, 0.13) 50%, transparent 70%);
   top: 5%;
   right: 5%;
   pointer-events: none;
   filter: blur(50px);
   z-index: 1;
+  transform: translate3d(calc(var(--parallax-x, 0) * 38px), calc(var(--parallax-y, 0) * 28px), 0);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
-/* Insignias geométricas escolares flotantes */
+/* Insignias geométricas escolares con Parallax de profundidad multinivel */
 .bdt-neon-square {
   position: absolute;
   border-radius: 8px;
   pointer-events: none;
   z-index: 2;
-  animation: bdtNeonFloat 6s ease-in-out infinite alternate;
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 .bdt-neon-square.sq-yellow {
@@ -681,7 +693,8 @@
   border: 2px solid #f59e0b;
   background: rgba(254, 243, 199, 0.55);
   box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
-  animation-duration: 5.5s;
+  transform: translate3d(calc(var(--parallax-x, 0) * -38px), calc(var(--parallax-y, 0) * -28px), 25px);
+  animation: bdtNeonFloat 5.5s ease-in-out infinite alternate;
 }
 
 .bdt-neon-square.sq-pink {
@@ -692,8 +705,8 @@
   border: 2px solid #ec4899;
   background: rgba(253, 232, 242, 0.55);
   box-shadow: 0 4px 14px rgba(236, 72, 153, 0.35);
-  animation-duration: 7s;
-  animation-delay: 1s;
+  transform: translate3d(calc(var(--parallax-x, 0) * 44px), calc(var(--parallax-y, 0) * 34px), 30px);
+  animation: bdtNeonFloat 7s ease-in-out infinite alternate 1s;
 }
 
 .bdt-neon-square.sq-green {
@@ -704,8 +717,8 @@
   border: 2px solid #10b981;
   background: rgba(209, 250, 229, 0.55);
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
-  animation-duration: 6.2s;
-  animation-delay: 2s;
+  transform: translate3d(calc(var(--parallax-x, 0) * -28px), calc(var(--parallax-y, 0) * 24px), 20px);
+  animation: bdtNeonFloat 6.2s ease-in-out infinite alternate 2s;
 }
 
 .bdt-neon-square.sq-cyan {
@@ -716,8 +729,8 @@
   border: 2px solid #0284c7;
   background: rgba(224, 242, 254, 0.55);
   box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
-  animation-duration: 8s;
-  animation-delay: 0.5s;
+  transform: translate3d(calc(var(--parallax-x, 0) * 32px), calc(var(--parallax-y, 0) * -34px), 35px);
+  animation: bdtNeonFloat 8s ease-in-out infinite alternate 0.5s;
 }
 
 @keyframes bdtNeonFloat {
@@ -775,13 +788,16 @@
   margin-bottom: 26px;
 }
 
-/* Contenedor 3D de Zoe y Max en el Hero */
+/* Contenedor 3D de Zoe y Max en el Hero con Parallax de primer plano */
 .bdt-zoe-max-hero-card {
   position: relative;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  transform: translate3d(calc(var(--parallax-x, 0) * 26px), calc(var(--parallax-y, 0) * 20px), 40px);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 .bdt-zoe-max-img {
@@ -894,6 +910,19 @@
     opacity: 1;
     transform: translateX(0) scale(1);
   }
+}
+
+/* Capas Parallax de Texto y Contenido Visual */
+.bdt-hero-text-col {
+  transform: translate3d(calc(var(--parallax-x, 0) * -10px), calc(var(--parallax-y, 0) * -8px), 12px);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.bdt-hero-visual-col {
+  transform: translate3d(calc(var(--parallax-x, 0) * 14px), calc(var(--parallax-y, 0) * 12px), 24px);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 /* Flechas Circulares Escolares con Relieve */
@@ -1036,7 +1065,7 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
 }
 
-/* Carnet Escolar Digital Flotante en perspectiva 3D */
+/* Carnet Escolar Digital Flotante en perspectiva 3D con Parallax */
 .bdt-floating-card-carnet {
   position: absolute;
   top: 10%;
@@ -1047,11 +1076,12 @@
   padding: 12px 14px;
   color: #ffffff;
   border: 1.5px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55), 0 0 25px rgba(59, 130, 246, 0.5);
-  transform: rotate(-12deg);
-  z-index: 4;
-  animation: bdtCardFloatCarnet 5s ease-in-out infinite alternate;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), 0 0 25px rgba(59, 130, 246, 0.4);
+  transform: translate3d(calc(var(--parallax-x, 0) * -34px), calc(var(--parallax-y, 0) * -28px), 55px) rotate(-12deg);
+  z-index: 5;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   backdrop-filter: blur(8px);
+  will-change: transform;
 }
 
 @keyframes bdtCardFloatCarnet {
@@ -1059,26 +1089,27 @@
   100% { transform: translateY(-12px) rotate(-8deg); }
 }
 
-/* Tarjeta Boletín Digital Flotante */
+/* Tarjeta Boletín Digital Flotante con Parallax */
 .bdt-floating-card-boletin {
   position: absolute;
-  bottom: 8%;
-  right: -5%;
+  top: 6%;
+  left: -25px;
   width: 210px;
   background: linear-gradient(135deg, #065f46 0%, #047857 60%, #10b981 100%);
   border-radius: 14px;
   padding: 12px 14px;
   color: #ffffff;
   border: 1.5px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55), 0 0 25px rgba(16, 185, 129, 0.5);
-  transform: rotate(8deg);
-  z-index: 4;
-  animation: bdtCardFloatBoletin 5.5s ease-in-out infinite alternate;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), 0 0 25px rgba(16, 185, 129, 0.4);
+  transform: translate3d(calc(var(--parallax-x, 0) * -34px), calc(var(--parallax-y, 0) * -28px), 55px) rotate(-8deg);
+  z-index: 5;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
 }
 
 @keyframes bdtCardFloatBoletin {
-  0% { transform: translateY(0px) rotate(8deg); }
-  100% { transform: translateY(-10px) rotate(5deg); }
+  0% { transform: translateY(0px) rotate(-8deg); }
+  100% { transform: translateY(-10px) rotate(-5deg); }
 }
 
 /* Slide Móvil: Marca de agua gigante y Smartphone 3D */
@@ -1170,7 +1201,7 @@
   box-shadow: 0 4px 15px rgba(15, 41, 66, 0.08);
 }
 
-/* Tarjeta Showcase para Módulos del Sistema (APP) */
+/* Tarjeta Showcase para Módulos del Sistema con 3D Tilt Parallax */
 .bdt-module-showcase-card {
   background: #ffffff;
   border-radius: 24px;
@@ -1184,12 +1215,13 @@
   justify-content: center;
   max-width: 440px;
   margin: 0 auto;
-  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  transform: perspective(1000px) rotateY(calc(var(--parallax-x, 0) * 8.5deg)) rotateX(calc(var(--parallax-y, 0) * -6.5deg)) translate3d(calc(var(--parallax-x, 0) * 10px), calc(var(--parallax-y, 0) * 8px), 20px);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  will-change: transform;
 }
 
 .bdt-module-showcase-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 25px 50px -10px rgba(15, 41, 66, 0.18);
+  box-shadow: 0 28px 60px -10px rgba(15, 41, 66, 0.22);
 }
 
 .bdt-module-3d-icon-wrap {

@@ -22,7 +22,7 @@
  * ==============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSchool } from '../../context/SchoolContext';
 import { SelectorEscuelaModal } from '../../components/escuelas/SelectorEscuelaModal';
@@ -410,7 +410,25 @@ export const PortalGeneralSIGAE: React.FC = () => {
     setSlideActivo((prev) => (prev + 1) % totalSlides);
   };
 
-  // Efecto para escuchar el desplazamiento vertical y activar la clase flotante
+  // ── EFECTO PARALLAX INTERACTIVO (MOUSE 3D + SCROLL DEPTH) ──
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 });
+  const [scrollParallax, setScrollParallax] = useState(0);
+
+  const handleHeroMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    if (!heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2; // Rango: -1 a 1
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2; // Rango: -1 a 1
+    setParallaxOffset({ x, y });
+  };
+
+  const handleHeroMouseLeave = () => {
+    setCarruselPausado(false);
+    setParallaxOffset({ x: 0, y: 0 });
+  };
+
+  // Efecto para escuchar el desplazamiento vertical y activar la clase flotante + scroll parallax
   useEffect(() => {
     const handleScroll = () => {
       // Si el usuario hace scroll hacia abajo más de 35px, fijamos la barra en el aire
@@ -418,6 +436,9 @@ export const PortalGeneralSIGAE: React.FC = () => {
         setEsFlotante(true);
       } else {
         setEsFlotante(false);
+      }
+      if (window.scrollY < 800) {
+        setScrollParallax(window.scrollY);
       }
     };
 
@@ -728,12 +749,20 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       )}
 
-      {/* ── 5. HERO BANNER PRINCIPAL: CARRUSEL INTERACTIVO ESTILO BDT (WWW.BDT.COM.VE) ── */}
+      {/* ── 5. HERO BANNER PRINCIPAL: CARRUSEL ESCOLAR CON EFECTO PARALLAX INTERACTIVO ── */}
       <section 
         id="inicio" 
+        ref={heroRef}
         className="bdt-hero-section"
         onMouseEnter={() => setCarruselPausado(true)}
-        onMouseLeave={() => setCarruselPausado(false)}
+        onMouseMove={handleHeroMouseMove}
+        onMouseLeave={handleHeroMouseLeave}
+        style={{
+          '--parallax-x': parallaxOffset.x,
+          '--parallax-y': parallaxOffset.y,
+          '--scroll-parallax': `${scrollParallax * 0.22}px`,
+          '--slide-bg-offset': `${slideActivo * 25}px`,
+        } as React.CSSProperties}
       >
         {/* Atmósfera Digital y Resplandor Radial BDT */}
         <div className="bdt-hero-glow-atmosphere"></div>
