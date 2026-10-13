@@ -624,24 +624,132 @@
   color: #ffffff !important;
 }
 
-/* ── 5. HERO BANNER PRINCIPAL CON FONDO CLARO LUMINOSO (ESTILO WEB ESCOLAR & APP) ── */
+/* ── 5. HERO BANNER PRINCIPAL: ATMÓSFERA DIGITAL AZUL BDT (IDÉNTICO A WWW.BDT.COM.VE) ── */
 .bdt-hero-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f0f6ff 45%, #fff9ee 100%);
-  color: var(--bdt-text-dark);
-  padding: 105px 20px 65px 20px; /* Ajustado armoniosamente para la barra menos alta */
+  background: radial-gradient(circle at 68% 40%, #0d3278 0%, #092055 45%, #030d24 100%);
+  color: #ffffff;
+  padding: 110px 0 0 0;
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: none;
 }
 
+/* Red de constelación digital y cuadrícula */
 .bdt-hero-section::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-image: radial-gradient(rgba(14, 44, 83, 0.04) 1.5px, transparent 1.5px);
-  background-size: 26px 26px;
+  background-image: 
+    radial-gradient(rgba(56, 189, 248, 0.18) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 36px 36px, 72px 72px, 72px 72px;
   pointer-events: none;
-  opacity: 0.8;
+  opacity: 0.75;
+}
+
+/* Resplandor radial de atmósfera digital */
+.bdt-hero-glow-atmosphere {
+  position: absolute;
+  width: 650px;
+  height: 650px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.3) 0%, rgba(14, 165, 233, 0.12) 50%, transparent 70%);
+  top: 10%;
+  right: 5%;
+  pointer-events: none;
+  filter: blur(40px);
+  z-index: 1;
+}
+
+/* Partículas neón cuadradas flotantes (estilo exacto BDT) */
+.bdt-neon-square {
+  position: absolute;
+  border-radius: 7px;
+  pointer-events: none;
+  z-index: 2;
+  animation: bdtNeonFloat 6s ease-in-out infinite alternate;
+}
+
+.bdt-neon-square.sq-yellow {
+  width: 22px;
+  height: 22px;
+  top: 16%;
+  left: 28%;
+  border: 2.5px solid #f59e0b;
+  box-shadow: 0 0 16px #f59e0b, inset 0 0 10px rgba(245, 158, 11, 0.5);
+  animation-duration: 5.5s;
+}
+
+.bdt-neon-square.sq-pink {
+  width: 18px;
+  height: 18px;
+  top: 55%;
+  left: 5%;
+  border: 2.5px solid #ec4899;
+  box-shadow: 0 0 14px #ec4899, inset 0 0 8px rgba(236, 72, 153, 0.5);
+  animation-duration: 7s;
+  animation-delay: 1s;
+}
+
+.bdt-neon-square.sq-green {
+  width: 24px;
+  height: 24px;
+  bottom: 22%;
+  left: 42%;
+  border: 2.5px solid #10b981;
+  box-shadow: 0 0 18px #10b981, inset 0 0 10px rgba(16, 185, 129, 0.5);
+  animation-duration: 6.2s;
+  animation-delay: 2s;
+}
+
+.bdt-neon-square.sq-cyan {
+  width: 20px;
+  height: 20px;
+  top: 25%;
+  right: 18%;
+  border: 2.5px solid #06b6d4;
+  box-shadow: 0 0 16px #06b6d4, inset 0 0 10px rgba(6, 182, 212, 0.5);
+  animation-duration: 8s;
+  animation-delay: 0.5s;
+}
+
+@keyframes bdtNeonFloat {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(8deg); }
+  100% { transform: translateY(6px) rotate(-6deg); }
+}
+
+/* Tipografía de 3 niveles BDT */
+.bdt-hero-title-top {
+  font-family: var(--font-title);
+  font-size: clamp(1.8rem, 3.8vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  text-transform: uppercase;
+  line-height: 1.1;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  margin-bottom: 6px;
+}
+
+.bdt-hero-title-mid {
+  font-family: var(--font-body);
+  font-size: clamp(1.15rem, 2.2vw, 1.7rem);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+
+.bdt-hero-title-bottom {
+  font-family: var(--font-title);
+  font-size: clamp(2rem, 4.2vw, 3.5rem);
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.1;
+  text-shadow: 0 4px 24px rgba(37, 99, 235, 0.5);
+  margin-bottom: 18px;
 }
 
 .bdt-hero-title {
@@ -650,14 +758,15 @@
   font-weight: 900;
   line-height: 1.15;
   letter-spacing: -0.6px;
-  color: var(--bdt-navy-deep);
+  color: #ffffff;
   margin-bottom: 16px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .bdt-hero-desc {
   font-family: var(--font-body);
   font-size: 1.05rem;
-  color: #475569;
+  color: rgba(255, 255, 255, 0.88);
   line-height: 1.65;
   max-width: 580px;
   margin-bottom: 26px;
@@ -676,7 +785,7 @@
   max-height: 330px;
   width: auto;
   object-fit: contain;
-  filter: drop-shadow(0 16px 28px rgba(14, 44, 83, 0.18));
+  filter: drop-shadow(0 20px 35px rgba(0, 0, 0, 0.5));
   animation: zoeMaxFloat 5s ease-in-out infinite alternate;
 }
 
@@ -687,12 +796,13 @@
 
 /* Globo de Diálogo de Zoe y Max */
 .bdt-zoe-max-speech-bubble {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
   border-radius: 18px;
   padding: 12px 18px;
   color: #0f172a;
-  box-shadow: 0 10px 25px rgba(14, 44, 83, 0.1);
-  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
   max-width: 320px;
   margin-bottom: 12px;
   position: relative;
@@ -708,7 +818,7 @@
   height: 0;
   border-left: 9px solid transparent;
   border-right: 9px solid transparent;
-  border-top: 9px solid #ffffff;
+  border-top: 9px solid rgba(255, 255, 255, 0.95);
 }
 
 /* ── CARRUSEL INTERACTIVO DEL HERO BANNER: GESTIÓN DIARIA ESCOLAR APROBADA ── */
@@ -783,41 +893,42 @@
   }
 }
 
+/* Flechas Glassmorphic Circulares BDT */
 .bdt-hero-nav-arrow {
   position: absolute;
-  top: 50%;
+  top: 48%;
   transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1.5px solid rgba(146, 39, 143, 0.25);
-  color: var(--bdt-navy-deep);
+  background: rgba(10, 25, 55, 0.65);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
-  box-shadow: 0 8px 20px rgba(14, 44, 83, 0.12);
+  font-size: 1.35rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   z-index: 10;
-  transition: all 0.22s ease;
-  backdrop-filter: blur(8px);
+  transition: all 0.25s ease;
+  backdrop-filter: blur(10px);
 }
 
 .bdt-hero-nav-arrow:hover {
-  background: #ffffff;
-  color: var(--bdt-purple-bicentenario);
-  border-color: var(--bdt-purple-bicentenario);
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #60a5fa;
   transform: translateY(-50%) scale(1.12);
-  box-shadow: 0 12px 24px rgba(146, 39, 143, 0.25);
+  box-shadow: 0 0 25px rgba(37, 99, 235, 0.7);
 }
 
 .bdt-hero-nav-arrow.prev {
-  left: -20px;
+  left: -15px;
 }
 
 .bdt-hero-nav-arrow.next {
-  right: -20px;
+  right: -15px;
 }
 
 @media (max-width: 991px) {
@@ -826,45 +937,303 @@
   }
 }
 
+/* Dots / Píldoras de Navegación */
 .bdt-hero-dots-container {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   margin-top: 24px;
-  z-index: 5;
+  margin-bottom: 24px;
+  z-index: 6;
+  position: relative;
 }
 
 .bdt-hero-dot {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 6px 16px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1.5px solid #cbd5e1;
-  color: #475569;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.85);
   font-family: var(--font-title);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(8px);
 }
 
 .bdt-hero-dot:hover {
-  background: #ffffff;
-  border-color: var(--bdt-purple-bicentenario);
-  color: var(--bdt-purple-bicentenario);
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  border-color: #ffffff;
   transform: translateY(-1px);
 }
 
 .bdt-hero-dot.active {
-  background: linear-gradient(135deg, var(--bdt-navy-deep) 0%, #1e3a8a 100%);
+  background: #2563eb;
   color: #ffffff;
-  border-color: var(--bdt-navy-deep);
-  box-shadow: 0 4px 14px rgba(14, 44, 83, 0.25);
+  border-color: #60a5fa;
+  box-shadow: 0 0 18px rgba(37, 99, 235, 0.6);
+}
+
+/* ── COMPONENTES 3D DEL HERO SHOWCASE: LAPTOP, SMARTPHONE Y CARDS FLOTANTES ── */
+.bdt-3d-showcase-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  perspective: 1200px;
+}
+
+.bdt-laptop-mockup {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 14px;
+  background: #1e293b;
+  padding: 10px 10px 14px 10px;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.75), 0 0 0 1.5px rgba(255, 255, 255, 0.15);
+  transform: rotateY(-8deg) rotateX(6deg);
+  transition: transform 0.5s ease;
+}
+
+.bdt-laptop-mockup:hover {
+  transform: rotateY(-2deg) rotateX(2deg);
+}
+
+.bdt-laptop-screen {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #091e42;
+  aspect-ratio: 16 / 10;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bdt-laptop-screen img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bdt-laptop-base {
+  position: absolute;
+  bottom: -10px;
+  left: -4%;
+  width: 108%;
+  height: 12px;
+  background: linear-gradient(to bottom, #94a3b8 0%, #64748b 50%, #475569 100%);
+  border-radius: 0 0 14px 14px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+/* Carnet Escolar Digital Flotante en perspectiva 3D */
+.bdt-floating-card-carnet {
+  position: absolute;
+  top: 10%;
+  left: -5%;
+  width: 220px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #0284c7 100%);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55), 0 0 25px rgba(59, 130, 246, 0.5);
+  transform: rotate(-12deg);
+  z-index: 4;
+  animation: bdtCardFloatCarnet 5s ease-in-out infinite alternate;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes bdtCardFloatCarnet {
+  0% { transform: translateY(0px) rotate(-12deg); }
+  100% { transform: translateY(-12px) rotate(-8deg); }
+}
+
+/* Tarjeta Boletín Digital Flotante */
+.bdt-floating-card-boletin {
+  position: absolute;
+  bottom: 8%;
+  right: -5%;
+  width: 210px;
+  background: linear-gradient(135deg, #065f46 0%, #047857 60%, #10b981 100%);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55), 0 0 25px rgba(16, 185, 129, 0.5);
+  transform: rotate(8deg);
+  z-index: 4;
+  animation: bdtCardFloatBoletin 5.5s ease-in-out infinite alternate;
+}
+
+@keyframes bdtCardFloatBoletin {
+  0% { transform: translateY(0px) rotate(8deg); }
+  100% { transform: translateY(-10px) rotate(5deg); }
+}
+
+/* Slide Móvil: Marca de agua gigante y Smartphone 3D */
+.bdt-watermark-movil-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-title);
+  font-size: clamp(4.5rem, 11vw, 11rem);
+  font-weight: 900;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+  letter-spacing: -2px;
+}
+
+.bdt-phone-mockup-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 1000px;
+  z-index: 3;
+}
+
+.bdt-phone-mockup {
+  width: 220px;
+  height: 420px;
+  background: #0f172a;
+  border-radius: 38px;
+  border: 4px solid #334155;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(37, 99, 235, 0.4);
+  padding: 8px;
+  position: relative;
+  overflow: hidden;
+  transform: rotateY(6deg) rotateX(4deg);
+}
+
+.bdt-phone-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 30px;
+  background: linear-gradient(180deg, #0f2757 0%, #081735 100%);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.bdt-app-store-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #000000;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 12px;
+  font-family: var(--font-body);
+  transition: all 0.25s ease;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  text-decoration: none;
+}
+
+.bdt-app-store-btn:hover {
+  background: #111827;
+  border-color: #38bdf8;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(56, 189, 248, 0.35);
+}
+
+/* ── CINTILLO / TICKER STRIP BDT ── */
+.bdt-ticker-strip {
+  width: 100%;
+  background: #051433;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 10px 16px;
+  font-size: 0.84rem;
+  font-family: var(--font-body);
+  position: relative;
+  z-index: 5;
+}
+
+/* ── CINTA DE 5 TARJETAS DE ACCESOS RÁPIDOS BDT ── */
+.bdt-quick-access-ribbon {
+  width: 100%;
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid #e2e8f0;
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 8px 25px rgba(14, 44, 83, 0.05);
+}
+
+@media (max-width: 991px) {
+  .bdt-quick-access-ribbon {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 575px) {
+  .bdt-quick-access-ribbon {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bdt-quick-tile {
+  background: #ffffff;
+  padding: 22px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  border-right: 1px solid #e2e8f0;
+  transition: all 0.25s ease;
+  cursor: pointer;
+  text-decoration: none;
+  color: #1e293b;
+}
+
+.bdt-quick-tile:last-child {
+  border-right: none;
+}
+
+.bdt-quick-tile:hover {
+  background: #f8fafc;
+  color: var(--bdt-navy-deep);
+  box-shadow: inset 0 -3px 0 var(--bdt-orange-action);
+  transform: translateY(-2px);
+}
+
+.bdt-quick-tile-icon {
+  font-size: 1.85rem;
+  color: #1b2c6e;
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.bdt-quick-tile:hover .bdt-quick-tile-icon {
+  color: var(--bdt-orange-action);
+  transform: scale(1.15);
+}
+
+.bdt-quick-tile-title {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.3;
 }
 
 .bdt-hero-photo-card {

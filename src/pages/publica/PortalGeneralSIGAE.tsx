@@ -371,14 +371,14 @@ export const PortalGeneralSIGAE: React.FC = () => {
     return () => window.removeEventListener('sigae-reportes-actualizados', handleActualizacion);
   }, []);
 
-  // Autoplay del carrusel del Hero Banner cada 7.5 segundos
+  // Autoplay del carrusel del Hero Banner cada 7 segundos (estilo BDT)
   useEffect(() => {
-    const totalSlides = 1 + reportesGestion.length;
+    const totalSlides = 3 + reportesGestion.length;
     if (totalSlides <= 1 || carruselPausado) return;
 
     const timer = setInterval(() => {
       setSlideActivo((prev) => (prev + 1) % totalSlides);
-    }, 7500);
+    }, 7000);
 
     return () => clearInterval(timer);
   }, [carruselPausado, reportesGestion.length]);
@@ -402,7 +402,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
     setTouchStartX(null);
   };
 
-  const totalSlides = 1 + reportesGestion.length;
+  const totalSlides = 3 + reportesGestion.length;
   const slideAnterior = () => {
     setSlideActivo((prev) => (prev - 1 + totalSlides) % totalSlides);
   };
@@ -728,18 +728,27 @@ export const PortalGeneralSIGAE: React.FC = () => {
         </div>
       )}
 
-      {/* ── 5. HERO BANNER PRINCIPAL: CARRUSEL INTERACTIVO CON ZOE, MAX Y GESTIÓN DIARIA APROBADA ── */}
+      {/* ── 5. HERO BANNER PRINCIPAL: CARRUSEL INTERACTIVO ESTILO BDT (WWW.BDT.COM.VE) ── */}
       <section 
         id="inicio" 
         className="bdt-hero-section"
         onMouseEnter={() => setCarruselPausado(true)}
         onMouseLeave={() => setCarruselPausado(false)}
       >
-        <div className="container py-3 py-lg-4 position-relative" style={{ zIndex: 2 }}>
+        {/* Atmósfera Digital y Resplandor Radial BDT */}
+        <div className="bdt-hero-glow-atmosphere"></div>
+
+        {/* Partículas Neón Cuadradas Flotantes (Idénticas a www.bdt.com.ve) */}
+        <div className="bdt-neon-square sq-yellow"></div>
+        <div className="bdt-neon-square sq-pink"></div>
+        <div className="bdt-neon-square sq-green"></div>
+        <div className="bdt-neon-square sq-cyan"></div>
+
+        <div className="container py-3 py-lg-4 position-relative" style={{ zIndex: 3 }}>
           
           <div className="bdt-hero-carousel-wrapper">
             
-            {/* Flechas de Navegación del Carrusel (Anterior / Siguiente) */}
+            {/* Flechas de Navegación Glassmorphic Circulares BDT (< y >) */}
             {totalSlides > 1 && (
               <>
                 <button
@@ -776,30 +785,37 @@ export const PortalGeneralSIGAE: React.FC = () => {
                   transition: 'transform 0.65s cubic-bezier(0.25, 1, 0.5, 1)'
                 }}
               >
-                {/* ── DIAPOSITIVA 0: BIENVENIDA INSTITUCIONAL CON ZOE Y MAX ── */}
+                
+                {/* ── DIAPOSITIVA 0: TRANSFORMACIÓN DIGITAL (ECOSISTEMA SIGAE EN LÍNEA) ── */}
                 <div className={`bdt-hero-slide-item ${slideActivo === 0 ? 'is-active' : ''}`}>
                   <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
                     
-                    {/* Columna Izquierda: Titular y Llamado a la Acción */}
+                    {/* Columna Izquierda: Titular Eléctrico BDT y Llamados a la Acción */}
                     <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
-                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white border border-secondary border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-dark">
-                        <i className="bi bi-geo-alt-fill text-warning"></i>
-                        <span>Miraflores, municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
+                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-white backdrop-blur">
+                        <i className="bi bi-stars text-warning"></i>
+                        <span>SISTEMA INTEGRAL EN LÍNEA &bull; VERSIÓN 1.1</span>
                       </div>
 
-                      <h1 className="bdt-hero-title">
-                        Portal Integral de Gestión y Administración Escolar
-                      </h1>
+                      <div className="bdt-hero-title-top">
+                        TRANSFORMACIÓN DIGITAL
+                      </div>
+                      <div className="bdt-hero-title-mid">
+                        Educación y Gestión de Vanguardia
+                      </div>
+                      <div className="bdt-hero-title-bottom">
+                        ¡Todo en un solo clic!
+                      </div>
 
                       <p className="bdt-hero-desc mx-auto mx-lg-0">
-                        La plataforma unificada de las instituciones educativas de Punceres y Monagas. Administración pedagógica, boletines de calificaciones, control de matrícula y expedientes con seguridad RLS y costo cero.
+                        La plataforma unificada de las instituciones educativas de Punceres y Monagas. Administración pedagógica, boletines oficiales, expedientes escolares y carnets con código QR de máxima seguridad con costo cero.
                       </p>
 
                       <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
                         <button 
                           type="button" 
                           className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
-                          style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none' }}
+                          style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none', boxShadow: '0 8px 24px rgba(242, 101, 34, 0.45)' }}
                           onClick={abrirSelectorEscuela}
                         >
                           <i className="bi bi-buildings-fill"></i>
@@ -808,8 +824,8 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
                         <a 
                           href="#modulos" 
-                          className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
-                          style={{ fontSize: '0.86rem', borderColor: '#0e2c53', color: '#0e2c53', backgroundColor: '#ffffff' }}
+                          className="btn btn-outline-light rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                          style={{ fontSize: '0.86rem', backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)', borderColor: 'rgba(255, 255, 255, 0.4)' }}
                         >
                           <i className="bi bi-grid-fill text-warning"></i>
                           <span>Explorar Módulos Populares</span>
@@ -817,40 +833,323 @@ export const PortalGeneralSIGAE: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Columna Derecha: Ilustración 3D de Zoe y Max */}
+                    {/* Columna Derecha: 3D Laptop Showcase con Carnets Flotantes y Zoe & Max */}
                     <div id="asistentes" className="col-lg-6 text-center bdt-hero-visual-col">
-                      <div className="bdt-zoe-max-hero-card">
-                        <div className="bdt-zoe-max-speech-bubble mx-auto">
-                          <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small mb-1">
-                            <i className="bi bi-chat-quote-fill text-warning"></i>
-                            <span>Zoe & Max te dan la bienvenida</span>
+                      <div className="bdt-3d-showcase-box">
+                        
+                        {/* Mockup Laptop 3D en perspectiva */}
+                        <div className="bdt-laptop-mockup">
+                          <div className="bdt-laptop-screen">
+                            <img 
+                              src="/assets/img/fondo_digital_escolar.jpg" 
+                              alt="SIGAE Dashboard en Vivo" 
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/assets/img/sigae.png';
+                              }}
+                            />
+                            <div className="position-absolute top-0 start-0 w-100 h-100 p-3 d-flex flex-column justify-content-between" style={{ background: 'linear-gradient(135deg, rgba(8, 23, 61, 0.85) 0%, rgba(13, 50, 120, 0.75) 100%)' }}>
+                              <div className="d-flex align-items-center justify-content-between">
+                                <div className="d-flex align-items-center gap-2">
+                                  <img src="/assets/img/sigae.png" alt="SIGAE" style={{ width: '22px', height: '22px' }} />
+                                  <span className="fw-bold text-white small">SIGAE v1.1 &bull; Portal Escolar</span>
+                                </div>
+                                <span className="badge bg-success bg-opacity-75 text-white extra-small px-2 py-0.5 rounded-pill">● En Línea</span>
+                              </div>
+                              <div className="text-start bg-black bg-opacity-30 p-2 rounded-3 border border-white border-opacity-10">
+                                <div className="text-warning extra-small fw-bold">SISTEMA ACTIVO</div>
+                                <div className="text-white small fw-bold">1,333 Estudiantes Registrados</div>
+                              </div>
+                            </div>
                           </div>
-                          <p className="m-0 extra-small text-secondary" style={{ fontSize: '0.82rem', lineHeight: 1.45 }}>
-                            {mensajeAsistente}
-                          </p>
+                          <div className="bdt-laptop-base"></div>
                         </div>
 
-                        <img 
-                          src="/zoe_max_duo_3d.png" 
-                          alt="Zoe y Max - Asistentes Escolares SIGAE" 
-                          className="bdt-zoe-max-img"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/zoe_max_duo.png';
-                          }}
-                        />
-
-                        <div className="mt-2 text-secondary small fw-bold">
-                          <span style={{ color: '#0284c7' }}>Zoe &bull; Inteligencia Pedagógica</span> &bull; <span style={{ color: '#ea580c' }}>Max &bull; Asistente Tecnológico</span>
+                        {/* Carnet Estudiantil Digital Flotante en 3D */}
+                        <div className="bdt-floating-card-carnet d-none d-sm-block">
+                          <div className="d-flex align-items-center justify-content-between mb-1.5">
+                            <span className="badge bg-warning text-dark extra-small fw-black px-1.5 py-0.5 rounded">CARNET QR</span>
+                            <i className="bi bi-wifi text-white fs-6"></i>
+                          </div>
+                          <div className="d-flex align-items-center gap-2 mb-2">
+                            <div className="rounded-2 bg-white p-0.5 shadow-xs" style={{ width: 36, height: 36 }}>
+                              <img src="/assets/img/avatar_inicial.png" alt="Estudiante" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                            </div>
+                            <div className="text-start">
+                              <div className="fw-bold text-white text-truncate" style={{ fontSize: '0.72rem', maxWidth: 120 }}>Estudiante Activo</div>
+                              <div className="text-light extra-small opacity-75" style={{ fontSize: '0.62rem' }}>U.E. Libertador Bolívar</div>
+                            </div>
+                          </div>
+                          <div className="d-flex align-items-center justify-content-between pt-1 border-top border-white border-opacity-20 extra-small">
+                            <span style={{ fontSize: '0.62rem' }}>V-34.891.204</span>
+                            <span className="text-warning fw-bold" style={{ fontSize: '0.62rem' }}>VERIFICADO</span>
+                          </div>
                         </div>
+
+                        {/* Tarjeta Boletín de Notas Flotante en 3D */}
+                        <div className="bdt-floating-card-boletin d-none d-sm-block">
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <span className="badge bg-light text-success extra-small fw-bold px-1.5 py-0.5 rounded">BOLETÍN OFICIAL</span>
+                            <i className="bi bi-award-fill text-warning fs-6"></i>
+                          </div>
+                          <div className="text-start mb-1">
+                            <div className="fw-bold text-white" style={{ fontSize: '0.76rem' }}>Calificaciones Aprobadas</div>
+                            <div className="text-light opacity-80" style={{ fontSize: '0.65rem' }}>Promedio General: 19.8 / 20</div>
+                          </div>
+                          <div className="d-flex align-items-center justify-content-between pt-1 border-top border-white border-opacity-20">
+                            <span className="badge bg-white bg-opacity-20 text-white extra-small" style={{ fontSize: '0.62rem' }}>Lapsos I, II, III</span>
+                            <span className="text-white fw-bold extra-small" style={{ fontSize: '0.62rem' }}>Aprobado ★</span>
+                          </div>
+                        </div>
+
+                        {/* Zoe & Max 3D integrados en el lateral con Globo de Diálogo */}
+                        <div className="bdt-zoe-max-hero-card d-none d-md-flex" style={{ position: 'absolute', right: '-10px', bottom: '-15px', zIndex: 6 }}>
+                          <div className="bdt-zoe-max-speech-bubble mx-auto mb-1" style={{ maxWidth: '240px', padding: '8px 12px' }}>
+                            <div className="d-flex align-items-center gap-1 fw-bold text-primary extra-small mb-0.5">
+                              <i className="bi bi-chat-quote-fill text-warning"></i>
+                              <span>Zoe & Max</span>
+                            </div>
+                            <p className="m-0 text-secondary" style={{ fontSize: '0.75rem', lineHeight: 1.35 }}>
+                              {mensajeAsistente}
+                            </p>
+                          </div>
+                          <img 
+                            src="/zoe_max_duo_3d.png" 
+                            alt="Zoe y Max" 
+                            className="bdt-zoe-max-img"
+                            style={{ maxHeight: '250px' }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/zoe_max_duo.png';
+                            }}
+                          />
+                        </div>
+
                       </div>
                     </div>
 
                   </div>
                 </div>
 
-                {/* ── DIAPOSITIVAS 1..N: GESTIONES DIARIAS ESCOLARES APROBADAS EN SISTEMA ── */}
+                {/* ── DIAPOSITIVA 1: MÓVIL SIGAE (IDÉNTICO A "MÓVIL BDT" SLIDE 2) ── */}
+                <div className={`bdt-hero-slide-item ${slideActivo === 1 ? 'is-active' : ''}`}>
+                  <div className="position-relative w-100 overflow-hidden">
+                    {/* Marca de agua gigante "Móvil SIGAE" estilo BDT */}
+                    <div className="bdt-watermark-movil-bg">
+                      Móvil SIGAE
+                    </div>
+
+                    <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide position-relative" style={{ zIndex: 2 }}>
+                      
+                      {/* Columna Izquierda: Smartphone 3D Vertical en Perspectiva */}
+                      <div className="col-lg-5 text-center bdt-hero-visual-col">
+                        <div className="bdt-phone-mockup-wrap">
+                          <div className="bdt-phone-mockup">
+                            <div className="bdt-phone-screen p-3 d-flex flex-column justify-content-between text-start">
+                              <div className="d-flex align-items-center justify-content-between text-white extra-small mb-3">
+                                <span>9:41</span>
+                                <div className="d-flex gap-1 align-items-center">
+                                  <i className="bi bi-reception-4"></i>
+                                  <i className="bi bi-wifi"></i>
+                                  <i className="bi bi-battery-full"></i>
+                                </div>
+                              </div>
+                              <div className="text-center my-auto">
+                                <img src="/assets/img/sigae.png" alt="SIGAE Móvil" style={{ width: '56px', height: '56px' }} className="mb-2 shadow-sm" />
+                                <div className="text-warning extra-small fw-bold tracking-wider">INNOVACIÓN Y COMODIDAD</div>
+                                <h6 className="fw-bolder text-white mb-2">¡Todo en un clic!</h6>
+                                <div className="bg-white bg-opacity-10 p-2.5 rounded-3 mb-2 border border-white border-opacity-15">
+                                  <div className="text-light extra-small">Cédula del Representante</div>
+                                  <div className="text-white small fw-bold">V-18.452.931</div>
+                                </div>
+                                <div className="btn btn-primary btn-sm w-100 rounded-pill fw-bold shadow-sm" style={{ backgroundColor: '#2563eb' }}>
+                                  Ingresar a SIGAE
+                                </div>
+                              </div>
+                              <div className="text-center text-white-50 extra-small">
+                                Compatible con Android, iOS y Web
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Columna Derecha: Titular Móvil BDT y Botones de Descarga */}
+                      <div className="col-lg-7 text-center text-lg-start bdt-hero-text-col">
+                        <div className="d-inline-flex align-items-center gap-2 bg-info bg-opacity-20 border border-info border-opacity-30 px-3 py-1.5 rounded-pill mb-3 small fw-bold text-info">
+                          <i className="bi bi-phone-fill"></i>
+                          <span>EXPERIENCIA MÓVIL OPTIMIZADA</span>
+                        </div>
+
+                        <div className="bdt-hero-title-top" style={{ fontSize: 'clamp(2.4rem, 5vw, 4.2rem)' }}>
+                          Móvil SIGAE
+                        </div>
+                        <div className="bdt-hero-title-mid" style={{ color: '#38bdf8' }}>
+                          INNOVACIÓN Y COMODIDAD
+                        </div>
+                        <div className="bdt-hero-title-bottom">
+                          ¡Todo en un clic!
+                        </div>
+
+                        <p className="bdt-hero-desc mx-auto mx-lg-0">
+                          Accede desde cualquier teléfono inteligente, tableta o computadora sin necesidad de descargas pesadas en tiendas. Consulta calificaciones al instante, actualiza datos y valida constancias oficiales con tecnología PWA de última generación.
+                        </p>
+
+                        {/* Botones de Tiendas de Aplicaciones estilo BDT */}
+                        <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3 mb-4">
+                          <button 
+                            type="button" 
+                            className="bdt-app-store-btn"
+                            onClick={abrirSelectorEscuela}
+                          >
+                            <i className="bi bi-google-play fs-3 text-warning"></i>
+                            <div className="text-start">
+                              <div className="extra-small opacity-75" style={{ fontSize: '0.65rem' }}>INSTALAR DIRECTO</div>
+                              <div className="fw-bold small" style={{ fontSize: '0.88rem' }}>Acceso PWA Móvil</div>
+                            </div>
+                          </button>
+
+                          <button 
+                            type="button" 
+                            className="bdt-app-store-btn"
+                            onClick={abrirSelectorEscuela}
+                          >
+                            <i className="bi bi-apple fs-3 text-white"></i>
+                            <div className="text-start">
+                              <div className="extra-small opacity-75" style={{ fontSize: '0.65rem' }}>COMPATIBLE CON</div>
+                              <div className="fw-bold small" style={{ fontSize: '0.88rem' }}>iOS y Navegadores</div>
+                            </div>
+                          </button>
+                        </div>
+
+                        {/* Pills de Ventajas Tecnológicas */}
+                        <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-2">
+                          <span className="badge bg-white bg-opacity-10 text-white border border-white border-opacity-20 rounded-pill px-3 py-1.5 extra-small">
+                            ⚡ Cero Consumo Excesivo
+                          </span>
+                          <span className="badge bg-white bg-opacity-10 text-white border border-white border-opacity-20 rounded-pill px-3 py-1.5 extra-small">
+                            🔒 Seguridad RLS Supabase
+                          </span>
+                          <span className="badge bg-white bg-opacity-10 text-white border border-white border-opacity-20 rounded-pill px-3 py-1.5 extra-small">
+                            📄 Descarga de PDF con QR
+                          </span>
+                        </div>
+
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── DIAPOSITIVA 2: SEDES EDUCATIVAS OFICIALES (PUNCERES & MONAGAS) ── */}
+                <div className={`bdt-hero-slide-item ${slideActivo === 2 ? 'is-active' : ''}`}>
+                  <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
+                    
+                    {/* Columna Izquierda: Información de los Planteles */}
+                    <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
+                      <div className="d-inline-flex align-items-center gap-2 bg-success bg-opacity-20 border border-success border-opacity-30 px-3 py-1.5 rounded-pill mb-3 small fw-bold text-success">
+                        <i className="bi bi-award-fill"></i>
+                        <span>PLANTELES EDUCATIVOS DE PUNCERES</span>
+                      </div>
+
+                      <div className="bdt-hero-title-top">
+                        SEDES EDUCATIVAS
+                      </div>
+                      <div className="bdt-hero-title-mid">
+                        Punceres &bull; Estado Monagas
+                      </div>
+                      <div className="bdt-hero-title-bottom">
+                        Compromiso y Excelencia
+                      </div>
+
+                      <p className="bdt-hero-desc mx-auto mx-lg-0">
+                        Integración tecnológica para la <strong>U.E. Libertador Bolívar</strong> (Miraflores, fundada en 1948) y la <strong>U.E. Santa Bárbara</strong>. Conectividad institucional, expediente único y administración escolar centralizada.
+                      </p>
+
+                      <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                        <button 
+                          type="button" 
+                          className="btn btn-primary rounded-pill py-2.5 px-4 fs-6 shadow-sm fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: '#1d4ed8', border: 'none', boxShadow: '0 8px 24px rgba(29, 78, 216, 0.4)' }}
+                          onClick={() => {
+                            cambiarEscuela('lb');
+                            navigate('/login');
+                          }}
+                        >
+                          <img src="/assets/img/logo_lb.png" alt="LB" style={{ width: 20, height: 20 }} />
+                          <span>U.E. Libertador Bolívar</span>
+                        </button>
+
+                        <button 
+                          type="button" 
+                          className="btn btn-success rounded-pill py-2.5 px-4 fs-6 shadow-sm fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: '#059669', border: 'none', boxShadow: '0 8px 24px rgba(5, 150, 105, 0.4)' }}
+                          onClick={() => {
+                            cambiarEscuela('sb');
+                            navigate('/login');
+                          }}
+                        >
+                          <img src="/assets/img/logo_sb.png" alt="SB" style={{ width: 20, height: 20 }} />
+                          <span>U.E. Santa Bárbara</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Columna Derecha: Tarjetas Institucionales 3D con Escudos */}
+                    <div className="col-lg-6 text-center bdt-hero-visual-col">
+                      <div className="row g-3 justify-content-center">
+                        
+                        {/* Tarjeta Libertador Bolívar */}
+                        <div className="col-sm-6">
+                          <div 
+                            className="p-4 rounded-4 text-center cursor-pointer transition-all"
+                            style={{ 
+                              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                              border: '1.5px solid rgba(59, 130, 246, 0.4)',
+                              boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5)',
+                              backdropFilter: 'blur(10px)'
+                            }}
+                            onClick={() => {
+                              cambiarEscuela('lb');
+                              navigate('/login');
+                            }}
+                          >
+                            <img src="/assets/img/logo_lb.png" alt="UE Libertador Bolívar" style={{ width: 72, height: 72, objectFit: 'contain' }} className="mb-3" />
+                            <h6 className="fw-bold text-white mb-1">U.E. Libertador Bolívar</h6>
+                            <span className="badge bg-primary bg-opacity-40 text-info border border-info border-opacity-30 rounded-pill px-2.5 py-1 extra-small mb-2">Fund. 1948 &bull; Miraflores</span>
+                            <div className="text-light extra-small opacity-80">698 Estudiantes Validados</div>
+                          </div>
+                        </div>
+
+                        {/* Tarjeta Santa Bárbara */}
+                        <div className="col-sm-6">
+                          <div 
+                            className="p-4 rounded-4 text-center cursor-pointer transition-all"
+                            style={{ 
+                              background: 'linear-gradient(135deg, rgba(6, 95, 70, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                              border: '1.5px solid rgba(16, 185, 129, 0.4)',
+                              boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5)',
+                              backdropFilter: 'blur(10px)'
+                            }}
+                            onClick={() => {
+                              cambiarEscuela('sb');
+                              navigate('/login');
+                            }}
+                          >
+                            <img src="/assets/img/logo_sb.png" alt="UE Santa Bárbara" style={{ width: 72, height: 72, objectFit: 'contain' }} className="mb-3" />
+                            <h6 className="fw-bold text-white mb-1">U.E. Santa Bárbara</h6>
+                            <span className="badge bg-success bg-opacity-40 text-white border border-success border-opacity-30 rounded-pill px-2.5 py-1 extra-small mb-2">Sede Central Punceres</span>
+                            <div className="text-light extra-small opacity-80">635 Estudiantes Validados</div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* ── DIAPOSITIVAS 3..N: GESTIONES DIARIAS ESCOLARES APROBADAS EN SISTEMA ── */}
                 {reportesGestion.map((rep, idx) => {
-                  const num = idx + 1;
+                  const num = idx + 3;
                   const nombreEscuela = rep.proceso || (rep.escuela_codigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
                   const fotoBanner = rep.banner_superior || rep.imagenes?.[0] || '/assets/img/gestion_diaria/reporte_ejemplo_collage.png';
                   const isActive = slideActivo === num;
@@ -866,22 +1165,22 @@ export const PortalGeneralSIGAE: React.FC = () => {
                           <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-2 mb-3">
                             <span 
                               className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs d-inline-flex align-items-center gap-1.5"
-                              style={{ backgroundColor: '#dcfce7', color: '#166534', border: '1px solid #86efac', fontSize: '0.78rem' }}
+                              style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.4)', fontSize: '0.78rem' }}
                             >
                               <i className="bi bi-patch-check-fill text-success"></i>
                               <span>Gestión Aprobada en Sistema</span>
                             </span>
 
                             <span 
-                              className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs bg-white text-dark d-inline-flex align-items-center gap-1.5 border"
+                              className="badge rounded-pill px-3 py-1.5 fw-bold shadow-xs bg-white bg-opacity-15 text-white d-inline-flex align-items-center gap-1.5 border border-white border-opacity-25"
                               style={{ fontSize: '0.78rem' }}
                             >
-                              <i className="bi bi-building text-primary"></i>
+                              <i className="bi bi-building text-info"></i>
                               <span>{nombreEscuela}</span>
                             </span>
 
                             <span 
-                              className="badge rounded-pill px-2.5 py-1.5 fw-semibold bg-white text-muted d-inline-flex align-items-center gap-1 border extra-small"
+                              className="badge rounded-pill px-2.5 py-1.5 fw-semibold bg-white bg-opacity-10 text-white-50 d-inline-flex align-items-center gap-1 border border-white border-opacity-15 extra-small"
                               style={{ fontSize: '0.75rem' }}
                             >
                               <i className="bi bi-calendar-event"></i>
@@ -890,9 +1189,9 @@ export const PortalGeneralSIGAE: React.FC = () => {
                           </div>
 
                           {/* Título de la Actividad */}
-                          <h2 className="bdt-hero-title mb-2.5" style={{ fontSize: 'clamp(1.7rem, 3vw, 2.4rem)' }}>
+                          <div className="bdt-hero-title-top" style={{ fontSize: 'clamp(1.8rem, 3.5vw, 2.8rem)' }}>
                             {rep.actividad}
-                          </h2>
+                          </div>
 
                           {/* Descripción de la Actividad */}
                           <p className="bdt-hero-desc mx-auto mx-lg-0 mb-3" style={{ fontSize: '0.98rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -901,19 +1200,19 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
                           {/* Indicadores de Participación Escolar */}
                           {rep.participantes && (
-                            <div className="d-inline-flex flex-wrap align-items-center gap-2.5 bg-white p-2.5 px-3 rounded-4 border shadow-xs mb-3.5 small">
-                              <span className="fw-bold text-dark d-inline-flex align-items-center gap-1.5">
-                                <i className="bi bi-people-fill text-primary"></i>
+                            <div className="d-inline-flex flex-wrap align-items-center gap-2.5 bg-white bg-opacity-10 p-2.5 px-3 rounded-4 border border-white border-opacity-20 shadow-xs mb-3.5 small text-white">
+                              <span className="fw-bold text-white d-inline-flex align-items-center gap-1.5">
+                                <i className="bi bi-people-fill text-warning"></i>
                                 <span>{rep.participantes.total} Asistentes</span>
                               </span>
-                              <span className="text-secondary">&bull;</span>
-                              <span className="text-secondary">{rep.participantes.estudiantes || 0} Estudiantes</span>
-                              <span className="text-secondary">&bull;</span>
-                              <span className="text-secondary">{rep.participantes.docentes || 0} Docentes</span>
+                              <span className="text-white-50">&bull;</span>
+                              <span>{rep.participantes.estudiantes || 0} Estudiantes</span>
+                              <span className="text-white-50">&bull;</span>
+                              <span>{rep.participantes.docentes || 0} Docentes</span>
                               {rep.lugar_actividad && (
                                 <>
-                                  <span className="text-secondary">&bull;</span>
-                                  <span className="text-muted text-truncate" style={{ maxWidth: '180px' }}>📍 {rep.lugar_actividad}</span>
+                                  <span className="text-white-50">&bull;</span>
+                                  <span className="text-white-50 text-truncate" style={{ maxWidth: '180px' }}>📍 {rep.lugar_actividad}</span>
                                 </>
                               )}
                             </div>
@@ -924,7 +1223,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
                             <button 
                               type="button" 
                               className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
-                              style={{ backgroundColor: 'var(--bdt-purple-bicentenario)', border: 'none' }}
+                              style={{ backgroundColor: 'var(--bdt-purple-bicentenario)', border: 'none', boxShadow: '0 8px 24px rgba(146, 39, 143, 0.4)' }}
                               onClick={() => setReporteModal(rep)}
                             >
                               <i className="bi bi-file-earmark-text-fill"></i>
@@ -933,8 +1232,8 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
                             <button 
                               type="button" 
-                              className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
-                              style={{ fontSize: '0.86rem', borderColor: 'var(--bdt-orange-action)', color: 'var(--bdt-orange-action)', backgroundColor: '#ffffff' }}
+                              className="btn btn-outline-light rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                              style={{ fontSize: '0.86rem', backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}
                               onClick={() => {
                                 if (rep.escuela_codigo === 'sb' || rep.escuela_codigo === 'lb') {
                                   cambiarEscuela(rep.escuela_codigo);
@@ -990,25 +1289,43 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </div>
             </div>
 
-            {/* Indicadores de Puntos Inferiores (Dots) */}
+            {/* Indicadores de Puntos Inferiores (Dots BDT) */}
             {totalSlides > 1 && (
               <div className="bdt-hero-dots-container">
                 <button
                   type="button"
                   className={`bdt-hero-dot ${slideActivo === 0 ? 'active' : ''}`}
                   onClick={() => setSlideActivo(0)}
-                  title="Diapositiva institucional de bienvenida con Zoe y Max"
+                  title="Transformación Digital SIGAE"
                 >
-                  <span>★ Bienvenida SIGAE</span>
+                  <span>★ Transformación Digital</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`bdt-hero-dot ${slideActivo === 1 ? 'active' : ''}`}
+                  onClick={() => setSlideActivo(1)}
+                  title="Móvil SIGAE - Innovación y Comodidad"
+                >
+                  <span>📱 Móvil SIGAE</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`bdt-hero-dot ${slideActivo === 2 ? 'active' : ''}`}
+                  onClick={() => setSlideActivo(2)}
+                  title="Sedes Educativas Oficiales de Punceres"
+                >
+                  <span>🏛️ Sedes Oficiales</span>
                 </button>
 
                 {reportesGestion.map((rep, idx) => {
-                  const num = idx + 1;
+                  const num = idx + 3;
                   const etiqueta = rep.escuela_codigo === 'sb' 
-                    ? 'UE Santa Bárbara' 
+                    ? `UE Santa Bárbara #${idx + 1}` 
                     : rep.escuela_codigo === 'lb' 
-                      ? 'UE Libertador Bolívar' 
-                      : `Gestión #${num}`;
+                      ? `UE Lib. Bolívar #${idx + 1}` 
+                      : `Gestión #${idx + 1}`;
                   return (
                     <button
                       key={rep.id}
@@ -1026,6 +1343,73 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
           </div>
         </div>
+
+        {/* ── CINTILLO / TICKER INFORMATIVO BDT ── */}
+        <div className="bdt-ticker-strip">
+          <div className="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge bg-primary bg-opacity-35 text-white border border-info border-opacity-30 px-2 py-1 rounded-pill extra-small">
+                ESTADO MONAGAS
+              </span>
+              <span>Miraflores, Municipio Punceres &bull; Hoy {fechaHoyTexto.charAt(0).toUpperCase() + fechaHoyTexto.slice(1)}</span>
+            </div>
+            <div className="d-flex align-items-center gap-3 ms-auto extra-small">
+              <span><strong>Matrícula Activa:</strong> 1,333 Estudiantes Validados</span>
+              <span className="d-none d-md-inline text-white-50">&bull;</span>
+              <span className="d-none d-md-inline text-success fw-bold">● Sistema Operativo 100% en Línea</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── CINTA DE 5 TARJETAS DE ACCESOS RÁPIDOS BDT (WWW.BDT.COM.VE) ── */}
+        <div className="bdt-quick-access-ribbon">
+          <button 
+            type="button" 
+            className="bdt-quick-tile border-0" 
+            onClick={abrirSelectorEscuela}
+            title="Seleccionar mi escuela para ingresar al sistema"
+          >
+            <i className="bi bi-buildings-fill bdt-quick-tile-icon"></i>
+            <span className="bdt-quick-tile-title">Ingreso a mi Escuela</span>
+          </button>
+
+          <a 
+            href="#modulos" 
+            className="bdt-quick-tile"
+            title="Consulta y descarga de boletines de calificaciones"
+          >
+            <i className="bi bi-file-earmark-bar-graph-fill bdt-quick-tile-icon"></i>
+            <span className="bdt-quick-tile-title">Boletines y Notas</span>
+          </a>
+
+          <a 
+            href="#modulos" 
+            className="bdt-quick-tile"
+            title="Actualización de datos y ficha familiar escolar"
+          >
+            <i className="bi bi-person-lines-fill bdt-quick-tile-icon"></i>
+            <span className="bdt-quick-tile-title">Actualización de Datos</span>
+          </a>
+
+          <a 
+            href="#modulos" 
+            className="bdt-quick-tile"
+            title="Preinscripciones y solicitudes de cupos para nuevos ingresos"
+          >
+            <i className="bi bi-backpack-fill bdt-quick-tile-icon"></i>
+            <span className="bdt-quick-tile-title">Solicitud de Cupos</span>
+          </a>
+
+          <a 
+            href="#validador" 
+            className="bdt-quick-tile"
+            title="Verificación de autenticidad de constancias con código QR"
+          >
+            <i className="bi bi-qr-code-scan bdt-quick-tile-icon"></i>
+            <span className="bdt-quick-tile-title">Validación QR</span>
+          </a>
+        </div>
+
       </section>
 
       {/* Ventana Modal de Detalle de Gestión Diaria Oficial */}
