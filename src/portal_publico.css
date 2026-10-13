@@ -624,92 +624,98 @@
   color: #ffffff !important;
 }
 
-/* ── 5. HERO BANNER PRINCIPAL: ATMÓSFERA DIGITAL AZUL BDT (IDÉNTICO A WWW.BDT.COM.VE) ── */
+/* ── 5. HERO BANNER PRINCIPAL: ENTORNO ESCOLAR Y PEDAGÓGICO DE VANGUARDIA ── */
 .bdt-hero-section {
-  background: radial-gradient(circle at 68% 40%, #0d3278 0%, #092055 45%, #030d24 100%);
-  color: #ffffff;
+  background: 
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 247, 255, 0.95) 28%, rgba(255, 252, 235, 0.94) 68%, rgba(246, 243, 255, 0.96) 100%),
+    url('/assets/img/fondo_digital_escolar.jpg') center/cover no-repeat;
+  color: #0f172a;
   padding: 110px 0 0 0;
   position: relative;
   overflow: hidden;
-  border-bottom: none;
+  border-bottom: 1.5px solid #e2e8f0;
 }
 
-/* Red de constelación digital y cuadrícula */
+/* Trama sutil de cuaderno escolar y retícula pedagógica */
 .bdt-hero-section::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: 
-    radial-gradient(rgba(56, 189, 248, 0.18) 1.5px, transparent 1.5px),
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 36px 36px, 72px 72px, 72px 72px;
+    radial-gradient(rgba(37, 99, 235, 0.12) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(14, 44, 83, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(14, 44, 83, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px, 64px 64px, 64px 64px;
   pointer-events: none;
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
-/* Resplandor radial de atmósfera digital */
+/* Resplandor cálido de atmósfera escolar */
 .bdt-hero-glow-atmosphere {
   position: absolute;
   width: 650px;
   height: 650px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.3) 0%, rgba(14, 165, 233, 0.12) 50%, transparent 70%);
-  top: 10%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, rgba(59, 130, 246, 0.12) 50%, transparent 70%);
+  top: 5%;
   right: 5%;
   pointer-events: none;
-  filter: blur(40px);
+  filter: blur(50px);
   z-index: 1;
 }
 
-/* Partículas neón cuadradas flotantes (estilo exacto BDT) */
+/* Insignias geométricas escolares flotantes */
 .bdt-neon-square {
   position: absolute;
-  border-radius: 7px;
+  border-radius: 8px;
   pointer-events: none;
   z-index: 2;
   animation: bdtNeonFloat 6s ease-in-out infinite alternate;
 }
 
 .bdt-neon-square.sq-yellow {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   top: 16%;
   left: 28%;
-  border: 2.5px solid #f59e0b;
-  box-shadow: 0 0 16px #f59e0b, inset 0 0 10px rgba(245, 158, 11, 0.5);
+  border: 2px solid #f59e0b;
+  background: rgba(254, 243, 199, 0.55);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
   animation-duration: 5.5s;
 }
 
 .bdt-neon-square.sq-pink {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   top: 55%;
   left: 5%;
-  border: 2.5px solid #ec4899;
-  box-shadow: 0 0 14px #ec4899, inset 0 0 8px rgba(236, 72, 153, 0.5);
+  border: 2px solid #ec4899;
+  background: rgba(253, 232, 242, 0.55);
+  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.35);
   animation-duration: 7s;
   animation-delay: 1s;
 }
 
 .bdt-neon-square.sq-green {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   bottom: 22%;
   left: 42%;
-  border: 2.5px solid #10b981;
-  box-shadow: 0 0 18px #10b981, inset 0 0 10px rgba(16, 185, 129, 0.5);
+  border: 2px solid #10b981;
+  background: rgba(209, 250, 229, 0.55);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
   animation-duration: 6.2s;
   animation-delay: 2s;
 }
 
 .bdt-neon-square.sq-cyan {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   top: 25%;
   right: 18%;
-  border: 2.5px solid #06b6d4;
-  box-shadow: 0 0 16px #06b6d4, inset 0 0 10px rgba(6, 182, 212, 0.5);
+  border: 2px solid #0284c7;
+  background: rgba(224, 242, 254, 0.55);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
   animation-duration: 8s;
   animation-delay: 0.5s;
 }
@@ -720,24 +726,23 @@
   100% { transform: translateY(6px) rotate(-6deg); }
 }
 
-/* Tipografía de 3 niveles BDT */
+/* Tipografía de alta legibilidad y jerarquía escolar */
 .bdt-hero-title-top {
   font-family: var(--font-title);
   font-size: clamp(1.8rem, 3.8vw, 3.2rem);
   font-weight: 900;
-  letter-spacing: 0.5px;
-  color: #ffffff;
+  letter-spacing: -0.5px;
+  color: #0f2942;
   text-transform: uppercase;
   line-height: 1.1;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   margin-bottom: 6px;
 }
 
 .bdt-hero-title-mid {
   font-family: var(--font-body);
   font-size: clamp(1.15rem, 2.2vw, 1.7rem);
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.95);
+  font-weight: 700;
+  color: #2563eb;
   line-height: 1.25;
   margin-bottom: 6px;
 }
@@ -746,9 +751,8 @@
   font-family: var(--font-title);
   font-size: clamp(2rem, 4.2vw, 3.5rem);
   font-weight: 900;
-  color: #ffffff;
+  color: #ea580c;
   line-height: 1.1;
-  text-shadow: 0 4px 24px rgba(37, 99, 235, 0.5);
   margin-bottom: 18px;
 }
 
@@ -758,15 +762,14 @@
   font-weight: 900;
   line-height: 1.15;
   letter-spacing: -0.6px;
-  color: #ffffff;
+  color: #0f2942;
   margin-bottom: 16px;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 .bdt-hero-desc {
   font-family: var(--font-body);
   font-size: 1.05rem;
-  color: rgba(255, 255, 255, 0.88);
+  color: #334155;
   line-height: 1.65;
   max-width: 580px;
   margin-bottom: 26px;
@@ -893,34 +896,33 @@
   }
 }
 
-/* Flechas Glassmorphic Circulares BDT */
+/* Flechas Circulares Escolares con Relieve */
 .bdt-hero-nav-arrow {
   position: absolute;
   top: 48%;
   transform: translateY(-50%);
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: rgba(10, 25, 55, 0.65);
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #0f2942;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.35rem;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 41, 66, 0.15);
   cursor: pointer;
   z-index: 10;
   transition: all 0.25s ease;
-  backdrop-filter: blur(10px);
 }
 
 .bdt-hero-nav-arrow:hover {
   background: #2563eb;
   color: #ffffff;
-  border-color: #60a5fa;
+  border-color: #2563eb;
   transform: translateY(-50%) scale(1.12);
-  box-shadow: 0 0 25px rgba(37, 99, 235, 0.7);
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
 }
 
 .bdt-hero-nav-arrow.prev {
@@ -956,29 +958,29 @@
   gap: 6px;
   padding: 6px 16px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.85);
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
   font-family: var(--font-title);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.25s ease;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(15, 41, 66, 0.06);
 }
 
 .bdt-hero-dot:hover {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-  border-color: #ffffff;
+  background: #f1f5f9;
+  color: #0f2942;
+  border-color: #94a3b8;
   transform: translateY(-1px);
 }
 
 .bdt-hero-dot.active {
   background: #2563eb;
   color: #ffffff;
-  border-color: #60a5fa;
-  box-shadow: 0 0 18px rgba(37, 99, 235, 0.6);
+  border-color: #2563eb;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
 }
 
 /* ── COMPONENTES 3D DEL HERO SHOWCASE: LAPTOP, SMARTPHONE Y CARDS FLOTANTES ── */
@@ -1153,18 +1155,64 @@
   box-shadow: 0 8px 25px rgba(56, 189, 248, 0.35);
 }
 
-/* ── CINTILLO / TICKER STRIP BDT ── */
+/* ── CINTILLO / TICKER INFORMATIVO ESCOLAR ── */
 .bdt-ticker-strip {
   width: 100%;
-  background: #051433;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-  padding: 10px 16px;
+  background: linear-gradient(90deg, #1e3a8a 0%, #0f766e 45%, #92278f 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 11px 16px;
   font-size: 0.84rem;
   font-family: var(--font-body);
   position: relative;
   z-index: 5;
+  box-shadow: 0 4px 15px rgba(15, 41, 66, 0.08);
+}
+
+/* Tarjeta Showcase para Módulos del Sistema (APP) */
+.bdt-module-showcase-card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px 20px;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 20px 45px -10px rgba(15, 41, 66, 0.12);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 440px;
+  margin: 0 auto;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.bdt-module-showcase-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 25px 50px -10px rgba(15, 41, 66, 0.18);
+}
+
+.bdt-module-3d-icon-wrap {
+  width: 130px;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.bdt-module-3d-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.15));
+  animation: bdtModuleIconFloat 5s ease-in-out infinite alternate;
+}
+
+@keyframes bdtModuleIconFloat {
+  0% { transform: translateY(0px) scale(1); }
+  100% { transform: translateY(-8px) scale(1.03); }
 }
 
 /* ── CINTA DE 5 TARJETAS DE ACCESOS RÁPIDOS BDT ── */

@@ -373,7 +373,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
 
   // Autoplay del carrusel del Hero Banner cada 7 segundos (estilo BDT)
   useEffect(() => {
-    const totalSlides = 3 + reportesGestion.length;
+    const totalSlides = 5 + reportesGestion.length;
     if (totalSlides <= 1 || carruselPausado) return;
 
     const timer = setInterval(() => {
@@ -402,7 +402,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
     setTouchStartX(null);
   };
 
-  const totalSlides = 3 + reportesGestion.length;
+  const totalSlides = 5 + reportesGestion.length;
   const slideAnterior = () => {
     setSlideActivo((prev) => (prev - 1 + totalSlides) % totalSlides);
   };
@@ -786,29 +786,29 @@ export const PortalGeneralSIGAE: React.FC = () => {
                 }}
               >
                 
-                {/* ── DIAPOSITIVA 0: TRANSFORMACIÓN DIGITAL (ECOSISTEMA SIGAE EN LÍNEA) ── */}
+                {/* ── DIAPOSITIVA 0: MÓDULO APP 1 - CONTROL DE ESTUDIOS & BOLETINES ── */}
                 <div className={`bdt-hero-slide-item ${slideActivo === 0 ? 'is-active' : ''}`}>
                   <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
                     
-                    {/* Columna Izquierda: Titular Eléctrico BDT y Llamados a la Acción */}
+                    {/* Columna Izquierda: Información del Módulo de Control de Estudios */}
                     <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
-                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-white backdrop-blur">
-                        <i className="bi bi-stars text-warning"></i>
-                        <span>SISTEMA INTEGRAL EN LÍNEA &bull; VERSIÓN 1.1</span>
+                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-primary bg-opacity-10 border border-primary border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-primary">
+                        <i className="bi bi-mortarboard-fill text-primary"></i>
+                        <span>MÓDULO DE LA APP &bull; CONTROL DE ESTUDIOS</span>
                       </div>
 
                       <div className="bdt-hero-title-top">
-                        TRANSFORMACIÓN DIGITAL
+                        CONTROL DE ESTUDIOS
                       </div>
-                      <div className="bdt-hero-title-mid">
-                        Educación y Gestión de Vanguardia
+                      <div className="bdt-hero-title-mid" style={{ color: '#1d4ed8' }}>
+                        Boletines Oficiales & Evaluación Continua
                       </div>
                       <div className="bdt-hero-title-bottom">
-                        ¡Todo en un solo clic!
+                        ¡Calificaciones en Tiempo Real!
                       </div>
 
                       <p className="bdt-hero-desc mx-auto mx-lg-0">
-                        La plataforma unificada de las instituciones educativas de Punceres y Monagas. Administración pedagógica, boletines oficiales, expedientes escolares y carnets con código QR de máxima seguridad con costo cero.
+                        Módulo académico oficial de la APP: registro de calificaciones por lapsos I, II y III, actas de evaluación continua según normativa MPPE y emisión instantánea de boletines de calificaciones oficiales con firma digital y sello institucional.
                       </p>
 
                       <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
@@ -818,75 +818,53 @@ export const PortalGeneralSIGAE: React.FC = () => {
                           style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none', boxShadow: '0 8px 24px rgba(242, 101, 34, 0.45)' }}
                           onClick={abrirSelectorEscuela}
                         >
-                          <i className="bi bi-buildings-fill"></i>
-                          <span>🏛️ Ingresar a mi Escuela</span>
+                          <i className="bi bi-mortarboard-fill"></i>
+                          <span>🏛️ Ingresar a Control de Estudios</span>
                         </button>
 
                         <a 
                           href="#modulos" 
-                          className="btn btn-outline-light rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
-                          style={{ fontSize: '0.86rem', backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)', borderColor: 'rgba(255, 255, 255, 0.4)' }}
+                          className="btn btn-outline-primary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                          style={{ fontSize: '0.86rem', backgroundColor: '#ffffff', borderColor: '#2563eb' }}
                         >
-                          <i className="bi bi-grid-fill text-warning"></i>
-                          <span>Explorar Módulos Populares</span>
+                          <i className="bi bi-file-earmark-bar-graph-fill text-primary"></i>
+                          <span>Consultar Boletines</span>
                         </a>
                       </div>
                     </div>
 
-                    {/* Columna Derecha: 3D Laptop Showcase con Carnets Flotantes y Zoe & Max */}
+                    {/* Columna Derecha: Showcase 3D del Módulo con Icono y Tarjetas Flotantes */}
                     <div id="asistentes" className="col-lg-6 text-center bdt-hero-visual-col">
                       <div className="bdt-3d-showcase-box">
                         
-                        {/* Mockup Laptop 3D en perspectiva */}
-                        <div className="bdt-laptop-mockup">
-                          <div className="bdt-laptop-screen">
+                        {/* Tarjeta Central del Módulo con Icono 3D Académico */}
+                        <div className="bdt-module-showcase-card">
+                          <div className="bdt-module-3d-icon-wrap">
                             <img 
-                              src="/assets/img/fondo_digital_escolar.jpg" 
-                              alt="SIGAE Dashboard en Vivo" 
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/assets/img/sigae.png';
-                              }}
+                              src="/icons3d/icono_academico_3d.png" 
+                              alt="Control de Estudios 3D" 
+                              className="bdt-module-3d-icon-img"
+                              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
                             />
-                            <div className="position-absolute top-0 start-0 w-100 h-100 p-3 d-flex flex-column justify-content-between" style={{ background: 'linear-gradient(135deg, rgba(8, 23, 61, 0.85) 0%, rgba(13, 50, 120, 0.75) 100%)' }}>
-                              <div className="d-flex align-items-center justify-content-between">
-                                <div className="d-flex align-items-center gap-2">
-                                  <img src="/assets/img/sigae.png" alt="SIGAE" style={{ width: '22px', height: '22px' }} />
-                                  <span className="fw-bold text-white small">SIGAE v1.1 &bull; Portal Escolar</span>
-                                </div>
-                                <span className="badge bg-success bg-opacity-75 text-white extra-small px-2 py-0.5 rounded-pill">● En Línea</span>
-                              </div>
-                              <div className="text-start bg-black bg-opacity-30 p-2 rounded-3 border border-white border-opacity-10">
-                                <div className="text-warning extra-small fw-bold">SISTEMA ACTIVO</div>
-                                <div className="text-white small fw-bold">1,333 Estudiantes Registrados</div>
-                              </div>
-                            </div>
                           </div>
-                          <div className="bdt-laptop-base"></div>
-                        </div>
-
-                        {/* Carnet Estudiantil Digital Flotante en 3D */}
-                        <div className="bdt-floating-card-carnet d-none d-sm-block">
-                          <div className="d-flex align-items-center justify-content-between mb-1.5">
-                            <span className="badge bg-warning text-dark extra-small fw-black px-1.5 py-0.5 rounded">CARNET QR</span>
-                            <i className="bi bi-wifi text-white fs-6"></i>
-                          </div>
-                          <div className="d-flex align-items-center gap-2 mb-2">
-                            <div className="rounded-2 bg-white p-0.5 shadow-xs" style={{ width: 36, height: 36 }}>
-                              <img src="/assets/img/avatar_inicial.png" alt="Estudiante" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                          <h5 className="fw-black text-dark font-ruda mb-1">Control de Estudios & Notas</h5>
+                          <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-1 extra-small fw-bold mb-3">
+                            Lapsos I, II y III Sincronizados
+                          </span>
+                          <div className="w-100 p-2.5 rounded-3 bg-light border text-start">
+                            <div className="d-flex align-items-center justify-content-between mb-1">
+                              <span className="extra-small text-muted fw-bold">PROMEDIO OFICIAL:</span>
+                              <span className="badge bg-success text-white extra-small fw-bold">19.8 / 20</span>
                             </div>
-                            <div className="text-start">
-                              <div className="fw-bold text-white text-truncate" style={{ fontSize: '0.72rem', maxWidth: 120 }}>Estudiante Activo</div>
-                              <div className="text-light extra-small opacity-75" style={{ fontSize: '0.62rem' }}>U.E. Libertador Bolívar</div>
+                            <div className="d-flex align-items-center justify-content-between">
+                              <span className="extra-small text-muted">Estatus Académico:</span>
+                              <span className="extra-small text-primary fw-bold">● Aprobado con Excelencia</span>
                             </div>
-                          </div>
-                          <div className="d-flex align-items-center justify-content-between pt-1 border-top border-white border-opacity-20 extra-small">
-                            <span style={{ fontSize: '0.62rem' }}>V-34.891.204</span>
-                            <span className="text-warning fw-bold" style={{ fontSize: '0.62rem' }}>VERIFICADO</span>
                           </div>
                         </div>
 
-                        {/* Tarjeta Boletín de Notas Flotante en 3D */}
-                        <div className="bdt-floating-card-boletin d-none d-sm-block">
+                        {/* Tarjeta Boletín Digital Flotante */}
+                        <div className="bdt-floating-card-boletin d-none d-sm-block" style={{ top: '6%', left: '-25px', bottom: 'auto', right: 'auto', transform: 'rotate(-8deg)' }}>
                           <div className="d-flex align-items-center justify-content-between mb-1">
                             <span className="badge bg-light text-success extra-small fw-bold px-1.5 py-0.5 rounded">BOLETÍN OFICIAL</span>
                             <i className="bi bi-award-fill text-warning fs-6"></i>
@@ -901,7 +879,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Zoe & Max 3D integrados en el lateral con Globo de Diálogo */}
+                        {/* Zoe & Max 3D integrados con Globo de Diálogo */}
                         <div className="bdt-zoe-max-hero-card d-none d-md-flex" style={{ position: 'absolute', right: '-10px', bottom: '-15px', zIndex: 6 }}>
                           <div className="bdt-zoe-max-speech-bubble mx-auto mb-1" style={{ maxWidth: '240px', padding: '8px 12px' }}>
                             <div className="d-flex align-items-center gap-1 fw-bold text-primary extra-small mb-0.5">
@@ -929,215 +907,184 @@ export const PortalGeneralSIGAE: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ── DIAPOSITIVA 1: MÓVIL SIGAE (IDÉNTICO A "MÓVIL BDT" SLIDE 2) ── */}
+                {/* ── DIAPOSITIVA 1: MÓDULO APP 2 - CARNETIZACIÓN & VALIDACIÓN QR ── */}
                 <div className={`bdt-hero-slide-item ${slideActivo === 1 ? 'is-active' : ''}`}>
-                  <div className="position-relative w-100 overflow-hidden">
-                    {/* Marca de agua gigante "Móvil SIGAE" estilo BDT */}
-                    <div className="bdt-watermark-movil-bg">
-                      Móvil SIGAE
-                    </div>
-
-                    <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide position-relative" style={{ zIndex: 2 }}>
-                      
-                      {/* Columna Izquierda: Smartphone 3D Vertical en Perspectiva */}
-                      <div className="col-lg-5 text-center bdt-hero-visual-col">
-                        <div className="bdt-phone-mockup-wrap">
-                          <div className="bdt-phone-mockup">
-                            <div className="bdt-phone-screen p-3 d-flex flex-column justify-content-between text-start">
-                              <div className="d-flex align-items-center justify-content-between text-white extra-small mb-3">
-                                <span>9:41</span>
-                                <div className="d-flex gap-1 align-items-center">
-                                  <i className="bi bi-reception-4"></i>
-                                  <i className="bi bi-wifi"></i>
-                                  <i className="bi bi-battery-full"></i>
-                                </div>
-                              </div>
-                              <div className="text-center my-auto">
-                                <img src="/assets/img/sigae.png" alt="SIGAE Móvil" style={{ width: '56px', height: '56px' }} className="mb-2 shadow-sm" />
-                                <div className="text-warning extra-small fw-bold tracking-wider">INNOVACIÓN Y COMODIDAD</div>
-                                <h6 className="fw-bolder text-white mb-2">¡Todo en un clic!</h6>
-                                <div className="bg-white bg-opacity-10 p-2.5 rounded-3 mb-2 border border-white border-opacity-15">
-                                  <div className="text-light extra-small">Cédula del Representante</div>
-                                  <div className="text-white small fw-bold">V-18.452.931</div>
-                                </div>
-                                <div className="btn btn-primary btn-sm w-100 rounded-pill fw-bold shadow-sm" style={{ backgroundColor: '#2563eb' }}>
-                                  Ingresar a SIGAE
-                                </div>
-                              </div>
-                              <div className="text-center text-white-50 extra-small">
-                                Compatible con Android, iOS y Web
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Columna Derecha: Titular Móvil BDT y Botones de Descarga */}
-                      <div className="col-lg-7 text-center text-lg-start bdt-hero-text-col">
-                        <div className="d-inline-flex align-items-center gap-2 bg-info bg-opacity-20 border border-info border-opacity-30 px-3 py-1.5 rounded-pill mb-3 small fw-bold text-info">
-                          <i className="bi bi-phone-fill"></i>
-                          <span>EXPERIENCIA MÓVIL OPTIMIZADA</span>
-                        </div>
-
-                        <div className="bdt-hero-title-top" style={{ fontSize: 'clamp(2.4rem, 5vw, 4.2rem)' }}>
-                          Móvil SIGAE
-                        </div>
-                        <div className="bdt-hero-title-mid" style={{ color: '#38bdf8' }}>
-                          INNOVACIÓN Y COMODIDAD
-                        </div>
-                        <div className="bdt-hero-title-bottom">
-                          ¡Todo en un clic!
-                        </div>
-
-                        <p className="bdt-hero-desc mx-auto mx-lg-0">
-                          Accede desde cualquier teléfono inteligente, tableta o computadora sin necesidad de descargas pesadas en tiendas. Consulta calificaciones al instante, actualiza datos y valida constancias oficiales con tecnología PWA de última generación.
-                        </p>
-
-                        {/* Botones de Tiendas de Aplicaciones estilo BDT */}
-                        <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3 mb-4">
-                          <button 
-                            type="button" 
-                            className="bdt-app-store-btn"
-                            onClick={abrirSelectorEscuela}
-                          >
-                            <i className="bi bi-google-play fs-3 text-warning"></i>
-                            <div className="text-start">
-                              <div className="extra-small opacity-75" style={{ fontSize: '0.65rem' }}>INSTALAR DIRECTO</div>
-                              <div className="fw-bold small" style={{ fontSize: '0.88rem' }}>Acceso PWA Móvil</div>
-                            </div>
-                          </button>
-
-                          <button 
-                            type="button" 
-                            className="bdt-app-store-btn"
-                            onClick={abrirSelectorEscuela}
-                          >
-                            <i className="bi bi-apple fs-3 text-white"></i>
-                            <div className="text-start">
-                              <div className="extra-small opacity-75" style={{ fontSize: '0.65rem' }}>COMPATIBLE CON</div>
-                              <div className="fw-bold small" style={{ fontSize: '0.88rem' }}>iOS y Navegadores</div>
-                            </div>
-                          </button>
-                        </div>
-
-                        {/* Pills de Ventajas Tecnológicas */}
-                        <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-2">
-                          <span className="badge bg-white bg-opacity-10 text-white border border-white border-opacity-20 rounded-pill px-3 py-1.5 extra-small">
-                            ⚡ Cero Consumo Excesivo
-                          </span>
-                          <span className="badge bg-white bg-opacity-10 text-white border border-white border-opacity-20 rounded-pill px-3 py-1.5 extra-small">
-                            🔒 Seguridad RLS Supabase
-                          </span>
-                          <span className="badge bg-white bg-opacity-10 text-white border border-white border-opacity-20 rounded-pill px-3 py-1.5 extra-small">
-                            📄 Descarga de PDF con QR
-                          </span>
-                        </div>
-
-                      </div>
-
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── DIAPOSITIVA 2: SEDES EDUCATIVAS OFICIALES (PUNCERES & MONAGAS) ── */}
-                <div className={`bdt-hero-slide-item ${slideActivo === 2 ? 'is-active' : ''}`}>
                   <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
                     
-                    {/* Columna Izquierda: Información de los Planteles */}
+                    {/* Columna Izquierda: Información de Carnetización y Seguridad */}
                     <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
-                      <div className="d-inline-flex align-items-center gap-2 bg-success bg-opacity-20 border border-success border-opacity-30 px-3 py-1.5 rounded-pill mb-3 small fw-bold text-success">
-                        <i className="bi bi-award-fill"></i>
-                        <span>PLANTELES EDUCATIVOS DE PUNCERES</span>
+                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-success bg-opacity-10 border border-success border-opacity-25 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-success">
+                        <i className="bi bi-shield-check text-success"></i>
+                        <span>MÓDULO DE LA APP &bull; CARNETIZACIÓN & SEGURIDAD</span>
                       </div>
 
                       <div className="bdt-hero-title-top">
-                        SEDES EDUCATIVAS
+                        CARNETIZACIÓN DIGITAL
                       </div>
-                      <div className="bdt-hero-title-mid">
-                        Punceres &bull; Estado Monagas
+                      <div className="bdt-hero-title-mid" style={{ color: '#059669' }}>
+                        Identidad Escolar & Validación Criptográfica
                       </div>
                       <div className="bdt-hero-title-bottom">
-                        Compromiso y Excelencia
+                        ¡Verificación Instantánea con QR!
                       </div>
 
                       <p className="bdt-hero-desc mx-auto mx-lg-0">
-                        Integración tecnológica para la <strong>U.E. Libertador Bolívar</strong> (Miraflores, fundada en 1948) y la <strong>U.E. Santa Bárbara</strong>. Conectividad institucional, expediente único y administración escolar centralizada.
+                        Emisión automatizada de carnets institucionales inteligentes con fotografía del estudiante, código QR institucional inviolable y verificación pública de constancias de estudio sin costo para las familias.
+                      </p>
+
+                      <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                        <a 
+                          href="#verificar" 
+                          className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: '#059669', border: 'none', boxShadow: '0 8px 24px rgba(5, 150, 105, 0.4)' }}
+                        >
+                          <i className="bi bi-qr-code-scan"></i>
+                          <span>🔍 Validar Carnet o Constancia</span>
+                        </a>
+
+                        <button 
+                          type="button" 
+                          className="btn btn-outline-success rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                          style={{ fontSize: '0.86rem', backgroundColor: '#ffffff', borderColor: '#059669' }}
+                          onClick={abrirSelectorEscuela}
+                        >
+                          <i className="bi bi-person-badge-fill text-success"></i>
+                          <span>Expedición de Carnets</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Columna Derecha: Showcase 3D del Carnet con QR y Foto */}
+                    <div className="col-lg-6 text-center bdt-hero-visual-col">
+                      <div className="bdt-3d-showcase-box">
+                        
+                        {/* Tarjeta Central del Módulo con Icono 3D de Seguridad */}
+                        <div className="bdt-module-showcase-card">
+                          <div className="bdt-module-3d-icon-wrap">
+                            <img 
+                              src="/icons3d/icono_seguridad_3d.png" 
+                              alt="Seguridad QR 3D" 
+                              className="bdt-module-3d-icon-img"
+                              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                            />
+                          </div>
+                          <h5 className="fw-black text-dark font-ruda mb-1">Carnetización & Validación QR</h5>
+                          <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 extra-small fw-bold mb-3">
+                            100% Criptográfico y Antifraude
+                          </span>
+                          <div className="w-100 p-2.5 rounded-3 bg-light border text-start">
+                            <div className="d-flex align-items-center justify-content-between mb-1">
+                              <span className="extra-small text-muted fw-bold">TECNOLOGÍA:</span>
+                              <span className="badge bg-primary text-white extra-small fw-bold">QR SHA-256</span>
+                            </div>
+                            <div className="d-flex align-items-center justify-content-between">
+                              <span className="extra-small text-muted">Validación Pública:</span>
+                              <span className="extra-small text-success fw-bold">● En Línea y Offline</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Carnet Estudiantil Digital Flotante en 3D */}
+                        <div className="bdt-floating-card-carnet d-none d-sm-block">
+                          <div className="d-flex align-items-center justify-content-between mb-1.5">
+                            <span className="badge bg-warning text-dark extra-small fw-black px-1.5 py-0.5 rounded">CARNET QR</span>
+                            <i className="bi bi-wifi text-white fs-6"></i>
+                          </div>
+                          <div className="d-flex align-items-center gap-2 mb-2">
+                            <div className="rounded-2 bg-white p-0.5 shadow-xs" style={{ width: 36, height: 36 }}>
+                              <img src="/assets/img/avatar_inicial.png" alt="Estudiante" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                            </div>
+                            <div className="text-start">
+                              <div className="fw-bold text-white text-truncate" style={{ fontSize: '0.72rem', maxWidth: 120 }}>Estudiante Activo</div>
+                              <div className="text-light extra-small opacity-75" style={{ fontSize: '0.62rem' }}>U.E. Libertador Bolívar</div>
+                            </div>
+                          </div>
+                          <div className="d-flex align-items-center justify-content-between pt-1 border-top border-white border-opacity-20 extra-small">
+                            <span style={{ fontSize: '0.62rem' }}>V-34.891.204</span>
+                            <span className="text-warning fw-bold" style={{ fontSize: '0.62rem' }}>VERIFICADO</span>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* ── DIAPOSITIVA 2: MÓDULO APP 3 - FICHA ESTUDIANTIL & EXPEDIENTE ── */}
+                <div className={`bdt-hero-slide-item ${slideActivo === 2 ? 'is-active' : ''}`}>
+                  <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
+                    
+                    {/* Columna Izquierda: Información de Ficha Estudiantil y Matrícula */}
+                    <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
+                      <div className="d-inline-flex flex-wrap align-items-center gap-2 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs" style={{ backgroundColor: 'rgba(146, 39, 143, 0.1)', color: '#92278f', border: '1px solid rgba(146, 39, 143, 0.25)' }}>
+                        <i className="bi bi-person-lines-fill"></i>
+                        <span>MÓDULO DE LA APP &bull; EXPEDIENTE & MATRÍCULA</span>
+                      </div>
+
+                      <div className="bdt-hero-title-top">
+                        FICHA ESTUDIANTIL
+                      </div>
+                      <div className="bdt-hero-title-mid" style={{ color: '#92278f' }}>
+                        Expediente Integral & Matrícula Familiar
+                      </div>
+                      <div className="bdt-hero-title-bottom">
+                        ¡Actualización de Datos en Línea!
+                      </div>
+
+                      <p className="bdt-hero-desc mx-auto mx-lg-0">
+                        Expediente único del estudiante: ficha médica, datos de contacto del representante, antecedentes académicos y censo unificado con protección hermética por escuela mediante Row Level Security.
                       </p>
 
                       <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
                         <button 
                           type="button" 
-                          className="btn btn-primary rounded-pill py-2.5 px-4 fs-6 shadow-sm fw-bold d-inline-flex align-items-center gap-2 font-ruda"
-                          style={{ backgroundColor: '#1d4ed8', border: 'none', boxShadow: '0 8px 24px rgba(29, 78, 216, 0.4)' }}
-                          onClick={() => {
-                            cambiarEscuela('lb');
-                            navigate('/login');
-                          }}
+                          className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: 'var(--bdt-purple-bicentenario)', border: 'none', boxShadow: '0 8px 24px rgba(146, 39, 143, 0.4)' }}
+                          onClick={abrirSelectorEscuela}
                         >
-                          <img src="/assets/img/logo_lb.png" alt="LB" style={{ width: 20, height: 20 }} />
-                          <span>U.E. Libertador Bolívar</span>
+                          <i className="bi bi-pencil-square"></i>
+                          <span>📝 Actualizar Datos Escolares</span>
                         </button>
 
-                        <button 
-                          type="button" 
-                          className="btn btn-success rounded-pill py-2.5 px-4 fs-6 shadow-sm fw-bold d-inline-flex align-items-center gap-2 font-ruda"
-                          style={{ backgroundColor: '#059669', border: 'none', boxShadow: '0 8px 24px rgba(5, 150, 105, 0.4)' }}
-                          onClick={() => {
-                            cambiarEscuela('sb');
-                            navigate('/login');
-                          }}
+                        <a 
+                          href="#matricula" 
+                          className="btn btn-outline-secondary rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs"
+                          style={{ fontSize: '0.86rem', backgroundColor: '#ffffff', borderColor: '#92278f', color: '#92278f' }}
                         >
-                          <img src="/assets/img/logo_sb.png" alt="SB" style={{ width: 20, height: 20 }} />
-                          <span>U.E. Santa Bárbara</span>
-                        </button>
+                          <i className="bi bi-people-fill text-primary"></i>
+                          <span>Ver Cifras de Matrícula</span>
+                        </a>
                       </div>
                     </div>
 
-                    {/* Columna Derecha: Tarjetas Institucionales 3D con Escudos */}
+                    {/* Columna Derecha: Showcase 3D del Módulo con Icono Estudiantil */}
                     <div className="col-lg-6 text-center bdt-hero-visual-col">
-                      <div className="row g-3 justify-content-center">
+                      <div className="bdt-3d-showcase-box">
                         
-                        {/* Tarjeta Libertador Bolívar */}
-                        <div className="col-sm-6">
-                          <div 
-                            className="p-4 rounded-4 text-center cursor-pointer transition-all"
-                            style={{ 
-                              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
-                              border: '1.5px solid rgba(59, 130, 246, 0.4)',
-                              boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5)',
-                              backdropFilter: 'blur(10px)'
-                            }}
-                            onClick={() => {
-                              cambiarEscuela('lb');
-                              navigate('/login');
-                            }}
-                          >
-                            <img src="/assets/img/logo_lb.png" alt="UE Libertador Bolívar" style={{ width: 72, height: 72, objectFit: 'contain' }} className="mb-3" />
-                            <h6 className="fw-bold text-white mb-1">U.E. Libertador Bolívar</h6>
-                            <span className="badge bg-primary bg-opacity-40 text-info border border-info border-opacity-30 rounded-pill px-2.5 py-1 extra-small mb-2">Fund. 1948 &bull; Miraflores</span>
-                            <div className="text-light extra-small opacity-80">698 Estudiantes Validados</div>
+                        {/* Tarjeta Central del Módulo con Icono 3D Estudiantil */}
+                        <div className="bdt-module-showcase-card">
+                          <div className="bdt-module-3d-icon-wrap">
+                            <img 
+                              src="/icons3d/icono_estudiantil_3d.png" 
+                              alt="Ficha Estudiantil 3D" 
+                              className="bdt-module-3d-icon-img"
+                              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                            />
                           </div>
-                        </div>
-
-                        {/* Tarjeta Santa Bárbara */}
-                        <div className="col-sm-6">
-                          <div 
-                            className="p-4 rounded-4 text-center cursor-pointer transition-all"
-                            style={{ 
-                              background: 'linear-gradient(135deg, rgba(6, 95, 70, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
-                              border: '1.5px solid rgba(16, 185, 129, 0.4)',
-                              boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5)',
-                              backdropFilter: 'blur(10px)'
-                            }}
-                            onClick={() => {
-                              cambiarEscuela('sb');
-                              navigate('/login');
-                            }}
-                          >
-                            <img src="/assets/img/logo_sb.png" alt="UE Santa Bárbara" style={{ width: 72, height: 72, objectFit: 'contain' }} className="mb-3" />
-                            <h6 className="fw-bold text-white mb-1">U.E. Santa Bárbara</h6>
-                            <span className="badge bg-success bg-opacity-40 text-white border border-success border-opacity-30 rounded-pill px-2.5 py-1 extra-small mb-2">Sede Central Punceres</span>
-                            <div className="text-light extra-small opacity-80">635 Estudiantes Validados</div>
+                          <h5 className="fw-black text-dark font-ruda mb-1">Ficha Estudiantil Digital</h5>
+                          <span className="badge rounded-pill px-3 py-1 extra-small fw-bold mb-3" style={{ backgroundColor: 'rgba(146, 39, 143, 0.1)', color: '#92278f', border: '1px solid rgba(146, 39, 143, 0.25)' }}>
+                            1,333 Expedientes Validados
+                          </span>
+                          <div className="w-100 p-2.5 rounded-3 bg-light border text-start">
+                            <div className="d-flex align-items-center justify-content-between mb-1">
+                              <span className="extra-small text-muted fw-bold">NIVELES:</span>
+                              <span className="badge bg-secondary text-white extra-small fw-bold">Inicial &bull; Primaria &bull; Media</span>
+                            </div>
+                            <div className="d-flex align-items-center justify-content-between">
+                              <span className="extra-small text-muted">Aislamiento RLS:</span>
+                              <span className="extra-small text-success fw-bold">● Hermético por Escuela</span>
+                            </div>
                           </div>
                         </div>
 
@@ -1147,9 +1094,174 @@ export const PortalGeneralSIGAE: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ── DIAPOSITIVAS 3..N: GESTIONES DIARIAS ESCOLARES APROBADAS EN SISTEMA ── */}
+                {/* ── DIAPOSITIVA 3: MÓDULO APP 4 - SOLICITUD DE CUPOS & ADMISIONES ── */}
+                <div className={`bdt-hero-slide-item ${slideActivo === 3 ? 'is-active' : ''}`}>
+                  <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
+                    
+                    {/* Columna Izquierda: Información de Admisiones y Cupos */}
+                    <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
+                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-warning bg-opacity-20 border border-warning border-opacity-40 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-dark">
+                        <i className="bi bi-backpack-fill text-warning"></i>
+                        <span>MÓDULO DE LA APP &bull; ADMISIONES & CUPOS</span>
+                      </div>
+
+                      <div className="bdt-hero-title-top">
+                        SOLICITUD DE CUPOS
+                      </div>
+                      <div className="bdt-hero-title-mid" style={{ color: '#d97706' }}>
+                        Admisión Transparente para Nuevos Ingresos
+                      </div>
+                      <div className="bdt-hero-title-bottom">
+                        ¡Trámite Escolar 100% Digital!
+                      </div>
+
+                      <p className="bdt-hero-desc mx-auto mx-lg-0">
+                        Recepción de solicitudes de cupos por nivel académico (Educación Inicial, Primaria y Media General). Asignación equitativa, seguimiento del estado de la postulación y formalización de inscripción sin filas presenciales.
+                      </p>
+
+                      <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                        <a 
+                          href="#modulos" 
+                          className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: 'var(--bdt-orange-action)', border: 'none', boxShadow: '0 8px 24px rgba(242, 101, 34, 0.45)' }}
+                        >
+                          <i className="bi bi-backpack-fill"></i>
+                          <span>🎒 Solicitar Cupo Escolar</span>
+                        </a>
+
+                        <a 
+                          href="#planteles" 
+                          className="btn btn-outline-warning rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs text-dark"
+                          style={{ fontSize: '0.86rem', backgroundColor: '#ffffff', borderColor: '#d97706' }}
+                        >
+                          <i className="bi bi-buildings-fill text-warning"></i>
+                          <span>Sedes y Disponibilidad</span>
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Columna Derecha: Showcase 3D del Módulo con Icono de Admisiones */}
+                    <div className="col-lg-6 text-center bdt-hero-visual-col">
+                      <div className="bdt-3d-showcase-box">
+                        
+                        {/* Tarjeta Central del Módulo con Icono 3D de Admisiones */}
+                        <div className="bdt-module-showcase-card">
+                          <div className="bdt-module-3d-icon-wrap">
+                            <img 
+                              src="/icons3d/icono_admisiones_3d.png" 
+                              alt="Admisiones 3D" 
+                              className="bdt-module-3d-icon-img"
+                              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                            />
+                          </div>
+                          <h5 className="fw-black text-dark font-ruda mb-1">Admisiones & Solicitud de Cupos</h5>
+                          <span className="badge bg-warning bg-opacity-20 text-dark border border-warning border-opacity-40 rounded-pill px-3 py-1 extra-small fw-bold mb-3">
+                            Preinscripción Transparente
+                          </span>
+                          <div className="w-100 p-2.5 rounded-3 bg-light border text-start">
+                            <div className="d-flex align-items-center justify-content-between mb-1">
+                              <span className="extra-small text-muted fw-bold">ESTADO DE CUPOS:</span>
+                              <span className="badge bg-success text-white extra-small fw-bold">Disponibles</span>
+                            </div>
+                            <div className="d-flex align-items-center justify-content-between">
+                              <span className="extra-small text-muted">Asignación Directa:</span>
+                              <span className="extra-small text-primary fw-bold">● Cero Papel y Cero Colas</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* ── DIAPOSITIVA 4: MÓDULO APP 5 - TRANSPORTE ESCOLAR & RUTOGRAMAS ── */}
+                <div className={`bdt-hero-slide-item ${slideActivo === 4 ? 'is-active' : ''}`}>
+                  <div className="row align-items-center g-4 g-lg-5 bdt-hero-slide">
+                    
+                    {/* Columna Izquierda: Información de Transporte y Rutas */}
+                    <div className="col-lg-6 text-center text-lg-start bdt-hero-text-col">
+                      <div className="d-inline-flex flex-wrap align-items-center gap-2 bg-info bg-opacity-10 border border-info border-opacity-30 px-3 py-1.5 rounded-pill mb-3 small fw-bold shadow-xs text-primary">
+                        <i className="bi bi-bus-front-fill text-info"></i>
+                        <span>MÓDULO DE LA APP &bull; LOGÍSTICA & TRANSPORTE</span>
+                      </div>
+
+                      <div className="bdt-hero-title-top">
+                        TRANSPORTE Y RUTOGRAMAS
+                      </div>
+                      <div className="bdt-hero-title-mid" style={{ color: '#0284c7' }}>
+                        Movilidad Estudiantil de Punceres
+                      </div>
+                      <div className="bdt-hero-title-bottom">
+                        ¡Control de Paradas y Unidades!
+                      </div>
+
+                      <p className="bdt-hero-desc mx-auto mx-lg-0">
+                        Censo de movilidad para estudiantes de Miraflores, Cachipo, Puente Punceres y sectores aledaños. Rutogramas oficiales, control de paradas escolares y asignación de unidades para traslados seguros y puntuales.
+                      </p>
+
+                      <div className="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start gap-3">
+                        <a 
+                          href="#modulos" 
+                          className="btn rounded-pill py-2.5 px-4 fs-6 shadow-sm text-white fw-bold d-inline-flex align-items-center gap-2 font-ruda"
+                          style={{ backgroundColor: '#0284c7', border: 'none', boxShadow: '0 8px 24px rgba(2, 132, 199, 0.4)' }}
+                        >
+                          <i className="bi bi-bus-front-fill"></i>
+                          <span>🚌 Ver Rutas y Paradas</span>
+                        </a>
+
+                        <button 
+                          type="button" 
+                          className="btn btn-outline-info rounded-pill px-4 py-2.5 fw-bold d-inline-flex align-items-center gap-2 font-ruda shadow-xs text-primary"
+                          style={{ fontSize: '0.86rem', backgroundColor: '#ffffff', borderColor: '#0284c7' }}
+                          onClick={abrirSelectorEscuela}
+                        >
+                          <i className="bi bi-shield-lock-fill"></i>
+                          <span>Ingresar a la Plataforma</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Columna Derecha: Showcase 3D del Módulo con Icono de Transporte */}
+                    <div className="col-lg-6 text-center bdt-hero-visual-col">
+                      <div className="bdt-3d-showcase-box">
+                        
+                        {/* Tarjeta Central del Módulo con Icono 3D de Transporte */}
+                        <div className="bdt-module-showcase-card">
+                          <div className="bdt-module-3d-icon-wrap">
+                            <img 
+                              src="/icons3d/icono_transporte_3d.png" 
+                              alt="Transporte 3D" 
+                              className="bdt-module-3d-icon-img"
+                              onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
+                            />
+                          </div>
+                          <h5 className="fw-black text-dark font-ruda mb-1">Transporte y Rutas Escolares</h5>
+                          <span className="badge bg-info bg-opacity-15 text-primary border border-info border-opacity-30 rounded-pill px-3 py-1 extra-small fw-bold mb-3">
+                            Monitoreo de Movilidad
+                          </span>
+                          <div className="w-100 p-2.5 rounded-3 bg-light border text-start">
+                            <div className="d-flex align-items-center justify-content-between mb-1">
+                              <span className="extra-small text-muted fw-bold">COBERTURA:</span>
+                              <span className="badge bg-warning text-dark extra-small fw-bold">Miraflores &bull; Cachipo</span>
+                            </div>
+                            <div className="d-flex align-items-center justify-content-between">
+                              <span className="extra-small text-muted">Logística de Paradas:</span>
+                              <span className="extra-small text-success fw-bold">● Rutograma Oficial Activo</span>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* ── DIAPOSITIVAS 5..N: GESTIONES DIARIAS ESCOLARES APROBADAS EN LA APP ── */}
                 {reportesGestion.map((rep, idx) => {
-                  const num = idx + 3;
+                  const num = idx + 5;
                   const nombreEscuela = rep.proceso || (rep.escuela_codigo === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
                   const fotoBanner = rep.banner_superior || rep.imagenes?.[0] || '/assets/img/gestion_diaria/reporte_ejemplo_collage.png';
                   const isActive = slideActivo === num;
@@ -1289,38 +1401,56 @@ export const PortalGeneralSIGAE: React.FC = () => {
               </div>
             </div>
 
-            {/* Indicadores de Puntos Inferiores (Dots BDT) */}
+            {/* Indicadores de Puntos Inferiores (Dots de Módulos APP y Gestión) */}
             {totalSlides > 1 && (
               <div className="bdt-hero-dots-container">
                 <button
                   type="button"
                   className={`bdt-hero-dot ${slideActivo === 0 ? 'active' : ''}`}
                   onClick={() => setSlideActivo(0)}
-                  title="Transformación Digital SIGAE"
+                  title="Módulo APP: Control de Estudios & Boletines"
                 >
-                  <span>★ Transformación Digital</span>
+                  <span>📊 Control de Estudios</span>
                 </button>
 
                 <button
                   type="button"
                   className={`bdt-hero-dot ${slideActivo === 1 ? 'active' : ''}`}
                   onClick={() => setSlideActivo(1)}
-                  title="Móvil SIGAE - Innovación y Comodidad"
+                  title="Módulo APP: Carnetización & Seguridad QR"
                 >
-                  <span>📱 Móvil SIGAE</span>
+                  <span>🪪 Carnetización QR</span>
                 </button>
 
                 <button
                   type="button"
                   className={`bdt-hero-dot ${slideActivo === 2 ? 'active' : ''}`}
                   onClick={() => setSlideActivo(2)}
-                  title="Sedes Educativas Oficiales de Punceres"
+                  title="Módulo APP: Ficha Estudiantil & Expediente"
                 >
-                  <span>🏛️ Sedes Oficiales</span>
+                  <span>📋 Ficha Estudiantil</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`bdt-hero-dot ${slideActivo === 3 ? 'active' : ''}`}
+                  onClick={() => setSlideActivo(3)}
+                  title="Módulo APP: Solicitud de Cupos & Admisiones"
+                >
+                  <span>🎒 Solicitud de Cupos</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`bdt-hero-dot ${slideActivo === 4 ? 'active' : ''}`}
+                  onClick={() => setSlideActivo(4)}
+                  title="Módulo APP: Transporte Escolar & Rutas"
+                >
+                  <span>🚌 Transporte Escolar</span>
                 </button>
 
                 {reportesGestion.map((rep, idx) => {
-                  const num = idx + 3;
+                  const num = idx + 5;
                   const etiqueta = rep.escuela_codigo === 'sb' 
                     ? `UE Santa Bárbara #${idx + 1}` 
                     : rep.escuela_codigo === 'lb' 
@@ -1334,7 +1464,7 @@ export const PortalGeneralSIGAE: React.FC = () => {
                       onClick={() => setSlideActivo(num)}
                       title={rep.actividad}
                     >
-                      <span>{etiqueta}</span>
+                      <span>🏛️ {etiqueta}</span>
                     </button>
                   );
                 })}
