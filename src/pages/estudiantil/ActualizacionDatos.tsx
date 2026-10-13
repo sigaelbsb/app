@@ -4673,7 +4673,7 @@ const STEPS = [
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
                       {form.constancia_cultura_url ? (
                         <div className="text-center w-100">
-                          {form.constancia_cultura_url.toLowerCase().includes('.pdf') ? (
+                          {(form.constancia_cultura_url || '').toLowerCase().includes('.pdf') ? (
                             <div className="p-3 bg-light rounded-3 mb-2 border text-center">
                               <i className="bi bi-file-earmark-pdf text-danger fs-1 d-block mb-1"></i>
                               <span className="small fw-semibold text-dark">Documento PDF Cargado</span>
@@ -4760,7 +4760,7 @@ const STEPS = [
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
                       {form.constancia_danza_url ? (
                         <div className="text-center w-100">
-                          {form.constancia_danza_url.toLowerCase().includes('.pdf') ? (
+                          {(form.constancia_danza_url || '').toLowerCase().includes('.pdf') ? (
                             <div className="p-3 bg-light rounded-3 mb-2 border text-center">
                               <i className="bi bi-file-earmark-pdf text-danger fs-1 d-block mb-1"></i>
                               <span className="small fw-semibold text-dark">Documento PDF Cargado</span>
@@ -4852,7 +4852,7 @@ const STEPS = [
                     <div className="card-body p-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 140 }}>
                       {form.constancia_deporte_url ? (
                         <div className="text-center w-100">
-                          {form.constancia_deporte_url.toLowerCase().includes('.pdf') ? (
+                          {(form.constancia_deporte_url || '').toLowerCase().includes('.pdf') ? (
                             <div className="p-3 bg-light rounded-3 mb-2 border text-center">
                               <i className="bi bi-file-earmark-pdf text-danger fs-1 d-block mb-1"></i>
                               <span className="small fw-semibold text-dark">Documento PDF Cargado</span>
