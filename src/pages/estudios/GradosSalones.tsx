@@ -166,6 +166,13 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   const [mostrarPreviewSorpresa, setMostrarPreviewSorpresa] = useState(false);
   const [previewDocenteCedula, setPreviewDocenteCedula] = useState('');
 
+  // ── ESTADOS DE FILTRO Y ORDENAMIENTO: MATRÍCULA Y DOCENTE GUÍA ──
+  const [formatoNombreEstudiante, setFormatoNombreEstudiante] = useState<'apellidos_nombres' | 'nombres_apellidos'>('apellidos_nombres');
+  const [ordenEstudiantesCampo, setOrdenEstudiantesCampo] = useState<'nombre' | 'cedula'>('nombre');
+  const [ordenEstudiantesDireccion, setOrdenEstudiantesDireccion] = useState<'asc' | 'desc'>('asc');
+  const [formatoNombreDocente, setFormatoNombreDocente] = useState<'apellidos_nombres' | 'nombres_apellidos'>('apellidos_nombres');
+  const [filtroDocenteGuiaSalones, setFiltroDocenteGuiaSalones] = useState<string>('todos');
+
   // Especialistas modal & form state
   const [mostrarModalEspecialidad, setMostrarModalEspecialidad] = useState<boolean>(false);
   const [editandoEspecialidadId, setEditandoEspecialidadId] = useState<string | null>(null);
@@ -777,16 +784,97 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   }, [espaciosFiltrados, paginaActualEspacios]);
 
   // ──────────────────────────────────────────────────────────
-  // FILTRADO Y ORDENAMIENTO DE SALONES (SÓLO SEDE ACTIVA)
+  // ──────────────────────────────────────────────────────────
+  // HELPERS DE FORMATEO E INVERSIÓN DE NOMBRES Y APELLIDOS
+  // ──────────────────────────────────────────────────────────
+  const formatNombreEstudiante = (
+    nombres: string,
+    apellidos: string,
+    formato: 'apellidos_nombres' | 'nombres_apellidos'
+  ): string => {
+    const nom = (nombres || '').trim();
+    const ape = (apellidos || '').trim();
+    if (formato === 'nombres_apellidos') {
+      return `${nom} ${ape}`.trim();
+    }
+    return `${ape}, ${nom}`.trim();
+  };
+
+  const formatNombreDocente = (
+    nombreCompleto: string,
+    formato: 'apellidos_nombres' | 'nombres_apellidos'
+  ): string => {
+    const str = (nombreCompleto || '').trim();
+    if (!str) return '';
+
+    const tieneComa = str.includes(',');
+    if (tieneComa) {
+      const [partApe, partNom] = str.split(',').map(s => s.trim());
+      if (formato === 'apellidos_nombres') {
+        return `${partApe}, ${partNom}`;
+      } else {
+        return `${partNom} ${partApe}`.trim();
+      }
+    }
+
+    if (formato === 'nombres_apellidos') {
+      return str;
+    }
+
+    // Para apellidos_nombres cuando no tiene coma
+    const palabras = str.split(/\s+/).filter(Boolean);
+    if (palabras.length <= 1) return str;
+    if (palabras.length === 2) {
+      return `${palabras[1]}, ${palabras[0]}`;
+    }
+    if (palabras.length === 3) {
+      return `${palabras[2]}, ${palabras[0]} ${palabras[1]}`;
+    }
+    const apellidos = palabras.slice(-2).join(' ');
+    const nombres = palabras.slice(0, -2).join(' ');
+    return `${apellidos}, ${nombres}`;
+  };
+
+  // Docentes del plantel activo
+  const docentesPlantelActivo = useMemo(() => {
+    return docentes.filter(d => {
+      const dEsc = String(d.id_escuela || '').trim().toLowerCase();
+      const sEsc = String(escuelaFiltro || '').trim().toLowerCase();
+      return !d.id_escuela || dEsc === sEsc || dEsc === 'ambas' || dEsc === 'todas';
+    });
+  }, [docentes, escuelaFiltro]);
+
+  // ──────────────────────────────────────────────────────────
+  // FILTRADO Y ORDENAMIENTO DE SALONES (SÓLO SEDE ACTIVA + DOCENTE GUÍA)
   // ──────────────────────────────────────────────────────────
   const salonesFiltrados = useMemo(() => {
     return salones
       .filter(s => {
         const matchEscuela = s.id_escuela === escuelaFiltro;
-        const matchSearch = (s.nombre_salon || '').toLowerCase().includes(searchSalones.toLowerCase()) ||
-                            (s.grado_anio || '').toLowerCase().includes(searchSalones.toLowerCase()) ||
-                            (s.seccion || '').toLowerCase().includes(searchSalones.toLowerCase());
-        return matchEscuela && matchSearch;
+
+        // Filtro específico por docente guía asignado
+        let matchDocente = true;
+        if (filtroDocenteGuiaSalones === 'sin_asignar') {
+          matchDocente = !s.docentes_guias || s.docentes_guias.length === 0;
+        } else if (filtroDocenteGuiaSalones !== 'todos') {
+          matchDocente = Boolean(s.docentes_guias && s.docentes_guias.includes(filtroDocenteGuiaSalones));
+        }
+
+        const queryS = searchSalones.toLowerCase().trim();
+        const nombresDocentesGuia = (s.docentes_guias || [])
+          .map(ci => {
+            const d = docentes.find(doc => doc.cedula === ci);
+            return `${d?.nombre_completo || ''} ${ci}`.toLowerCase();
+          })
+          .join(' ');
+
+        const matchSearch = !queryS ||
+                            (s.nombre_salon || '').toLowerCase().includes(queryS) ||
+                            (s.grado_anio || '').toLowerCase().includes(queryS) ||
+                            (s.seccion || '').toLowerCase().includes(queryS) ||
+                            nombresDocentesGuia.includes(queryS);
+
+        return matchEscuela && matchDocente && matchSearch;
       })
       .sort((a, b) => {
         const pesoA = obtenerPesoJerarquico(a.grado_anio);
@@ -795,7 +883,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         if (a.seccion !== b.seccion) return (a.seccion || '').localeCompare(b.seccion || '');
         return (a.nombre_salon || '').localeCompare(b.nombre_salon || '');
       });
-  }, [salones, escuelaFiltro, searchSalones]);
+  }, [salones, escuelaFiltro, searchSalones, filtroDocenteGuiaSalones, docentes]);
 
   // Estudiantes de la Sede Activa
   const estudiantesFiltrados = useMemo(() => {
@@ -812,20 +900,55 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     return salonesFiltrados.find(s => s.id_salon === salonSeleccionadoId) || salonesFiltrados[0] || null;
   }, [salonesFiltrados, salonSeleccionadoId]);
 
-  // Estudiantes del Salón Activo
+  // Estudiantes del Salón Activo con Filtro, Búsqueda, Inversión y Ordenamiento
   const estudiantesSalonActivo = useMemo(() => {
     if (!salonActivo) return [];
-    return estudiantes
-      .filter(e => 
-        e.codigo_escuela === salonActivo.id_escuela &&
-        (e.grado_actual || '').toLowerCase() === (salonActivo.grado_anio || '').toLowerCase() &&
-        (e.seccion_actual || '').toUpperCase() === (salonActivo.seccion || '').toUpperCase() &&
-        ((e.nombres_estudiante || '').toLowerCase().includes(searchEstudiantes.toLowerCase()) ||
-         (e.apellidos_estudiante || '').toLowerCase().includes(searchEstudiantes.toLowerCase()) ||
-         (e.cedula_estudiante || '').toLowerCase().includes(searchEstudiantes.toLowerCase()))
-      )
-      .sort((a, b) => (a.apellidos_estudiante || '').localeCompare(b.apellidos_estudiante || ''));
-  }, [estudiantes, salonActivo, searchEstudiantes]);
+    const q = searchEstudiantes.toLowerCase().trim();
+
+    const filtrados = estudiantes.filter(e => {
+      const matchEscuela = e.codigo_escuela === salonActivo.id_escuela;
+      const matchGrado = (e.grado_actual || '').toLowerCase() === (salonActivo.grado_anio || '').toLowerCase();
+      const matchSeccion = (e.seccion_actual || '').toUpperCase() === (salonActivo.seccion || '').toUpperCase();
+      
+      const matchSearch = !q ||
+        (e.nombres_estudiante || '').toLowerCase().includes(q) ||
+        (e.apellidos_estudiante || '').toLowerCase().includes(q) ||
+        (e.cedula_estudiante || '').toLowerCase().includes(q) ||
+        `${e.nombres_estudiante} ${e.apellidos_estudiante}`.toLowerCase().includes(q) ||
+        `${e.apellidos_estudiante} ${e.nombres_estudiante}`.toLowerCase().includes(q) ||
+        (e.cedula_representante || '').toLowerCase().includes(q);
+
+      return matchEscuela && matchGrado && matchSeccion && matchSearch;
+    });
+
+    filtrados.sort((a, b) => {
+      if (ordenEstudiantesCampo === 'cedula') {
+        // Orden numérico por número de cédula
+        const numA = parseInt((a.cedula_estudiante || '').replace(/\D/g, ''), 10) || 0;
+        const numB = parseInt((b.cedula_estudiante || '').replace(/\D/g, ''), 10) || 0;
+        return ordenEstudiantesDireccion === 'asc' ? numA - numB : numB - numA;
+      }
+
+      // Orden alfabético por nombres / apellidos según formato seleccionado
+      if (formatoNombreEstudiante === 'apellidos_nombres') {
+        const cmpApe = (a.apellidos_estudiante || '').localeCompare(b.apellidos_estudiante || '', undefined, { sensitivity: 'base' });
+        if (cmpApe !== 0) {
+          return ordenEstudiantesDireccion === 'asc' ? cmpApe : -cmpApe;
+        }
+        const cmpNom = (a.nombres_estudiante || '').localeCompare(b.nombres_estudiante || '', undefined, { sensitivity: 'base' });
+        return ordenEstudiantesDireccion === 'asc' ? cmpNom : -cmpNom;
+      } else {
+        const cmpNom = (a.nombres_estudiante || '').localeCompare(b.nombres_estudiante || '', undefined, { sensitivity: 'base' });
+        if (cmpNom !== 0) {
+          return ordenEstudiantesDireccion === 'asc' ? cmpNom : -cmpNom;
+        }
+        const cmpApe = (a.apellidos_estudiante || '').localeCompare(b.apellidos_estudiante || '', undefined, { sensitivity: 'base' });
+        return ordenEstudiantesDireccion === 'asc' ? cmpApe : -cmpApe;
+      }
+    });
+
+    return filtrados;
+  }, [estudiantes, salonActivo, searchEstudiantes, ordenEstudiantesCampo, ordenEstudiantesDireccion, formatoNombreEstudiante]);
 
   // Métricas de Capacidad
   const capTotalGlobal = useMemo(() => espacios.reduce((acc, e) => acc + (Number(e.capacidad) || 0), 0), [espacios]);
@@ -1477,6 +1600,10 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     // Docentes actualmente asignados a este salón
     let asignados: string[] = [...(salon.docentes_guias || [])];
 
+    // Estados internos del modal para ordenar e invertir nombres
+    let formatoDocModal: 'apellidos_nombres' | 'nombres_apellidos' = formatoNombreDocente;
+    let ordenDocModal = 'nombre_asc';
+
     Swal.fire({
       title: `<div class="d-flex align-items-center justify-content-center gap-2 text-dark"><i class="bi bi-person-badge-fill text-info"></i> <span>Asignar Docentes: ${salon.nombre_salon}</span></div>`,
       html: `
@@ -1504,21 +1631,38 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             </div>
           </div>
 
-          <!-- SECCIÓN 2: BUSCADOR Y LISTA DE DOCENTES DISPONIBLES -->
+          <!-- SECCIÓN 2: BUSCADOR, FILTROS Y LISTA DE DOCENTES DISPONIBLES -->
           <div class="mb-2">
-            <div class="d-flex align-items-center justify-content-between mb-1.5">
-              <label class="small fw-bold text-muted mb-0">
-                <i class="bi bi-person-plus-fill text-primary me-1"></i>Docentes Disponibles del Plantel:
-              </label>
-              <span class="extra-small text-muted font-monospace">(Al seleccionar, se borran de esta lista)</span>
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-1.5 p-2 bg-light rounded-3 border">
+              <div class="d-flex align-items-center gap-1.5">
+                <span class="extra-small text-muted fw-bold">Ordenar:</span>
+                <select id="select-orden-docente-modal" class="form-select form-select-xs border rounded-pill py-0 px-2" style="font-size: 11px; width: auto; height: 26px;">
+                  <option value="nombre_asc" ${String(ordenDocModal) === 'nombre_asc' ? 'selected' : ''}>🔤 A → Z</option>
+                  <option value="nombre_desc" ${String(ordenDocModal) === 'nombre_desc' ? 'selected' : ''}>🔤 Z → A</option>
+                  <option value="cedula_asc" ${String(ordenDocModal) === 'cedula_asc' ? 'selected' : ''}>🪪 C.I. 1 → 9</option>
+                  <option value="cedula_desc" ${String(ordenDocModal) === 'cedula_desc' ? 'selected' : ''}>🪪 C.I. 9 → 1</option>
+                </select>
+              </div>
+
+              <button 
+                type="button" 
+                id="btn-toggle-formato-docente-modal" 
+                class="btn btn-xs btn-outline-secondary rounded-pill px-2.5 py-1 fw-bold" 
+                style="font-size: 11px;"
+                title="Invertir visualización entre Apellidos, Nombres y Nombres y Apellidos"
+              >
+                <i class="bi bi-arrow-left-right text-primary me-1"></i>
+                <span id="lbl-formato-docente-modal">${formatoDocModal === 'apellidos_nombres' ? 'Apellidos, Nombres' : 'Nombres y Apellidos'}</span>
+              </button>
             </div>
+
             <div class="input-group input-group-sm mb-2">
               <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
               <input 
                 type="text" 
                 id="input-buscar-docente" 
                 class="form-control" 
-                placeholder="Buscar por nombre o cédula..." 
+                placeholder="Buscar por nombre, apellido o cédula..." 
               />
             </div>
             <div id="contenedor-disponibles" style="max-height: 220px; overflow-y: auto;" class="border rounded-3 p-1.5 bg-light shadow-xs">
@@ -1537,6 +1681,9 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
         const contDisponibles = document.getElementById('contenedor-disponibles');
         const badgeContador = document.getElementById('badge-contador-docentes');
         const inputBuscar = document.getElementById('input-buscar-docente') as HTMLInputElement;
+        const btnFormatoModal = document.getElementById('btn-toggle-formato-docente-modal');
+        const lblFormatoModal = document.getElementById('lbl-formato-docente-modal');
+        const selOrdenModal = document.getElementById('select-orden-docente-modal') as HTMLSelectElement;
 
         const renderizar = () => {
           // 1. Contador
@@ -1557,7 +1704,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
               let htmlAsig = '<div class="d-flex flex-column gap-1.5">';
               asignados.forEach((ci, idx) => {
                 const doc = docentesPlantel.find(d => d.cedula === ci) || docentes.find(d => d.cedula === ci);
-                const nombre = doc ? doc.nombre_completo : ci;
+                const nombre = doc ? formatNombreDocente(doc.nombre_completo, formatoDocModal) : ci;
                 const rolDocente = idx === 0 ? 'Docente Titular' : 'Docente Auxiliar / Co-Docente';
                 const badgeColor = idx === 0 ? 'bg-success' : 'bg-info text-dark';
 
@@ -1579,7 +1726,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
             }
           }
 
-          // 3. Docentes Disponibles (Se borran de la lista los que ya están seleccionados)
+          // 3. Docentes Disponibles con Ordenamiento y Filtrado
           if (contDisponibles) {
             const query = (inputBuscar?.value || '').toLowerCase().trim();
             const disponibles = docentesPlantel.filter(d => {
@@ -1589,8 +1736,29 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
               if (docentesEnOtrosSalones[d.cedula]) return false;
               if (!query) return true;
               const nom = String(d.nombre_completo || '').toLowerCase();
+              const nomInv = formatNombreDocente(d.nombre_completo, 'nombres_apellidos').toLowerCase();
+              const apeInv = formatNombreDocente(d.nombre_completo, 'apellidos_nombres').toLowerCase();
               const ci = String(d.cedula || '').toLowerCase();
-              return nom.includes(query) || ci.includes(query);
+              return nom.includes(query) || nomInv.includes(query) || apeInv.includes(query) || ci.includes(query);
+            });
+
+            // Ordenamiento dinámico
+            disponibles.sort((a, b) => {
+              if (ordenDocModal === 'cedula_asc') {
+                const numA = parseInt(String(a.cedula || '').replace(/\D/g, ''), 10) || 0;
+                const numB = parseInt(String(b.cedula || '').replace(/\D/g, ''), 10) || 0;
+                return numA - numB;
+              }
+              if (ordenDocModal === 'cedula_desc') {
+                const numA = parseInt(String(a.cedula || '').replace(/\D/g, ''), 10) || 0;
+                const numB = parseInt(String(b.cedula || '').replace(/\D/g, ''), 10) || 0;
+                return numB - numA;
+              }
+              const nomA = formatNombreDocente(a.nombre_completo, formatoDocModal);
+              const nomB = formatNombreDocente(b.nombre_completo, formatoDocModal);
+              return ordenDocModal === 'nombre_desc'
+                ? nomB.localeCompare(nomA, undefined, { sensitivity: 'base' })
+                : nomA.localeCompare(nomB, undefined, { sensitivity: 'base' });
             });
 
             if (disponibles.length === 0) {
@@ -1603,10 +1771,11 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
               let htmlDisp = '<div class="d-flex flex-column gap-1">';
               disponibles.forEach(d => {
                 const puedeAsignar = asignados.length < 2;
+                const nomFormateado = formatNombreDocente(d.nombre_completo, formatoDocModal);
                 htmlDisp += `
                   <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-white border hover-efecto ${puedeAsignar ? '' : 'opacity-50'}">
                     <div>
-                      <div class="fw-bold text-dark small">${d.nombre_completo} <span class="badge bg-light text-muted border">C.I. ${d.cedula}</span></div>
+                      <div class="fw-bold text-dark small">${nomFormateado} <span class="badge bg-light text-muted border">C.I. ${d.cedula}</span></div>
                       <div class="extra-small text-muted">${d.telefono ? formatPhoneNumber(d.telefono) : 'Sin tlf'} ${d.email ? `• ${d.email}` : ''}</div>
                     </div>
                     <button 
@@ -1652,6 +1821,23 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
           inputBuscar.oninput = () => renderizar();
         }
 
+        if (btnFormatoModal) {
+          btnFormatoModal.onclick = () => {
+            formatoDocModal = formatoDocModal === 'apellidos_nombres' ? 'nombres_apellidos' : 'apellidos_nombres';
+            if (lblFormatoModal) {
+              lblFormatoModal.textContent = formatoDocModal === 'apellidos_nombres' ? 'Apellidos, Nombres' : 'Nombres y Apellidos';
+            }
+            renderizar();
+          };
+        }
+
+        if (selOrdenModal) {
+          selOrdenModal.onchange = () => {
+            ordenDocModal = selOrdenModal.value as any;
+            renderizar();
+          };
+        }
+
         renderizar();
       },
       preConfirm: () => {
@@ -1695,11 +1881,8 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
       return;
     }
 
-    const ests = estudiantes.filter(e => 
-      e.codigo_escuela === salon.id_escuela &&
-      (e.grado_actual || '').toLowerCase() === (salon.grado_anio || '').toLowerCase() &&
-      (e.seccion_actual || '').toUpperCase() === (salon.seccion || '').toUpperCase()
-    ).sort((a, b) => (a.apellidos_estudiante || '').localeCompare(b.apellidos_estudiante || ''));
+    // Utilizar la nómina ordenada y formateada en pantalla
+    const ests = [...estudiantesSalonActivo];
 
     if (ests.length === 0) {
       if (Swal) Swal.fire('Sin Estudiantes', `No hay estudiantes vinculados en ${salon.nombre_salon}.`, 'info');
@@ -1711,7 +1894,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     const docentesNombres = (salon.docentes_guias || [])
       .map(ci => {
         const doc = docentes.find(d => d.cedula === ci);
-        return doc ? doc.nombre_completo : ci;
+        return doc ? formatNombreDocente(doc.nombre_completo, formatoNombreDocente) : ci;
       })
       .join(', ') || 'No Asignado';
 
@@ -1719,16 +1902,21 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     const anoActual = new Date().getFullYear();
     const periodoEscolar = `${anoActual}-${anoActual + 1}`;
 
-    const rowsHtml = ests.map((est, idx) => `
-      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
-        <td style="padding: 6px 8px; text-align: center; font-weight: bold; width: 35px;">${idx + 1}</td>
-        <td style="padding: 6px 8px; font-weight: 600; text-transform: uppercase;">${est.apellidos_estudiante}, ${est.nombres_estudiante}</td>
-        <td style="padding: 6px 8px; text-align: center; width: 100px;">${est.cedula_estudiante}</td>
-        <td style="padding: 6px 8px; text-align: center; width: 90px;">${est.cedula_representante || '-'}</td>
-        <td style="padding: 6px 8px; text-align: center; width: 70px;"><span style="color: #059669; font-weight: bold;">Activo</span></td>
-        <td style="padding: 6px 8px; width: 130px; border-bottom: 1px dashed #cbd5e1;"></td>
-      </tr>
-    `).join('');
+    const colTituloNombre = formatoNombreEstudiante === 'apellidos_nombres' ? 'APELLIDOS Y NOMBRES' : 'NOMBRES Y APELLIDOS';
+
+    const rowsHtml = ests.map((est, idx) => {
+      const nombreEst = formatNombreEstudiante(est.nombres_estudiante, est.apellidos_estudiante, formatoNombreEstudiante);
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+          <td style="padding: 6px 8px; text-align: center; font-weight: bold; width: 35px;">${idx + 1}</td>
+          <td style="padding: 6px 8px; font-weight: 600; text-transform: uppercase;">${nombreEst}</td>
+          <td style="padding: 6px 8px; text-align: center; width: 100px;">${est.cedula_estudiante}</td>
+          <td style="padding: 6px 8px; text-align: center; width: 90px;">${est.cedula_representante || '-'}</td>
+          <td style="padding: 6px 8px; text-align: center; width: 70px;"><span style="color: #059669; font-weight: bold;">Activo</span></td>
+          <td style="padding: 6px 8px; width: 130px; border-bottom: 1px dashed #cbd5e1;"></td>
+        </tr>
+      `;
+    }).join('');
 
     const templateHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 25px 30px; background: #fff;">
@@ -1830,11 +2018,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
   };
 
   const exportarListadoMatriculaExcel = (salon: SalonItem) => {
-    const ests = estudiantes.filter(e => 
-      e.codigo_escuela === salon.id_escuela &&
-      (e.grado_actual || '').toLowerCase() === (salon.grado_anio || '').toLowerCase() &&
-      (e.seccion_actual || '').toUpperCase() === (salon.seccion || '').toUpperCase()
-    ).sort((a, b) => (a.apellidos_estudiante || '').localeCompare(b.apellidos_estudiante || ''));
+    const ests = [...estudiantesSalonActivo];
 
     if (ests.length === 0) {
       if (Swal) Swal.fire('Sin Registros', 'No hay estudiantes inscritos en este salón.', 'info');
@@ -1842,13 +2026,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
     }
 
     let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += `N,Apellidos,Nombres,Cedula_Estudiante,Cedula_Representante,Grado_Anio,Seccion,Escuela\n`;
+    const colNombre = formatoNombreEstudiante === 'apellidos_nombres' ? 'Apellidos_Nombres' : 'Nombres_Apellidos';
+    csvContent += `N,${colNombre},Cedula_Estudiante,Cedula_Representante,Grado_Anio,Seccion,Escuela\n`;
 
     ests.forEach((est, idx) => {
+      const nombreEst = formatNombreEstudiante(est.nombres_estudiante, est.apellidos_estudiante, formatoNombreEstudiante);
       const row = [
         idx + 1,
-        `"${est.apellidos_estudiante}"`,
-        `"${est.nombres_estudiante}"`,
+        `"${nombreEst}"`,
         `"${est.cedula_estudiante}"`,
         `"${est.cedula_representante || ''}"`,
         `"${est.grado_actual}"`,
@@ -3558,12 +3743,12 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                 </div>
 
                 {/* Buscador de Salones */}
-                <div className="mb-3 position-relative">
+                <div className="mb-2 position-relative">
                   <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted small"></i>
                   <input 
                     type="text" 
                     className="form-control form-control-sm border-info rounded-pill ps-4 pe-4"
-                    placeholder="Buscar por grado, sección o nombre..."
+                    placeholder="Buscar por grado, sección o docente..."
                     value={searchSalones}
                     onChange={(e) => setSearchSalones(e.target.value)}
                   />
@@ -3579,12 +3764,41 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   )}
                 </div>
 
+                {/* Filtro por Docente Guía en la lista de salones */}
+                <div className="mb-3">
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text bg-light text-muted border-info rounded-start-pill small py-1">
+                      <i className="bi bi-person-badge text-primary me-1"></i> Docente:
+                    </span>
+                    <select
+                      className="form-select form-select-sm border-info rounded-end-pill py-1 small"
+                      value={filtroDocenteGuiaSalones}
+                      onChange={(e) => setFiltroDocenteGuiaSalones(e.target.value)}
+                    >
+                      <option value="">Todos los Salones (Cualquier Docente)</option>
+                      <option value="sin_docente">⚠️ Salones Sin Docente Asignado</option>
+                      {docentesPlantelActivo.map(doc => (
+                        <option key={doc.id || doc.cedula} value={doc.cedula}>
+                          {formatNombreDocente(doc.nombre_completo, formatoNombreDocente)} (C.I. {doc.cedula})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div className="list-group" style={{ maxHeight: '550px', overflowY: 'auto' }}>
                   {salonesFiltrados.map(sal => {
                     const estsCount = estudiantes.filter(e => e.codigo_escuela === sal.id_escuela && (e.grado_actual || '').toLowerCase() === (sal.grado_anio || '').toLowerCase() && (e.seccion_actual || '').toUpperCase() === (sal.seccion || '').toUpperCase()).length;
                     const esp = espacios.find(e => e.id === sal.id_espacio);
                     const cap = esp ? esp.capacidad : 35;
                     const isSelected = salonActivo?.id_salon === sal.id_salon;
+
+                    const docentesNombres = (sal.docentes_guias || [])
+                      .map(ci => {
+                        const doc = docentes.find(d => d.cedula === ci);
+                        return doc ? formatNombreDocente(doc.nombre_completo, formatoNombreDocente) : `C.I. ${ci}`;
+                      })
+                      .join(', ');
 
                     return (
                       <button
@@ -3595,13 +3809,20 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                       >
                         <div className="d-flex justify-content-between align-items-center mb-1">
                           <span className="fw-bold fs-6">{sal.nombre_salon}</span>
-                          <span className="badge rounded-pill bg-light text-dark border">
+                          <span className={`badge rounded-pill border ${isSelected ? 'bg-light text-dark' : 'bg-white text-dark'}`}>
                             Sección "{sal.seccion}"
                           </span>
                         </div>
-                        <div className={`small ${isSelected ? 'text-white-50' : 'text-muted'} d-flex justify-content-between align-items-center`}>
+                        <div className={`small ${isSelected ? 'text-white-50' : 'text-muted'} d-flex justify-content-between align-items-center mb-1`}>
                           <span>{sal.nivel_educativo}</span>
                           <span className="fw-bold">{estsCount} / {cap} Estudiantes</span>
+                        </div>
+                        {/* Indicador de Docente Guía */}
+                        <div className={`small pt-1 border-top ${isSelected ? 'border-white-50 text-white' : 'border-secondary-subtle text-muted'} d-flex align-items-center gap-1 text-truncate`}>
+                          <i className="bi bi-person-workspace"></i>
+                          <span className="text-truncate">
+                            {docentesNombres ? docentesNombres : <em className="text-warning-emphasis">Sin docente asignado</em>}
+                          </span>
                         </div>
                       </button>
                     );
@@ -3635,14 +3856,14 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                         <button 
                           className="btn btn-sm btn-outline-success rounded-pill fw-bold shadow-sm hover-efecto"
                           onClick={() => exportarListadoMatriculaExcel(salonActivo)}
-                          title="Descargar listado en Excel"
+                          title="Descargar listado en Excel con orden y formato actual"
                         >
                           <i className="bi bi-file-earmark-excel-fill me-1"></i>Excel
                         </button>
                         <button 
                           className="btn btn-sm btn-primary rounded-pill fw-bold shadow-sm hover-efecto"
                           onClick={() => exportarListadoMatriculaPDF(salonActivo)}
-                          title="Descargar listado oficial en PDF"
+                          title="Descargar listado oficial en PDF con orden y formato actual"
                         >
                           <i className="bi bi-file-earmark-pdf-fill me-1"></i>Descargar PDF
                         </button>
@@ -3651,31 +3872,45 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
                     {/* Ficha Resumen del Salón */}
                     <div className="row g-2 p-3 bg-light rounded-4 border">
-                      <div className="col-12 col-md-4">
-                        <span className="small text-muted d-block">Docente(s) Guía(s):</span>
-                        <span className="fw-bold text-dark">
+                      <div className="col-12 col-md-5">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span className="small text-muted fw-semibold">Docente(s) Guía(s):</span>
+                          <button 
+                            type="button"
+                            className="btn btn-xs btn-outline-secondary rounded-pill py-0 px-2"
+                            style={{ fontSize: '10.5px' }}
+                            onClick={() => setFormatoNombreDocente(prev => prev === 'apellidos_nombres' ? 'nombres_apellidos' : 'apellidos_nombres')}
+                            title="Invertir formato de nombres y apellidos de los docentes"
+                          >
+                            <i className="bi bi-arrow-left-right me-1"></i>
+                            {formatoNombreDocente === 'apellidos_nombres' ? 'Apellidos, Nombres' : 'Nombres y Apellidos'}
+                          </button>
+                        </div>
+                        <div className="fw-bold text-dark d-flex align-items-center flex-wrap gap-1">
+                          <i className="bi bi-person-workspace text-primary me-1"></i>
                           {(salonActivo.docentes_guias || [])
                             .map(ci => {
                               const doc = docentes.find(d => d.cedula === ci);
-                              return doc ? doc.nombre_completo : ci;
+                              return doc ? formatNombreDocente(doc.nombre_completo, formatoNombreDocente) : ci;
                             })
-                            .join(', ') || 'No asignado'}
-                        </span>
-                        <button 
-                          className="btn btn-link btn-sm p-0 ms-2 text-primary"
-                          onClick={() => abrirModalAsignarDocente(salonActivo)}
-                        >
-                          (Cambiar)
-                        </button>
+                            .join(', ') || <span className="text-danger fw-normal fst-italic">No asignado</span>}
+                          <button 
+                            className="btn btn-link btn-sm p-0 ms-1 text-primary text-decoration-none fw-bold"
+                            onClick={() => abrirModalAsignarDocente(salonActivo)}
+                            title="Asignar o cambiar Docente Guía"
+                          >
+                            (Cambiar)
+                          </button>
+                        </div>
                       </div>
-                      <div className="col-12 col-md-4">
-                        <span className="small text-muted d-block">Espacio Asignado:</span>
+                      <div className="col-12 col-md-3">
+                        <span className="small text-muted d-block fw-semibold">Espacio Asignado:</span>
                         <span className="fw-bold text-dark">
                           {espacios.find(e => e.id === salonActivo.id_espacio)?.nombre || 'Sin espacio'}
                         </span>
                       </div>
                       <div className="col-12 col-md-4">
-                        <span className="small text-muted d-block">Ocupación / Matrícula:</span>
+                        <span className="small text-muted d-block fw-semibold">Ocupación / Matrícula:</span>
                         <span className="fw-bold text-success">
                           {estudiantesSalonActivo.length} Estudiantes Registrados
                         </span>
@@ -3684,8 +3919,83 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                   </div>
 
                   <div className="card-body p-0">
-                    <div className="p-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
-                      <h6 className="fw-bold text-dark m-0">Nómina de Estudiantes ({estudiantesSalonActivo.length})</h6>
+                    {/* Barra de Filtros, Inversión de Nombres y Ordenamiento */}
+                    <div className="p-3 border-bottom bg-light-subtle d-flex justify-content-between align-items-center flex-wrap gap-3">
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        <h6 className="fw-bold text-dark m-0 me-2">
+                          Nómina ({estudiantesSalonActivo.length})
+                        </h6>
+
+                        {/* Control para Invertir Nombres y Apellidos */}
+                        <div className="btn-group btn-group-sm shadow-sm" role="group">
+                          <button
+                            type="button"
+                            className={`btn ${formatoNombreEstudiante === 'apellidos_nombres' ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => setFormatoNombreEstudiante('apellidos_nombres')}
+                            title="Mostrar formato: Apellidos, Nombres"
+                          >
+                            <i className="bi bi-text-left me-1"></i>Apellidos, Nombres
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn ${formatoNombreEstudiante === 'nombres_apellidos' ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => setFormatoNombreEstudiante('nombres_apellidos')}
+                            title="Mostrar formato: Nombres y Apellidos"
+                          >
+                            <i className="bi bi-text-right me-1"></i>Nombres y Apellidos
+                          </button>
+                        </div>
+
+                        {/* Botones de Ordenamiento Rápido */}
+                        <div className="btn-group btn-group-sm shadow-sm ms-md-2" role="group">
+                          <button
+                            type="button"
+                            className={`btn ${ordenEstudiantesCampo === 'nombre' && ordenEstudiantesDireccion === 'asc' ? 'btn-success text-white' : 'btn-outline-secondary'}`}
+                            onClick={() => {
+                              setOrdenEstudiantesCampo('nombre');
+                              setOrdenEstudiantesDireccion('asc');
+                            }}
+                            title="Ordenar Alfabéticamente de la A a la Z"
+                          >
+                            <i className="bi bi-sort-alpha-down me-1"></i>A → Z
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn ${ordenEstudiantesCampo === 'nombre' && ordenEstudiantesDireccion === 'desc' ? 'btn-success text-white' : 'btn-outline-secondary'}`}
+                            onClick={() => {
+                              setOrdenEstudiantesCampo('nombre');
+                              setOrdenEstudiantesDireccion('desc');
+                            }}
+                            title="Ordenar Alfabéticamente de la Z a la A"
+                          >
+                            <i className="bi bi-sort-alpha-up-alt me-1"></i>Z → A
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn ${ordenEstudiantesCampo === 'cedula' && ordenEstudiantesDireccion === 'asc' ? 'btn-info text-white' : 'btn-outline-secondary'}`}
+                            onClick={() => {
+                              setOrdenEstudiantesCampo('cedula');
+                              setOrdenEstudiantesDireccion('asc');
+                            }}
+                            title="Ordenar por Cédula / C.E. de menor a mayor (1 → 9)"
+                          >
+                            <i className="bi bi-sort-numeric-down me-1"></i>C.I. 1 → 9
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn ${ordenEstudiantesCampo === 'cedula' && ordenEstudiantesDireccion === 'desc' ? 'btn-info text-white' : 'btn-outline-secondary'}`}
+                            onClick={() => {
+                              setOrdenEstudiantesCampo('cedula');
+                              setOrdenEstudiantesDireccion('desc');
+                            }}
+                            title="Ordenar por Cédula / C.E. de mayor a menor (9 → 1)"
+                          >
+                            <i className="bi bi-sort-numeric-up-alt me-1"></i>C.I. 9 → 1
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Buscador de Estudiantes */}
                       <div className="position-relative" style={{ minWidth: '220px', maxWidth: '280px' }}>
                         <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted small"></i>
                         <input 
@@ -3727,7 +4037,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
 
                     <div className="table-responsive" style={{ maxHeight: '420px', overflowY: 'auto' }}>
                       <table className="table table-hover align-middle mb-0">
-                        <thead className="table-light">
+                        <thead className="table-light user-select-none">
                           <tr>
                             <th style={{ width: '40px' }} className="text-center">
                               <input 
@@ -3746,8 +4056,48 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                               />
                             </th>
                             <th style={{ width: '35px' }} className="text-center">#</th>
-                            <th>Nombres y Apellidos</th>
-                            <th>Cédula / C.E.</th>
+                            <th 
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                if (ordenEstudiantesCampo === 'nombre') {
+                                  setOrdenEstudiantesDireccion(prev => prev === 'asc' ? 'desc' : 'asc');
+                                } else {
+                                  setOrdenEstudiantesCampo('nombre');
+                                  setOrdenEstudiantesDireccion('asc');
+                                }
+                              }}
+                              title="Haga clic para ordenar alfabéticamente"
+                            >
+                              <div className="d-flex align-items-center gap-1">
+                                <span>{formatoNombreEstudiante === 'apellidos_nombres' ? 'Apellidos y Nombres' : 'Nombres y Apellidos'}</span>
+                                {ordenEstudiantesCampo === 'nombre' ? (
+                                  <i className={`bi ${ordenEstudiantesDireccion === 'asc' ? 'bi-sort-alpha-down text-primary' : 'bi-sort-alpha-up-alt text-primary'} fw-bold`}></i>
+                                ) : (
+                                  <i className="bi bi-arrow-down-up text-muted opacity-50 small"></i>
+                                )}
+                              </div>
+                            </th>
+                            <th 
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                if (ordenEstudiantesCampo === 'cedula') {
+                                  setOrdenEstudiantesDireccion(prev => prev === 'asc' ? 'desc' : 'asc');
+                                } else {
+                                  setOrdenEstudiantesCampo('cedula');
+                                  setOrdenEstudiantesDireccion('asc');
+                                }
+                              }}
+                              title="Haga clic para ordenar por Cédula"
+                            >
+                              <div className="d-flex align-items-center gap-1">
+                                <span>Cédula / C.E.</span>
+                                {ordenEstudiantesCampo === 'cedula' ? (
+                                  <i className={`bi ${ordenEstudiantesDireccion === 'asc' ? 'bi-sort-numeric-down text-primary' : 'bi-sort-numeric-up-alt text-primary'} fw-bold`}></i>
+                                ) : (
+                                  <i className="bi bi-arrow-down-up text-muted opacity-50 small"></i>
+                                )}
+                              </div>
+                            </th>
                             <th>C.I. Representante</th>
                             <th className="text-center">Estatus</th>
                             <th className="text-end pe-4">Acciones</th>
@@ -3790,7 +4140,9 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                                   </td>
                                   <td className="text-center fw-bold text-muted">{idx + 1}</td>
                                   <td>
-                                    <div className="fw-bold text-dark">{est.apellidos_estudiante}, {est.nombres_estudiante}</div>
+                                    <div className="fw-bold text-dark">
+                                      {formatNombreEstudiante(est.nombres_estudiante, est.apellidos_estudiante, formatoNombreEstudiante)}
+                                    </div>
                                   </td>
                                   <td><span className="badge bg-light text-dark border">C.I. {est.cedula_estudiante}</span></td>
                                   <td><span className="small text-muted">{est.cedula_representante || 'Sin asignar'}</span></td>
@@ -3823,7 +4175,7 @@ export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salo
                             })
                           )}
                         </tbody>
-                      </table>
+                        </table>
                     </div>
                   </div>
                 </div>
