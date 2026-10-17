@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { auditar } from '../../lib/audit';
 import { usePermisos } from '../../hooks/usePermisos';
@@ -99,12 +99,27 @@ interface GradosSalonesProps {
 
 export const GradosSalones: React.FC<GradosSalonesProps> = ({ defaultTab = 'salones' }) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'espacios' | 'salones' | 'matricula' | 'especialistas' | 'reportes' | null;
+  const initialTab = tabParam && ['espacios', 'salones', 'matricula', 'especialistas', 'reportes'].includes(tabParam)
+    ? tabParam
+    : defaultTab;
+
   const { tienePermiso, tienePermisoEnEscuela, tieneAccesoEscuela, loading: permLoading, user } = usePermisos();
   const Swal = (window as any).Swal;
   const html2pdf = (window as any).html2pdf;
 
-  // Active Main Tab
-  const [activeTab, setActiveTab] = useState<'espacios' | 'salones' | 'matricula' | 'especialistas' | 'reportes'>(defaultTab);
+  // Active Main Tab con sincronización en URL
+  const [activeTab, setActiveTabState] = useState<'espacios' | 'salones' | 'matricula' | 'especialistas' | 'reportes'>(initialTab);
+
+  const setActiveTab = (tab: 'espacios' | 'salones' | 'matricula' | 'especialistas' | 'reportes') => {
+    setActiveTabState(tab);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', tab);
+      return next;
+    }, { replace: true });
+  };
 
   // General State
   const [niveles, setNiveles] = useState<NivelItem[]>([]);
