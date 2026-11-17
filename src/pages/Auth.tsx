@@ -928,6 +928,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
                     {/* Botón Destacado: Registrarse / Primer Ingreso */}
                     <button
+                      id="btn-registrarse-aqui"
                       type="button"
                       onClick={() => {
                         setPrimerIngresoData(prev => ({
@@ -1111,6 +1112,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       No, corregirlo
                     </button>
                     <button
+                      id="btn-registrarse-aqui"
                       type="button"
                       onClick={() => {
                         setPrimerIngresoData(prev => ({

@@ -49,7 +49,8 @@ export const InstallPwaModal: React.FC = () => {
       (window as any).deferredPwaPrompt = e;
       
       const promptStatus = localStorage.getItem('sigae_pwa_prompt_status');
-      if (!promptStatus) {
+      const isLogin = window.location.pathname.includes('login') || window.location.hash.includes('login');
+      if (!promptStatus && !isLogin) {
         setTimeout(() => setShowModal(true), 1500);
       }
     };
@@ -126,7 +127,8 @@ export const InstallPwaModal: React.FC = () => {
     setMostrarGuiaManual(false);
   };
 
-  if (!showModal) return null;
+  const isLogin = typeof window !== 'undefined' && (window.location.pathname.includes('login') || window.location.hash.includes('login'));
+  if (!showModal || isLogin) return null;
 
   return (
     <div 
