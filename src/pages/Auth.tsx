@@ -1,699 +1,249 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { 
-  User, Lock, ArrowRight, ArrowLeft, Eye, EyeOff, 
-  ShieldCheck, AlertCircle, Fingerprint, CheckCircle2, 
-  KeyRound, HelpCircle, Sparkles, School, ChevronRight,
-  RotateCcw, Users
+import {
+  Lock,
+  ArrowRight,
+  User,
+  School,
+  AlertCircle,
+  UserPlus,
+  ArrowLeft,
+  ShieldCheck,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Phone,
+  Mail,
+  AtSign,
+  KeyRound,
+  HelpCircle,
+  Check,
+  Camera,
+  Upload,
+  Smile,
+  Cloud,
+  Crop,
+  Fingerprint,
+  RotateCcw,
+  Users,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { registrarSesionActiva } from '../utils/activeSessionsHelper';
 import TechNetworkBackground from '../components/TechNetworkBackground';
 import { Security3DIcon, User3DIcon, Lock3DIcon } from '../components/Animated3DIcons';
+import ImageCropperModal from '../components/ImageCropperModal';
+import PasswordStrengthThermometer from '../components/PasswordStrengthThermometer';
 import '../portal_sap.css';
 
+const AVATARES_DISPONIBLES = [
+  { id: 'avatar-1', url: '/img/avatars/avatar-1.png' },
+  { id: 'avatar-2', url: '/img/avatars/avatar-2.png' },
+  { id: 'avatar-3', url: '/img/avatars/avatar-3.png' },
+  { id: 'avatar-4', url: '/img/avatars/avatar-4.png' },
+  { id: 'avatar-5', url: '/img/avatars/avatar-5.png' },
+  { id: 'avatar-6', url: '/img/avatars/avatar-6.png' },
+  { id: 'avatar-7', url: '/img/avatars/avatar-7.png' },
+  { id: 'avatar-8', url: '/img/avatars/avatar-8.png' },
+];
+
+const PREGUNTAS_SEGURIDAD_OPCIONES = [
+  '¿Cuál es el nombre de tu primera mascota?',
+  '¿En qué ciudad o pueblo nació tu madre?',
+  '¿Cuál es tu comida venezolana favorita?',
+  '¿Cuál fue el nombre de tu primera escuela primaria?',
+  '¿Cuál es el segundo nombre de tu abuela materna?',
+  '¿Cuál fue tu primer trabajo o pasatiempo infantil?',
+  '¿En qué calle o sector viviste durante tu infancia?'
+];
+
+const PAISES_TELEFONO = [
+  { codigo: '+58', bandera: '🇻🇪', nombre: 'Venezuela', placeholder: '416-1234563' },
+  { codigo: '+57', bandera: '🇨🇴', nombre: 'Colombia', placeholder: '300-1234567' },
+  { codigo: '+1', bandera: '🇺🇸', nombre: 'EE.UU.', placeholder: '555-1234567' },
+  { codigo: '+34', bandera: '🇪🇸', nombre: 'España', placeholder: '612-345678' },
+  { codigo: '+56', bandera: '🇨🇱', nombre: 'Chile', placeholder: '9-12345678' },
+  { codigo: '+51', bandera: '🇵🇪', nombre: 'Perú', placeholder: '912-345678' },
+  { codigo: '+54', bandera: '🇦🇷', nombre: 'Argentina', placeholder: '11-12345678' },
+  { codigo: '+507', bandera: '🇵🇦', nombre: 'Panamá', placeholder: '6123-4567' },
+  { codigo: '+52', bandera: '🇲🇽', nombre: 'México', placeholder: '55-12345678' }
+];
+
+const DOMINIOS_CORREO_COMUNES = [
+  '@gmail.com',
+  '@hotmail.com',
+  '@outlook.com',
+  '@yahoo.com',
+  '@mppe.gob.ve',
+  '@cantv.net'
+];
+
+const OPERADORAS_VENEZUELA = [
+  { codigo: '412', nombre: '0412 Digitel' },
+  { codigo: '414', nombre: '0414 Movistar' },
+  { codigo: '424', nombre: '0424 Movistar' },
+  { codigo: '416', nombre: '0416 Movilnet' },
+  { codigo: '426', nombre: '0426 Movilnet' }
+];
+
+function formatearTelefonoNumero(valor: string, codigoPais: string): string {
+  let digitos = valor.replace(/\D/g, '');
+  if (codigoPais === '+58') {
+    if (digitos.startsWith('0')) {
+      digitos = digitos.substring(1);
+    }
+    digitos = digitos.substring(0, 10);
+    if (digitos.length <= 3) return digitos;
+    return `${digitos.substring(0, 3)}-${digitos.substring(3)}`;
+  }
+  digitos = digitos.substring(0, 12);
+  if (digitos.length <= 3) return digitos;
+  if (digitos.length <= 7) return `${digitos.substring(0, 3)}-${digitos.substring(3)}`;
+  return `${digitos.substring(0, 3)}-${digitos.substring(3, 7)}-${digitos.substring(7)}`;
+}
+
+function generarSugerenciasUsuario(nombreCompleto: string): string[] {
+  if (!nombreCompleto) return [];
+  const limpio = nombreCompleto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .trim();
+  const partes = limpio.split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return [];
+  const sugerencias: string[] = [];
+  const p1 = partes[0];
+  const p2 = partes[1] || '';
+  if (p2) {
+    sugerencias.push(`${p1[0]}${p2}`);
+    sugerencias.push(`${p1}.${p2}`);
+    sugerencias.push(`${p1}_${p2}`);
+    sugerencias.push(`${p1}${p2[0]}`);
+  } else {
+    sugerencias.push(`${p1}`);
+    sugerencias.push(`${p1}.sigae`);
+    sugerencias.push(`${p1}24`);
+  }
+  return Array.from(new Set(sugerencias)).slice(0, 4);
+}
+
 export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
-  const [view, setView] = useState<'selector' | 'login'>('login');
-  const [school, setSchool] = useState<'sb' | 'lb' | null>(() => {
-    return (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb' | null) || 'sb';
+  const [school, setSchool] = useState<'sb' | 'lb'>(() => {
+    return (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
   });
 
   const handleSchoolChange = (selected: 'sb' | 'lb') => {
     setSchool(selected);
     localStorage.setItem('sigae_escuela_codigo', selected);
     localStorage.setItem('sigae_escuela_activa', selected === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
-    setErrorMsg('');
+    setError('');
   };
-  
-  // Login Steps: 'cedula' -> 'clave' OR 'invitado' OR 'recuperacion' OR 'primer-ingreso'
-  const [loginStep, setLoginStep] = useState<'cedula' | 'clave' | 'invitado' | 'recuperacion' | 'primer-ingreso'>('cedula');
-  
-  const [cedula, setCedula] = useState('');
-  const [clave, setClave] = useState('');
-  const [nombreUsuario, setNombreUsuario] = useState(''); // To show in Clave step
-  const [usuarioDetalle, setUsuarioDetalle] = useState<{
-    nombre: string;
-    rol: string;
-    cargo?: string;
-    foto?: string;
-    escuela?: string;
-  } | null>(null);
-  
-  // Password Visibility States
-  const [showClave, setShowClave] = useState(false);
-  const [showRecClave1, setShowRecClave1] = useState(false);
-  const [showRecClave2, setShowRecClave2] = useState(false);
 
-  // First login states
-  const [piClave1, setPiClave1] = useState('');
-  const [piClave2, setPiClave2] = useState('');
-  const [showPiClave1, setShowPiClave1] = useState(false);
-  const [showPiClave2, setShowPiClave2] = useState(false);
-  const [fuerzaPiClave, setFuerzaPiClave] = useState(0);
-  const [piEmail, setPiEmail] = useState('');
-  const [piTelefono, setPiTelefono] = useState('');
-  const [preguntasSeguridad, setPreguntasSeguridad] = useState<any[]>([]);
-  const [piPreg1, setPiPreg1] = useState('');
-  const [piResp1, setPiResp1] = useState('');
-  const [piPreg2, setPiPreg2] = useState('');
-  const [piResp2, setPiResp2] = useState('');
+  // Pasos: identificar | clave | confirmar_no_registrado | primer_ingreso | recuperar | invitado
+  const [paso, setPaso] = useState<'identificar' | 'clave' | 'confirmar_no_registrado' | 'primer_ingreso' | 'recuperar' | 'invitado'>('identificar');
+  const [subPasoPrimerIngreso, setSubPasoPrimerIngreso] = useState<1 | 2>(1);
 
-  // Recovery States
-  const [preguntaRecuperacion, setPreguntaRecuperacion] = useState('');
-  const [preguntaRecuperacionIndice, setPreguntaRecuperacionIndice] = useState<1 | 2>(1);
-  const [recCorreo, setRecCorreo] = useState('');
-  const [recRespuesta, setRecRespuesta] = useState('');
-  const [recClave1, setRecClave1] = useState('');
-  const [recClave2, setRecClave2] = useState('');
-  
-  // Guest fields
+  // Estados de Formulario de Identificación / Clave
+  const [identificador, setIdentificador] = useState('');
+  const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState('');
+
+  // Perfil del Usuario Encontrado
+  const [usuarioEncontrado, setUsuarioEncontrado] = useState<any>(null);
+
+  // Estados para Registro / Primer Ingreso
+  const [primerIngresoData, setPrimerIngresoData] = useState({
+    cedula: '',
+    nombreCompleto: '',
+    rol: 'Representante',
+    cargo: '',
+    email: '',
+    codigoPais: '+58',
+    telefonoNumero: '',
+    telefono: '',
+    username: '',
+    password: '',
+    confirmPassword: '',
+    pregunta1: PREGUNTAS_SEGURIDAD_OPCIONES[0],
+    respuesta1: '',
+    pregunta2: PREGUNTAS_SEGURIDAD_OPCIONES[1],
+    respuesta2: '',
+    pregunta3: PREGUNTAS_SEGURIDAD_OPCIONES[2],
+    respuesta3: '',
+    modoFoto: 'avatar' as 'avatar' | 'subir',
+    avatarSeleccionado: 'avatar-1',
+    fotoSubidaUrl: '',
+    fotoBase64: ''
+  });
+
+  // Modal de Recorte de Foto
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imagenOriginalParaRecortar, setImagenOriginalParaRecortar] = useState<string | null>(null);
+
+  // Recuperación de Contraseña
+  const [recuperarIdentificador, setRecuperarIdentificador] = useState('');
+  const [recuperarUsuario, setRecuperarUsuario] = useState<any>(null);
+  const [recuperarPregunta1, setRecuperarPregunta1] = useState('');
+  const [recuperarPregunta2, setRecuperarPregunta2] = useState('');
+  const [recuperarRespuesta1, setRecuperarRespuesta1] = useState('');
+  const [recuperarRespuesta2, setRecuperarRespuesta2] = useState('');
+  const [recuperarNuevaClave, setRecuperarNuevaClave] = useState('');
+  const [recuperarConfirmClave, setRecuperarConfirmClave] = useState('');
+  const [recuperarExito, setRecuperarExito] = useState(false);
+  const [mostrarModalRestauracionTotal, setMostrarModalRestauracionTotal] = useState(false);
+  const [restauracionConfirmada, setRestauracionConfirmada] = useState(false);
+
+  // Invitados
   const [invNombres, setInvNombres] = useState('');
   const [invApellidos, setInvApellidos] = useState('');
   const [invCorreo, setInvCorreo] = useState('');
   const [invTelefono, setInvTelefono] = useState('');
   const [invMotivo, setInvMotivo] = useState('');
 
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [isStandalone, setIsStandalone] = useState(false);
-  
+  // Sugerencias inteligentes de alias
+  const sugerenciasUsuario = useMemo(() => {
+    const nombre = usuarioEncontrado?.nombre_completo || primerIngresoData.nombreCompleto;
+    return generarSugerenciasUsuario(nombre);
+  }, [usuarioEncontrado?.nombre_completo, primerIngresoData.nombreCompleto]);
 
-  useEffect(() => {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    setIsStandalone(standalone);
-
-    const estadoSesion = localStorage.getItem('sesion_sigae');
-    const uStr = localStorage.getItem('usuario_sigae');
-    const escCodigo = localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb' | null;
-
-    if (estadoSesion === 'bloqueada' && uStr && escCodigo) {
-      try {
-        const u = JSON.parse(uStr);
-        setSchool(escCodigo);
-        setCedula(u.cedula);
-        setNombreUsuario(u.nombre);
-        setView('login');
-        setLoginStep('clave');
-        
-        // Auto-trigger biometric login if configured and active
-        const tieneHuella = localStorage.getItem('sigae_tiene_huella');
-        const huellaHabilitada = localStorage.getItem('sigae_huella_habilitada') !== 'false';
-        if (tieneHuella && huellaHabilitada) {
-          setTimeout(() => {
-            const btnHuella = document.getElementById('btn-biometrico-inicial');
-            if (btnHuella) {
-              btnHuella.click();
-            }
-          }, 600);
-        }
-      } catch (e) {
-        console.error("Error al restaurar sesión bloqueada:", e);
-      }
-    }
-  }, []);
-
-  const handleSchoolSelect = (selected: 'sb' | 'lb') => {
-    setSchool(selected);
-    localStorage.setItem('sigae_escuela_codigo', selected);
-    localStorage.setItem('sigae_escuela_activa', selected === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
-    setView('login');
-    setLoginStep('cedula');
-    setCedula('');
-    setClave('');
-    setErrorMsg('');
-  };
-
-  const cargarPreguntas = async () => {
-    try {
-      const { data } = await supabase
-        .from('conf_preguntas_seguridad')
-        .select('pregunta')
-        .order('pregunta', { ascending: true });
-      if (data) {
-        setPreguntasSeguridad(data);
-      }
-    } catch (e) {
-      console.error("Error cargando preguntas de seguridad:", e);
-    }
-  };
-
-  const handlePiClave1Change = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setPiClave1(val);
-    let fuerza = 0;
-    if (val.length >= 8) fuerza += 25;
-    if (/[A-Z]/.test(val)) fuerza += 25;
-    if (/[a-z]/.test(val)) fuerza += 25;
-    if (/[0-9]/.test(val)) fuerza += 15;
-    if (/[^A-Za-z0-9]/.test(val)) fuerza += 10;
-    setFuerzaPiClave(fuerza);
-  };
-
-  const procesarPrimerIngreso = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!piClave1 || !piClave2 || !piEmail || !piTelefono || !piPreg1 || !piResp1 || !piPreg2 || !piResp2) {
-      setErrorMsg('Complete todos los campos obligatorios (*).');
+  // Manejo de carga de foto con recorte
+  const handleSeleccionarArchivoFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Por favor seleccione un archivo de imagen válido (JPG, PNG o WEBP).');
       return;
     }
-    if (piClave1 !== piClave2) {
-      setErrorMsg('Las contraseñas no coinciden.');
+    if (file.size > 12 * 1024 * 1024) {
+      setError('La imagen supera los 12 MB. Elija una imagen más liviana.');
       return;
     }
-    if (fuerzaPiClave < 50) {
-      setErrorMsg('Contraseña débil. Debe contener al menos 8 caracteres, incluyendo mayúsculas, números y símbolos.');
-      return;
-    }
-    if (piPreg1 === piPreg2) {
-      setErrorMsg('Debe seleccionar preguntas de seguridad distintas.');
-      return;
-    }
-
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const { error } = await supabase
-        .from('usuarios')
-        .update({
-          clave: piClave1,
-          email: piEmail.trim(),
-          telefono: piTelefono.trim(),
-          preguntas_seguridad: {
-            pregunta_1: piPreg1,
-            respuesta_1: piResp1.trim().toLowerCase(),
-            pregunta_2: piPreg2,
-            respuesta_2: piResp2.trim().toLowerCase()
-          },
-          primer_ingreso: false,
-          fecha_ult_clave: new Date().toISOString()
-        })
-        .eq('cedula', cedula);
-
-      if (error) throw error;
-
-      const Swal = (window as any).Swal;
-      if (Swal) {
-        Swal.fire('¡Cuenta Configurada!', 'Su cuenta ha sido configurada exitosamente. Para ingresar, seleccione su institución e inicie sesión con sus credenciales.', 'success').then(() => {
-          // Volver al selector de escuelas limpiamente para no confundir sesiones
-          setLoginStep('cedula');
-          setCedula('');
-          setClave('');
-          setNombreUsuario('');
-          // Clear first login fields
-          setPiClave1('');
-          setPiClave2('');
-          setPiEmail('');
-          setPiTelefono('');
-          setPiPreg1('');
-          setPiResp1('');
-          setPiPreg2('');
-          setPiResp2('');
-          setView('selector');
-        });
-      } else {
-        alert('Cuenta configurada correctamente. Seleccione su institución e inicie sesión.');
-        setLoginStep('cedula');
-        setCedula('');
-        setClave('');
-        setNombreUsuario('');
-        setView('selector');
-      }
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg('No se pudo configurar la cuenta en el servidor.');
-    }
-    setLoading(false);
-  };
-
-  const verificarCedula = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cedula) {
-      setErrorMsg('Debe ingresar cédula de identidad.');
-      return;
-    }
-
-    setLoading(true);
-    setErrorMsg('');
-
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('cedula', cedula)
-        .maybeSingle();
-
-      if (error || !data) {
-        // Verificar si la cédula ingresada corresponde a un estudiante registrado
-        try {
-          const cedulaLimpia = cedula.trim().replace(/\D/g, '');
-          const { data: estData } = await supabase
-            .from('estudiantes_vinculaciones')
-            .select('nombres_estudiante, apellidos_estudiante, cedula_representante, nombres_representante')
-            .or(`cedula_estudiante.eq.${cedula},cedula_estudiante.eq.${cedulaLimpia},cedula_estudiante.eq.CE-${cedulaLimpia}`)
-            .limit(1)
-            .maybeSingle();
-
-          if (estData) {
-            const nomEst = `${estData.nombres_estudiante || ''} ${estData.apellidos_estudiante || ''}`.trim();
-            const repInfo = estData.cedula_representante ? ` (Cédula de Representante vinculada: ${estData.cedula_representante})` : '';
-            setErrorMsg(`Esta cédula corresponde al estudiante "${nomEst}". Para actualizar la ficha integral o descargar constancias, el representante legal debe ingresar con su propia Cédula de Identidad${repInfo}.`);
-            setLoading(false);
-            return;
-          }
-        } catch (err) {}
-
-        // No existe -> Invitado (verificar mantenimiento e inhabilitación de invitados antes)
-        try {
-          const targetSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
-          const schoolNombre = targetSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
-
-          const { data: ajustes } = await supabase
-            .from('ajustes_globales')
-            .select('clave, valor')
-            .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo', 'bloquear_invitados_sb', 'bloquear_invitados_lb', 'bloquear_invitados']);
-
-          const maintKey = targetSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
-          const schoolMaint = ajustes?.find(x => x.clave === maintKey);
-          const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
-          const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
-
-          if (isSchoolInMaint) {
-            setErrorMsg(`La institución (${schoolNombre}) se encuentra en mantenimiento y no permite acceso de visitantes.`);
-            setLoading(false);
-            return;
-          }
-
-          const guestKey = targetSchool === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
-          const guestSchool = ajustes?.find(x => x.clave === guestKey);
-          const guestGlobal = ajustes?.find(x => x.clave === 'bloquear_invitados');
-          let isGuestBlocked = guestSchool ? (guestSchool.valor === 'true') : (guestGlobal?.valor === 'true');
-
-          if (!isGuestBlocked) {
-            const { data: invRole } = await supabase
-              .from('roles')
-              .select('permisos')
-              .eq('nombre', 'Invitado')
-              .maybeSingle();
-
-            if (invRole && invRole.permisos) {
-              const parsed = typeof invRole.permisos === 'string' ? JSON.parse(invRole.permisos) : invRole.permisos;
-              const escPerms = parsed[targetSchool] || {};
-              if (escPerms.hasOwnProperty('__acceso_plantel__') && (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)) {
-                isGuestBlocked = true;
-              }
-            }
-          }
-
-          if (isGuestBlocked) {
-            setErrorMsg(`El registro e ingreso de invitados y visitantes para ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
-            setLoading(false);
-            return;
-          }
-        } catch (err) {}
-
-        // Intentar autocompletar si es un visitante recurrente
-        try {
-          const { data: pastVisit } = await supabase
-            .from('invitados')
-            .select('nombres, apellidos, correo, telefono')
-            .eq('cedula', cedula)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (pastVisit) {
-            setInvNombres(pastVisit.nombres || '');
-            setInvApellidos(pastVisit.apellidos || '');
-            setInvCorreo(pastVisit.correo || '');
-            setInvTelefono(pastVisit.telefono || '');
-          } else {
-            setInvNombres('');
-            setInvApellidos('');
-            setInvCorreo('');
-            setInvTelefono('');
-          }
-        } catch (err) {}
-        
-        setInvMotivo('');
-        setLoginStep('invitado');
-      } else {
-        // Existe -> Verificar si está en mantenimiento
-        try {
-          const activeSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
-          const schoolNombre = activeSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
-
-          const { data: ajustes } = await supabase
-            .from('ajustes_globales')
-            .select('clave, valor')
-            .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo']);
-
-          const maintKey = activeSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
-          const schoolMaint = ajustes?.find(x => x.clave === maintKey);
-          const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
-          const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
-
-          if (isSchoolInMaint) {
-            let hasMaintAccess = false;
-            if (data.rol === 'SuperAdmin') {
-              hasMaintAccess = true;
-            } else {
-              let { data: roleData } = await supabase
-                .from('roles')
-                .select('permisos')
-                .ilike('nombre', data.rol)
-                .maybeSingle();
-
-              if (!roleData && data.rol?.toLowerCase() === 'representante') {
-                const { data: repRole } = await supabase.from('roles').select('permisos').eq('nombre', 'Representante').maybeSingle();
-                roleData = repRole;
-              }
-
-              if (roleData && roleData.permisos) {
-                const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
-                const escPerms = parsed[activeSchool] || {};
-                if (escPerms["Ingresar en Mantenimiento"]?.ver === true) {
-                  hasMaintAccess = true;
-                }
-              }
-            }
-
-            if (!hasMaintAccess) {
-              setErrorMsg(`La institución (${schoolNombre}) se encuentra actualmente en mantenimiento. Solo se permite el acceso a administradores y personal autorizado.`);
-              setLoading(false);
-              return;
-            }
-          }
-
-          // Verificar si el rol del usuario está inhabilitado en la institución seleccionada
-          const userRolStr = (data.rol || '').trim();
-          if (userRolStr && !['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].some(r => r.toLowerCase() === userRolStr.toLowerCase())) {
-            let { data: roleData } = await supabase
-              .from('roles')
-              .select('permisos, nombre')
-              .ilike('nombre', userRolStr)
-              .maybeSingle();
-
-            if (!roleData && userRolStr.toLowerCase() === 'representante') {
-              const { data: repRole } = await supabase.from('roles').select('permisos, nombre').eq('nombre', 'Representante').maybeSingle();
-              roleData = repRole;
-            }
-
-            if (roleData && roleData.permisos) {
-              const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
-              const escPerms = parsed[activeSchool] || {};
-              const isRoleBlocked = escPerms.hasOwnProperty('__acceso_plantel__')
-                ? (escPerms['__acceso_plantel__']?.ver === false || escPerms['__acceso_plantel__'] === false)
-                : false;
-
-              if (isRoleBlocked) {
-                setErrorMsg(`El acceso para el rol "${roleData.nombre || userRolStr}" en ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
-                setLoading(false);
-                return;
-              }
-            }
-          }
-        } catch (err) {}
-
-        // Existe -> Pedir clave
-        if (data.estado === 'Bloqueado') {
-          setErrorMsg('Usuario BLOQUEADO permanentemente.');
-        } else if (data.bloqueo_hasta) {
-          const bloqueo = new Date(data.bloqueo_hasta).getTime();
-          const ahora = new Date().getTime();
-          if (bloqueo > ahora) {
-            const faltan = Math.ceil((bloqueo - ahora) / 60000);
-            setErrorMsg(`Cuenta bloqueada temporalmente por seguridad. Intente en ${faltan} minutos.`);
-          } else {
-            const nomCompleto = data.nombre_completo || `${data.nombres || ''} ${data.apellidos || ''}`.trim() || data.nombre || 'Usuario';
-            setNombreUsuario(nomCompleto);
-            setUsuarioDetalle({
-              nombre: nomCompleto,
-              rol: data.rol || 'Personal SIGAE',
-              cargo: data.cargo || '',
-              foto: data.foto_url || data.foto_perfil || '',
-              escuela: data.id_escuela || school || 'sb'
-            });
-            if (data.primer_ingreso === true || !data.clave) {
-              await cargarPreguntas();
-              setLoginStep('primer-ingreso');
-            } else {
-              setLoginStep('clave');
-            }
-          }
-        } else {
-          const nomCompleto = data.nombre_completo || `${data.nombres || ''} ${data.apellidos || ''}`.trim() || data.nombre || 'Usuario';
-          setNombreUsuario(nomCompleto);
-          setUsuarioDetalle({
-            nombre: nomCompleto,
-            rol: data.rol || 'Personal SIGAE',
-            cargo: data.cargo || '',
-            foto: data.foto_url || data.foto_perfil || '',
-            escuela: data.id_escuela || school || 'sb'
-          });
-          if (data.primer_ingreso === true || !data.clave) {
-            await cargarPreguntas();
-            setLoginStep('primer-ingreso');
-          } else {
-            setLoginStep('clave');
-          }
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Error de conexión.');
-    }
-    setLoading(false);
-  };
-
-  const decodificarBase32 = (base32: string) => {
-    const alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    let bits = "";
-    let bytes = [];
-    base32 = base32.replace(/=+$/, "").toUpperCase();
-    for (let i = 0; i < base32.length; i++) {
-      const val = alfabeto.indexOf(base32[i]);
-      if (val === -1) throw new Error("Carácter Base32 no válido");
-      bits += val.toString(2).padStart(5, '0');
-    }
-    for (let i = 0; i + 8 <= bits.length; i += 8) {
-      bytes.push(parseInt(bits.substr(i, 8), 2));
-    }
-    return new Uint8Array(bytes);
-  };
-
-  const calcularTOTP = async (secretoBase32: string, tiempoSegs = Math.floor(Date.now() / 1000)) => {
-    const claveBytes = decodificarBase32(secretoBase32);
-    const paso = Math.floor(tiempoSegs / 30);
-    const buffer = new ArrayBuffer(8);
-    const view = new DataView(buffer);
-    view.setUint32(0, 0);
-    view.setUint32(4, paso);
-    
-    const claveCrypto = await crypto.subtle.importKey(
-      "raw",
-      claveBytes,
-      { name: "HMAC", hash: { name: "SHA-1" } },
-      false,
-      ["sign"]
-    );
-    
-    const firmaBuffer = await crypto.subtle.sign("HMAC", claveCrypto, buffer);
-    const hmac = new Uint8Array(firmaBuffer);
-    
-    const offset = hmac[hmac.length - 1] & 0xf;
-    const codigoBinario = 
-      ((hmac[offset] & 0x7f) << 24) |
-      ((hmac[offset + 1] & 0xff) << 16) |
-      ((hmac[offset + 2] & 0xff) << 8) |
-      (hmac[offset + 3] & 0xff);
-      
-    const codigo = codigoBinario % 1000000;
-    return String(codigo).padStart(6, '0');
-  };
-
-  const verificarTOTP = async (secretoBase32: string, codigoIngresado: string) => {
-    const ahora = Math.floor(Date.now() / 1000);
-    for (let desvio = -1; desvio <= 1; desvio++) {
-      const codigoCalculado = await calcularTOTP(secretoBase32, ahora + (desvio * 30));
-      if (codigoCalculado === String(codigoIngresado).trim()) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  const auditarAcceso = async (cedulaStr: string, nombreStr: string, accion: string, detalles: string = '') => {
-    try {
-      await supabase.from('historial_auditoria').insert([{
-        usuario_cedula: cedulaStr,
-        usuario_nombre: nombreStr,
-        escuela: school || localStorage.getItem('sigae_escuela_codigo') || 'sb',
-        modulo: 'Seguridad y Accesos',
-        accion: accion,
-        detalles: detalles
-      }]);
-    } catch (err) {
-      console.warn('Error auditing:', err);
-    }
-  };
-
-  const verifySchoolAccess = async (userData: any): Promise<'sb' | 'lb' | null> => {
-    const rolStr = (userData.rol || '').trim();
-    if (['SuperAdmin', 'Administrador', 'Administradora', 'Director', 'Directora'].some(r => r.toLowerCase() === rolStr.toLowerCase())) {
-      return school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
-    }
-
-    try {
-      let { data: roleData, error: roleError } = await supabase
-        .from('roles')
-        .select('permisos, nombre')
-        .ilike('nombre', rolStr)
-        .maybeSingle();
-
-      if (!roleData && rolStr.toLowerCase() === 'representante') {
-        const { data: repRole } = await supabase.from('roles').select('permisos, nombre').eq('nombre', 'Representante').maybeSingle();
-        roleData = repRole;
-      } else if (!roleData && rolStr.toLowerCase() === 'docente') {
-        const { data: docRole } = await supabase.from('roles').select('permisos, nombre').eq('nombre', 'Docente').maybeSingle();
-        roleData = docRole;
-      }
-
-      if (roleError || !roleData) {
-        // Si no se encontró registro puntual del rol, permitir acceso a su escuela asignada
-        const userSchool = (userData.id_escuela || '').trim().toLowerCase();
-        if (userSchool === 'sb' || userSchool === 'lb') {
-          return userSchool as 'sb' | 'lb';
-        }
-        return (school || localStorage.getItem('sigae_escuela_codigo') || 'sb') as 'sb' | 'lb';
-      }
-
-      let rolePerms: any = {};
-      if (typeof roleData.permisos === 'string') {
-        try { rolePerms = JSON.parse(roleData.permisos); } catch (e) {}
-      } else {
-        rolePerms = roleData.permisos || {};
-      }
-
-      const tieneAcceso = (cod: string) => {
-        const privs = rolePerms[cod];
-        if (!privs) return false;
-        if (privs.hasOwnProperty('__acceso_plantel__')) {
-          return privs['__acceso_plantel__']?.ver === true || privs['__acceso_plantel__'] === true;
-        }
-        for (let mod in privs) {
-          if (privs[mod] && (privs[mod].ver === true || privs[mod] === true)) return true;
-        }
-        return false;
-      };
-
-      const selectedSchoolCode = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
-      
-      // Si el usuario pertenece exclusivamente a una escuela, validar esa escuela
-      const userSchool = (userData.id_escuela || '').trim().toLowerCase();
-      if (userSchool === 'sb' || userSchool === 'lb') {
-        if (tieneAcceso(userSchool)) {
-          return userSchool as 'sb' | 'lb';
-        }
-        return null;
-      }
-
-      // Si seleccionó un plantel en el selector, validar estrictamente ese plantel
-      if (tieneAcceso(selectedSchoolCode)) {
-        return selectedSchoolCode;
-      }
-
-      return null;
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  };
-
-  const completarLogin = async (userData: any, resolvedSchool?: 'sb' | 'lb') => {
-    const activeSchool = resolvedSchool || school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
-    
-    // Check maintenance mode for the target school
-    try {
-      const schoolNombre = activeSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
-      const { data: ajustes } = await supabase
-        .from('ajustes_globales')
-        .select('clave, valor')
-        .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo']);
-
-      const maintKey = activeSchool === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
-      const schoolMaint = ajustes?.find(x => x.clave === maintKey);
-      const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
-      const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
-
-      if (isSchoolInMaint) {
-        let hasMaintAccess = false;
-        if (userData.rol === 'SuperAdmin') {
-          hasMaintAccess = true;
-        } else {
-          let { data: roleData } = await supabase
-            .from('roles')
-            .select('permisos')
-            .ilike('nombre', userData.rol)
-            .maybeSingle();
-
-          if (!roleData && userData.rol?.toLowerCase() === 'representante') {
-            const { data: repRole } = await supabase.from('roles').select('permisos').eq('nombre', 'Representante').maybeSingle();
-            roleData = repRole;
-          }
-
-          if (roleData && roleData.permisos) {
-            const parsed = typeof roleData.permisos === 'string' ? JSON.parse(roleData.permisos) : roleData.permisos;
-            const escPerms = parsed[activeSchool] || {};
-            if (escPerms["Ingresar en Mantenimiento"]?.ver === true) {
-              hasMaintAccess = true;
-            }
-          }
-        }
-
-        if (!hasMaintAccess) {
-          setErrorMsg(`La institución (${schoolNombre}) se encuentra actualmente en mantenimiento. Solo se permite el acceso a administradores y personal autorizado.`);
-          setLoading(false);
-          return;
-        }
-      }
-    } catch (err) {
-      console.error("Error al comprobar mantenimiento en login:", err);
-    }
-
-    // Normalizar rol al formato canónico
-    let rolCanonico = userData.rol;
-    if (rolCanonico?.toLowerCase() === 'representante') rolCanonico = 'Representante';
-    else if (rolCanonico?.toLowerCase() === 'docente') rolCanonico = 'Docente';
-    else if (rolCanonico?.toLowerCase() === 'administrador') rolCanonico = 'Administrador';
-
-    // Si en la base de datos estaba con otra capitalización, normalizar en segundo plano
-    if (userData.cedula && userData.rol !== rolCanonico) {
-      supabase.from('usuarios').update({ rol: rolCanonico }).eq('cedula', userData.cedula).then();
-    }
-
-    const cleanUserData = {
-      id: userData.id || userData.id_usuario,
-      nombre: userData.nombre_completo || userData.nombre,
-      cedula: userData.cedula,
-      rol: rolCanonico,
-      cargo: userData.cargo || '',
-      id_escuela: userData.id_escuela || activeSchool,
-      id_escuela_asignada: userData.id_escuela || activeSchool,
-      perfil_acceso: userData.perfil_acceso || { instituciones: [] },
-      nombre_escuela: activeSchool === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar',
-      email: userData.email || userData.correo
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImagenOriginalParaRecortar(reader.result as string);
+      setCropperOpen(true);
+      e.target.value = '';
     };
-    localStorage.setItem('sesion_sigae', 'activa');
-    localStorage.setItem('sigae_escuela_codigo', activeSchool);
-    localStorage.setItem('sigae_escuela_activa', activeSchool === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
-    localStorage.setItem('usuario_sigae', JSON.stringify(cleanUserData));
-    localStorage.removeItem('sigae_bloqueado_total');
-    
-    // Registrar sesión de este dispositivo en la base de datos (Estilo WhatsApp Web)
-    registrarSesionActiva(userData.cedula);
+    reader.readAsDataURL(file);
+  };
 
-    auditarAcceso(userData.cedula, userData.nombre_completo || userData.nombre, 'Inicio de Sesión', 'El usuario accedió exitosamente al sistema.');
+  const handleCropComplete = (croppedBase64: string) => {
+    setPrimerIngresoData(prev => ({
+      ...prev,
+      modoFoto: 'subir',
+      fotoBase64: croppedBase64,
+      fotoSubidaUrl: croppedBase64
+    }));
+  };
+
+  // Función común para culminar login exitoso
+  const finalizarLogin = (userObj: any) => {
     try {
       confetti({
         particleCount: 80,
@@ -701,1208 +251,1759 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         origin: { y: 0.65 }
       });
     } catch (e) {}
+
+    const cleanUserData = {
+      id: userObj.id_usuario || userObj.id,
+      nombre: userObj.nombre_completo || userObj.nombre || 'Usuario',
+      cedula: userObj.cedula,
+      rol: userObj.rol || 'Usuario',
+      cargo: userObj.cargo || '',
+      id_escuela: userObj.id_escuela || school,
+      id_escuela_asignada: userObj.id_escuela || school,
+      perfil_acceso: userObj.perfil_acceso || {},
+      nombre_escuela: school === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar',
+      email: userObj.email || userObj.correo,
+      foto_perfil: userObj.foto_perfil || (userObj.perfil_acceso?.foto_perfil) || '',
+      avatar_id: userObj.avatar_id || (userObj.perfil_acceso?.avatar_id) || 'avatar-1'
+    };
+
+    localStorage.setItem('sesion_sigae', 'activa');
+    localStorage.setItem('sigae_escuela_codigo', school);
+    localStorage.setItem('sigae_escuela_activa', school === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar');
+    localStorage.setItem('usuario_sigae', JSON.stringify(cleanUserData));
+    localStorage.removeItem('sigae_bloqueado_total');
+
+    registrarSesionActiva(userObj.cedula);
     onLogin(cleanUserData);
   };
 
-  const pedirCodigo2FA = (userData: any, secret: string, resolvedSchool: 'sb' | 'lb') => {
-    const Swal = (window as any).Swal;
-    if (!Swal) {
-      const code = prompt("Ingresa el código de 2FA:");
-      if (code && code.trim().length === 6) {
-        verificarTOTP(secret, code).then(async verificado => {
-          if (verificado) {
-            await completarLogin(userData, resolvedSchool);
-          } else {
-            alert("Código incorrecto");
-          }
-        });
-      }
-      return;
-    }
-
-    Swal.fire({
-      title: 'Código de Doble Factor',
-      text: 'Ingresa el código de 6 dígitos de tu aplicación de autenticación:',
-      input: 'text',
-      inputPlaceholder: '000000',
-      showCancelButton: true,
-      confirmButtonText: 'Verificar',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#0066FF',
-      inputAttributes: {
-        maxlength: '6',
-        autofocus: 'true',
-        style: 'text-align: center; font-size: 1.5rem; letter-spacing: 5px; font-weight: bold;'
-      },
-      preConfirm: async (codigo: string) => {
-        if (!codigo || codigo.trim().length !== 6) {
-          Swal.showValidationMessage('Ingresa un código de 6 dígitos');
-          return false;
-        }
-        const verificado = await verificarTOTP(secret, codigo);
-        if (!verificado) {
-          Swal.showValidationMessage('Código incorrecto o expirado');
-          return false;
-        }
-        return true;
-      }
-    }).then(async (result: any) => {
-      if (result.isConfirmed) {
-        await completarLogin(userData, resolvedSchool);
-      }
-    });
-  };
-
-  const handleLoginBiometrico = async () => {
-    const cedulaHuella = localStorage.getItem('sigae_tiene_huella');
-    if (!cedulaHuella) return;
-
-    try {
-      const publicKeyCredentialRequestOptions: any = {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        userVerification: "preferred",
-        timeout: 60000
-      };
-      const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions }) as any;
-      if (!assertion) return;
-
-      setLoading(true);
-      setErrorMsg('');
-
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('cedula', String(cedulaHuella))
-        .maybeSingle();
-
-      if (error || !data || data.estado !== 'Activo') {
-        setErrorMsg('Usuario bloqueado o no encontrado.');
-        setLoading(false);
-        return;
-      }
-
-      let rawId = Array.from(new Uint8Array(assertion.rawId)).map(b => b.toString(16).padStart(2, '0')).join('');
-      if (data.credencial_biometrica !== rawId) {
-        setErrorMsg('La huella o PIN proporcionado no coincide con el registrado en tu cuenta.');
-        setLoading(false);
-        return;
-      }
-
-      // Verify school access
-      const resolvedSchool = await verifySchoolAccess(data);
-      if (!resolvedSchool) {
-        setErrorMsg('Su usuario no cuenta con accesos configurados para ningún plantel.');
-        setLoading(false);
-        return;
-      }
-
-      // Check 2FA
-      let pregJSON: any = {};
-      if (data.preguntas_seguridad) {
-        try {
-          pregJSON = typeof data.preguntas_seguridad === 'string'
-            ? JSON.parse(data.preguntas_seguridad)
-            : data.preguntas_seguridad;
-        } catch(e) {}
-      }
-
-      if (pregJSON && pregJSON.otp_enabled === true && pregJSON.otp_secret) {
-        setLoading(false);
-        pedirCodigo2FA(data, pregJSON.otp_secret, resolvedSchool);
-        return;
-      }
-
-      await completarLogin(data, resolvedSchool);
-    } catch (e: any) {
-      console.error(e);
-      if (e.name !== "NotAllowedError") {
-        setErrorMsg('No se pudo procesar la verificación biométrica.');
-      }
-    }
-    setLoading(false);
-  };
-
-  const iniciarSesion = async (e: React.FormEvent) => {
+  // ==========================================
+  // PASO 1: VERIFICAR CÉDULA / USUARIO
+  // ==========================================
+  const handleVerificarUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clave) {
-      setErrorMsg('Ingrese contraseña.');
+    if (!identificador.trim()) {
+      setError('Por favor ingrese su cédula o nombre de usuario.');
       return;
     }
+    setCargando(true);
+    setError('');
 
-    setLoading(true);
-    setErrorMsg('');
+    const idLimpio = identificador.trim();
+    const soloNumeros = idLimpio.replace(/\D/g, '');
 
     try {
-      // Volvemos a consultar para tener los datos de intentos_fallidos más recientes
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('cedula', cedula)
-        .maybeSingle();
-
-      if (error || !data) {
-        setErrorMsg('Usuario no encontrado.');
-        setLoading(false);
-        return;
+      // 1. Consultar en tabla 'usuarios'
+      let query = supabase.from('usuarios').select('*');
+      if (soloNumeros.length >= 5) {
+        query = query.or(`cedula.eq.${soloNumeros},cedula.eq.${idLimpio}`);
+      } else {
+        query = query.eq('cedula', idLimpio);
       }
 
-      if (data.estado === 'Bloqueado') {
-        setErrorMsg('Usuario BLOQUEADO permanentemente.');
-        setLoading(false);
-        return;
+      const { data, error: dbErr } = await query.maybeSingle();
+
+      if (dbErr) {
+        console.error(dbErr);
       }
 
-      if (data.bloqueo_hasta) {
-        const bloqueo = new Date(data.bloqueo_hasta).getTime();
-        const ahora = new Date().getTime();
-        if (bloqueo > ahora) {
-          const faltan = Math.ceil((bloqueo - ahora) / 60000);
-          setErrorMsg(`Cuenta bloqueada temporalmente por seguridad. Intente en ${faltan} minutos.`);
-          setLoading(false);
+      if (data) {
+        // Usuario encontrado en el sistema
+        if (data.estado === 'Bloqueado') {
+          setError('Usuario BLOQUEADO permanentemente por la administración.');
+          setCargando(false);
           return;
         }
+
+        if (data.bloqueo_hasta) {
+          const bloqueo = new Date(data.bloqueo_hasta).getTime();
+          const ahora = new Date().getTime();
+          if (bloqueo > ahora) {
+            const faltan = Math.ceil((bloqueo - ahora) / 60000);
+            setError(`Cuenta bloqueada temporalmente por seguridad. Intente en ${faltan} minutos.`);
+            setCargando(false);
+            return;
+          }
+        }
+
+        setUsuarioEncontrado(data);
+
+        // Si es primer ingreso o no tiene clave configurada
+        if (data.primer_ingreso === true || !data.clave) {
+          setPrimerIngresoData(prev => ({
+            ...prev,
+            cedula: data.cedula,
+            nombreCompleto: data.nombre_completo || '',
+            rol: data.rol || 'Usuario',
+            cargo: data.cargo || '',
+            email: data.email || ''
+          }));
+          setSubPasoPrimerIngreso(1);
+          setPaso('primer_ingreso');
+        } else {
+          setPaso('clave');
+        }
+      } else {
+        // Verificar si es un estudiante vinculado
+        if (soloNumeros.length >= 5) {
+          try {
+            const { data: estData } = await supabase
+              .from('estudiantes_vinculaciones')
+              .select('nombres_estudiante, apellidos_estudiante, cedula_representante, nombres_representante')
+              .or(`cedula_estudiante.eq.${soloNumeros},cedula_estudiante.eq.CE-${soloNumeros}`)
+              .limit(1)
+              .maybeSingle();
+
+            if (estData) {
+              const nomEst = `${estData.nombres_estudiante || ''} ${estData.apellidos_estudiante || ''}`.trim();
+              const repInfo = estData.cedula_representante ? ` (Cédula de Representante vinculada: ${estData.cedula_representante})` : '';
+              setError(`Esta cédula corresponde al estudiante "${nomEst}". Para ingresar o gestionar constancias, el representante debe ingresar con su propia Cédula de Identidad${repInfo}.`);
+              setCargando(false);
+              return;
+            }
+          } catch (e) {}
+        }
+
+        // Cédula o usuario no registrado -> Mostrar confirmación
+        setPaso('confirmar_no_registrado');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Error al conectar con el servidor.');
+    }
+    setCargando(false);
+  };
+
+  // ==========================================
+  // PASO 2: INICIAR SESIÓN CON CLAVE
+  // ==========================================
+  const handleLoginClave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) {
+      setError('Ingrese su contraseña.');
+      return;
+    }
+    setCargando(true);
+    setError('');
+
+    try {
+      const { data, error: dbErr } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('cedula', usuarioEncontrado.cedula)
+        .maybeSingle();
+
+      if (dbErr || !data) {
+        setError('Error al consultar datos de usuario.');
+        setCargando(false);
+        return;
       }
 
-      if (data.clave !== clave) {
+      if (data.clave !== password) {
         const intentos = (data.intentos_fallidos || 0) + 1;
         if (intentos >= 3) {
           const bloqueoHasta = new Date(new Date().getTime() + 30 * 60000).toISOString();
-          await supabase.from('usuarios').update({ intentos_fallidos: 0, bloqueo_hasta: bloqueoHasta }).eq('cedula', cedula);
-          setErrorMsg('Ha superado los 3 intentos fallidos. Su cuenta ha sido bloqueada por 30 minutos.');
+          await supabase.from('usuarios').update({ intentos_fallidos: 0, bloqueo_hasta: bloqueoHasta }).eq('cedula', data.cedula);
+          setError('Ha superado los 3 intentos fallidos. Su cuenta ha sido bloqueada temporalmente por 30 minutos.');
         } else {
-          await supabase.from('usuarios').update({ intentos_fallidos: intentos }).eq('cedula', cedula);
-          setErrorMsg(`Contraseña incorrecta. Intento ${intentos} de 3. Le quedan ${3 - intentos} ${3 - intentos === 1 ? 'intento' : 'intentos'}.`);
+          await supabase.from('usuarios').update({ intentos_fallidos: intentos }).eq('cedula', data.cedula);
+          setError(`Contraseña incorrecta. Intento ${intentos} de 3. Le quedan ${3 - intentos} intentos.`);
         }
-        setLoading(false);
+        setCargando(false);
         return;
       }
 
-      // Login exitoso -> Restablecer intentos fallidos
+      // Éxito: restablecer intentos
       if (data.intentos_fallidos > 0 || data.bloqueo_hasta) {
-        await supabase.from('usuarios').update({ intentos_fallidos: 0, bloqueo_hasta: null }).eq('cedula', cedula);
+        await supabase.from('usuarios').update({ intentos_fallidos: 0, bloqueo_hasta: null }).eq('cedula', data.cedula);
       }
 
-      // Verify school access
-      const resolvedSchool = await verifySchoolAccess(data);
-      if (!resolvedSchool) {
-        const activeSchool = school || (localStorage.getItem('sigae_escuela_codigo') as 'sb' | 'lb') || 'sb';
-        const schoolNombre = activeSchool === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
-        setErrorMsg(`El acceso para el rol "${data.rol}" en ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
-        setLoading(false);
-        return;
-      }
-
-      // Check 2FA
-      let pregJSON: any = {};
-      if (data.preguntas_seguridad) {
-        try {
-          pregJSON = typeof data.preguntas_seguridad === 'string'
-            ? JSON.parse(data.preguntas_seguridad)
-            : data.preguntas_seguridad;
-        } catch(e) {}
-      }
-
-      if (pregJSON && pregJSON.otp_enabled === true && pregJSON.otp_secret) {
-        setLoading(false);
-        pedirCodigo2FA(data, pregJSON.otp_secret, resolvedSchool);
-        return;
-      }
-
-      await completarLogin(data, resolvedSchool);
+      finalizarLogin(data);
     } catch (err) {
       console.error(err);
-      setErrorMsg('Error de conexión.');
+      setError('Error al autenticar.');
     }
-    setLoading(false);
+    setCargando(false);
   };
 
-  const registrarInvitado = async (e: React.FormEvent) => {
+  // ==========================================
+  // PASO 3: REGISTRO / PRIMER INGRESO (2 SUB-PASOS)
+  // ==========================================
+  const handleAvanzarPaso2PrimerIngreso = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!invNombres || !invApellidos || !invMotivo) {
-      setErrorMsg('Nombres, Apellidos y Motivo son obligatorios.');
+    if (!primerIngresoData.password || primerIngresoData.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
+    if (primerIngresoData.password !== primerIngresoData.confirmPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+    if (!primerIngresoData.email || !primerIngresoData.telefonoNumero) {
+      setError('Complete todos los campos obligatorios de contacto.');
+      return;
+    }
+    setError('');
+    setSubPasoPrimerIngreso(2);
+  };
 
-    setLoading(true);
-    setErrorMsg('');
+  const handleGuardarPrimerIngreso = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!primerIngresoData.respuesta1.trim() || !primerIngresoData.respuesta2.trim() || !primerIngresoData.respuesta3.trim()) {
+      setError('Por favor responda a las tres preguntas de seguridad.');
+      return;
+    }
+    setCargando(true);
+    setError('');
 
     try {
-      // Check maintenance mode and visitors blocking for the target school
-      const escuelaID = (school || localStorage.getItem('sigae_escuela_codigo') || 'sb') as 'sb' | 'lb';
-      const schoolNombre = escuelaID === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
+      const preguntasObj = {
+        pregunta_1: primerIngresoData.pregunta1,
+        respuesta_1: primerIngresoData.respuesta1.trim().toLowerCase(),
+        pregunta_2: primerIngresoData.pregunta2,
+        respuesta_2: primerIngresoData.respuesta2.trim().toLowerCase(),
+        pregunta_3: primerIngresoData.pregunta3,
+        respuesta_3: primerIngresoData.respuesta3.trim().toLowerCase()
+      };
 
-      const { data: ajustes } = await supabase
-        .from('ajustes_globales')
-        .select('clave, valor')
-        .in('clave', ['mantenimiento_sb', 'mantenimiento_lb', 'mantenimiento_activo', 'bloquear_invitados_sb', 'bloquear_invitados_lb', 'bloquear_invitados']);
+      const perfilAccesoActual = usuarioEncontrado?.perfil_acceso || {};
+      const perfilAccesoActualizado = {
+        ...perfilAccesoActual,
+        username: primerIngresoData.username,
+        avatar_id: primerIngresoData.modoFoto === 'avatar' ? primerIngresoData.avatarSeleccionado : null,
+        foto_perfil: primerIngresoData.modoFoto === 'subir' ? primerIngresoData.fotoBase64 : null
+      };
 
-      const maintKey = escuelaID === 'sb' ? 'mantenimiento_sb' : 'mantenimiento_lb';
-      const schoolMaint = ajustes?.find(x => x.clave === maintKey);
-      const globalMaint = ajustes?.find(x => x.clave === 'mantenimiento_activo');
-      const isSchoolInMaint = schoolMaint ? (schoolMaint.valor === 'true') : (globalMaint?.valor === 'true');
+      const cedulaDestino = usuarioEncontrado?.cedula || primerIngresoData.cedula;
 
-      if (isSchoolInMaint) {
-        setErrorMsg(`La institución (${schoolNombre}) se encuentra en mantenimiento. No se permiten accesos de visitantes.`);
-        setLoading(false);
+      // Actualizar o Insertar usuario en Supabase
+      const { error: updErr } = await supabase
+        .from('usuarios')
+        .upsert({
+          cedula: cedulaDestino,
+          nombre_completo: primerIngresoData.nombreCompleto || usuarioEncontrado?.nombre_completo || 'Usuario SIGAE',
+          rol: primerIngresoData.rol || usuarioEncontrado?.rol || 'Representante',
+          cargo: primerIngresoData.cargo || usuarioEncontrado?.cargo || '',
+          email: primerIngresoData.email,
+          telefono: primerIngresoData.telefono || `${primerIngresoData.codigoPais} ${primerIngresoData.telefonoNumero}`.trim(),
+          clave: primerIngresoData.password,
+          primer_ingreso: false,
+          estado: 'Activo',
+          id_escuela: school,
+          preguntas_seguridad: preguntasObj,
+          perfil_acceso: perfilAccesoActualizado,
+          fecha_ult_clave: new Date().toISOString()
+        }, { onConflict: 'cedula' });
+
+      if (updErr) {
+        console.error(updErr);
+        setError('No se pudo guardar la configuración en la base de datos.');
+        setCargando(false);
         return;
       }
 
-      const guestKey = escuelaID === 'sb' ? 'bloquear_invitados_sb' : 'bloquear_invitados_lb';
-      const guestSchool = ajustes?.find(x => x.clave === guestKey);
-      const guestGlobal = ajustes?.find(x => x.clave === 'bloquear_invitados');
-      const isGuestBlocked = guestSchool ? (guestSchool.valor === 'true') : (guestGlobal?.valor === 'true');
+      // Consultar el registro limpio
+      const { data: usuarioCreado } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('cedula', cedulaDestino)
+        .maybeSingle();
 
-      if (isGuestBlocked) {
-        setErrorMsg(`El registro e ingreso de invitados y visitantes para ${schoolNombre} está temporalmente inhabilitado por la dirección.`);
-        setLoading(false);
+      finalizarLogin(usuarioCreado || {
+        cedula: cedulaDestino,
+        nombre_completo: primerIngresoData.nombreCompleto,
+        rol: primerIngresoData.rol,
+        id_escuela: school,
+        perfil_acceso: perfilAccesoActualizado
+      });
+    } catch (err) {
+      console.error(err);
+      setError('Error al procesar el registro.');
+    }
+    setCargando(false);
+  };
+
+  // ==========================================
+  // PASO 4: RECUPERACIÓN DE CONTRASEÑA
+  // ==========================================
+  const handleConsultarRecuperacion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recuperarIdentificador.trim()) {
+      setError('Ingrese su cédula o usuario.');
+      return;
+    }
+    setCargando(true);
+    setError('');
+
+    try {
+      const id = recuperarIdentificador.trim();
+      const soloNum = id.replace(/\D/g, '');
+      let query = supabase.from('usuarios').select('*');
+      if (soloNum.length >= 5) {
+        query = query.or(`cedula.eq.${soloNum},cedula.eq.${id}`);
+      } else {
+        query = query.eq('cedula', id);
+      }
+
+      const { data, error: dbErr } = await query.maybeSingle();
+
+      if (dbErr || !data) {
+        setError('Usuario no encontrado en el sistema.');
+        setCargando(false);
         return;
       }
 
-      // Insertar en la tabla de invitados
-      const { error: insertError } = await supabase
-        .from('invitados')
-        .insert([{
-          cedula: cedula,
-          nombres: invNombres,
-          apellidos: invApellidos,
-          correo: invCorreo || null,
-          telefono: invTelefono || null,
-          razon_visita: invMotivo,
-          escuela_id: escuelaID
-        }]);
+      let pObj: any = {};
+      try {
+        pObj = typeof data.preguntas_seguridad === 'string' ? JSON.parse(data.preguntas_seguridad) : (data.preguntas_seguridad || {});
+      } catch (e) {}
 
-      if (insertError) {
-        console.error('Error insertando invitado:', insertError);
-        setErrorMsg('Error al guardar el registro en la base de datos.');
-        setLoading(false);
+      const p1 = pObj.pregunta_1;
+      const p2 = pObj.pregunta_2 || pObj.pregunta_3;
+
+      if (!p1 && !p2) {
+        setError('Este usuario no tiene preguntas de seguridad configuradas. Utilice la opción de Restauración Total.');
+        setCargando(false);
         return;
       }
 
+      setRecuperarUsuario(data);
+      setRecuperarPregunta1(p1 || PREGUNTAS_SEGURIDAD_OPCIONES[0]);
+      setRecuperarPregunta2(p2 || PREGUNTAS_SEGURIDAD_OPCIONES[1]);
+      setRecuperarRespuesta1('');
+      setRecuperarRespuesta2('');
+      setRecuperarNuevaClave('');
+      setRecuperarConfirmClave('');
+    } catch (err) {
+      console.error(err);
+      setError('Error de conexión.');
+    }
+    setCargando(false);
+  };
+
+  const handleRestablecerClave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recuperarNuevaClave || recuperarNuevaClave.length < 6) {
+      setError('La nueva contraseña debe tener mínimo 6 caracteres.');
+      return;
+    }
+    if (recuperarNuevaClave !== recuperarConfirmClave) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+    setCargando(true);
+    setError('');
+
+    try {
+      let pObj: any = {};
+      try {
+        pObj = typeof recuperarUsuario.preguntas_seguridad === 'string'
+          ? JSON.parse(recuperarUsuario.preguntas_seguridad)
+          : (recuperarUsuario.preguntas_seguridad || {});
+      } catch (e) {}
+
+      const r1Real = (pObj.respuesta_1 || '').trim().toLowerCase();
+      const r2Real = (pObj.respuesta_2 || pObj.respuesta_3 || '').trim().toLowerCase();
+
+      const r1Ingresada = recuperarRespuesta1.trim().toLowerCase();
+      const r2Ingresada = recuperarRespuesta2.trim().toLowerCase();
+
+      if (r1Real && r1Ingresada !== r1Real) {
+        setError('La respuesta a la 1ra pregunta es incorrecta.');
+        setCargando(false);
+        return;
+      }
+      if (r2Real && r2Ingresada !== r2Real) {
+        setError('La respuesta a la 2da pregunta es incorrecta.');
+        setCargando(false);
+        return;
+      }
+
+      const { error: updErr } = await supabase
+        .from('usuarios')
+        .update({
+          clave: recuperarNuevaClave,
+          intentos_fallidos: 0,
+          bloqueo_hasta: null,
+          fecha_ult_clave: new Date().toISOString()
+        })
+        .eq('cedula', recuperarUsuario.cedula);
+
+      if (updErr) {
+        setError('Error al actualizar la contraseña.');
+        setCargando(false);
+        return;
+      }
+
+      setRecuperarExito(true);
+    } catch (err) {
+      console.error(err);
+      setError('Error de conexión.');
+    }
+    setCargando(false);
+  };
+
+  const handleSolicitarRestauracionTotal = async () => {
+    const targetCedula = recuperarUsuario?.cedula || recuperarIdentificador;
+    if (!targetCedula) return;
+    setCargando(true);
+    try {
+      await supabase
+        .from('usuarios')
+        .update({ solicito_reseteo: true })
+        .eq('cedula', targetCedula);
+      setRestauracionConfirmada(true);
+    } catch (err) {
+      console.error(err);
+    }
+    setCargando(false);
+  };
+
+  // ==========================================
+  // PASO 5: REGISTRO DE INVITADO
+  // ==========================================
+  const handleRegistrarInvitado = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invNombres || !invApellidos || !invCorreo || !invTelefono || !invMotivo) {
+      setError('Complete todos los campos del formulario de visita.');
+      return;
+    }
+    setCargando(true);
+    setError('');
+
+    try {
       const guestData = {
-        id: 'guest-' + Date.now(),
-        nombre: `${invNombres} ${invApellidos}`.trim(),
+        cedula: identificador.replace(/\D/g, '') || `INV-${Date.now().toString().slice(-6)}`,
         nombres: invNombres,
         apellidos: invApellidos,
-        cedula: cedula,
-        rol: 'Invitado',
-        email: invCorreo,
-        telefono: invTelefono
+        correo: invCorreo,
+        telefono: invTelefono,
+        motivo: invMotivo,
+        escuela: school
       };
-      localStorage.setItem('sesion_sigae', 'activa');
-      localStorage.setItem('usuario_sigae', JSON.stringify(guestData));
-      onLogin(guestData);
+
+      await supabase.from('invitados').insert([guestData]);
+
+      finalizarLogin({
+        cedula: guestData.cedula,
+        nombre_completo: `${invNombres} ${invApellidos}`.trim(),
+        rol: 'Invitado(a)',
+        cargo: 'Visitante Institucional',
+        id_escuela: school
+      });
     } catch (err) {
-      setErrorMsg('Error al registrar visita.');
+      console.error(err);
+      setError('Error al registrar visitante.');
     }
-    setLoading(false);
+    setCargando(false);
+  };
+
+  // Acceso Biométrico rápido
+  const handleLoginBiometrico = async () => {
+    setError('');
+    const tiene = localStorage.getItem('sigae_tiene_huella');
+    const uStr = localStorage.getItem('usuario_sigae');
+    if (tiene && uStr) {
+      try {
+        const u = JSON.parse(uStr);
+        finalizarLogin(u);
+      } catch (e) {
+        setError('No se pudo verificar la credencial biométrica.');
+      }
+    } else {
+      setError('No hay huella o PIN registrado en este dispositivo.');
+    }
   };
 
   const resetForm = () => {
-    setLoginStep('cedula');
-    setClave('');
-    setErrorMsg('');
-    setUsuarioDetalle(null);
+    setPaso('identificar');
+    setPassword('');
+    setError('');
+    setUsuarioEncontrado(null);
+    setRecuperarUsuario(null);
+    setMostrarModalRestauracionTotal(false);
+    setRestauracionConfirmada(false);
   };
 
-  const handleOlvidoClave = async () => {
-    if (!cedula) {
-      setErrorMsg('Por favor, ingrese su número de cédula en el recuadro para recuperar su contraseña.');
-      const inp = document.getElementById('input-cedula-login');
-      if (inp) inp.focus();
-      return;
+  // Resolver imagen para preview en el paso de clave
+  const fotoPreviewClave = useMemo(() => {
+    if (!usuarioEncontrado) return null;
+    const pAcceso = usuarioEncontrado.perfil_acceso || {};
+    if (pAcceso.foto_perfil) return pAcceso.foto_perfil;
+    if (usuarioEncontrado.foto_perfil) return usuarioEncontrado.foto_perfil;
+    if (pAcceso.avatar_id) {
+      const av = AVATARES_DISPONIBLES.find(a => a.id === pAcceso.avatar_id);
+      return av?.url || `/img/avatars/${pAcceso.avatar_id}.png`;
     }
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('preguntas_seguridad, bloqueo_hasta, estado, email')
-        .eq('cedula', cedula)
-        .maybeSingle();
-      
-      if (error || !data) {
-        setErrorMsg('Usuario no encontrado.');
-        setLoading(false);
-        return;
-      }
-      if (data.estado === 'Bloqueado') {
-        setErrorMsg('Usuario bloqueado permanentemente.');
-        setLoading(false);
-        return;
-      }
-      
-      let pregJSON: any = {};
-      try {
-        pregJSON = typeof data.preguntas_seguridad === 'string' 
-          ? JSON.parse(data.preguntas_seguridad) 
-          : (data.preguntas_seguridad || {});
-      } catch(e) {}
-      
-      const p1 = pregJSON.pregunta_1;
-      const p2 = pregJSON.pregunta_2;
-      if (!p1 && !p2) {
-        setErrorMsg('Este usuario no tiene preguntas de seguridad configuradas. Contacte a soporte.');
-        setLoading(false);
-        return;
-      }
-      
-      const nP = (Math.random() < 0.5 && p1) ? 1 : (p2 ? 2 : 1);
-      setPreguntaRecuperacion(nP === 1 ? p1 : p2);
-      setPreguntaRecuperacionIndice(nP as 1 | 2);
-      setRecCorreo('');
-      setRecRespuesta('');
-      setRecClave1('');
-      setRecClave2('');
-      setLoginStep('recuperacion');
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Error de conexión.');
+    if (usuarioEncontrado.avatar_id) {
+      const av = AVATARES_DISPONIBLES.find(a => a.id === usuarioEncontrado.avatar_id);
+      return av?.url || `/img/avatars/${usuarioEncontrado.avatar_id}.png`;
     }
-    setLoading(false);
-  };
+    return null;
+  }, [usuarioEncontrado]);
 
-  const procesarRecuperacion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!recCorreo || !recRespuesta || !recClave1 || !recClave2) {
-      setErrorMsg('Complete todos los campos de recuperación.');
-      return;
-    }
-    if (recClave1 !== recClave2) {
-      setErrorMsg('Las contraseñas no coinciden.');
-      return;
-    }
-    if (!/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#.])[A-Za-z\d@$!%*?&#.]{8,}$/.test(recClave1)) {
-      setErrorMsg('Contraseña débil. Mínimo 8 caracteres, 1 mayúscula, 1 número y 1 símbolo (@$!%*?&#.).');
-      return;
-    }
-    
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('preguntas_seguridad, email')
-        .eq('cedula', cedula)
-        .maybeSingle();
-        
-      if (error || !data) {
-        setErrorMsg('Error al verificar datos.');
-        setLoading(false);
-        return;
-      }
-      
-      if (String(data.email).trim().toLowerCase() !== recCorreo.trim().toLowerCase()) {
-        setErrorMsg('El correo ingresado no coincide con el registrado.');
-        setLoading(false);
-        return;
-      }
-      
-      let pregJSON: any = {};
-      try {
-        pregJSON = typeof data.preguntas_seguridad === 'string'
-          ? JSON.parse(data.preguntas_seguridad)
-          : (data.preguntas_seguridad || {});
-      } catch(e) {}
-      
-      const rReal = preguntaRecuperacionIndice === 1 ? pregJSON.respuesta_1 : pregJSON.respuesta_2;
-      if (String(recRespuesta).trim().toLowerCase() !== String(rReal).trim().toLowerCase()) {
-        setErrorMsg('Respuesta de seguridad incorrecta.');
-        setLoading(false);
-        return;
-      }
-      
-      const { error: updErr } = await supabase
-        .from('usuarios')
-        .update({ 
-          clave: recClave1, 
-          intentos_fallidos: 0, 
-          bloqueo_hasta: null, 
-          fecha_ult_clave: new Date().toISOString() 
-        })
-        .eq('cedula', cedula);
-        
-      if (updErr) {
-        setErrorMsg('Error al guardar la nueva contraseña.');
-        setLoading(false);
-        return;
-      }
-      
-      if ((window as any).Swal) {
-        (window as any).Swal.fire('¡Éxito!', 'Contraseña restablecida correctamente.', 'success').then(() => {
-          setLoginStep('clave');
-          setClave('');
-        });
-      } else {
-        alert('Contraseña restablecida correctamente.');
-        setLoginStep('clave');
-        setClave('');
-      }
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Error de conexión.');
-    }
-    setLoading(false);
-  };
-
-  const solicitarSoporte = async () => {
-    if (!cedula) return;
-    if ((window as any).Swal) {
-      (window as any).Swal.fire({
-        title: 'Soporte Técnico',
-        text: '¿Desea enviar una solicitud al administrador para resetear su cuenta y volver a configurarla desde cero?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, enviar solicitud',
-        cancelButtonText: 'Cancelar'
-      }).then(async (result: any) => {
-        if (result.isConfirmed) {
-          setLoading(true);
-          try {
-            const escDestino = school || localStorage.getItem('sigae_escuela_codigo') || 'sb';
-
-            // Insertar en notificaciones_globales para activar alerta en tiempo real al administrador
-            await supabase.from('notificaciones_globales').insert([{
-              escuela_codigo: escDestino,
-              titulo: '⚠️ Solicitud de Reseteo de Cuenta',
-              cuerpo: `El usuario con cédula ${cedula} olvidó sus datos y solicita reseteo de cuenta en Gestión de Usuarios.`,
-              tipo: 'seguridad'
-            }]);
-
-            // Insertar confirmación personal para el usuario solicitante
-            await supabase.from('notificaciones_globales').insert([{
-              escuela_codigo: escDestino,
-              titulo: '📨 Solicitud de Restablecimiento Enviada',
-              cuerpo: 'Tu solicitud de reseteo de cuenta ha sido enviada al administrador escolar. Se te notificará por esta vía y por WhatsApp cuando sea procesada.',
-              tipo: `usuario:${cedula}`
-            }]);
-
-            // Actualizar el estado del usuario
-            await supabase.from('usuarios').update({ estado: 'Requiere Reseteo', solicito_reseteo: true }).eq('cedula', cedula);
-
-            try {
-              await supabase.from('notificaciones').insert([{
-                id_notificacion: "NOT-" + new Date().getTime(),
-                titulo: 'Solicitud de Reseteo de Clave',
-                mensaje: `El usuario con cédula ${cedula} olvidó sus datos y solicita reseteo de cuenta.`,
-                tipo: 'alerta',
-                leido: false,
-                roles_destino: 'Administrador,Director',
-                id_escuela: escDestino
-              }]);
-            } catch (e) {}
-
-            (window as any).Swal.fire({
-              icon: 'success',
-              title: 'Solicitud Enviada',
-              text: 'El administrador ha recibido la notificación y procesará su solicitud pronto.',
-              confirmButtonText: 'Entendido'
-            }).then(() => {
-              resetForm();
-            });
-          } catch (err) {
-            console.error(err);
-            (window as any).Swal.fire('Error', 'No se pudo enviar la solicitud al servidor.', 'error');
-          }
-          setLoading(false);
-        }
-      });
-    } else {
-      alert('Funcionalidad de soporte disponible.');
-    }
-  };
-
-  const getFuerzaClave = (val: string) => {
-    let fuerza = 0;
-    if (val.length >= 8) fuerza += 25;
-    if (/[A-Z]/.test(val)) fuerza += 25;
-    if (/[a-z]/.test(val)) fuerza += 25;
-    if (/[0-9]/.test(val)) fuerza += 15;
-    if (/[^A-Za-z0-9]/.test(val)) fuerza += 10;
-    return fuerza;
-  };
-
-  const selectedSchool = school || 'sb';
   return (
-    <div className="relative min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden bg-[#f0f4f9] selection:bg-sky-500 selection:text-white">
-      {/* 1. Fondo de red cibernetica interactiva */}
+    <div
+      id="login-page-root"
+      className="min-h-[100dvh] w-full max-w-full flex flex-col justify-between items-center relative bg-[#f4f7fb] overflow-x-hidden p-0 m-0"
+    >
+      {/* Fondo Tecnológico Claro con Red de Nodos y Líneas Interconectadas */}
       <TechNetworkBackground theme="light" />
 
-      {/* 2. Contenedor Central */}
-      <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center px-4 py-4 sm:py-6">
-        {/* Cabecera con Escudo y Titulo */}
-        <div className="flex flex-col items-center text-center mb-3 sm:mb-4">
+      {/* Contenedor Central de Cabecera y Formulario (con márgenes de lectura) */}
+      <div className="w-full max-w-full flex-1 flex flex-col items-center justify-center pt-2 sm:pt-4 pb-1 px-3 sm:px-4 relative z-10 min-w-0 my-auto">
+        {/* Cabecera Oficial SIGAE con Escudo y Resplandor Dorado/Azul */}
+        <div className="w-full max-w-3xl text-center mb-1.5 sm:mb-2 relative z-10">
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="relative mb-2 select-none"
+            initial={{ scale: 0.88, opacity: 0, y: -10 }}
+            animate={{ scale: 1, opacity: 1, y: [0, -4, 0] }}
+            transition={{
+              scale: { duration: 0.4 },
+              opacity: { duration: 0.4 },
+              y: { repeat: Infinity, duration: 4.5, ease: 'easeInOut' }
+            }}
+            className="relative inline-block group"
           >
-            <div className="absolute inset-0 bg-sky-400/20 blur-xl rounded-full"></div>
-            <img 
-              src="/img/sigae-logo.png" 
-              alt="Escudo SIGAE" 
-              className="relative w-16 h-16 sm:w-20 md:w-24 h-auto drop-shadow-md object-contain"
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-sky-400/35 via-blue-500/25 to-amber-400/30 blur-2xl opacity-90 group-hover:opacity-100 transition-opacity" />
+            <img
+              src="/img/sigae-logo.png"
+              alt="SIGAE"
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain mx-auto filter drop-shadow-[0_8px_20px_rgba(2,132,199,0.25)] relative z-10 transition-transform duration-300 group-hover:scale-105"
             />
           </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-base sm:text-xl md:text-2xl font-black text-[#0f2e59] tracking-tight"
-          >
+          <h1 className="-mt-1 text-sm sm:text-base md:text-lg lg:text-xl font-black text-slate-800 tracking-tight drop-shadow-xs leading-tight relative z-20 px-2">
             Sistema Integral de Gestión y Administración Escolar
-          </motion.h1>
+          </h1>
         </div>
 
-        {/* Tarjeta Flotante Principal */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full max-w-[440px] bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-xl shadow-sky-950/10 border border-slate-100 p-5 sm:p-6 relative z-10 transition-all"
-        >
-          {/* Mensaje de Error si existe */}
-          {errorMsg && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-xs shadow-xs"
-            >
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <div className="leading-relaxed font-medium">{errorMsg}</div>
-            </motion.div>
-          )}
-
-          {/* Selector de Escuela Activa */}
-          <div className="mb-4">
-            <div className="flex bg-slate-100/90 p-1 rounded-xl gap-1 border border-slate-200/60">
-              <button
-                type="button"
-                onClick={() => handleSchoolChange('sb')}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  selectedSchool === 'sb'
-                    ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <School className="w-3.5 h-3.5" />
-                <span>UE Santa Bárbara</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSchoolChange('lb')}
-                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  selectedSchool === 'lb'
-                    ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <School className="w-3.5 h-3.5" />
-                <span>UE Libertador Bolívar</span>
-              </button>
-            </div>
-          </div>
-
-          <AnimatePresence mode="wait">
-            {/* ========================================================
-                PASO 1: CEDULA O USUARIO
-            ======================================================== */}
-            {loginStep === 'cedula' && (
+        {/* Tarjeta Flotante Principal Glassmorphism */}
+        <div className={`w-full ${paso === 'primer_ingreso' ? 'max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-3xl' : 'max-w-[420px]'} relative z-10 transition-all duration-300`}>
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+            className="bg-white/95 backdrop-blur-2xl rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_-15px_rgba(2,132,199,0.22)] p-4 sm:p-6 border border-white/80 relative overflow-hidden"
+          >
+            {/* Alerta de Error */}
+            {error && (
               <motion.div
-                key="paso-cedula"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.25 }}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-3 p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-2"
               >
-                <div className="flex items-center gap-3 mb-4">
-                  <User3DIcon size={36} />
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-800">Iniciar Sesión</h2>
-                    <p className="text-[11px] text-slate-500 font-medium leading-tight">
-                      Ingresa tu cédula o usuario para continuar
-                    </p>
-                  </div>
-                </div>
-
-                <form onSubmit={verificarCedula} className="space-y-3.5">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                      Cédula o Usuario
-                    </label>
-                    <div className="relative flex items-center">
-                      <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none text-slate-400">
-                        <User className="w-4 h-4 text-sky-600" />
-                      </div>
-                      <input
-                        id="input-cedula-login"
-                        type="text"
-                        autoFocus
-                        required
-                        value={cedula}
-                        onChange={(e) => {
-                          setCedula(e.target.value.trim());
-                          if (errorMsg) setErrorMsg('');
-                        }}
-                        placeholder="Ej: 12345678 o usuario"
-                        className="w-full h-11 pl-9 pr-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold transition-all shadow-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading || !cedula}
-                    className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-sky-600/25 hover:shadow-lg hover:shadow-sky-600/35 active:scale-[0.99] flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {loading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        <span>Verificando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Continuar</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                {/* Acceso Biometrico rapido si esta configurado en el dispositivo */}
-                {localStorage.getItem('sigae_tiene_huella') &&
-                 localStorage.getItem('sigae_huella_habilitada') !== 'false' && (
-                  <button
-                    type="button"
-                    onClick={handleLoginBiometrico}
-                    disabled={loading}
-                    className="w-full mt-2.5 h-10 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Fingerprint className="w-4 h-4 text-emerald-600" />
-                    <span>Ingresar con Huella / PIN</span>
-                  </button>
-                )}
-
-                <div className="mt-3.5 flex items-center justify-between text-xs pt-1 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={handleOlvidoClave}
-                    className="text-[#2189cf] hover:text-[#1c78b8] font-bold hover:underline transition-colors focus:outline-none cursor-pointer"
-                  >
-                    ¿Olvidé mi contraseña?
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLoginStep('invitado')}
-                    className="text-slate-500 hover:text-slate-700 font-medium hover:underline transition-colors focus:outline-none cursor-pointer"
-                  >
-                    Visitante / Invitado
-                  </button>
-                </div>
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{error}</span>
               </motion.div>
             )}
 
-            {/* ========================================================
-                PASO 2: CONTRASEÑA CON PREVIEW DEL USUARIO
-            ======================================================== */}
-            {loginStep === 'clave' && (
-              <motion.div
-                key="paso-clave"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-4"
-              >
-                {/* Perfil Reconocido */}
-                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50/50 border border-sky-100 rounded-2xl">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#2189cf] to-sky-400 flex items-center justify-center text-white font-black text-sm shadow-sm overflow-hidden shrink-0">
-                    {usuarioDetalle?.foto ? (
-                      <img src={usuarioDetalle.foto} alt={nombreUsuario} className="w-full h-full object-cover" />
-                    ) : (
-                      <span>{nombreUsuario ? nombreUsuario.charAt(0).toUpperCase() : 'U'}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                      {nombreUsuario || 'Usuario'}
-                    </h3>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">
-                        {usuarioDetalle?.rol || 'Personal SIGAE'}
-                      </span>
-                      {usuarioDetalle?.cargo && (
-                        <span className="text-[10px] text-slate-500 truncate">
-                          • {usuarioDetalle.cargo}
-                        </span>
-                      )}
+            {/* Selector de Plantel Educativo Activo */}
+            <div className="mb-3.5">
+              <div className="flex bg-slate-100/90 p-1 rounded-xl gap-1 border border-slate-200/60">
+                <button
+                  type="button"
+                  onClick={() => handleSchoolChange('sb')}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    school === 'sb'
+                      ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <School className="w-3.5 h-3.5" />
+                  <span>UE Santa Bárbara</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSchoolChange('lb')}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    school === 'lb'
+                      ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <School className="w-3.5 h-3.5" />
+                  <span>UE Libertador Bolívar</span>
+                </button>
+              </div>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {/* ========================================================
+                  PASO 1: IDENTIFICACIÓN (CÉDULA O USUARIO)
+              ======================================================== */}
+              {paso === 'identificar' && (
+                <motion.div
+                  key="paso-identificar"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                    <Security3DIcon size={44} className="drop-shadow-md shrink-0" />
+                    <div>
+                      <h2 className="text-base sm:text-lg font-black text-slate-800 tracking-tight leading-snug">
+                        Iniciar Sesión
+                      </h2>
+                      <p className="text-xs text-slate-500 font-medium leading-tight mt-0.5">
+                        Ingresa tu cédula o nombre de usuario para continuar
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                <form onSubmit={iniciarSesion} className="space-y-3.5">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                        Contraseña Institucional
+                  <form onSubmit={handleVerificarUsuario} className="space-y-3.5">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Cédula o Usuario
                       </label>
+                      <div className="relative flex items-center">
+                        <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none z-10">
+                          <User3DIcon size={18} />
+                        </div>
+                        <input
+                          type="text"
+                          autoFocus
+                          required
+                          value={identificador}
+                          onChange={(e) => setIdentificador(e.target.value)}
+                          placeholder="Ej: 12345678 o usuario"
+                          className="w-full h-11 pl-10 pr-4 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold placeholder-slate-400 transition-all shadow-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={cargando}
+                      className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 hover:shadow-xl hover:shadow-sky-600/40 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 cursor-pointer mt-1"
+                    >
+                      {cargando ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Verificando usuario...</span>
+                        </span>
+                      ) : (
+                        <>
+                          <span>Continuar</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Acceso Biométrico rápido si está en este dispositivo */}
+                  {localStorage.getItem('sigae_tiene_huella') && (
+                    <button
+                      type="button"
+                      onClick={handleLoginBiometrico}
+                      className="w-full h-10 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Fingerprint className="w-4 h-4 text-emerald-600" />
+                      <span>Ingresar con Huella / PIN</span>
+                    </button>
+                  )}
+
+                  {/* Fila de Acciones: Registro de Usuario, Olvido de Clave e Invitados */}
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
                       <button
                         type="button"
-                        onClick={handleOlvidoClave}
-                        className="text-[11px] text-[#2189cf] hover:text-[#1c78b8] font-bold hover:underline transition-colors focus:outline-none cursor-pointer"
+                        onClick={() => {
+                          setPaso('recuperar');
+                          setRecuperarIdentificador(identificador);
+                          setError('');
+                        }}
+                        className="text-[#2189cf] hover:text-[#1c78b8] font-bold transition-colors hover:underline focus:outline-none cursor-pointer"
                       >
                         ¿Olvidé mi contraseña?
                       </button>
-                    </div>
-                    <div className="relative flex items-center">
-                      <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none text-slate-400">
-                        <Lock className="w-4 h-4 text-sky-600" />
-                      </div>
-                      <input
-                        type={showClave ? 'text' : 'password'}
-                        autoFocus
-                        required
-                        value={clave}
-                        onChange={(e) => {
-                          setClave(e.target.value);
-                          if (errorMsg) setErrorMsg('');
-                        }}
-                        placeholder="••••••••"
-                        className="w-full h-11 pl-9 pr-10 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold transition-all shadow-xs tracking-wider"
-                      />
                       <button
                         type="button"
-                        onClick={() => setShowClave(!showClave)}
-                        className="absolute right-2.5 inset-y-0 my-auto h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors rounded-lg focus:outline-none cursor-pointer"
-                        title={showClave ? 'Ocultar contraseña' : 'Ver contraseña'}
+                        onClick={() => setPaso('invitado')}
+                        className="text-slate-500 hover:text-slate-700 font-medium hover:underline transition-colors focus:outline-none cursor-pointer"
                       >
-                        {showClave ? <EyeOff className="w-4 h-4 text-sky-600" /> : <Eye className="w-4 h-4" />}
+                        Visitante / Invitado
                       </button>
                     </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading || !clave}
-                    className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-sky-600/25 hover:shadow-lg hover:shadow-sky-600/35 active:scale-[0.99] flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {loading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        <span>Ingresando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Ingresar al Sistema</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                {localStorage.getItem('sigae_tiene_huella') && (
-                  <button
-                    type="button"
-                    onClick={handleLoginBiometrico}
-                    disabled={loading}
-                    className="w-full h-10 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Fingerprint className="w-4 h-4 text-emerald-600" />
-                    <span>Ingresar con Huella / PIN</span>
-                  </button>
-                )}
-
-                <div className="pt-2 text-center border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="text-xs text-slate-500 hover:text-sky-600 font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Ingresar con otra cédula o usuario</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ========================================================
-                PASO 3: RECUPERACIÓN CON PREGUNTAS DE SEGURIDAD
-            ======================================================== */}
-            {loginStep === 'recuperacion' && (
-              <motion.div
-                key="paso-recuperacion"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-3.5"
-              >
-                <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
-                  <Security3DIcon size={30} />
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">Restablecer Contraseña</h3>
-                    <p className="text-[11px] text-slate-500 font-medium">Verificación de seguridad</p>
-                  </div>
-                </div>
-
-                <form onSubmit={procesarRecuperacion} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                      Pregunta de Seguridad
-                    </label>
-                    <div className="p-2.5 bg-sky-50/70 border border-sky-100 rounded-xl text-xs font-semibold text-sky-900 leading-snug">
-                      {preguntaRecuperacion || 'Pregunta registrada'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                      Tu Respuesta
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={recRespuesta}
-                      onChange={(e) => setRecRespuesta(e.target.value)}
-                      placeholder="Escribe tu respuesta exacta"
-                      className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-medium transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                      Correo Electrónico Registrado
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={recCorreo}
-                      onChange={(e) => setRecCorreo(e.target.value)}
-                      placeholder="correo@ejemplo.com"
-                      className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-medium transition-all"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Nueva Clave
-                      </label>
-                      <input
-                        type={showRecClave1 ? 'text' : 'password'}
-                        required
-                        value={recClave1}
-                        onChange={(e) => setRecClave1(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] text-slate-800 font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Confirmar Clave
-                      </label>
-                      <input
-                        type={showRecClave2 ? 'text' : 'password'}
-                        required
-                        value={recClave2}
-                        onChange={(e) => setRecClave2(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] text-slate-800 font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
-                  >
-                    {loading ? 'Restableciendo...' : 'Restablecer Contraseña'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="w-full py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
-                  >
-                    Cancelar y volver
-                  </button>
-                </form>
-              </motion.div>
-            )}
-
-            {/* ========================================================
-                PASO 4: PRIMER INGRESO (CONFIGURAR CLAVE Y 2 PREGUNTAS)
-            ======================================================== */}
-            {loginStep === 'primer-ingreso' && (
-              <motion.div
-                key="paso-primer-ingreso"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-3"
-              >
-                <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">Bienvenido al SIGAE</h3>
-                    <p className="text-[11px] text-slate-500 font-medium">Configura tu contraseña y preguntas</p>
-                  </div>
-                </div>
-
-                <form onSubmit={procesarPrimerIngreso} className="space-y-2.5 text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Nueva Clave</label>
-                      <input
-                        type={showPiClave1 ? 'text' : 'password'}
-                        required
-                        value={piClave1}
-                        onChange={handlePiClave1Change}
-                        placeholder="Mínimo 8 caracteres"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Confirmar Clave</label>
-                      <input
-                        type={showPiClave2 ? 'text' : 'password'}
-                        required
-                        value={piClave2}
-                        onChange={e => setPiClave2(e.target.value)}
-                        placeholder="Repetir clave"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correo Electrónico</label>
-                      <input
-                        type="email"
-                        required
-                        value={piEmail}
-                        onChange={e => setPiEmail(e.target.value)}
-                        placeholder="tu@correo.com"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Teléfono</label>
-                      <input
-                        type="tel"
-                        required
-                        value={piTelefono}
-                        onChange={e => setPiTelefono(e.target.value)}
-                        placeholder="04121234567"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Pregunta de Seguridad 1</label>
-                    <select
-                      value={piPreg1}
-                      onChange={e => setPiPreg1(e.target.value)}
-                      required
-                      className="w-full h-9 px-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 mb-1"
+                    {/* Botón Destacado: Registrarse / Primer Ingreso */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrimerIngresoData(prev => ({
+                          ...prev,
+                          cedula: identificador.replace(/\D/g, '') || '',
+                          nombreCompleto: '',
+                          email: '',
+                          telefonoNumero: '',
+                          telefono: '',
+                          password: '',
+                          confirmPassword: ''
+                        }));
+                        setSubPasoPrimerIngreso(1);
+                        setPaso('primer_ingreso');
+                        setError('');
+                      }}
+                      className="w-full py-2 px-3 bg-sky-50 hover:bg-sky-100/80 border border-sky-200 text-sky-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
-                      <option value="">Seleccione una pregunta...</option>
-                      {preguntasSeguridad.map(p => (
-                        <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      required
-                      value={piResp1}
-                      onChange={e => setPiResp1(e.target.value)}
-                      placeholder="Respuesta a la pregunta 1"
-                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                    />
+                      <UserPlus className="w-3.5 h-3.5 text-sky-600" />
+                      <span>¿Primer ingreso o no tienes cuenta? Registrarse aquí</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ========================================================
+                  PASO 2: CONTRASEÑA CON PREVIEW COMPLETO DEL USUARIO
+              ======================================================== */}
+              {paso === 'clave' && usuarioEncontrado && (
+                <motion.div
+                  key="paso-clave"
+                  initial={{ opacity: 0, x: -15 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 15 }}
+                  transition={{ duration: 0.25 }}
+                  className="space-y-4"
+                >
+                  {/* Ficha de Identidad del Usuario Encontrado */}
+                  <div className="p-3.5 bg-gradient-to-r from-sky-50 to-blue-50/70 border border-sky-200 rounded-2xl flex items-center gap-3">
+                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-white border-2 border-sky-300 shadow-sm shrink-0 flex items-center justify-center">
+                      {fotoPreviewClave ? (
+                        <img
+                          src={fotoPreviewClave}
+                          alt="Usuario"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/img/avatars/avatar-1.png';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-tr from-[#2189cf] to-sky-400 text-white font-black flex items-center justify-center text-lg shadow-inner">
+                          {usuarioEncontrado.nombre_completo ? usuarioEncontrado.nombre_completo[0].toUpperCase() : 'U'}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-extrabold text-slate-900 text-sm leading-snug truncate">
+                          {usuarioEncontrado.nombre_completo || 'Usuario'}
+                        </p>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-sky-200/80 text-sky-800 px-2 py-0.5 rounded-full border border-sky-300/60 shrink-0">
+                          {usuarioEncontrado.rol || 'Personal SIGAE'}
+                        </span>
+                      </div>
+                      {usuarioEncontrado.cargo && (
+                        <p className="text-[11px] font-bold text-sky-800 mt-0.5 truncate">
+                          <span className="text-slate-400 font-semibold">Cargo: </span>
+                          <span>{usuarioEncontrado.cargo}</span>
+                        </p>
+                      )}
+                      <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                        C.I. {usuarioEncontrado.cedula} &bull; Sede {school === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Pregunta de Seguridad 2</label>
-                    <select
-                      value={piPreg2}
-                      onChange={e => setPiPreg2(e.target.value)}
-                      required
-                      className="w-full h-9 px-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 mb-1"
-                    >
-                      <option value="">Seleccione una pregunta...</option>
-                      {preguntasSeguridad.map(p => (
-                        <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      required
-                      value={piResp2}
-                      onChange={e => setPiResp2(e.target.value)}
-                      placeholder="Respuesta a la pregunta 2"
-                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-11 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-700 hover:to-blue-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md mt-2 cursor-pointer"
-                  >
-                    {loading ? 'Configurando cuenta...' : 'Completar Activación'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="w-full py-1 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                </form>
-              </motion.div>
-            )}
-
-            {/* ========================================================
-                PASO 5: REGISTRO DE VISITANTE / INVITADO
-            ======================================================== */}
-            {loginStep === 'invitado' && (
-              <motion.div
-                key="paso-invitado"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-3"
-              >
-                <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
-                  <Users className="w-5 h-5 text-indigo-500" />
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">Visitantes e Invitados</h3>
-                    <p className="text-[11px] text-slate-500 font-medium">Ingreso temporal institucional</p>
-                  </div>
-                </div>
-
-                <form onSubmit={registrarInvitado} className="space-y-2.5 text-xs">
-                  <div className="grid grid-cols-2 gap-2">
+                  <form onSubmit={handleLoginClave} className="space-y-3.5">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Nombres</label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Contraseña Institucional
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaso('recuperar');
+                            setRecuperarIdentificador(usuarioEncontrado.cedula);
+                            setError('');
+                          }}
+                          className="text-xs text-[#2189cf] hover:text-[#1c78b8] font-bold transition-colors hover:underline focus:outline-none cursor-pointer"
+                        >
+                          ¿Olvidé mi contraseña?
+                        </button>
+                      </div>
+
+                      <div className="relative flex items-center">
+                        <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none z-10">
+                          <Lock3DIcon size={18} />
+                        </div>
+                        <input
+                          type={mostrarPassword ? 'text' : 'password'}
+                          autoFocus
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Ingrese su clave"
+                          className="w-full h-11 pl-10 pr-10 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold transition-all shadow-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMostrarPassword(!mostrarPassword)}
+                          className="absolute right-2.5 inset-y-0 my-auto h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
+                        >
+                          {mostrarPassword ? <EyeOff className="w-4 h-4 text-sky-600" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={cargando}
+                      className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 hover:shadow-xl hover:shadow-sky-600/40 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {cargando ? (
+                        <span>Ingresando al sistema...</span>
+                      ) : (
+                        <>
+                          <span>Ingresar al Sistema</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="pt-2 text-center border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="text-xs text-slate-500 hover:text-sky-600 font-medium inline-flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Ingresar con otra cédula o usuario</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ========================================================
+                  PASO: CONFIRMAR USUARIO NO REGISTRADO
+              ======================================================== */}
+              {paso === 'confirmar_no_registrado' && (
+                <motion.div
+                  key="paso-confirmar"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="text-center space-y-4 py-1"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 mx-auto flex items-center justify-center border border-amber-200">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">Cédula o usuario no registrado</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      El identificador <strong className="text-slate-800 font-mono">"{identificador}"</strong> no figura registrado actualmente en el sistema.
+                    </p>
+                    <p className="text-xs font-semibold text-slate-700 mt-3">
+                      ¿Deseas corregir el número o crear tu cuenta por primera vez?
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaso('identificar')}
+                      className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                    >
+                      No, corregirlo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrimerIngresoData(prev => ({
+                          ...prev,
+                          cedula: identificador.replace(/\D/g, '') || identificador,
+                          nombreCompleto: '',
+                          email: '',
+                          telefonoNumero: '',
+                          telefono: '',
+                          password: '',
+                          confirmPassword: ''
+                        }));
+                        setSubPasoPrimerIngreso(1);
+                        setPaso('primer_ingreso');
+                        setError('');
+                      }}
+                      className="py-2.5 px-4 bg-[#2189cf] hover:bg-[#1c78b8] text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
+                    >
+                      Sí, registrarme
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ========================================================
+                  PASO: REGISTRO / PRIMER INGRESO (2 SUB-PASOS)
+              ======================================================== */}
+              {paso === 'primer_ingreso' && (
+                <motion.div
+                  key="paso-primer-ingreso"
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.25 }}
+                  className="space-y-3.5"
+                >
+                  {/* Barra de Progreso de 2 Pasos */}
+                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                        subPasoPrimerIngreso === 1 ? 'bg-sky-600 text-white shadow-sm' : 'bg-emerald-600 text-white'
+                      }`}>
+                        {subPasoPrimerIngreso === 1 ? '1' : '✓'}
+                      </span>
+                      <span className={`text-[11px] font-bold ${subPasoPrimerIngreso === 1 ? 'text-sky-800' : 'text-slate-500'}`}>
+                        Datos, Foto & Clave
+                      </span>
+                    </div>
+
+                    <span className="text-slate-300 font-bold">• • •</span>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                        subPasoPrimerIngreso === 2 ? 'bg-sky-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500'
+                      }`}>
+                        2
+                      </span>
+                      <span className={`text-[11px] font-bold ${subPasoPrimerIngreso === 2 ? 'text-sky-800' : 'text-slate-400'}`}>
+                        Preguntas de Seguridad
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* SUB-PASO 1: DATOS, AVATAR/FOTO Y CONTRASEÑA */}
+                  {subPasoPrimerIngreso === 1 && (
+                    <form onSubmit={handleAvanzarPaso2PrimerIngreso} className="space-y-3 text-xs">
+                      {/* Ficha Compacta de Identidad con Preview en Vivo */}
+                      <div className="p-3 bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-xl flex items-center gap-3">
+                        <div
+                          className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-2xl bg-white shadow-sm shrink-0 overflow-hidden border border-slate-200 ring-2 ring-sky-400/60 p-0.5 relative flex items-center justify-center"
+                          style={{ width: '56px', height: '56px' }}
+                        >
+                          {primerIngresoData.modoFoto === 'subir' && primerIngresoData.fotoSubidaUrl ? (
+                            <img src={primerIngresoData.fotoSubidaUrl} alt="Foto de perfil" className="w-full h-full object-cover rounded-xl" />
+                          ) : (
+                            <img
+                              src={AVATARES_DISPONIBLES.find(a => a.id === primerIngresoData.avatarSeleccionado)?.url || '/img/avatars/avatar-1.png'}
+                              alt="Avatar"
+                              className="w-full h-full object-contain p-0.5"
+                            />
+                          )}
+                        </div>
+                        <div className="overflow-hidden flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-extrabold uppercase bg-sky-200 text-sky-800 px-1.5 py-0.2 rounded">
+                              Registro / Activación
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-500">
+                              C.I. {primerIngresoData.cedula || 'Pendiente'}
+                            </span>
+                          </div>
+                          <h3 className="font-extrabold text-slate-800 text-xs truncate">
+                            {primerIngresoData.nombreCompleto || 'Nuevo Usuario'}
+                          </h3>
+                          <p className="text-[10px] text-sky-700 truncate">
+                            Sede {school === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* SELECTOR DE FOTO O AVATAR */}
+                      <div className="p-3 bg-slate-50/90 border border-slate-200 rounded-xl space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                            <Smile className="w-3.5 h-3.5 text-sky-600" />
+                            <span>Foto de Perfil o Avatar Institucional *</span>
+                          </label>
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
+                            <Cloud className="w-2.5 h-2.5" />
+                            <span>Perfil Digital</span>
+                          </div>
+                        </div>
+
+                        {/* Pestañas: Elegir Avatar vs Subir Foto */}
+                        <div className="grid grid-cols-2 p-1 bg-slate-200/70 rounded-lg text-[10px] font-bold text-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setPrimerIngresoData(prev => ({ ...prev, modoFoto: 'avatar' }))}
+                            className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                              primerIngresoData.modoFoto === 'avatar'
+                                ? 'bg-white text-sky-900 shadow-sm border border-slate-200 font-extrabold'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            <Smile className="w-3 h-3 text-sky-600" />
+                            <span>Elegir Avatar (8)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPrimerIngresoData(prev => ({ ...prev, modoFoto: 'subir' }))}
+                            className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                              primerIngresoData.modoFoto === 'subir'
+                                ? 'bg-white text-sky-900 shadow-sm border border-slate-200 font-extrabold'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            <Camera className="w-3 h-3 text-sky-600" />
+                            <span>Subir Foto Personal</span>
+                          </button>
+                        </div>
+
+                        {/* Catálogo de Avatares Oficiales */}
+                        {primerIngresoData.modoFoto === 'avatar' && (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              Selecciona tu avatar preferido:
+                            </p>
+                            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 pt-1 pb-0.5">
+                              {AVATARES_DISPONIBLES.map((av) => {
+                                const activo = primerIngresoData.avatarSeleccionado === av.id;
+                                return (
+                                  <button
+                                    key={av.id}
+                                    type="button"
+                                    onClick={() => setPrimerIngresoData(prev => ({ ...prev, avatarSeleccionado: av.id }))}
+                                    className={`relative p-1 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                                      activo
+                                        ? 'bg-sky-50 border-2 border-sky-600 scale-105 shadow-md shadow-sky-600/20 ring-2 ring-sky-300'
+                                        : 'bg-white border border-slate-200 hover:border-sky-300 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 flex items-center justify-center">
+                                      <img src={av.url} alt="Avatar" className="w-full h-full object-contain" />
+                                    </div>
+                                    {activo && (
+                                      <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sky-600 text-white rounded-full flex items-center justify-center text-[7px] font-black shadow-xs">
+                                        ✓
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Subir Foto con Recorte Circular */}
+                        {primerIngresoData.modoFoto === 'subir' && (
+                          <div className="space-y-2 p-2.5 bg-white rounded-xl border border-dashed border-sky-300 text-center">
+                            {primerIngresoData.fotoSubidaUrl ? (
+                              <div className="flex items-center justify-center gap-3">
+                                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-sky-600 shadow-md shrink-0 ring-2 ring-sky-300 flex items-center justify-center">
+                                  <img src={primerIngresoData.fotoSubidaUrl} alt="Foto recortada" className="w-full h-full object-cover rounded-full" />
+                                </div>
+                                <div className="text-left space-y-1">
+                                  <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span>Foto personal lista</span>
+                                  </span>
+                                  <div className="flex items-center gap-1.5 pt-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (imagenOriginalParaRecortar || primerIngresoData.fotoSubidaUrl) {
+                                          setCropperOpen(true);
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-50 border border-sky-200 rounded-lg text-[10px] font-bold text-sky-800 hover:bg-sky-100 transition-all cursor-pointer"
+                                    >
+                                      <Crop className="w-3 h-3 text-sky-600" />
+                                      <span>Reajustar</span>
+                                    </button>
+                                    <label className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 border border-slate-300 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-100 transition-all">
+                                      <Camera className="w-3 h-3 text-sky-600" />
+                                      <span>Cambiar</span>
+                                      <input type="file" accept="image/*" onChange={handleSeleccionarArchivoFoto} className="hidden" />
+                                    </label>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <label className="cursor-pointer flex flex-col items-center justify-center py-2.5 px-2 group">
+                                <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mb-1 group-hover:scale-105 group-hover:bg-sky-200 transition-all">
+                                  <Upload className="w-4 h-4" />
+                                </div>
+                                <span className="text-[11px] font-bold text-sky-800">Toca para tomar o seleccionar foto</span>
+                                <span className="text-[9px] text-slate-400">Permite encuadre y recorte circular táctil</span>
+                                <input type="file" accept="image/*" onChange={handleSeleccionarArchivoFoto} className="hidden" />
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Cédula y Nombres */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-700 text-[11px]">Cédula de Identidad *</label>
+                          <input
+                            type="text"
+                            required
+                            value={primerIngresoData.cedula}
+                            onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, cedula: e.target.value.replace(/\D/g, '') })}
+                            placeholder="Ej: 12345678"
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-800 text-xs"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-700 text-[11px]">Nombres y Apellidos *</label>
+                          <input
+                            type="text"
+                            required
+                            value={primerIngresoData.nombreCompleto}
+                            onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, nombreCompleto: e.target.value })}
+                            placeholder="Ej: María Pérez"
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-800 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Teléfono Móvil y Correo */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
+                            <Phone className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                            <span>Teléfono Móvil *</span>
+                          </label>
+                          <div className="flex gap-1 items-center">
+                            <select
+                              value={primerIngresoData.codigoPais}
+                              onChange={(e) => {
+                                const cod = e.target.value;
+                                const formateado = formatearTelefonoNumero(primerIngresoData.telefonoNumero, cod);
+                                setPrimerIngresoData({
+                                  ...primerIngresoData,
+                                  codigoPais: cod,
+                                  telefonoNumero: formateado,
+                                  telefono: `${cod} ${formateado}`.trim()
+                                });
+                              }}
+                              className="w-[85px] shrink-0 h-10 px-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-xs cursor-pointer"
+                            >
+                              {PAISES_TELEFONO.map((p) => (
+                                <option key={p.codigo} value={p.codigo}>{p.bandera} {p.codigo}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="tel"
+                              required
+                              value={primerIngresoData.telefonoNumero}
+                              onChange={(e) => {
+                                const formateado = formatearTelefonoNumero(e.target.value, primerIngresoData.codigoPais);
+                                setPrimerIngresoData({
+                                  ...primerIngresoData,
+                                  telefonoNumero: formateado,
+                                  telefono: `${primerIngresoData.codigoPais} ${formateado}`.trim()
+                                });
+                              }}
+                              placeholder="412-1234567"
+                              className="flex-1 h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs"
+                            />
+                          </div>
+
+                          {/* Operadoras rápidas de Venezuela */}
+                          {primerIngresoData.codigoPais === '+58' && (
+                            <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                              {OPERADORAS_VENEZUELA.map((op) => (
+                                <button
+                                  key={op.codigo}
+                                  type="button"
+                                  onClick={() => {
+                                    const resto = primerIngresoData.telefonoNumero.replace(/^\d{3}-?/, '');
+                                    const nuevoNum = `${op.codigo}-${resto}`;
+                                    setPrimerIngresoData({
+                                      ...primerIngresoData,
+                                      telefonoNumero: nuevoNum,
+                                      telefono: `${primerIngresoData.codigoPais} ${nuevoNum}`.trim()
+                                    });
+                                  }}
+                                  className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all border cursor-pointer ${
+                                    primerIngresoData.telefonoNumero.startsWith(op.codigo)
+                                      ? 'bg-sky-600 text-white border-sky-600'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-sky-300'
+                                  }`}
+                                >
+                                  {op.codigo}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Correo */}
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
+                            <Mail className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                            <span>Correo Electrónico *</span>
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={primerIngresoData.email}
+                            onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, email: e.target.value.toLowerCase().replace(/\s/g, '') })}
+                            placeholder="tu.correo@ejemplo.com"
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 text-xs"
+                          />
+                          {/* Chips de dominios rápidos */}
+                          <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                            {DOMINIOS_CORREO_COMUNES.slice(0, 4).map((dom) => (
+                              <button
+                                key={dom}
+                                type="button"
+                                onClick={() => {
+                                  const base = primerIngresoData.email.split('@')[0] || '';
+                                  setPrimerIngresoData({ ...primerIngresoData, email: `${base}${dom}` });
+                                }}
+                                className="text-[9px] px-1.5 py-0.5 rounded-md font-semibold bg-white text-slate-600 border border-slate-200 hover:border-sky-300 cursor-pointer"
+                              >
+                                {dom}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nombre de Usuario (Alias único) */}
+                      <div className="space-y-1">
+                        <label className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
+                          <AtSign className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                          <span>Nombre de Usuario (Alias de acceso) *</span>
+                        </label>
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-sky-700 font-black text-sm select-none pointer-events-none">@</span>
+                          <input
+                            type="text"
+                            required
+                            value={primerIngresoData.username}
+                            onChange={(e) => setPrimerIngresoData({
+                              ...primerIngresoData,
+                              username: e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 20)
+                            })}
+                            placeholder="ej: maria.gonzalez"
+                            className="w-full h-10 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs"
+                          />
+                        </div>
+                        {sugerenciasUsuario.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                            <span className="text-[9px] font-bold text-slate-400">Sugerencias:</span>
+                            {sugerenciasUsuario.map((sug) => (
+                              <button
+                                key={sug}
+                                type="button"
+                                onClick={() => setPrimerIngresoData({ ...primerIngresoData, username: sug })}
+                                className="text-[9px] px-2 py-0.5 rounded-md font-bold bg-white text-sky-700 border border-sky-200 hover:bg-sky-50 cursor-pointer"
+                              >
+                                @{sug}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contraseña y Confirmar con Termómetro */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-700 text-[11px]">Nueva Contraseña *</label>
+                          <div className="relative flex items-center">
+                            <input
+                              type={mostrarPassword ? 'text' : 'password'}
+                              required
+                              value={primerIngresoData.password}
+                              onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, password: e.target.value })}
+                              placeholder="Mínimo 6 caracteres"
+                              className="w-full h-10 pl-3 pr-8 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setMostrarPassword(!mostrarPassword)}
+                              className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              {mostrarPassword ? <EyeOff className="w-3.5 h-3.5 text-sky-600" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-bold text-slate-700 text-[11px]">Confirmar Contraseña *</label>
+                          <input
+                            type="password"
+                            required
+                            value={primerIngresoData.confirmPassword}
+                            onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, confirmPassword: e.target.value })}
+                            placeholder="Repita la clave"
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <PasswordStrengthThermometer
+                        password={primerIngresoData.password}
+                        confirmPassword={primerIngresoData.confirmPassword}
+                      />
+
+                      <div className="pt-2 space-y-2">
+                        <button
+                          type="submit"
+                          className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        >
+                          <span>Continuar a Preguntas de Seguridad (2/2)</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaso('identificar')}
+                          className="w-full py-1 text-center text-slate-400 hover:text-slate-700 font-semibold text-xs cursor-pointer"
+                        >
+                          Cancelar y volver
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* SUB-PASO 2: TRES PREGUNTAS DE SEGURIDAD */}
+                  {subPasoPrimerIngreso === 2 && (
+                    <form onSubmit={handleGuardarPrimerIngreso} className="space-y-3 text-xs">
+                      <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4 text-sky-600 shrink-0" />
+                        <p className="text-[11px] text-sky-900 leading-snug">
+                          Elija tres preguntas y escriba sus respuestas secretas. Servirán para restablecer su cuenta en caso de olvido.
+                        </p>
+                      </div>
+
+                      {/* Pregunta 1 */}
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                        <label className="block text-[11px] font-bold text-slate-700">1. Primera Pregunta *</label>
+                        <select
+                          value={primerIngresoData.pregunta1}
+                          onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, pregunta1: e.target.value })}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium text-xs cursor-pointer"
+                        >
+                          {PREGUNTAS_SEGURIDAD_OPCIONES.map((p, idx) => (
+                            <option key={idx} value={p}>{p}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          required
+                          value={primerIngresoData.respuesta1}
+                          onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, respuesta1: e.target.value })}
+                          placeholder="Tu respuesta secreta 1"
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs"
+                        />
+                      </div>
+
+                      {/* Pregunta 2 */}
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                        <label className="block text-[11px] font-bold text-slate-700">2. Segunda Pregunta *</label>
+                        <select
+                          value={primerIngresoData.pregunta2}
+                          onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, pregunta2: e.target.value })}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium text-xs cursor-pointer"
+                        >
+                          {PREGUNTAS_SEGURIDAD_OPCIONES.map((p, idx) => (
+                            <option key={idx} value={p}>{p}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          required
+                          value={primerIngresoData.respuesta2}
+                          onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, respuesta2: e.target.value })}
+                          placeholder="Tu respuesta secreta 2"
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs"
+                        />
+                      </div>
+
+                      {/* Pregunta 3 */}
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                        <label className="block text-[11px] font-bold text-slate-700">3. Tercera Pregunta *</label>
+                        <select
+                          value={primerIngresoData.pregunta3}
+                          onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, pregunta3: e.target.value })}
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium text-xs cursor-pointer"
+                        >
+                          {PREGUNTAS_SEGURIDAD_OPCIONES.map((p, idx) => (
+                            <option key={idx} value={p}>{p}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          required
+                          value={primerIngresoData.respuesta3}
+                          onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, respuesta3: e.target.value })}
+                          placeholder="Tu respuesta secreta 3"
+                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs"
+                        />
+                      </div>
+
+                      <div className="pt-2 space-y-2">
+                        <button
+                          type="submit"
+                          disabled={cargando}
+                          className="w-full h-11 bg-gradient-to-r from-emerald-600 via-sky-600 to-indigo-700 hover:from-emerald-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {cargando ? 'Guardando credenciales...' : (
+                            <>
+                              <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                              <span>Guardar Credenciales e Ingresar</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSubPasoPrimerIngreso(1)}
+                          className="w-full py-1 text-center text-slate-500 hover:text-slate-800 font-semibold text-xs flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>Volver a Datos y Contraseña</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </motion.div>
+              )}
+
+              {/* ========================================================
+                  PASO: RECUPERACIÓN DE CONTRASEÑA Y RESTAURACIÓN TOTAL
+              ======================================================== */}
+              {paso === 'recuperar' && (
+                <motion.div
+                  key="paso-recuperar"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-4"
+                >
+                  <div className="text-center pb-1">
+                    <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center mx-auto mb-2 text-sky-600 shadow-xs">
+                      <KeyRound className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-base sm:text-lg font-black text-slate-800">
+                      Recuperación de Contraseña
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      {!recuperarUsuario
+                        ? 'Ingrese su Cédula para verificar sus preguntas'
+                        : `Restablezca su clave para ${recuperarUsuario.nombre_completo || 'Usuario'}`}
+                    </p>
+                  </div>
+
+                  {restauracionConfirmada ? (
+                    <div className="space-y-4 text-center py-2">
+                      <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs space-y-2">
+                        <CheckCircle2 className="w-8 h-8 text-amber-600 mx-auto" />
+                        <p className="font-bold text-sm text-amber-950">Solicitud de Restauración Total Enviada</p>
+                        <p className="text-amber-800 text-[11px]">
+                          Se ha registrado una solicitud de restablecimiento para el Administrador de SIGAE.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetForm}
+                        className="w-full h-11 bg-[#2189cf] hover:bg-[#1c78b8] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                      >
+                        Volver al Inicio
+                      </button>
+                    </div>
+                  ) : !recuperarUsuario ? (
+                    <form onSubmit={handleConsultarRecuperacion} className="space-y-3.5">
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Cédula o Usuario
+                        </label>
+                        <div className="relative flex items-center">
+                          <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none z-10">
+                            <User3DIcon size={18} />
+                          </div>
+                          <input
+                            type="text"
+                            autoFocus
+                            required
+                            value={recuperarIdentificador}
+                            onChange={(e) => setRecuperarIdentificador(e.target.value)}
+                            placeholder="Ej: 12345678 o usuario"
+                            className="w-full h-11 pl-10 pr-4 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold shadow-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={cargando}
+                        className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {cargando ? 'Consultando...' : (
+                          <>
+                            <span>Continuar</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+
+                      {/* Restauración Total */}
+                      <div className="pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setMostrarModalRestauracionTotal(!mostrarModalRestauracionTotal)}
+                          className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100/90 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                          <span>¿Olvidó todo? Restauración Total</span>
+                        </button>
+
+                        {mostrarModalRestauracionTotal && (
+                          <div className="mt-2.5 p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2 text-xs text-left">
+                            <p className="font-extrabold text-amber-950 text-xs">¿Solicitar Restauración Total?</p>
+                            <p className="text-[11px] text-amber-900 leading-tight">
+                              Se enviará una alerta al administrador del sistema escolar para revalidar su cuenta.
+                            </p>
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={handleSolicitarRestauracionTotal}
+                                disabled={cargando}
+                                className="flex-1 py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs cursor-pointer"
+                              >
+                                {cargando ? 'Enviando...' : 'Confirmar Solicitud'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMostrarModalRestauracionTotal(false)}
+                                className="py-1.5 px-3 bg-white border border-amber-300 text-amber-900 font-semibold rounded-lg text-xs cursor-pointer"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </form>
+                  ) : recuperarExito ? (
+                    <div className="space-y-4 text-center py-2">
+                      <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs space-y-1">
+                        <p className="font-bold text-sm text-emerald-900">¡Contraseña Restablecida con Éxito!</p>
+                        <p className="text-emerald-700 text-xs">Ahora puede iniciar sesión con su nueva clave.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={resetForm}
+                        className="w-full h-11 bg-[#2189cf] hover:bg-[#1c78b8] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                      >
+                        Ir a Iniciar Sesión
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleRestablecerClave} className="space-y-3.5 text-xs">
+                      {/* Pregunta 1 */}
+                      <div className="space-y-1">
+                        <div className="p-2.5 bg-sky-50 border border-sky-100 rounded-xl">
+                          <span className="text-[10px] font-extrabold uppercase text-sky-800 block">1ra Pregunta de Seguridad:</span>
+                          <p className="text-xs font-bold text-slate-800">{recuperarPregunta1}</p>
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          value={recuperarRespuesta1}
+                          onChange={(e) => setRecuperarRespuesta1(e.target.value)}
+                          placeholder="Tu 1ra respuesta"
+                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                        />
+                      </div>
+
+                      {/* Pregunta 2 */}
+                      <div className="space-y-1">
+                        <div className="p-2.5 bg-sky-50 border border-sky-100 rounded-xl">
+                          <span className="text-[10px] font-extrabold uppercase text-sky-800 block">2da Pregunta de Seguridad:</span>
+                          <p className="text-xs font-bold text-slate-800">{recuperarPregunta2}</p>
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          value={recuperarRespuesta2}
+                          onChange={(e) => setRecuperarRespuesta2(e.target.value)}
+                          placeholder="Tu 2da respuesta"
+                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                        />
+                      </div>
+
+                      {/* Nuevas Contraseñas */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="password"
+                          required
+                          value={recuperarNuevaClave}
+                          onChange={(e) => setRecuperarNuevaClave(e.target.value)}
+                          placeholder="Nueva clave"
+                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                        />
+                        <input
+                          type="password"
+                          required
+                          value={recuperarConfirmClave}
+                          onChange={(e) => setRecuperarConfirmClave(e.target.value)}
+                          placeholder="Repita la nueva clave"
+                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={cargando}
+                        className="w-full h-11 bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-700 hover:to-sky-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/30 cursor-pointer"
+                      >
+                        {cargando ? 'Restableciendo...' : 'Restablecer e Iniciar Sesión'}
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="text-xs text-slate-500 hover:text-slate-800 font-medium inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Volver al inicio</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ========================================================
+                  PASO: REGISTRO DE VISITANTES / INVITADOS
+              ======================================================== */}
+              {paso === 'invitado' && (
+                <motion.div
+                  key="paso-invitado"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
+                    <Users className="w-5 h-5 text-indigo-500" />
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-800">Visitantes e Invitados</h3>
+                      <p className="text-[11px] text-slate-500 font-medium">Ingreso temporal institucional</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleRegistrarInvitado} className="space-y-2.5 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
                         required
                         value={invNombres}
                         onChange={e => setInvNombres(e.target.value)}
                         placeholder="Nombres"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Apellidos</label>
                       <input
                         type="text"
                         required
                         value={invApellidos}
                         onChange={e => setInvApellidos(e.target.value)}
                         placeholder="Apellidos"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correo</label>
+                    <div className="grid grid-cols-2 gap-2">
                       <input
                         type="email"
                         required
                         value={invCorreo}
                         onChange={e => setInvCorreo(e.target.value)}
                         placeholder="correo@ejemplo.com"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Teléfono</label>
                       <input
                         type="tel"
                         required
                         value={invTelefono}
                         onChange={e => setInvTelefono(e.target.value)}
                         placeholder="04121234567"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Motivo de la Visita</label>
                     <textarea
                       required
                       rows={2}
                       value={invMotivo}
                       onChange={e => setInvMotivo(e.target.value)}
-                      placeholder="Indique brevemente el motivo..."
-                      className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 resize-none"
+                      placeholder="Motivo de la visita..."
+                      className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 resize-none font-medium"
                     />
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-11 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md mt-2 cursor-pointer"
-                  >
-                    {loading ? 'Registrando...' : 'Registrar e Ingresar'}
-                  </button>
+                    <button
+                      type="submit"
+                      disabled={cargando}
+                      className="w-full h-11 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md mt-1 cursor-pointer"
+                    >
+                      {cargando ? 'Registrando...' : 'Registrar e Ingresar'}
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="w-full py-1 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
-                  >
-                    Volver al login
-                  </button>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="w-full py-1 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
+                    >
+                      Volver al login
+                    </button>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          {/* Enlace al Portal Informativo */}
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center">
-            <Link
-              to={`/portal/${selectedSchool}`}
-              className="text-[11px] font-bold text-slate-500 hover:text-sky-700 inline-flex items-center gap-1 transition-colors"
-            >
-              <span>Ver Portal Web Informativo de la Institución</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+            {/* Enlace al Portal Informativo */}
+            <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-center">
+              <Link
+                to={`/portal/${school}`}
+                className="text-[11px] font-bold text-slate-500 hover:text-sky-700 inline-flex items-center gap-1 transition-colors"
+              >
+                <span>Ver Portal Web Informativo de la Institución</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
 
-          {/* Sello Oficial MPPE */}
-          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center select-none">
-            <img
-              src="/img/ministerio-educacion-logo.png"
-              alt="Ministerio del Poder Popular para la Educación"
-              className="h-7 w-auto object-contain opacity-95"
-            />
-            <span className="text-[9.5px] font-bold text-slate-400 mt-1 tracking-wider uppercase">
-              República Bolivariana de Venezuela • MPPE
-            </span>
-          </div>
-        </motion.div>
+            {/* Sello Oficial MPPE */}
+            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col items-center select-none">
+              <img
+                src="/img/ministerio-educacion-logo.png"
+                alt="Ministerio del Poder Popular para la Educación"
+                className="h-6 sm:h-7 w-auto object-contain"
+              />
+              <p className="text-[10px] text-slate-400 font-semibold text-center mt-1">
+                República Bolivariana de Venezuela &bull; MPPE
+              </p>
+            </div>
+          </motion.div>
+        </div>
       </div>
 
-      {/* 3. Footer Bicentenario de esquina a esquina sin separación */}
-      <footer className="w-full shrink-0 flex justify-center items-end bg-transparent pointer-events-none z-10">
+      {/* Cintillo Footer Institucional Bicentenario (De esquina a esquina sin separación) */}
+      <footer className="w-full max-w-full relative z-10 mt-auto -mt-4 sm:-mt-6 md:-mt-8 shrink-0 leading-none p-0 m-0 overflow-hidden min-w-0 pointer-events-none">
         <img
           src="/img/cintillo-footer-venezuela.png"
-          alt="Bicentenario Venezuela"
-          className="w-full h-auto max-h-[110px] sm:max-h-[135px] md:max-h-[155px] object-cover object-bottom select-none block"
+          alt="República Bolivariana de Venezuela - Bicentenario 200"
+          className="w-full max-w-full h-auto block select-none pointer-events-none"
         />
       </footer>
+
+      {/* Modal Interactivo de Recorte Circular y Encuadre */}
+      <ImageCropperModal
+        isOpen={cropperOpen}
+        imageSrc={imagenOriginalParaRecortar}
+        onClose={() => setCropperOpen(false)}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 };
-
