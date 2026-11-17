@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   base: process.env.ELECTRON_BUILD === 'true' ? './' : '/', // '/' absoluto para Web (Vercel) y Capacitor; './' solo para Electron offline
   server: {
     port: 5173,

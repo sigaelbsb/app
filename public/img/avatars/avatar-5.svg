@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Fondo Circular Ámbar / Dorado Institucional -->
+  <circle cx="60" cy="60" r="56" fill="#fef3c7" stroke="#d97706" stroke-width="3.5"/>
+  <circle cx="60" cy="60" r="51" fill="#fde68a" opacity="0.45"/>
+
+  <!-- Torso y Traje Formal Gris Marengo / Carbón -->
+  <path d="M22 114 C22 88, 38 76, 60 76 C82 76, 98 88, 98 114 Z" fill="#1e293b"/>
+  <!-- Camisa Blanca Almidonada -->
+  <polygon points="48,76 60,94 72,76" fill="#ffffff"/>
+  <!-- Corbata Dorada de Lujo -->
+  <polygon points="57,88 63,88 61.5,114 58.5,114" fill="#d97706"/>
+  <polygon points="57,88 63,88 60,92" fill="#b45309"/>
+  <!-- Pin / Botón Institucional Dorado -->
+  <circle cx="42" cy="88" r="2.2" fill="#f59e0b"/>
+
+  <!-- Cuello -->
+  <rect x="53" y="65" width="14" height="15" rx="4" fill="#fed7aa"/>
+  <path d="M53 71 C53 76, 67 76, 67 71 Z" fill="#fba666" opacity="0.5"/>
+
+  <!-- Orejas y Cabeza -->
+  <circle cx="39" cy="50" r="5.5" fill="#fba666"/>
+  <circle cx="81" cy="50" r="5.5" fill="#fba666"/>
+  <ellipse cx="60" cy="47" rx="20" ry="24" fill="#fed7aa"/>
+
+  <!-- Cabello Plateado / Distinguido Sal y Pimienta -->
+  <path d="M38 42 C38 22, 48 18, 60 18 C72 18, 82 22, 82 42 C80 28, 72 23, 58 24 C46 25, 40 30, 38 42 Z" fill="#64748b"/>
+  <path d="M42 32 C50 24, 66 23, 76 30 C66 25, 52 25, 44 29 Z" fill="#94a3b8"/>
+
+  <!-- Cejas Distinguidas -->
+  <path d="M46 39 Q52 37 56 39" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+  <path d="M64 39 Q68 37 74 39" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+
+  <!-- Ojos -->
+  <circle cx="51" cy="45" r="2.6" fill="#1e293b"/>
+  <circle cx="50" cy="44" r="1" fill="#ffffff"/>
+  <circle cx="69" cy="45" r="2.6" fill="#1e293b"/>
+  <circle cx="68" cy="44" r="1" fill="#ffffff"/>
+
+  <!-- Nariz Firme -->
+  <path d="M60 45 L58 51 L62 51" stroke="#ea580c" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+
+  <!-- Expresión Ejecutiva de Confianza -->
+  <path d="M54 56 Q60 61 66 56" stroke="#9a3412" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+</svg>

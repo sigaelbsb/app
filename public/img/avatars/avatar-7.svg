@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Fondo Circular Verde Lima Fresco -->
+  <circle cx="60" cy="60" r="56" fill="#ecfccb" stroke="#65a30d" stroke-width="3.5"/>
+  <circle cx="60" cy="60" r="51" fill="#d9f99d" opacity="0.45"/>
+
+  <!-- Torso y Franela Naranja Escolar / Juvenil -->
+  <path d="M22 114 C22 88, 38 78, 60 78 C82 78, 98 88, 98 114 Z" fill="#ea580c"/>
+  <!-- Cuello Polo Blanco -->
+  <polygon points="46,78 60,92 74,78" fill="#ffffff"/>
+
+  <!-- Cuello -->
+  <rect x="53" y="66" width="14" height="15" rx="4" fill="#fed7aa"/>
+  <path d="M53 72 C53 77, 67 77, 67 72 Z" fill="#fba666" opacity="0.5"/>
+
+  <!-- Orejas y Cabeza -->
+  <circle cx="39" cy="51" r="5.5" fill="#fba666"/>
+  <circle cx="81" cy="51" r="5.5" fill="#fba666"/>
+  <ellipse cx="60" cy="48" rx="20" ry="24" fill="#fed7aa"/>
+
+  <!-- Cabello Castaño con Rizos Juveniles -->
+  <path d="M38 43 C38 23, 48 18, 60 18 C72 18, 82 23, 82 43 C78 26, 70 22, 60 23 C48 22, 40 26, 38 43 Z" fill="#5c2c16"/>
+  <circle cx="44" cy="27" r="6" fill="#5c2c16"/>
+  <circle cx="54" cy="22" r="7" fill="#5c2c16"/>
+  <circle cx="66" cy="23" r="6.5" fill="#5c2c16"/>
+  <circle cx="76" cy="28" r="5.5" fill="#5c2c16"/>
+  <!-- Brillo del Cabello -->
+  <circle cx="53" cy="20" r="3" fill="#854d0e"/>
+  <circle cx="65" cy="21" r="2.5" fill="#854d0e"/>
+
+  <!-- Cejas -->
+  <path d="M47 40 Q52 37 56 40" stroke="#451a03" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M64 40 Q68 37 73 40" stroke="#451a03" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <!-- Ojos Grandes Expresivos -->
+  <circle cx="51" cy="46" r="2.9" fill="#1e293b"/>
+  <circle cx="49.8" cy="44.8" r="1.1" fill="#ffffff"/>
+  <circle cx="69" cy="46" r="2.9" fill="#1e293b"/>
+  <circle cx="67.8" cy="44.8" r="1.1" fill="#ffffff"/>
+
+  <!-- Mejillas -->
+  <circle cx="44" cy="52" r="3.5" fill="#fb7185" opacity="0.35"/>
+  <circle cx="76" cy="52" r="3.5" fill="#fb7185" opacity="0.35"/>
+
+  <!-- Gran Sonrisa Alegre con Dientes Blancos -->
+  <path d="M51 56 Q60 67 69 56 Z" fill="#991b1b"/>
+  <path d="M53 57 Q60 61 67 57" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>

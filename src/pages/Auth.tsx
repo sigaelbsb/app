@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import confetti from 'canvas-confetti';
+import { 
+  User, Lock, ArrowRight, ArrowLeft, Eye, EyeOff, 
+  ShieldCheck, AlertCircle, Fingerprint, CheckCircle2, 
+  KeyRound, HelpCircle, Sparkles, School, ChevronRight,
+  RotateCcw, Users
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { registrarSesionActiva } from '../utils/activeSessionsHelper';
+import TechNetworkBackground from '../components/TechNetworkBackground';
+import { Security3DIcon, User3DIcon, Lock3DIcon } from '../components/Animated3DIcons';
 import '../portal_sap.css';
 
 export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
@@ -23,6 +33,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
   const [cedula, setCedula] = useState('');
   const [clave, setClave] = useState('');
   const [nombreUsuario, setNombreUsuario] = useState(''); // To show in Clave step
+  const [usuarioDetalle, setUsuarioDetalle] = useState<{
+    nombre: string;
+    rol: string;
+    cargo?: string;
+    foto?: string;
+    escuela?: string;
+  } | null>(null);
   
   // Password Visibility States
   const [showClave, setShowClave] = useState(false);
@@ -408,7 +425,15 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
             const faltan = Math.ceil((bloqueo - ahora) / 60000);
             setErrorMsg(`Cuenta bloqueada temporalmente por seguridad. Intente en ${faltan} minutos.`);
           } else {
-            setNombreUsuario(data.nombre_completo || `${data.nombres || ''} ${data.apellidos || ''}`.trim());
+            const nomCompleto = data.nombre_completo || `${data.nombres || ''} ${data.apellidos || ''}`.trim() || data.nombre || 'Usuario';
+            setNombreUsuario(nomCompleto);
+            setUsuarioDetalle({
+              nombre: nomCompleto,
+              rol: data.rol || 'Personal SIGAE',
+              cargo: data.cargo || '',
+              foto: data.foto_url || data.foto_perfil || '',
+              escuela: data.id_escuela || school || 'sb'
+            });
             if (data.primer_ingreso === true || !data.clave) {
               await cargarPreguntas();
               setLoginStep('primer-ingreso');
@@ -417,7 +442,15 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
             }
           }
         } else {
-          setNombreUsuario(data.nombre_completo || `${data.nombres || ''} ${data.apellidos || ''}`.trim());
+          const nomCompleto = data.nombre_completo || `${data.nombres || ''} ${data.apellidos || ''}`.trim() || data.nombre || 'Usuario';
+          setNombreUsuario(nomCompleto);
+          setUsuarioDetalle({
+            nombre: nomCompleto,
+            rol: data.rol || 'Personal SIGAE',
+            cargo: data.cargo || '',
+            foto: data.foto_url || data.foto_perfil || '',
+            escuela: data.id_escuela || school || 'sb'
+          });
           if (data.primer_ingreso === true || !data.clave) {
             await cargarPreguntas();
             setLoginStep('primer-ingreso');
@@ -661,6 +694,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     registrarSesionActiva(userData.cedula);
 
     auditarAcceso(userData.cedula, userData.nombre_completo || userData.nombre, 'Inicio de Sesión', 'El usuario accedió exitosamente al sistema.');
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.65 }
+      });
+    } catch (e) {}
     onLogin(cleanUserData);
   };
 
@@ -961,6 +1001,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     setLoginStep('cedula');
     setClave('');
     setErrorMsg('');
+    setUsuarioDetalle(null);
   };
 
   const handleOlvidoClave = async () => {
@@ -1182,566 +1223,686 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
   const selectedSchool = school || 'sb';
   return (
-    <div className="sap-fiori-viewport animate__animated animate__fadeIn">
-      {/* Diálogo Central de Acceso */}
-      <main className="sap-fiori-logon-container">
-        <div className="sap-fiori-logon-card">
-          {/* Cintillo Oficial del Ministerio del Poder Popular para la Educación */}
-          <div className="sap-fiori-mppe-container">
+    <div className="relative min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden bg-[#f0f4f9] selection:bg-sky-500 selection:text-white">
+      {/* 1. Fondo de red cibernetica interactiva */}
+      <TechNetworkBackground theme="light" />
+
+      {/* 2. Contenedor Central */}
+      <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center px-4 py-4 sm:py-6">
+        {/* Cabecera con Escudo y Titulo */}
+        <div className="flex flex-col items-center text-center mb-3 sm:mb-4">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="relative mb-2 select-none"
+          >
+            <div className="absolute inset-0 bg-sky-400/20 blur-xl rounded-full"></div>
             <img 
-              src="/assets/img/logoMPPE.png" 
-              alt="Ministerio del Poder Popular para la Educación" 
-              className="sap-fiori-mppe-banner" 
+              src="/img/sigae-logo.png" 
+              alt="Escudo SIGAE" 
+              className="relative w-16 h-16 sm:w-20 md:w-24 h-auto drop-shadow-md object-contain"
             />
-          </div>
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-base sm:text-xl md:text-2xl font-black text-[#0f2e59] tracking-tight"
+          >
+            Sistema Integral de Gestión y Administración Escolar
+          </motion.h1>
+        </div>
 
-          <div className="sap-fiori-card-header">
-            <div className="sap-fiori-shield-wrapper">
-              <div className="sap-fiori-shield-glow"></div>
-              <img src="/assets/img/sigae.png?v=escudo3d" alt="Escudo SIGAE" className="sap-fiori-shield-main" />
-            </div>
-            <div className="sap-fiori-system-sub">
-              <span className="sap-fiori-title-line-1">Sistema Integral de Gestión</span>
-              <span className="sap-fiori-title-line-2">y Administración Escolar</span>
-            </div>
-            <div className="sap-fiori-title-divider"></div>
-          </div>
-
-          {/* Acceso al Portal Web Informativo Público */}
-          <div className="text-center mb-3">
-            <Link 
-              to={`/portal/${selectedSchool}`} 
-              className="btn btn-sm btn-light border rounded-pill px-3 py-1 text-secondary shadow-xs d-inline-flex align-items-center gap-1.5 text-decoration-none"
-              style={{ fontSize: '0.78rem', fontWeight: 600 }}
-              title="Visitar la página web informativa de la institución"
-            >
-              <i className="bi bi-globe2 text-primary"></i>
-              <span>Ver Portal Web Informativo</span>
-              <i className="bi bi-arrow-right small text-muted"></i>
-            </Link>
-          </div>
-
-          {/* Alerta de Error */}
+        {/* Tarjeta Flotante Principal */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-[440px] bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-xl shadow-sky-950/10 border border-slate-100 p-5 sm:p-6 relative z-10 transition-all"
+        >
+          {/* Mensaje de Error si existe */}
           {errorMsg && (
-            <div className="alert alert-danger py-2 px-3 mb-3 small d-flex align-items-center gap-2 animate__animated animate__shakeX" style={{ borderRadius: '8px', fontSize: '0.82rem' }}>
-              <i className="bi bi-exclamation-triangle-fill text-danger flex-shrink-0"></i>
-              <span>{errorMsg}</span>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-red-700 text-xs shadow-xs"
+            >
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <div className="leading-relaxed font-medium">{errorMsg}</div>
+            </motion.div>
           )}
 
-          {/* PASO 1: CÉDULA */}
-          {loginStep === 'cedula' && (
-            <div>
-              {/* Selector de Plantel Educativo con Logos y Ubicación */}
-              <div className="sap-fiori-schools-grid">
-                <div 
-                  className={`sap-fiori-school-card ${selectedSchool === 'sb' ? 'active' : ''}`}
-                  onClick={() => handleSchoolChange('sb')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <img src="/assets/img/logo_sb.png" alt="Logo UE Santa Bárbara" className="sap-fiori-school-card-logo" />
-                  <div className="sap-fiori-school-card-info">
-                    <span className="sap-fiori-school-card-title">UE Santa Bárbara</span>
-                    <span className="sap-fiori-school-card-loc">
-                      <i className="bi bi-geo-alt-fill text-danger"></i> El Tejero, Zamora
-                    </span>
-                  </div>
-                </div>
-
-                <div 
-                  className={`sap-fiori-school-card ${selectedSchool === 'lb' ? 'active' : ''}`}
-                  onClick={() => handleSchoolChange('lb')}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <img src="/assets/img/logo_lb.png" alt="Logo UE Libertador Bolívar" className="sap-fiori-school-card-logo" />
-                  <div className="sap-fiori-school-card-info">
-                    <span className="sap-fiori-school-card-title">UE Libertador Bolívar</span>
-                    <span className="sap-fiori-school-card-loc">
-                      <i className="bi bi-geo-alt-fill text-danger"></i> Miraflores, Punceres
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Niveles Educativos con Representación de Estudiantes */}
-              <div className="sap-fiori-stages-grid">
-                <div className="sap-fiori-stage-card" title="Educación Inicial: Chemise Amarilla y Roja">
-                  <img src="/assets/img/avatar_inicial.png" alt="Educación Inicial" className="sap-fiori-stage-avatar" />
-                  <span className="sap-fiori-stage-name">Inicial</span>
-                </div>
-
-                <div className="sap-fiori-stage-card" title="Educación Primaria: Chemise Blanca">
-                  <img src="/assets/img/avatar_primaria.png" alt="Educación Primaria" className="sap-fiori-stage-avatar" />
-                  <span className="sap-fiori-stage-name">Primaria</span>
-                </div>
-
-                <div className="sap-fiori-stage-card" title="Educación Media General: Chemise Azul Cielo y Beige">
-                  <img src="/assets/img/avatar_media.png" alt="Educación Media General" className="sap-fiori-stage-avatar" />
-                  <span className="sap-fiori-stage-name">Media General</span>
-                </div>
-              </div>
-
-              <form onSubmit={verificarCedula}>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CÉDULA DE IDENTIDAD</label>
-                  <div className="sap-fiori-input-wrapper">
-                    <i className="bi bi-person sap-fiori-input-icon"></i>
-                    <input 
-                      id="input-cedula-login"
-                      type="text" 
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={9}
-                      className="sap-fiori-input" 
-                      placeholder="Ej: 12345678"
-                      value={cedula}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
-                        setCedula(digits);
-                        if (errorMsg) setErrorMsg('');
-                      }}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-
-                <button type="submit" disabled={loading} className="sap-fiori-btn-primary">
-                  {loading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      <span>Verificando credencial...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Continuar</span>
-                      <i className="bi bi-arrow-right"></i>
-                    </>
-                  )}
-                </button>
-              </form>
-
-              {localStorage.getItem('sigae_tiene_huella') && 
-               localStorage.getItem('sigae_huella_habilitada') !== 'false' && 
-               localStorage.getItem('sigae_bloqueado_total') !== 'true' && (
-                <button 
-                  type="button" 
-                  onClick={handleLoginBiometrico} 
-                  className="sap-fiori-btn-secondary"
-                  title="Acceso biométrico rápido"
-                >
-                  <i className="bi bi-fingerprint text-success fs-5"></i>
-                  <span>Ingresar con Huella / PIN</span>
-                </button>
-              )}
-
-              <div className="sap-fiori-links-row">
-                <button 
-                  type="button" 
-                  onClick={handleOlvidoClave} 
-                  className="btn btn-link p-0 sap-fiori-link"
-                >
-                  ¿Olvidó su contraseña?
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setLoginStep('invitado')} 
-                  className="btn btn-link p-0 sap-fiori-link text-secondary"
-                >
-                  <i className="bi bi-person-badge me-1"></i> Visitante
-                </button>
-              </div>
+          {/* Selector de Escuela Activa */}
+          <div className="mb-4">
+            <div className="flex bg-slate-100/90 p-1 rounded-xl gap-1 border border-slate-200/60">
+              <button
+                type="button"
+                onClick={() => handleSchoolChange('sb')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  selectedSchool === 'sb'
+                    ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <School className="w-3.5 h-3.5" />
+                <span>UE Santa Bárbara</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSchoolChange('lb')}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  selectedSchool === 'lb'
+                    ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <School className="w-3.5 h-3.5" />
+                <span>UE Libertador Bolívar</span>
+              </button>
             </div>
-          )}
+          </div>
 
-          {/* PASO 2: CONTRASEÑA */}
-          {loginStep === 'clave' && (
-            <div>
-              <div className="d-flex align-items-center justify-content-between p-2 mb-3 rounded" style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '14px' }}>
-                <div className="d-flex align-items-center gap-2 overflow-hidden">
-                  <img 
-                    src={selectedSchool === 'sb' ? '/assets/img/logo_sb.png' : '/assets/img/logo_lb.png'} 
-                    alt="Logo Plantel" 
-                    style={{ width: '38px', height: '38px', objectFit: 'contain', flexShrink: 0 }} 
-                  />
-                  <div className="text-truncate">
-                    <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.86rem' }}>{nombreUsuario || `C.I. ${cedula}`}</div>
-                    <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: '0.72rem' }}>
-                      <i className="bi bi-geo-alt-fill text-danger"></i>
-                      <span>{selectedSchool === 'sb' ? 'U.E. Santa Bárbara • El Tejero' : 'U.E. Libertador Bolívar • Miraflores'}</span>
+          <AnimatePresence mode="wait">
+            {/* ========================================================
+                PASO 1: CEDULA O USUARIO
+            ======================================================== */}
+            {loginStep === 'cedula' && (
+              <motion.div
+                key="paso-cedula"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <User3DIcon size={36} />
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-800">Iniciar Sesión</h2>
+                    <p className="text-[11px] text-slate-500 font-medium leading-tight">
+                      Ingresa tu cédula o usuario para continuar
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={verificarCedula} className="space-y-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                      Cédula o Usuario
+                    </label>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                        <User className="w-4 h-4 text-sky-600" />
+                      </div>
+                      <input
+                        id="input-cedula-login"
+                        type="text"
+                        autoFocus
+                        required
+                        value={cedula}
+                        onChange={(e) => {
+                          setCedula(e.target.value.trim());
+                          if (errorMsg) setErrorMsg('');
+                        }}
+                        placeholder="Ej: 12345678 o usuario"
+                        className="w-full h-11 pl-9 pr-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || !cedula}
+                    className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-sky-600/25 hover:shadow-lg hover:shadow-sky-600/35 active:scale-[0.99] flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        <span>Verificando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Continuar</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Acceso Biometrico rapido si esta configurado en el dispositivo */}
+                {localStorage.getItem('sigae_tiene_huella') &&
+                 localStorage.getItem('sigae_huella_habilitada') !== 'false' && (
+                  <button
+                    type="button"
+                    onClick={handleLoginBiometrico}
+                    disabled={loading}
+                    className="w-full mt-2.5 h-10 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Fingerprint className="w-4 h-4 text-emerald-600" />
+                    <span>Ingresar con Huella / PIN</span>
+                  </button>
+                )}
+
+                <div className="mt-3.5 flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleOlvidoClave}
+                    className="text-[#2189cf] hover:text-[#1c78b8] font-bold hover:underline transition-colors focus:outline-none cursor-pointer"
+                  >
+                    ¿Olvidé mi contraseña?
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoginStep('invitado')}
+                    className="text-slate-500 hover:text-slate-700 font-medium hover:underline transition-colors focus:outline-none cursor-pointer"
+                  >
+                    Visitante / Invitado
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ========================================================
+                PASO 2: CONTRASEÑA CON PREVIEW DEL USUARIO
+            ======================================================== */}
+            {loginStep === 'clave' && (
+              <motion.div
+                key="paso-clave"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-4"
+              >
+                {/* Perfil Reconocido */}
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50/50 border border-sky-100 rounded-2xl">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#2189cf] to-sky-400 flex items-center justify-center text-white font-black text-sm shadow-sm overflow-hidden shrink-0">
+                    {usuarioDetalle?.foto ? (
+                      <img src={usuarioDetalle.foto} alt={nombreUsuario} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{nombreUsuario ? nombreUsuario.charAt(0).toUpperCase() : 'U'}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                      {nombreUsuario || 'Usuario'}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800">
+                        {usuarioDetalle?.rol || 'Personal SIGAE'}
+                      </span>
+                      {usuarioDetalle?.cargo && (
+                        <span className="text-[10px] text-slate-500 truncate">
+                          • {usuarioDetalle.cargo}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-                <span className="badge bg-success-subtle text-success border border-success-subtle" style={{ fontSize: '0.68rem', padding: '4px 8px' }}>Usuario Verificado</span>
-              </div>
 
-              <form onSubmit={iniciarSesion}>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CONTRASEÑA INSTITUCIONAL</label>
-                  <div className="sap-fiori-input-wrapper position-relative">
-                    <i className="bi bi-lock sap-fiori-input-icon"></i>
-                    <input 
-                      type={showClave ? 'text' : 'password'} 
-                      className="sap-fiori-input pe-5" 
-                      placeholder="Ingrese su contraseña"
-                      value={clave}
-                      onChange={(e) => setClave(e.target.value)}
-                      autoFocus
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowClave(!showClave)} 
-                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                      style={{ background: 'transparent' }}
-                    >
-                      <i className={`bi bi-eye${showClave ? '-slash' : ''} text-muted`}></i>
-                    </button>
+                <form onSubmit={iniciarSesion} className="space-y-3.5">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                        Contraseña Institucional
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleOlvidoClave}
+                        className="text-[11px] text-[#2189cf] hover:text-[#1c78b8] font-bold hover:underline transition-colors focus:outline-none cursor-pointer"
+                      >
+                        ¿Olvidé mi contraseña?
+                      </button>
+                    </div>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                        <Lock className="w-4 h-4 text-sky-600" />
+                      </div>
+                      <input
+                        type={showClave ? 'text' : 'password'}
+                        autoFocus
+                        required
+                        value={clave}
+                        onChange={(e) => {
+                          setClave(e.target.value);
+                          if (errorMsg) setErrorMsg('');
+                        }}
+                        placeholder="••••••••"
+                        className="w-full h-11 pl-9 pr-10 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold transition-all shadow-xs tracking-wider"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowClave(!showClave)}
+                        className="absolute right-2.5 inset-y-0 my-auto h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors rounded-lg focus:outline-none cursor-pointer"
+                        title={showClave ? 'Ocultar contraseña' : 'Ver contraseña'}
+                      >
+                        {showClave ? <EyeOff className="w-4 h-4 text-sky-600" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <button type="submit" disabled={loading} className="sap-fiori-btn-primary">
-                  {loading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      <span>Iniciando sesión...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Iniciar Sesión</span>
-                      <i className="bi bi-box-arrow-in-right"></i>
-                    </>
-                  )}
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    disabled={loading || !clave}
+                    className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-sky-600/25 hover:shadow-lg hover:shadow-sky-600/35 active:scale-[0.99] flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        <span>Ingresando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Ingresar al Sistema</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
 
-              {localStorage.getItem('sigae_tiene_huella') && 
-               localStorage.getItem('sigae_huella_habilitada') !== 'false' && 
-               localStorage.getItem('sigae_bloqueado_total') !== 'true' && (
-                <button 
-                  type="button" 
-                  onClick={handleLoginBiometrico} 
-                  className="sap-fiori-btn-secondary"
-                  title="Acceso biométrico rápido"
-                >
-                  <i className="bi bi-fingerprint text-success fs-5"></i>
-                  <span>Ingresar con Huella / PIN</span>
-                </button>
-              )}
+                {localStorage.getItem('sigae_tiene_huella') && (
+                  <button
+                    type="button"
+                    onClick={handleLoginBiometrico}
+                    disabled={loading}
+                    className="w-full h-10 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Fingerprint className="w-4 h-4 text-emerald-600" />
+                    <span>Ingresar con Huella / PIN</span>
+                  </button>
+                )}
 
-              <div className="sap-fiori-links-row">
-                <button 
-                  type="button" 
-                  onClick={handleOlvidoClave} 
-                  className="btn btn-link p-0 sap-fiori-link"
-                >
-                  ¿Olvidó su contraseña?
-                </button>
-                <button 
-                  type="button" 
-                  onClick={resetForm} 
-                  className="btn btn-link p-0 sap-fiori-link text-secondary"
-                >
-                  <i className="bi bi-arrow-left me-1"></i> Cambiar Cédula
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* PASO: RECUPERACIÓN */}
-          {loginStep === 'recuperacion' && (
-            <div>
-              <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '1.05rem' }}>Recuperar Contraseña</h5>
-              <p className="text-muted small mb-3">Autenticación por Pregunta de Seguridad</p>
-              <form onSubmit={procesarRecuperacion}>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CORREO ELECTRÓNICO REGISTRADO</label>
-                  <input 
-                    type="email" 
-                    className="sap-fiori-input" 
-                    placeholder="correo@ejemplo.com"
-                    value={recCorreo}
-                    onChange={(e) => setRecCorreo(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">{preguntaRecuperacion || 'Cargando pregunta de seguridad...'}</label>
-                  <input 
-                    type="text" 
-                    className="sap-fiori-input" 
-                    placeholder="Respuesta exacta"
-                    value={recRespuesta}
-                    onChange={(e) => setRecRespuesta(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="sap-fiori-form-group position-relative">
-                  <label className="sap-fiori-label">NUEVA CONTRASEÑA</label>
-                  <div className="position-relative">
-                    <input 
-                      type={showRecClave1 ? 'text' : 'password'} 
-                      className="sap-fiori-input pe-5" 
-                      placeholder="Nueva Contraseña"
-                      value={recClave1}
-                      onChange={(e) => setRecClave1(e.target.value)}
-                      required
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowRecClave1(!showRecClave1)} 
-                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                      style={{ background: 'transparent' }}
-                    >
-                      <i className={`bi bi-eye${showRecClave1 ? '-slash' : ''} text-muted`}></i>
-                    </button>
-                  </div>
-                </div>
-                <div className="progress mb-3" style={{ height: '6px' }}>
-                  <div 
-                    className={`progress-bar ${getFuerzaClave(recClave1) < 50 ? 'bg-danger' : getFuerzaClave(recClave1) < 75 ? 'bg-warning' : 'bg-success'}`} 
-                    role="progressbar" 
-                    style={{ width: `${getFuerzaClave(recClave1)}%` }}
-                  ></div>
-                </div>
-                <div className="sap-fiori-form-group position-relative">
-                  <label className="sap-fiori-label">CONFIRMAR CONTRASEÑA</label>
-                  <div className="position-relative">
-                    <input 
-                      type={showRecClave2 ? 'text' : 'password'} 
-                      className="sap-fiori-input pe-5" 
-                      placeholder="Confirmar Contraseña"
-                      value={recClave2}
-                      onChange={(e) => setRecClave2(e.target.value)}
-                      required
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowRecClave2(!showRecClave2)} 
-                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                      style={{ background: 'transparent' }}
-                    >
-                      <i className={`bi bi-eye${showRecClave2 ? '-slash' : ''} text-muted`}></i>
-                    </button>
-                  </div>
-                </div>
-
-                <button type="submit" disabled={loading} className="sap-fiori-btn-primary mb-2">
-                  {loading ? 'Procesando...' : 'Restablecer Contraseña'}
-                </button>
-
-                <button type="button" onClick={solicitarSoporte} className="btn btn-outline-danger w-100 mb-3" style={{ borderRadius: '10px', fontSize: '0.86rem', fontWeight: 700, height: '40px' }}>
-                  No recuerdo nada (Soporte TI)
-                </button>
-
-                <div className="text-center">
-                  <button type="button" onClick={() => setLoginStep('clave')} className="btn btn-link sap-fiori-link text-secondary">
-                    Cancelar y volver
+                <div className="pt-2 text-center border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="text-xs text-slate-500 hover:text-sky-600 font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Ingresar con otra cédula o usuario</span>
                   </button>
                 </div>
-              </form>
-            </div>
-          )}
+              </motion.div>
+            )}
 
-          {/* PASO: INVITADO */}
-          {loginStep === 'invitado' && (
-            <div>
-              <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '1.05rem' }}>Registro de Visitante / Acceso Transitorio</h5>
-              <p className="text-muted small mb-3">Ingrese sus datos para el registro institucional.</p>
-              <form onSubmit={registrarInvitado}>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CÉDULA DE IDENTIDAD</label>
-                  <input type="text" className="sap-fiori-input" value={cedula} disabled />
-                </div>
-                <div className="row g-2 mb-2">
-                  <div className="col-6">
-                    <label className="sap-fiori-label">NOMBRES *</label>
-                    <input type="text" className="sap-fiori-input" placeholder="Nombres" value={invNombres} onChange={e => setInvNombres(e.target.value)} required />
-                  </div>
-                  <div className="col-6">
-                    <label className="sap-fiori-label">APELLIDOS *</label>
-                    <input type="text" className="sap-fiori-input" placeholder="Apellidos" value={invApellidos} onChange={e => setInvApellidos(e.target.value)} required />
+            {/* ========================================================
+                PASO 3: RECUPERACIÓN CON PREGUNTAS DE SEGURIDAD
+            ======================================================== */}
+            {loginStep === 'recuperacion' && (
+              <motion.div
+                key="paso-recuperacion"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-3.5"
+              >
+                <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
+                  <Security3DIcon size={30} />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">Restablecer Contraseña</h3>
+                    <p className="text-[11px] text-slate-500 font-medium">Verificación de seguridad</p>
                   </div>
                 </div>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CORREO ELECTRÓNICO</label>
-                  <input type="email" className="sap-fiori-input" placeholder="correo@ejemplo.com" value={invCorreo} onChange={e => setInvCorreo(e.target.value)} />
-                </div>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">NÚMERO DE TELÉFONO</label>
-                  <input type="text" className="sap-fiori-input" placeholder="04121234567" value={invTelefono} onChange={e => setInvTelefono(e.target.value)} />
-                </div>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">MOTIVO DE LA VISITA *</label>
-                  <input type="text" className="sap-fiori-input" placeholder="Motivo o trámite" value={invMotivo} onChange={e => setInvMotivo(e.target.value)} required />
-                </div>
 
-                <button type="submit" disabled={loading} className="sap-fiori-btn-primary mb-2">
-                  {loading ? 'Registrando ingreso...' : 'Registrar Ingreso'}
-                </button>
-                <button type="button" onClick={resetForm} className="sap-fiori-btn-secondary">
-                  Volver al Inicio
-                </button>
-              </form>
-            </div>
-          )}
+                <form onSubmit={procesarRecuperacion} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Pregunta de Seguridad
+                    </label>
+                    <div className="p-2.5 bg-sky-50/70 border border-sky-100 rounded-xl text-xs font-semibold text-sky-900 leading-snug">
+                      {preguntaRecuperacion || 'Pregunta registrada'}
+                    </div>
+                  </div>
 
-          {/* PASO: PRIMER INGRESO */}
-          {loginStep === 'primer-ingreso' && (
-            <div>
-              <h5 className="fw-bold text-dark mb-1" style={{ fontSize: '1.05rem' }}>Configuración Inicial de Cuenta</h5>
-              <p className="text-muted small mb-3">
-                Hola <span className="fw-bold text-dark">{nombreUsuario || `C.I. ${cedula}`}</span>, configure sus credenciales de acceso.
-              </p>
-              <form onSubmit={procesarPrimerIngreso}>
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CREAR CONTRASEÑA *</label>
-                  <div className="position-relative">
-                    <input 
-                      type={showPiClave1 ? 'text' : 'password'} 
-                      className="sap-fiori-input pe-5" 
-                      placeholder="Mínimo 8 caracteres" 
-                      value={piClave1}
-                      onChange={handlePiClave1Change}
-                      required 
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Tu Respuesta
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={recRespuesta}
+                      onChange={(e) => setRecRespuesta(e.target.value)}
+                      placeholder="Escribe tu respuesta exacta"
+                      className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-medium transition-all"
                     />
-                    <button 
-                      type="button"
-                      onClick={() => setShowPiClave1(!showPiClave1)} 
-                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                      style={{ background: 'transparent' }}
-                    >
-                      <i className={`bi bi-eye${showPiClave1 ? '-slash' : ''} text-muted`}></i>
-                    </button>
                   </div>
-                  <div className="progress mt-2" style={{ height: '6px' }}>
-                    <div 
-                      className={`progress-bar ${fuerzaPiClave < 50 ? 'bg-danger' : fuerzaPiClave < 75 ? 'bg-warning' : 'bg-success'}`} 
-                      role="progressbar" 
-                      style={{ width: `${fuerzaPiClave}%` }}
-                    ></div>
-                  </div>
-                </div>
 
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CONFIRMAR CONTRASEÑA *</label>
-                  <div className="position-relative">
-                    <input 
-                      type={showPiClave2 ? 'text' : 'password'} 
-                      className="sap-fiori-input pe-5" 
-                      placeholder="Repita la contraseña" 
-                      value={piClave2}
-                      onChange={e => setPiClave2(e.target.value)}
-                      required 
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Correo Electrónico Registrado
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={recCorreo}
+                      onChange={(e) => setRecCorreo(e.target.value)}
+                      placeholder="correo@ejemplo.com"
+                      className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-medium transition-all"
                     />
-                    <button 
-                      type="button"
-                      onClick={() => setShowPiClave2(!showPiClave2)} 
-                      className="btn border-0 position-absolute end-0 top-50 translate-middle-y me-2"
-                      style={{ background: 'transparent' }}
-                    >
-                      <i className={`bi bi-eye${showPiClave2 ? '-slash' : ''} text-muted`}></i>
-                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                        Nueva Clave
+                      </label>
+                      <input
+                        type={showRecClave1 ? 'text' : 'password'}
+                        required
+                        value={recClave1}
+                        onChange={(e) => setRecClave1(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] text-slate-800 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                        Confirmar Clave
+                      </label>
+                      <input
+                        type={showRecClave2 ? 'text' : 'password'}
+                        required
+                        value={recClave2}
+                        onChange={(e) => setRecClave2(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full h-10 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] text-slate-800 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  >
+                    {loading ? 'Restableciendo...' : 'Restablecer Contraseña'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="w-full py-1.5 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
+                  >
+                    Cancelar y volver
+                  </button>
+                </form>
+              </motion.div>
+            )}
+
+            {/* ========================================================
+                PASO 4: PRIMER INGRESO (CONFIGURAR CLAVE Y 2 PREGUNTAS)
+            ======================================================== */}
+            {loginStep === 'primer-ingreso' && (
+              <motion.div
+                key="paso-primer-ingreso"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-3"
+              >
+                <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">Bienvenido al SIGAE</h3>
+                    <p className="text-[11px] text-slate-500 font-medium">Configura tu contraseña y preguntas</p>
                   </div>
                 </div>
 
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">CORREO ELECTRÓNICO *</label>
-                  <input 
-                    type="email" 
-                    className="sap-fiori-input" 
-                    placeholder="usuario@correo.com" 
-                    value={piEmail}
-                    onChange={e => setPiEmail(e.target.value)}
-                    required 
-                  />
-                </div>
+                <form onSubmit={procesarPrimerIngreso} className="space-y-2.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Nueva Clave</label>
+                      <input
+                        type={showPiClave1 ? 'text' : 'password'}
+                        required
+                        value={piClave1}
+                        onChange={handlePiClave1Change}
+                        placeholder="Mínimo 8 caracteres"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Confirmar Clave</label>
+                      <input
+                        type={showPiClave2 ? 'text' : 'password'}
+                        required
+                        value={piClave2}
+                        onChange={e => setPiClave2(e.target.value)}
+                        placeholder="Repetir clave"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                  </div>
 
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">TELÉFONO CELULAR *</label>
-                  <input 
-                    type="tel" 
-                    className="sap-fiori-input" 
-                    placeholder="04121234567" 
-                    value={piTelefono}
-                    onChange={e => setPiTelefono(e.target.value)}
-                    required 
-                    maxLength={11}
-                  />
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correo Electrónico</label>
+                      <input
+                        type="email"
+                        required
+                        value={piEmail}
+                        onChange={e => setPiEmail(e.target.value)}
+                        placeholder="tu@correo.com"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Teléfono</label>
+                      <input
+                        type="tel"
+                        required
+                        value={piTelefono}
+                        onChange={e => setPiTelefono(e.target.value)}
+                        placeholder="04121234567"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                  </div>
 
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">PREGUNTA DE SEGURIDAD 1 *</label>
-                  <select 
-                    className="sap-fiori-select mb-2" 
-                    value={piPreg1} 
-                    onChange={e => setPiPreg1(e.target.value)}
-                    required
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Pregunta de Seguridad 1</label>
+                    <select
+                      value={piPreg1}
+                      onChange={e => setPiPreg1(e.target.value)}
+                      required
+                      className="w-full h-9 px-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 mb-1"
+                    >
+                      <option value="">Seleccione una pregunta...</option>
+                      {preguntasSeguridad.map(p => (
+                        <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      required
+                      value={piResp1}
+                      onChange={e => setPiResp1(e.target.value)}
+                      placeholder="Respuesta a la pregunta 1"
+                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Pregunta de Seguridad 2</label>
+                    <select
+                      value={piPreg2}
+                      onChange={e => setPiPreg2(e.target.value)}
+                      required
+                      className="w-full h-9 px-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 mb-1"
+                    >
+                      <option value="">Seleccione una pregunta...</option>
+                      {preguntasSeguridad.map(p => (
+                        <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      required
+                      value={piResp2}
+                      onChange={e => setPiResp2(e.target.value)}
+                      placeholder="Respuesta a la pregunta 2"
+                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-700 hover:to-blue-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md mt-2 cursor-pointer"
                   >
-                    <option value="">Seleccione una pregunta...</option>
-                    {preguntasSeguridad.map(p => (
-                      <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
-                    ))}
-                  </select>
-                  <input 
-                    type="text" 
-                    className="sap-fiori-input" 
-                    placeholder="Respuesta 1" 
-                    value={piResp1}
-                    onChange={e => setPiResp1(e.target.value)}
-                    required 
-                  />
-                </div>
+                    {loading ? 'Configurando cuenta...' : 'Completar Activación'}
+                  </button>
 
-                <div className="sap-fiori-form-group">
-                  <label className="sap-fiori-label">PREGUNTA DE SEGURIDAD 2 *</label>
-                  <select 
-                    className="sap-fiori-select mb-2" 
-                    value={piPreg2} 
-                    onChange={e => setPiPreg2(e.target.value)}
-                    required
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="w-full py-1 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
                   >
-                    <option value="">Seleccione una pregunta...</option>
-                    {preguntasSeguridad.map(p => (
-                      <option key={p.pregunta} value={p.pregunta}>{p.pregunta}</option>
-                    ))}
-                  </select>
-                  <input 
-                    type="text" 
-                    className="sap-fiori-input" 
-                    placeholder="Respuesta 2" 
-                    value={piResp2}
-                    onChange={e => setPiResp2(e.target.value)}
-                    required 
-                  />
+                    Cancelar
+                  </button>
+                </form>
+              </motion.div>
+            )}
+
+            {/* ========================================================
+                PASO 5: REGISTRO DE VISITANTE / INVITADO
+            ======================================================== */}
+            {loginStep === 'invitado' && (
+              <motion.div
+                key="paso-invitado"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-3"
+              >
+                <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
+                  <Users className="w-5 h-5 text-indigo-500" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800">Visitantes e Invitados</h3>
+                    <p className="text-[11px] text-slate-500 font-medium">Ingreso temporal institucional</p>
+                  </div>
                 </div>
 
-                <button type="submit" disabled={loading} className="sap-fiori-btn-primary mb-2">
-                  {loading ? 'Configurando cuenta...' : 'Completar Activación'}
-                </button>
-                <button type="button" onClick={resetForm} className="sap-fiori-btn-secondary">
-                  Cancelar
-                </button>
-              </form>
-            </div>
-          )}
+                <form onSubmit={registrarInvitado} className="space-y-2.5 text-xs">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Nombres</label>
+                      <input
+                        type="text"
+                        required
+                        value={invNombres}
+                        onChange={e => setInvNombres(e.target.value)}
+                        placeholder="Nombres"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Apellidos</label>
+                      <input
+                        type="text"
+                        required
+                        value={invApellidos}
+                        onChange={e => setInvApellidos(e.target.value)}
+                        placeholder="Apellidos"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                  </div>
 
-        </div>
-      </main>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Correo</label>
+                      <input
+                        type="email"
+                        required
+                        value={invCorreo}
+                        onChange={e => setInvCorreo(e.target.value)}
+                        placeholder="correo@ejemplo.com"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Teléfono</label>
+                      <input
+                        type="tel"
+                        required
+                        value={invTelefono}
+                        onChange={e => setInvTelefono(e.target.value)}
+                        placeholder="04121234567"
+                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                      />
+                    </div>
+                  </div>
 
-      {/* 3. Footer Corporativo */}
-      <footer className="sap-fiori-footer">
-        <div className="sap-fiori-footer-left">
-          <span>© 2026 SIGAE v1.1 • Sistema Integral de Gestión y Administración Escolar</span>
-        </div>
-        <div className="sap-fiori-footer-right">
-          <span>DEP Oriente</span>
-          <span>•</span>
-          <span>Monagas, Venezuela</span>
-          <span>•</span>
-          <span className="text-info fw-bold">Conexión Segura</span>
-        </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Motivo de la Visita</label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={invMotivo}
+                      onChange={e => setInvMotivo(e.target.value)}
+                      placeholder="Indique brevemente el motivo..."
+                      className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md mt-2 cursor-pointer"
+                  >
+                    {loading ? 'Registrando...' : 'Registrar e Ingresar'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="w-full py-1 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
+                  >
+                    Volver al login
+                  </button>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Enlace al Portal Informativo */}
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center">
+            <Link
+              to={`/portal/${selectedSchool}`}
+              className="text-[11px] font-bold text-slate-500 hover:text-sky-700 inline-flex items-center gap-1 transition-colors"
+            >
+              <span>Ver Portal Web Informativo de la Institución</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Sello Oficial MPPE */}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center select-none">
+            <img
+              src="/img/ministerio-educacion-logo.png"
+              alt="Ministerio del Poder Popular para la Educación"
+              className="h-7 w-auto object-contain opacity-95"
+            />
+            <span className="text-[9.5px] font-bold text-slate-400 mt-1 tracking-wider uppercase">
+              República Bolivariana de Venezuela • MPPE
+            </span>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* 3. Footer Bicentenario de esquina a esquina sin separación */}
+      <footer className="w-full shrink-0 flex justify-center items-end bg-transparent pointer-events-none z-10">
+        <img
+          src="/img/cintillo-footer-venezuela.png"
+          alt="Bicentenario Venezuela"
+          className="w-full h-auto max-h-[110px] sm:max-h-[135px] md:max-h-[155px] object-cover object-bottom select-none block"
+        />
       </footer>
     </div>
   );
 };
+

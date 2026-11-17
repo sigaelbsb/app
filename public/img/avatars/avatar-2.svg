@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Fondo Circular Lavanda / Púrpura Suave -->
+  <circle cx="60" cy="60" r="56" fill="#f3e8ff" stroke="#9333ea" stroke-width="3.5"/>
+  <circle cx="60" cy="60" r="51" fill="#e9d5ff" opacity="0.45"/>
+
+  <!-- Moño de Cabello Superior -->
+  <circle cx="60" cy="22" r="14" fill="#3b1d11"/>
+  <circle cx="60" cy="22" r="6" fill="#5c2c16"/>
+
+  <!-- Torso y Ropa -->
+  <!-- Blusa Verde Azulado / Teal -->
+  <path d="M22 114 C22 88, 38 78, 60 78 C82 78, 98 88, 98 114 Z" fill="#0d9488"/>
+  <!-- Cuello Blanco en V -->
+  <polygon points="46,78 60,94 74,78" fill="#ffffff"/>
+  <!-- Collar Dorado con Dije -->
+  <path d="M52 82 Q60 88 68 82" stroke="#eab308" stroke-width="1.8" fill="none"/>
+  <circle cx="60" cy="88" r="3" fill="#eab308"/>
+
+  <!-- Cuello -->
+  <rect x="53" y="66" width="14" height="15" rx="4" fill="#fed7aa"/>
+  <path d="M53 72 C53 77, 67 77, 67 72 Z" fill="#fba666" opacity="0.5"/>
+
+  <!-- Aretes Dorados -->
+  <circle cx="38" cy="52" r="3.2" fill="#eab308"/>
+  <circle cx="82" cy="52" r="3.2" fill="#eab308"/>
+
+  <!-- Orejas y Cabeza -->
+  <circle cx="39" cy="51" r="5" fill="#fba666"/>
+  <circle cx="81" cy="51" r="5" fill="#fba666"/>
+  <ellipse cx="60" cy="48" rx="19" ry="23" fill="#fed7aa"/>
+
+  <!-- Cabello Frontal -->
+  <path d="M38 46 C38 27, 48 24, 60 24 C72 24, 82 27, 82 46 C76 34, 68 31, 60 34 C52 31, 44 34, 38 46 Z" fill="#3b1d11"/>
+  <path d="M39 46 C41 40, 48 35, 54 37 C46 41, 41 48, 39 46 Z" fill="#5c2c16"/>
+  <path d="M81 46 C79 40, 72 35, 66 37 C74 41, 79 48, 81 46 Z" fill="#5c2c16"/>
+
+  <!-- Cejas Femeninas Arqueadas -->
+  <path d="M47 39 Q52 36 56 38" stroke="#3b1d11" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <path d="M64 38 Q68 36 73 39" stroke="#3b1d11" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+
+  <!-- Ojos con Pestañas -->
+  <circle cx="51" cy="46" r="2.6" fill="#1e293b"/>
+  <circle cx="50" cy="45" r="1" fill="#ffffff"/>
+  <path d="M46 43 L44 41" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="69" cy="46" r="2.6" fill="#1e293b"/>
+  <circle cx="68" cy="45" r="1" fill="#ffffff"/>
+  <path d="M74 43 L76 41" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+
+  <!-- Mejillas Rosadas -->
+  <circle cx="44" cy="52" r="4" fill="#fb7185" opacity="0.45"/>
+  <circle cx="76" cy="52" r="4" fill="#fb7185" opacity="0.45"/>
+
+  <!-- Sonrisa Cálida con Labios Suaves -->
+  <path d="M53 56 Q60 63 67 56" stroke="#be123c" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+</svg>
