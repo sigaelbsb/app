@@ -250,7 +250,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         spread: 70,
         origin: { y: 0.65 }
       });
-    } catch (e) {}
+    } catch (e) { }
 
     const cleanUserData = {
       id: userObj.id_usuario || userObj.id,
@@ -361,7 +361,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
               setCargando(false);
               return;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         // Cédula o usuario no registrado -> Mostrar confirmación
@@ -556,7 +556,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
       let pObj: any = {};
       try {
         pObj = typeof data.preguntas_seguridad === 'string' ? JSON.parse(data.preguntas_seguridad) : (data.preguntas_seguridad || {});
-      } catch (e) {}
+      } catch (e) { }
 
       const p1 = pObj.pregunta_1;
       const p2 = pObj.pregunta_2 || pObj.pregunta_3;
@@ -600,7 +600,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
         pObj = typeof recuperarUsuario.preguntas_seguridad === 'string'
           ? JSON.parse(recuperarUsuario.preguntas_seguridad)
           : (recuperarUsuario.preguntas_seguridad || {});
-      } catch (e) {}
+      } catch (e) { }
 
       const r1Real = (pObj.respuesta_1 || '').trim().toLowerCase();
       const r2Real = (pObj.respuesta_2 || pObj.respuesta_3 || '').trim().toLowerCase();
@@ -745,15 +745,19 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
   return (
     <div
       id="login-page-root"
-      className="min-h-[100dvh] w-full max-w-full flex flex-col justify-between items-center relative bg-[#f4f7fb] overflow-x-hidden p-0 m-0"
+      className="min-h-[100dvh] w-full max-w-full flex flex-col justify-between items-center relative bg-[#ECEEF8] overflow-x-hidden p-0 m-0"
     >
-      {/* Fondo Tecnológico Claro con Red de Nodos y Líneas Interconectadas */}
-      <TechNetworkBackground theme="light" />
+      {/* Esferas de Iluminación Ambiental Suave Estilo Lilac / iOS Moderno */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute -top-32 -left-32 w-80 h-80 rounded-full bg-[#6C5CE7]/12 blur-[80px]" />
+        <div className="absolute top-1/4 -right-32 w-80 h-80 rounded-full bg-[#A29BFE]/20 blur-[90px]" />
+        <div className="absolute -bottom-32 left-1/4 w-80 h-80 rounded-full bg-indigo-300/15 blur-[80px]" />
+      </div>
 
       {/* Contenedor Central de Cabecera y Formulario (con márgenes de lectura) */}
-      <div className="w-full max-w-full flex-1 flex flex-col items-center justify-center pt-2 sm:pt-4 pb-1 px-3 sm:px-4 relative z-10 min-w-0 my-auto">
-        {/* Cabecera Oficial SIGAE con Escudo y Resplandor Dorado/Azul */}
-        <div className="w-full max-w-3xl text-center mb-1.5 sm:mb-2 relative z-10">
+      <div className="w-full max-w-full flex-1 flex flex-col items-center justify-center pt-3 sm:pt-6 pb-2 px-3 sm:px-4 relative z-10 min-w-0 my-auto">
+        {/* Cabecera Oficial SIGAE con Escudo y Resplandor Lilac */}
+        <div className="w-full max-w-3xl text-center mb-3 sm:mb-4 relative z-10">
           <motion.div
             initial={{ scale: 0.88, opacity: 0, y: -10 }}
             animate={{ scale: 1, opacity: 1, y: [0, -4, 0] }}
@@ -764,63 +768,61 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
             }}
             className="relative inline-block group"
           >
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-sky-400/35 via-blue-500/25 to-amber-400/30 blur-2xl opacity-90 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#6C5CE7]/25 via-indigo-500/20 to-purple-400/25 blur-2xl opacity-90 group-hover:opacity-100 transition-opacity" />
             <img
               src="/img/sigae-logo.png"
               alt="SIGAE"
-              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain mx-auto filter drop-shadow-[0_8px_20px_rgba(2,132,199,0.25)] relative z-10 transition-transform duration-300 group-hover:scale-105"
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-22 md:h-22 object-contain mx-auto filter drop-shadow-[0_8px_20px_rgba(108,92,231,0.22)] relative z-10 transition-transform duration-300 group-hover:scale-105"
             />
           </motion.div>
-          <h1 className="-mt-1 text-sm sm:text-base md:text-lg lg:text-xl font-black text-slate-800 tracking-tight drop-shadow-xs leading-tight relative z-20 px-2">
+          <h1 className="mt-1 text-sm sm:text-base md:text-lg lg:text-xl font-extrabold text-slate-800 tracking-tight leading-tight relative z-20 px-2">
             Sistema Integral de Gestión y Administración Escolar
           </h1>
         </div>
 
-        {/* Tarjeta Flotante Principal Glassmorphism */}
-        <div className={`w-full ${paso === 'primer_ingreso' ? 'max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-3xl' : 'max-w-[420px]'} relative z-10 transition-all duration-300`}>
+        {/* Tarjeta Flotante Principal Estilo iOS Lilac / Modern Mobile */}
+        <div className={`w-full ${paso === 'primer_ingreso' ? 'max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-3xl' : 'max-w-[440px]'} relative z-10 transition-all duration-300`}>
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
-            className="bg-white/95 backdrop-blur-2xl rounded-2xl sm:rounded-3xl shadow-[0_20px_50px_-15px_rgba(2,132,199,0.22)] p-4 sm:p-6 border border-white/80 relative overflow-hidden"
+            className="bg-white/95 backdrop-blur-2xl rounded-[30px] sm:rounded-[36px] shadow-[0_20px_60px_-15px_rgba(108,92,231,0.15)] p-4 sm:p-7 border border-white relative overflow-hidden"
           >
             {/* Alerta de Error */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-3 p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-2"
+                className="mb-3.5 p-3 bg-rose-50/90 border border-rose-200 text-rose-700 rounded-2xl text-xs font-semibold flex items-center gap-2"
               >
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                 <span>{error}</span>
               </motion.div>
             )}
 
-            {/* Selector de Plantel Educativo Activo */}
-            <div className="mb-3.5">
-              <div className="flex bg-slate-100/90 p-1 rounded-xl gap-1 border border-slate-200/60">
+            {/* Selector de Plantel Educativo Activo (Segmented Control Pill Estilo iOS) */}
+            <div className="mb-4">
+              <div className="flex bg-[#F0F1FA] p-1.5 rounded-full border border-slate-200/50">
                 <button
                   type="button"
                   onClick={() => handleSchoolChange('sb')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    school === 'sb'
-                      ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                  className={`flex-1 py-2 px-2.5 sm:px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${school === 'sb'
+                      ? 'bg-[#6C5CE7] text-white shadow-md shadow-[#6C5CE7]/25'
+                      : 'text-slate-500 hover:text-slate-800'
+                    }`}
                 >
-                  <School className="w-3.5 h-3.5" />
+                  <School className="w-3.5 h-3.5 shrink-0" />
                   <span>UE Santa Bárbara</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSchoolChange('lb')}
-                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    school === 'lb'
-                      ? 'bg-white text-sky-700 shadow-xs shadow-slate-300/50'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
+                  className={`flex-1 py-2 px-2.5 sm:px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${school === 'lb'
+                      ? 'bg-[#6C5CE7] text-white shadow-md shadow-[#6C5CE7]/25'
+                      : 'text-slate-500 hover:text-slate-800'
+                    }`}
                 >
-                  <School className="w-3.5 h-3.5" />
+                  <School className="w-3.5 h-3.5 shrink-0" />
                   <span>UE Libertador Bolívar</span>
                 </button>
               </div>
@@ -839,8 +841,10 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   transition={{ duration: 0.2 }}
                   className="space-y-4"
                 >
-                  <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
-                    <Security3DIcon size={44} className="drop-shadow-md shrink-0" />
+                  <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                    <div className="w-11 h-11 rounded-2xl bg-[#F0EEFF] text-[#6C5CE7] flex items-center justify-center shrink-0 shadow-xs">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
                     <div>
                       <h2 className="text-base sm:text-lg font-black text-slate-800 tracking-tight leading-snug">
                         Iniciar Sesión
@@ -852,13 +856,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   </div>
 
                   <form onSubmit={handleVerificarUsuario} className="space-y-3.5">
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                         Cédula o Usuario
                       </label>
                       <div className="relative flex items-center">
-                        <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none z-10">
-                          <User3DIcon size={18} />
+                        <div className="absolute left-4 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                          <User className="w-5 h-5 text-[#6C5CE7]/70" />
                         </div>
                         <input
                           type="text"
@@ -867,7 +871,8 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={identificador}
                           onChange={(e) => setIdentificador(e.target.value)}
                           placeholder="Ej: 12345678 o usuario"
-                          className="w-full h-11 pl-10 pr-4 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold placeholder-slate-400 transition-all shadow-xs"
+                          style={{ paddingLeft: '48px' }}
+                          className="w-full h-12 pr-4 text-xs sm:text-sm bg-[#F6F7FC] border border-slate-200/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white text-slate-800 font-semibold placeholder-slate-400 transition-all shadow-xs"
                         />
                       </div>
                     </div>
@@ -875,7 +880,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     <button
                       type="submit"
                       disabled={cargando}
-                      className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 hover:shadow-xl hover:shadow-sky-600/40 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 cursor-pointer mt-1"
+                      className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-full shadow-lg shadow-[#6C5CE7]/25 hover:shadow-xl hover:shadow-[#6C5CE7]/35 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 cursor-pointer mt-2"
                     >
                       {cargando ? (
                         <span className="flex items-center gap-2">
@@ -896,7 +901,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     <button
                       type="button"
                       onClick={handleLoginBiometrico}
-                      className="w-full h-10 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+                      className="w-full h-11 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
                       <Fingerprint className="w-4 h-4 text-emerald-600" />
                       <span>Ingresar con Huella / PIN</span>
@@ -904,8 +909,8 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   )}
 
                   {/* Fila de Acciones: Registro de Usuario, Olvido de Clave e Invitados */}
-                  <div className="pt-2 border-t border-slate-100 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
+                  <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs px-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -913,20 +918,20 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           setRecuperarIdentificador(identificador);
                           setError('');
                         }}
-                        className="text-[#2189cf] hover:text-[#1c78b8] font-bold transition-colors hover:underline focus:outline-none cursor-pointer"
+                        className="text-[#6C5CE7] hover:text-[#5B4CE0] font-bold transition-colors hover:underline focus:outline-none cursor-pointer"
                       >
                         ¿Olvidé mi contraseña?
                       </button>
                       <button
                         type="button"
                         onClick={() => setPaso('invitado')}
-                        className="text-slate-500 hover:text-slate-700 font-medium hover:underline transition-colors focus:outline-none cursor-pointer"
+                        className="text-slate-500 hover:text-slate-800 font-medium hover:underline transition-colors focus:outline-none cursor-pointer"
                       >
                         Visitante / Invitado
                       </button>
                     </div>
 
-                    {/* Botón Destacado: Registrarse / Primer Ingreso */}
+                    {/* Botón Destacado: Registrarse / Primer Ingreso Estilo Píldora Lilac */}
                     <button
                       id="btn-registrarse-aqui"
                       type="button"
@@ -945,9 +950,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         setPaso('primer_ingreso');
                         setError('');
                       }}
-                      className="w-full py-2 px-3 bg-sky-50 hover:bg-sky-100/80 border border-sky-200 text-sky-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="w-full py-2.5 px-4 bg-[#F2F0FF] hover:bg-[#EAE6FF] border border-[#6C5CE7]/20 text-[#6C5CE7] font-bold text-xs rounded-full flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
                     >
-                      <UserPlus className="w-3.5 h-3.5 text-sky-600" />
+                      <UserPlus className="w-4 h-4" />
                       <span>¿Primer ingreso o no tienes cuenta? Registrarse aquí</span>
                     </button>
                   </div>
@@ -966,21 +971,21 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   transition={{ duration: 0.25 }}
                   className="space-y-4"
                 >
-                  {/* Ficha de Identidad del Usuario Encontrado */}
-                  <div className="p-3.5 bg-gradient-to-r from-sky-50 to-blue-50/70 border border-sky-200 rounded-2xl flex items-center gap-3">
-                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-white border-2 border-sky-300 shadow-sm shrink-0 flex items-center justify-center">
+                  {/* Ficha de Identidad del Usuario Encontrado Estilo iOS Contact Card */}
+                  <div className="p-3.5 bg-gradient-to-r from-[#F5F4FE] to-[#EEECFD] border border-[#6C5CE7]/20 rounded-2xl flex items-center gap-3">
+                    <div className="relative w-14 h-14 rounded-full overflow-hidden bg-white border-2 border-[#6C5CE7]/30 shadow-xs shrink-0 flex items-center justify-center">
                       {fotoPreviewClave ? (
                         <img
                           src={fotoPreviewClave}
                           alt="Usuario"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover rounded-full"
                           onError={(e) => {
                             e.currentTarget.onerror = null;
                             e.currentTarget.src = '/img/avatars/avatar-1.png';
                           }}
                         />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-tr from-[#2189cf] to-sky-400 text-white font-black flex items-center justify-center text-lg shadow-inner">
+                        <div className="w-full h-full bg-gradient-to-tr from-[#6C5CE7] to-[#A29BFE] text-white font-black flex items-center justify-center text-lg shadow-inner">
                           {usuarioEncontrado.nombre_completo ? usuarioEncontrado.nombre_completo[0].toUpperCase() : 'U'}
                         </div>
                       )}
@@ -991,12 +996,12 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         <p className="font-extrabold text-slate-900 text-sm leading-snug truncate">
                           {usuarioEncontrado.nombre_completo || 'Usuario'}
                         </p>
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-sky-200/80 text-sky-800 px-2 py-0.5 rounded-full border border-sky-300/60 shrink-0">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-[#6C5CE7]/15 text-[#6C5CE7] px-2.5 py-0.5 rounded-full border border-[#6C5CE7]/20 shrink-0">
                           {usuarioEncontrado.rol || 'Personal SIGAE'}
                         </span>
                       </div>
                       {usuarioEncontrado.cargo && (
-                        <p className="text-[11px] font-bold text-sky-800 mt-0.5 truncate">
+                        <p className="text-[11px] font-bold text-[#6C5CE7] mt-0.5 truncate">
                           <span className="text-slate-400 font-semibold">Cargo: </span>
                           <span>{usuarioEncontrado.cargo}</span>
                         </p>
@@ -1010,7 +1015,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   <form onSubmit={handleLoginClave} className="space-y-3.5">
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                           Contraseña Institucional
                         </label>
                         <button
@@ -1020,15 +1025,15 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                             setRecuperarIdentificador(usuarioEncontrado.cedula);
                             setError('');
                           }}
-                          className="text-xs text-[#2189cf] hover:text-[#1c78b8] font-bold transition-colors hover:underline focus:outline-none cursor-pointer"
+                          className="text-xs text-[#6C5CE7] hover:text-[#5B4CE0] font-bold transition-colors hover:underline focus:outline-none cursor-pointer"
                         >
                           ¿Olvidé mi contraseña?
                         </button>
                       </div>
 
                       <div className="relative flex items-center">
-                        <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none z-10">
-                          <Lock3DIcon size={18} />
+                        <div className="absolute left-4 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                          <Lock className="w-5 h-5 text-[#6C5CE7]/70" />
                         </div>
                         <input
                           type={mostrarPassword ? 'text' : 'password'}
@@ -1037,14 +1042,15 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="Ingrese su clave"
-                          className="w-full h-11 pl-10 pr-10 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold transition-all shadow-xs"
+                          style={{ paddingLeft: '48px', paddingRight: '48px' }}
+                          className="w-full h-12 text-xs sm:text-sm bg-[#F6F7FC] border border-slate-200/80 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white text-slate-800 font-semibold transition-all shadow-xs"
                         />
                         <button
                           type="button"
                           onClick={() => setMostrarPassword(!mostrarPassword)}
-                          className="absolute right-2.5 inset-y-0 my-auto h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
+                          className="absolute right-3 inset-y-0 my-auto h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
                         >
-                          {mostrarPassword ? <EyeOff className="w-4 h-4 text-sky-600" /> : <Eye className="w-4 h-4" />}
+                          {mostrarPassword ? <EyeOff className="w-4 h-4 text-[#6C5CE7]" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
@@ -1052,7 +1058,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     <button
                       type="submit"
                       disabled={cargando}
-                      className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 hover:shadow-xl hover:shadow-sky-600/40 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                      className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-full shadow-lg shadow-[#6C5CE7]/25 hover:shadow-xl hover:shadow-[#6C5CE7]/35 flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                     >
                       {cargando ? (
                         <span>Ingresando al sistema...</span>
@@ -1069,7 +1075,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="text-xs text-slate-500 hover:text-sky-600 font-medium inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      className="text-xs text-slate-500 hover:text-[#6C5CE7] font-medium inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                       <span>Ingresar con otra cédula o usuario</span>
@@ -1107,7 +1113,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     <button
                       type="button"
                       onClick={() => setPaso('identificar')}
-                      className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                      className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-full transition-all cursor-pointer"
                     >
                       No, corregirlo
                     </button>
@@ -1129,7 +1135,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         setPaso('primer_ingreso');
                         setError('');
                       }}
-                      className="py-2.5 px-4 bg-[#2189cf] hover:bg-[#1c78b8] text-white font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer"
+                      className="py-2.5 px-4 bg-[#6C5CE7] hover:bg-[#5B4CE0] text-white font-bold text-xs rounded-full transition-all shadow-md cursor-pointer"
                     >
                       Sí, registrarme
                     </button>
@@ -1147,30 +1153,28 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.97 }}
                   transition={{ duration: 0.25 }}
-                  className="space-y-3.5"
+                  className="space-y-4"
                 >
-                  {/* Barra de Progreso de 2 Pasos */}
-                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        subPasoPrimerIngreso === 1 ? 'bg-sky-600 text-white shadow-sm' : 'bg-emerald-600 text-white'
-                      }`}>
+                  {/* Stepper Superior Estilo iOS Pills */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${subPasoPrimerIngreso === 1 ? 'bg-[#6C5CE7] text-white shadow-sm' : 'bg-emerald-600 text-white'
+                        }`}>
                         {subPasoPrimerIngreso === 1 ? '1' : '✓'}
                       </span>
-                      <span className={`text-[11px] font-bold ${subPasoPrimerIngreso === 1 ? 'text-sky-800' : 'text-slate-500'}`}>
+                      <span className={`text-xs font-bold ${subPasoPrimerIngreso === 1 ? 'text-[#6C5CE7]' : 'text-slate-500'}`}>
                         Datos, Foto & Clave
                       </span>
                     </div>
 
                     <span className="text-slate-300 font-bold">• • •</span>
 
-                    <div className="flex items-center gap-1.5">
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        subPasoPrimerIngreso === 2 ? 'bg-sky-600 text-white shadow-sm' : 'bg-slate-200 text-slate-500'
-                      }`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${subPasoPrimerIngreso === 2 ? 'bg-[#6C5CE7] text-white shadow-sm' : 'bg-slate-200 text-slate-500'
+                        }`}>
                         2
                       </span>
-                      <span className={`text-[11px] font-bold ${subPasoPrimerIngreso === 2 ? 'text-sky-800' : 'text-slate-400'}`}>
+                      <span className={`text-xs font-bold ${subPasoPrimerIngreso === 2 ? 'text-[#6C5CE7]' : 'text-slate-400'}`}>
                         Preguntas de Seguridad
                       </span>
                     </div>
@@ -1178,15 +1182,15 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
                   {/* SUB-PASO 1: DATOS, AVATAR/FOTO Y CONTRASEÑA */}
                   {subPasoPrimerIngreso === 1 && (
-                    <form onSubmit={handleAvanzarPaso2PrimerIngreso} className="space-y-3 text-xs">
+                    <form onSubmit={handleAvanzarPaso2PrimerIngreso} className="space-y-3.5 text-xs">
                       {/* Ficha Compacta de Identidad con Preview en Vivo */}
-                      <div className="p-3 bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200 rounded-xl flex items-center gap-3">
+                      <div className="p-3.5 bg-gradient-to-r from-[#F5F4FE] to-[#EEECFD] border border-[#6C5CE7]/20 rounded-2xl flex items-center gap-3">
                         <div
-                          className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-2xl bg-white shadow-sm shrink-0 overflow-hidden border border-slate-200 ring-2 ring-sky-400/60 p-0.5 relative flex items-center justify-center"
+                          className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-full bg-white shadow-xs shrink-0 overflow-hidden border-2 border-[#6C5CE7]/30 p-0.5 relative flex items-center justify-center"
                           style={{ width: '56px', height: '56px' }}
                         >
                           {primerIngresoData.modoFoto === 'subir' && primerIngresoData.fotoSubidaUrl ? (
-                            <img src={primerIngresoData.fotoSubidaUrl} alt="Foto de perfil" className="w-full h-full object-cover rounded-xl" />
+                            <img src={primerIngresoData.fotoSubidaUrl} alt="Foto de perfil" className="w-full h-full object-cover rounded-full" />
                           ) : (
                             <img
                               src={AVATARES_DISPONIBLES.find(a => a.id === primerIngresoData.avatarSeleccionado)?.url || '/img/avatars/avatar-1.png'}
@@ -1197,66 +1201,64 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         </div>
                         <div className="overflow-hidden flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] font-extrabold uppercase bg-sky-200 text-sky-800 px-1.5 py-0.2 rounded">
+                            <span className="text-[9px] font-extrabold uppercase bg-[#6C5CE7]/15 text-[#6C5CE7] px-2 py-0.5 rounded-full border border-[#6C5CE7]/20">
                               Registro / Activación
                             </span>
                             <span className="text-[10px] font-semibold text-slate-500">
                               C.I. {primerIngresoData.cedula || 'Pendiente'}
                             </span>
                           </div>
-                          <h3 className="font-extrabold text-slate-800 text-xs truncate">
+                          <h3 className="font-extrabold text-slate-800 text-xs sm:text-sm truncate mt-0.5">
                             {primerIngresoData.nombreCompleto || 'Nuevo Usuario'}
                           </h3>
-                          <p className="text-[10px] text-sky-700 truncate">
+                          <p className="text-[10px] text-[#6C5CE7] font-semibold truncate">
                             Sede {school === 'sb' ? 'Santa Bárbara' : 'Libertador Bolívar'}
                           </p>
                         </div>
                       </div>
 
-                      {/* SELECTOR DE FOTO O AVATAR */}
-                      <div className="p-3 bg-slate-50/90 border border-slate-200 rounded-xl space-y-2.5">
+                      {/* SELECTOR DE FOTO O AVATAR (Referencia Pantalla 3: Upload Box) */}
+                      <div className="p-4 bg-[#F8F9FE] border border-slate-200/70 rounded-2xl space-y-3">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
-                            <Smile className="w-3.5 h-3.5 text-sky-600" />
+                          <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <Smile className="w-4 h-4 text-[#6C5CE7]" />
                             <span>Foto de Perfil o Avatar Institucional *</span>
                           </label>
-                          <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-300">
                             <Cloud className="w-2.5 h-2.5" />
                             <span>Perfil Digital</span>
                           </div>
                         </div>
 
-                        {/* Pestañas: Elegir Avatar vs Subir Foto */}
-                        <div className="grid grid-cols-2 p-1 bg-slate-200/70 rounded-lg text-[10px] font-bold text-center gap-1">
+                        {/* Segmented Control Pill: Elegir Avatar vs Subir Foto */}
+                        <div className="grid grid-cols-2 p-1 bg-slate-200/60 rounded-full text-xs font-bold text-center gap-1">
                           <button
                             type="button"
                             onClick={() => setPrimerIngresoData(prev => ({ ...prev, modoFoto: 'avatar' }))}
-                            className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                              primerIngresoData.modoFoto === 'avatar'
-                                ? 'bg-white text-sky-900 shadow-sm border border-slate-200 font-extrabold'
+                            className={`py-1.5 px-3 rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer ${primerIngresoData.modoFoto === 'avatar'
+                                ? 'bg-white text-[#6C5CE7] shadow-sm font-extrabold'
                                 : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                              }`}
                           >
-                            <Smile className="w-3 h-3 text-sky-600" />
+                            <Smile className="w-3.5 h-3.5" />
                             <span>Elegir Avatar (8)</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setPrimerIngresoData(prev => ({ ...prev, modoFoto: 'subir' }))}
-                            className={`py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                              primerIngresoData.modoFoto === 'subir'
-                                ? 'bg-white text-sky-900 shadow-sm border border-slate-200 font-extrabold'
+                            className={`py-1.5 px-3 rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer ${primerIngresoData.modoFoto === 'subir'
+                                ? 'bg-white text-[#6C5CE7] shadow-sm font-extrabold'
                                 : 'text-slate-600 hover:text-slate-900'
-                            }`}
+                              }`}
                           >
-                            <Camera className="w-3 h-3 text-sky-600" />
+                            <Camera className="w-3.5 h-3.5" />
                             <span>Subir Foto Personal</span>
                           </button>
                         </div>
 
-                        {/* Catálogo de Avatares Oficiales */}
+                        {/* Catálogo de Avatares Oficiales en Círculos */}
                         {primerIngresoData.modoFoto === 'avatar' && (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             <p className="text-[10px] text-slate-500 font-medium">
                               Selecciona tu avatar preferido:
                             </p>
@@ -1268,17 +1270,16 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                     key={av.id}
                                     type="button"
                                     onClick={() => setPrimerIngresoData(prev => ({ ...prev, avatarSeleccionado: av.id }))}
-                                    className={`relative p-1 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                                      activo
-                                        ? 'bg-sky-50 border-2 border-sky-600 scale-105 shadow-md shadow-sky-600/20 ring-2 ring-sky-300'
-                                        : 'bg-white border border-slate-200 hover:border-sky-300 hover:bg-slate-50'
-                                    }`}
+                                    className={`relative p-1.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${activo
+                                        ? 'bg-[#F2F0FF] border-2 border-[#6C5CE7] scale-105 shadow-md shadow-[#6C5CE7]/25 ring-2 ring-[#6C5CE7]/20'
+                                        : 'bg-white border border-slate-200 hover:border-[#6C5CE7]/40 hover:bg-slate-50'
+                                      }`}
                                   >
                                     <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 flex items-center justify-center">
                                       <img src={av.url} alt="Avatar" className="w-full h-full object-contain" />
                                     </div>
                                     {activo && (
-                                      <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-sky-600 text-white rounded-full flex items-center justify-center text-[7px] font-black shadow-xs">
+                                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#6C5CE7] text-white rounded-full flex items-center justify-center text-[8px] font-black shadow-xs">
                                         ✓
                                       </div>
                                     )}
@@ -1289,17 +1290,17 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           </div>
                         )}
 
-                        {/* Subir Foto con Recorte Circular */}
+                        {/* Subir Foto con Recuadro Punteado Estilo App Referencia */}
                         {primerIngresoData.modoFoto === 'subir' && (
-                          <div className="space-y-2 p-2.5 bg-white rounded-xl border border-dashed border-sky-300 text-center">
+                          <div className="space-y-2 p-4 bg-white rounded-2xl border-2 border-dashed border-[#6C5CE7]/30 text-center hover:bg-[#FAF9FF] transition-all">
                             {primerIngresoData.fotoSubidaUrl ? (
                               <div className="flex items-center justify-center gap-3">
-                                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-sky-600 shadow-md shrink-0 ring-2 ring-sky-300 flex items-center justify-center">
+                                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#6C5CE7] shadow-md shrink-0 ring-2 ring-[#6C5CE7]/20 flex items-center justify-center">
                                   <img src={primerIngresoData.fotoSubidaUrl} alt="Foto recortada" className="w-full h-full object-cover rounded-full" />
                                 </div>
                                 <div className="text-left space-y-1">
                                   <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
-                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
                                     <span>Foto personal lista</span>
                                   </span>
                                   <div className="flex items-center gap-1.5 pt-0.5">
@@ -1310,13 +1311,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                           setCropperOpen(true);
                                         }
                                       }}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-50 border border-sky-200 rounded-lg text-[10px] font-bold text-sky-800 hover:bg-sky-100 transition-all cursor-pointer"
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#F2F0FF] border border-[#6C5CE7]/20 rounded-full text-[10px] font-bold text-[#6C5CE7] hover:bg-[#EAE6FF] transition-all cursor-pointer"
                                     >
-                                      <Crop className="w-3 h-3 text-sky-600" />
+                                      <Crop className="w-3 h-3 text-[#6C5CE7]" />
                                       <span>Reajustar</span>
                                     </button>
-                                    <label className="cursor-pointer inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 border border-slate-300 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-100 transition-all">
-                                      <Camera className="w-3 h-3 text-sky-600" />
+                                    <label className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-full text-[10px] font-bold text-slate-700 hover:bg-slate-200 transition-all">
+                                      <Camera className="w-3 h-3 text-[#6C5CE7]" />
                                       <span>Cambiar</span>
                                       <input type="file" accept="image/*" onChange={handleSeleccionarArchivoFoto} className="hidden" />
                                     </label>
@@ -1324,12 +1325,12 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                 </div>
                               </div>
                             ) : (
-                              <label className="cursor-pointer flex flex-col items-center justify-center py-2.5 px-2 group">
-                                <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mb-1 group-hover:scale-105 group-hover:bg-sky-200 transition-all">
-                                  <Upload className="w-4 h-4" />
+                              <label className="cursor-pointer flex flex-col items-center justify-center py-3 px-2 group">
+                                <div className="w-12 h-12 rounded-full bg-[#F0EEFF] text-[#6C5CE7] flex items-center justify-center mb-2 group-hover:scale-105 group-hover:bg-[#E4E0FF] transition-all">
+                                  <Upload className="w-5 h-5" />
                                 </div>
-                                <span className="text-[11px] font-bold text-sky-800">Toca para tomar o seleccionar foto</span>
-                                <span className="text-[9px] text-slate-400">Permite encuadre y recorte circular táctil</span>
+                                <span className="text-xs font-bold text-[#6C5CE7]">Abrir Cámara o Subir Foto</span>
+                                <span className="text-[10px] text-slate-400 mt-0.5">PNG, JPG o GIF desde tu móvil o PC</span>
                                 <input type="file" accept="image/*" onChange={handleSeleccionarArchivoFoto} className="hidden" />
                               </label>
                             )}
@@ -1338,8 +1339,8 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       </div>
 
                       {/* Cédula y Nombres */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="space-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
                           <label className="font-bold text-slate-700 text-[11px]">Cédula de Identidad *</label>
                           <input
                             type="text"
@@ -1347,11 +1348,11 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                             value={primerIngresoData.cedula}
                             onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, cedula: e.target.value.replace(/\D/g, '') })}
                             placeholder="Ej: 12345678"
-                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-800 text-xs"
+                            className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white font-bold text-slate-800 text-xs transition-all"
                           />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <label className="font-bold text-slate-700 text-[11px]">Nombres y Apellidos *</label>
                           <input
                             type="text"
@@ -1359,19 +1360,19 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                             value={primerIngresoData.nombreCompleto}
                             onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, nombreCompleto: e.target.value })}
                             placeholder="Ej: María Pérez"
-                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-bold text-slate-800 text-xs"
+                            className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white font-bold text-slate-800 text-xs transition-all"
                           />
                         </div>
                       </div>
 
                       {/* Teléfono Móvil y Correo */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="space-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
                           <label className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
-                            <Phone className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                            <Phone className="w-3.5 h-3.5 text-[#6C5CE7] shrink-0" />
                             <span>Teléfono Móvil *</span>
                           </label>
-                          <div className="flex gap-1 items-center">
+                          <div className="flex gap-1.5 items-center">
                             <select
                               value={primerIngresoData.codigoPais}
                               onChange={(e) => {
@@ -1384,7 +1385,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                   telefono: `${cod} ${formateado}`.trim()
                                 });
                               }}
-                              className="w-[85px] shrink-0 h-10 px-1.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-xs cursor-pointer"
+                              className="w-[90px] shrink-0 h-11 px-2 bg-[#F6F7FC] border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs cursor-pointer focus:border-[#6C5CE7]"
                             >
                               {PAISES_TELEFONO.map((p) => (
                                 <option key={p.codigo} value={p.codigo}>{p.bandera} {p.codigo}</option>
@@ -1403,7 +1404,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                 });
                               }}
                               placeholder="412-1234567"
-                              className="flex-1 h-10 px-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs"
+                              className="flex-1 h-11 px-3 bg-[#F6F7FC] border border-slate-200 rounded-2xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white transition-all"
                             />
                           </div>
 
@@ -1423,11 +1424,10 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                       telefono: `${primerIngresoData.codigoPais} ${nuevoNum}`.trim()
                                     });
                                   }}
-                                  className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold transition-all border cursor-pointer ${
-                                    primerIngresoData.telefonoNumero.startsWith(op.codigo)
-                                      ? 'bg-sky-600 text-white border-sky-600'
-                                      : 'bg-white text-slate-600 border-slate-200 hover:border-sky-300'
-                                  }`}
+                                  className={`text-[9px] px-2 py-0.5 rounded-full font-bold transition-all border cursor-pointer ${primerIngresoData.telefonoNumero.startsWith(op.codigo)
+                                      ? 'bg-[#6C5CE7] text-white border-[#6C5CE7]'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-[#6C5CE7]/40'
+                                    }`}
                                 >
                                   {op.codigo}
                                 </button>
@@ -1437,9 +1437,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         </div>
 
                         {/* Correo */}
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <label className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
-                            <Mail className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                            <Mail className="w-3.5 h-3.5 text-[#6C5CE7] shrink-0" />
                             <span>Correo Electrónico *</span>
                           </label>
                           <input
@@ -1448,9 +1448,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                             value={primerIngresoData.email}
                             onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, email: e.target.value.toLowerCase().replace(/\s/g, '') })}
                             placeholder="tu.correo@ejemplo.com"
-                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 text-xs"
+                            className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl font-medium text-slate-800 text-xs focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white transition-all"
                           />
-                          {/* Chips de dominios rápidos */}
+                          {/* Chips de dominios rápidos en pastillas */}
                           <div className="flex items-center gap-1 flex-wrap pt-0.5">
                             {DOMINIOS_CORREO_COMUNES.slice(0, 4).map((dom) => (
                               <button
@@ -1460,7 +1460,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                   const base = primerIngresoData.email.split('@')[0] || '';
                                   setPrimerIngresoData({ ...primerIngresoData, email: `${base}${dom}` });
                                 }}
-                                className="text-[9px] px-1.5 py-0.5 rounded-md font-semibold bg-white text-slate-600 border border-slate-200 hover:border-sky-300 cursor-pointer"
+                                className="text-[9px] px-2 py-0.5 rounded-full font-semibold bg-white text-slate-600 border border-slate-200 hover:border-[#6C5CE7]/40 hover:text-[#6C5CE7] cursor-pointer transition-colors"
                               >
                                 {dom}
                               </button>
@@ -1470,13 +1470,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       </div>
 
                       {/* Nombre de Usuario (Alias único) */}
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <label className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
-                          <AtSign className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                          <AtSign className="w-3.5 h-3.5 text-[#6C5CE7] shrink-0" />
                           <span>Nombre de Usuario (Alias de acceso) *</span>
                         </label>
                         <div className="relative flex items-center">
-                          <span className="absolute left-3 text-sky-700 font-black text-sm select-none pointer-events-none">@</span>
+                          <span className="absolute left-4 text-[#6C5CE7] font-black text-sm select-none pointer-events-none">@</span>
                           <input
                             type="text"
                             required
@@ -1486,7 +1486,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                               username: e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 20)
                             })}
                             placeholder="ej: maria.gonzalez"
-                            className="w-full h-10 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 text-xs"
+                            className="w-full h-11 pl-9 pr-4 bg-[#F6F7FC] border border-slate-200 rounded-2xl font-bold text-slate-800 text-xs focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white transition-all"
                           />
                         </div>
                         {sugerenciasUsuario.length > 0 && (
@@ -1497,7 +1497,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                 key={sug}
                                 type="button"
                                 onClick={() => setPrimerIngresoData({ ...primerIngresoData, username: sug })}
-                                className="text-[9px] px-2 py-0.5 rounded-md font-bold bg-white text-sky-700 border border-sky-200 hover:bg-sky-50 cursor-pointer"
+                                className="text-[9px] px-2.5 py-0.5 rounded-full font-bold bg-[#F2F0FF] text-[#6C5CE7] border border-[#6C5CE7]/20 hover:bg-[#EAE6FF] cursor-pointer"
                               >
                                 @{sug}
                               </button>
@@ -1507,8 +1507,8 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       </div>
 
                       {/* Contraseña y Confirmar con Termómetro */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div className="space-y-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
                           <label className="font-bold text-slate-700 text-[11px]">Nueva Contraseña *</label>
                           <div className="relative flex items-center">
                             <input
@@ -1517,19 +1517,19 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                               value={primerIngresoData.password}
                               onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, password: e.target.value })}
                               placeholder="Mínimo 6 caracteres"
-                              className="w-full h-10 pl-3 pr-8 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs"
+                              className="w-full h-11 pl-3.5 pr-9 bg-[#F6F7FC] border border-slate-200 rounded-2xl font-semibold text-slate-800 text-xs focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white transition-all"
                             />
                             <button
                               type="button"
                               onClick={() => setMostrarPassword(!mostrarPassword)}
-                              className="absolute right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                              className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer"
                             >
-                              {mostrarPassword ? <EyeOff className="w-3.5 h-3.5 text-sky-600" /> : <Eye className="w-3.5 h-3.5" />}
+                              {mostrarPassword ? <EyeOff className="w-4 h-4 text-[#6C5CE7]" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <label className="font-bold text-slate-700 text-[11px]">Confirmar Contraseña *</label>
                           <input
                             type="password"
@@ -1537,7 +1537,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                             value={primerIngresoData.confirmPassword}
                             onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, confirmPassword: e.target.value })}
                             placeholder="Repita la clave"
-                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 text-xs"
+                            className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl font-semibold text-slate-800 text-xs focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white transition-all"
                           />
                         </div>
                       </div>
@@ -1550,7 +1550,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       <div className="pt-2 space-y-2">
                         <button
                           type="submit"
-                          className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-full shadow-lg shadow-[#6C5CE7]/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
                         >
                           <span>Continuar a Preguntas de Seguridad (2/2)</span>
                           <ArrowRight className="w-4 h-4" />
@@ -1558,7 +1558,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         <button
                           type="button"
                           onClick={() => setPaso('identificar')}
-                          className="w-full py-1 text-center text-slate-400 hover:text-slate-700 font-semibold text-xs cursor-pointer"
+                          className="w-full py-1.5 text-center text-slate-400 hover:text-slate-700 font-semibold text-xs cursor-pointer"
                         >
                           Cancelar y volver
                         </button>
@@ -1568,21 +1568,21 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
 
                   {/* SUB-PASO 2: TRES PREGUNTAS DE SEGURIDAD */}
                   {subPasoPrimerIngreso === 2 && (
-                    <form onSubmit={handleGuardarPrimerIngreso} className="space-y-3 text-xs">
-                      <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-xl flex items-center gap-2">
-                        <HelpCircle className="w-4 h-4 text-sky-600 shrink-0" />
-                        <p className="text-[11px] text-sky-900 leading-snug">
+                    <form onSubmit={handleGuardarPrimerIngreso} className="space-y-3.5 text-xs">
+                      <div className="p-3 bg-[#F5F4FE] border border-[#6C5CE7]/20 rounded-2xl flex items-center gap-2.5">
+                        <HelpCircle className="w-5 h-5 text-[#6C5CE7] shrink-0" />
+                        <p className="text-xs text-[#6C5CE7] font-semibold leading-snug">
                           Elija tres preguntas y escriba sus respuestas secretas. Servirán para restablecer su cuenta en caso de olvido.
                         </p>
                       </div>
 
                       {/* Pregunta 1 */}
-                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                      <div className="p-3 bg-[#F8F9FE] rounded-2xl border border-slate-200/80 space-y-2">
                         <label className="block text-[11px] font-bold text-slate-700">1. Primera Pregunta *</label>
                         <select
                           value={primerIngresoData.pregunta1}
                           onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, pregunta1: e.target.value })}
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium text-xs cursor-pointer"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-xs cursor-pointer focus:border-[#6C5CE7]"
                         >
                           {PREGUNTAS_SEGURIDAD_OPCIONES.map((p, idx) => (
                             <option key={idx} value={p}>{p}</option>
@@ -1594,17 +1594,17 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={primerIngresoData.respuesta1}
                           onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, respuesta1: e.target.value })}
                           placeholder="Tu respuesta secreta 1"
-                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs focus:border-[#6C5CE7]"
                         />
                       </div>
 
                       {/* Pregunta 2 */}
-                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                      <div className="p-3 bg-[#F8F9FE] rounded-2xl border border-slate-200/80 space-y-2">
                         <label className="block text-[11px] font-bold text-slate-700">2. Segunda Pregunta *</label>
                         <select
                           value={primerIngresoData.pregunta2}
                           onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, pregunta2: e.target.value })}
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium text-xs cursor-pointer"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-xs cursor-pointer focus:border-[#6C5CE7]"
                         >
                           {PREGUNTAS_SEGURIDAD_OPCIONES.map((p, idx) => (
                             <option key={idx} value={p}>{p}</option>
@@ -1616,17 +1616,17 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={primerIngresoData.respuesta2}
                           onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, respuesta2: e.target.value })}
                           placeholder="Tu respuesta secreta 2"
-                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs focus:border-[#6C5CE7]"
                         />
                       </div>
 
                       {/* Pregunta 3 */}
-                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                      <div className="p-3 bg-[#F8F9FE] rounded-2xl border border-slate-200/80 space-y-2">
                         <label className="block text-[11px] font-bold text-slate-700">3. Tercera Pregunta *</label>
                         <select
                           value={primerIngresoData.pregunta3}
                           onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, pregunta3: e.target.value })}
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium text-xs cursor-pointer"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-xs cursor-pointer focus:border-[#6C5CE7]"
                         >
                           {PREGUNTAS_SEGURIDAD_OPCIONES.map((p, idx) => (
                             <option key={idx} value={p}>{p}</option>
@@ -1638,7 +1638,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={primerIngresoData.respuesta3}
                           onChange={(e) => setPrimerIngresoData({ ...primerIngresoData, respuesta3: e.target.value })}
                           placeholder="Tu respuesta secreta 3"
-                          className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs"
+                          className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs focus:border-[#6C5CE7]"
                         />
                       </div>
 
@@ -1646,7 +1646,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         <button
                           type="submit"
                           disabled={cargando}
-                          className="w-full h-11 bg-gradient-to-r from-emerald-600 via-sky-600 to-indigo-700 hover:from-emerald-700 hover:to-indigo-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                          className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-full shadow-lg shadow-[#6C5CE7]/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                         >
                           {cargando ? 'Guardando credenciales...' : (
                             <>
@@ -1658,7 +1658,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         <button
                           type="button"
                           onClick={() => setSubPasoPrimerIngreso(1)}
-                          className="w-full py-1 text-center text-slate-500 hover:text-slate-800 font-semibold text-xs flex items-center justify-center gap-1 cursor-pointer"
+                          className="w-full py-1.5 text-center text-slate-500 hover:text-slate-800 font-semibold text-xs flex items-center justify-center gap-1 cursor-pointer"
                         >
                           <ArrowLeft className="w-3.5 h-3.5" />
                           <span>Volver a Datos y Contraseña</span>
@@ -1682,7 +1682,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   className="space-y-4"
                 >
                   <div className="text-center pb-1">
-                    <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center mx-auto mb-2 text-sky-600 shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-[#F0EEFF] border border-[#6C5CE7]/20 flex items-center justify-center mx-auto mb-2 text-[#6C5CE7] shadow-xs">
                       <KeyRound className="w-6 h-6" />
                     </div>
                     <h2 className="text-base sm:text-lg font-black text-slate-800">
@@ -1707,20 +1707,20 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       <button
                         type="button"
                         onClick={resetForm}
-                        className="w-full h-11 bg-[#2189cf] hover:bg-[#1c78b8] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                        className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] text-white font-bold text-xs rounded-full shadow-md cursor-pointer"
                       >
                         Volver al Inicio
                       </button>
                     </div>
                   ) : !recuperarUsuario ? (
                     <form onSubmit={handleConsultarRecuperacion} className="space-y-3.5">
-                      <div className="space-y-1">
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                           Cédula o Usuario
                         </label>
                         <div className="relative flex items-center">
-                          <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none z-10">
-                            <User3DIcon size={18} />
+                          <div className="absolute left-4 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                            <User className="w-5 h-5 text-[#6C5CE7]/70" />
                           </div>
                           <input
                             type="text"
@@ -1729,7 +1729,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                             value={recuperarIdentificador}
                             onChange={(e) => setRecuperarIdentificador(e.target.value)}
                             placeholder="Ej: 12345678 o usuario"
-                            className="w-full h-11 pl-10 pr-4 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold shadow-xs"
+                            className="w-full h-12 pl-12 pr-4 text-xs sm:text-sm bg-[#F6F7FC] border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-[#6C5CE7]/15 focus:border-[#6C5CE7] focus:bg-white text-slate-800 font-semibold shadow-xs transition-all"
                           />
                         </div>
                       </div>
@@ -1737,7 +1737,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       <button
                         type="submit"
                         disabled={cargando}
-                        className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] text-white font-bold text-xs sm:text-sm rounded-full shadow-lg shadow-[#6C5CE7]/25 flex items-center justify-center gap-2 cursor-pointer transition-all"
                       >
                         {cargando ? 'Consultando...' : (
                           <>
@@ -1752,14 +1752,14 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         <button
                           type="button"
                           onClick={() => setMostrarModalRestauracionTotal(!mostrarModalRestauracionTotal)}
-                          className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100/90 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                          className="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100/90 border border-amber-200 text-amber-900 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
                           <RotateCcw className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                           <span>¿Olvidó todo? Restauración Total</span>
                         </button>
 
                         {mostrarModalRestauracionTotal && (
-                          <div className="mt-2.5 p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-2 text-xs text-left">
+                          <div className="mt-2.5 p-3 bg-amber-50 border border-amber-300 rounded-2xl space-y-2 text-xs text-left">
                             <p className="font-extrabold text-amber-950 text-xs">¿Solicitar Restauración Total?</p>
                             <p className="text-[11px] text-amber-900 leading-tight">
                               Se enviará una alerta al administrador del sistema escolar para revalidar su cuenta.
@@ -1769,14 +1769,14 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                                 type="button"
                                 onClick={handleSolicitarRestauracionTotal}
                                 disabled={cargando}
-                                className="flex-1 py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs cursor-pointer"
+                                className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-full text-xs cursor-pointer"
                               >
-                                {cargando ? 'Enviando...' : 'Confirmar Solicitud'}
+                                {cargando ? 'Enviando...' : 'Confirmar'}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setMostrarModalRestauracionTotal(false)}
-                                className="py-1.5 px-3 bg-white border border-amber-300 text-amber-900 font-semibold rounded-lg text-xs cursor-pointer"
+                                className="py-2 px-3 bg-white border border-amber-300 text-amber-900 font-semibold rounded-full text-xs cursor-pointer"
                               >
                                 Cancelar
                               </button>
@@ -1794,7 +1794,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       <button
                         type="button"
                         onClick={resetForm}
-                        className="w-full h-11 bg-[#2189cf] hover:bg-[#1c78b8] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                        className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] text-white font-bold text-xs rounded-full shadow-md cursor-pointer"
                       >
                         Ir a Iniciar Sesión
                       </button>
@@ -1802,9 +1802,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   ) : (
                     <form onSubmit={handleRestablecerClave} className="space-y-3.5 text-xs">
                       {/* Pregunta 1 */}
-                      <div className="space-y-1">
-                        <div className="p-2.5 bg-sky-50 border border-sky-100 rounded-xl">
-                          <span className="text-[10px] font-extrabold uppercase text-sky-800 block">1ra Pregunta de Seguridad:</span>
+                      <div className="space-y-1.5">
+                        <div className="p-3 bg-[#F5F4FE] border border-[#6C5CE7]/20 rounded-2xl">
+                          <span className="text-[10px] font-extrabold uppercase text-[#6C5CE7] block">1ra Pregunta de Seguridad:</span>
                           <p className="text-xs font-bold text-slate-800">{recuperarPregunta1}</p>
                         </div>
                         <input
@@ -1813,14 +1813,14 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={recuperarRespuesta1}
                           onChange={(e) => setRecuperarRespuesta1(e.target.value)}
                           placeholder="Tu 1ra respuesta"
-                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                          className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 text-xs font-medium focus:border-[#6C5CE7]"
                         />
                       </div>
 
                       {/* Pregunta 2 */}
-                      <div className="space-y-1">
-                        <div className="p-2.5 bg-sky-50 border border-sky-100 rounded-xl">
-                          <span className="text-[10px] font-extrabold uppercase text-sky-800 block">2da Pregunta de Seguridad:</span>
+                      <div className="space-y-1.5">
+                        <div className="p-3 bg-[#F5F4FE] border border-[#6C5CE7]/20 rounded-2xl">
+                          <span className="text-[10px] font-extrabold uppercase text-[#6C5CE7] block">2da Pregunta de Seguridad:</span>
                           <p className="text-xs font-bold text-slate-800">{recuperarPregunta2}</p>
                         </div>
                         <input
@@ -1829,19 +1829,19 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={recuperarRespuesta2}
                           onChange={(e) => setRecuperarRespuesta2(e.target.value)}
                           placeholder="Tu 2da respuesta"
-                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                          className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 text-xs font-medium focus:border-[#6C5CE7]"
                         />
                       </div>
 
                       {/* Nuevas Contraseñas */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <input
                           type="password"
                           required
                           value={recuperarNuevaClave}
                           onChange={(e) => setRecuperarNuevaClave(e.target.value)}
                           placeholder="Nueva clave"
-                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                          className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 text-xs font-medium focus:border-[#6C5CE7]"
                         />
                         <input
                           type="password"
@@ -1849,14 +1849,14 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={recuperarConfirmClave}
                           onChange={(e) => setRecuperarConfirmClave(e.target.value)}
                           placeholder="Repita la nueva clave"
-                          className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
+                          className="w-full h-11 px-3.5 bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 text-xs font-medium focus:border-[#6C5CE7]"
                         />
                       </div>
 
                       <button
                         type="submit"
                         disabled={cargando}
-                        className="w-full h-11 bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-700 hover:to-sky-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/30 cursor-pointer"
+                        className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] text-white font-bold text-xs rounded-full shadow-lg shadow-[#6C5CE7]/25 cursor-pointer transition-all"
                       >
                         {cargando ? 'Restableciendo...' : 'Restablecer e Iniciar Sesión'}
                       </button>
@@ -1886,25 +1886,27 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
                   transition={{ duration: 0.2 }}
-                  className="space-y-3"
+                  className="space-y-3.5"
                 >
-                  <div className="flex items-center gap-2.5 pb-1 border-b border-slate-100">
-                    <Users className="w-5 h-5 text-indigo-500" />
+                  <div className="flex items-center gap-3 pb-2 border-b border-slate-100">
+                    <div className="w-10 h-10 rounded-2xl bg-[#F0EEFF] text-[#6C5CE7] flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5" />
+                    </div>
                     <div>
                       <h3 className="text-xs sm:text-sm font-bold text-slate-800">Visitantes e Invitados</h3>
                       <p className="text-[11px] text-slate-500 font-medium">Ingreso temporal institucional</p>
                     </div>
                   </div>
 
-                  <form onSubmit={handleRegistrarInvitado} className="space-y-2.5 text-xs">
-                    <div className="grid grid-cols-2 gap-2">
+                  <form onSubmit={handleRegistrarInvitado} className="space-y-3 text-xs">
+                    <div className="grid grid-cols-2 gap-2.5">
                       <input
                         type="text"
                         required
                         value={invNombres}
                         onChange={e => setInvNombres(e.target.value)}
                         placeholder="Nombres"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                        className="w-full h-10 px-3 text-xs bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 font-medium focus:border-[#6C5CE7]"
                       />
                       <input
                         type="text"
@@ -1912,18 +1914,18 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         value={invApellidos}
                         onChange={e => setInvApellidos(e.target.value)}
                         placeholder="Apellidos"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                        className="w-full h-10 px-3 text-xs bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 font-medium focus:border-[#6C5CE7]"
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2.5">
                       <input
                         type="email"
                         required
                         value={invCorreo}
                         onChange={e => setInvCorreo(e.target.value)}
                         placeholder="correo@ejemplo.com"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                        className="w-full h-10 px-3 text-xs bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 font-medium focus:border-[#6C5CE7]"
                       />
                       <input
                         type="tel"
@@ -1931,7 +1933,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         value={invTelefono}
                         onChange={e => setInvTelefono(e.target.value)}
                         placeholder="04121234567"
-                        className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                        className="w-full h-10 px-3 text-xs bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 font-medium focus:border-[#6C5CE7]"
                       />
                     </div>
 
@@ -1941,13 +1943,13 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       value={invMotivo}
                       onChange={e => setInvMotivo(e.target.value)}
                       placeholder="Motivo de la visita..."
-                      className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 resize-none font-medium"
+                      className="w-full p-3 text-xs bg-[#F6F7FC] border border-slate-200 rounded-2xl text-slate-800 resize-none font-medium focus:border-[#6C5CE7]"
                     />
 
                     <button
                       type="submit"
                       disabled={cargando}
-                      className="w-full h-11 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md mt-1 cursor-pointer"
+                      className="w-full h-12 bg-[#6C5CE7] hover:bg-[#5B4CE0] active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-full shadow-md mt-1 cursor-pointer transition-all"
                     >
                       {cargando ? 'Registrando...' : 'Registrar e Ingresar'}
                     </button>
@@ -1955,7 +1957,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="w-full py-1 text-xs text-slate-500 hover:text-slate-700 font-medium text-center cursor-pointer"
+                      className="w-full py-1 text-xs text-slate-500 hover:text-slate-800 font-medium text-center cursor-pointer"
                     >
                       Volver al login
                     </button>
@@ -1965,10 +1967,10 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
             </AnimatePresence>
 
             {/* Enlace al Portal Informativo */}
-            <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-center">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center">
               <Link
                 to={`/portal/${school}`}
-                className="text-[11px] font-bold text-slate-500 hover:text-sky-700 inline-flex items-center gap-1 transition-colors"
+                className="text-[11px] font-bold text-slate-500 hover:text-[#6C5CE7] inline-flex items-center gap-1 transition-colors"
               >
                 <span>Ver Portal Web Informativo de la Institución</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -1976,7 +1978,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
             </div>
 
             {/* Sello Oficial MPPE */}
-            <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col items-center select-none">
+            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col items-center select-none">
               <img
                 src="/img/ministerio-educacion-logo.png"
                 alt="Ministerio del Poder Popular para la Educación"
