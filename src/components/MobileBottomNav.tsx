@@ -92,9 +92,14 @@ export const MobileBottomNav = ({
     location.pathname.startsWith('/categoria/Servicios%20y%20Bienestar') ||
     location.pathname.startsWith('/categoria/Servicios y Bienestar');
 
+  const esRutaPerfil = 
+    location.pathname.includes('Mi%20Perfil') || 
+    location.pathname.includes('Mi Perfil') ||
+    location.pathname.includes('seguridad');
+
   return (
     <>
-      {/* 1. BARRA DE NAVEGACIÓN INFERIOR NATIVA PARA MÓVIL */}
+      {/* 1. BARRA DE NAVEGACIÓN INFERIOR NATIVA PARA MÓVIL (ESTILO LILAC / IOS MODERNO) */}
       <nav 
         className="sigae-mobile-bottom-nav" 
         id="barra-navegacion-inferior"
@@ -118,8 +123,8 @@ export const MobileBottomNav = ({
           {esRutaInicio && <span className="sigae-nav-tab-dot"></span>}
         </button>
 
-        {/* PESTAÑA 2: ESTUDIANTIL (solo si está activo para el rol) */}
-        {canVerEstudiantil && (
+        {/* PESTAÑA 2: ESTUDIANTIL / TRÁMITES */}
+        {canVerEstudiantil ? (
           <button
             type="button"
             onClick={() => {
@@ -136,79 +141,75 @@ export const MobileBottomNav = ({
             <span className="sigae-nav-tab-label">Estudiantes</span>
             {esRutaEstudiantil && <span className="sigae-nav-tab-dot"></span>}
           </button>
-        )}
-
-        {/* PESTAÑA 3: PARA REPRESENTANTE ES NOTIFICACIONES / AVISOS (ESTILO WHATSAPP CON PUNTO ROJO Y CANTIDAD) */}
-        {usuario?.rol === 'Representante' ? (
+        ) : canVerAcademico ? (
           <button
             type="button"
             onClick={() => {
               cerrarSheet();
-              if (onAbrirNotificaciones) {
-                onAbrirNotificaciones();
-              }
+              navigate('/categoria/Control%20de%20Estudios');
+            }}
+            className={`sigae-nav-tab ${esRutaAcademica ? 'active' : ''}`}
+            id="btn-tab-academico"
+            title="Control de Estudios"
+          >
+            <div className="sigae-nav-tab-icon-wrap">
+              <i className={`bi ${esRutaAcademica ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark'}`}></i>
+            </div>
+            <span className="sigae-nav-tab-label">Académico</span>
+            {esRutaAcademica && <span className="sigae-nav-tab-dot"></span>}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              cerrarSheet();
+              if (onAbrirNotificaciones) onAbrirNotificaciones();
             }}
             className="sigae-nav-tab"
-            id="btn-tab-avisos-representante"
-            title="Avisos y Notificaciones"
+            id="btn-tab-avisos"
+            title="Avisos"
           >
             <div className="sigae-nav-tab-icon-wrap position-relative">
               <i className="bi bi-bell-fill text-warning"></i>
               {unreadNotifCount > 0 && (
-                <span 
-                  className="sigae-nav-tab-badge"
-                  style={{
-                    backgroundColor: '#dc2626',
-                    color: '#ffffff',
-                    animation: 'pulse-badge 1.8s infinite',
-                    boxShadow: '0 0 0 2px #ffffff, 0 2px 6px rgba(220, 38, 38, 0.6)',
-                    fontSize: '0.62rem',
-                    padding: '2px 5px',
-                    minWidth: '18px',
-                    textAlign: 'center'
-                  }}
-                >
+                <span className="sigae-nav-tab-badge">
                   {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
                 </span>
               )}
             </div>
-            <span 
-              className="sigae-nav-tab-label"
-              style={unreadNotifCount > 0 ? { color: '#dc2626', fontWeight: 800 } : undefined}
-            >
-              Avisos
-            </span>
-            {unreadNotifCount > 0 && (
-              <span 
-                className="sigae-nav-tab-dot" 
-                style={{ backgroundColor: '#dc2626', boxShadow: '0 0 6px #dc2626' }}
-              ></span>
-            )}
+            <span className="sigae-nav-tab-label">Avisos</span>
           </button>
-        ) : (
-          /* PESTAÑA 3: ACADÉMICO PARA PERSONAL (solo si tiene Grados y Salones activo) */
-          canVerAcademico && (
-            <button
-              type="button"
-              onClick={() => {
-                cerrarSheet();
-                navigate('/categoria/Control%20de%20Estudios');
-              }}
-              className={`sigae-nav-tab ${esRutaAcademica ? 'active' : ''}`}
-              id="btn-tab-academico"
-              title="Control de Estudios"
-            >
-              <div className="sigae-nav-tab-icon-wrap">
-                <i className={`bi ${esRutaAcademica ? 'bi-journal-bookmark-fill' : 'bi-journal-bookmark'}`}></i>
-              </div>
-              <span className="sigae-nav-tab-label">Académico</span>
-              {esRutaAcademica && <span className="sigae-nav-tab-dot"></span>}
-            </button>
-          )
         )}
 
-        {/* PESTAÑA 4: TRANSPORTE (solo si está activo para el rol) */}
-        {canVerTransporte && (
+        {/* PESTAÑA 3: BOTÓN CENTRAL FLOTANTE (FAB LILAC / ACCIONES & MÓDULOS) */}
+        <button
+          type="button"
+          onClick={toggleSheet}
+          className={`sigae-nav-tab sigae-nav-tab-fab ${sheetAbierto ? 'active' : ''}`}
+          id="btn-tab-modulos-fab"
+          title="Abrir Todas las Cajas de Herramientas"
+          aria-expanded={sheetAbierto}
+        >
+          <div className="sigae-nav-tab-icon-wrap position-relative">
+            <i className={`bi ${sheetAbierto ? 'bi-x-lg' : 'bi-send-fill'}`}></i>
+            {unreadNotifCount > 0 && !sheetAbierto && (
+              <span 
+                className="sigae-nav-tab-badge"
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  boxShadow: '0 0 0 2px #ffffff, 0 2px 6px rgba(220, 38, 38, 0.6)'
+                }}
+              >
+                {unreadNotifCount}
+              </span>
+            )}
+          </div>
+          <span className="sigae-nav-tab-label">Módulos</span>
+        </button>
+
+        {/* PESTAÑA 4: TRANSPORTE / RUTAS */}
+        {canVerTransporte ? (
           <button
             type="button"
             onClick={() => {
@@ -236,50 +237,48 @@ export const MobileBottomNav = ({
                 </span>
               )}
             </div>
-            <span className="sigae-nav-tab-label">Transporte</span>
+            <span className="sigae-nav-tab-label">Rutas</span>
             {esRutaTransporte && <span className="sigae-nav-tab-dot"></span>}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              cerrarSheet();
+              if (onAbrirNotificaciones) onAbrirNotificaciones();
+            }}
+            className="sigae-nav-tab"
+            id="btn-tab-avisos-alt"
+            title="Avisos y Alertas"
+          >
+            <div className="sigae-nav-tab-icon-wrap position-relative">
+              <i className="bi bi-bell-fill text-warning"></i>
+              {unreadNotifCount > 0 && (
+                <span className="sigae-nav-tab-badge">
+                  {unreadNotifCount}
+                </span>
+              )}
+            </div>
+            <span className="sigae-nav-tab-label">Avisos</span>
           </button>
         )}
 
-        {/* PESTAÑA 5: MÓDULOS / MENÚ COMPLETO */}
+        {/* PESTAÑA 5: MI PERFIL (ESTILO NICHOLAS PROFILE) */}
         <button
           type="button"
-          onClick={toggleSheet}
-          className={`sigae-nav-tab sigae-nav-tab-menu ${sheetAbierto ? 'active' : ''}`}
-          id="btn-tab-modulos"
-          title="Abrir Todas las Cajas de Herramientas"
-          aria-expanded={sheetAbierto}
+          onClick={() => {
+            cerrarSheet();
+            navigate('/categoria/Seguridad%20y%20Accesos/Mi%20Perfil');
+          }}
+          className={`sigae-nav-tab ${esRutaPerfil ? 'active' : ''}`}
+          id="btn-tab-perfil"
+          title="Mi Perfil de Usuario"
         >
-          <div className="sigae-nav-tab-icon-wrap position-relative">
-            <i className={`bi ${sheetAbierto ? 'bi-grid-3x3-gap-fill' : 'bi-grid-fill'}`}></i>
-            {/* Si el usuario es personal y tiene notificaciones pendientes, mostrar aviso rojo */}
-            {usuario?.rol !== 'Representante' && unreadNotifCount > 0 && !sheetAbierto ? (
-              <span 
-                className="sigae-nav-tab-badge"
-                style={{
-                  backgroundColor: '#dc2626',
-                  color: '#ffffff',
-                  animation: 'pulse-badge 1.8s infinite',
-                  boxShadow: '0 0 0 2px #ffffff, 0 2px 6px rgba(220, 38, 38, 0.6)'
-                }}
-              >
-                {unreadNotifCount}
-              </span>
-            ) : totalHerramientas > 0 && !sheetAbierto && (
-              <span 
-                className="sigae-nav-tab-badge"
-                style={{
-                  backgroundColor: '#0284c7',
-                  color: '#ffffff',
-                  boxShadow: '0 0 0 2px #ffffff'
-                }}
-              >
-                {totalHerramientas}
-              </span>
-            )}
+          <div className="sigae-nav-tab-icon-wrap">
+            <i className={`bi ${esRutaPerfil ? 'bi-person-fill' : 'bi-person'}`}></i>
           </div>
-          <span className="sigae-nav-tab-label">Módulos</span>
-          {sheetAbierto && <span className="sigae-nav-tab-dot"></span>}
+          <span className="sigae-nav-tab-label">Perfil</span>
+          {esRutaPerfil && <span className="sigae-nav-tab-dot"></span>}
         </button>
       </nav>
 

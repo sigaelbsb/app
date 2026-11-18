@@ -118,20 +118,20 @@
   white-space: nowrap;
 }
 
-/* Pestaña activa: Cápsula iluminada y color primario institucional */
+/* Pestaña activa: Cápsula iluminada y color primario institucional Lilac iOS */
 .sigae-nav-tab.active {
-  color: #0066FF;
+  color: #6C5CE7;
 }
 
 .sigae-nav-tab.active .sigae-nav-tab-icon-wrap {
-  background: rgba(0, 102, 255, 0.12);
-  color: #0066FF;
+  background: rgba(108, 92, 231, 0.12);
+  color: #6C5CE7;
   transform: translateY(-2px);
 }
 
 .sigae-nav-tab.active .sigae-nav-tab-label {
   font-weight: 800;
-  color: #0066FF;
+  color: #6C5CE7;
 }
 
 /* Micro-indicador LED de punto activo */
@@ -141,8 +141,8 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background-color: #0066FF;
-  box-shadow: 0 0 6px #0066FF;
+  background-color: #6C5CE7;
+  box-shadow: 0 0 8px rgba(108, 92, 231, 0.8);
 }
 
 /* Badge de notificación en pestaña */
@@ -160,19 +160,55 @@
   box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
 }
 
-/* Botón central especial para Menú de Cajas / Herramientas */
-.sigae-nav-tab-menu .sigae-nav-tab-icon-wrap {
-  background: linear-gradient(135deg, #0066FF 0%, #0284c7 100%);
+/* Botón central flotante elevado estilo iOS Lilac / Paper Plane FAB */
+.sigae-nav-tab-fab {
+  position: relative;
+  top: -12px;
+  flex: 0 0 auto;
+  margin: 0 4px;
+}
+
+.sigae-nav-tab-fab .sigae-nav-tab-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6C5CE7 0%, #5845EE 100%);
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(0, 102, 255, 0.35);
-  border-radius: 10px;
+  box-shadow: 0 8px 24px -3px rgba(108, 92, 231, 0.55);
+  border: 3.5px solid #ffffff;
+  font-size: 1.25rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sigae-nav-tab-fab:active .sigae-nav-tab-icon-wrap {
+  transform: scale(0.92);
+}
+
+.sigae-nav-tab-fab.active .sigae-nav-tab-icon-wrap {
+  background: linear-gradient(135deg, #5845EE 0%, #4338CA 100%);
+  box-shadow: 0 10px 28px -2px rgba(88, 69, 238, 0.65);
+}
+
+.sigae-nav-tab-fab .sigae-nav-tab-label {
+  margin-top: 1px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #6C5CE7;
+}
+
+/* Botón central especial para Menú de Cajas / Herramientas (Fallback) */
+.sigae-nav-tab-menu .sigae-nav-tab-icon-wrap {
+  background: linear-gradient(135deg, #6C5CE7 0%, #5845EE 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.35);
+  border-radius: 12px;
   width: 32px;
   height: 28px;
 }
 
 .sigae-nav-tab-menu.active .sigae-nav-tab-icon-wrap {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45);
+  background: linear-gradient(135deg, #5845EE 0%, #4338CA 100%);
+  box-shadow: 0 4px 14px rgba(88, 69, 238, 0.45);
 }
 
 /* --- 3. BOTTOM SHEET DESPLEGABLE MÓVIL (PANEL DE MÓDULOS) --- */
