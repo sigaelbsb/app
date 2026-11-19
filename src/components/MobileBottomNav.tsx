@@ -70,7 +70,7 @@ export const MobileBottomNav = ({
     return tienePermiso(item.vista, 'ver');
   }).length;
 
-  const canVerEstudiantil = 
+  const canVerEstudiantil =
     tienePermiso('Vincular Estudiante', 'ver') ||
     tienePermiso('Actualización de Datos', 'ver') ||
     tienePermiso('Verificaciones', 'ver') ||
@@ -86,22 +86,22 @@ export const MobileBottomNav = ({
   const esRutaInicio = location.pathname === '/';
   const esRutaEstudiantil = location.pathname.startsWith('/categoria/Gestión%20Estudiantil') || location.pathname.startsWith('/categoria/Gestión Estudiantil');
   const esRutaAcademica = location.pathname.startsWith('/categoria/Control%20de%20Estudios') || location.pathname.startsWith('/categoria/Control de Estudios');
-  const esRutaTransporte = 
-    location.pathname.includes('Transporte') || 
+  const esRutaTransporte =
+    location.pathname.includes('Transporte') ||
     location.pathname.includes('transporte') ||
     location.pathname.startsWith('/categoria/Servicios%20y%20Bienestar') ||
     location.pathname.startsWith('/categoria/Servicios y Bienestar');
 
-  const esRutaPerfil = 
-    location.pathname.includes('Mi%20Perfil') || 
+  const esRutaPerfil =
+    location.pathname.includes('Mi%20Perfil') ||
     location.pathname.includes('Mi Perfil') ||
     location.pathname.includes('seguridad');
 
   return (
     <>
       {/* 1. BARRA DE NAVEGACIÓN INFERIOR NATIVA PARA MÓVIL (ESTILO LILAC / IOS MODERNO) */}
-      <nav 
-        className="sigae-mobile-bottom-nav" 
+      <nav
+        className="sigae-mobile-bottom-nav"
         id="barra-navegacion-inferior"
         aria-label="Navegación principal móvil"
       >
@@ -193,7 +193,7 @@ export const MobileBottomNav = ({
           <div className="sigae-nav-tab-icon-wrap position-relative">
             <i className={`bi ${sheetAbierto ? 'bi-x-lg' : 'bi-send-fill'}`}></i>
             {unreadNotifCount > 0 && !sheetAbierto && (
-              <span 
+              <span
                 className="sigae-nav-tab-badge"
                 style={{
                   backgroundColor: '#dc2626',
@@ -223,7 +223,7 @@ export const MobileBottomNav = ({
             <div className="sigae-nav-tab-icon-wrap position-relative">
               <i className={`bi ${esRutaTransporte ? 'bi-bus-front-fill' : 'bi-bus-front'}`}></i>
               {unreadTransportCount > 0 && (
-                <span 
+                <span
                   className="sigae-nav-tab-badge"
                   style={{
                     backgroundColor: '#f59e0b',
@@ -286,8 +286,8 @@ export const MobileBottomNav = ({
       {sheetAbierto && (
         <>
           {/* Telón difuminado de fondo */}
-          <div 
-            className="sigae-sheet-backdrop" 
+          <div
+            className="sigae-sheet-backdrop"
             onClick={cerrarSheet}
             role="button"
             tabIndex={0}
@@ -302,13 +302,13 @@ export const MobileBottomNav = ({
             {/* Cabecera del Drawer */}
             <div className="sigae-sheet-header">
               <div className="d-flex align-items-center gap-2.5">
-                <div 
+                <div
                   className="rounded-3 p-1 bg-light border d-flex align-items-center justify-content-center"
                   style={{ width: '38px', height: '38px' }}
                 >
-                  <img 
-                    src={logoPath} 
-                    alt="Logo Escuela" 
+                  <img
+                    src={logoPath}
+                    alt="Logo Escuela"
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                     onError={(e) => { (e.target as HTMLImageElement).src = '/assets/img/sigae.png'; }}
                   />
@@ -367,7 +367,7 @@ export const MobileBottomNav = ({
                     tabIndex={0}
                   >
                     <div className="d-flex align-items-center">
-                      <div 
+                      <div
                         className="sigae-sheet-cat-icon"
                         style={{
                           backgroundColor: `${datosModulo.color}15`,
@@ -377,12 +377,12 @@ export const MobileBottomNav = ({
                         }}
                       >
                         {datosModulo.icono3d ? (
-                          <img 
-                            src={datosModulo.icono3d} 
+                          <img
+                            src={datosModulo.icono3d}
                             alt={nombreCategoria}
-                            style={{ 
-                              width: '36px', 
-                              height: '36px', 
+                            style={{
+                              width: '36px',
+                              height: '36px',
                               objectFit: 'contain',
                               filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.18))'
                             }}
@@ -402,7 +402,7 @@ export const MobileBottomNav = ({
                     </div>
 
                     <div className="d-flex align-items-center gap-1.5 ms-2">
-                      <span 
+                      <span
                         className="badge rounded-pill extra-small px-2 py-1 fw-bold"
                         style={{
                           backgroundColor: isActive ? datosModulo.color : '#f1f5f9',
