@@ -22,6 +22,8 @@ import { NavigationRouteManager } from './components/NavigationRouteManager';
 import { NavigationLoader } from './components/NavigationLoader';
 import { PortalInicio } from './pages/publica/PortalInicio';
 import { PortalGeneralSIGAE } from './pages/publica/PortalGeneralSIGAE';
+import { WebPrincipalSIGA } from './pages/publica/WebPrincipalSIGA';
+import { IntranetServicios } from './pages/publica/IntranetServicios';
 import { SchoolProvider } from './context/SchoolContext';
 
 if (typeof window !== 'undefined') {
@@ -214,15 +216,18 @@ function App() {
             <InstallPwaModal />
             <Suspense fallback={<NavigationLoader />}>
               <Routes>
-                {/* 1. RUTAS PÚBLICAS (LANDING PAGE CENTRAL, PORTAL POR SEDE Y VALIDADOR) */}
+                {/* 1. RUTAS PÚBLICAS Y PORTALES INSTITUCIONALES (ESTILO SIGA VIT) */}
                 <Route path="/portal" element={<PortalGeneralSIGAE />} />
+                <Route path="/portal-general" element={<PortalGeneralSIGAE />} />
                 <Route path="/portal/:schoolId" element={<PortalInicio />} />
+                <Route path="/servicios" element={<IntranetServicios />} />
+                <Route path="/intranet" element={<IntranetServicios />} />
                 <Route path="/validar-constancia/:codigo" element={<ValidarConstancia />} />
                 <Route path="/login" element={!usuario ? <Auth onLogin={handleLogin} /> : <Navigate to="/" replace />} />
                 
-                {/* 2. RUTA PRINCIPAL: MUESTRA EL PORTAL GENERAL SI NO ESTÁ AUTENTICADO, O EL LAYOUT COMPLETO SI ESTÁ LOGUEADO */}
-                <Route path="/" element={usuario ? <Layout onLogout={() => setUsuario(null)} /> : <PortalGeneralSIGAE />}>
-                  <Route index element={usuario ? <Dashboard /> : <PortalGeneralSIGAE />} />
+                {/* 2. RUTA PRINCIPAL: MUESTRA LA WEB DE ACCESO DUAL SIGA SI NO ESTÁ AUTENTICADO, O EL LAYOUT COMPLETO SI ESTÁ LOGUEADO */}
+                <Route path="/" element={usuario ? <Layout onLogout={() => setUsuario(null)} /> : <WebPrincipalSIGA onLogin={handleLogin} />}>
+                  <Route index element={usuario ? <Dashboard /> : <WebPrincipalSIGA onLogin={handleLogin} />} />
                 <Route path="categoria/:categoryName" element={<CategoryDashboard />} />
                 <Route path="categoria/Seguridad y Accesos/Mi Perfil" element={<ProtectedRoute modulo="Mi Perfil"><MiPerfil /></ProtectedRoute>} />
                 <Route path="categoria/Seguridad y Accesos/Métodos de Acceso" element={<ProtectedRoute modulo="Métodos de Acceso"><MetodosAcceso /></ProtectedRoute>} />

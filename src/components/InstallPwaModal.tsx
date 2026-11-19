@@ -49,8 +49,14 @@ export const InstallPwaModal: React.FC = () => {
       (window as any).deferredPwaPrompt = e;
       
       const promptStatus = localStorage.getItem('sigae_pwa_prompt_status');
-      const isLogin = window.location.pathname.includes('login') || window.location.hash.includes('login');
-      if (!promptStatus && !isLogin) {
+      const isLoginOrPublic = window.location.pathname.includes('login') || 
+                              window.location.hash.includes('login') ||
+                              window.location.pathname === '/' ||
+                              window.location.hash === '#/' ||
+                              window.location.hash === '' ||
+                              window.location.hash.includes('servicios') ||
+                              window.location.hash.includes('intranet');
+      if (!promptStatus && !isLoginOrPublic) {
         setTimeout(() => setShowModal(true), 1500);
       }
     };
