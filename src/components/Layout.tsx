@@ -2210,7 +2210,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
             <img src="/assets/img/sigae.png?v=escudo3d" alt="Sistema Integral de Gestión y Administración Escolar" className="footer-logo-sigae" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
           </div>
           <div className="fw-bold text-center mb-2 footer-anio">
-            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary">Versión 1.1</span>
+            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary font-bold">Versión 1.3</span>
           </div>
         </footer>
       </main>
