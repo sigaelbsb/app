@@ -431,8 +431,8 @@ export const WebPrincipalSIGA: React.FC<WebPrincipalSIGAProps> = ({ onLogin }) =
           <div className="mt-3 flex items-center justify-center gap-6 text-[11px] text-slate-400">
             <span>Soporte Técnico: <strong className="text-slate-600">soporte@sigae.gob.ve</strong></span>
             <span>&bull;</span>
-            <Link to="/login" className="hover:text-blue-600 transition-colors">
-              App Móvil PWA
+            <Link to="/app" className="hover:text-indigo-600 transition-colors font-bold text-indigo-600">
+              App Móvil PWA (Lilac / iOS)
             </Link>
             <span>&bull;</span>
             <span>Versión 1.3 Oficial</span>

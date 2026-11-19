@@ -24,6 +24,7 @@ import { PortalInicio } from './pages/publica/PortalInicio';
 import { PortalGeneralSIGAE } from './pages/publica/PortalGeneralSIGAE';
 import { WebPrincipalSIGA } from './pages/publica/WebPrincipalSIGA';
 import { IntranetServicios } from './pages/publica/IntranetServicios';
+import { MobileAppExperience } from './pages/mobile/MobileAppExperience';
 import { SchoolProvider } from './context/SchoolContext';
 
 if (typeof window !== 'undefined') {
@@ -222,6 +223,9 @@ function App() {
                 <Route path="/portal/:schoolId" element={<PortalInicio />} />
                 <Route path="/servicios" element={<IntranetServicios />} />
                 <Route path="/intranet" element={<IntranetServicios />} />
+                <Route path="/app" element={<MobileAppExperience />} />
+                <Route path="/movil" element={<MobileAppExperience />} />
+                <Route path="/mobile" element={<MobileAppExperience />} />
                 <Route path="/validar-constancia/:codigo" element={<ValidarConstancia />} />
                 <Route path="/login" element={!usuario ? <Auth onLogin={handleLogin} /> : <Navigate to="/" replace />} />
                 

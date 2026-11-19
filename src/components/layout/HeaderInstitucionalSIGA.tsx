@@ -91,10 +91,19 @@ export const HeaderInstitucionalSIGA: React.FC = () => {
 
       {/* ── Cintillo Inferior con Fecha Dinámica Oficial ── */}
       <div className="siga-fecha-banner flex items-center justify-between">
-        <span className="text-[11px] text-slate-500 font-semibold hidden md:inline">
-          Portal Oficial de Información e Intranet Educativa
-        </span>
-        <span className="text-slate-800 font-bold ml-auto">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] text-slate-500 font-semibold hidden md:inline">
+            Portal Oficial de Información e Intranet Educativa
+          </span>
+          <Link
+            to="/app"
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold border border-indigo-200 transition-colors text-decoration-none shadow-xs"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
+            📱 App Móvil (Lilac / iOS)
+          </Link>
+        </div>
+        <span className="text-slate-800 font-bold ml-auto text-[11px] sm:text-xs">
           {fechaFormateada || 'Miércoles, 18 de Noviembre del 2026'}
         </span>
       </div>
