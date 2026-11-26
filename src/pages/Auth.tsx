@@ -1275,15 +1275,17 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         )}
                       </button>
 
-                      {/* Botón Biométrico: Ingreso con Huella Dactilar */}
-                      <button
-                        type="button"
-                        onClick={handleLoginBiometrico}
-                        className="sigae-biometric-btn mt-3 px-4 py-2 rounded-full bg-cyan-50/80 hover:bg-cyan-100/90 border border-cyan-200 text-cyan-800 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs group"
-                      >
-                        <Fingerprint className="w-4 h-4 text-[#00bcd4] transition-transform duration-300 group-hover:scale-110" />
-                        <span>Ingreso con Huella Dactilar</span>
-                      </button>
+                      {/* Botón Biométrico: Ingreso con Huella Dactilar SOLO si el usuario tiene credencial registrada en este equipo */}
+                      {tieneBiometriaLocal && (
+                        <button
+                          type="button"
+                          onClick={handleLoginBiometrico}
+                          className="sigae-biometric-btn mt-3 px-4 py-2 rounded-full bg-cyan-50/80 hover:bg-cyan-100/90 border border-cyan-200 text-cyan-800 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs group"
+                        >
+                          <Fingerprint className="w-4 h-4 text-[#00bcd4] transition-transform duration-300 group-hover:scale-110" />
+                          <span>Ingreso con Huella Dactilar</span>
+                        </button>
+                      )}
 
                       {/* Enlace ¿Olvidaste tu contraseña? */}
                       <div className="pt-2 text-center">

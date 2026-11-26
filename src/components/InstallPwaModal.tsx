@@ -48,20 +48,23 @@ export const InstallPwaModal: React.FC = () => {
       setDeferredPrompt(e);
       (window as any).deferredPwaPrompt = e;
       
-      const promptStatus = localStorage.getItem('sigae_pwa_prompt_status');
-      const isLoginOrPublic = window.location.pathname.includes('login') || 
-                              window.location.hash.includes('login') ||
-                              window.location.pathname === '/' ||
-                              window.location.hash === '#/' ||
-                              window.location.hash === '' ||
-                              window.location.hash.includes('servicios') ||
-                              window.location.hash.includes('intranet');
-      if (!promptStatus && !isLoginOrPublic) {
-        setTimeout(() => setShowModal(true), 1500);
+      const promptStatus = localStorage.getItem('sigae_pwa_prompt_v1_3_status');
+      if (!promptStatus) {
+        setTimeout(() => setShowModal(true), 1200);
       }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Si ya está en versión 1.1 o desactualizada, consultar versión almacenada
+    const versionInstalada = localStorage.getItem('sigae_version_instalada');
+    if (versionInstalada !== '1.3' && !localStorage.getItem('sigae_pwa_prompt_v1_3_status')) {
+      // Notificar proactivamente para actualizar a la 1.3
+      const timer = setTimeout(() => {
+        setShowModal(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
 
     // 5. Escuchar evento manual para abrir desde botones en la interfaz
     const handleManualShow = () => {
@@ -128,13 +131,12 @@ export const InstallPwaModal: React.FC = () => {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem('sigae_pwa_prompt_status', 'dismissed');
+    localStorage.setItem('sigae_pwa_prompt_v1_3_status', 'dismissed');
     setShowModal(false);
     setMostrarGuiaManual(false);
   };
 
-  const isLogin = typeof window !== 'undefined' && (window.location.pathname.includes('login') || window.location.hash.includes('login'));
-  if (!showModal || isLogin) return null;
+  if (!showModal) return null;
 
   return (
     <div 
