@@ -168,7 +168,10 @@ function App() {
     };
 
     syncUsuarioDesdeStorage();
-    setLoading(false);
+    // Retardo suave para apreciar la animación visual del logo y círculos de carga institucional
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 1800);
 
     // Escuchar actualizaciones de sesión o emulación en tiempo real (evita recargas destructivas de pantalla blanca)
     const handleSessionUpdate = (e: any) => {
@@ -180,7 +183,10 @@ function App() {
     };
 
     window.addEventListener('sigae-session-update', handleSessionUpdate);
-    return () => window.removeEventListener('sigae-session-update', handleSessionUpdate);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('sigae-session-update', handleSessionUpdate);
+    };
   }, []);
 
   const handleLogin = (userData: any) => {

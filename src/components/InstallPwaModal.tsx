@@ -192,7 +192,7 @@ export const InstallPwaModal: React.FC = () => {
                 </span>
               </div>
               <h4 className="fw-bolder mb-1 text-white">
-                {isStandalone ? 'SIGAE v1.1 en Ejecución' : 'Instalar SIGAE v1.1'}
+                {isStandalone ? 'SIGAE v1.3 en Ejecución' : 'Actualizar / Instalar SIGAE v1.3'}
               </h4>
               <p className="small mb-0 text-white text-opacity-90">
                 {isStandalone ? 'Ya estás disfrutando de la versión instalada' : 'Aplicación oficial en tu pantalla o escritorio'}
@@ -265,13 +265,13 @@ export const InstallPwaModal: React.FC = () => {
                       <div className="d-flex align-items-start gap-2">
                         <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">2</span>
                         <span>
-                          Haz clic en el icono <strong>[ 🖥️ ⬇️ ]</strong> o <strong>[ ➕ ]</strong> que dice <i>"Instalar SIGAE v1.1"</i> o <i>"Aplicación disponible"</i>.
+                          Haz clic en el icono <strong>[ 🖥️ ⬇️ ]</strong> o <strong>[ ➕ ]</strong> que dice <i>"Instalar SIGAE v1.3"</i> o <i>"Actualización disponible"</i>.
                         </span>
                       </div>
                       <div className="d-flex align-items-start gap-2">
                         <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">3</span>
                         <span>
-                          (Alternativa): Pulsa los <strong>3 puntos (⋮)</strong> arriba a la derecha &gt; <strong>"Guardar y compartir"</strong> &gt; <strong>"Instalar SIGAE v1.1"</strong>.
+                          (Alternativa): Pulsa los <strong>3 puntos (⋮)</strong> arriba a la derecha &gt; <strong>"Guardar y compartir"</strong> &gt; <strong>"Instalar SIGAE v1.3"</strong>.
                         </span>
                       </div>
                     </div>
