@@ -120,7 +120,7 @@ export const InstallPwaModal: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'SIGAE_v1.1_Escritorio.url';
+    a.download = 'SIGAE_v1.3_Escritorio.url';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

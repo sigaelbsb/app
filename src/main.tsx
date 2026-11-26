@@ -11,7 +11,7 @@ createRoot(document.getElementById('root')!).render(
 )
 
 // PURGA TOTAL DE CACHÉ Y FORZADO DE ACTUALIZACIÓN EN TODOS LOS DISPOSITIVOS
-const SIGAE_BUILD_VERSION = 'v1.4.0-clean-stable-sync';
+const SIGAE_BUILD_VERSION = 'v1.3.0-mppe-sigae-oficial';
 try {
   const currentVer = localStorage.getItem('sigae_cached_build_version');
   if (currentVer !== SIGAE_BUILD_VERSION) {

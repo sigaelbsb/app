@@ -2422,9 +2422,9 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           CONTENEDOR MAESTRO 16:9 ESCRITORIO (RÉPLICA EXACTA DE LA IMAGEN 3D)
       ========================================================================= */}
       <div className="relative w-full max-w-[1536px] aspect-[1024/571] max-h-[96vh] rounded-3xl overflow-hidden shadow-[0_25px_70px_rgba(0,160,210,0.25)] border border-white/80 bg-white select-none hidden lg:block">
-        {/* Fondo 2K Ultra Nítido con libro 3D, cinta 3D y marco bezel */}
+        {/* Fondo 2K Ultra Nítido con libro 3D y marco bezel sin banderas ni cintas */}
         <img
-          src="/img/login_bg_mppe_sigae_ultra.png"
+          src="/img/login_bg_mppe_sigae_clean.jpg"
           alt="SIGAE MPPE 3D"
           className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
         />
@@ -2522,14 +2522,16 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
               className="w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 object-contain drop-shadow-xs shrink-0"
             />
             <div className="flex flex-col min-w-0">
-              <span className="text-base sm:text-lg font-black text-[#0C4A6E] leading-none">
-                SIGAE
-              </span>
-              <span className="text-[7px] sm:text-[8px] font-bold text-slate-600 uppercase tracking-tight mt-0.5 leading-tight">
-                Sistema Integral de Gestión
-              </span>
-              <span className="text-[7px] sm:text-[8px] font-bold text-slate-600 uppercase tracking-tight leading-tight">
-                y Administración Escolar
+              <div className="flex items-center gap-1.5">
+                <span className="text-base sm:text-lg font-black text-[#0C4A6E] leading-none">
+                  SIGAE
+                </span>
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-cyan-600 text-white shadow-2xs">
+                  v1.3
+                </span>
+              </div>
+              <span className="text-[7.5px] sm:text-[8.5px] font-bold text-slate-700 uppercase tracking-tight mt-0.5 leading-tight">
+                Sistema Integral de Gestión y Administración Escolar
               </span>
             </div>
           </div>
