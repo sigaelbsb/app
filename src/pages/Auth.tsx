@@ -2416,151 +2416,68 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
     <div
       id="login-page-root"
       onMouseMove={handleMouseMoveParallax}
-      className="min-h-screen w-full flex items-center justify-center bg-[#E5F5F9] text-slate-800 p-0 sm:p-2 md:p-4 lg:p-6 relative select-none overflow-x-hidden"
+      className="min-h-screen w-full flex flex-col justify-between bg-[#E5F5F9] text-slate-800 p-4 sm:p-6 md:p-8 lg:p-10 relative select-none overflow-x-hidden"
     >
-      {/* =========================================================================
-          CONTENEDOR MAESTRO 16:9 ESCRITORIO (RÉPLICA EXACTA DE LA IMAGEN 3D)
-      ========================================================================= */}
-      <div className="relative w-full max-w-[1536px] aspect-[1024/571] max-h-[96vh] rounded-3xl overflow-hidden shadow-[0_25px_70px_rgba(0,160,210,0.25)] border border-white/80 bg-white select-none hidden lg:block">
-        {/* Fondo 2K Ultra Nítido con libro 3D y marco bezel sin banderas ni cintas */}
+      {/* Fondo adaptativo limpio en capas: fondo base educativo */}
+      <picture className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
+        <source media="(min-width: 1024px)" srcSet="/img/bg-desktop.jpg" />
+        <source media="(min-width: 640px)" srcSet="/img/bg-tablet.jpg" />
         <img
-          src="/img/login_bg_mppe_sigae_clean.jpg"
-          alt="SIGAE MPPE 3D"
-          className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+          src="/img/bg-mobile.jpg"
+          alt="Fondo Educativo Institucional"
+          className="w-full h-full object-cover opacity-90"
         />
+      </picture>
 
-        {/* Encabezado Oficial Top-Left Vectorial / HD */}
-        <div className="absolute top-[3.2%] left-[2.8%] flex items-center gap-3 xl:gap-4.5 z-20">
+      {/* Encabezado Institucional Nítido y Limpio con logos independientes */}
+      <header className="w-full max-w-6xl mx-auto flex items-center justify-between pb-3 z-20 relative">
+        <div className="flex items-center gap-3 sm:gap-4 max-w-full">
           <img
             src="/img/logoMPPE_hd.png"
             onError={(e) => { e.currentTarget.src = '/img/image_0.png'; }}
-            alt="Ministerio del Poder Popular para la Educación"
-            className="h-11 xl:h-13 w-auto object-contain select-none drop-shadow-xs"
+            alt="MPPE"
+            className="h-10 sm:h-12 md:h-13 w-auto object-contain drop-shadow-xs shrink-0"
           />
-          <div className="h-9 xl:h-11 w-px bg-[#CBD5E1]" />
-          <div className="flex items-center gap-2.5 xl:gap-3">
-            <img
-              src="/img/sigae.png"
-              alt="Escudo Oficial SIGAE"
-              className="w-11 h-11 xl:w-13 xl:h-13 object-contain drop-shadow-[0_4px_12px_rgba(0,180,216,0.35)] select-none"
-            />
-            <div className="flex flex-col max-w-[240px] xl:max-w-[280px]">
-              <span className="text-2xl xl:text-[28px] font-black text-[#0C4A6E] tracking-tight leading-none">
-                SIGAE
-              </span>
-              <span className="text-[8.5px] xl:text-[9.5px] font-bold text-slate-600 tracking-wider leading-tight uppercase mt-1">
-                Sistema Integral de Gestión
-              </span>
-              <span className="text-[8.5px] xl:text-[9.5px] font-bold text-slate-600 tracking-wider leading-tight uppercase">
-                y Administración Escolar
-              </span>
-            </div>
+          <div className="h-8 sm:h-9 md:h-10 w-px bg-slate-300 shrink-0" />
+          <img
+            src="/img/sigae.png"
+            alt="SIGAE"
+            className="w-10 h-10 sm:w-12 sm:h-12 md:w-13 md:h-13 object-contain drop-shadow-xs shrink-0"
+          />
+          <div className="flex flex-col min-w-0 justify-center">
+            <span className="text-xl sm:text-2xl md:text-3xl font-black text-[#0C4A6E] tracking-tight leading-none">
+              SIGAE
+            </span>
+            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-700 uppercase tracking-tight mt-0.5 leading-tight">
+              Sistema Integral de Gestión y Administración Escolar
+            </span>
           </div>
         </div>
+      </header>
 
-        {/* Formulario superpuesto con precisión en el marco bezel 3D */}
-        <div 
-          className={`absolute flex flex-col ${paso === 'primer_ingreso' ? 'justify-start overflow-hidden rounded-2xl p-3.5 xl:p-4 bg-white/95 backdrop-blur-md shadow-2xl border border-cyan-200/80 ring-1 ring-cyan-400/20' : 'justify-center px-3.5 xl:px-6'} z-20 transition-all duration-300`}
-          style={{
-            left: paso === 'primer_ingreso' ? '49%' : '52.2%',
-            top: paso === 'primer_ingreso' ? '17%' : '33.2%',
-            width: paso === 'primer_ingreso' ? '36%' : '30.8%',
-            height: paso === 'primer_ingreso' ? '75%' : '44.8%'
-          }}
-        >
+      {/* Contenedor Central de la Tarjeta de Acceso */}
+      <main className="w-full max-w-lg md:max-w-xl mx-auto my-auto relative z-10 py-4 sm:py-6">
+        <div className="w-full sigae-mppe-glass-card p-6 sm:p-8 md:p-10 relative z-10 shadow-2xl">
           {formContent}
         </div>
+      </main>
 
-        {/* Pie de Página */}
-        <footer className="absolute bottom-3 left-6 right-6 z-20 flex items-center justify-between select-none pointer-events-none">
-          <div className="flex flex-col leading-tight">
-            <span className="text-xs xl:text-sm font-black text-[#0C4A6E] tracking-tight drop-shadow-2xs">
-              © {new Date().getFullYear()} SIGAE · Versión 1.3
-            </span>
-            <span className="text-[11px] xl:text-xs text-slate-700 font-bold mt-0.5 drop-shadow-2xs">
-              Escuelas de la Dirección Ejecutiva de Producción Oriente
-            </span>
-          </div>
-
-          <div className="flex items-center">
-            <img
-              src="/img/200svg.svg?v=5"
-              alt="Bicentenario 200"
-              className="h-10 xl:h-12 w-auto object-contain drop-shadow-sm hover-logo-bicentenario"
-            />
-          </div>
-        </footer>
-      </div>
-
-      {/* =========================================================================
-          VERSIÓN MÓVIL Y TABLET RESPONSIVE
-      ========================================================================= */}
-      <div className="flex lg:hidden w-full min-h-screen flex-col justify-between bg-[#E5F5F9] text-slate-800 p-4 sm:p-6 relative select-none overflow-hidden">
-        {/* Fondo adaptativo nativo para móviles y tabletas */}
-        <picture className="absolute inset-0 w-full h-full pointer-events-none select-none">
-          <source media="(min-width: 640px)" srcSet="/img/bg-tablet.jpg" />
-          <img
-            src="/img/bg-mobile.jpg"
-            alt="Fondo Educativo Móvil"
-            className="w-full h-full object-cover opacity-90"
-          />
-        </picture>
-
-        {/* Encabezado Institucional Móvil Amplio y Nítido */}
-        <header className="w-full flex items-center justify-between pb-2 z-20 relative">
-          <div className="flex items-center gap-2 sm:gap-2.5 max-w-[82%]">
-            <img
-              src="/img/logoMPPE_hd.png"
-              onError={(e) => { e.currentTarget.src = '/img/image_0.png'; }}
-              alt="MPPE"
-              className="h-8.5 sm:h-9.5 w-auto object-contain drop-shadow-xs"
-            />
-            <div className="h-6 sm:h-7 w-px bg-slate-300 shrink-0" />
-            <img
-              src="/img/sigae.png"
-              alt="SIGAE"
-              className="w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 object-contain drop-shadow-xs shrink-0"
-            />
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-base sm:text-lg font-black text-[#0C4A6E] leading-none">
-                  SIGAE
-                </span>
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-cyan-600 text-white shadow-2xs">
-                  v1.3
-                </span>
-              </div>
-              <span className="text-[7.5px] sm:text-[8.5px] font-bold text-slate-700 uppercase tracking-tight mt-0.5 leading-tight">
-                Sistema Integral de Gestión y Administración Escolar
-              </span>
-            </div>
-          </div>
-        </header>
-
-        {/* Contenedor de la tarjeta de acceso */}
-        <div className="w-full max-w-md mx-auto my-auto relative z-10">
-          <div className="w-full sigae-mppe-glass-card p-6 sm:p-8 relative z-10">
-            {formContent}
-          </div>
+      {/* Pie de Página Institucional Limpio */}
+      <footer className="w-full max-w-6xl mx-auto mt-auto pt-4 pb-1 z-20 flex items-center justify-between gap-4 select-none">
+        <div className="flex flex-col min-w-0 leading-tight">
+          <span className="text-xs sm:text-sm font-black text-[#0C4A6E] truncate drop-shadow-2xs">
+            © {new Date().getFullYear()} SIGAE · Versión 1.3
+          </span>
+          <span className="text-[10px] sm:text-xs text-slate-700 font-bold mt-0.5 truncate drop-shadow-2xs">
+            Escuelas de la Dirección Ejecutiva de Producción Oriente
+          </span>
         </div>
-
-        {/* Pie de Página Móvil */}
-        <footer className="w-full mt-auto mb-1 pt-2 z-20 flex items-center justify-between gap-3 select-none">
-          <div className="flex flex-col min-w-0 leading-tight">
-            <span className="text-[11px] sm:text-xs font-black text-[#0C4A6E] truncate drop-shadow-2xs">
-              © {new Date().getFullYear()} SIGAE · Versión 1.3
-            </span>
-            <span className="text-[8.5px] sm:text-[9.5px] text-slate-700 font-bold mt-0.5 truncate drop-shadow-2xs">
-              Escuelas de la Dirección Ejecutiva de Producción Oriente
-            </span>
-          </div>
-          <img
-            src="/img/200svg.svg?v=5"
-            alt="Bicentenario 200"
-            className="h-8 sm:h-9 w-auto object-contain shrink-0 drop-shadow-sm hover-logo-bicentenario"
-          />
-        </footer>
-      </div>
+        <img
+          src="/img/200svg.svg?v=5"
+          alt="Bicentenario 200"
+          className="h-9 sm:h-11 md:h-12 w-auto object-contain shrink-0 drop-shadow-sm hover-logo-bicentenario"
+        />
+      </footer>
 
 
       {/* MODAL LIMPIO: VERIFICAR CONSTANCIA QR */}
