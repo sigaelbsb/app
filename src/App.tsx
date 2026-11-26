@@ -229,9 +229,9 @@ function App() {
                 <Route path="/validar-constancia/:codigo" element={<ValidarConstancia />} />
                 <Route path="/login" element={!usuario ? <Auth onLogin={handleLogin} /> : <Navigate to="/" replace />} />
                 
-                {/* 2. RUTA PRINCIPAL: MUESTRA LA WEB DE ACCESO DUAL SIGA SI NO ESTÁ AUTENTICADO, O EL LAYOUT COMPLETO SI ESTÁ LOGUEADO */}
-                <Route path="/" element={usuario ? <Layout onLogout={() => setUsuario(null)} /> : <WebPrincipalSIGA onLogin={handleLogin} />}>
-                  <Route index element={usuario ? <Dashboard /> : <WebPrincipalSIGA onLogin={handleLogin} />} />
+                {/* 2. RUTA PRINCIPAL: MUESTRA EL LOGIN SI NO ESTÁ AUTENTICADO, O EL LAYOUT COMPLETO SI ESTÁ LOGUEADO */}
+                <Route path="/" element={usuario ? <Layout onLogout={() => setUsuario(null)} /> : <Navigate to="/login" replace />}>
+                  <Route index element={<Dashboard />} />
                 <Route path="categoria/:categoryName" element={<CategoryDashboard />} />
                 <Route path="categoria/Seguridad y Accesos/Mi Perfil" element={<ProtectedRoute modulo="Mi Perfil"><MiPerfil /></ProtectedRoute>} />
                 <Route path="categoria/Seguridad y Accesos/Métodos de Acceso" element={<ProtectedRoute modulo="Métodos de Acceso"><MetodosAcceso /></ProtectedRoute>} />

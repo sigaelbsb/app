@@ -137,4 +137,495 @@ body {
   border-radius: 4px;
 }
 
+/* ==========================================================================
+   ESTILOS MODERNOS SAEKO (SISTEMA DE DISEÑO SAEKO.IO)
+   ========================================================================== */
+
+/* ==========================================================================
+   ESTÉTICA OFICIAL MPPE & SIGAE 3D EDUCATIVA VIVA & INTERACTIVA
+   Animaciones CSS3: Levitación, Parallax, Shimmer y Glassmorphism
+   ========================================================================== */
+
+/* Fondo dinámico institucional escolar puro en CSS */
+.sigae-mppe-live-bg {
+  background: 
+    radial-gradient(circle at 12% 20%, #ffffff 0%, rgba(255, 255, 255, 0) 50%),
+    radial-gradient(circle at 88% 80%, #e6f9f5 0%, rgba(230, 249, 245, 0) 55%),
+    linear-gradient(135deg, #ffffff 0%, #e2f1fc 50%, #e6f9f5 100%) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animaciones de levitación flotante para íconos escolares */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(3deg); }
+}
+
+@keyframes floatMedium {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-18px) rotate(-4deg); }
+}
+
+@keyframes floatFast {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-10px) scale(1.05); }
+}
+
+@keyframes beamPulse {
+  0%, 100% { opacity: 0.55; transform: scaleY(1); }
+  50% { opacity: 0.85; transform: scaleY(1.08); }
+}
+
+@keyframes ribbonWave {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(1.2deg); }
+}
+
+@keyframes shimmerSweep {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  100% { transform: translateX(250%) skewX(-20deg); }
+}
+
+.animate-float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+.animate-float-medium {
+  animation: floatMedium 4.5s ease-in-out infinite;
+}
+
+.animate-float-fast {
+  animation: floatFast 3.5s ease-in-out infinite;
+}
+
+.animate-beam {
+  animation: beamPulse 4s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.animate-ribbon {
+  animation: ribbonWave 5s ease-in-out infinite;
+}
+
+/* Tarjeta Glassmorphic 3D Futurista */
+.sigae-mppe-glass-card {
+  background: rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border: 3px solid rgba(0, 210, 255, 0.65) !important;
+  border-radius: 36px !important;
+  padding: 28px 24px !important;
+  box-shadow: 
+    0 25px 65px rgba(0, 160, 210, 0.28),
+    0 0 25px rgba(0, 229, 255, 0.35),
+    inset 0 0 35px rgba(255, 255, 255, 0.95),
+    inset 0 0 15px rgba(0, 229, 255, 0.15) !important;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* 1. INPUT CÁPSULA 3D MPPE */
+.sigae-mppe-input {
+  background: rgba(226, 246, 249, 0.8) !important;
+  border: 1.5px solid #a2e7ef !important;
+  border-radius: 9999px !important;
+  height: 48px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 18px !important;
+  gap: 12px !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 180, 216, 0.08),
+    0 2px 8px rgba(0, 200, 230, 0.1) !important;
+  transition: all 0.25s ease !important;
+}
+
+.sigae-mppe-input:hover {
+  background: rgba(218, 244, 248, 0.95) !important;
+  border-color: #00bcd4 !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 180, 216, 0.1),
+    0 4px 14px rgba(0, 210, 255, 0.2) !important;
+}
+
+.sigae-mppe-input:focus-within {
+  background: #ffffff !important;
+  border-color: #00bcd4 !important;
+  box-shadow: 
+    0 0 0 4px rgba(0, 188, 212, 0.2),
+    0 6px 20px rgba(0, 210, 255, 0.22) !important;
+}
+
+/* 2. BOTÓN PRINCIPAL INGRESAR 3D CYAN CON DEGRADADO Y SHIMMER */
+.sigae-mppe-btn {
+  background: linear-gradient(90deg, #00d2ff 0%, #00e5ff 50%, #00f2fe 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  font-weight: 800 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 
+    0 8px 24px rgba(0, 210, 255, 0.45),
+    inset 0 1px 2px rgba(255, 255, 255, 0.8) !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.sigae-mppe-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
+  transform: translateX(-150%) skewX(-20deg);
+}
+
+.sigae-mppe-btn:hover::after {
+  animation: shimmerSweep 1.2s infinite;
+}
+
+.sigae-mppe-btn:hover {
+  transform: translateY(-1.5px) scale(1.02);
+  box-shadow: 
+    0 12px 30px rgba(0, 210, 255, 0.6),
+    inset 0 1px 2px rgba(255, 255, 255, 0.9) !important;
+}
+
+.sigae-mppe-btn:active {
+  transform: translateY(0.5px) scale(0.98);
+  box-shadow: 0 4px 12px rgba(0, 210, 255, 0.4) !important;
+}
+
+/* 3. SELECTOR DE PLANTEL ESTILO PÍLDORAS ELEGANTES */
+.sigae-mppe-school-pill {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid #b2ebf2 !important;
+  border-radius: 9999px !important;
+  padding: 4px 10px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #1e4a63 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 4px rgba(0, 180, 216, 0.08) !important;
+}
+
+.sigae-mppe-school-pill:hover {
+  background: #ffffff !important;
+  border-color: #00bcd4 !important;
+  color: #0b2545 !important;
+  box-shadow: 0 2px 8px rgba(0, 188, 212, 0.2) !important;
+}
+
+.sigae-mppe-school-pill.selected {
+  background: linear-gradient(135deg, #00bcd4 0%, #0097a7 100%) !important;
+  border-color: #00838f !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(0, 188, 212, 0.35) !important;
+}
+
+
+
+/* 1. AMBIENTE SCI-FI DATACENTER */
+.sigae-cyber-bg {
+  background: radial-gradient(circle at 50% 35%, #082142 0%, #031024 55%, #010610 100%) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Piso reflectante de servidor con reflejo de luz cyan */
+.sigae-cyber-floor {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 38%;
+  background: linear-gradient(180deg, rgba(1, 10, 25, 0) 0%, rgba(2, 20, 48, 0.7) 40%, rgba(0, 30, 70, 0.95) 100%);
+  pointer-events: none;
+  z-index: 1;
+  border-top: 1px solid rgba(0, 229, 255, 0.2);
+}
+
+.sigae-cyber-floor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 229, 255, 0.6) 50%, transparent 100%);
+  box-shadow: 0 0 15px #00e5ff, 0 0 30px #00e5ff;
+}
+
+.sigae-cyber-floor::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 120px;
+  background: radial-gradient(ellipse at center, rgba(0, 229, 255, 0.25) 0%, rgba(0, 114, 255, 0.1) 40%, transparent 75%);
+  filter: blur(25px);
+}
+
+/* Luces bokeh de servidores en el fondo */
+.sigae-server-bokeh {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  filter: blur(1px);
+  animation: serverBlink 3s infinite ease-in-out alternate;
+}
+
+@keyframes serverBlink {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 0.9; transform: scale(1.2); }
+  100% { opacity: 0.4; transform: scale(1); }
+}
+
+/* 2. CONSOLA HOLOGRAFICA HUD (PANTALLA FLOTANTE CHROME & CYAN) */
+.sigae-hud-outer-frame {
+  position: relative;
+  padding: 6px;
+  background: linear-gradient(135deg, #a6c0db 0%, #3a506b 25%, #8cb4d6 50%, #1e2c3d 75%, #6482a0 100%);
+  border-radius: 20px;
+  box-shadow: 
+    0 25px 70px rgba(0, 0, 0, 0.9),
+    0 0 45px rgba(0, 180, 255, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.9);
+  clip-path: polygon(
+    28px 0%, calc(100% - 28px) 0%, 
+    100% 28px, 100% calc(100% - 28px), 
+    calc(100% - 28px) 100%, 28px 100%, 
+    0% calc(100% - 28px), 0% 28px
+  );
+}
+
+.sigae-hud-console {
+  position: relative;
+  background: linear-gradient(180deg, rgba(0, 80, 200, 0.45) 0%, rgba(0, 40, 120, 0.6) 45%, rgba(1, 15, 45, 0.85) 100%) !important;
+  backdrop-filter: blur(28px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(220%) !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.85) !important;
+  box-shadow: 
+    0 0 40px rgba(0, 140, 255, 0.5),
+    inset 0 0 40px rgba(0, 229, 255, 0.3),
+    inset 0 0 10px rgba(255, 255, 255, 0.4) !important;
+  clip-path: polygon(
+    24px 0%, calc(100% - 24px) 0%, 
+    100% 24px, 100% calc(100% - 24px), 
+    calc(100% - 24px) 100%, 24px 100%, 
+    0% calc(100% - 24px), 0% 24px
+  );
+  overflow: visible !important;
+  transition: all 0.3s ease;
+}
+
+/* Barras de luz neon superior e inferior empotradas en el marco metalico */
+.sigae-hud-neon-bar-top {
+  position: absolute;
+  top: 0;
+  left: 22%;
+  right: 22%;
+  height: 5px;
+  background: #00e5ff;
+  border-radius: 9999px;
+  box-shadow: 0 0 15px #00e5ff, 0 0 35px #00e5ff;
+  z-index: 20;
+}
+
+.sigae-hud-neon-bar-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 22%;
+  right: 22%;
+  height: 5px;
+  background: #00e5ff;
+  border-radius: 9999px;
+  box-shadow: 0 0 15px #00e5ff, 0 0 35px #00e5ff;
+  z-index: 20;
+}
+
+/* 3. INPUT CAPSULA NEON CYAN EXACTO A LA IMAGEN */
+.sigae-cyber-input {
+  background: rgba(3, 24, 60, 0.6) !important;
+  border: 1.5px solid #00e5ff !important;
+  border-radius: 9999px !important;
+  height: 48px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 20px !important;
+  gap: 12px !important;
+  box-shadow: 
+    0 0 18px rgba(0, 229, 255, 0.45),
+    inset 0 0 14px rgba(0, 229, 255, 0.2) !important;
+  transition: all 0.25s ease !important;
+}
+
+.sigae-cyber-input:hover {
+  border-color: #5cf5ff !important;
+  box-shadow: 
+    0 0 25px rgba(0, 229, 255, 0.7),
+    inset 0 0 18px rgba(0, 229, 255, 0.3) !important;
+}
+
+.sigae-cyber-input:focus-within {
+  border-color: #ffffff !important;
+  background: rgba(4, 32, 80, 0.8) !important;
+  box-shadow: 
+    0 0 30px rgba(0, 229, 255, 0.85),
+    0 0 55px rgba(0, 150, 255, 0.55),
+    inset 0 0 20px rgba(0, 229, 255, 0.35) !important;
+}
+
+/* 4. BOTON CIRCULAR HOLOGRAFICO ENTER CON ARCO NEON EXACTO */
+.sigae-hologram-enter-btn {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(0, 48, 110, 0.85) 0%, rgba(1, 18, 48, 0.98) 100%);
+  border: 2px solid rgba(0, 229, 255, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 
+    0 0 30px rgba(0, 229, 255, 0.5),
+    inset 0 0 22px rgba(0, 229, 255, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sigae-hologram-enter-btn::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  border: 3.5px solid transparent;
+  border-top-color: #b5179e;
+  border-right-color: #7209b7;
+  border-bottom-color: #00e5ff;
+  border-left-color: #00e5ff;
+  box-shadow: 
+    0 0 22px #00e5ff,
+    inset 0 0 16px #b5179e;
+  animation: arcPulse 4.5s linear infinite;
+}
+
+@keyframes arcPulse {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.sigae-hologram-enter-btn:hover {
+  transform: scale(1.07);
+  box-shadow: 
+    0 0 45px rgba(0, 229, 255, 0.9),
+    inset 0 0 30px rgba(0, 229, 255, 0.6);
+}
+
+.sigae-hologram-enter-btn:active {
+  transform: scale(0.96);
+  box-shadow: 
+    0 0 20px rgba(0, 229, 255, 0.6),
+    inset 0 0 18px rgba(0, 229, 255, 0.5);
+}
+
+/* 5. SELECTOR DE PLANTEL ESTILO CYBER HUD */
+.sigae-cyber-plantel-btn {
+  background: rgba(0, 25, 60, 0.5) !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.35) !important;
+  border-radius: 12px !important;
+  padding: 6px 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  color: #cce6ff !important;
+  transition: all 0.2s ease !important;
+  box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.1) !important;
+}
+
+.sigae-cyber-plantel-btn:hover {
+  background: rgba(0, 50, 110, 0.7) !important;
+  border-color: #00e5ff !important;
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.35), inset 0 0 15px rgba(0, 229, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+@keyframes ribbonFloatSoft {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(0.4deg);
+  }
+}
+
+.animate-ribbon-wave {
+  animation: ribbonFloatSoft 4.5s ease-in-out infinite;
+}
+
+.hover-logo-bicentenario {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
+  cursor: pointer;
+}
+
+.hover-logo-bicentenario:hover {
+  transform: scale(1.08) translateY(-2px);
+  filter: drop-shadow(0 6px 16px rgba(0, 180, 216, 0.35));
+}
+
+.sigae-biometric-btn {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.sigae-biometric-btn:hover {
+  transform: translateY(-1.5px) scale(1.02);
+  background: rgba(224, 247, 250, 0.95) !important;
+  border-color: #00bcd4 !important;
+  box-shadow: 0 6px 16px rgba(0, 188, 212, 0.25) !important;
+}
+
+.sigae-biometric-btn:active {
+  transform: translateY(0.5px) scale(0.97);
+}
+
+/* Scrollbar personalizada para formularios internos de acceso */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 188, 212, 0.05);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 188, 212, 0.35);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 188, 212, 0.6);
+}
+
+
+
 

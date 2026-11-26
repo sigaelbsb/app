@@ -42,3 +42,9 @@ scripts/test_conn.cjs
 scripts/datos_respaldo.json
 clean_excel.cjs
 test-supabase.mjs
+screenshot_*.png
+test_*.png
+shield_crop.png
+sigae_crop_test.png
+sigae_on_white.png
+
