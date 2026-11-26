@@ -1,35 +1,35 @@
 {
-  "id": "/",
-  "name": "SIGAE v1.1 - Sistema de Gestión Escolar",
-  "short_name": "SIGAE v1.1",
+  "id": "/?v=1.3",
+  "name": "SIGAE v1.3 - Sistema Integral de Gestión Escolar",
+  "short_name": "SIGAE v1.3",
   "description": "Sistema Integral de Gestión y Administración Escolar",
-  "start_url": "/",
+  "start_url": "/?v=1.3",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f4f7fe",
-  "theme_color": "#0066FF",
+  "theme_color": "#00bcd4",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/assets/img/icono_192.png",
+      "src": "/assets/img/sigae.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/img/icono_512.png",
+      "src": "/assets/img/sigae.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/img/icono.png",
+      "src": "/assets/img/sigae.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/assets/img/icono.png",
+      "src": "/assets/img/sigae.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

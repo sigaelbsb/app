@@ -1299,18 +1299,6 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           ¿Olvidaste tu contraseña?
                         </button>
                       </div>
-
-                      {/* Botón hacia la Página Web / Portal Institucional */}
-                      <div className="pt-2.5 text-center border-t border-cyan-100/90 mt-2 w-full flex justify-center">
-                        <Link
-                          to="/portal"
-                          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-50/70 hover:bg-cyan-100/90 border border-cyan-200/90 text-cyan-900 text-[11px] font-bold transition-all shadow-2xs hover:shadow-xs hover:scale-[1.02] active:scale-[0.98] group cursor-pointer"
-                        >
-                          <Globe className="w-3.5 h-3.5 text-cyan-600 transition-transform duration-300 group-hover:rotate-45" />
-                          <span>Sitio Web Institucional</span>
-                          <ArrowRight className="w-3 h-3 text-cyan-500 transition-transform duration-200 group-hover:translate-x-0.5" />
-                        </Link>
-                      </div>
                     </div>
                   </form>
                 </motion.div>
@@ -1402,7 +1390,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     </div>
                   </div>
 
-                  <div className="pt-2 flex flex-col items-center justify-center">
+                  <div className="pt-2 flex flex-col items-center justify-center gap-2">
                     <button
                       type="submit"
                       disabled={cargando}
@@ -1422,6 +1410,18 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                         </>
                       )}
                     </button>
+
+                    {/* Botón Biométrico: Ingreso con Huella Dactilar para usuarios con el módulo */}
+                    {(tieneBiometriaLocal || usuarioEncontrado?.perfil_acceso?.huella_habilitada || usuarioEncontrado?.perfil_acceso?.biometria_activa) && (
+                      <button
+                        type="button"
+                        onClick={handleLoginBiometrico}
+                        className="sigae-biometric-btn px-4 py-2 rounded-full bg-cyan-50/90 hover:bg-cyan-100 border border-cyan-200 text-cyan-800 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 group mt-1"
+                      >
+                        <Fingerprint className="w-4 h-4 text-cyan-600 transition-transform group-hover:scale-110" />
+                        <span>Ingreso con Huella Dactilar</span>
+                      </button>
+                    )}
                   </div>
                 </form>
 
@@ -2458,18 +2458,6 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           </div>
         </div>
 
-        {/* Acceso directo al Sitio Web Institucional */}
-        <div className="absolute top-[3.2%] right-[3.5%] z-20 hidden lg:flex items-center">
-          <Link
-            to="/portal"
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/85 hover:bg-white text-cyan-900 border border-cyan-200 shadow-xs hover:shadow-md text-xs font-bold transition-all hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-xs group"
-          >
-            <Globe className="w-3.5 h-3.5 text-cyan-600 transition-transform duration-300 group-hover:rotate-45" />
-            <span>Sitio Web Institucional</span>
-            <ArrowRight className="w-3.5 h-3.5 text-cyan-500 transition-transform duration-200 group-hover:translate-x-0.5" />
-          </Link>
-        </div>
-
         {/* Formulario superpuesto con precisión en el marco bezel 3D */}
         <div 
           className={`absolute flex flex-col ${paso === 'primer_ingreso' ? 'justify-start overflow-hidden rounded-2xl p-3.5 xl:p-4 bg-white/95 backdrop-blur-md shadow-2xl border border-cyan-200/80 ring-1 ring-cyan-400/20' : 'justify-center px-3.5 xl:px-6'} z-20 transition-all duration-300`}
@@ -2518,13 +2506,6 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
           />
         </picture>
 
-        {/* Cinta 3D Oficial Venezuela anclada en la esquina superior derecha con suave animación flotante */}
-        <img
-          src="/img/cinta_3d_venezuela.png"
-          alt="Cinta Venezuela"
-          className="absolute top-0 right-0 w-[180px] sm:w-[220px] h-auto object-contain pointer-events-none z-10 drop-shadow-[0_4px_16px_rgba(0,0,0,0.18)] animate-ribbon-wave"
-        />
-
         {/* Encabezado Institucional Móvil Amplio y Nítido */}
         <header className="w-full flex items-center justify-between pb-2 z-20 relative">
           <div className="flex items-center gap-2 sm:gap-2.5 max-w-[82%]">
@@ -2552,14 +2533,6 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
               </span>
             </div>
           </div>
-
-          <Link
-            to="/portal"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/85 border border-cyan-200 text-cyan-900 text-[10px] font-bold shadow-xs hover:bg-white transition-all shrink-0 ml-auto"
-          >
-            <Globe className="w-3 h-3 text-cyan-600" />
-            <span>Sitio Web</span>
-          </Link>
         </header>
 
         {/* Contenedor de la tarjeta de acceso */}
