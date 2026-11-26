@@ -329,6 +329,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
   const [mostrarModalRecuperar, setMostrarModalRecuperar] = useState(false);
 
   // Invitados
+  const [invCedula, setInvCedula] = useState('');
   const [invNombres, setInvNombres] = useState('');
   const [invApellidos, setInvApellidos] = useState('');
   const [invCorreo, setInvCorreo] = useState('');
@@ -2753,7 +2754,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
               </form>
             ) : (
               /* Formulario de Preguntas Secretas */
-              <form onSubmit={handleValidarRespuestasYCambiarClave} className="space-y-3">
+              <form onSubmit={handleRestablecerClave} className="space-y-3">
                 <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 font-medium">
                   Usuario: <strong>{recuperarUsuario.nombre_completo || 'Usuario'}</strong> (C.I. {recuperarUsuario.cedula})
                 </div>
