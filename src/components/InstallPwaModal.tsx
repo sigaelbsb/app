@@ -163,262 +163,153 @@ export const InstallPwaModal: React.FC = () => {
 
   return (
     <div 
-      className="modal show d-block animate__animated animate__fadeIn" 
-      tabIndex={-1} 
-      style={{ backgroundColor: 'rgba(15, 23, 42, 0.82)', backdropFilter: 'blur(8px)', zIndex: 99999 }}
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-md animate__animated animate__fadeIn"
     >
-      <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '490px' }}>
+      <div 
+        className="relative w-full max-w-[480px] rounded-3xl overflow-hidden bg-white/95 backdrop-blur-xl border border-cyan-200/90 shadow-[0_20px_60px_-15px_rgba(0,188,212,0.35)] text-slate-800"
+      >
+        {/* Cabecera Estilo EdTech SIGAE con degradado Cian/Azul y burbujas suaves */}
         <div 
-          className="modal-content border-0 shadow-lg" 
-          style={{ 
-            borderRadius: '24px', 
-            overflow: 'hidden',
-            background: '#ffffff'
-          }}
+          className="p-5 pb-6 text-white text-center relative overflow-hidden bg-gradient-to-r from-[#00bcd4] via-[#0288d1] to-[#01579b]"
         >
-          {/* Cabecera Institucional SIGAE con Burbujas 3D */}
-          <div 
-            className="p-4 text-white text-center position-relative overflow-hidden" 
-            style={{ 
-              background: 'linear-gradient(135deg, #0066FF 0%, #00C3FF 100%)',
-              paddingBottom: '26px'
-            }}
-          >
-            {/* Burbujas 3D Flotantes */}
-            <div className="burbuja-3d burbuja-1" style={{ width: '180px', height: '180px', top: '-60px', right: '-40px', opacity: 0.35 }}></div>
-            <div className="burbuja-3d burbuja-2" style={{ width: '120px', height: '120px', bottom: '-40px', left: '-20px', opacity: 0.35 }}></div>
+          {/* Luces y Reflejos 3D Suaves */}
+          <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-white/15 blur-xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-cyan-300/20 blur-lg pointer-events-none" />
 
-            <div className="position-absolute" style={{ top: '15px', right: '15px', zIndex: 10 }}>
-              <button 
-                type="button" 
-                className="btn-close btn-close-white opacity-75 hover-efecto" 
-                onClick={handleDismiss}
-                aria-label="Cerrar"
-              ></button>
+          <button 
+            type="button" 
+            className="absolute top-3.5 right-3.5 text-white/80 hover:text-white bg-black/10 hover:bg-black/20 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer" 
+            onClick={handleDismiss}
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+          
+          <div className="relative z-10 flex flex-col items-center">
+            {/* Contenedor del Icono Oficial con Fondo Blanco y Borde Cian 3D */}
+            <div 
+              className="w-20 h-20 bg-white rounded-2xl p-2.5 shadow-xl flex items-center justify-center mb-2.5 ring-4 ring-cyan-200/50"
+            >
+              <img 
+                src="/assets/img/icono.png" 
+                alt="SIGAE App" 
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/img/sigae.png';
+                }}
+              />
             </div>
-            
-            <div className="position-relative z-1">
-              <div 
-                className="d-inline-flex align-items-center justify-content-center bg-white p-2.5 rounded-4 shadow-lg mb-2"
-                style={{ width: '84px', height: '84px', border: '3px solid #00bcd4' }}
-              >
-                <img 
-                  src="/assets/img/icono.png" 
-                  alt="SIGAE App" 
-                  style={{ width: '64px', height: '64px', objectFit: 'contain' }} 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/img/sigae.png';
-                  }}
-                />
-              </div>
-              <div className="d-flex justify-content-center mb-1">
-                <span className="badge bg-warning text-dark rounded-pill px-3 py-1 fw-bold shadow-xs small">
-                  <i className="bi bi-arrow-repeat text-dark me-1"></i> Actualización Obligatoria a v1.3
-                </span>
-              </div>
-              <h4 className="fw-bolder mb-1 text-white">
-                Nueva Versión SIGAE v1.3 Disponible
-              </h4>
-              <p className="small mb-0 text-white text-opacity-90">
-                Tu equipo está ingresando con: <strong className="text-warning text-decoration-underline">Versión {versionDetectada}</strong> &bull; Versión Oficial: <strong>v1.3</strong>
-              </p>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xs text-white text-[11px] font-black uppercase tracking-wider mb-1.5 border border-white/25">
+              <span>Actualización Obligatoria</span>
+              <span className="bg-amber-400 text-slate-900 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">v1.3</span>
             </div>
+
+            <h3 className="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-xs">
+              Nueva Versión SIGAE v1.3
+            </h3>
+            <p className="text-xs text-cyan-50 font-medium mt-1">
+              Ingresando con: <span className="underline font-bold text-amber-300">Versión {versionDetectada}</span> &bull; Actualizar a: <span className="font-bold text-white">Versión 1.3</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Cuerpo del Diálogo */}
+        <div className="p-5 sm:p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          {/* Bloque Destacado de Desinstalación Previa */}
+          <div className="p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-950 flex flex-col gap-1.5 shadow-2xs">
+            <div className="flex items-center gap-2 font-black text-xs sm:text-sm text-amber-800">
+              <span className="w-5 h-5 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center text-xs shrink-0 font-bold">!</span>
+              <span>Paso 1 Obligatorio: Eliminar icono de v{versionDetectada}</span>
+            </div>
+            <p className="text-[11.5px] leading-relaxed text-amber-900/90 font-medium">
+              Tu equipo tiene registrado un acceso con la versión anterior. Debes <strong>desinstalar o borrar el icono viejo</strong> de tu pantalla o escritorio para evitar que se quede guardada la versión previa y poder instalar la nueva <strong>Versión 1.3</strong>.
+            </p>
           </div>
 
-          {/* Cuerpo */}
-          <div className="p-4 pt-3 text-dark">
-            {/* Aviso Destacado: Comparativa de Versión y Desinstalación Obligatoria */}
-            <div className="p-3 mb-3 rounded-4 border border-danger-subtle bg-danger-subtle d-flex flex-column gap-2 text-danger-emphasis">
-              <div className="d-flex items-center justify-content-between flex-wrap gap-2 pb-1 border-bottom border-danger-subtle">
-                <span className="fw-bold fs-6 d-flex items-center gap-1.5 text-danger">
-                  <i className="bi bi-exclamation-octagon-fill fs-5"></i>
-                  <span>Estado de la versión instalada:</span>
-                </span>
-                <span className="badge bg-danger text-white rounded-pill px-2.5 py-1 text-xs">
-                  Tienes la v{versionDetectada}
-                </span>
-              </div>
-
-              <p className="small mb-0 text-dark">
-                Actualmente tu equipo o teléfono tiene registrado un acceso con la <strong>Versión {versionDetectada}</strong>. 
-                Para evitar fallas de conexión o funciones obsoletas, debes <strong>eliminar o desinstalar el icono existente de la versión anterior</strong> en tu pantalla de inicio o escritorio antes de instalar la nueva <strong>Versión 1.3</strong>.
+          {/* Guía según la plataforma */}
+          {isInAppBrowser ? (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+              <p className="font-bold flex items-center gap-1.5">
+                <span>⚠️ Estás dentro del navegador de una red social</span>
               </p>
+              <p>Para instalar la app limpia en tu teléfono:</p>
+              <ol className="list-decimal list-inside space-y-1 font-medium">
+                <li>Toca los <strong>3 puntos (⋮)</strong> en la esquina superior.</li>
+                <li>Selecciona <strong>"Abrir en Chrome"</strong> (o Safari en iPhone).</li>
+              </ol>
             </div>
-            {/* Si está dentro de WhatsApp / Instagram */}
-            {isInAppBrowser ? (
-              <div className="alert alert-warning border-0 rounded-4 p-3 mb-3 small text-dark" style={{ background: '#fef3c7' }}>
-                <div className="fw-bold text-warning-emphasis d-flex align-items-center gap-2 mb-2 fs-6">
-                  <i className="bi bi-exclamation-triangle-fill fs-5 text-warning"></i> 
-                  <span>Estás dentro de WhatsApp / Red Social</span>
-                </div>
-                <p className="mb-2">
-                  Para instalar la aplicación en tu celular, debes abrir el enlace en tu navegador:
-                </p>
-                <ol className="ps-3 mb-0">
-                  <li className="mb-1">Toca los <strong>3 puntos (⋮)</strong> en la esquina superior.</li>
-                  <li>Selecciona <strong>"Abrir en Chrome"</strong> (o Safari en iPhone).</li>
-                </ol>
+          ) : isIOS ? (
+            <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 text-xs text-sky-950 space-y-2">
+              <p className="font-bold text-sky-900">Pasos en iPhone / iPad (Safari):</p>
+              <div className="space-y-1.5 font-medium">
+                <p>1. Presiona el botón <strong>Compartir</strong> (icono de cuadrado con flecha arriba).</p>
+                <p>2. Desliza hacia abajo y toca <strong>"Agregar al inicio"</strong>.</p>
+                <p>3. Pulsa <strong>"Agregar"</strong> arriba a la derecha.</p>
               </div>
-            ) : isIOS ? (
-              /* Caso iPhone / iPad */
-              <div className="alert alert-primary border-0 rounded-4 p-3 mb-3 small text-dark" style={{ background: '#eff6ff' }}>
-                <div className="fw-bold text-primary d-flex align-items-center gap-2 mb-2 fs-6">
-                  <i className="bi bi-apple fs-5"></i> Pasos para instalar en iPhone / iPad (Safari):
-                </div>
-                <div className="d-flex flex-column gap-2">
-                  <div className="d-flex align-items-start gap-2">
-                    <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">1</span>
-                    <span>Presiona el botón <strong>Compartir</strong> <i className="bi bi-box-arrow-up text-primary fw-bold ms-1"></i> (en la barra de Safari).</span>
-                  </div>
-                  <div className="d-flex align-items-start gap-2">
-                    <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">2</span>
-                    <span>Desliza hacia abajo y toca <strong>"Agregar al inicio"</strong> <i className="bi bi-plus-square text-primary fw-bold ms-1"></i>.</span>
-                  </div>
-                  <div className="d-flex align-items-start gap-2">
-                    <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">3</span>
-                    <span>Pulsa <strong>"Agregar"</strong> arriba a la derecha y listo.</span>
-                  </div>
+            </div>
+          ) : isDesktop ? (
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-2xl bg-sky-50/80 border border-cyan-200 text-xs text-slate-800 space-y-2">
+                <p className="font-bold text-cyan-900 text-sm">Cómo instalar en tu Computadora (PC / Laptop):</p>
+                <div className="space-y-1.5 font-medium text-[11.5px]">
+                  <p>1. Mira arriba a la derecha en la <strong>barra de direcciones URL</strong> del navegador.</p>
+                  <p>2. Haz clic en el icono <strong>[ 🖥️ ⬇️ ]</strong> o <strong>[ ➕ ]</strong> que dice <i>"Instalar SIGAE v1.3"</i>.</p>
+                  <p>3. (Alternativa): Pulsa <strong>(⋮)</strong> &gt; <strong>"Guardar y compartir"</strong> &gt; <strong>"Instalar SIGAE v1.3"</strong>.</p>
                 </div>
               </div>
-            ) : isDesktop ? (
-              /* Caso Computadora de Escritorio (Windows / Mac / Linux) */
-              <div className="d-flex flex-column gap-2 mb-3">
-                {isStandalone ? (
-                  <div className="alert alert-success border-0 rounded-4 p-3 mb-2 small text-dark" style={{ background: '#dcfce7' }}>
-                    <div className="fw-bold text-success d-flex align-items-center gap-2 mb-1 fs-6">
-                      <i className="bi bi-check-circle-fill fs-5"></i> ¡SIGAE ya está instalada en tu equipo!
-                    </div>
-                    <p className="mb-0 text-muted">
-                      Esta ventana ya está funcionando como aplicación independiente en tu PC. Puedes anclarla a tu Barra de Tareas o acceder desde el Menú Inicio.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="alert alert-primary border-0 rounded-4 p-3 mb-2 small text-dark" style={{ background: '#eff6ff' }}>
-                    <div className="fw-bold text-primary d-flex align-items-center gap-2 mb-2 fs-6">
-                      <i className="bi bi-pc-display fs-5"></i> Cómo instalar en tu Computadora (PC / Laptop):
-                    </div>
-                    <div className="d-flex flex-column gap-2.5">
-                      <div className="d-flex align-items-start gap-2">
-                        <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">1</span>
-                        <span>
-                          Mira arriba a la derecha en la <strong>barra de direcciones URL</strong> de tu navegador (donde está el link <code>app-delta-ten-80.vercel.app</code>).
-                        </span>
-                      </div>
-                      <div className="d-flex align-items-start gap-2">
-                        <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">2</span>
-                        <span>
-                          Haz clic en el icono <strong>[ 🖥️ ⬇️ ]</strong> o <strong>[ ➕ ]</strong> que dice <i>"Instalar SIGAE v1.3"</i> o <i>"Actualización disponible"</i>.
-                        </span>
-                      </div>
-                      <div className="d-flex align-items-start gap-2">
-                        <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">3</span>
-                        <span>
-                          (Alternativa): Pulsa los <strong>3 puntos (⋮)</strong> arriba a la derecha &gt; <strong>"Guardar y compartir"</strong> &gt; <strong>"Instalar SIGAE v1.3"</strong>.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
-                {isWindows && !isStandalone && (
-                  <div className="p-3 rounded-4 border bg-light d-flex flex-column gap-2">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="d-flex align-items-center gap-2">
-                        <i className="bi bi-windows text-primary fs-5"></i>
-                        <span className="fw-bold small text-dark">Acceso directo inmediato en Windows</span>
-                      </div>
-                      <span className="badge bg-success-subtle text-success border border-success-subtle extra-small">1 Clic</span>
-                    </div>
-                    <p className="extra-small text-muted mb-1">
-                      Si tu navegador no muestra el cartel automático, descarga este acceso directo (.url) y guárdalo en tu Escritorio para abrir SIGAE siempre con 1 clic:
-                    </p>
-                    <button
-                      type="button"
-                      onClick={descargarAccesoDirecto}
-                      className="btn btn-outline-primary btn-sm rounded-pill fw-bold d-inline-flex align-items-center justify-content-center gap-2 hover-efecto py-2"
-                    >
-                      <i className="bi bi-download"></i> Descargar Acceso Directo (.url)
-                    </button>
+              {isWindows && !isStandalone && (
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-800">Acceso Directo Windows (.url)</span>
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">1 Clic</span>
                   </div>
-                )}
-              </div>
-            ) : (
-              /* Caso Celular Android */
-              <div className="d-flex flex-column gap-2 mb-3">
-                {(!deferredPrompt || mostrarGuiaManual) && (
-                  <div className="alert alert-info border-0 rounded-4 p-3 mb-2 small text-dark" style={{ background: '#e0f2fe' }}>
-                    <div className="fw-bold text-primary d-flex align-items-center gap-2 mb-2 fs-6">
-                      <i className="bi bi-phone text-primary fs-5"></i> Cómo añadir a tu pantalla de inicio en Android:
-                    </div>
-                    <div className="d-flex flex-column gap-2">
-                      <div className="d-flex align-items-start gap-2">
-                        <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">1</span>
-                        <span>Toca los <strong>3 puntos (⋮)</strong> en la esquina superior derecha de tu navegador Chrome.</span>
-                      </div>
-                      <div className="d-flex align-items-start gap-2">
-                        <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">2</span>
-                        <span>Selecciona <strong>"Instalar aplicación"</strong> o <strong>"Añadir a pantalla principal"</strong>.</span>
-                      </div>
-                      <div className="d-flex align-items-start gap-2">
-                        <span className="badge bg-primary rounded-circle px-2 py-1 flex-shrink-0">3</span>
-                        <span>Confirma en <strong>"Instalar"</strong> y el icono aparecerá de inmediato en tu celular.</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="d-flex align-items-center gap-3 p-2 rounded-3" style={{ background: 'rgba(0, 102, 255, 0.05)' }}>
-                  <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px' }}>
-                    <i className="bi bi-lightning-charge-fill fs-5"></i>
-                  </div>
-                  <div className="small">
-                    <span className="fw-bold text-dark d-block">Acceso con 1 toque</span>
-                    <span className="text-muted">Abre directamente desde el icono en tu pantalla como app oficial.</span>
-                  </div>
+                  <p className="text-[11px] text-slate-600 font-medium">
+                    Descarga el acceso directo y colócalo en tu Escritorio para ingresar siempre con un clic:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={descargarAccesoDirecto}
+                    className="w-full py-2 px-3 rounded-xl bg-white hover:bg-slate-100 border border-cyan-300 text-cyan-900 font-bold text-xs flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer"
+                  >
+                    <span>⬇ Descargar Acceso Directo (.url)</span>
+                  </button>
                 </div>
-
-                <div className="d-flex align-items-center gap-3 p-2 rounded-3" style={{ background: 'rgba(16, 185, 129, 0.05)' }}>
-                  <div className="p-2 bg-success bg-opacity-10 text-success rounded-3 flex-shrink-0 d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px' }}>
-                    <i className="bi bi-arrow-repeat fs-5"></i>
-                  </div>
-                  <div className="small">
-                    <span className="fw-bold text-dark d-block">Auto-actualizaciones en vivo</span>
-                    <span className="text-muted">Recibe siempre las últimas funciones sin tener que reinstalar.</span>
-                  </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <div className="p-3.5 rounded-2xl bg-sky-50 border border-cyan-200 text-xs text-slate-800 space-y-2">
+                <p className="font-bold text-cyan-900">Cómo añadir a la pantalla en Android:</p>
+                <div className="space-y-1 font-medium text-[11.5px]">
+                  <p>1. Toca los <strong>3 puntos (⋮)</strong> en la esquina superior de Chrome.</p>
+                  <p>2. Selecciona <strong>"Instalar aplicación"</strong> o <strong>"Añadir a pantalla principal"</strong>.</p>
+                  <p>3. Confirma en <strong>"Instalar"</strong> y aparecerá el icono con marco oficial.</p>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Acciones */}
-            <div className="d-flex flex-column gap-2 mt-3">
-              {deferredPrompt && !isInAppBrowser ? (
-                <button 
-                  type="button" 
-                  className="btn btn-primary rounded-pill py-3 fw-bold fs-6 shadow-sm d-flex align-items-center justify-content-center gap-2 hover-efecto"
-                  onClick={handleInstallClick}
-                  style={{ background: 'var(--color-primario, #0066FF)', border: 'none' }}
-                >
-                  <i className="bi bi-download fs-5"></i> Instalar Aplicación Ahora
-                </button>
-              ) : isWindows && !isStandalone ? (
-                <button 
-                  type="button" 
-                  className="btn btn-primary rounded-pill py-3 fw-bold fs-6 shadow-sm d-flex align-items-center justify-content-center gap-2 hover-efecto"
-                  onClick={descargarAccesoDirecto}
-                  style={{ background: '#FF8D00', border: 'none' }}
-                >
-                  <i className="bi bi-box-arrow-down fs-5"></i> Descargar Acceso Directo para Windows (.url)
-                </button>
-              ) : null}
-
+          {/* Botones de Acción */}
+          <div className="pt-2 flex flex-col gap-2">
+            {deferredPrompt && !isInAppBrowser ? (
               <button 
                 type="button" 
-                className="btn btn-light rounded-pill py-2 fw-semibold text-muted small hover-efecto"
-                onClick={handleDismiss}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-extrabold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                onClick={handleInstallClick}
               >
-                {isStandalone ? 'Cerrar' : 'Entendido, continuar'}
+                <span>⬇ Instalar Versión 1.3 Oficial Ahora</span>
               </button>
-            </div>
+            ) : null}
+
+            <button 
+              type="button" 
+              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              onClick={handleDismiss}
+            >
+              {isStandalone ? 'Cerrar' : 'Entendido, continuar a la aplicación'}
+            </button>
           </div>
         </div>
       </div>
