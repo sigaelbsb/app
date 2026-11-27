@@ -273,6 +273,174 @@
 }
 
 /* =======================================================
+   ESTRUCTURA Y COMPONENTES ESTILO ADMINLTE + GLASSMORPHISM CIAN/AZUL
+========================================================== */
+
+/* Brand Link AdminLTE */
+.adminlte-brand-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1.5px solid rgba(0, 188, 212, 0.2);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(14px);
+    transition: all 0.2s ease;
+}
+
+/* User Panel AdminLTE */
+.adminlte-user-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0, 188, 212, 0.15);
+    background: rgba(226, 246, 249, 0.35);
+    margin: 4px 10px 10px 10px;
+    border-radius: 14px;
+}
+
+/* Small Boxes (Cajas de Estadísticas AdminLTE) */
+.adminlte-small-box {
+    border-radius: 18px;
+    position: relative;
+    display: block;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 24px rgba(0, 114, 206, 0.12);
+    color: #ffffff !important;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(12px);
+    text-decoration: none;
+    cursor: pointer;
+}
+.adminlte-small-box:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 38px rgba(0, 114, 206, 0.22), 0 0 24px rgba(0, 188, 212, 0.25);
+    color: #ffffff !important;
+}
+.adminlte-small-box .inner {
+    padding: 18px 20px;
+    position: relative;
+    z-index: 2;
+}
+.adminlte-small-box .inner h3 {
+    font-size: 2.1rem;
+    font-weight: 800;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    color: #ffffff;
+}
+.adminlte-small-box .inner p {
+    font-size: 0.86rem;
+    font-weight: 600;
+    margin: 0;
+    opacity: 0.95;
+    letter-spacing: 0.2px;
+    color: #ffffff;
+}
+.adminlte-small-box .icon {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    z-index: 1;
+    font-size: 68px;
+    color: rgba(255, 255, 255, 0.25);
+    transition: transform 0.35s ease;
+    pointer-events: none;
+}
+.adminlte-small-box:hover .icon {
+    transform: scale(1.15) rotate(-6deg);
+    color: rgba(255, 255, 255, 0.38);
+}
+.adminlte-small-box-footer {
+    position: relative;
+    text-align: center;
+    padding: 8px 12px;
+    color: rgba(255, 255, 255, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.16);
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+.adminlte-small-box:hover .adminlte-small-box-footer {
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.28);
+}
+
+/* Degradados Cian y Azul Oficiales para Cajas AdminLTE */
+.bg-gradient-sigae-primary {
+    background: linear-gradient(135deg, #00bcd4 0%, #0288d1 55%, #01579b 100%) !important;
+}
+.bg-gradient-sigae-info {
+    background: linear-gradient(135deg, #26c6da 0%, #0097a7 55%, #006064 100%) !important;
+}
+.bg-gradient-sigae-navy {
+    background: linear-gradient(135deg, #0288d1 0%, #01579b 55%, #0d47a1 100%) !important;
+}
+.bg-gradient-sigae-deep {
+    background: linear-gradient(135deg, #009688 0%, #00796b 55%, #004d40 100%) !important;
+}
+
+/* Tarjeta Clásica AdminLTE con Borde Superior en Cian */
+.adminlte-card {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 18px;
+    border: 1.5px solid rgba(0, 188, 212, 0.22);
+    border-top: 4px solid #00bcd4;
+    box-shadow: 0 8px 24px rgba(0, 114, 206, 0.06);
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+}
+.adminlte-card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(0, 188, 212, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.adminlte-card-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+.adminlte-card-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Footer AdminLTE Glassmorphic */
+.adminlte-main-footer {
+    background: rgba(255, 255, 255, 0.90);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1.5px solid rgba(0, 188, 212, 0.18);
+    padding: 14px 24px;
+    font-size: 0.82rem;
+    color: #475569;
+    box-shadow: 0 -4px 16px rgba(0, 114, 206, 0.04);
+}
+
+/* =======================================================
    REGLAS PARA TELÉFONOS (RESPONSIVIDAD MÓVIL)
 ========================================================== */
 @media (max-width: 768px) {

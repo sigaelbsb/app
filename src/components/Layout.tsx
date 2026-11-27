@@ -1359,7 +1359,7 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           height: esModoEmulacion ? 'calc(100vh - var(--altura-banner-emulacion, 42px))' : undefined
         }}
       >
-        {/* CABECERA INSTITUCIONAL CHAMILO */}
+        {/* CABECERA INSTITUCIONAL ESTILO ADMINLTE */}
         <div className="chamilo-sidebar-brand d-flex align-items-center justify-content-between">
           <div 
             id="btn-logo-nav" 
@@ -1376,24 +1376,25 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               />
             </div>
             <div className="sidebar-texto">
-              <div className="chamilo-sidebar-title text-truncate" style={{ maxWidth: '170px' }}>
-                {escuelaNombre}
+              <div className="chamilo-sidebar-title text-truncate d-flex align-items-center gap-1.5" style={{ maxWidth: '170px' }}>
+                <span className="fw-black text-dark">SIGAE</span>
+                <span className="badge rounded-pill extra-small" style={{ background: 'linear-gradient(135deg, #00bcd4, #0288d1)', color: '#fff', fontSize: '0.62rem' }}>1.3</span>
               </div>
-              <div className="chamilo-sidebar-subtitle">
-                PDVSA Oriente &bull; <span className="text-primary fw-bold">{escuelaCodigo.toUpperCase()}</span>
+              <div className="chamilo-sidebar-subtitle text-truncate" style={{ maxWidth: '170px' }}>
+                {escuelaNombre} &bull; <strong className="text-info" style={{ color: '#00bcd4' }}>{escuelaCodigo.toUpperCase()}</strong>
               </div>
             </div>
           </div>
 
           <div className="d-flex align-items-center gap-1">
-            {/* Botón Colapsar en Pantallas Grandes (Desktop) */}
+            {/* Botón Colapsar en Pantallas Grandes (Desktop - AdminLTE pushmenu) */}
             <button 
               id="btn-colapsar-menu" 
               onClick={toggleSidebar} 
               className="btn-colapsar d-none d-lg-flex align-items-center justify-content-center p-1.5 rounded-3 text-muted hover-efecto" 
               title={sidebarColapsado ? "Expandir Barra Lateral" : "Contraer Barra Lateral"}
             >
-              <i className={`bi ${sidebarColapsado ? 'bi-chevron-right text-primary fw-bold' : 'bi-layout-sidebar-inset'} fs-5`}></i>
+              <i className={`bi ${sidebarColapsado ? 'bi-chevron-right text-primary fw-bold' : 'bi-list'} fs-5`}></i>
             </button>
 
             {/* Botón Cerrar en Pantallas Móviles y Tablets */}
@@ -1407,6 +1408,47 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
               <i className="bi bi-x-lg fs-6"></i>
             </button>
           </div>
+        </div>
+
+        {/* PANEL DE USUARIO ESTILO ADMINLTE */}
+        <div className="adminlte-user-panel sidebar-texto">
+          <div className="position-relative me-2 flex-shrink-0">
+            <div className="chamilo-avatar-circle" style={{ width: '36px', height: '36px', fontSize: '0.82rem' }}>
+              {(usuario?.nombre || usuario?.nombre_completo || 'U').charAt(0).toUpperCase()}
+            </div>
+            <span 
+              className="position-absolute bottom-0 end-0 rounded-circle border border-white"
+              style={{ width: '10px', height: '10px', backgroundColor: '#00bcd4', boxShadow: '0 0 6px #00bcd4' }}
+              title="En línea"
+            />
+          </div>
+          <div className="info min-w-0 flex-grow-1">
+            <div className="fw-bold text-dark text-truncate small" style={{ lineHeight: '1.2' }}>
+              {usuario?.nombre || usuario?.nombre_completo || 'Usuario'}
+            </div>
+            <div className="d-flex align-items-center gap-1 extra-small text-muted text-truncate mt-0.5">
+              <span className="badge rounded-pill px-1.5 py-0 text-uppercase" style={{ fontSize: '0.62rem', background: 'rgba(0, 188, 212, 0.15)', color: '#01579b', border: '1px solid rgba(0, 188, 212, 0.3)' }}>
+                {usuario?.rol || 'Administrativo'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* BUSCADOR RÁPIDO ESTILO ADMINLTE */}
+        <div className="px-3 mb-1 sidebar-texto">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('sigae-abrir-sigma-busqueda'))}
+            className="w-100 btn btn-sm d-flex align-items-center justify-content-between px-2.5 py-1.5 rounded-3 text-muted hover-efecto"
+            style={{ background: 'rgba(226, 246, 249, 0.55)', border: '1px solid rgba(0, 188, 212, 0.25)', fontSize: '0.78rem' }}
+            title="Buscar herramientas y módulos (Ctrl + K)"
+          >
+            <span className="d-flex align-items-center gap-2">
+              <i className="bi bi-search" style={{ color: '#00bcd4' }}></i>
+              <span>Buscar módulo...</span>
+            </span>
+            <kbd className="badge bg-white text-secondary border px-1.5 py-0 extra-small">Ctrl+K</kbd>
+          </button>
         </div>
         
         {/* LISTADO DE CAJAS DE HERRAMIENTAS (ESTILO CHAMILO) */}
@@ -2204,13 +2246,23 @@ export const Layout = ({ onLogout }: { onLogout: () => void }) => {
           <Outlet />
         </div>
 
-        <footer className="w-100 d-flex flex-column align-items-center py-4 mt-auto border-top bg-light bg-opacity-50">
-          <div className="d-flex justify-content-center align-items-center gap-4 mb-3">
-            <img src="/assets/img/logoMPPE.png" alt="MPPE" className="footer-logo-mppe" height="40" />
-            <img src="/assets/img/sigae.png?v=escudo3d" alt="Sistema Integral de Gestión y Administración Escolar" className="footer-logo-sigae" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
+        {/* FOOTER CLÁSICO ADMINLTE CON GLASSMORPHISM CIAN/AZUL */}
+        <footer className="adminlte-main-footer w-100 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 px-4 py-3 mt-auto border-top">
+          <div className="d-flex align-items-center gap-3 flex-wrap">
+            <div className="d-flex align-items-center gap-2">
+              <img src="/assets/img/logoMPPE.png" alt="MPPE" className="footer-logo-mppe" height="28" style={{ objectFit: 'contain' }} />
+              <img src="/assets/img/sigae.png?v=escudo3d" alt="SIGAE" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+            </div>
+            <div className="small text-secondary">
+              <strong>Copyright &copy; {new Date().getFullYear()} <span style={{ color: '#00bcd4', fontWeight: 800 }}>SIGAE</span>.</strong>
+              <span className="text-muted d-none d-lg-inline ms-1.5">Sistema Integral de Gestión y Administración Escolar &bull; MPPE PDVSA Oriente.</span>
+            </div>
           </div>
-          <div className="fw-bold text-center mb-2 footer-anio">
-            Escuelas DEP Oriente <span>{new Date().getFullYear()}</span> | <span className="text-primary font-bold">Versión 1.3</span>
+          <div className="d-flex align-items-center gap-2 extra-small">
+            <span className="badge rounded-pill px-2.5 py-1 fw-bold shadow-xs" style={{ background: 'linear-gradient(135deg, #00bcd4, #0288d1)', color: '#fff' }}>
+              Versión 1.3.0
+            </span>
+            <span className="text-muted fw-semibold">Todos los derechos reservados.</span>
           </div>
         </footer>
       </main>

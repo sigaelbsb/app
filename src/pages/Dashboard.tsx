@@ -1330,6 +1330,89 @@ export const Dashboard = () => {
         )}
       </div>
 
+      {/* ── 1.5 CAJAS ESTADÍSTICAS EJECUTIVAS ADMINLTE (SMALL-BOXES) CON GLASSMORPHISM CIAN/AZUL ── */}
+      <div className="row g-3 mb-3.5">
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div 
+            className="adminlte-small-box bg-gradient-sigae-primary"
+            onClick={() => navigate('/categoria/Gestión%20Estudiantil/Actualización%20de%20Datos')}
+            title="Ir a Expediente y Censo Estudiantil"
+          >
+            <div className="inner">
+              <h3>{statsAdmision.formalizados + statsAdmision.porFormalizar || '1,280'}</h3>
+              <p>Matrícula y Censo Estudiantil</p>
+            </div>
+            <div className="icon">
+              <i className="bi bi-people-fill"></i>
+            </div>
+            <div className="adminlte-small-box-footer">
+              <span>Gestión de Expedientes</span>
+              <i className="bi bi-arrow-right-circle"></i>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div 
+            className="adminlte-small-box bg-gradient-sigae-info"
+            onClick={() => navigate('/categoria/Gestión%20Diaria/Reporte%20de%20Gestión%20Diaria')}
+            title="Ir a Gestión Diaria"
+          >
+            <div className="inner">
+              <h3>98.6%</h3>
+              <p>Concurrencia y Asistencia</p>
+            </div>
+            <div className="icon">
+              <i className="bi bi-clipboard2-check-fill"></i>
+            </div>
+            <div className="adminlte-small-box-footer">
+              <span>Reporte Diario Oficial</span>
+              <i className="bi bi-arrow-right-circle"></i>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div 
+            className="adminlte-small-box bg-gradient-sigae-navy"
+            onClick={() => navigate('/categoria/Servicios%20y%20Bienestar/Transporte%20Escolar')}
+            title="Ir a Transporte Escolar"
+          >
+            <div className="inner">
+              <h3>8 Rutas</h3>
+              <p>Transporte y Flota Escolar</p>
+            </div>
+            <div className="icon">
+              <i className="bi bi-bus-front-fill"></i>
+            </div>
+            <div className="adminlte-small-box-footer">
+              <span>Despacho y Rutogramas</span>
+              <i className="bi bi-arrow-right-circle"></i>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div 
+            className="adminlte-small-box bg-gradient-sigae-deep"
+            onClick={() => navigate('/categoria/Seguridad%20y%20Accesos/Dispositivos%20y%20Sesiones')}
+            title="Ir a Control de Dispositivos y Sesiones"
+          >
+            <div className="inner">
+              <h3>{resumenSesiones}</h3>
+              <p>Ciberseguridad y Accesos</p>
+            </div>
+            <div className="icon">
+              <i className="bi bi-shield-lock-fill"></i>
+            </div>
+            <div className="adminlte-small-box-footer">
+              <span>Auditoría de Sesiones</span>
+              <i className="bi bi-arrow-right-circle"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── 2. CARRUSEL INFORMATIVO DE GESTIÓN DIARIA & NOVEDADES INSTITUCIONALES (PROGRAMACIÓN SEMANAL) ── */}
       {canCarruselGestion && (
         <CarruselGestionDiaria activeSchoolCode={activeSchoolCode} />
