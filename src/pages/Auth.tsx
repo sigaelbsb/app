@@ -2128,10 +2128,8 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
                         Cédula o Usuario
                       </label>
-                      <div className="relative flex items-center">
-                        <div className="absolute left-3 inset-y-0 flex items-center pointer-events-none z-10">
-                          <User3DIcon size={18} />
-                        </div>
+                      <div className="sigae-mppe-input !h-11">
+                        <User className="w-4 h-4 text-[#00bcd4] shrink-0" />
                         <input
                           type="text"
                           autoFocus
@@ -2139,7 +2137,7 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                           value={recuperarIdentificador}
                           onChange={(e) => setRecuperarIdentificador(e.target.value)}
                           placeholder="Ej: 12345678 o usuario"
-                          className="w-full h-11 pl-10 pr-4 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2d93d0] focus:bg-white text-slate-800 font-semibold shadow-xs"
+                          className="w-full h-full text-xs sm:text-sm font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
                         />
                       </div>
                     </div>
@@ -2147,11 +2145,11 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                     <button
                       type="submit"
                       disabled={cargando}
-                      className="w-full h-11 bg-gradient-to-r from-[#2189cf] to-[#2d93d0] hover:from-[#1c78b8] hover:to-[#2189cf] text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 cursor-pointer"
+                      className="sigae-mppe-btn w-full h-11"
                     >
                       {cargando ? 'Consultando...' : (
                         <>
-                          <span>Continuar</span>
+                          <span className="text-xs sm:text-sm font-bold tracking-wide">Continuar</span>
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}
@@ -2212,63 +2210,75 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                 ) : (
                   <form onSubmit={handleRestablecerClave} className="space-y-3.5 text-xs">
                     {/* Pregunta 1 */}
-                    <div className="space-y-1">
-                      <div className="p-2.5 bg-sky-50 border border-sky-100 rounded-xl">
-                        <span className="text-[10px] font-extrabold uppercase text-sky-800 block">1ra Pregunta de Seguridad:</span>
+                    <div className="space-y-1.5 text-left">
+                      <div className="p-2.5 bg-cyan-50/80 border border-cyan-200/90 rounded-xl">
+                        <span className="text-[10px] font-extrabold uppercase text-cyan-800 block">1ra Pregunta de Seguridad:</span>
                         <p className="text-xs font-bold text-slate-800">{recuperarPregunta1}</p>
                       </div>
-                      <input
-                        type="text"
-                        required
-                        value={recuperarRespuesta1}
-                        onChange={(e) => setRecuperarRespuesta1(e.target.value)}
-                        placeholder="Tu 1ra respuesta"
-                        className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
-                      />
+                      <div className="sigae-mppe-input !h-10">
+                        <HelpCircle className="w-4 h-4 text-[#00bcd4] shrink-0" />
+                        <input
+                          type="text"
+                          required
+                          value={recuperarRespuesta1}
+                          onChange={(e) => setRecuperarRespuesta1(e.target.value)}
+                          placeholder="Tu 1ra respuesta"
+                          className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                        />
+                      </div>
                     </div>
 
                     {/* Pregunta 2 */}
-                    <div className="space-y-1">
-                      <div className="p-2.5 bg-sky-50 border border-sky-100 rounded-xl">
-                        <span className="text-[10px] font-extrabold uppercase text-sky-800 block">2da Pregunta de Seguridad:</span>
+                    <div className="space-y-1.5 text-left">
+                      <div className="p-2.5 bg-cyan-50/80 border border-cyan-200/90 rounded-xl">
+                        <span className="text-[10px] font-extrabold uppercase text-cyan-800 block">2da Pregunta de Seguridad:</span>
                         <p className="text-xs font-bold text-slate-800">{recuperarPregunta2}</p>
                       </div>
-                      <input
-                        type="text"
-                        required
-                        value={recuperarRespuesta2}
-                        onChange={(e) => setRecuperarRespuesta2(e.target.value)}
-                        placeholder="Tu 2da respuesta"
-                        className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
-                      />
+                      <div className="sigae-mppe-input !h-10">
+                        <HelpCircle className="w-4 h-4 text-[#00bcd4] shrink-0" />
+                        <input
+                          type="text"
+                          required
+                          value={recuperarRespuesta2}
+                          onChange={(e) => setRecuperarRespuesta2(e.target.value)}
+                          placeholder="Tu 2da respuesta"
+                          className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                        />
+                      </div>
                     </div>
 
                     {/* Nuevas Contraseñas */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <input
-                        type="password"
-                        required
-                        value={recuperarNuevaClave}
-                        onChange={(e) => setRecuperarNuevaClave(e.target.value)}
-                        placeholder="Nueva clave"
-                        className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
-                      />
-                      <input
-                        type="password"
-                        required
-                        value={recuperarConfirmClave}
-                        onChange={(e) => setRecuperarConfirmClave(e.target.value)}
-                        placeholder="Repita la nueva clave"
-                        className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-xs font-medium"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
+                      <div className="sigae-mppe-input !h-10">
+                        <Lock className="w-3.5 h-3.5 text-[#00bcd4] shrink-0" />
+                        <input
+                          type="password"
+                          required
+                          value={recuperarNuevaClave}
+                          onChange={(e) => setRecuperarNuevaClave(e.target.value)}
+                          placeholder="Nueva clave"
+                          className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                        />
+                      </div>
+                      <div className="sigae-mppe-input !h-10">
+                        <Lock className="w-3.5 h-3.5 text-[#00bcd4] shrink-0" />
+                        <input
+                          type="password"
+                          required
+                          value={recuperarConfirmClave}
+                          onChange={(e) => setRecuperarConfirmClave(e.target.value)}
+                          placeholder="Repita la nueva clave"
+                          className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                        />
+                      </div>
                     </div>
 
                     <button
                       type="submit"
                       disabled={cargando}
-                      className="w-full h-11 bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-700 hover:to-sky-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/30 cursor-pointer"
+                      className="sigae-mppe-btn w-full h-11"
                     >
-                      {cargando ? 'Restableciendo...' : 'Restablecer e Iniciar Sesión'}
+                      {cargando ? 'Actualizando clave...' : 'Guardar Nueva Contraseña'}
                     </button>
 
                     {/* Opción si no recuerda las preguntas de seguridad: Olvidé todos mis datos */}
@@ -2344,60 +2354,74 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
                   </div>
                 </div>
 
-                <form onSubmit={handleRegistrarInvitado} className="space-y-2.5 text-xs">
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      required
-                      value={invNombres}
-                      onChange={e => setInvNombres(e.target.value)}
-                      placeholder="Nombres"
-                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
-                    />
-                    <input
-                      type="text"
-                      required
-                      value={invApellidos}
-                      onChange={e => setInvApellidos(e.target.value)}
-                      placeholder="Apellidos"
-                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
-                    />
+                <form onSubmit={handleRegistrarInvitado} className="space-y-3 text-xs">
+                  <div className="grid grid-cols-2 gap-2 text-left">
+                    <div className="sigae-mppe-input !h-10">
+                      <User className="w-3.5 h-3.5 text-[#00bcd4] shrink-0" />
+                      <input
+                        type="text"
+                        required
+                        value={invNombres}
+                        onChange={e => setInvNombres(e.target.value)}
+                        placeholder="Nombres"
+                        className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                      />
+                    </div>
+                    <div className="sigae-mppe-input !h-10">
+                      <User className="w-3.5 h-3.5 text-[#00bcd4] shrink-0" />
+                      <input
+                        type="text"
+                        required
+                        value={invApellidos}
+                        onChange={e => setInvApellidos(e.target.value)}
+                        placeholder="Apellidos"
+                        className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="email"
-                      required
-                      value={invCorreo}
-                      onChange={e => setInvCorreo(e.target.value)}
-                      placeholder="correo@ejemplo.com"
-                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
-                    />
-                    <input
-                      type="tel"
-                      required
-                      value={invTelefono}
-                      onChange={e => setInvTelefono(e.target.value)}
-                      placeholder="04121234567"
-                      className="w-full h-9 px-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
-                    />
+                  <div className="grid grid-cols-2 gap-2 text-left">
+                    <div className="sigae-mppe-input !h-10">
+                      <Mail className="w-3.5 h-3.5 text-[#00bcd4] shrink-0" />
+                      <input
+                        type="email"
+                        required
+                        value={invCorreo}
+                        onChange={e => setInvCorreo(e.target.value)}
+                        placeholder="correo@ejemplo.com"
+                        className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                      />
+                    </div>
+                    <div className="sigae-mppe-input !h-10">
+                      <Phone className="w-3.5 h-3.5 text-[#00bcd4] shrink-0" />
+                      <input
+                        type="tel"
+                        required
+                        value={invTelefono}
+                        onChange={e => setInvTelefono(e.target.value)}
+                        placeholder="04121234567"
+                        className="w-full h-full text-xs font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                      />
+                    </div>
                   </div>
 
-                  <textarea
-                    required
-                    rows={2}
-                    value={invMotivo}
-                    onChange={e => setInvMotivo(e.target.value)}
-                    placeholder="Motivo de la visita..."
-                    className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 resize-none font-medium"
-                  />
+                  <div className="text-left">
+                    <textarea
+                      required
+                      rows={2}
+                      value={invMotivo}
+                      onChange={e => setInvMotivo(e.target.value)}
+                      placeholder="Motivo de la visita o trámite institucional..."
+                      className="w-full p-2.5 text-xs font-medium text-[#1e3a58] bg-[#F0F9FF] border border-[#BEE3F8] rounded-xl outline-none focus:ring-2 focus:ring-[#00bcd4] placeholder:text-[#6b90ad] resize-none"
+                    />
+                  </div>
 
                   <button
                     type="submit"
                     disabled={cargando}
-                    className="w-full h-11 bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md mt-1 cursor-pointer"
+                    className="sigae-mppe-btn w-full h-11"
                   >
-                    {cargando ? 'Registrando...' : 'Registrar e Ingresar'}
+                    {cargando ? 'Procesando Pase...' : 'Generar Pase de Visitante'}
                   </button>
 
                   <button
@@ -2612,24 +2636,27 @@ export const Auth = ({ onLogin }: { onLogin: (user: any) => void }) => {
               </div>
             ) : !recuperarUsuario ? (
               <form onSubmit={handleConsultarRecuperacion} className="space-y-3">
-                <div className="space-y-1">
+                <div className="space-y-1 text-left">
                   <label className="block text-xs font-bold text-slate-700">Cédula del Usuario *</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    required
-                    autoFocus
-                    value={recuperarIdentificador}
-                    onChange={(e) => setRecuperarIdentificador(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Ej: 12345678"
-                    className="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-base sm:text-sm font-semibold text-slate-800"
-                  />
+                  <div className="sigae-mppe-input !h-11">
+                    <User className="w-4 h-4 text-[#00bcd4] shrink-0" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      autoFocus
+                      value={recuperarIdentificador}
+                      onChange={(e) => setRecuperarIdentificador(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Ej: 12345678"
+                      className="w-full h-full text-xs sm:text-sm font-semibold text-[#1e3a58] outline-none bg-transparent placeholder:text-[#6b90ad]"
+                    />
+                  </div>
                 </div>
 
                 <button
                   type="submit"
                   disabled={cargando}
-                  className="w-full h-11 bg-[#0f172a] hover:bg-[#1e3a8a] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                  className="sigae-mppe-btn w-full h-11"
                 >
                   {cargando ? 'Consultando en el plantel...' : 'Consultar Preguntas de Seguridad'}
                 </button>
