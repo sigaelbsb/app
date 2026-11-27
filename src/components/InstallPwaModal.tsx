@@ -189,21 +189,31 @@ export const InstallPwaModal: React.FC = () => {
                 />
               </div>
               <div className="d-flex justify-content-center mb-1">
-                <span className="badge bg-white text-primary rounded-pill px-3 py-1 fw-bold shadow-xs small">
-                  <i className="bi bi-stars text-warning me-1"></i> {isStandalone ? 'App Instalada' : 'Instalación Oficial'}
+                <span className="badge bg-warning text-dark rounded-pill px-3 py-1 fw-bold shadow-xs small">
+                  <i className="bi bi-arrow-repeat text-dark me-1"></i> Actualización Obligatoria a v1.3
                 </span>
               </div>
               <h4 className="fw-bolder mb-1 text-white">
-                {isStandalone ? 'SIGAE v1.3 en Ejecución' : 'Actualizar / Instalar SIGAE v1.3'}
+                Nueva Versión SIGAE v1.3 Disponible
               </h4>
               <p className="small mb-0 text-white text-opacity-90">
-                {isStandalone ? 'Ya estás disfrutando de la versión instalada' : 'Aplicación oficial en tu pantalla o escritorio'}
+                Transición de la versión 1.1 a la versión 1.3
               </p>
             </div>
           </div>
 
           {/* Cuerpo */}
           <div className="p-4 pt-3 text-dark">
+            {/* Aviso Destacado: Desinstalar / Eliminar icono anterior */}
+            <div className="p-3 mb-3 rounded-4 border border-danger-subtle bg-danger-subtle d-flex flex-column gap-1.5 text-danger-emphasis">
+              <div className="d-flex align-items-center gap-2 fw-bold fs-6">
+                <i className="bi bi-trash3-fill text-danger fs-5"></i>
+                <span>Paso 1 Obligatorio: Eliminar icono de v1.1</span>
+              </div>
+              <p className="small mb-0 text-dark">
+                Si ya tenías instalado el acceso directo o aplicación que dice <strong>"SIGAE v1.1"</strong>, debes <strong>eliminarla o desinstalarla primero</strong> de tu pantalla de teléfono o del escritorio de tu computadora para evitar conflictos de caché y abrir la nueva versión limpia.
+              </p>
+            </div>
             {/* Si está dentro de WhatsApp / Instagram */}
             {isInAppBrowser ? (
               <div className="alert alert-warning border-0 rounded-4 p-3 mb-3 small text-dark" style={{ background: '#fef3c7' }}>
