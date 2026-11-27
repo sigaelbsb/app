@@ -165,15 +165,17 @@
 }
 
 .chamilo-tool-card {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 24px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid rgba(0, 188, 212, 0.22);
   padding: 26px 22px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 6px 20px rgba(0, 114, 206, 0.04);
   transition: all 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
   position: relative;
   overflow: hidden;
@@ -188,15 +190,15 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--card-cat-color, #0066FF), #38bdf8);
+  background: linear-gradient(90deg, #00bcd4, #0288d1, #01579b);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .chamilo-tool-card:hover {
   transform: translateY(-9px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 0 28px rgba(0, 102, 255, 0.18);
-  border-color: var(--card-cat-color, #93c5fd);
+  box-shadow: 0 20px 40px rgba(0, 114, 206, 0.12), 0 0 28px rgba(0, 188, 212, 0.22);
+  border-color: #00bcd4;
 }
 
 .chamilo-tool-card:active {
@@ -217,12 +219,12 @@
   font-size: 2rem;
   margin-bottom: 16px;
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 18px rgba(0, 188, 212, 0.12);
 }
 
 .chamilo-tool-card:hover .chamilo-tool-icon-wrapper {
   transform: translateY(-4px) scale(1.1);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 14px 28px rgba(0, 188, 212, 0.25);
 }
 
 .chamilo-tool-title {
@@ -234,7 +236,7 @@
 }
 
 .chamilo-tool-card:hover .chamilo-tool-title {
-  color: var(--card-cat-color, #0066FF);
+  color: #0288d1;
 }
 
 .chamilo-tool-desc {
@@ -251,9 +253,9 @@
   border-radius: 14px;
   font-weight: 700;
   font-size: 0.85rem;
-  background: #f1f5f9;
-  color: #334155;
-  border: none;
+  background: rgba(226, 246, 249, 0.8);
+  color: #01579b;
+  border: 1px solid rgba(0, 188, 212, 0.25);
   transition: all 0.25s ease;
   display: inline-flex;
   align-items: center;
@@ -266,9 +268,10 @@
 }
 
 .chamilo-tool-card:hover .chamilo-tool-btn {
-  background: var(--card-cat-color, #0066FF);
+  background: linear-gradient(135deg, #00bcd4 0%, #0288d1 50%, #01579b 100%);
   color: #ffffff;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(0, 188, 212, 0.3);
 }
 
 .chamilo-tool-card:hover .chamilo-tool-btn i {
@@ -660,18 +663,20 @@
 }
 
 /* =========================================================================
-   12. MENÚ LATERAL Y NAVEGACIÓN INSTITUCIONAL ESTILO CHAMILO LMS
+   12. MENÚ LATERAL Y NAVEGACIÓN INSTITUCIONAL ESTILO CHAMILO LMS (GLASSMORPHISM 3D)
    ========================================================================= */
 .chamilo-sidebar {
-  background: #ffffff !important;
-  border-right: 1px solid #e2e8f0;
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-right: 1.5px solid rgba(0, 188, 212, 0.18);
+  box-shadow: 4px 0 25px rgba(0, 114, 206, 0.06);
 }
 
 .chamilo-sidebar-brand {
   padding: 16px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1.5px solid rgba(0, 188, 212, 0.16);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -681,15 +686,15 @@
 .chamilo-sidebar-logo-frame {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1.5px solid rgba(0, 188, 212, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 4px;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  box-shadow: 0 4px 14px rgba(0, 188, 212, 0.18);
 }
 
 .chamilo-sidebar-logo-frame img {
@@ -707,15 +712,15 @@
 
 .chamilo-sidebar-subtitle {
   font-size: 0.72rem;
-  color: #64748b;
-  font-weight: 600;
+  color: #0288d1;
+  font-weight: 700;
 }
 
 .chamilo-nav-section-title {
   font-size: 0.72rem;
   font-weight: 800;
-  color: #94a3b8;
-  letter-spacing: 0.06em;
+  color: #0288d1;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 14px 18px 6px 18px;
 }
@@ -726,7 +731,7 @@
   justify-content: space-between;
   padding: 10px 16px;
   margin: 3px 12px;
-  border-radius: 12px;
+  border-radius: 14px;
   color: #334155;
   text-decoration: none;
   font-weight: 600;
@@ -738,17 +743,17 @@
 }
 
 .chamilo-menu-link:hover {
-  background: #f8fafc;
-  color: #0066FF;
+  background: rgba(226, 246, 249, 0.65);
+  color: #0288d1;
   transform: translateX(3px);
 }
 
 .chamilo-menu-link.active {
-  background: #eff6ff;
-  color: #0052cc;
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.14) 0%, rgba(2, 136, 209, 0.18) 100%);
+  color: #01579b;
   font-weight: 700;
-  border-left-color: #0066FF;
-  box-shadow: 0 2px 8px rgba(0, 102, 255, 0.08);
+  border-left-color: #00bcd4;
+  box-shadow: 0 4px 14px rgba(0, 188, 212, 0.15);
 }
 
 .chamilo-menu-icon-box {
@@ -776,26 +781,27 @@
 }
 
 .chamilo-menu-link.active .chamilo-menu-badge {
-  background: #0066FF;
+  background: linear-gradient(135deg, #00bcd4 0%, #0288d1 100%);
   color: #ffffff;
-  border-color: #0066FF;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(0, 188, 212, 0.3);
 }
 
 .chamilo-sidebar-footer {
   margin-top: auto;
   padding: 16px;
-  border-top: 1px solid #f1f5f9;
-  background: #fcfcfd;
+  border-top: 1.5px solid rgba(0, 188, 212, 0.16);
+  background: rgba(255, 255, 255, 0.85);
 }
 
-/* --- 13. BARRA SUPERIOR FLOTANTE Y MENÚ DE USUARIO CHAMILO --- */
+/* --- 13. BARRA SUPERIOR FLOTANTE Y MENÚ DE USUARIO CHAMILO (GLASSMORPHISM 3D) --- */
 .chamilo-top-header {
   height: 72px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1.5px solid rgba(0, 188, 212, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 114, 206, 0.05);
   z-index: 980;
   position: fixed !important;
   top: var(--altura-banner-emulacion, 0px) !important;
@@ -819,11 +825,11 @@ body.menu-colapsado .chamilo-top-header {
 }
 
 .chamilo-top-header.barra-flotante-activa {
-  background: rgba(255, 255, 255, 0.90) !important;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.09), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-bottom: 1.5px solid rgba(0, 188, 212, 0.32);
+  box-shadow: 0 10px 25px -4px rgba(0, 114, 206, 0.10), 0 4px 10px -2px rgba(0, 188, 212, 0.06);
 }
 
 .chamilo-user-pill {
@@ -831,40 +837,44 @@ body.menu-colapsado .chamilo-top-header {
   align-items: center;
   gap: 10px;
   padding: 5px 12px 5px 6px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(0, 188, 212, 0.28);
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 188, 212, 0.08);
 }
 
 .chamilo-user-pill:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: rgba(240, 253, 255, 0.95);
+  border-color: #00bcd4;
+  box-shadow: 0 4px 14px rgba(0, 188, 212, 0.2);
 }
 
 .chamilo-avatar-circle {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0066FF 0%, #0052cc 100%);
+  background: linear-gradient(135deg, #00bcd4 0%, #0288d1 50%, #01579b 100%);
   color: #ffffff;
   font-weight: 800;
   font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0, 102, 255, 0.25);
+  box-shadow: 0 3px 10px rgba(0, 188, 212, 0.35);
   flex-shrink: 0;
 }
 
 .chamilo-user-dropdown-menu {
   min-width: 260px;
   border-radius: 18px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(0, 188, 212, 0.25);
+  box-shadow: 0 16px 36px rgba(0, 114, 206, 0.15);
   padding: 8px;
   animation: fadeInUp 0.2s ease-out;
 }
@@ -874,7 +884,7 @@ body.menu-colapsado .chamilo-top-header {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 0.85rem;
   font-weight: 600;
   color: #334155;
@@ -888,8 +898,8 @@ body.menu-colapsado .chamilo-top-header {
 }
 
 .chamilo-dropdown-item:hover {
-  background: #f1f5f9;
-  color: #0066FF;
+  background: rgba(226, 246, 249, 0.7);
+  color: #0288d1;
 }
 
 .chamilo-dropdown-item.item-danger:hover {
@@ -900,29 +910,31 @@ body.menu-colapsado .chamilo-top-header {
 /* --- 14. CHAMILO 2.0: HERO BANNER, QUICK DOCK & BENTO GRID --- */
 .chamilo-hero-banner {
   position: relative;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 24px;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  border: 1.5px solid rgba(0, 188, 212, 0.25);
+  box-shadow: 0 10px 30px rgba(0, 114, 206, 0.06);
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
 .chamilo-hero-glow-sb {
-  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 60%);
+  background: radial-gradient(circle at top right, rgba(0, 188, 212, 0.18), transparent 60%);
 }
 
 .chamilo-hero-glow-lb {
-  background: radial-gradient(circle at top right, rgba(0, 102, 255, 0.12), transparent 60%);
+  background: radial-gradient(circle at top right, rgba(2, 136, 209, 0.18), transparent 60%);
 }
 
 .chamilo-online-pulse {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(16, 185, 129, 0.1);
-  color: #059669;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(0, 188, 212, 0.12);
+  color: #0288d1;
+  border: 1px solid rgba(0, 188, 212, 0.3);
   padding: 3px 10px;
   border-radius: 20px;
   font-size: 0.74rem;
@@ -933,32 +945,34 @@ body.menu-colapsado .chamilo-top-header {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: #10b981;
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  background-color: #00bcd4;
+  box-shadow: 0 0 0 0 rgba(0, 188, 212, 0.7);
   animation: chamiloPulse 1.8s infinite;
 }
 
 @keyframes chamiloPulse {
   0% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    box-shadow: 0 0 0 0 rgba(0, 188, 212, 0.7);
   }
   70% {
     transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 6px rgba(0, 188, 212, 0);
   }
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 0 rgba(0, 188, 212, 0);
   }
 }
 
 /* Quick Dock */
 .chamilo-quick-dock {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+  border: 1.5px solid rgba(0, 188, 212, 0.22);
+  box-shadow: 0 6px 20px rgba(0, 114, 206, 0.05);
   padding: 10px 16px;
   display: flex;
   align-items: center;
@@ -980,8 +994,8 @@ body.menu-colapsado .chamilo-top-header {
   border-radius: 14px;
   font-size: 0.82rem;
   font-weight: 700;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border: 1px solid rgba(0, 188, 212, 0.25);
+  background: rgba(240, 253, 255, 0.7);
   color: #334155;
   white-space: nowrap;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -990,19 +1004,21 @@ body.menu-colapsado .chamilo-top-header {
 }
 
 .chamilo-dock-btn:hover {
-  background: #ffffff;
-  color: #0066FF;
-  border-color: #93c5fd;
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.15) 0%, rgba(2, 136, 209, 0.18) 100%);
+  color: #01579b;
+  border-color: #00bcd4;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 102, 255, 0.12);
+  box-shadow: 0 6px 16px rgba(0, 188, 212, 0.18);
 }
 
 /* Bento Cards */
 .chamilo-bento-card {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 22px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  border: 1.5px solid rgba(0, 188, 212, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 114, 206, 0.05);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -1014,8 +1030,8 @@ body.menu-colapsado .chamilo-top-header {
 
 .chamilo-bento-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
-  border-color: #cbd5e1;
+  box-shadow: 0 16px 32px rgba(0, 188, 212, 0.15);
+  border-color: #00bcd4;
 }
 
 .chamilo-bento-header {
@@ -1035,7 +1051,7 @@ body.menu-colapsado .chamilo-top-header {
   font-size: 1.35rem;
   color: #ffffff;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 188, 212, 0.2);
 }
 
 /* Mobile Touch Snap Slider */

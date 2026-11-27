@@ -930,12 +930,13 @@ export const Dashboard = () => {
       <div 
         className="tech-card overflow-hidden mb-3.5 shadow-sm" 
         style={{ 
-          border: activeSchoolCode === 'sb' ? '1.5px solid #a7f3d0' : '1.5px solid #bae6fd',
-          borderTop: `5px solid ${activeSchoolCode === 'sb' ? '#10b981' : '#0284c7'}`,
-          background: activeSchoolCode === 'sb'
-            ? 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 45%, #dcfce7 100%)'
-            : 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 45%, #e0f2fe 100%)',
-          borderRadius: '22px'
+          border: '1.5px solid rgba(0, 188, 212, 0.35)',
+          borderTop: '5px solid #00bcd4',
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 253, 255, 0.92) 50%, rgba(224, 247, 250, 0.88) 100%)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: '24px',
+          boxShadow: '0 16px 36px -10px rgba(0, 114, 206, 0.14), 0 0 24px rgba(0, 188, 212, 0.12)'
         }}
       >
         <div className="p-3 p-md-3.5">
@@ -958,9 +959,7 @@ export const Dashboard = () => {
                     right: '-8px',
                     bottom: '-8px',
                     borderRadius: '26px',
-                    background: activeSchoolCode === 'sb'
-                      ? 'radial-gradient(circle, rgba(16, 185, 129, 0.55) 0%, rgba(16, 185, 129, 0.15) 55%, transparent 75%)'
-                      : 'radial-gradient(circle, rgba(2, 132, 199, 0.55) 0%, rgba(2, 132, 199, 0.15) 55%, transparent 75%)',
+                    background: 'radial-gradient(circle, rgba(0, 188, 212, 0.55) 0%, rgba(2, 136, 209, 0.18) 55%, transparent 75%)',
                     filter: 'blur(12px)',
                     zIndex: 0,
                     animation: 'avatarHaloBreath 3.2s ease-in-out infinite alternate'
@@ -972,10 +971,8 @@ export const Dashboard = () => {
                     width: 'clamp(72px, 16vw, 92px)', 
                     height: 'clamp(72px, 16vw, 92px)',
                     borderRadius: '22px',
-                    border: activeSchoolCode === 'sb' ? '2.5px solid #a7f3d0' : '2.5px solid #bae6fd',
-                    boxShadow: activeSchoolCode === 'sb' 
-                      ? '0 12px 28px rgba(16, 185, 129, 0.25), 0 0 16px rgba(16, 185, 129, 0.12)' 
-                      : '0 12px 28px rgba(2, 132, 199, 0.25), 0 0 16px rgba(2, 132, 199, 0.12)',
+                    border: '2.5px solid #a2e7ef',
+                    boxShadow: '0 12px 28px rgba(0, 188, 212, 0.25), 0 0 16px rgba(0, 188, 212, 0.15)',
                     zIndex: 1
                   }}
                 >
@@ -1000,15 +997,15 @@ export const Dashboard = () => {
                 <div className="d-flex align-items-center gap-1.5 flex-wrap mb-1">
                   <div 
                     className="d-inline-flex align-items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-white border shadow-xs"
-                    style={{ borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' }}
+                    style={{ borderColor: '#a2e7ef' }}
                   >
                     <span 
                       className="status-beacon-live" 
-                      style={{ color: activeSchoolCode === 'sb' ? '#10b981' : '#0284c7', width: '6px', height: '6px' }}
+                      style={{ color: '#00bcd4', width: '6px', height: '6px' }}
                     ></span>
                     <span 
                       className="extra-small fw-bold text-uppercase" 
-                      style={{ fontSize: '0.64rem', color: activeSchoolCode === 'sb' ? '#047857' : '#0369a1', letterSpacing: '0.3px' }}
+                      style={{ fontSize: '0.64rem', color: '#0288d1', letterSpacing: '0.3px' }}
                     >
                       Sistema Conectado
                     </span>
@@ -1031,9 +1028,7 @@ export const Dashboard = () => {
                   >
                     <span 
                       style={{
-                        background: activeSchoolCode === 'sb' 
-                          ? 'linear-gradient(90deg, #065f46 0%, #059669 50%, #047857 100%)' 
-                          : 'linear-gradient(90deg, #0f172a 0%, #0284c7 50%, #0066ff 100%)',
+                        background: 'linear-gradient(90deg, #01579b 0%, #0288d1 50%, #00bcd4 100%)',
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         display: 'inline-block'
@@ -1066,8 +1061,8 @@ export const Dashboard = () => {
                 className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-2 shadow-xs bg-white border hover-efecto"
                 style={{ 
                   fontSize: '0.75rem', 
-                  color: activeSchoolCode === 'sb' ? '#047857' : '#0369a1', 
-                  borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                  color: '#0288d1', 
+                  borderColor: '#a2e7ef' 
                 }}
                 title="Descargar Logo Oficial en PNG con fondo blanco (alta calidad y peso ligero)"
               >
@@ -1077,8 +1072,8 @@ export const Dashboard = () => {
                   className="badge px-1.5 py-0.5 rounded-pill text-uppercase"
                   style={{ 
                     fontSize: '0.58rem', 
-                    backgroundColor: activeSchoolCode === 'sb' ? '#d1fae5' : '#e0f2fe',
-                    color: activeSchoolCode === 'sb' ? '#065f46' : '#0369a1'
+                    backgroundColor: '#e0f2fe',
+                    color: '#01579b'
                   }}
                 >
                   PNG HD
@@ -1093,8 +1088,8 @@ export const Dashboard = () => {
                   className="btn btn-sm rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 shadow-xs bg-white border hover-efecto"
                   style={{ 
                     fontSize: '0.75rem', 
-                    color: activeSchoolCode === 'sb' ? '#059669' : '#0284c7', 
-                    borderColor: activeSchoolCode === 'sb' ? '#a7f3d0' : '#bae6fd' 
+                    color: '#0288d1', 
+                    borderColor: '#a2e7ef' 
                   }}
                 >
                   <i 
