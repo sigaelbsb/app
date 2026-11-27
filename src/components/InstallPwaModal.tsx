@@ -14,25 +14,26 @@ export const InstallPwaModal: React.FC = () => {
   useEffect(() => {
     // 0. Detectar versión previa en caché o almacenamiento local
     let ver = localStorage.getItem('sigae_version_instalada') || 
-              localStorage.getItem('sigae_app_version') || 
-              localStorage.getItem('sigae_cached_build_version');
+              localStorage.getItem('sigae_app_version');
     
     if (!ver) {
-      // Si tiene service worker o datos antiguos pero no registro de v1.3
-      const tieneCacheViejo = localStorage.getItem('sigae_recordar_identificador') || localStorage.getItem('usuario_sigae');
-      ver = tieneCacheViejo ? '1.1' : '1.0';
-    } else if (ver.includes('1.0')) {
-      ver = '1.0';
-    } else if (ver.includes('2.0')) {
-      ver = '2.0';
-    } else if (ver.includes('1.1')) {
-      ver = '1.1';
-    } else if (ver.includes('1.3')) {
-      ver = '1.3';
-    } else {
-      ver = '1.1';
+      // Verificar si hay registros de versiones previas en caché del navegador
+      const buildCached = localStorage.getItem('sigae_cached_build_version') || '';
+      if (buildCached.includes('v1.0') || buildCached.includes('1.0')) {
+        ver = '1.0';
+      } else if (buildCached.includes('v2.0') || buildCached.includes('2.0')) {
+        ver = '2.0';
+      } else if (buildCached.includes('v1.3') || buildCached.includes('1.3')) {
+        ver = '1.3';
+      } else {
+        const tieneHistorialPrevio = localStorage.getItem('sigae_recordar_identificador') || localStorage.getItem('usuario_sigae');
+        ver = tieneHistorialPrevio ? '1.1' : '1.3';
+      }
     }
     setVersionDetectada(ver);
+
+    // Si ya está comprobado en 1.3 y no hay necesidad de actualización, no molestar con el aviso
+    const yaEstaEn1_3 = ver === '1.3' && localStorage.getItem('sigae_version_instalada') === '1.3';
 
     // 1. Detectar si ya está corriendo como PWA instalada
     const standalone = window.matchMedia('(display-mode: standalone)').matches || 
@@ -79,13 +80,12 @@ export const InstallPwaModal: React.FC = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Si ya está en versión 1.1 o desactualizada, consultar versión almacenada
-    const versionInstalada = localStorage.getItem('sigae_version_instalada');
-    if (versionInstalada !== '1.3' && !localStorage.getItem('sigae_pwa_prompt_v1_3_status')) {
+    // Si ya está en versión anterior o desactualizada, consultar versión almacenada
+    if (!yaEstaEn1_3 && !localStorage.getItem('sigae_pwa_prompt_v1_3_status')) {
       // Notificar proactivamente para actualizar a la 1.3
       const timer = setTimeout(() => {
         setShowModal(true);
-      }, 2000);
+      }, 1500);
       return () => clearTimeout(timer);
     }
 
@@ -199,15 +199,15 @@ export const InstallPwaModal: React.FC = () => {
             
             <div className="position-relative z-1">
               <div 
-                className="d-inline-flex align-items-center justify-content-center bg-white p-2 rounded-4 shadow mb-2"
-                style={{ width: '76px', height: '76px' }}
+                className="d-inline-flex align-items-center justify-content-center bg-white p-2.5 rounded-4 shadow-lg mb-2"
+                style={{ width: '84px', height: '84px', border: '3px solid #00bcd4' }}
               >
                 <img 
-                  src="./assets/img/icono.png" 
+                  src="/assets/img/icono.png" 
                   alt="SIGAE App" 
-                  style={{ width: '60px', height: '60px', objectFit: 'contain' }} 
+                  style={{ width: '64px', height: '64px', objectFit: 'contain' }} 
                   onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
+                    (e.target as HTMLImageElement).src = '/img/sigae.png';
                   }}
                 />
               </div>
