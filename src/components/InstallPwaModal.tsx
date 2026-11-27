@@ -9,8 +9,31 @@ export const InstallPwaModal: React.FC = () => {
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [mostrarGuiaManual, setMostrarGuiaManual] = useState(false);
+  const [versionDetectada, setVersionDetectada] = useState<string>('1.1');
 
   useEffect(() => {
+    // 0. Detectar versión previa en caché o almacenamiento local
+    let ver = localStorage.getItem('sigae_version_instalada') || 
+              localStorage.getItem('sigae_app_version') || 
+              localStorage.getItem('sigae_cached_build_version');
+    
+    if (!ver) {
+      // Si tiene service worker o datos antiguos pero no registro de v1.3
+      const tieneCacheViejo = localStorage.getItem('sigae_recordar_identificador') || localStorage.getItem('usuario_sigae');
+      ver = tieneCacheViejo ? '1.1' : '1.0';
+    } else if (ver.includes('1.0')) {
+      ver = '1.0';
+    } else if (ver.includes('2.0')) {
+      ver = '2.0';
+    } else if (ver.includes('1.1')) {
+      ver = '1.1';
+    } else if (ver.includes('1.3')) {
+      ver = '1.3';
+    } else {
+      ver = '1.1';
+    }
+    setVersionDetectada(ver);
+
     // 1. Detectar si ya está corriendo como PWA instalada
     const standalone = window.matchMedia('(display-mode: standalone)').matches || 
                        (window.navigator as any).standalone === true;
@@ -197,21 +220,28 @@ export const InstallPwaModal: React.FC = () => {
                 Nueva Versión SIGAE v1.3 Disponible
               </h4>
               <p className="small mb-0 text-white text-opacity-90">
-                Transición de la versión 1.1 a la versión 1.3
+                Tu equipo está ingresando con: <strong className="text-warning text-decoration-underline">Versión {versionDetectada}</strong> &bull; Versión Oficial: <strong>v1.3</strong>
               </p>
             </div>
           </div>
 
           {/* Cuerpo */}
           <div className="p-4 pt-3 text-dark">
-            {/* Aviso Destacado: Desinstalar / Eliminar icono anterior */}
-            <div className="p-3 mb-3 rounded-4 border border-danger-subtle bg-danger-subtle d-flex flex-column gap-1.5 text-danger-emphasis">
-              <div className="d-flex align-items-center gap-2 fw-bold fs-6">
-                <i className="bi bi-trash3-fill text-danger fs-5"></i>
-                <span>Paso 1 Obligatorio: Eliminar icono de v1.1</span>
+            {/* Aviso Destacado: Comparativa de Versión y Desinstalación Obligatoria */}
+            <div className="p-3 mb-3 rounded-4 border border-danger-subtle bg-danger-subtle d-flex flex-column gap-2 text-danger-emphasis">
+              <div className="d-flex items-center justify-content-between flex-wrap gap-2 pb-1 border-bottom border-danger-subtle">
+                <span className="fw-bold fs-6 d-flex items-center gap-1.5 text-danger">
+                  <i className="bi bi-exclamation-octagon-fill fs-5"></i>
+                  <span>Estado de la versión instalada:</span>
+                </span>
+                <span className="badge bg-danger text-white rounded-pill px-2.5 py-1 text-xs">
+                  Tienes la v{versionDetectada}
+                </span>
               </div>
+
               <p className="small mb-0 text-dark">
-                Si ya tenías instalado el acceso directo o aplicación que dice <strong>"SIGAE v1.1"</strong>, debes <strong>eliminarla o desinstalarla primero</strong> de tu pantalla de teléfono o del escritorio de tu computadora para evitar conflictos de caché y abrir la nueva versión limpia.
+                Actualmente tu equipo o teléfono tiene registrado un acceso con la <strong>Versión {versionDetectada}</strong>. 
+                Para evitar fallas de conexión o funciones obsoletas, debes <strong>eliminar o desinstalar el icono existente de la versión anterior</strong> en tu pantalla de inicio o escritorio antes de instalar la nueva <strong>Versión 1.3</strong>.
               </p>
             </div>
             {/* Si está dentro de WhatsApp / Instagram */}
