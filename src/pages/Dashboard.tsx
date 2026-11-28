@@ -1413,665 +1413,357 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── 2. CARRUSEL INFORMATIVO DE GESTIÓN DIARIA & NOVEDADES INSTITUCIONALES (PROGRAMACIÓN SEMANAL) ── */}
-      {canCarruselGestion && (
-        <CarruselGestionDiaria activeSchoolCode={activeSchoolCode} />
-      )}
-
-      {/* ── 2.1 ESTADÍSTICAS POR NIVELES CON AVATARES DE NIÑOS Y DOCENTE (CONTADORES ANIMADOS) ── */}
-      <EstadisticasNivelesEducativos activeSchoolCode={activeSchoolCode} />
-
-      {/* ── 3. INDICADORES DE GESTIÓN Y ADMISIÓN INSTITUCIONAL & OPERACIÓN ESTUDIANTIL (2 FILAS DE 3 TARJETAS ALINEADAS) ── */}
+      {/* ── 2. PANEL ADMINISTRATIVO PRINCIPAL ADMINLTE (2 COLUMNAS RESPONSIVAS) ── */}
       <div className="row g-3 mb-4">
-        {/* Tarjeta 1: Rol en Sesión y Nivel de Seguridad de Claves */}
-        {canRolSeguridad && (
-          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
-            <ChamiloStatCard
-              id="card-stat-rol-seguridad"
-              title="Rol y Seguridad de Claves"
-              value={
-                <div className="d-flex align-items-baseline gap-1.5 flex-wrap">
-                  <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
-                    {usuario.rol || 'Comunidad'}
-                  </span>
-                  <span className="text-muted fw-semibold extra-small" style={{ fontSize: '0.74rem' }}>
-                    (Sesión Activa)
-                  </span>
-                </div>
-              }
-              subtitle="Métodos de acceso al día"
-              icon="bi-shield-check"
-              customIcon={
-                <img 
-                  src="/assets/img/seguridad_3d.png" 
-                  alt="Icono 3D de Seguridad y Claves" 
-                  className="animate__animated animate__pulse animate__infinite"
-                  style={{ 
-                    width: '42px', 
-                    height: '42px', 
-                    objectFit: 'contain', 
-                    borderRadius: '10px', 
-                    filter: 'drop-shadow(0 4px 10px rgba(2, 132, 199, 0.45))' 
-                  }} 
-                />
-              }
-              color="#0284c7"
-              percentage={nivelSeguridadScore}
-              statusBadge={{ text: '100% Blindado', type: 'success' }}
-              actionButton={{
-                label: 'Mejorar',
-                icon: 'bi-shield-check',
-                onClick: () => navigate('/categoria/Seguridad y Accesos/Mi Perfil')
-              }}
-              onClick={() => navigate('/categoria/Seguridad y Accesos/Mi Perfil')}
-            >
-              <div className="mt-2 pt-2 border-top border-light w-100">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                    Blindaje y Telemetría de Acceso
-                  </span>
-                  <span className="badge bg-success bg-opacity-10 text-success fw-bold extra-small">2FA Activo</span>
-                </div>
-                <ChamiloSecurityShield
-                  protectionScore={nivelSeguridadScore}
-                  roleName={usuario.rol || 'Comunidad'}
-                  activeSessions={numSesionesActivas}
-                  deviceSummary={resumenSesiones}
-                  twoFactorEnabled={true}
-                  lastAudit={esModoEmulacion ? 'Virtualizado' : 'Hoy Activa'}
-                  darkTheme={false}
-                />
+        {/* Columna Izquierda (8 de 12): Rendimiento Académico y Registro de Operaciones */}
+        <div className="col-12 col-lg-8">
+          
+          {/* Tarjeta 1: Rendimiento y Matrícula por Niveles Educativos */}
+          <div className="adminlte-card mb-3">
+            <div className="adminlte-card-header">
+              <h3 className="adminlte-card-title">
+                <i className="bi bi-bar-chart-steps text-info"></i>
+                Distribución de Matrícula y Secciones Activas
+              </h3>
+              <div className="adminlte-card-tools">
+                <span className="badge bg-light text-primary border me-1.5 fw-bold">Año 2025-2026</span>
+                <span className="badge bg-success bg-opacity-25 text-success border border-success fw-bold">Plantel Activo</span>
               </div>
-            </ChamiloStatCard>
-          </div>
-        )}
-
-        {/* Tarjeta 2: Solicitudes de Cupos & Admisión Institucional */}
-        {esRolFormalizador && (
-          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
-            <ChamiloStatCard
-              id="card-formalizador-taquilla"
-              title="Solicitudes de Cupos"
-              value={
-                <div className="d-flex align-items-baseline gap-1.5 flex-wrap">
-                  <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
-                    {statsAdmision.solicitados} Solicitudes
-                  </span>
-                  <span className="text-muted fw-semibold extra-small" style={{ fontSize: '0.74rem' }}>
-                    ({statsAdmision.aprobados} Aprobadas • {Math.round((statsAdmision.aprobados / (statsAdmision.solicitados || 1)) * 100)}%)
-                  </span>
-                </div>
-              }
-              subtitle={isSb ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar'}
-              icon="bi-journal-check"
-              customIcon={
-                <img 
-                  src="/assets/img/formalizacion_3d.png" 
-                  alt="Icono 3D de Solicitudes de Cupos" 
-                  className="animate__animated animate__pulse animate__infinite"
-                  style={{ 
-                    width: '42px', 
-                    height: '42px', 
-                    objectFit: 'contain', 
-                    borderRadius: '10px', 
-                    filter: 'drop-shadow(0 4px 10px rgba(13, 148, 136, 0.45))' 
-                  }} 
-                />
-              }
-              color="#0D9488"
-              percentage={statsAdmision.porcentajeFormalizado}
-              statusBadge={{ 
-                text: `${statsAdmision.formalizados} Formalizados (${statsAdmision.porcentajeFormalizado}%)`, 
-                type: statsAdmision.formalizados > 0 ? 'success' : 'warning' 
-              }}
-              actionButton={{
-                label: 'Taquilla',
-                icon: 'bi-box-arrow-in-right',
-                onClick: () => navigate('/categoria/Admisiones y Nuevos Ingresos/Formalización')
-              }}
-              onClick={() => navigate('/categoria/Admisiones y Nuevos Ingresos/Formalización')}
-            >
-              <div className="mt-2 pt-2 border-top border-light w-100">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                    Proceso de Admisión y Taquilla
-                  </span>
-                  <span className="badge bg-opacity-10 fw-bold extra-small" style={{ color: '#0d9488', backgroundColor: '#ccfbf1' }}>
-                    {statsAdmision.formalizados} de {statsAdmision.aprobados} formalizados
-                  </span>
-                </div>
-                <ChamiloFormalizacionGauge
-                  solicitados={statsAdmision.solicitados}
-                  aprobados={statsAdmision.aprobados}
-                  formalizados={statsAdmision.formalizados}
-                  porFormalizar={statsAdmision.porFormalizar}
-                  rechazados={statsAdmision.rechazados}
-                  porcentaje={statsAdmision.porcentajeFormalizado}
-                  darkTheme={false}
-                />
-              </div>
-            </ChamiloStatCard>
-          </div>
-        )}
-
-        {/* Tarjeta 3: Censo y Estado de Actualización de la Escuela Activa */}
-        {canCensoGeneral && (
-          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
-            {(() => {
-              const datosActivos = isSb ? censoPlanteles.sb : censoPlanteles.lb;
-              const nombreSede = isSb ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
-
-              return (
-                <ChamiloStatCard
-                  id="card-stat-censo-general"
-                  title="Censo y Expedientes"
-                  value={
-                    <div className="d-flex align-items-baseline gap-1.5 flex-wrap">
-                      <span className="fw-bolder text-dark" style={{ fontSize: '1.15rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
-                        {datosActivos.total} Estudiantes
-                      </span>
-                      <span className="text-muted fw-semibold extra-small" style={{ fontSize: '0.74rem' }}>
-                        ({datosActivos.pctActualizados}% al día)
-                      </span>
-                    </div>
-                  }
-                  subtitle={nombreSede}
-                  icon="bi-bar-chart-line-fill"
-                  customIcon={
-                    <img 
-                      src="/assets/img/censo_3d.png" 
-                      alt="Icono 3D de Censo y Expedientes" 
-                      className="animate__animated animate__pulse animate__infinite"
-                      style={{ 
-                        width: '42px', 
-                        height: '42px', 
-                        objectFit: 'contain', 
-                        borderRadius: '10px', 
-                        filter: 'drop-shadow(0 4px 10px rgba(6, 182, 212, 0.45))' 
-                      }} 
-                    />
-                  }
-                  color="#06b6d4"
-                  percentage={datosActivos.pctActualizados}
-                  statusBadge={{ text: `${datosActivos.pctActualizados}% Al Día`, type: datosActivos.pctActualizados >= 75 ? 'success' : 'warning' }}
-                  actionButton={{
-                    label: 'Ver Censo',
-                    icon: 'bi-people-fill',
-                    onClick: () => navigate('/categoria/Gestión Estudiantil/Vincular Estudiante')
-                  }}
-                  onClick={() => navigate('/categoria/Gestión Estudiantil/Vincular Estudiante')}
-                >
-                  <div className="mt-2 pt-2 border-top border-light w-100">
+            </div>
+            <div className="adminlte-card-body">
+              <div className="row g-3 mb-3">
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 border" style={{ background: 'rgba(2, 136, 209, 0.04)', borderColor: '#e2e8f0' }}>
                     <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                        Estado de Expedientes Estudiantiles
-                      </span>
-                      <span className="badge bg-info bg-opacity-10 text-info fw-bold extra-small">
-                        {datosActivos.actualizados} al día
-                      </span>
+                      <span className="text-secondary small fw-bold text-uppercase">Educación Inicial</span>
+                      <span className="badge bg-info text-white">100% Cupos</span>
                     </div>
-                    <ChamiloCensoDonutWidget
-                      total={datosActivos.total}
-                      actualizados={datosActivos.actualizados}
-                      iniciados={datosActivos.iniciados}
-                      noIniciados={datosActivos.noIniciados}
-                      pctActualizados={datosActivos.pctActualizados}
-                      pctIniciados={datosActivos.pctIniciados}
-                      pctNoIniciados={datosActivos.pctNoIniciados}
-                      darkTheme={false}
-                    />
-                  </div>
-                </ChamiloStatCard>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* ── 4. OPERACIÓN ESTUDIANTIL Y TRANSPORTE ESCOLAR (FILA 2 - 3 TARJETAS ALINEADAS) ── */}
-        {/* Tarjeta 4: Estudiantes Vinculados a él y Avance de Actualización */}
-        {canEstudiantesVinculados && (
-          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
-            <ChamiloStatCard
-              id="card-stat-estudiantes-vinculados"
-              title="Estudiantes Vinculados"
-              value={
-                estudiantesVinculados.length === 1 ? (
-                  <span className="text-dark fw-bolder fs-5">{estudiantesVinculados[0].nombre_completo}</span>
-                ) : (
-                  <div className="d-flex flex-column gap-1">
-                    <span className="fw-bolder fs-5 text-dark">{estudiantesVinculados.length} Estudiantes Vinculados</span>
-                    <div className="d-flex flex-wrap gap-1 mt-1">
-                      {estudiantesVinculados.map((est: any) => (
-                        <span key={est.id} className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1 extra-small fw-bold">
-                          <i className="bi bi-person-fill me-1"></i>
-                          {est.nombre_completo}
-                        </span>
-                      ))}
+                    <div className="h4 fw-black text-dark mb-1">180 <span className="small text-muted fw-normal" style={{ fontSize: '0.8rem' }}>Alumnos</span></div>
+                    <div className="progress" style={{ height: '6px' }}>
+                      <div className="progress-bar bg-info" role="progressbar" style={{ width: '100%' }}></div>
+                    </div>
+                    <div className="extra-small text-muted mt-1.5 d-flex justify-content-between">
+                      <span>6 Secciones</span>
+                      <span>Capacidad Completa</span>
                     </div>
                   </div>
-                )
-              }
-              subtitle={
-                estudiantesVinculados.length === 1
-                  ? `Avance de actualización: ${avanceActualizacionPromedio}% completado`
-                  : `Avance general de expedientes: ${avanceActualizacionPromedio}% al día`
-              }
-              icon="bi-mortarboard-fill"
-              customIcon={
-                <img 
-                  src="/assets/img/avatar_primaria.png" 
-                  alt="Icono 3D Estudiantes Vinculados" 
-                  className="animate__animated animate__pulse animate__infinite"
-                  style={{ 
-                    width: '42px', 
-                    height: '42px', 
-                    objectFit: 'contain', 
-                    borderRadius: '10px', 
-                    filter: 'drop-shadow(0 4px 10px rgba(16, 185, 129, 0.45))' 
-                  }} 
-                />
-              }
-              color="#10b981"
-              percentage={avanceActualizacionPromedio}
-              statusBadge={{ text: `${avanceActualizacionPromedio}% Al Día`, type: avanceActualizacionPromedio === 100 ? 'success' : 'info' }}
-              actionButton={{
-                label: 'Actualizar',
-                icon: 'bi-pencil-square',
-                onClick: () => navigate('/categoria/Gestión Estudiantil/Actualización de Datos')
-              }}
-              onClick={() => navigate('/categoria/Gestión Estudiantil/Actualización de Datos')}
-            >
-              <div className="mt-2 pt-2 border-top border-light w-100">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                    Asistencia y Registro Semanal
-                  </span>
-                  <span className="badge bg-success bg-opacity-10 text-success fw-bold extra-small">94% Regular</span>
                 </div>
-                <ChamiloAttendanceBars
-                  color="#10b981"
-                  height={64}
-                  darkTheme={false}
-                />
-              </div>
-            </ChamiloStatCard>
-          </div>
-        )}
 
-        {/* Tarjeta 5: Rutas Escolares de Representados */}
-        {canRutasEstudiantes && (
-          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
-            <ChamiloStatCard
-              id="card-stat-rutas-seleccionadas"
-              title="Rutas Escolares de Representados"
-              value={
-                rutasEstudiantes.length === 1 ? (
-                  <span className="text-dark fw-bolder fs-5">{rutasEstudiantes[0] || 'Sin Ruta Asignada'}</span>
-                ) : (
-                  <div className="d-flex flex-column gap-1">
-                    <span className="fw-bolder fs-5 text-dark">
-                      {rutasEstudiantes.length > 0 ? `${rutasEstudiantes.length} Rutas Asignadas` : 'Sin Ruta Asignada'}
-                    </span>
-                    <div className="d-flex flex-wrap gap-1 mt-1">
-                      {rutasEstudiantes.map((ruta: string, idx: number) => (
-                        <span key={idx} className="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-50 px-2 py-1 extra-small fw-bold">
-                          <i className="bi bi-bus-front me-1 text-warning"></i>
-                          {ruta}
-                        </span>
-                      ))}
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 border" style={{ background: 'rgba(1, 87, 155, 0.04)', borderColor: '#e2e8f0' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="text-secondary small fw-bold text-uppercase">Educación Primaria</span>
+                      <span className="badge bg-primary text-white">96% Cupos</span>
+                    </div>
+                    <div className="h4 fw-black text-dark mb-1">540 <span className="small text-muted fw-normal" style={{ fontSize: '0.8rem' }}>Alumnos</span></div>
+                    <div className="progress" style={{ height: '6px' }}>
+                      <div className="progress-bar bg-primary" role="progressbar" style={{ width: '96%' }}></div>
+                    </div>
+                    <div className="extra-small text-muted mt-1.5 d-flex justify-content-between">
+                      <span>18 Secciones</span>
+                      <span>Disponibles: 22</span>
                     </div>
                   </div>
-                )
-              }
-              subtitle="Rutas escolares asignadas en el formulario de actualización"
-              icon="bi-bus-front-fill"
-              customIcon={
-                <img 
-                  src="/assets/img/3.png" 
-                  alt="Icono 3D Ruta Escolar" 
-                  className="animate__animated animate__pulse animate__infinite"
-                  style={{ 
-                    width: '42px', 
-                    height: '42px', 
-                    objectFit: 'contain', 
-                    borderRadius: '10px', 
-                    filter: 'drop-shadow(0 4px 10px rgba(249, 115, 22, 0.45))' 
-                  }} 
-                />
-              }
-              color="#f97316"
-              percentage={rutasEstudiantes.length > 0 ? 100 : 0}
-              statusBadge={{ text: rutasEstudiantes.length > 0 ? 'En Servicio' : 'Pendiente', type: rutasEstudiantes.length > 0 ? 'success' : 'warning' }}
-              actionButton={{
-                label: 'Seguir',
-                icon: 'bi-geo-alt-fill',
-                onClick: () => navigate('/categoria/Gestión Estudiantil/Transporte Escolar')
-              }}
-              onClick={() => navigate('/categoria/Gestión Estudiantil/Transporte Escolar')}
-            >
-              <div className="mt-2 pt-2 border-top border-light w-100">
-                <ChamiloRutogramaVisual
-                  routeName={rutasEstudiantes[0] || (activeSchoolCode === 'sb' ? 'Ruta R-01 • El Tejero' : 'Ruta R-02 • Miraflores')}
-                  busNumber="Unidad 04 • Escolar"
-                  occupancyPercent={92}
-                  accentColor="#f97316"
-                  darkTheme={false}
-                  stops={[
-                    { id: '1', name: 'Base Salida', time: '06:30 AM', status: 'passed' },
-                    { id: '2', name: 'Punto Parada', time: '06:55 AM', status: 'current', studentsCount: 18 },
-                    { id: '3', name: activeSchoolCode === 'sb' ? 'UE Santa Bárbara' : 'UE Libertador Bolívar', time: '07:20 AM', status: 'upcoming', studentsCount: 34 },
-                  ]}
-                />
-              </div>
-            </ChamiloStatCard>
-          </div>
-        )}
+                </div>
 
-        {/* Tarjeta 6: Monitoreo y Rutas de Transporte */}
-        {canRutaTrabajador && (
-          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
-            {(() => {
-              // Rutas filtradas exclusivamente para la escuela activa
-              const rutasDisponibles = rutasTransporteData.filter(r => r.escuela_codigo === activeSchoolCode);
-              const rutaActiva = rutasDisponibles.find(r => r.id === rutaSeleccionadaId) || rutasDisponibles[0] || null;
-
-              // Obtener IDs de paradas de la ruta
-              let stopIds: string[] = [];
-              if (rutaActiva) {
-                if (Array.isArray(rutaActiva.paradas_json)) {
-                  stopIds = [...rutaActiva.paradas_json];
-                } else if (typeof rutaActiva.paradas_json === 'string') {
-                  try { stopIds = JSON.parse(rutaActiva.paradas_json); } catch (e) {}
-                }
-              }
-
-              // Resolver objetos de parada desde el catálogo o fallback
-              const paradasMapeadas = stopIds.map(id => {
-                const encontrada = paradasTransporteData.find(p => p.id === id);
-                if (encontrada) return encontrada;
-                return PARADAS_FALLBACK[id] || null;
-              }).filter(Boolean);
-
-              const nombrePlantel = activeSchoolCode === 'sb' ? 'U.E. Santa Bárbara' : 'U.E. Libertador Bolívar';
-              const paradaEscuela = {
-                id: 'escuela_virtual',
-                nombre_parada: nombrePlantel,
-                hora_estimada: '07:15 AM',
-                sector: 'Sede Institucional'
-              };
-
-              // Ordenar paradas según el sentido (Ida: Comunidad -> Escuela | Vuelta: Escuela -> Comunidad)
-              const paradasOrdenadas = sentidoTransporte === 'Escuela - Casa'
-                ? [paradaEscuela, ...[...paradasMapeadas].reverse()]
-                : [...paradasMapeadas, paradaEscuela];
-
-              // Buscar operación activa del día para esta ruta y sentido
-              const opHoy = operacionesTransporteData.find(
-                o => o.ruta_id === rutaActiva?.id && (o.sentido === sentidoTransporte || o.sentido?.toLowerCase().includes(sentidoTransporte === 'Casa - Escuela' ? 'ida' : 'vuelta'))
-              );
-
-              // Determinar estado de la ruta y de cada parada
-              const estadoOperacion = opHoy?.estado || 'En Espera'; // 'En Ruta' | 'Finalizada' | 'En Espera' | 'Programada'
-              const paradaActualId = opHoy?.ubicacion_actual;
-              const indiceActual = paradasOrdenadas.findIndex(p => p.id === paradaActualId);
-              const historial = opHoy?.historial_paradas || {};
-
-              const stopsParaVisual: RouteStop[] = paradasOrdenadas.map((p, idx) => {
-                let status: 'passed' | 'current' | 'upcoming' = 'upcoming';
-
-                if (estadoOperacion === 'Finalizada') {
-                  status = 'passed';
-                } else if (estadoOperacion === 'En Ruta') {
-                  if (indiceActual >= 0) {
-                    if (idx < indiceActual) status = 'passed';
-                    else if (idx === indiceActual) status = 'current';
-                    else status = 'upcoming';
-                  } else {
-                    if (historial[p.id]) status = 'passed';
-                    else if (idx === 0) status = 'current';
-                    else status = 'upcoming';
-                  }
-                } else {
-                  // En Espera o Programada: primer nodo es el punto de partida
-                  if (idx === 0) status = 'current';
-                  else status = 'upcoming';
-                }
-
-                const time = historial[p.id] || p.hora_estimada || (idx === 0 ? '06:20 AM' : (idx === paradasOrdenadas.length - 1 ? '07:15 AM' : '06:45 AM'));
-
-                return {
-                  id: p.id,
-                  name: p.nombre_parada,
-                  time,
-                  status
-                };
-              });
-
-              // Si hay más de 4 paradas, simplificar para que el rutograma visual se aprecie limpio en la tarjeta
-              let stopsRutograma = stopsParaVisual;
-              if (stopsParaVisual.length > 4) {
-                const primerNodo = stopsParaVisual[0];
-                const ultimoNodo = stopsParaVisual[stopsParaVisual.length - 1];
-                const nodoCurrent = stopsParaVisual.find(s => s.status === 'current') || stopsParaVisual[Math.floor(stopsParaVisual.length / 2)];
-                const idxCurrent = stopsParaVisual.indexOf(nodoCurrent);
-                const intermedio = idxCurrent > 0 && idxCurrent < stopsParaVisual.length - 1
-                  ? nodoCurrent
-                  : stopsParaVisual[Math.floor(stopsParaVisual.length / 2)];
-
-                const paradasMuestra = [primerNodo, intermedio, ultimoNodo];
-                if (idxCurrent > 0 && idxCurrent < stopsParaVisual.length - 1 && intermedio.id !== nodoCurrent.id) {
-                  paradasMuestra.splice(2, 0, nodoCurrent);
-                }
-                stopsRutograma = paradasMuestra.filter((s, idx, arr) => arr.findIndex(x => x.id === s.id) === idx);
-              }
-
-              // Progreso del recorrido (% completado)
-              const paradasPasadas = stopsParaVisual.filter(s => s.status === 'passed').length;
-              const pctProgresoRecorrido = stopsParaVisual.length > 1
-                ? (estadoOperacion === 'Finalizada' ? 100 : Math.round((paradasPasadas / (stopsParaVisual.length - 1)) * 100))
-                : (estadoOperacion === 'Finalizada' ? 100 : 25);
-
-              // Parada actual o próxima para la etiqueta
-              const paradaEnfocada = stopsParaVisual.find(s => s.status === 'current') || stopsParaVisual.find(s => s.status === 'upcoming') || stopsParaVisual[0];
-
-              return (
-                <ChamiloStatCard
-                  id="card-stat-ruta-trabajador"
-                  title="Monitoreo de Rutas de Transporte"
-                  value={
-                    <div className="d-flex flex-column gap-1">
-                      {/* Fila 1: Nombre de la ruta y Estado */}
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div className="d-flex align-items-baseline">
-                          <span className="fw-bolder text-dark" style={{ fontSize: '1.12rem', letterSpacing: '-0.3px', lineHeight: 1 }}>
-                            {rutaActiva?.nombre || 'Ruta Escolar'}
-                          </span>
-                        </div>
-                        <span className={`badge rounded-pill fw-bold px-2 py-0.5 ${
-                          estadoOperacion === 'En Ruta' ? 'bg-success text-white' : (estadoOperacion === 'Finalizada' ? 'bg-primary text-white' : 'bg-warning text-dark')
-                        }`} style={{ fontSize: '0.67rem' }}>
-                          <i className={`bi ${estadoOperacion === 'En Ruta' ? 'bi-broadcast me-1' : (estadoOperacion === 'Finalizada' ? 'bi-check2-circle me-1' : 'bi-clock-history me-1')}`}></i>
-                          {estadoOperacion}
-                        </span>
-                      </div>
-
-                      {/* Fila 2: Sede Institucional Activa */}
-                      <div className="d-flex gap-1 align-items-center">
-                        <span 
-                          className={`badge ${isSb ? 'bg-success' : 'bg-primary'} bg-opacity-10 ${isSb ? 'text-success' : 'text-primary'} border ${isSb ? 'border-success' : 'border-primary'} border-opacity-25 px-2 py-0.5 fw-bold`}
-                          style={{ fontSize: '0.67rem' }}
-                        >
-                          <i className="bi bi-building me-1"></i>{nombrePlantel} &bull; Rutas Asignadas
-                        </span>
-                      </div>
-
-                      {/* Fila 3: Selector 2 - Ruta (Select) & Selector 3 - Sentido (Ida / Vuelta) */}
-                      <div className="d-flex gap-1.5 align-items-center mt-0.5">
-                        <select
-                          value={rutaActiva?.id || ''}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setRutaSeleccionadaId(e.target.value)}
-                          className="form-select form-select-sm py-0.5 px-2 fw-semibold text-dark border shadow-2xs flex-grow-1"
-                          style={{ fontSize: '0.68rem', borderRadius: '8px', background: '#f8fafc', borderColor: '#cbd5e1' }}
-                        >
-                          {rutasDisponibles.map((r: any) => (
-                            <option key={r.id} value={r.id}>
-                              {r.nombre}
-                            </option>
-                          ))}
-                        </select>
-
-                        {/* Toggle Ida / Vuelta */}
-                        <div className="btn-group btn-group-sm flex-shrink-0" role="group">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setSentidoTransporte('Casa - Escuela'); }}
-                            className={`btn btn-xs py-0.5 px-2 fw-bold transition-all ${
-                              sentidoTransporte === 'Casa - Escuela' ? 'btn-dark text-white' : 'btn-outline-secondary bg-white'
-                            }`}
-                            style={{ fontSize: '0.65rem', borderRadius: '8px 0 0 8px' }}
-                            title="Recorrido de Ida: Comunidad / Paradas hacia la Escuela"
-                          >
-                            🚌 Ida
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setSentidoTransporte('Escuela - Casa'); }}
-                            className={`btn btn-xs py-0.5 px-2 fw-bold transition-all ${
-                              sentidoTransporte === 'Escuela - Casa' ? 'btn-dark text-white' : 'btn-outline-secondary bg-white'
-                            }`}
-                            style={{ fontSize: '0.65rem', borderRadius: '0 8px 8px 0' }}
-                            title="Recorrido de Vuelta: Escuela hacia la Comunidad / Paradas"
-                          >
-                            🏫 Vuelta
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Fila 4: Detalle de Estatus Actual */}
-                      <div className="d-flex flex-wrap gap-1 mt-0.5">
-                        <span className="badge bg-light text-dark border px-1.5 py-0.5 fw-bold" style={{ fontSize: '0.66rem' }}>
-                          <i className="bi bi-geo-alt-fill text-danger me-1"></i>
-                          {estadoOperacion === 'Finalizada' ? 'Destino Final: ' : (estadoOperacion === 'En Ruta' ? 'Parada Actual: ' : 'Punto de Salida: ')}
-                          <span className="text-primary fw-bolder">{paradaEnfocada?.name || nombrePlantel}</span>
-                        </span>
-                        <span className="badge bg-light text-secondary border px-1.5 py-0.5 fw-semibold" style={{ fontSize: '0.66rem' }}>
-                          <i className="bi bi-bus-front text-muted me-1"></i>
-                          {rutaActiva?.unidad_modelo || 'Unidad Asignada'} {rutaActiva?.chofer_nombre ? `• ${rutaActiva.chofer_nombre}` : ''}
-                        </span>
-                      </div>
+                <div className="col-12 col-md-4">
+                  <div className="p-3 rounded-3 border" style={{ background: 'rgba(15, 23, 42, 0.04)', borderColor: '#e2e8f0' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="text-secondary small fw-bold text-uppercase">Media General</span>
+                      <span className="badge bg-dark text-white">94% Cupos</span>
                     </div>
-                  }
-                  subtitle={`Recorrido: ${sentidoTransporte === 'Casa - Escuela' ? 'Ida a la Escuela' : 'Vuelta a las Casas'} (${stopsParaVisual.length} paradas registradas)`}
-                  icon="bi-bus-front-fill"
-                  customIcon={
-                    <img 
-                      src="/assets/img/3.png" 
-                      alt="Icono 3D Ruta del Trabajador" 
-                      className="animate__animated animate__pulse animate__infinite"
-                      style={{ 
-                        width: '42px', 
-                        height: '42px', 
-                        objectFit: 'contain', 
-                        borderRadius: '10px', 
-                        filter: 'drop-shadow(0 4px 10px rgba(139, 92, 246, 0.45))' 
-                      }} 
-                    />
-                  }
-                  color="#8b5cf6"
-                  percentage={pctProgresoRecorrido}
-                  statusBadge={{
-                    text: estadoOperacion === 'En Ruta' ? 'En Ruta Activa' : (estadoOperacion === 'Finalizada' ? '100% Completada' : 'En Espera'),
-                    type: estadoOperacion === 'En Ruta' ? 'success' : (estadoOperacion === 'Finalizada' ? 'info' : 'warning')
-                  }}
-                  actionButton={{
-                    label: 'Gestor de Transporte',
-                    icon: 'bi-bus-front',
-                    onClick: () => navigate('/categoria/Servicios y Bienestar/Transporte Escolar')
-                  }}
-                  onClick={() => navigate('/categoria/Servicios y Bienestar/Transporte Escolar')}
+                    <div className="h4 fw-black text-dark mb-1">560 <span className="small text-muted fw-normal" style={{ fontSize: '0.8rem' }}>Alumnos</span></div>
+                    <div className="progress" style={{ height: '6px' }}>
+                      <div className="progress-bar bg-dark" role="progressbar" style={{ width: '94%' }}></div>
+                    </div>
+                    <div className="extra-small text-muted mt-1.5 d-flex justify-content-between">
+                      <span>16 Secciones</span>
+                      <span>Disponibles: 36</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra de Formalización de Matrícula */}
+              <div className="p-3 rounded-3 border" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <div className="d-flex align-items-center gap-2">
+                    <i className="bi bi-patch-check-fill text-success"></i>
+                    <span className="fw-bold small text-dark">Avance Global de Formalización de Expedientes</span>
+                  </div>
+                  <span className="fw-black text-success small">{statsAdmision.porcentajeFormalizado}% Formalizado</span>
+                </div>
+                <div className="progress" style={{ height: '8px' }}>
+                  <div 
+                    className="progress-bar" 
+                    role="progressbar" 
+                    style={{ 
+                      width: `${statsAdmision.porcentajeFormalizado}%`,
+                      background: 'linear-gradient(90deg, #00bcd4 0%, #0288d1 50%, #10b981 100%)' 
+                    }}
+                  ></div>
+                </div>
+                <div className="d-flex justify-content-between text-muted extra-small mt-2 flex-wrap gap-2">
+                  <span>Expedientes Formalizados: <strong className="text-dark">{statsAdmision.formalizados}</strong></span>
+                  <span>Por Formalizar: <strong className="text-warning">{statsAdmision.porFormalizar}</strong></span>
+                  <span>Total Solicitudes: <strong className="text-dark">{statsAdmision.solicitados}</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tarjeta 2: Tabla de Operaciones y Bitácora del Sistema */}
+          <div className="adminlte-card">
+            <div className="adminlte-card-header">
+              <h3 className="adminlte-card-title">
+                <i className="bi bi-clock-history text-primary"></i>
+                Bitácora de Operaciones y Auditoría Institucional
+              </h3>
+              <div className="adminlte-card-tools">
+                <button 
+                  type="button" 
+                  className="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold"
+                  style={{ fontSize: '0.75rem', borderRadius: '6px' }}
+                  onClick={() => navigate('/categoria/Seguridad%20y%20Accesos/Dispositivos%20y%20Sesiones')}
                 >
-                  <div className="mt-2 pt-2 border-top border-light w-100">
-                    <ChamiloRutogramaVisual
-                      routeName={rutaActiva?.nombre || 'Ruta Escolar'}
-                      busNumber={rutaActiva?.unidad_modelo || 'Unidad Oficial'}
-                      statusText={estadoOperacion}
-                      occupancyPercent={pctProgresoRecorrido}
-                      percentLabel="avance"
-                      nextStopName={paradaEnfocada?.name}
-                      accentColor={activeSchoolCode === 'sb' ? '#10b981' : '#0284c7'}
-                      darkTheme={false}
-                      stops={stopsRutograma}
-                    />
-                  </div>
-                </ChamiloStatCard>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* Tarjeta 7: Notificaciones y Avisos Activos */}
-        {canNotificaciones && (
-          <div className="col-12 col-md-6 col-lg-4 col-xl-4 d-flex align-items-stretch">
-            <ChamiloStatCard
-              id="card-stat-notificaciones"
-              title="Notificaciones y Avisos Activos"
-              value={
-                <div className="d-flex flex-column gap-1">
-                  <span className="fw-bolder fs-5 text-dark">
-                    {encuestasPendientes.length > 0 ? `${encuestasPendientes.length} Avisos y Consultas` : 'Bandeja al Día'}
-                  </span>
-                  <div className="d-flex flex-wrap gap-1 mt-1">
-                    {encuestasPendientes.length > 0 && (
-                      <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-0.5 extra-small fw-bold">
-                        <i className="bi bi-ui-checks me-1"></i>{encuestasPendientes.length} Consulta{encuestasPendientes.length > 1 ? 's' : ''} Pendiente{encuestasPendientes.length > 1 ? 's' : ''}
-                      </span>
-                    )}
-                    <span className="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-0.5 extra-small fw-bold">
-                      <i className="bi bi-broadcast me-1"></i>Canal Institucional
-                    </span>
-                  </div>
-                </div>
-              }
-              subtitle="Consultas comunitarias y avisos oficiales para tu rol"
-              icon="bi-bell-fill"
-              customIcon={<IconoAvisosRadar size={30} color="#ec4899" />}
-              color="#ec4899"
-              percentage={encuestasPendientes.length > 0 ? 100 : 0}
-              statusBadge={{ text: encuestasPendientes.length > 0 ? 'Pendiente' : 'Al Día', type: encuestasPendientes.length > 0 ? 'warning' : 'success' }}
-              actionButton={{
-                label: 'Ver Avisos',
-                icon: 'bi-chat-left-dots-fill',
-                onClick: () => navigate('/categoria/Diseños/Encuesta')
-              }}
-              onClick={() => navigate('/categoria/Diseños/Encuesta')}
-            >
-              <div className="mt-2 pt-2 border-top border-light w-100">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="extra-small fw-bold text-muted text-uppercase" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>
-                    Frecuencia de Avisos
-                  </span>
-                  <span className="badge fw-bold extra-small" style={{ color: '#ec4899', backgroundColor: '#fdf2f8' }}>Canal Activo</span>
-                </div>
-                <ChamiloSparkline
-                  data={[
-                    { label: 'Lun', value: 3 },
-                    { label: 'Mar', value: 5 },
-                    { label: 'Mié', value: 2 },
-                    { label: 'Jue', value: 7 },
-                    { label: 'Vie', value: 4 },
-                    { label: 'Sáb', value: 1 },
-                    { label: 'Hoy', value: Math.max(1, encuestasPendientes.length) },
-                  ]}
-                  height={64}
-                  color="#ec4899"
-                  gradientId="sparkline-notificaciones-grad"
-                  showPoints={true}
-                />
+                  <i className="bi bi-arrow-clockwise me-1"></i>
+                  Actualizar
+                </button>
               </div>
-            </ChamiloStatCard>
+            </div>
+            <div className="adminlte-card-body p-0">
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
+                  <thead style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                    <tr>
+                      <th className="py-2.5 px-3 text-secondary text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Operación / Módulo</th>
+                      <th className="py-2.5 px-3 text-secondary text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Responsable</th>
+                      <th className="py-2.5 px-3 text-secondary text-uppercase fw-bold" style={{ fontSize: '0.7rem' }}>Fecha / Hora</th>
+                      <th className="py-2.5 px-3 text-secondary text-uppercase fw-bold text-end" style={{ fontSize: '0.7rem' }}>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2.5 px-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="rounded p-1 bg-info bg-opacity-10 text-info">
+                            <i className="bi bi-person-check-fill"></i>
+                          </div>
+                          <div>
+                            <div className="fw-bold text-dark">Expediente Estudiantil</div>
+                            <div className="text-muted extra-small">Actualización de ficha médica y datos familiares</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-secondary">Control de Estudios</td>
+                      <td className="py-2.5 px-3 text-muted extra-small">Hoy, 10:45 AM</td>
+                      <td className="py-2.5 px-3 text-end">
+                        <span className="badge bg-success bg-opacity-15 text-success border border-success fw-semibold px-2 py-1">
+                          Completado
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="rounded p-1 bg-primary bg-opacity-10 text-primary">
+                            <i className="bi bi-clipboard2-check"></i>
+                          </div>
+                          <div>
+                            <div className="fw-bold text-dark">Asistencia Diaria</div>
+                            <div className="text-muted extra-small">Pase de lista matutino de Educación Primaria</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-secondary">Coordinación Académica</td>
+                      <td className="py-2.5 px-3 text-muted extra-small">Hoy, 08:30 AM</td>
+                      <td className="py-2.5 px-3 text-end">
+                        <span className="badge bg-info bg-opacity-15 text-info border border-info fw-semibold px-2 py-1">
+                          Verificado
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="rounded p-1 bg-warning bg-opacity-10 text-warning">
+                            <i className="bi bi-bus-front-fill"></i>
+                          </div>
+                          <div>
+                            <div className="fw-bold text-dark">Transporte Escolar</div>
+                            <div className="text-muted extra-small">Salida y monitoreo de 8 unidades en ruta</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-secondary">Despacho y Flota</td>
+                      <td className="py-2.5 px-3 text-muted extra-small">Hoy, 07:15 AM</td>
+                      <td className="py-2.5 px-3 text-end">
+                        <span className="badge bg-primary bg-opacity-15 text-primary border border-primary fw-semibold px-2 py-1">
+                          En Tránsito
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 px-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="rounded p-1 bg-dark bg-opacity-10 text-dark">
+                            <i className="bi bi-shield-lock-fill"></i>
+                          </div>
+                          <div>
+                            <div className="fw-bold text-dark">Auditoría de Seguridad</div>
+                            <div className="text-muted extra-small">Verificación de credenciales y sesiones concurrentes</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-secondary">Seguridad Informática</td>
+                      <td className="py-2.5 px-3 text-muted extra-small">Ayer, 04:20 PM</td>
+                      <td className="py-2.5 px-3 text-end">
+                        <span className="badge bg-secondary bg-opacity-15 text-secondary border fw-semibold px-2 py-1">
+                          Registrado
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        )}
+
+        </div>
+
+        {/* Columna Derecha (4 de 12): Accesos Directos y Telemetría del Sistema */}
+        <div className="col-12 col-lg-4">
+          
+          {/* Tarjeta 3: Mosaico de Acciones Rápidas */}
+          <div className="adminlte-card mb-3">
+            <div className="adminlte-card-header">
+              <h3 className="adminlte-card-title">
+                <i className="bi bi-grid-fill text-warning"></i>
+                Accesos Directos a Módulos
+              </h3>
+            </div>
+            <div className="adminlte-card-body">
+              <div className="row g-2">
+                <div className="col-6">
+                  <button 
+                    onClick={() => navigate('/categoria/Gestión%20Estudiantil/Actualización%20de%20Datos')}
+                    className="btn btn-light border w-100 p-2.5 text-start d-flex flex-column gap-1 transition-all hover-efecto"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    <i className="bi bi-person-lines-fill text-primary fs-5"></i>
+                    <span className="fw-bold text-dark" style={{ fontSize: '0.78rem' }}>Censo Estudiantil</span>
+                    <span className="text-muted extra-small">Expedientes</span>
+                  </button>
+                </div>
+
+                <div className="col-6">
+                  <button 
+                    onClick={() => navigate('/categoria/Gestión%20Diaria/Reporte%20de%20Gestión%20Diaria')}
+                    className="btn btn-light border w-100 p-2.5 text-start d-flex flex-column gap-1 transition-all hover-efecto"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    <i className="bi bi-journal-check text-info fs-5"></i>
+                    <span className="fw-bold text-dark" style={{ fontSize: '0.78rem' }}>Gestión Diaria</span>
+                    <span className="text-muted extra-small">Novedades</span>
+                  </button>
+                </div>
+
+                <div className="col-6">
+                  <button 
+                    onClick={() => navigate('/categoria/Servicios%20y%20Bienestar/Transporte%20Escolar')}
+                    className="btn btn-light border w-100 p-2.5 text-start d-flex flex-column gap-1 transition-all hover-efecto"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    <i className="bi bi-bus-front-fill text-success fs-5"></i>
+                    <span className="fw-bold text-dark" style={{ fontSize: '0.78rem' }}>Transporte</span>
+                    <span className="text-muted extra-small">Rutas y Flota</span>
+                  </button>
+                </div>
+
+                <div className="col-6">
+                  <button 
+                    onClick={() => navigate('/categoria/Gestión%20Estudiantil/Solicitud%20de%20Cupos')}
+                    className="btn btn-light border w-100 p-2.5 text-start d-flex flex-column gap-1 transition-all hover-efecto"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    <i className="bi bi-inbox-fill text-danger fs-5"></i>
+                    <span className="fw-bold text-dark" style={{ fontSize: '0.78rem' }}>Admisión Cupos</span>
+                    <span className="text-muted extra-small">Solicitudes</span>
+                  </button>
+                </div>
+
+                <div className="col-6">
+                  <button 
+                    onClick={() => navigate('/categoria/Personal%20y%20Nómina/Personal%20Activo')}
+                    className="btn btn-light border w-100 p-2.5 text-start d-flex flex-column gap-1 transition-all hover-efecto"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    <i className="bi bi-person-workspace fs-5" style={{ color: '#8b5cf6' }}></i>
+                    <span className="fw-bold text-dark" style={{ fontSize: '0.78rem' }}>Planta Docente</span>
+                    <span className="text-muted extra-small">Nómina Activa</span>
+                  </button>
+                </div>
+
+                <div className="col-6">
+                  <button 
+                    onClick={() => navigate('/categoria/Diseños/Encuesta')}
+                    className="btn btn-light border w-100 p-2.5 text-start d-flex flex-column gap-1 transition-all hover-efecto"
+                    style={{ borderRadius: '10px' }}
+                  >
+                    <i className="bi bi-chat-left-dots-fill fs-5" style={{ color: '#ec4899' }}></i>
+                    <span className="fw-bold text-dark" style={{ fontSize: '0.78rem' }}>Consultas</span>
+                    <span className="text-muted extra-small">Avisos y Radar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tarjeta 4: Telemetría e Infraestructura */}
+          <div className="adminlte-card">
+            <div className="adminlte-card-header">
+              <h3 className="adminlte-card-title">
+                <i className="bi bi-hdd-network-fill text-success"></i>
+                Telemetría de la Plataforma
+              </h3>
+            </div>
+            <div className="adminlte-card-body p-3">
+              <ul className="list-group list-group-flush" style={{ fontSize: '0.8rem' }}>
+                <li className="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <i className="bi bi-database-fill-check text-success"></i>
+                    <span>Base de Datos Supabase</span>
+                  </div>
+                  <span className="badge bg-success bg-opacity-20 text-success fw-bold">PostgreSQL Conectado</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <i className="bi bi-shield-check text-primary"></i>
+                    <span>Cifrado de Sesiones</span>
+                  </div>
+                  <span className="badge bg-primary bg-opacity-20 text-primary fw-bold">SHA-256 Activo</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <i className="bi bi-cloud-arrow-down-fill text-info"></i>
+                    <span>Cache Offline PWA</span>
+                  </div>
+                  <span className="badge bg-info bg-opacity-20 text-info fw-bold">v1.3 Sincronizado</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <i className="bi bi-building-check text-secondary"></i>
+                    <span>Escuela Activa</span>
+                  </div>
+                  <span className="badge bg-secondary bg-opacity-20 text-dark fw-bold">
+                    {escuelaActivaData.codigo_dea || 'Registrada'}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
       </div>
 
       {/* ── 4. AVISOS INSTITUCIONALES & CONSULTAS ── */}
